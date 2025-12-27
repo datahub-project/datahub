@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 
 import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
-import { BulkAddOrganizationModal, OperationType } from './BulkAddOrganizationModal';
+import {
+    BulkAddOrganizationModal,
+    OperationType,
+} from '@app/entity/shared/components/styled/search/action/BulkAddOrganizationModal';
 
 type Props = {
     urns: Array<string>;

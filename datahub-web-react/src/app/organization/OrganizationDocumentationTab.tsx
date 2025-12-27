@@ -1,10 +1,12 @@
+import { Button, Form, Input, message } from 'antd';
 import React from 'react';
-import { Form, Input, Button, message } from 'antd';
 import styled from 'styled-components';
+
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { useUpdateOrganizationMutation } from '@graphql/organization.generated';
-import { Organization, EntityType } from '@types';
 import { EntitySearchSelect } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchSelect';
+
+import { useUpdateOrganizationMutation } from '@graphql/organization.generated';
+import { EntityType, Organization } from '@types';
 
 const { TextArea } = Input;
 
@@ -63,12 +65,7 @@ export const OrganizationDocumentationTab = () => {
 
     return (
         <Container>
-            <Form
-                form={form}
-                layout="vertical"
-                initialValues={initialValues}
-                onFinish={handleSubmit}
-            >
+            <Form form={form} layout="vertical" initialValues={initialValues} onFinish={handleSubmit}>
                 <FormSection>
                     <SectionTitle>Basic Information</SectionTitle>
 
@@ -80,32 +77,19 @@ export const OrganizationDocumentationTab = () => {
                             { max: 100, message: 'Name cannot exceed 100 characters' },
                         ]}
                     >
-                        <Input
-                            placeholder="Enter organization name"
-                            size="large"
-                        />
+                        <Input placeholder="Enter organization name" size="large" />
                     </Form.Item>
 
                     <Form.Item
                         name="description"
                         label="Description"
-                        rules={[
-                            { max: 500, message: 'Description cannot exceed 500 characters' },
-                        ]}
+                        rules={[{ max: 500, message: 'Description cannot exceed 500 characters' }]}
                     >
-                        <TextArea
-                            rows={4}
-                            placeholder="Enter a description for this organization"
-                        />
+                        <TextArea rows={4} placeholder="Enter a description for this organization" />
                     </Form.Item>
 
                     <Form.Item>
-                        <Button
-                            type="primary"
-                            htmlType="submit"
-                            loading={loading}
-                            size="large"
-                        >
+                        <Button type="primary" htmlType="submit" loading={loading} size="large">
                             Save Changes
                         </Button>
                     </Form.Item>
@@ -133,9 +117,7 @@ export const OrganizationDocumentationTab = () => {
                             <ul style={{ paddingLeft: 20 }}>
                                 {organization.children.map((child) => (
                                     <li key={child.urn} style={{ marginBottom: 8 }}>
-                                        <a href={`/organization/${child.urn}`}>
-                                            {child.properties?.name || child.urn}
-                                        </a>
+                                        <a href={`/organization/${child.urn}`}>{child.properties?.name || child.urn}</a>
                                     </li>
                                 ))}
                             </ul>

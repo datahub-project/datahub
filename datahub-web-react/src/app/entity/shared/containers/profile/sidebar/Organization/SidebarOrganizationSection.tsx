@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
-import { Typography, Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import { EditOrganizationModal } from '@app/entity/shared/containers/profile/sidebar/Organization/EditOrganizationModal';
 import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import { EntityType } from '@app/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
-import { EditOrganizationModal } from './EditOrganizationModal';
 
 const OrganizationList = styled.div`
     display: flex;
@@ -43,10 +42,13 @@ export const SidebarOrganizationSection = () => {
                         </Link>
                     </OrganizationItem>
                 ))}
-                {organizations.length === 0 && (
-                    <Typography.Text type="secondary">No organizations</Typography.Text>
-                )}
-                <Button type="link" icon={<EditOutlined />} onClick={() => setIsModalVisible(true)} style={{ paddingLeft: 0 }}>
+                {organizations.length === 0 && <Typography.Text type="secondary">No organizations</Typography.Text>}
+                <Button
+                    type="link"
+                    icon={<EditOutlined />}
+                    onClick={() => setIsModalVisible(true)}
+                    style={{ paddingLeft: 0 }}
+                >
                     Edit
                 </Button>
             </OrganizationList>

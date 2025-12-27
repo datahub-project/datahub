@@ -1,7 +1,8 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { EntityType } from '../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { EntityType } from '@app/types.generated';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const OrganizationProfile = () => {
     const { urn } = useParams<{ urn: string }>();

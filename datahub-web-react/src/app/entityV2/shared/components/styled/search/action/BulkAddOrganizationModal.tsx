@@ -1,10 +1,14 @@
+import { Button, Form, Modal, message } from 'antd';
 import React, { useState } from 'react';
-import { Button, Modal, message, Form } from 'antd';
-import { getModalDomContainer } from '@utils/focus';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
-import { OrganizationPicker } from '@app/organization/OrganizationPicker';
-import { useAddEntityToOrganizationsMutation, useRemoveEntityFromOrganizationsMutation } from '@graphql/mutations.generated';
+
 import { handleBatchError } from '@app/entity/shared/utils';
+import {
+    useAddEntityToOrganizationsMutation,
+    useRemoveEntityFromOrganizationsMutation,
+} from '@app/graphql/mutations.generated';
+import { OrganizationPicker } from '@app/organization/OrganizationPicker';
+import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+import { getModalDomContainer } from '@app/utils/focus';
 
 export enum OperationType {
     ADD,
@@ -24,7 +28,7 @@ export const BulkAddOrganizationModal = ({
     onCloseModal,
     urns,
     operationType = OperationType.ADD,
-    onOkOverride
+    onOkOverride,
 }: Props) => {
     const [selectedOrgUrns, setSelectedOrgUrns] = useState<string[]>([]);
     const [addEntityToOrganizationsMutation] = useAddEntityToOrganizationsMutation();
@@ -41,7 +45,7 @@ export const BulkAddOrganizationModal = ({
         try {
             // Iterate over each entity and apply the organization change
             // This is a temporary solution until we have a batch mutation
-            const promises = urns.map(entityUrn => {
+            const promises = urns.map((entityUrn) => {
                 if (operationType === OperationType.ADD) {
                     return addEntityToOrganizationsMutation({
                         variables: {
@@ -49,28 +53,30 @@ export const BulkAddOrganizationModal = ({
                             organizationUrns: selectedOrgUrns,
                         },
                     });
-                } else {
-                    return removeEntityFromOrganizationsMutation({
-                        variables: {
-                            entityUrn,
-                            organizationUrns: selectedOrgUrns,
-                        },
-                    });
                 }
+                return removeEntityFromOrganizationsMutation({
+                    variables: {
+                        entityUrn,
+                        organizationUrns: selectedOrgUrns,
+                    },
+                });
             });
 
             await Promise.all(promises);
 
             message.success({
                 content: `Successfully ${operationType === OperationType.ADD ? 'added' : 'removed'} organizations!`,
-                duration: 2
+                duration: 2,
             });
             onCloseModal();
             setSelectedOrgUrns([]);
         } catch (e: unknown) {
             message.destroy();
             message.error(
-                handleBatchError(urns, e, { content: `Failed to ${operationType === OperationType.ADD ? 'add' : 'remove'} organizations`, duration: 3 }),
+                handleBatchError(urns, e, {
+                    content: `Failed to ${operationType === OperationType.ADD ? 'add' : 'remove'} organizations`,
+                    duration: 3,
+                }),
             );
         } finally {
             setLoading(false);

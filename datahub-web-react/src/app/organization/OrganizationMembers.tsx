@@ -4,13 +4,16 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import {
+    useGetEntitiesByOrganizationQuery,
+    useRemoveUserFromOrganizationsMutation,
+} from '@app/graphql/organization.generated';
+import { AddOrganizationMembersModal } from '@app/organization/AddOrganizationMembersModal';
 import { CustomAvatar } from '@app/shared/avatar';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { CorpUser, EntityType } from '@app/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { useGetEntitiesByOrganizationQuery, useRemoveUserFromOrganizationsMutation } from '../../graphql/organization.generated';
-import { CorpUser, EntityType } from '../../types.generated';
-import { AddOrganizationMembersModal } from './AddOrganizationMembersModal';
 
 const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',
@@ -85,10 +88,6 @@ const StyledMoreOutlined = styled(MoreOutlined)`
     }
 `;
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-
-// ...
-
 type Props = {
     urn?: string;
     pageSize?: number;
@@ -109,7 +108,7 @@ export const OrganizationMembers = ({ urn: propUrn, pageSize = 20, onChangeMembe
             organizationUrn: urn,
             entityTypes: [EntityType.CorpUser],
             start,
-            count: pageSize
+            count: pageSize,
         },
         fetchPolicy: 'cache-first',
     });
@@ -124,7 +123,7 @@ export const OrganizationMembers = ({ urn: propUrn, pageSize = 20, onChangeMembe
     const removeMember = (userUrn: string) => {
         removeUserFromOrganizationsMutation({
             variables: {
-                userUrn: userUrn,
+                userUrn,
                 organizationUrns: [urn],
             },
         })
@@ -163,7 +162,7 @@ export const OrganizationMembers = ({ urn: propUrn, pageSize = 20, onChangeMembe
             onOk() {
                 removeMember(memberUrn);
             },
-            onCancel() { },
+            onCancel() {},
             okText: 'Yes',
             maskClosable: true,
             closable: true,
@@ -190,11 +189,7 @@ export const OrganizationMembers = ({ urn: propUrn, pageSize = 20, onChangeMembe
     return (
         <>
             <Row style={ADD_MEMBER_STYLE}>
-                <AddMember
-                    type="text"
-                    onClick={onClickEditMembers}
-                    data-testid="add-organization-member-button"
-                >
+                <AddMember type="text" onClick={onClickEditMembers} data-testid="add-organization-member-button">
                     <UserAddOutlined />
                     <AddMemberText>Add Member</AddMemberText>
                 </AddMember>
@@ -203,33 +198,33 @@ export const OrganizationMembers = ({ urn: propUrn, pageSize = 20, onChangeMembe
                 {members.length === 0 && <NoGroupMembers description="No members in this organization yet." />}
                 {members
                     ? members.map((item) => {
-                        const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn);
-                        return (
-                            <Row className="groupMemberRow" align="middle" key={entityUrn}>
-                                <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
-                                    <Link to={entityUrn}>
-                                        <MemberNameSection>
-                                            <CustomAvatar
-                                                useDefaultAvatar={false}
-                                                size={28}
-                                                photoUrl={item.editableProperties?.pictureLink || ''}
-                                                name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
-                                                style={AVATAR_STYLE}
-                                            />
-                                            <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
-                                        </MemberNameSection>
-                                    </Link>
-                                </MemberColumn>
-                                <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
-                                    <MemberEditIcon>
-                                        <Dropdown menu={{ items: getItems(item.urn) }}>
-                                            <StyledMoreOutlined />
-                                        </Dropdown>
-                                    </MemberEditIcon>
-                                </MemberColumn>
-                            </Row>
-                        );
-                    })
+                          const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn);
+                          return (
+                              <Row className="groupMemberRow" align="middle" key={entityUrn}>
+                                  <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
+                                      <Link to={entityUrn}>
+                                          <MemberNameSection>
+                                              <CustomAvatar
+                                                  useDefaultAvatar={false}
+                                                  size={28}
+                                                  photoUrl={item.editableProperties?.pictureLink || ''}
+                                                  name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
+                                                  style={AVATAR_STYLE}
+                                              />
+                                              <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
+                                          </MemberNameSection>
+                                      </Link>
+                                  </MemberColumn>
+                                  <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
+                                      <MemberEditIcon>
+                                          <Dropdown menu={{ items: getItems(item.urn) }}>
+                                              <StyledMoreOutlined />
+                                          </Dropdown>
+                                      </MemberEditIcon>
+                                  </MemberColumn>
+                              </Row>
+                          );
+                      })
                     : null}
             </GroupMemberWrapper>
             <Row justify="center" style={{ marginTop: '15px' }}>

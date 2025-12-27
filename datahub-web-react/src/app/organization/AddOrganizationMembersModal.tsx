@@ -4,15 +4,14 @@ import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useAddUserToOrganizationsMutation } from '@app/graphql/organization.generated';
+import { useGetSearchResultsLazyQuery } from '@app/graphql/search.generated';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
+import { CorpUser, Entity, EntityType } from '@app/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@src/utils/focus';
-
-import { useAddUserToOrganizationsMutation } from '../../graphql/organization.generated';
-import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
-import { CorpUser, Entity, EntityType } from '../../types.generated';
 
 type Props = {
     urn: string;
@@ -133,14 +132,16 @@ export const AddOrganizationMembersModal = ({ urn, visible, onCloseModal, onSubm
             // Wait, the mutation I defined is: addUserToOrganizations(userUrn: String!, organizationUrns: [String!]!)
             // So I need to iterate over selected users and add THIS organization to them.
 
-            await Promise.all(selectedMemberUrns.map(userUrn =>
-                addUserToOrganizationsMutation({
-                    variables: {
-                        userUrn: userUrn,
-                        organizationUrns: [urn],
-                    },
-                })
-            ));
+            await Promise.all(
+                selectedMemberUrns.map((userUrn) =>
+                    addUserToOrganizationsMutation({
+                        variables: {
+                            userUrn,
+                            organizationUrns: [urn],
+                        },
+                    }),
+                ),
+            );
 
             message.success({ content: 'Organization members added!', duration: 3 });
         } catch (e: unknown) {

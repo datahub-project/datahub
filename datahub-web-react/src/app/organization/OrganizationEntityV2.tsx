@@ -1,17 +1,18 @@
 import { AppstoreOutlined, BankOutlined, TeamOutlined } from '@ant-design/icons';
+import React from 'react';
+
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { useGetOrganizationQuery } from '../../graphql/organization.generated';
-import { Organization, EntityType, SearchResult } from '../../types.generated';
-import { OrganizationEntitiesTab } from './OrganizationEntitiesTab';
-import { OrganizationMembers } from './OrganizationMembers';
-import { PreviewV2 } from './preview/PreviewV2';
-import { OrganizationDocumentationTab } from './OrganizationDocumentationTab';
+import { useGetOrganizationQuery } from '@app/graphql/organization.generated';
+import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
+import { OrganizationEntitiesTab } from '@app/organization/OrganizationEntitiesTab';
+import { OrganizationMembers } from '@app/organization/OrganizationMembers';
+import { PreviewV2 } from '@app/organization/preview/PreviewV2';
+import { EntityType, Organization, SearchResult } from '@app/types.generated';
 
 export class OrganizationEntityV2 implements Entity<Organization> {
     type: EntityType = EntityType.Organization;
@@ -119,7 +120,7 @@ export class OrganizationEntityV2 implements Entity<Organization> {
         return getDataForEntityType({
             data,
             entityType: this.type,
-            getOverrideProperties: (data) => data,
+            getOverrideProperties: (orgData) => orgData,
         });
     };
 

@@ -1,13 +1,13 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Select, Tag } from 'antd';
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
-import { Entity, EntityType, Organization } from '../../types.generated';
+import { useGetSearchResultsLazyQuery } from '@app/graphql/search.generated';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { Entity, EntityType } from '@app/types.generated';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const SelectInput = styled(Select)`
     width: 100%;
@@ -40,9 +40,13 @@ type Props = {
     placeholder?: string;
 };
 
-export const OrganizationPicker = ({ selectedUrns, onChange, mode = 'multiple', placeholder = 'Search for organizations...' }: Props) => {
+export const OrganizationPicker = ({
+    selectedUrns,
+    onChange,
+    mode = 'multiple',
+    placeholder = 'Search for organizations...',
+}: Props) => {
     const entityRegistry = useEntityRegistry();
-    const [inputValue, setInputValue] = useState('');
     const [orgSearch, { data: orgSearchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
     const searchResults = orgSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const inputEl = useRef(null);
@@ -80,7 +84,6 @@ export const OrganizationPicker = ({ selectedUrns, onChange, mode = 'multiple', 
     };
 
     const onDeselect = (urn: string) => {
-        setInputValue('');
         const newUrns = selectedUrns.filter((u) => u !== urn);
         onChange(newUrns);
     };
@@ -100,7 +103,7 @@ export const OrganizationPicker = ({ selectedUrns, onChange, mode = 'multiple', 
     };
 
     function handleBlur() {
-        setInputValue('');
+        // Clear search on blur
     }
 
     return (
@@ -115,7 +118,6 @@ export const OrganizationPicker = ({ selectedUrns, onChange, mode = 'multiple', 
             onDeselect={(urn: any) => onDeselect(urn)}
             onSearch={(value: string) => {
                 handleSearch(value.trim());
-                setInputValue(value.trim());
             }}
             tagRender={tagRender}
             onBlur={handleBlur}

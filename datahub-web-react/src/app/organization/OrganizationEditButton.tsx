@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { EntityType, Organization } from '@types';
-import { EditOrganizationDetailsModal } from './EditOrganizationDetailsModal';
-import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import React, { useState } from 'react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EditOrganizationDetailsModal } from '@app/organization/EditOrganizationDetailsModal';
+import { Organization } from '@app/types.generated';
 
 export const OrganizationEditButton = () => {
     const { entityData } = useEntityData();
@@ -16,11 +17,7 @@ export const OrganizationEditButton = () => {
 
     return (
         <>
-            <Button
-                type="text"
-                icon={<EditOutlined />}
-                onClick={() => setIsEditModalVisible(true)}
-            >
+            <Button type="text" icon={<EditOutlined />} onClick={() => setIsEditModalVisible(true)}>
                 Edit
             </Button>
             {isEditModalVisible && (

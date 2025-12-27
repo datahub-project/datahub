@@ -1,15 +1,16 @@
+import { Button, Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
-import { useListOrganizationsQuery } from '../../graphql/organization.generated';
-import { Button, Table, Pagination, Typography, Space } from 'antd';
 import { Link } from 'react-router-dom';
-import { CreateOrganizationModal } from './CreateOrganizationModal';
+
+import { useListOrganizationsQuery } from '@app/graphql/organization.generated';
+import { CreateOrganizationModal } from '@app/organization/CreateOrganizationModal';
 
 export const OrganizationsList = () => {
     const [page, setPage] = useState(1);
     const pageSize = 10;
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
 
-    const { data, loading, error, refetch } = useListOrganizationsQuery({
+    const { data, loading, refetch } = useListOrganizationsQuery({
         variables: {
             input: {
                 start: (page - 1) * pageSize,
@@ -23,9 +24,7 @@ export const OrganizationsList = () => {
             title: 'Name',
             dataIndex: ['properties', 'name'],
             key: 'name',
-            render: (text: string, record: any) => (
-                <Link to={`/organization/${record.urn}`}>{text || record.urn}</Link>
-            ),
+            render: (text: string, record: any) => <Link to={`/organization/${record.urn}`}>{text || record.urn}</Link>,
         },
         {
             title: 'Description',

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Modal, Form, Input, message } from 'antd';
-import { useCreateOrganizationMutation } from '../../graphql/organization.generated';
+import { Form, Input, Modal, message } from 'antd';
+import React from 'react';
+
+import { useCreateOrganizationMutation } from '@app/graphql/organization.generated';
 
 interface Props {
     visible: boolean;
@@ -51,10 +52,7 @@ export const CreateOrganizationModal = ({ visible, onClose, onCreate }: Props) =
                 >
                     <Input />
                 </Form.Item>
-                <Form.Item
-                    name="description"
-                    label="Description"
-                >
+                <Form.Item name="description" label="Description">
                     <Input.TextArea />
                 </Form.Item>
             </Form>

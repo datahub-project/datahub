@@ -1,16 +1,17 @@
-import * as React from 'react';
 import { BankOutlined } from '@ant-design/icons';
+import * as React from 'react';
+
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
-import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
-import { useGetOrganizationQuery } from '../../graphql/organization.generated';
-import { Organization, EntityType, SearchResult } from '../../types.generated';
-import { Preview } from './preview/Preview';
-import { OrganizationDocumentationTab } from './OrganizationDocumentationTab';
+import { useGetOrganizationQuery } from '@app/graphql/organization.generated';
+import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
+import { Preview } from '@app/organization/preview/Preview';
+import { EntityType, Organization, SearchResult } from '@app/types.generated';
 
 export class OrganizationEntity implements Entity<Organization> {
     type: EntityType = EntityType.Organization;
@@ -107,7 +108,7 @@ export class OrganizationEntity implements Entity<Organization> {
         return getDataForEntityType({
             data,
             entityType: this.type,
-            getOverrideProperties: (data) => data,
+            getOverrideProperties: (orgData) => orgData,
         });
     };
 

@@ -6,11 +6,14 @@ import styled from 'styled-components/macro';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import { AddOrganizationModal } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/AddOrganizationModal';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import {
+    useAddEntityToOrganizationsMutation,
+    useRemoveEntityFromOrganizationsMutation,
+} from '@app/graphql/mutations.generated';
 import OrganizationPill from '@app/sharedV2/badges/OrganizationPill';
-import { useAddEntityToOrganizationsMutation, useRemoveEntityFromOrganizationsMutation } from '@graphql/mutations.generated';
-import { AddOrganizationModal } from './AddOrganizationModal';
 
 const Content = styled.div`
     display: flex;
@@ -60,7 +63,7 @@ export const SidebarOrganizationSection = ({ readOnly }: Props) => {
                     organizationUrns: orgUrns,
                 },
             });
-            message.success({ content: `Added to organizations`, duration: 2 });
+            message.success({ content: 'Added to organizations', duration: 2 });
             refetch?.();
         } catch (e: unknown) {
             message.destroy();
@@ -78,7 +81,7 @@ export const SidebarOrganizationSection = ({ readOnly }: Props) => {
             onOk() {
                 handleRemoveOrganization(orgUrn, orgName);
             },
-            onCancel() { },
+            onCancel() {},
             okText: 'Yes',
             maskClosable: true,
             closable: true,
@@ -117,11 +120,7 @@ export const SidebarOrganizationSection = ({ readOnly }: Props) => {
                     />
                 }
             />
-            <AddOrganizationModal
-                open={showModal}
-                onClose={() => setShowModal(false)}
-                onAdd={handleAddOrganizations}
-            />
+            <AddOrganizationModal open={showModal} onClose={() => setShowModal(false)} onAdd={handleAddOrganizations} />
         </div>
     );
 };

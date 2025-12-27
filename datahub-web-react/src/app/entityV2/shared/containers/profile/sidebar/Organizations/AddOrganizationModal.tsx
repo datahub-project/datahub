@@ -1,8 +1,9 @@
+import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
-import { Modal, Button } from 'antd';
-import { getModalDomContainer } from '@utils/focus';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+
 import { OrganizationPicker } from '@app/organization/OrganizationPicker';
+import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+import { getModalDomContainer } from '@utils/focus';
 
 interface Props {
     open: boolean;
@@ -41,10 +42,7 @@ export const AddOrganizationModal = ({ open, onClose, onAdd }: Props) => {
             }
             getContainer={getModalDomContainer}
         >
-            <OrganizationPicker
-                selectedUrns={urns}
-                onChange={setUrns}
-            />
+            <OrganizationPicker selectedUrns={urns} onChange={setUrns} />
         </Modal>
     );
 };

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Modal, Form, Input, message } from 'antd';
+import { Form, Input, Modal, message } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useUpdateOrganizationMutation } from '@graphql/organization.generated';
+
 import { useRefetch } from '@app/entity/shared/EntityContext';
+
+import { useUpdateOrganizationMutation } from '@graphql/organization.generated';
 
 const StyledFormItem = styled(Form.Item)`
     margin-bottom: 16px;
@@ -79,14 +81,9 @@ export const EditOrganizationDetailsModal = ({ urn, name, description, visible, 
                 <StyledFormItem
                     name="description"
                     label="Description"
-                    rules={[
-                        { max: 500, message: 'Description cannot exceed 500 characters' },
-                    ]}
+                    rules={[{ max: 500, message: 'Description cannot exceed 500 characters' }]}
                 >
-                    <TextArea
-                        rows={4}
-                        placeholder="Enter a description for this organization (optional)"
-                    />
+                    <TextArea rows={4} placeholder="Enter a description for this organization (optional)" />
                 </StyledFormItem>
             </Form>
         </Modal>
