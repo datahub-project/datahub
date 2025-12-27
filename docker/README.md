@@ -49,6 +49,87 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 - [acryldata/datahub-postgres-setup](https://hub.docker.com/r/acryldata/datahub-postgres-setup/)
 - [acryldata/datahub-actions](https://hub.docker.com/r/acryldata/datahub-actions). Do not use `acryldata/acryl-datahub-actions` as that is deprecated and no longer used.
 
+## Image Variants
+
+The `datahub-ingestion` and `datahub-actions` images are available in multiple variants optimized for different use cases:
+
+| Variant          | Base OS      | Image Size | Use Case                                |
+| ---------------- | ------------ | ---------- | --------------------------------------- |
+| `full` (default) | Ubuntu 24.04 | Largest    | All connectors, maximum compatibility   |
+| `slim`           | Ubuntu 24.04 | Medium     | Common connectors, good balance         |
+| `slim-alpine`    | Alpine 3.22  | Small      | Minimal footprint, security-focused     |
+| `locked`         | Ubuntu 24.04 | Medium     | Air-gapped environments (pypi disabled) |
+| `locked-alpine`  | Alpine 3.22  | Smallest   | Air-gapped slim-alipine (pypi disabled) |
+
+### Variant Tag Format
+
+```
+acryldata/datahub-ingestion:v0.x.y          # full (default)
+acryldata/datahub-ingestion:v0.x.y-slim     # slim
+acryldata/datahub-ingestion:v0.x.y-slim-alpine
+acryldata/datahub-ingestion:v0.x.y-locked
+acryldata/datahub-ingestion:v0.x.y-locked-alpine
+```
+
+### datahub-ingestion Feature Matrix
+
+| Feature               | full | slim | slim-alpine | locked | locked-alpine |
+| --------------------- | :--: | :--: | :---------: | :----: | :-----------: |
+| Core CLI & REST/Kafka | Yes  | Yes  |     Yes     |  Yes   |      Yes      |
+| S3 / GCS / Azure Blob | Yes  | Yes  |     Yes     |  Yes   |      Yes      |
+| Snowflake             | Yes  | Yes  |      -      |   -    |       -       |
+| BigQuery              | Yes  | Yes  |      -      |   -    |       -       |
+| Redshift              | Yes  | Yes  |      -      |   -    |       -       |
+| MySQL / PostgreSQL    | Yes  | Yes  |      -      |   -    |       -       |
+| ClickHouse            | Yes  | Yes  |      -      |   -    |       -       |
+| dbt                   | Yes  | Yes  |      -      |   -    |       -       |
+| Looker / LookML       | Yes  | Yes  |      -      |   -    |       -       |
+| Tableau / PowerBI     | Yes  | Yes  |      -      |   -    |       -       |
+| Superset              | Yes  | Yes  |      -      |   -    |       -       |
+| Glue                  | Yes  | Yes  |      -      |   -    |       -       |
+| Spark lineage (JRE)   | Yes  |  -   |      -      |   -    |       -       |
+| Oracle client         | Yes  |  -   |      -      |   -    |       -       |
+| Runtime `pip install` | Yes  | Yes  |     Yes     |   -    |       -       |
+
+### datahub-actions Feature Matrix
+
+| Feature                      | full | slim | slim-alpine | locked | locked-alpine |
+| ---------------------------- | :--: | :--: | :---------: | :----: | :-----------: |
+| Core actions                 | Yes  | Yes  |     Yes     |  Yes   |      Yes      |
+| Kafka / Executor             | Yes  | Yes  |     Yes     |  Yes   |      Yes      |
+| Slack / Teams                | Yes  | Yes  |     Yes     |  Yes   |      Yes      |
+| Tag / Term / Doc propagation | Yes  | Yes  |     Yes     |  Yes   |      Yes      |
+| Snowflake tag propagation    | Yes  | Yes  |      -      |  Yes   |       -       |
+| Bundled CLI venvs            | Yes  | Yes  |     Yes     |  Yes   |      Yes      |
+| Runtime `pip install`        | Yes  | Yes  |     Yes     |   -    |       -       |
+
+> **Note:** Alpine variants exclude Snowflake tag propagation due to `spacy`/`blis` lacking pre-built musl wheels.
+
+### CI Testing Coverage
+
+| Image Variant   | Tested in CI | Notes                       |
+| --------------- | :----------: | --------------------------- |
+| `full`          |     Yes      | Smoke tests run on every PR |
+| `slim`          |     Yes      | Smoke tests run on every PR |
+| `slim-alpine`   |  Build only  | Manual testing only         |
+| `locked`        |  Build only  |                             |
+| `locked-alpine` |  Build only  | Manual testing only         |
+
+### Choosing the Right Variant
+
+- **`full`**: Use when you need maximum connector coverage or aren't sure what you'll need
+- **`slim`**: Recommended for most production deployments with standard cloud data stacks
+- **`slim-alpine`**: Best for security-sensitive environments or when image size matters (e.g., S3/GCS ingestion only)
+- **`locked` / `locked-alpine`**: Required for air-gapped environments where runtime package installation is prohibited
+
+### Building Alpine Variants Locally
+
+Alpine variants are not built by default. To include them:
+
+```bash
+./gradlew :docker:datahub-ingestion:docker -PincludeAlpineVariants=true
+```
+
 Dependencies:
 
 - [Elasticsearch](elasticsearch-setup)
