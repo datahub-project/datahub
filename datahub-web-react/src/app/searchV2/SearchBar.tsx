@@ -391,7 +391,7 @@ export const SearchBar = ({
                 <Skeleton />
             ) : (
                 <AutoCompleteContainer
-                    $viewsEnabled={viewsEnabled}
+                    viewsEnabled={viewsEnabled}
                     $isShowNavBarRedesign={isShowNavBarRedesign}
                     id={id}
                     style={viewsEnabled ? viewsEnabledStyle : style}
@@ -471,7 +471,7 @@ export const SearchBar = ({
                             data-testid="search-input"
                             onFocus={handleFocus}
                             onBlur={handleBlur}
-                            $viewsEnabled={viewsEnabled}
+                            viewsEnabled={viewsEnabled}
                             $isShowNavBarRedesign={isShowNavBarRedesign}
                             allowClear={(isFocused && { clearIcon: <ClearIcon data-testid="button-clear" /> }) || false}
                             prefix={

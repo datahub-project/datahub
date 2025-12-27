@@ -28,6 +28,7 @@ export const PreviewV2 = ({ urn, name, description, owners, logoComponent, previ
             owners={owners}
             logoComponent={logoComponent}
             previewType={previewType}
+            data={null}
         />
     );
 };

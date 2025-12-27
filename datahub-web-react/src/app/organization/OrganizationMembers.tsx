@@ -89,13 +89,15 @@ const StyledMoreOutlined = styled(MoreOutlined)`
     }
 `;
 
+import { EntityTabProps } from '@app/entityV2/shared/types';
+
 type Props = {
     urn?: string;
     pageSize?: number;
     onChangeMembers?: () => void;
 };
 
-export const OrganizationMembers = ({ urn: propUrn, pageSize = 20, onChangeMembers }: Props) => {
+export const OrganizationMembers = ({ urn: propUrn, pageSize = 20, onChangeMembers }: Props & EntityTabProps) => {
     const { urn: contextUrn } = useEntityContext();
     const urn = propUrn || contextUrn;
     const entityRegistry = useEntityRegistry();

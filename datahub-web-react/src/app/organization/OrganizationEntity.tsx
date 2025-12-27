@@ -113,6 +113,12 @@ export class OrganizationEntity implements Entity<Organization> {
         });
     };
 
+    getOverrideProperties = (data: Organization) => {
+        return {
+            ...data,
+        };
+    };
+
     supportedCapabilities = () => {
         return new Set([EntityCapabilityType.OWNERS]);
     };

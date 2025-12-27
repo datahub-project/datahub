@@ -67,9 +67,10 @@ export const OrganizationPicker = ({
 
     const renderSearchResult = (entity: Entity) => {
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const avatarUrl = (entity as any).editableProperties?.pictureLink || (entity as any).properties?.pictureLink;
         return (
             <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} type={entity.type} />
+                <OwnerLabel name={displayName} type={entity.type} avatarUrl={avatarUrl} />
             </Select.Option>
         );
     };
