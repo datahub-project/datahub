@@ -170,9 +170,13 @@ def filter_document_tools(tools: Sequence[T]) -> list[T]:
     try:
         has_documents = _query_documents_exist_cached()
     except Exception as e:
-        # On error, fail open (show all tools) to avoid incorrectly hiding them
-        logger.warning(f"Failed to check if documents exist, returning all tools: {e}")
-        return list(tools)
+        # Treat errors as "no documents" - most likely the environment doesn't support
+        # the Document entity type (e.g., "Unknown type 'Document'" GraphQL error)
+        logger.info(
+            f"Failed to check if documents exist (treating as no documents), "
+            f"filtering out tools: {DOCUMENT_TOOL_NAMES}. Error: {e}"
+        )
+        has_documents = False
 
     if has_documents:
         logger.debug("Documents exist in catalog, returning all tools")

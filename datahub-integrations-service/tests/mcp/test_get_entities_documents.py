@@ -36,14 +36,19 @@ class TestGetEntitiesDocuments:
 
         # Should be truncated
         assert len(result["info"]["contents"]["text"]) < len(large_content)
-        # Should end with truncation message
+        # Should end with truncation message including start_offset hint
         assert (
-            "[Content truncated. Use grep_documents to search within.]"
+            "[Content truncated. Use grep_documents(start_offset="
             in result["info"]["contents"]["text"]
         )
-        # Should have truncated flag and original length
+        assert "to continue.]" in result["info"]["contents"]["text"]
+        # Should have truncated flag, original length, and truncation position
         assert result["info"]["contents"]["_truncated"] is True
         assert result["info"]["contents"]["_originalLengthChars"] == len(large_content)
+        assert (
+            result["info"]["contents"]["_truncatedAtChar"]
+            == DOCUMENT_CONTENT_CHAR_LIMIT
+        )
 
     def test_document_content_exactly_at_limit(self):
         """Test document content exactly at limit is not truncated."""
@@ -122,6 +127,10 @@ class TestGetEntitiesDocuments:
         # Content should be truncated
         assert result["info"]["contents"]["_truncated"] is True
         assert result["info"]["contents"]["_originalLengthChars"] == len(large_content)
+        assert (
+            result["info"]["contents"]["_truncatedAtChar"]
+            == DOCUMENT_CONTENT_CHAR_LIMIT
+        )
 
         # Other fields should be preserved
         assert result["subType"] == "Runbook"

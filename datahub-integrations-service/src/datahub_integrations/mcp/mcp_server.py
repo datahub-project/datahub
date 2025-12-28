@@ -1003,14 +1003,18 @@ def clean_get_entities_response(
             if text := contents.get("text"):
                 if len(text) > DOCUMENT_CONTENT_CHAR_LIMIT:
                     original_length = len(text)
+                    truncate_at = DOCUMENT_CONTENT_CHAR_LIMIT
                     contents["text"] = (
-                        text[:DOCUMENT_CONTENT_CHAR_LIMIT]
-                        + "\n\n[Content truncated. Use grep_documents to search within.]"
+                        text[:truncate_at]
+                        + "\n\n[Content truncated. Use grep_documents(start_offset={}) to continue.]".format(
+                            truncate_at
+                        )
                     )
                     contents["_truncated"] = True
                     contents["_originalLengthChars"] = original_length
+                    contents["_truncatedAtChar"] = truncate_at
                     logger.info(
-                        f"Document content truncated: {original_length:,} -> {DOCUMENT_CONTENT_CHAR_LIMIT:,} chars"
+                        f"Document content truncated: {original_length:,} -> {truncate_at:,} chars"
                     )
 
     return response

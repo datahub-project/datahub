@@ -19,7 +19,6 @@ document_content_gql = (
 
 def search_documents(
     query: str = "*",
-    sub_types: Optional[List[str]] = None,
     platforms: Optional[List[str]] = None,
     domains: Optional[List[str]] = None,
     tags: Optional[List[str]] = None,
@@ -46,9 +45,6 @@ def search_documents(
 
     FILTERS - Narrow results by metadata:
 
-    sub_types: Filter by document type
-    - Examples: ["Runbook"], ["FAQ", "Tutorial"], ["Reference"]
-
     platforms: Filter by source platform (use full URN)
     - Examples: ["urn:li:dataPlatform:notion"], ["urn:li:dataPlatform:confluence"]
 
@@ -70,21 +66,18 @@ def search_documents(
 
     FACET DISCOVERY:
     - Set num_results=0 to get ONLY facets (no results)
-    - Useful for discovering what sub_types, platforms, domains exist
+    - Useful for discovering what platforms, domains exist
 
     EXAMPLE WORKFLOWS:
 
-    1. Find all runbooks:
-       search_documents(sub_types=["Runbook"])
-
-    2. Find Notion docs about deployment:
+    1. Find Notion docs about deployment:
        search_documents(query="deployment", platforms=["urn:li:dataPlatform:notion"])
 
-    3. Discover document types:
+    2. Discover document sources:
        search_documents(num_results=0)
-       → Examine facets to see available subTypes, platforms, domains
+       → Examine facets to see available platforms, domains
 
-    4. Find engineering team's critical docs:
+    3. Find engineering team's critical docs:
        search_documents(
            domains=["urn:li:domain:engineering"],
            tags=["urn:li:tag:critical"]
@@ -93,7 +86,6 @@ def search_documents(
     return _search_documents_impl(
         query=query,
         search_strategy="keyword",
-        sub_types=sub_types,
         platforms=platforms,
         domains=domains,
         tags=tags,
@@ -265,6 +257,7 @@ def grep_documents(
     pattern: str,
     context_chars: int = 200,
     max_matches_per_doc: int = 5,
+    start_offset: int = 0,
 ) -> dict:
     """Search within document content using regex patterns.
 
@@ -288,12 +281,19 @@ def grep_documents(
 
     pattern: Regex pattern to search for
     - Examples: "kubernetes", "(?i)deploy.*production", "error|warning"
+    - Use ".*" to get raw content (for continuing after truncation)
 
     context_chars: Characters to show before/after each match (default: 200)
     - Higher values show more surrounding context
+    - When reading raw content (pattern=".*"), use higher values (e.g., 8000)
 
     max_matches_per_doc: Maximum matches to return per document (default: 5)
     - Limits output size for documents with many matches
+
+    start_offset: Character offset to start searching from (default: 0)
+    - Use this to continue reading after get_entities() truncation
+    - When get_entities() returns _truncatedAtChar=8000, use start_offset=8000
+      to continue reading from where it left off
 
     EXAMPLE WORKFLOWS:
 
@@ -308,12 +308,18 @@ def grep_documents(
     3. Find specific configuration values:
        grep_documents(urns, pattern=r"timeout.*=.*\\d+")
 
+    4. Continue reading after truncation (when get_entities returns _truncatedAtChar):
+       # After get_entities() shows: _truncatedAtChar=8000, _originalLengthChars=15000
+       grep_documents(urns=[doc_urn], pattern=".*", context_chars=8000, start_offset=8000)
+       # Returns content from char 8000 onwards
+
     RETURNS:
     - results: List of documents with matches, each containing:
       - urn: Document URN
       - title: Document title
-      - matches: List of excerpts with position info
+      - matches: List of excerpts with position info (positions are absolute)
       - total_matches: Total matches found (may exceed max_matches_per_doc)
+      - content_length: Total length of document content (when start_offset is used)
     - total_matches: Total matches across all documents
     - documents_with_matches: Number of documents containing matches
     """
@@ -371,6 +377,16 @@ def grep_documents(
         if not text:
             continue
 
+        # Store original length before applying offset
+        full_content_length = len(text)
+
+        # Apply start_offset - skip first N characters
+        if start_offset > 0:
+            if start_offset >= len(text):
+                # Offset is beyond document length, skip this document
+                continue
+            text = text[start_offset:]
+
         # Iterate through matches - only store excerpts for first max_matches_per_doc,
         # but count all matches without keeping them in memory
         excerpts: List[Dict[str, Any]] = []
@@ -393,10 +409,13 @@ def grep_documents(
                 if end_pos < len(text):
                     excerpt = excerpt + "..."
 
+                # Report absolute position (accounting for start_offset)
+                absolute_position = match.start() + start_offset
+
                 excerpts.append(
                     {
                         "excerpt": excerpt,
-                        "position": match.start(),
+                        "position": absolute_position,
                     }
                 )
 
@@ -406,14 +425,18 @@ def grep_documents(
         documents_with_matches += 1
         total_matches += doc_total_matches
 
-        results.append(
-            {
-                "urn": urn,
-                "title": title,
-                "matches": excerpts,
-                "total_matches": doc_total_matches,
-            }
-        )
+        result_entry: Dict[str, Any] = {
+            "urn": urn,
+            "title": title,
+            "matches": excerpts,
+            "total_matches": doc_total_matches,
+        }
+
+        # Include content_length when using start_offset to help with pagination
+        if start_offset > 0:
+            result_entry["content_length"] = full_content_length
+
+        results.append(result_entry)
 
     return {
         "results": results,

@@ -221,12 +221,14 @@ class TestSearchDocuments:
         mock_client,
         mock_gql_response,
     ):
-        """Test filtering by document sub_types."""
+        """Test filtering by document sub_types (via internal implementation)."""
         mock_get_client.return_value = mock_client
         mock_execute_graphql.return_value = mock_gql_response
         mock_fetch_view.return_value = None
 
-        await async_background(search_documents)(sub_types=["Runbook", "FAQ"])
+        # Note: sub_types is only available in the internal _search_documents_impl
+        # The public search_documents() function does not expose this parameter
+        await async_background(_search_documents_impl)(sub_types=["Runbook", "FAQ"])
 
         call_args = mock_execute_graphql.call_args
         variables = call_args.kwargs["variables"]
@@ -396,7 +398,6 @@ class TestSearchDocuments:
         mock_fetch_view.return_value = None
 
         await async_background(search_documents)(
-            sub_types=["Runbook"],
             platforms=["urn:li:dataPlatform:notion"],
             domains=["urn:li:domain:engineering"],
         )
@@ -407,8 +408,7 @@ class TestSearchDocuments:
 
         assert len(or_filters) == 1
         and_filters = or_filters[0]["and"]
-        assert len(and_filters) == 3
-        assert {"field": "subTypes", "values": ["Runbook"]} in and_filters
+        assert len(and_filters) == 2
         assert {
             "field": "platform",
             "values": ["urn:li:dataPlatform:notion"],

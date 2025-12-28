@@ -7,7 +7,7 @@ This module tests the middleware that conditionally hides document tools
 Test scenarios:
 1. Documents exist -> all tools visible
 2. No documents -> document tools hidden
-3. Query error -> fail open (show tools)
+3. Query error -> treat as no documents (hide tools)
 4. Cache behavior -> cachetools TTLCache
 """
 
@@ -130,34 +130,39 @@ class TestDocumentToolsMiddleware:
         assert "get_lineage" in tool_names
 
     # =========================================================================
-    # Test: Fail-open behavior on query error
+    # Test: Error handling - treat as no documents
     # =========================================================================
 
     @pytest.mark.asyncio
     @patch(
         "datahub_integrations.mcp.document_tools_middleware._query_documents_exist_cached"
     )
-    async def test_fail_open_on_query_error(
+    async def test_error_treated_as_no_documents(
         self, mock_query, middleware, mock_tools, mock_context
     ):
         """
-        When the document query fails, the middleware should fail open.
+        When the document query fails, treat it as "no documents exist".
 
-        This means showing all tools (including document tools) rather than
-        incorrectly hiding them when we can't determine if documents exist.
+        This is appropriate because errors typically occur when the environment
+        doesn't support the Document entity type (e.g., "Unknown type 'Document'"
+        GraphQL error). In such cases, document tools should be hidden.
         """
-        # Arrange: Query throws an exception
-        mock_query.side_effect = Exception("GraphQL error")
+        # Arrange: Query throws an exception (e.g., unknown type error)
+        mock_query.side_effect = Exception("Unknown type 'Document'")
         mock_call_next = AsyncMock(return_value=mock_tools)
 
         # Act: Call the middleware
         result = await middleware.on_list_tools(mock_context, mock_call_next)
 
-        # Assert: All tools are returned (fail open)
-        assert len(result) == 5
+        # Assert: Document tools are filtered out (same as no documents)
+        assert len(result) == 3  # 5 - 2 document tools
         tool_names = {tool.name for tool in result}
-        assert "search_documents" in tool_names
-        assert "grep_documents" in tool_names
+        assert "search_documents" not in tool_names
+        assert "grep_documents" not in tool_names
+        # Other tools should still be present
+        assert "search" in tool_names
+        assert "get_entities" in tool_names
+        assert "get_lineage" in tool_names
 
     # =========================================================================
     # Test: Cache behavior (using cachetools TTLCache)

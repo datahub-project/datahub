@@ -344,3 +344,215 @@ class TestGrepDocuments:
             "urn:li:document:doc1",
             "urn:li:document:doc2",
         ]
+
+    @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
+    async def test_start_offset_skips_beginning(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        mock_client,
+    ):
+        """Test that start_offset skips characters at the beginning."""
+        mock_get_client.return_value = mock_client
+        # Document has MATCH at position 10 and at position 50
+        text = "0123456789MATCH" + "A" * 35 + "MATCH" + "B" * 100
+        mock_execute_graphql.return_value = {
+            "entities": [
+                {
+                    "urn": "urn:li:document:doc1",
+                    "info": {
+                        "title": "Test Doc",
+                        "contents": {"text": text},
+                    },
+                }
+            ]
+        }
+
+        # With start_offset=20, should skip the first MATCH at position 10
+        result = await async_background(grep_documents)(
+            urns=["urn:li:document:doc1"],
+            pattern="MATCH",
+            start_offset=20,
+        )
+
+        # Should only find the second MATCH (at position 50)
+        assert result["total_matches"] == 1
+        assert len(result["results"]) == 1
+
+    @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
+    async def test_start_offset_reports_absolute_position(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        mock_client,
+    ):
+        """Test that positions are absolute (not relative to offset)."""
+        mock_get_client.return_value = mock_client
+        # MATCH is at position 50 in the original text
+        text = "A" * 50 + "MATCH" + "B" * 50
+        mock_execute_graphql.return_value = {
+            "entities": [
+                {
+                    "urn": "urn:li:document:doc1",
+                    "info": {
+                        "title": "Test Doc",
+                        "contents": {"text": text},
+                    },
+                }
+            ]
+        }
+
+        result = await async_background(grep_documents)(
+            urns=["urn:li:document:doc1"],
+            pattern="MATCH",
+            start_offset=30,
+        )
+
+        # Position should be 50 (absolute), not 20 (relative to offset)
+        assert result["results"][0]["matches"][0]["position"] == 50
+
+    @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
+    async def test_start_offset_includes_content_length(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        mock_client,
+    ):
+        """Test that content_length is included when using start_offset."""
+        mock_get_client.return_value = mock_client
+        text = "A" * 50 + "MATCH" + "B" * 50
+        mock_execute_graphql.return_value = {
+            "entities": [
+                {
+                    "urn": "urn:li:document:doc1",
+                    "info": {
+                        "title": "Test Doc",
+                        "contents": {"text": text},
+                    },
+                }
+            ]
+        }
+
+        result = await async_background(grep_documents)(
+            urns=["urn:li:document:doc1"],
+            pattern="MATCH",
+            start_offset=30,
+        )
+
+        # Should include content_length for pagination awareness
+        assert result["results"][0]["content_length"] == len(text)
+
+    @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
+    async def test_start_offset_without_offset_no_content_length(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        mock_client,
+    ):
+        """Test that content_length is NOT included when start_offset=0."""
+        mock_get_client.return_value = mock_client
+        mock_execute_graphql.return_value = {
+            "entities": [
+                {
+                    "urn": "urn:li:document:doc1",
+                    "info": {
+                        "title": "Test Doc",
+                        "contents": {"text": "Some MATCH text"},
+                    },
+                }
+            ]
+        }
+
+        result = await async_background(grep_documents)(
+            urns=["urn:li:document:doc1"],
+            pattern="MATCH",
+            start_offset=0,
+        )
+
+        # Should NOT include content_length when not using offset
+        assert "content_length" not in result["results"][0]
+
+    @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
+    async def test_start_offset_beyond_document_length(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        mock_client,
+    ):
+        """Test that offset beyond document length skips the document."""
+        mock_get_client.return_value = mock_client
+        mock_execute_graphql.return_value = {
+            "entities": [
+                {
+                    "urn": "urn:li:document:doc1",
+                    "info": {
+                        "title": "Short Doc",
+                        "contents": {"text": "Short text MATCH"},  # 16 chars
+                    },
+                },
+                {
+                    "urn": "urn:li:document:doc2",
+                    "info": {
+                        "title": "Longer Doc",
+                        "contents": {
+                            "text": "A" * 100 + "MATCH" + "B" * 100
+                        },  # 205 chars
+                    },
+                },
+            ]
+        }
+
+        result = await async_background(grep_documents)(
+            urns=["urn:li:document:doc1", "urn:li:document:doc2"],
+            pattern="MATCH",
+            start_offset=50,  # Beyond doc1 length, but within doc2
+        )
+
+        # Should only find match in doc2 (doc1 is skipped)
+        assert result["documents_with_matches"] == 1
+        assert result["results"][0]["urn"] == "urn:li:document:doc2"
+
+    @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
+    async def test_start_offset_raw_content_continuation(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        mock_client,
+    ):
+        """Test using start_offset with pattern='.*' to continue reading."""
+        mock_get_client.return_value = mock_client
+        # Simulate a document that was truncated at position 100
+        text = "A" * 100 + "B" * 100 + "C" * 100  # 300 chars total
+        mock_execute_graphql.return_value = {
+            "entities": [
+                {
+                    "urn": "urn:li:document:doc1",
+                    "info": {
+                        "title": "Large Doc",
+                        "contents": {"text": text},
+                    },
+                }
+            ]
+        }
+
+        # Continue reading from position 100 (where truncation occurred)
+        result = await async_background(grep_documents)(
+            urns=["urn:li:document:doc1"],
+            pattern=".*",
+            context_chars=150,  # Larger context to get more content
+            start_offset=100,
+        )
+
+        # Should find a match and include content from position 100 onwards
+        assert result["documents_with_matches"] == 1
+        excerpt = result["results"][0]["matches"][0]["excerpt"]
+        # Excerpt should contain Bs and Cs (content after position 100)
+        assert "B" in excerpt
+        # Should report full content length for pagination
+        assert result["results"][0]["content_length"] == 300
