@@ -2798,3 +2798,19 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **dd53442500** - docs(observe): smart assertions profiling (#15750)
   *by Jay <159848059+jayacryl@users.noreply.github.com> on 2025-12-26*
+
+## Upstream Merge Session - 2025-12-28 08:08:37
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 1
+- **Strategy**: stacked
+- **Started**: 2025-12-28 08:08:37
+
+### Commits Included in This Merge
+
+- **3a3677c8e6** - feat(observability): add Kafka consumer lag monitoring (#15769)
+  *by Shirshanka Das <shirshanka@apache.org> on 2025-12-28*
