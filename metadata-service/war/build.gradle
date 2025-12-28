@@ -126,6 +126,8 @@ docker {
 }
 
 test {
+  useTestNG()
+  finalizedBy jacocoTestReport
   jacoco {
     // This contains quickstart tested code for jetty startup
     excludes = ["com.linkedin.gms.CommonApplicationConfig",
