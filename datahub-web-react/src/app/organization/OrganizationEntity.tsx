@@ -7,6 +7,7 @@ import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfi
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
 import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
 import { Preview } from '@app/organization/preview/Preview';
@@ -64,6 +65,7 @@ export class OrganizationEntity implements Entity<Organization> {
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
+            getOverrideProperties={this.getOverrideProperties}
         />
     );
 
@@ -113,10 +115,11 @@ export class OrganizationEntity implements Entity<Organization> {
         });
     };
 
-    getOverrideProperties = (data: Organization) => {
+    getOverrideProperties = (data: Organization): GenericEntityProperties => {
         return {
-            ...data,
-        };
+            name: data?.properties?.name,
+            customProperties: data?.properties?.customProperties,
+        } as GenericEntityProperties;
     };
 
     supportedCapabilities = () => {

@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.OrganizationUpdateInput;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -129,7 +130,7 @@ public class UpdateOrganizationResolverTest {
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 
-    assertThrows(CompletionException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+    assertThrows(AuthorizationException.class, () -> _resolver.get(_dataFetchingEnvironment).get());
   }
 
   @Test

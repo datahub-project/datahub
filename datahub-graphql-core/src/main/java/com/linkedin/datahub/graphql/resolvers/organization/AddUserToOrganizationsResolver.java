@@ -89,12 +89,21 @@ public class AddUserToOrganizationsResolver implements DataFetcher<CompletableFu
             }
 
             // Add new organizations
-            final Set<Urn> allOrganizations = new HashSet<>(currentOrganizations);
+            final Set<Urn> allOrganizations = new HashSet<>();
+            if (currentOrganizations != null && currentOrganizations.size() > 0) {
+              for (Urn urn : currentOrganizations) {
+                allOrganizations.add(urn);
+              }
+            }
             allOrganizations.addAll(organizationUrns);
 
             // Update aspect
             final UserOrganizations userOrgs = new UserOrganizations();
-            userOrgs.setOrganizations(new UrnArray(allOrganizations));
+            final UrnArray newOrganizations = new UrnArray();
+            for (Urn urn : allOrganizations) {
+              newOrganizations.add(urn);
+            }
+            userOrgs.setOrganizations(newOrganizations);
 
             final MetadataChangeProposal proposal = new MetadataChangeProposal();
             proposal.setEntityUrn(userUrn);

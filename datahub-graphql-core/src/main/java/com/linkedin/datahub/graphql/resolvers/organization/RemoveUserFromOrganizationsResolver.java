@@ -87,12 +87,21 @@ public class RemoveUserFromOrganizationsResolver
             }
 
             // Remove specified organizations
-            final Set<Urn> remainingOrganizations = new HashSet<>(currentOrganizations);
+            final Set<Urn> remainingOrganizations = new HashSet<>();
+            if (currentOrganizations != null && currentOrganizations.size() > 0) {
+              for (Urn urn : currentOrganizations) {
+                remainingOrganizations.add(urn);
+              }
+            }
             remainingOrganizations.removeAll(organizationUrnsToRemove);
 
             // Update aspect
             final UserOrganizations userOrgs = new UserOrganizations();
-            userOrgs.setOrganizations(new UrnArray(remainingOrganizations));
+            final UrnArray newOrganizations = new UrnArray();
+            for (Urn urn : remainingOrganizations) {
+              newOrganizations.add(urn);
+            }
+            userOrgs.setOrganizations(newOrganizations);
 
             final MetadataChangeProposal proposal = new MetadataChangeProposal();
             proposal.setEntityUrn(userUrn);

@@ -9,7 +9,6 @@ from typing import List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     ChangeTypeClass,
     OrganizationPropertiesClass,
     OrganizationsClass,

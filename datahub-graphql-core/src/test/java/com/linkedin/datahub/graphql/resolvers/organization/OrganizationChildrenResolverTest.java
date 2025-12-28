@@ -41,7 +41,9 @@ public class OrganizationChildrenResolverTest {
     Organization parentOrg = new Organization();
     parentOrg.setUrn(PARENT_ORG_URN);
 
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext =
+        OrganizationTestUtils.getMockContextWithUserOrganizations(
+            "urn:li:corpuser:test", java.util.Set.of(Urn.createFromString(PARENT_ORG_URN)));
     Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(parentOrg);
     Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 

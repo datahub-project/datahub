@@ -75,12 +75,20 @@ public class AddEntityToOrganizationsResolver implements DataFetcher<Completable
             final UrnArray currentOrganizations = getCurrentOrganizations(response, aspectName);
 
             // Add new organizations (avoid duplicates)
-            final Set<Urn> allOrganizations = new HashSet<>(currentOrganizations);
+            final Set<Urn> allOrganizations = new HashSet<>();
+            if (currentOrganizations != null && currentOrganizations.size() > 0) {
+              for (Urn urn : currentOrganizations) {
+                allOrganizations.add(urn);
+              }
+            }
             allOrganizations.addAll(organizationUrns);
 
             // Update aspect
-            updateOrganizationsAspect(
-                context, entityUrn, aspectName, new UrnArray(allOrganizations));
+            final UrnArray newOrganizations = new UrnArray();
+            for (Urn urn : allOrganizations) {
+              newOrganizations.add(urn);
+            }
+            updateOrganizationsAspect(context, entityUrn, aspectName, newOrganizations);
 
             return true;
           } catch (Exception e) {

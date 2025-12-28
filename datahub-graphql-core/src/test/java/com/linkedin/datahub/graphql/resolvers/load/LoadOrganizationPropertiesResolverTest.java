@@ -7,7 +7,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Organization;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -16,7 +16,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.organization.OrganizationProperties;
 import graphql.schema.DataFetchingEnvironment;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -50,12 +49,11 @@ public class LoadOrganizationPropertiesResolverTest {
     organizations.add(org1);
     organizations.add(org2);
 
-    Entity mockEntity = Mockito.mock(Entity.class);
-    Method getOrganizationsMethod = Entity.class.getMethod("getOrganizations");
-    Mockito.when(getOrganizationsMethod.invoke(mockEntity)).thenReturn(organizations);
+    Dataset mockDataset = Mockito.mock(Dataset.class);
+    Mockito.when(mockDataset.getOrganizations()).thenReturn(organizations);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockEntity);
+    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockDataset);
     Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 
     OrganizationProperties props1 = new OrganizationProperties();
@@ -101,12 +99,11 @@ public class LoadOrganizationPropertiesResolverTest {
 
   @Test
   public void testLoadOrganizationPropertiesEmpty() throws Exception {
-    Entity mockEntity = Mockito.mock(Entity.class);
-    Method getOrganizationsMethod = Entity.class.getMethod("getOrganizations");
-    Mockito.when(getOrganizationsMethod.invoke(mockEntity)).thenReturn(Collections.emptyList());
+    Dataset mockDataset = Mockito.mock(Dataset.class);
+    Mockito.when(mockDataset.getOrganizations()).thenReturn(Collections.emptyList());
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockEntity);
+    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockDataset);
     Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 
     List<Organization> result = _resolver.get(_dataFetchingEnvironment).get();
@@ -117,12 +114,11 @@ public class LoadOrganizationPropertiesResolverTest {
 
   @Test
   public void testLoadOrganizationPropertiesNull() throws Exception {
-    Entity mockEntity = Mockito.mock(Entity.class);
-    Method getOrganizationsMethod = Entity.class.getMethod("getOrganizations");
-    Mockito.when(getOrganizationsMethod.invoke(mockEntity)).thenReturn(null);
+    Dataset mockDataset = Mockito.mock(Dataset.class);
+    Mockito.when(mockDataset.getOrganizations()).thenReturn(null);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockEntity);
+    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockDataset);
     Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 
     List<Organization> result = _resolver.get(_dataFetchingEnvironment).get();
@@ -139,12 +135,11 @@ public class LoadOrganizationPropertiesResolverTest {
     List<Organization> organizations = new ArrayList<>();
     organizations.add(org1);
 
-    Entity mockEntity = Mockito.mock(Entity.class);
-    Method getOrganizationsMethod = Entity.class.getMethod("getOrganizations");
-    Mockito.when(getOrganizationsMethod.invoke(mockEntity)).thenReturn(organizations);
+    Dataset mockDataset = Mockito.mock(Dataset.class);
+    Mockito.when(mockDataset.getOrganizations()).thenReturn(organizations);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockEntity);
+    Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(mockDataset);
     Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 
     Mockito.when(_entityClient.batchGetV2(any(), anyString(), any(), any()))

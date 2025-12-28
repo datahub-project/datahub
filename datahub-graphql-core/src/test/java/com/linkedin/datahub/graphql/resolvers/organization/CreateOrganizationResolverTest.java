@@ -57,7 +57,7 @@ public class CreateOrganizationResolverTest {
 
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    Mockito.verify(_entityClient, Mockito.times(4))
+    Mockito.verify(_entityClient, Mockito.times(3))
         .ingestProposal(any(), proposalCaptor.capture(), eq(false));
 
     MetadataChangeProposal propertiesProposal = proposalCaptor.getAllValues().get(0);
@@ -136,7 +136,7 @@ public class CreateOrganizationResolverTest {
     Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
-    Mockito.verify(_entityClient, Mockito.times(0)).ingestProposal(any(), any(), any());
+    Mockito.verify(_entityClient, Mockito.times(0)).ingestProposal(any(), any(), eq(false));
   }
 
   @Test

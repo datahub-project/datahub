@@ -15,13 +15,12 @@ Usage:
     python organization_example.py
 """
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.specific.organization import (
     add_entity_to_organizations,
     add_user_to_organizations,
     create_organization,
-    delete_organization,
 )
 
 

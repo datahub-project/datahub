@@ -72,7 +72,13 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(
                       key, SECRETS_ENTITY_NAME, SECRET_VALUE_ASPECT_NAME, value);
-              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+              String result =
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+              // If ingestProposal returns null, construct the URN manually
+              if (result == null) {
+                result = EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME).toString();
+              }
+              return result;
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to create new secret with name %s", input.getName()), e);

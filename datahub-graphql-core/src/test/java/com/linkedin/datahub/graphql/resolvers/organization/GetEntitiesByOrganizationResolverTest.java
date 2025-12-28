@@ -34,7 +34,9 @@ public class GetEntitiesByOrganizationResolverTest {
 
   @Test
   public void testGetEntitiesSuccess() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext =
+        OrganizationTestUtils.getMockContextWithUserOrganizations(
+            "urn:li:corpuser:test", java.util.Set.of(Urn.createFromString(ORGANIZATION_URN)));
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("organizationUrn")))
         .thenReturn(ORGANIZATION_URN);
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("entityTypes"))).thenReturn(null);
@@ -65,7 +67,9 @@ public class GetEntitiesByOrganizationResolverTest {
 
   @Test
   public void testGetEntitiesWithEntityTypes() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext =
+        OrganizationTestUtils.getMockContextWithUserOrganizations(
+            "urn:li:corpuser:test", java.util.Set.of(Urn.createFromString(ORGANIZATION_URN)));
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("organizationUrn")))
         .thenReturn(ORGANIZATION_URN);
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("entityTypes")))
@@ -103,7 +107,9 @@ public class GetEntitiesByOrganizationResolverTest {
 
   @Test
   public void testGetEntitiesWithInvalidEntityType() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext =
+        OrganizationTestUtils.getMockContextWithUserOrganizations(
+            "urn:li:corpuser:test", java.util.Set.of(Urn.createFromString(ORGANIZATION_URN)));
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("organizationUrn")))
         .thenReturn(ORGANIZATION_URN);
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("entityTypes")))
@@ -130,7 +136,9 @@ public class GetEntitiesByOrganizationResolverTest {
 
   @Test
   public void testGetEntitiesWithNullSearchResult() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
+    QueryContext mockContext =
+        OrganizationTestUtils.getMockContextWithUserOrganizations(
+            "urn:li:corpuser:test", java.util.Set.of(Urn.createFromString(ORGANIZATION_URN)));
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("organizationUrn")))
         .thenReturn(ORGANIZATION_URN);
     Mockito.when(_dataFetchingEnvironment.getArgument(eq("entityTypes"))).thenReturn(null);

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { EntityTabProps } from '@app/entityV2/shared/types';
 import { AddOrganizationMembersModal } from '@app/organization/AddOrganizationMembersModal';
 import { CustomAvatar } from '@app/shared/avatar';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -88,8 +89,6 @@ const StyledMoreOutlined = styled(MoreOutlined)`
         cursor: pointer;
     }
 `;
-
-import { EntityTabProps } from '@app/entityV2/shared/types';
 
 type Props = {
     urn?: string;
