@@ -126,8 +126,7 @@ docker {
 }
 
 test {
-  useTestNG()
-  finalizedBy jacocoTestReport
+  useJUnitPlatform()
   jacoco {
     // This contains quickstart tested code for jetty startup
     excludes = ["com.linkedin.gms.CommonApplicationConfig",
