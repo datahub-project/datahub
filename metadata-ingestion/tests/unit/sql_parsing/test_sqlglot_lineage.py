@@ -214,6 +214,20 @@ SELECT id, name, value FROM temp_cte
     )
 
 
+def test_mssql_insert_column_name_mapping() -> None:
+    # MSSQL-specific: INSERT column names differ from SELECT column names
+    # Tests that column mapping works correctly (INSERT cols != SELECT cols)
+    assert_sql_result(
+        """
+INSERT INTO target_db.dbo.target_table (target_col_a, target_col_b)
+SELECT source_col_x, source_col_y
+FROM source_db.dbo.source_table
+""",
+        dialect="tsql",
+        expected_file=RESOURCE_DIR / "test_mssql_insert_column_name_mapping.json",
+    )
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
