@@ -1,4 +1,4 @@
-import { Modal, PageTitle, Pill, spacing } from '@components';
+import { Modal, PageTitle, Pill, Text, spacing } from '@components';
 import { Typography } from 'antd';
 import React, { useCallback } from 'react';
 import styled from 'styled-components/macro';
@@ -44,6 +44,11 @@ const ModalHeader = styled.div`
     display: flex;
 `;
 
+const HeaderText = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
 const SourceIcon = styled.img`
     height: 22px;
     margin-right: 10px;
@@ -83,11 +88,14 @@ function TestConnectionModal({
             title={
                 <ModalHeader style={{ margin: 0 }}>
                     <SourceIcon alt="source logo" src={logoUrl} />
-                    {sourceConfig?.displayName} Connection Test
+                    <HeaderText>
+                        {sourceConfig?.displayName} Connection Test
+                        <Text color="gray">Here&apos;s what DataHub can access with your provided credentials</Text>
+                    </HeaderText>
                 </ModalHeader>
             }
             titlePill={renderTitlePill()}
-            width={452}
+            width={540}
         >
             {isLoading && (
                 <ResultsWrapper>

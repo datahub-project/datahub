@@ -34,7 +34,10 @@ export function SettingsSection({ settingsFields, updateFormValue }: Props) {
 
     return (
         <SettingsContainer>
-            <SectionName name="Settings" />
+            <SectionName
+                name="Settings"
+                description="Configure which metadata types to extract. Defaults represent best practices."
+            />
             <FieldsContainer>
                 {settingsFields
                     .filter((field) => !field.hidden)
