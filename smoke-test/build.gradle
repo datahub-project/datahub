@@ -283,6 +283,9 @@ docker {
     if (project.hasProperty('debianAptRepositoryUrl')) {
         dockerBuildArgs.DEBIAN_REPO_URL = project.getProperty('debianAptRepositoryUrl')
     }
+    if (project.hasProperty('pipExtraIndexUrl')) {
+        dockerBuildArgs.PIP_EXTRA_INDEX_URL = project.getProperty('pipExtraIndexUrl')
+    }
 
     buildArgs(dockerBuildArgs)
 }

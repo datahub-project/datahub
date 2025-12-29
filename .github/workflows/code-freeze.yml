@@ -20,4 +20,9 @@ jobs:
       # set to 1 to start code freeze
       - name: Check freeze is in place
         run: |
-          exit ${{ secrets.SAAS_CODE_FREEZE_IN_PLACE }}
+          FREEZE_VALUE="${{ secrets.SAAS_CODE_FREEZE_IN_PLACE }}"
+          if [ "$FREEZE_VALUE" = "1" ]; then
+            exit 1
+          else
+            exit 0
+          fi

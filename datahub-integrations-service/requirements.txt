@@ -99,12 +99,14 @@ botframework-streaming==4.17.0
     # via botbuilder-core
 boto3==1.40.73
     # via
+    #   acryl-datahub-cloud
     #   acryl-datahub-integrations
     #   aws-msk-iam-sasl-signer-python
     #   sagemaker-mlflow
     #   snowflake-connector-python
 botocore==1.40.73
     # via
+    #   acryl-datahub-cloud
     #   aws-msk-iam-sasl-signer-python
     #   boto3
     #   s3transfer

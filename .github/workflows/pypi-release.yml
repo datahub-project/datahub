@@ -15,10 +15,9 @@ jobs:
         id: tag
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
-          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g' -e 's,refs/tags/acryl,,g')
+          TAG=$(echo "${GITHUB_REF}" | sed -e 's,refs/tags/v,,g' -e 's,refs/tags/acryl,,g')
           echo "tag=$TAG"
-          echo "::set-output name=tag::$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
   push_to_pypi:
     name: Build and push python package to PyPI (private)
     runs-on: depot-ubuntu-22.04

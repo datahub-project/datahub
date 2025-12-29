@@ -72,10 +72,12 @@ jobs:
         #    and hence short queue times and higher parallelism of smoke tests
 
         run: |
-          echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-          echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-          echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
-          echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "build_runner_type=depot-ubuntu-24.04-4"
+            echo "test_runner_type=depot-ubuntu-24.04-4"
+            echo "test_runner_type_small=depot-ubuntu-24.04-small"
+            echo "use_depot_cache=true"
+          } >> "$GITHUB_OUTPUT"
 
   smoke_test_lint:
     name: Lint on smoke tests
@@ -160,10 +162,10 @@ jobs:
         id: capture-build-id
         run: |
           pip install jq
-          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
+          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' "${{ github.workspace }}/build/build-metadata.json")
 
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
-          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
+          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' "${{ github.workspace }}/build/build-metadata.json")" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
@@ -258,7 +260,7 @@ jobs:
 
       - name: Executor Version
         id: version
-        run: echo "::set-output name=with_dashes::$(echo '${{ matrix.remote_executor_version }}' | tr '.' '-')"
+        run: echo "with_dashes=$(echo '${{ matrix.remote_executor_version }}' | tr '.' '-')" >> "$GITHUB_OUTPUT"
 
       - name: run quickstart
         env:

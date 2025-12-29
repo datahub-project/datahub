@@ -59,9 +59,9 @@ jobs:
             if [[ -z "$mem_str" ]]; then echo 0; return; fi
 
             if [[ $mem_str =~ ([0-9]+)[gG] ]]; then
-              echo $((${BASH_REMATCH[1]} * 1024))
+              echo $(("${BASH_REMATCH[1]}" * 1024))
             elif [[ $mem_str =~ ([0-9]+)[mM] ]]; then
-              echo ${BASH_REMATCH[1]}
+              echo "${BASH_REMATCH[1]}"
             else
               echo 0
             fi
@@ -91,7 +91,7 @@ jobs:
 
           threshold_mb=$(echo "${{ env.THRESHOLD_GB }} * 1024" | bc | cut -d'.' -f1)
 
-          if [ $total_mb -gt $threshold_mb ]; then
+          if [ "$total_mb" -gt "$threshold_mb" ]; then
             echo "❌ FAILURE: Memory requirement (${total_mb}MB) exceeds threshold (${threshold_mb}MB)"
             exit 1
           else

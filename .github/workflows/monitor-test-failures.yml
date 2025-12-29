@@ -184,13 +184,13 @@ jobs:
           # Set step outputs for Slack notification
           if [ -f slack_payload.json ]; then
             HAS_FAILURES=$(python3 -c "import json; data=json.load(open('failure_analysis.json')); print('true' if data['summary']['total_build_failures'] > 0 or data['summary']['total_flakes'] > 0 else 'false')")
-            echo "has_failures=$HAS_FAILURES" >> $GITHUB_OUTPUT
-
-            # Export attachments for Slack action
             ATTACHMENTS=$(python3 -c "import json; print(json.dumps(json.load(open('slack_payload.json'))['attachments']))")
-            echo "slack_attachments<<EOF" >> $GITHUB_OUTPUT
-            echo "$ATTACHMENTS" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            {
+              echo "has_failures=$HAS_FAILURES"
+              echo "slack_attachments<<EOF"
+              echo "$ATTACHMENTS"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Send Slack notification
@@ -217,10 +217,12 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### CI Health Report Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Analysis Window**: ${{ needs.check_and_collect.outputs.analysis_window }} runs" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "See detailed report in job logs above." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### CI Health Report Summary"
+            echo ""
+            echo "**Analysis Window**: ${{ needs.check_and_collect.outputs.analysis_window }} runs"
+            echo ""
+            echo "See detailed report in job logs above."
+            echo ""
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
