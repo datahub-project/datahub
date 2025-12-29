@@ -133,6 +133,7 @@ def format_schedule_violation_message(
     urn: str,
     last_run_time_ms: int,
     expected_last_run_ms: int,
+    current_time_ms: int,
     cron_interval: str,
     timezone_str: str,
 ) -> str:
@@ -143,6 +144,7 @@ def format_schedule_violation_message(
         urn: Ingestion source URN
         last_run_time_ms: Actual run time in milliseconds
         expected_last_run_ms: Expected run time in milliseconds
+        current_time_ms: Current time in milliseconds
         cron_interval: Cron schedule string
         timezone_str: Timezone string
 
@@ -159,7 +161,8 @@ def format_schedule_violation_message(
 
     # Check if the ingestion is late (last run was before expected time)
     if last_run_time_ms < expected_last_run_ms:
-        minutes_late = (expected_last_run_ms - last_run_time_ms) // 1000 // 60
+        # Calculate how long it's been since the expected run time
+        minutes_late = (current_time_ms - expected_last_run_ms) // 1000 // 60
         return (
             f"LATE: {name} ({urn}) is {minutes_late} minutes late. "
             f"Expected to run at {expected_time}, but last ran at "
@@ -167,11 +170,11 @@ def format_schedule_violation_message(
             f"timezone: {timezone_str})"
         )
     else:
-        # Last run was after expected time (but too far)
-        minutes_early = (last_run_time_ms - expected_last_run_ms) // 1000 // 60
+        # Last run was after expected time (but too far) - also LATE
+        minutes_late = (last_run_time_ms - expected_last_run_ms) // 1000 // 60
         return (
-            f"EARLY: {name} ({urn}) ran {minutes_early} minutes early. "
-            f"Expected to run at {expected_time}, but last ran at "
+            f"LATE: {name} ({urn}) ran {minutes_late} minutes late. "
+            f"Expected to run at {expected_time}, but ran at "
             f"{actual_time} (schedule: '{cron_interval}', "
             f"timezone: {timezone_str})"
         )
@@ -392,6 +395,7 @@ def check_schedule_adherence(
             urn,
             last_run_time_ms,
             expected_last_run_ms,
+            current_time_ms,
             cron_interval,
             timezone_str,
         ),
