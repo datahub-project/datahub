@@ -6,6 +6,7 @@ import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { USER_SIGNED_UP_KEY } from '@app/auth/constants';
 import ModalHeader from '@app/auth/shared/ModalHeader';
 import { SignupFormValues } from '@app/auth/shared/types';
 import SignupForm from '@app/auth/signupV2/SignupForm';
@@ -31,37 +32,51 @@ export default function SignUpModal() {
 
     const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
 
-    const acceptRole = () => {
-        acceptRoleMutation({
+    const acceptRole = async () => {
+        const { errors } = await acceptRoleMutation({
             variables: {
                 input: {
                     inviteToken,
                 },
             },
-        })
-            .then(({ errors }) => {
-                if (!errors) {
-                    message.success({
-                        content: `Accepted invite!`,
-                        duration: 2,
-                    });
-                }
-            })
-            .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to accept invite: \n ${e.message || ''}`,
-                    duration: 3,
-                });
+            // Refetch the user's data to ensure the new role is reflected
+            refetchQueries: ['getMe'],
+            awaitRefetchQueries: true,
+        });
+
+        if (!errors) {
+            message.success({
+                content: `Accepted invite!`,
+                duration: 2,
             });
+        }
     };
 
     useEffect(() => {
-        if (isLoggedIn && !loading) {
-            acceptRole();
+        if (isLoggedIn && !loading && inviteToken) {
+            // Set flag to trigger permission polling after signup
+            localStorage.setItem(USER_SIGNED_UP_KEY, Date.now().toString());
+
+            acceptRole()
+                .then(() => {
+                    history.push(PageRoutes.ROOT);
+                })
+                .catch((error) => {
+                    console.error('Failed to accept role:', error);
+                    const errorMessage = error instanceof Error ? error.message : '';
+                    message.error({
+                        content: `Failed to accept invite: \n ${errorMessage}`,
+                        duration: 3,
+                    });
+                    // Still redirect even if role acceptance fails, as user is already signed up
+                    history.push(PageRoutes.ROOT);
+                });
+        } else if (isLoggedIn && !loading && !inviteToken) {
+            // No invite token, just redirect
             history.push(PageRoutes.ROOT);
         }
-    });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoggedIn, loading]);
 
     const onFormChange = () => {
         const hasErrors = form.getFieldsError().some(({ errors }) => errors.length > 0);

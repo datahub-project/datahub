@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { usePostSignupPolling } from '@app/auth/usePostSignupPolling';
 import { DEFAULT_STATE, LocalState, State, UserContext } from '@app/context/userContext';
 
 import { useGetGlobalViewsSettingsLazyQuery } from '@graphql/app.generated';
@@ -42,6 +43,15 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
      */
     const [getMe, { data: meData, refetch }] = useGetMeLazyQuery({ fetchPolicy: 'cache-first' });
     useEffect(() => getMe(), [getMe]);
+
+    /**
+     * Poll for updated permissions after signup.
+     * This handles the case where the user signs up with an invite token
+     * and their role permissions take a few seconds to propagate.
+     */
+    usePostSignupPolling({
+        onPoll: () => getMe({ fetchPolicy: 'network-only' }),
+    });
 
     /**
      * Retrieve the Global View settings once on component mount.
