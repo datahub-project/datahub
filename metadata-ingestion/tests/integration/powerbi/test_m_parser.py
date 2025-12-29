@@ -65,6 +65,7 @@ M_QUERIES = [
     "LOAD_DATA(SOURCE)",
     'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
     'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
+    'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
 ]
 
 
@@ -1397,4 +1398,79 @@ def test_mysql_odbc_query_without_dsn_mapping():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mysql,users,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_athena_regular_case():
+    """Test Amazon Athena lineage extraction with catalog.database.table hierarchy."""
+    q: str = M_QUERIES[37]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="sales_data",
+        full_name="awsdatacatalog.analytics.sales_data",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,analytics.sales_data,PROD)"
+    )
+    assert (
+        data_platform_tables[0].data_platform_pair.datahub_data_platform_name
+        == "athena"
+    )
+
+
+@pytest.mark.integration
+def test_athena_with_platform_instance():
+    """Test Athena lineage with server_to_platform_instance configuration."""
+    q: str = M_QUERIES[37]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="sales_data",
+        full_name="awsdatacatalog.analytics.sales_data",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "us-east-1": {
+                    "platform_instance": "production_athena",
+                    "env": "PROD",
+                }
+            }
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
     )
