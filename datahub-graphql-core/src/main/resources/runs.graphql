@@ -1,14 +1,14 @@
 interface HasExecutionRuns {
-    """
-    History of runs of this task
-    """
-    runs(start: Int, count: Int): DataProcessInstanceResult
+  """
+  History of runs of this task
+  """
+  runs(start: Int, count: Int): DataProcessInstanceResult
 }
 
 extend type DataFlow implements HasExecutionRuns {
-    runs(start: Int, count: Int): DataProcessInstanceResult
+  runs(start: Int, count: Int): DataProcessInstanceResult
 }
 
 extend type DataJob implements HasExecutionRuns {
-    runs(start: Int, count: Int): DataProcessInstanceResult
+  runs(start: Int, count: Int): DataProcessInstanceResult
 }
