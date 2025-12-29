@@ -878,7 +878,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(PATCH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -2485,6 +2486,15 @@ public class GmsGraphQLEngine {
         .type("ResultsType", typeWiring -> typeWiring.typeResolver(new ResultsTypeResolver()))
         .type(
             "SupportsVersions",
+            typeWiring ->
+                typeWiring.typeResolver(
+                    new EntityInterfaceTypeResolver(
+                        loadableTypes.stream()
+                            .filter(graphType -> graphType instanceof EntityType)
+                            .map(graphType -> (EntityType<?, ?>) graphType)
+                            .collect(Collectors.toList()))))
+        .type(
+            "HasExecutionRuns",
             typeWiring ->
                 typeWiring.typeResolver(
                     new EntityInterfaceTypeResolver(
