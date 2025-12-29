@@ -59,25 +59,20 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datasourcePassword",
           "keyStorePassword",
           "salt",
-
           // Database passwords
           "ebean.password",
           "cassandra.datasourcePassword",
           "neo4j.password",
-
           // Elasticsearch security
           "elasticsearch.password",
           "elasticsearch.sslContext.keyPassword",
           "elasticsearch.sslContext.trustStorePassword",
           "elasticsearch.sslContext.keyStorePassword",
-
           // Services encryption
           "secretService.encryptionKey",
-
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
-
           // CDC db password
           "mclProcessing.cdcSource.debeziumConfig.config.database.password");
 
@@ -105,22 +100,17 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].type",
           "authentication.authenticators[*].configs.enabled",
           "authentication.authenticators[*].configs.guestUser",
-
           // Spring autoconfigure exclusions with dynamic indices
           "spring.autoconfigure.exclude[*]",
-
           // Cache configuration with dynamic entity/aspect combinations
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
-
           // Gradle test worker properties (Java system properties)
           "org.gradle.test.worker*",
-
           // System update properties
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
-
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.partitions",
@@ -134,11 +124,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.topicDefaults.replicationFactor",
           "kafka.setup.preCreateTopics",
           "kafka.setup.useConfluentSchemaRegistry",
-
           // IAM authentication flags
           "*.postgresUseIamAuth",
           "*.opensearchUseAwsIamAuth",
-
           // Bulk rules
           "featureFlags.*",
           "*.*nabled",
@@ -187,12 +175,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingAlgorithm",
           "authorization.defaultAuthorizer.enabled",
           "authorization.view.enabled",
-
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
           "tokenService",
-
           // Configuration keys and settings (not secret keys)
           "key",
           "corpUserKey",
@@ -205,7 +191,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.index.maxObjectKeys",
           "mainTokenizer",
           "elasticsearch.index.mainTokenizer",
-
           // Cache configuration
           "cache.client.entityClient.entityAspectTTLSeconds.corpuser.corpUserCredentials",
           "cache.client.entityClient.entityAspectTTLSeconds.corpuser.corpUserKey",
@@ -241,14 +226,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.primary.ttlSeconds",
           "cache.search.lineage.lightningThreshold",
           "cache.search.lineage.ttlSeconds",
-
           // Authentication mode flags (not credentials)
           "opensearchUseAwsIamAuth",
           "postgresUseIamAuth",
-
           // Time durations and settings
           "sessionTokenDurationMs",
-
           // Kafka serializer/deserializer class names
           "kafka.serde.event.key.serializer",
           "kafka.serde.event.key.deserializer",
@@ -261,6 +243,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.serde.usageEvent.value.serializer",
           "kafka.serde.usageEvent.value.deserializer",
           "kafka.bootstrapServers",
+          "kafka.consumer.bootstrapServers",
           "kafka.consumer.healthCheckEnabled",
           "kafka.consumer.maxPartitionFetchBytes",
           "kafka.consumer.mcl.aspectsToDrop",
@@ -278,6 +261,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
+          "kafka.producer.bootstrapServers",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
           "kafka.producer.maxRequestSize",
@@ -290,10 +274,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.schema.registry.security.protocol",
           "kafka.topics.dataHubUsage",
           "spring.kafka.security.protocol",
-
           // Entity/field names that happen to contain sensitive keywords
           "corpUserCredentials",
-
           // Environment variables (paths and non-sensitive settings)
           "auth",
           "SSH_AUTH_SOCK",
@@ -358,7 +340,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "npm_config_yes",
           "socksNonProxyHosts",
           "ELASTIC_VERSION",
-
           // Java system properties
           "apple.awt.application.name",
           "file.encoding",
@@ -406,12 +387,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "sun.java.launcher",
           "sun.jnu.encoding",
           "sun.management.compiler",
-
           // JNA (Java Native Access) properties
           "jna.loaded",
           "jna.platform.library.path",
           "jnidispatch.path",
-
           // Java CRaC (Coordinated Restore at Checkpoint) properties
           "sun.java.crac_command",
           "user.country",
@@ -421,7 +400,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "user.name",
           "user.timezone",
           "user.variant",
-
           // Spring and application configuration
           "baseUrl",
           "bootstrap.policies.file",
@@ -439,7 +417,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "spring.mvc.throw-exception-if-no-handler-found",
           "spring.web.resources.add-mappings",
           "server.server-header",
-
           // DataHub configuration
           "datahub.gms.async.request-timeout-ms",
           "datahub.gms.host",
@@ -466,7 +443,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.readOnly",
-
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
@@ -521,7 +497,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
           "featureFlags.themeV2Toggleable",
-
           // Database configuration (non-sensitive settings)
           "cassandra.datacenter",
           "cassandra.datasourceUsername",
@@ -549,7 +524,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "neo4j.maxTransactionRetryTime",
           "neo4j.uri",
           "neo4j.username",
-
           // Elasticsearch configuration
           "elasticsearch.buildIndices.allowDocCountMismatch",
           "elasticsearch.buildIndices.cloneIndices",
@@ -638,7 +612,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.validation.regex",
           "elasticsearch.search.validation.maxLengthEnabled",
           "elasticsearch.search.validation.enabled",
-
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",
           "businessAttribute.fetchRelatedEntitiesCount",
@@ -701,7 +674,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestionScheduler.enabled",
           "ingestion.scheduler.refreshIntervalSeconds",
           "path-mappings./",
-
           // Management and monitoring
           "management.defaults.metrics.export.enabled",
           "management.endpoints.jmx.enabled",
@@ -715,7 +687,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "management.simple.metrics.export.enabled",
           "management.tracing.enabled",
           "management.tracing.propagation.type",
-
           // System metadata and updates
           "systemMetadataService.limit.results.apiDefault",
           "systemMetadataService.limit.results.max",
@@ -775,7 +746,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.schemaFieldsFromSchemaMetadata.enabled",
           "systemUpdate.schemaFieldsFromSchemaMetadata.limit",
           "systemUpdate.waitForSystemUpdate",
-
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",
           "metadataChangeProposal.consumer.batch.size",
@@ -863,18 +833,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "visualConfig.searchResult.enableNameHighlight",
           "visualConfig.showFullTitleInLineage",
           "visualConfig.theme.themeId",
-
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
           "datahub.policies.systemPolicyUrnList",
-
           // Base Path
           "datahub.basePath",
           "server.servlet.context-path",
           "datahub.gms.basePath",
           "datahub.gms.basePathEnabled",
-
           // CDC (Change Data Capture) configuration properties
           "kafka.serde.cdc.key.serializer",
           "kafka.serde.cdc.key.deserializer",
@@ -921,7 +888,20 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.v3.mappingConfig",
           "elasticsearch.entityIndex.v3.cleanup",
           "elasticsearch.entityIndex.v3.maxFieldsLimit",
-
+          // Semantic search configuration
+          "elasticsearch.entityIndex.semanticSearch.enabled",
+          "elasticsearch.entityIndex.semanticSearch.enabledEntities",
+          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.efConstruction",
+          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.m",
+          "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.batchSize",
+          "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.maxTextLength",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.type",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.awsRegion",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.modelId",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.maxCharacterLength",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size"
