@@ -378,11 +378,11 @@ class DremioAspects:
             )
 
         # Add container type prefix (Spaces/Sources)
-        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE:
+        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
             paths.append(BrowsePathEntryClass(id="Spaces"))
-        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE:
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
             paths.append(BrowsePathEntryClass(id="Sources"))
-        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER:
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER.value:
             # For folders, use the root container type to determine prefix
             root_type = getattr(entity, "root_container_type", None)
             if root_type == DremioEntityContainerType.SPACE:
