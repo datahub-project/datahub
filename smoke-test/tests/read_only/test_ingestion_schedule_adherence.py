@@ -225,7 +225,46 @@ def check_never_run_ingestion(
         return True, f"Not yet time for first run: {name} ({urn})"
 
 
-def check_schedule_adherence(
+def is_impossible_cron_date(cron_interval: str) -> Tuple[bool, str | None]:
+    """Check if a cron schedule contains an impossible date (e.g., Feb 30, April 31).
+
+    These impossible dates are used to effectively disable ingestions.
+
+    Args:
+        cron_interval: Cron expression (e.g., "* * 30 2 *" for Feb 30)
+
+    Returns:
+        Tuple of (is_impossible, reason)
+        - is_impossible: True if the date is impossible
+        - reason: Description of why it's impossible, or None if valid
+    """
+    cron_parts = cron_interval.split()
+    if len(cron_parts) < 5:
+        return False, None
+
+    day = cron_parts[2]
+    month = cron_parts[3]
+
+    # Check for impossible dates like Feb 30/31, April 31, etc.
+    if day.isdigit() and month.isdigit():
+        day_num = int(day)
+        month_num = int(month)
+
+        # February can't have day 30 or 31
+        if month_num == 2 and day_num >= 30:
+            return True, f"Impossible schedule (Feb {day_num}) - effectively disabled"
+
+        # April, June, September, November can't have day 31
+        if month_num in [4, 6, 9, 11] and day_num == 31:
+            return (
+                True,
+                f"Impossible schedule (month {month_num} day {day_num}) - effectively disabled",
+            )
+
+    return False, None
+
+
+def check_schedule_adherence(  # noqa: C901
     auth_session,
     ingestion_source: Dict,
 ) -> Tuple[bool, str]:
@@ -250,6 +289,12 @@ def check_schedule_adherence(
 
     if not cron_interval:
         return True, f"No cron interval configured for {name} ({urn})"
+
+    # Check for impossible cron dates (e.g., Feb 30, April 31)
+    # These are used to effectively disable ingestions
+    is_impossible, impossible_reason = is_impossible_cron_date(cron_interval)
+    if is_impossible:
+        return True, f"NO_SCHEDULE: {name} ({urn}) - {impossible_reason}"
 
     # Get executions and filter for scheduled ones only
     executions = ingestion_source.get("executions", {})
