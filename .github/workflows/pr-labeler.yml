@@ -68,7 +68,8 @@ jobs:
           "alokr-dhub",
           "alfiyas-datahub",
           "dinesh-verma-datahub",
-          "rob-1019"
+          "rob-1019",
+          "kewats"
           ]'),
           github.actor
           )
