@@ -89,6 +89,7 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_ATTEMPTS", value = "5")
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_DELAY", value = "500")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
+@SetEnvironmentVariable(key = "MFE_CONFIG_FILE_PATH", value = "mfe.config.local.yaml")
 public class ApplicationTest extends WithBrowser {
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
   private static final String ISSUER_ID = "testIssuer";
@@ -940,12 +941,12 @@ public class ApplicationTest extends WithBrowser {
     assertEquals(TEST_USER, data.get("actor"));
     // Default expiration is 24h, so should always be less than current time + 1 day since it stamps
     // the time before this executes. Use a more generous tolerance to account for timezone
-    // differences
-    // and test execution time variations.
+    // differences, DST transitions, and test execution time variations.
+    // Increased tolerance to 22-26 hours to handle DST transitions (which can cause 1-hour shifts)
     Date maxExpectedExpiration =
-        new Date(System.currentTimeMillis() + (25 * 60 * 60 * 1000)); // 25 hours
+        new Date(System.currentTimeMillis() + (26 * 60 * 60 * 1000)); // 26 hours
     Date minExpectedExpiration =
-        new Date(System.currentTimeMillis() + (23 * 60 * 60 * 1000)); // 23 hours
+        new Date(System.currentTimeMillis() + (22 * 60 * 60 * 1000)); // 22 hours
     Date actualExpiration = claims.getExpirationTime();
 
     assertTrue(

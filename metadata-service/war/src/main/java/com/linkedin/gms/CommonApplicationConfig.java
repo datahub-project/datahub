@@ -80,6 +80,10 @@ public class CommonApplicationConfig {
             HttpConfiguration httpConfig = new HttpConfiguration();
             httpConfig.setRequestHeaderSize(32768);
 
+            // Security: Disable server version disclosure
+            httpConfig.setSendServerVersion(false);
+            httpConfig.setSendDateHeader(false);
+
             // See https://github.com/jetty/jetty.project/issues/11890
             // Configure URI compliance to allow encoded slashes
             httpConfig.setUriCompliance(

@@ -29,7 +29,7 @@ data_platform = "trino"
 def trino_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/trino"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "trino"
+        test_resources_dir / "docker-compose.yml", "trino", setup_command=["up --wait"]
     ) as docker_services:
         wait_for_port(docker_services, "testtrino", 8080)
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)
@@ -111,11 +111,11 @@ def test_trino_ingest(
                             platform_instance="local_server",
                         )
                     },
-                ).dict(),
+                ).model_dump(),
             },
             "sink": {
                 "type": "file",
-                "config": FileSinkConfig(filename=str(events_file)).dict(),
+                "config": FileSinkConfig(filename=str(events_file)).model_dump(),
             },
         }
 
@@ -161,11 +161,11 @@ def test_trino_hive_ingest(
                     ],
                     max_workers=1,
                 ),
-            ).dict(),
+            ).model_dump(),
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": FileSinkConfig(filename=str(events_file)).model_dump(),
         },
     }
 
@@ -221,11 +221,11 @@ def test_trino_instance_ingest(
                         platform_instance="local_server",
                     )
                 },
-            ).dict(),
+            ).model_dump(),
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": FileSinkConfig(filename=str(events_file)).model_dump(),
         },
     }
 

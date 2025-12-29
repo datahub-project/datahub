@@ -27,6 +27,7 @@ vi.mock('@app/shared/hooks/useCreateFile', () => ({
     default: () => ({
         createFile: mockCreateFile,
     }),
+    S3_FILE_ID_NAME_SEPARATOR: '__',
 }));
 
 describe('useFileUpload', () => {
@@ -107,7 +108,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/openapi/v1/files/product-assets/file-123');
+            expect(url).toBe('http://example.com/openapi/v1/files/product_assets/file-123');
         });
 
         // Verify fetch was called with correct parameters
@@ -285,7 +286,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/openapi/v1/files/product-assets/file-456');
+            expect(url).toBe('http://example.com/openapi/v1/files/product_assets/file-456');
         });
 
         // Verify fetch was called with correct content type
@@ -357,7 +358,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/openapi/v1/files/product-assets/file-789');
+            expect(url).toBe('http://example.com/openapi/v1/files/product_assets/file-789');
         });
         expect(mockCreateFile).toHaveBeenCalledTimes(1);
         expect(mockCreateFile).toHaveBeenCalledWith(mockFileId, mockFile);

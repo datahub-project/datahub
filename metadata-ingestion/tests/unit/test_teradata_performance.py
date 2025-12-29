@@ -155,7 +155,7 @@ class TestMemoryOptimizations:
 
     def test_tables_cache_memory_efficiency(self):
         """Test that tables cache is memory efficient."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -183,7 +183,7 @@ class TestMemoryOptimizations:
             **_base_config(),
             "use_server_side_cursors": True,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -212,7 +212,7 @@ class TestMemoryOptimizations:
 
     def test_chunked_processing_batch_size(self):
         """Test that chunked processing uses appropriate batch sizes."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -288,7 +288,7 @@ class TestPerformanceReporting:
 
     def test_view_processing_timing_metrics(self):
         """Test that view processing timing is properly tracked."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -337,7 +337,7 @@ class TestPerformanceReporting:
             **_base_config(),
             "max_workers": 2,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -359,7 +359,7 @@ class TestPerformanceReporting:
 
     def test_database_level_metrics_tracking(self):
         """Test that database-level metrics are properly tracked."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -425,7 +425,7 @@ class TestThreadSafetyOptimizations:
 
     def test_tables_cache_lock_usage(self):
         """Test that tables cache uses locks for thread safety."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -445,7 +445,7 @@ class TestThreadSafetyOptimizations:
 
     def test_report_lock_usage(self):
         """Test that report operations use locks for thread safety."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -465,7 +465,7 @@ class TestThreadSafetyOptimizations:
 
     def test_pooled_engine_lock_usage(self):
         """Test that pooled engine creation uses locks."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
@@ -512,7 +512,7 @@ class TestQueryOptimizations:
 
     def test_query_structure_optimization(self):
         """Test that queries are structured for optimal performance."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"

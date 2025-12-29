@@ -65,7 +65,7 @@ class Report(SupportsAsObj):
         if isinstance(some_val, SupportsAsObj):
             return some_val.as_obj()
         elif isinstance(some_val, pydantic.BaseModel):
-            return Report.to_pure_python_obj(some_val.dict())
+            return Report.to_pure_python_obj(some_val.model_dump())
         elif dataclasses.is_dataclass(some_val) and not isinstance(some_val, type):
             # The `is_dataclass` function returns `True` for both instances and classes.
             # We need an extra check to ensure an instance was passed in.

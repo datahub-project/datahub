@@ -83,17 +83,10 @@ public class ElasticSearchIndexBuilderFactory {
       final GitVersion gitVersion) {
     return new ESIndexBuilder(
         searchClient,
-        numShards,
-        numReplicas,
-        numRetries,
-        refreshIntervalSeconds,
-        overrides,
-        enableSettingsReindex,
-        enableMappingsReindex,
-        enableStructuredPropertiesReindex,
         configurationProvider.getElasticSearch(),
-        gitVersion,
-        maxReindexHours);
+        configurationProvider.getStructuredProperties(),
+        overrides,
+        gitVersion);
   }
 
   @Nonnull

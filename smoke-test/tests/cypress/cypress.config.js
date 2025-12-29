@@ -12,6 +12,10 @@ module.exports = defineConfig({
     openMode: 0,
   },
   video: false,
+  env: {
+    ADMIN_USERNAME: "datahub",
+    ADMIN_PASSWORD: "datahub",
+  },
   e2e: {
     // We've imported your old cypress plugins here.
     // You may want to clean this up later by importing these.
@@ -22,6 +26,8 @@ module.exports = defineConfig({
     baseUrl: "http://localhost:9002/",
     specPattern: "cypress/e2e/**/*.{js,jsx,ts,tsx}",
     experimentalStudio: true,
+    experimentalMemoryManagement: true,
+    numTestsKeptInMemory: 0,
   },
   reporter: "cypress-junit-reporter",
   reporterOptions: {

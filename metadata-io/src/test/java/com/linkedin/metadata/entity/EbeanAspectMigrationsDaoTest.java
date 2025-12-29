@@ -21,17 +21,19 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanAspectDao> {
 
+  private Database server;
+
   public EbeanAspectMigrationsDaoTest() {}
 
   @BeforeMethod
   public void setupTest() {
-    Database server =
-        EbeanTestUtils.createTestServer(EbeanAspectMigrationsDaoTest.class.getSimpleName());
+    server = EbeanTestUtils.createTestServer(EbeanAspectMigrationsDaoTest.class.getSimpleName());
     _mockProducer = mock(EventProducer.class);
     EbeanAspectDao dao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
     dao.setConnectionValidated(true);
@@ -66,5 +68,12 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     for (String urn : ingestedUrns) {
       assertTrue(urnsFetched.contains(urn));
     }
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown Database instance to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabase(server);
   }
 }

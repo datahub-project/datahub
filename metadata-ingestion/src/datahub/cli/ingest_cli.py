@@ -21,6 +21,7 @@ from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.ingest_utils import deploy_source_vars
@@ -127,6 +128,9 @@ def run(
     no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
+
+    # Initialize secret masking (before any logging)
+    initialize_secret_masking()
 
     def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
@@ -243,6 +247,13 @@ def run(
     required=False,
     default=None,
 )
+@click.option(
+    "--extra-env",
+    type=str,
+    help='Environment variables as comma-separated KEY=VALUE pairs. e.g. "VAR1=value1,VAR2=value2"',
+    required=False,
+    default=None,
+)
 @upgrade.check_upgrade
 def deploy(
     name: Optional[str],
@@ -253,6 +264,7 @@ def deploy(
     schedule: Optional[str],
     time_zone: Optional[str],
     extra_pip: Optional[str],
+    extra_env: Optional[str],
     debug: bool = False,
 ) -> None:
     """
@@ -274,6 +286,7 @@ def deploy(
         time_zone=time_zone,
         extra_pip=extra_pip,
         debug=debug,
+        extra_env=extra_env,
     )
 
     # The updateIngestionSource endpoint can actually do upserts as well.

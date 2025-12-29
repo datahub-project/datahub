@@ -152,7 +152,7 @@ def get_upstream_tables(
         reporter.m_query_resolver_errors += 1
         reporter.warning(
             title="Unknown M-Query Pattern",
-            message="Encountered a unknown M-Query Expression",
+            message="Encountered an unknown M-Query Expression",
             context=f"table-full-name={table.full_name}, expression={table.expression}, message={e}",
             exc=e,
         )

@@ -18,11 +18,12 @@ Smart Assertions are Anomaly Detection monitors that will train on the historica
 
 ## How do I create Smart Assertions?
 
-Today, you can create Smart Assertions for 3 types of assertions. To learn more about each one, click the respective links below:
+Today, you can create Smart Assertions for 4 types of assertions. To learn more about each one, click the respective links below:
 
 1. [Volume](./volume-assertions.md#anomaly-detection-with-smart-assertions-)
 2. [Freshness](./freshness-assertions.md#anomaly-detection-with-smart-assertions-)
 3. [Column Metrics](./column-assertions.md#anomaly-detection-with-smart-assertions-)
+4. [Custom SQL](./custom-sql-assertions.md#anomaly-detection-with-smart-assertions-)
 
 You can also create Freshness & Volume Smart Assertions in bulk on the [Data Health page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions):
 
@@ -63,7 +64,7 @@ When an anomaly is flagged by the smart assertion, you may hover over the result
 If an anomaly is not caught by our Smart Assertions, we recommend doing a few things:
 
 1. You can click `Mark as Anomaly` to flag this specific data point as an anomaly. This will exclude that data point from the training data.
-2. You should look back at the historical stats on the `Stats` tab of the table, and see if there were any periods of anomalous data that may be polluting the training set. If so, add an `Exclusion Window` in the **Settings tab** of the assertion, to remove this polluted period of data from the training data.
+2. Click **Tune Predictions** on the assertion, then exclude any “bad” historical periods from the training set (by adding an `Exclusion Window`). This is useful if older incidents or one-off events are polluting the model’s notion of “normal”.
 3. Finally, consider increasing the sensitivity of the assertion in the **Settings tab** which will reduce the range of allowable values.
 
 <p align="left">

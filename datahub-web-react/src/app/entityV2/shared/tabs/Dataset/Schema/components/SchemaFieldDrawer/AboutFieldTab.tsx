@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
+import FieldBusinessAttribute from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldBusinessAttribute';
 import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
 import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDetails';
 import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
@@ -103,7 +104,12 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}
-                            editorProps={{ uploadFile, ...uploadFileAnalyticsCallbacks }}
+                            editorProps={{
+                                uploadFileProps: {
+                                    onFileUpload: uploadFile,
+                                    ...uploadFileAnalyticsCallbacks,
+                                },
+                            }}
                         />
                         <FieldTags
                             expandedField={expandedField}
@@ -113,6 +119,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             expandedField={expandedField}
                             editableSchemaMetadata={properties.editableSchemaMetadata}
                         />
+                        <FieldBusinessAttribute expandedField={expandedField} refetch={refetch} />
                         <SidebarStructuredProperties
                             properties={{
                                 isSchemaSidebar: true,
