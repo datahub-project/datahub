@@ -117,12 +117,16 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
-# We need to install build-essential in order to build some Python packages (e.g. python-ldap)
+# We need to install build-essential in order to build some Python packages (e.g. python-ldap, kerberos)
+# gcc and g++ are explicitly listed to ensure compilers are available on all architectures
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install --no-install-recommends -y -qq \
+    apt-get update && apt-get install -y \
     default-jre-headless \
-    build-essential
+    build-essential \
+    gcc \
+    g++ \
+    make
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
@@ -133,33 +137,56 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-locked
 # INLINE-END
 
-FROM ingestion-base-${APP_ENV} AS add-code
+# =============================================================================
+# ADD-CODE STAGES - Separate stages for each variant to avoid caching issues
+# with parameterized FROM statements in multi-platform builds
+# =============================================================================
 
+FROM ingestion-base-slim AS add-code-slim
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
-
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN test -d /metadata-ingestion/src/datahub/metadata  # codegen must be run prior to building the image
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-FROM add-code AS install-slim
+FROM ingestion-base-full AS add-code-full
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+FROM ingestion-base-locked AS add-code-locked
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+# =============================================================================
+# FINAL STAGES - Ubuntu variants
+# =============================================================================
+
+FROM add-code-slim AS final-slim
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
-FROM add-code AS install-full
+FROM add-code-full AS final-full
 
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
 
-FROM add-code AS install-locked
+FROM add-code-locked AS final-locked
 
 # Locked variant: minimal install with s3-slim, network will be blocked
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 
@@ -167,6 +194,143 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
-FROM install-${APP_ENV} AS final
+# =============================================================================
+# ALPINE-BASED VARIANTS
+# =============================================================================
+
+# Alpine runtime base - minimal packages for running the application
+FROM alpine:3.22 AS alpine-base
+
+ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
+RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
+
+ENV HOME=/home/datahub
+RUN addgroup -g 1000 -S datahub && \
+    adduser -u 1000 -S datahub -G datahub -h $HOME && \
+    mkdir -p $HOME && \
+    chown -R datahub:datahub $HOME
+
+# Runtime packages only (no -dev packages, no build tools)
+RUN apk --no-cache --update-cache --available upgrade && \
+    apk --no-cache add \
+    bash \
+    curl \
+    ca-certificates \
+    libldap \
+    libsasl \
+    cyrus-sasl-gssapiv2 \
+    krb5-libs \
+    unixodbc \
+    libffi \
+    && apk --no-cache add librdkafka --repository=${ALPINE_REPO_URL}/edge/community
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+
+# Alpine build stage - extends runtime base with dev packages and build tools
+FROM alpine-base AS alpine-build
+
+ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
+# Alpine uses Python 3.11 for better musl wheel availability (pydantic-core, etc.)
+ARG PYTHON_VERSION=3.11
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+
+# Add dev packages and build tools (runtime deps already in base)
+RUN apk --no-cache add \
+    git \
+    openldap-dev \
+    cyrus-sasl-dev \
+    krb5-dev \
+    unixodbc-dev \
+    libffi-dev \
+    build-base \
+    clang \
+    compiler-rt \
+    && apk --no-cache add librdkafka-dev --repository=${ALPINE_REPO_URL}/edge/community
+
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+
+# clang required for python-build-standalone compatibility
+ENV CC=clang
+ENV CXX=clang++
+
+USER datahub
+WORKDIR $HOME
+RUN uv venv --python "$PYTHON_VERSION"
+
+
+# Build venv for slim Alpine variant
+# Note: Alpine slim uses minimal extras to avoid complex native dependencies
+# (e.g., spacy/blis which don't have pre-built musl wheels)
+FROM alpine-build AS install-slim-alpine
+
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+RUN uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
+    datahub --version
+
+
+# Build venv for locked Alpine variant
+FROM alpine-build AS install-locked-alpine
+
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+RUN uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
+    datahub --version
+
+
+# Final Alpine slim variant
+FROM alpine-base AS final-slim-alpine
+
+COPY --from=install-slim-alpine --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+COPY --from=install-slim-alpine --chown=datahub:datahub /home/datahub/.local/share/uv/python /home/datahub/.local/share/uv/python
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+
+USER datahub
+WORKDIR $HOME
+
+ENTRYPOINT [ "datahub" ]
+
+
+# Final Alpine locked variant (network blocked)
+FROM alpine-base AS final-locked-alpine
+
+COPY --from=install-locked-alpine --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+COPY --from=install-locked-alpine --chown=datahub:datahub /home/datahub/.local/share/uv/python /home/datahub/.local/share/uv/python
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+
+# Block network access to PyPI
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+USER datahub
+WORKDIR $HOME
+
+ENTRYPOINT [ "datahub" ]
+
+
+# =============================================================================
+# DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
+# =============================================================================
+
+FROM final-${APP_ENV} AS final
 
 ENTRYPOINT [ "datahub" ]
