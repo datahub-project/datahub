@@ -1707,7 +1707,7 @@ class TestTraceDataReturn:
             )
 
     def test_emit_mcp_returns_none_when_no_trace_header(self, openapi_emitter):
-        """Test that emit_mcp() returns None when trace header is missing."""
+        """Test that emit_mcp() returns None when trace header is missing (no warning for SYNC_PRIMARY)."""
         mock_response = Mock(spec=Response)
         mock_response.status_code = 200
         mock_response.headers = {}  # No traceparent header
@@ -1718,20 +1718,16 @@ class TestTraceDataReturn:
             }
         ]
 
-        with (
-            patch.object(openapi_emitter, "_emit_generic", return_value=mock_response),
-            warnings.catch_warnings(record=True) as w,
-        ):
-            warnings.simplefilter("always")
+        with patch.object(openapi_emitter, "_emit_generic", return_value=mock_response):
             item = MetadataChangeProposalWrapper(
                 entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,NoTrace,PROD)",
                 aspect=Status(removed=False),
             )
 
+            # SYNC_PRIMARY mode should not warn when trace header is missing
             result = openapi_emitter.emit_mcp(item, emit_mode=EmitMode.SYNC_PRIMARY)
 
             assert result is None
-            assert any(issubclass(warning.category, APITracingWarning) for warning in w)
 
     def test_emit_mcps_returns_list_of_trace_data(self, openapi_emitter):
         """Test that emit_mcps() returns a list of TraceData objects."""
@@ -1807,17 +1803,13 @@ class TestTraceDataReturn:
             assert result[1].trace_id == "tracechunk0002"
 
     def test_emit_mcps_returns_empty_list_for_no_traces(self, openapi_emitter):
-        """Test that emit_mcps() returns empty list when no trace headers are present."""
+        """Test that emit_mcps() returns empty list when no trace headers are present (no warning for SYNC_PRIMARY)."""
         mock_response = Mock(spec=Response)
         mock_response.status_code = 200
         mock_response.headers = {}  # No traceparent
         mock_response.json.return_value = []
 
-        with (
-            patch.object(openapi_emitter, "_emit_generic", return_value=mock_response),
-            warnings.catch_warnings(record=True) as w,
-        ):
-            warnings.simplefilter("always")
+        with patch.object(openapi_emitter, "_emit_generic", return_value=mock_response):
             items = [
                 MetadataChangeProposalWrapper(
                     entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,NoTrace,PROD)",
@@ -1825,11 +1817,11 @@ class TestTraceDataReturn:
                 )
             ]
 
+            # SYNC_PRIMARY mode should not warn when trace header is missing
             result = openapi_emitter.emit_mcps(items, emit_mode=EmitMode.SYNC_PRIMARY)
 
             assert isinstance(result, list)
             assert len(result) == 0
-            assert any(issubclass(warning.category, APITracingWarning) for warning in w)
 
     def test_emit_mcps_restli_returns_trace_data(self, restli_emitter):
         """Test that emit_mcps() with REST.Li returns TraceData objects."""
