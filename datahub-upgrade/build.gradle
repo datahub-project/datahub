@@ -159,10 +159,34 @@ task runNonBlocking(type: Exec) {
   environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
   environment "BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED", "false"
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS", "0"
   commandLine "java",
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
           "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateNonBlocking"
+}
+
+/**
+ * Runs specific non-blocking system upgrade(s) locally - FixEntityConsistency.
+ * Usage: ./gradlew :datahub-upgrade:runSingleNonBlocking
+ */
+task runFixEntityConsistency(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run specific non-blocking system upgrade(s) locally. Use -Pclassname=<classname> or comma-delimited list."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  environment "BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED", "false"
+  environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED", "true"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN", "false"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS", "0"
+
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateNonBlocking", "-n", "FixEntityConsistency"
 }
 
 task runCron(type: Exec) {
