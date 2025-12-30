@@ -93,6 +93,7 @@ dev_requirements = {
 integration_test_requirements = {
     *plugins["datahub-file"],
     *plugins["datahub-kafka"],
+    *plugins["airflow2"],  # Required for OpenLineage integration in tests
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake,amazon,google]>=2.0.2",
