@@ -217,20 +217,14 @@ jobs:
 
       - name: Check for use-build-pages-pip label
         id: check-label
+        env:
+          USE_CUSTOM_INDEX: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'use-build-pages-pip') }}
         run: |
-          USE_CUSTOM_INDEX="false"
-
-          # Check if PR has the "use-build-pages-pip" label
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
-            if echo "$LABELS" | grep -q "use-build-pages-pip"; then
-              USE_CUSTOM_INDEX="true"
-              echo "✓ Label 'use-build-pages-pip' detected - will use custom PyPI index"
-            else
-              echo "✗ Label 'use-build-pages-pip' not found - will use default PyPI index"
-            fi
+          if [ "$USE_CUSTOM_INDEX" == "true" ]; then
+            echo "✓ Label 'use-build-pages-pip' detected - will use custom PyPI index"
+          else
+            echo "✗ Label 'use-build-pages-pip' not found - will use default PyPI index"
           fi
-
           echo "use_custom_index=$USE_CUSTOM_INDEX" >> "$GITHUB_OUTPUT"
 
       - name: Set PyPI index URL

@@ -19,6 +19,8 @@ base_requirements = [
     "pytz",
     "types-croniter",
     "tzlocal",
+    "boto3",
+    "botocore!=1.23.0",
 ]
 
 stats_common = {"pandas", "pyarrow", "duckdb"}

@@ -163,6 +163,7 @@ boto3==1.35.76
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-cloud
     #   acryl-executor
     #   aws-msk-iam-sasl-signer-python
     #   celery
@@ -175,6 +176,7 @@ botocore==1.35.76
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-cloud
     #   acryl-executor
     #   aws-msk-iam-sasl-signer-python
     #   boto3
@@ -344,7 +346,9 @@ databricks-sdk==0.38.0
 databricks-sql-connector==2.9.6
     # via
     #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub
+    #   acryl-datahub-executor
 dataflows-tabulator==1.54.3
     # via
     #   -r requirements.txt
@@ -357,7 +361,6 @@ debugpy==1.8.9
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
-    #   acryl-datahub-executor
     #   ipykernel
 decorator==5.1.1
     # via
@@ -1236,6 +1239,7 @@ pyyaml==6.0.2
     #   moto
     #   responses
     #   uvicorn
+    #   watchdog
 pyzmq==26.2.0
     # via
     #   -r requirements.txt

@@ -142,22 +142,19 @@ RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/o
 USER datahub
 # INLINE-END
 
-
 # =============================================================================
-# PRE-BUILD BUNDLED INGESTION VENVS (optional; default off)
+# PRE-BUILD BUNDLED INGESTION VENVS - FULL VARIANT
 # =============================================================================
-FROM ingestion-base-slim AS bundled-vEnvs
-
+FROM ingestion-base-slim AS bundled-venvs-full
 USER 0
 
-# Control whether to build venvs in this image (default: is to build)
-ARG BUILD_BUNDLED_VENVS=true
-
-# Set up bundled venv configuration
+# Set up bundled venv configuration for FULL variant (with PySpark)
 ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 
 # Create venv directory and ensure ownership
@@ -169,33 +166,77 @@ COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_uni
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
+# Copy metadata-ingestion source (needed to build wheels)
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+
 # Make scripts executable
 RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
     chmod +x /usr/local/bin/build_bundled_venvs_unified.py
 
 USER datahub
 
-# Optionally build bundled venvs (keeps scripts in image regardless)
-RUN if [ "${BUILD_BUNDLED_VENVS}" = "true" ]; then \
-      /usr/local/bin/build_bundled_venvs_unified.sh ; \
-    else \
-      echo "Skipping bundled venv build (BUILD_BUNDLED_VENVS=${BUILD_BUNDLED_VENVS})" ; \
-    fi
+# Build bundled venvs using our self-contained script (standard s3 with PySpark)
+WORKDIR /tmp
+RUN /usr/local/bin/build_bundled_venvs_unified.sh
+
+USER datahub
 
 # =============================================================================
-# END DEFAULT VENVS SECTION
+# PRE-BUILD BUNDLED INGESTION VENVS - SLIM VARIANT
 # =============================================================================
+FROM ingestion-base-slim AS bundled-venvs-slim
+USER 0
 
+# Set up bundled venv configuration for SLIM variant (without PySpark)
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ARG BUNDLED_CLI_VERSION
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 
-FROM ingestion-base-${BASE_IMAGE} AS build
+# Create venv directory and ensure ownership
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy the self-contained venv build scripts into a stable location for reuse
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
+
+# Copy metadata-ingestion source (needed to build wheels)
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+
+# Make scripts executable
+RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
+    chmod +x /usr/local/bin/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Build bundled venvs using our self-contained script (s3-slim without PySpark)
+WORKDIR /tmp
+RUN /usr/local/bin/build_bundled_venvs_unified.sh
+
+USER datahub
+
+# =============================================================================
+# END BUNDLED VENVS SECTION
+# =============================================================================
+# Note: locked variant reuses bundled-venvs-slim (identical configuration)
+
+# =============================================================================
+# BUILD STAGE - FULL VARIANT
+# =============================================================================
+FROM ingestion-base-full AS build-full
 
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 
-COPY --from=bundled-vEnvs $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
-COPY --from=bundled-vEnvs /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/build_bundled_venvs_unified.py
-COPY --from=bundled-vEnvs /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/build_bundled_venvs_unified.sh
+COPY --from=bundled-venvs-full $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-venvs-full /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/build_bundled_venvs_unified.py
+COPY --from=bundled-venvs-full /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/build_bundled_venvs_unified.sh
 
 USER 0
 # Install Microsoft SQL Server ODBC driver
@@ -207,20 +248,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 
-# # Install JRE in the prod image
-# RUN apt-get update -y && \
-#     apt-get install -y --no-install-recommends openjdk-17-jre-headless && \
-#     rm -rf /var/lib/apt/lists/*
-
-# # Set JAVA_HOME environment variable
-# RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
-# ENV JAVA_HOME=/usr/lib/jvm/default-jvm
-
 # Install external deps in a cacheable layer
 USER datahub
 COPY ./datahub-executor/requirements.txt /datahub-executor/
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
-  grep -v "\-e " /datahub-executor/requirements.txt | uv pip install -r /dev/stdin
+  grep -v "^\-e " /datahub-executor/requirements.txt | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub ./datahub-executor /datahub-executor
@@ -242,7 +274,6 @@ RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
 
-
 # Embed build info into the image
 RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
 
@@ -257,21 +288,482 @@ RUN echo "Debug output:" && \
   uv pip list && \
   uv pip show acryl-datahub
 
-## Production Image Built From Build Image
-FROM build AS prod-install
+# =============================================================================
+# BUILD STAGE - SLIM/LOCKED BASE (shared by both slim and locked variants)
+# =============================================================================
+# This base stage contains all the common setup for slim and locked variants.
+# Uses s3-slim instead of s3 to avoid PySpark and its bundled JARs.
+FROM ingestion-base-slim AS build-slim-base
 
+USER root
+
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+
+# Copy bundled venvs from slim stage (used by both slim and locked)
+COPY --from=bundled-venvs-slim $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-venvs-slim /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --from=bundled-venvs-slim /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/
+
+USER 0
+# Install Microsoft SQL Server ODBC driver
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
+# Install jq, vim, and dockerize
+RUN apt-get update \
+    && apt-get install -y jq vim \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
+
+# Copy full source code
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+RUN chmod a+x /start_datahub_executor.sh
+RUN chmod a+x /health_status
+
+WORKDIR /datahub-executor
+
+# Modify pyproject.toml: use s3-slim instead of s3, remove unity-catalog (both require PySpark)
+RUN echo "=== Before sed ===" && grep "acryl-datahub\[" /datahub-executor/pyproject.toml && \
+  sed -i 's/\[base,snowflake,bigquery,redshift,s3,unity-catalog\]/[base,snowflake,bigquery,redshift,s3-slim]/g' /datahub-executor/pyproject.toml && \
+  echo "=== After sed ===" && grep "acryl-datahub\[" /datahub-executor/pyproject.toml
+
+ARG DOCKER_VERSION
+ARG RELEASE_VERSION
+
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+
+# Embed build info into the image
+RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
+
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+# Install all dependencies including editable packages
+# Using direct install instead of compile step for reliability
+# Use separate cache ID for slim variants to avoid cross-contamination
+USER datahub
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim \
+  uv pip install --reinstall -e /metadata-ingestion-modules/acryl-cloud -e .
+
+# Reinstall packages with extras to ensure entry points are created
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim \
+  uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
+
+# Verify critical binaries and no PySpark
+# Show package list first for debugging, then verify requirements
+RUN echo "=== Installed packages ===" && \
+  uv pip list && \
+  echo "=== Checking binaries ===" && \
+  ls -la $VIRTUAL_ENV/bin/ | grep -E "(watchmedo|uvicorn)" || true && \
+  echo "=== Verification ===" && \
+  python -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
+  which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
+  python -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
+  echo "=== All checks passed ==="
+
+# =============================================================================
+# BUILD STAGE - SLIM VARIANT
+# =============================================================================
+FROM build-slim-base AS build-slim
 USER datahub
 
-FROM build AS dev-install
+# =============================================================================
+# BUILD STAGE - LOCKED VARIANT
+# =============================================================================
+# Locked variant extends slim-base and blocks network access at runtime
+FROM build-slim-base AS build-locked
+# Block network access to PyPI - locked variant only uses bundled venvs
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+USER datahub
 
-# Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
+# =============================================================================
+# BUILD STAGE - SLIM UNBUNDLED VARIANT (no pre-built bundled venvs)
+# =============================================================================
+FROM ingestion-base-slim AS build-slim-unbundled
+
+USER 0
+# Install Microsoft SQL Server ODBC driver
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
+# Install jq, vim, and dockerize
+RUN apt-get update \
+    && apt-get install -y jq vim \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
+
+# Copy full source code
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+RUN chmod a+x /start_datahub_executor.sh
+RUN chmod a+x /health_status
+
+WORKDIR /datahub-executor
+
+# Modify pyproject.toml: use s3-slim instead of s3, remove unity-catalog (both require PySpark)
+RUN echo "=== Before sed ===" && grep "acryl-datahub\[" /datahub-executor/pyproject.toml && \
+  sed -i 's/\[base,snowflake,bigquery,redshift,s3,unity-catalog\]/[base,snowflake,bigquery,redshift,s3-slim]/g' /datahub-executor/pyproject.toml && \
+  echo "=== After sed ===" && grep "acryl-datahub\[" /datahub-executor/pyproject.toml
+
+ARG DOCKER_VERSION
+ARG RELEASE_VERSION
+
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+
+# Embed build info into the image
+RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
+
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+# Install all dependencies including editable packages - use --no-cache to avoid stale resolutions
+USER datahub
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim-unbundled \
+  uv pip install --reinstall -e /metadata-ingestion-modules/acryl-cloud -e .
+
+# Reinstall packages with extras to ensure entry points are created
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim-unbundled \
+  uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
+
+# Verify critical binaries (no PySpark in slim variants)
+RUN echo "=== Installed packages ===" && uv pip list && \
+  echo "=== Verification ===" && \
+  python -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
+  which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
+  python -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
+  echo "=== All checks passed ==="
+
+# =============================================================================
+# BUILD STAGE - FULL UNBUNDLED VARIANT (no pre-built bundled venvs)
+# =============================================================================
+FROM ingestion-base-full AS build-full-unbundled
+
+USER 0
+# Install Microsoft SQL Server ODBC driver
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
+# Install jq, vim, and dockerize
+RUN apt-get update \
+    && apt-get install -y jq vim \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
+
+# Install external deps in a cacheable layer first
+USER datahub
+COPY ./datahub-executor/requirements.txt /datahub-executor/
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
+  grep -v "^\-e " /datahub-executor/requirements.txt | uv pip install -r /dev/stdin
+USER 0
+
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+RUN chmod a+x /start_datahub_executor.sh
+RUN chmod a+x /health_status
+
+WORKDIR /datahub-executor
+
+ARG DOCKER_VERSION
+ARG RELEASE_VERSION
+
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+
+# Embed build info into the image
+RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
+
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+# Install all packages including editable
+USER datahub
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
+  uv pip install -r requirements.txt
+
+# Verify critical binaries
+RUN echo "=== Installed packages ===" && uv pip list && \
+  echo "=== Verification ===" && \
+  which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
+  which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
+  python -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
+  echo "=== All checks passed ==="
+
+# =============================================================================
+# PROD INSTALL STAGES - ONE PER BASE_IMAGE VARIANT
+# =============================================================================
+FROM build-full AS prod-install-full
+USER datahub
+
+FROM build-slim AS prod-install-slim
+USER datahub
+
+FROM build-locked AS prod-install-locked
+USER datahub
+
+FROM build-slim-unbundled AS prod-install-slim-unbundled
+USER datahub
+
+FROM build-full-unbundled AS prod-install-full-unbundled
+USER datahub
+
+# =============================================================================
+# DEV INSTALL STAGES - ONE PER BASE_IMAGE VARIANT
+# =============================================================================
+FROM build-full AS dev-install-full
+# Development stage: enables hot reload and remote debugging
 # See this excellent thread https://github.com/docker/cli/issues/1134
-
+RUN uv pip install debugpy
 ENV PYTHONPATH="/metadata-ingestion-modules/acryl-cloud/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion-modules/acryl-cloud/src"
 ENV DEBUGPY_ENABLED=true
 
-FROM ${APP_ENV}-install AS final
+FROM build-slim AS dev-install-slim
+RUN uv pip install debugpy
+ENV PYTHONPATH="/metadata-ingestion-modules/acryl-cloud/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion-modules/acryl-cloud/src"
+ENV DEBUGPY_ENABLED=true
+
+FROM build-slim-unbundled AS dev-install-slim-unbundled
+RUN uv pip install debugpy
+ENV PYTHONPATH="/metadata-ingestion-modules/acryl-cloud/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion-modules/acryl-cloud/src"
+ENV DEBUGPY_ENABLED=true
+
+FROM build-full-unbundled AS dev-install-full-unbundled
+RUN uv pip install debugpy
+ENV PYTHONPATH="/metadata-ingestion-modules/acryl-cloud/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion-modules/acryl-cloud/src"
+ENV DEBUGPY_ENABLED=true
+
+# =============================================================================
+# ALPINE-BASED VARIANTS
+# =============================================================================
+
+# Alpine runtime base - minimal packages for running the application
+FROM alpine:3.22 AS alpine-base
+
+ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
+RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
+
+ENV HOME=/home/datahub
+RUN addgroup -g 1000 -S datahub && \
+    adduser -u 1000 -S datahub -G datahub -h $HOME && \
+    mkdir -p $HOME && \
+    chown -R datahub:datahub $HOME
+
+# Install runtime dependencies only (no build tools, no vim due to CVE-2025-66476)
+RUN apk --no-cache add \
+    ca-certificates \
+    curl \
+    bash \
+    jq \
+    libffi \
+    libstdc++ \
+    && apk --no-cache add librdkafka --repository=${ALPINE_REPO_URL}/edge/community
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
+
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+
+# We always want to use the system CA bundle
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+# Alpine build stage - extends runtime base with dev packages and build tools
+FROM alpine-base AS alpine-build
+
+ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
+# Alpine uses Python 3.11 for better musl wheel availability
+ARG PYTHON_VERSION=3.11
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+ARG PIP_EXTRA_INDEX_URL=""
+
+# Add dev packages and build tools
+RUN apk --no-cache add \
+    python3 \
+    python3-dev \
+    py3-pip \
+    git \
+    wget \
+    unzip \
+    build-base \
+    libffi-dev \
+    openssl-dev \
+    linux-headers \
+    musl-dev \
+    gcc \
+    g++ \
+    make \
+    clang \
+    compiler-rt \
+    && apk --no-cache add librdkafka-dev --repository=${ALPINE_REPO_URL}/edge/community
+
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
+
+# clang required for python-build-standalone compatibility
+ENV CC=clang
+ENV CXX=clang++
+
+USER datahub
+WORKDIR $HOME
+RUN uv venv --python "$PYTHON_VERSION"
+
+# =============================================================================
+# VENV BUILDER - ALPINE VARIANT
+# Note: Alpine excludes snowflake/bigquery/redshift due to spacy/blis build issues on musl/ARM64
+# =============================================================================
+FROM alpine-build AS venv-builder-alpine
+
+USER 0
+
+# Copy source code needed for building
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+
+WORKDIR /datahub-executor
+
+# Modify pyproject.toml for Alpine compatibility:
+# 1. Use minimal extras (avoids classification_lib/spacy/blis)
+# 2. Remove prophet (requires CmdStan which doesn't build on musl/ARM64)
+RUN echo "=== Modifying pyproject.toml for Alpine ===" && \
+  sed -i 's/\[base,snowflake,bigquery,redshift,s3,unity-catalog\]/[base,datahub-rest,datahub-kafka,s3-slim]/g' /datahub-executor/pyproject.toml && \
+  sed -i '/"prophet==/d' /datahub-executor/pyproject.toml && \
+  echo "=== After modifications ===" && grep -E "acryl-datahub\[|prophet" /datahub-executor/pyproject.toml || echo "prophet removed"
+
+ARG DOCKER_VERSION
+ARG RELEASE_VERSION
+
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python3 /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+
+# Embed build info into the image
+RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
+
+# Install all dependencies (no cache mount for Alpine to avoid wheel compatibility issues)
+USER datahub
+RUN uv pip install --reinstall -e /metadata-ingestion-modules/acryl-cloud -e .
+
+# Reinstall packages with extras to ensure entry points are created
+RUN uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
+
+# Verify critical binaries and no PySpark
+RUN echo "=== Installed packages ===" && \
+  uv pip list && \
+  echo "=== Verification ===" && \
+  python3 -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
+  which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
+  python3 -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
+  echo "=== All checks passed ==="
+
+
+# =============================================================================
+# VENV BUILDER - LOCKED ALPINE VARIANT (network blocked in final stage)
+# =============================================================================
+FROM venv-builder-alpine AS venv-builder-locked-alpine
+USER datahub
+
+
+# =============================================================================
+# FINAL STAGE - ALPINE (runtime only, no build tools)
+# =============================================================================
+FROM alpine-base AS prod-install-alpine
+
+USER root
+
+# Copy the venv and Python from the builder stage
+COPY --from=venv-builder-alpine --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+COPY --from=venv-builder-alpine --chown=datahub:datahub /home/datahub/.local/share/uv/python /home/datahub/.local/share/uv/python
+
+# Copy source code
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+
+# Copy startup files and configs
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+RUN chmod a+x /start_datahub_executor.sh && chmod a+x /health_status
+
+# Copy build info from builder
+COPY --from=venv-builder-alpine /build_info.json /build_info.json
+
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+USER datahub
+WORKDIR /datahub-executor
+
+
+# =============================================================================
+# FINAL STAGE - LOCKED ALPINE (runtime only, network blocked)
+# =============================================================================
+FROM alpine-base AS prod-install-locked-alpine
+
+USER root
+
+# Copy the venv and Python from the builder stage
+COPY --from=venv-builder-locked-alpine --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+COPY --from=venv-builder-locked-alpine --chown=datahub:datahub /home/datahub/.local/share/uv/python /home/datahub/.local/share/uv/python
+
+# Copy source code
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+
+# Copy startup files and configs
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+RUN chmod a+x /start_datahub_executor.sh && chmod a+x /health_status
+
+# Copy build info from builder
+COPY --from=venv-builder-locked-alpine /build_info.json /build_info.json
+
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+# Block network access to PyPI - locked variant only uses bundled venvs
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+USER datahub
+WORKDIR /datahub-executor
+
+# =============================================================================
+# FINAL STAGE SELECTOR - Uses APP_ENV and BASE_IMAGE to select the right variant
+# =============================================================================
+ARG APP_ENV=prod
+ARG BASE_IMAGE=full
+
+FROM ${APP_ENV}-install-${BASE_IMAGE} AS final
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []

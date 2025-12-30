@@ -13,6 +13,16 @@ from typing import List, Tuple
 # Adding a new plug-in with a -slim variant has to be defined here
 PLUGINS_WITH_SLIM_VARIANT = ['s3']
 
+
+def run_shell_command(cmd: str) -> None:
+    """Run a shell command and raise on failure with detailed output."""
+    result = subprocess.run(['bash', '-c', cmd], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"     STDERR: {result.stderr}")
+        print(f"     STDOUT: {result.stdout}")
+        result.check_returncode()
+
+
 def generate_venv_mappings(plugins: List[str]) -> List[Tuple[str, str]]:
     """Generate simple venv name mappings using <plugin-name>-bundled pattern."""
     venv_mappings = []
@@ -50,7 +60,7 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
         # Install packages in the venv
         print(f"  → Installing base packages...")
         base_cmd = f'source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools'
-        subprocess.run(['bash', '-c', base_cmd], check=True, capture_output=True)
+        run_shell_command(base_cmd)
 
         # Determine which plugin extra to use
         # In slim mode, use -slim suffix for data lake sources to avoid PySpark
@@ -66,21 +76,25 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
             print(f"  → Using local /metadata-ingestion source")
             datahub_package = f'-e /metadata-ingestion[datahub-rest,datahub-kafka,file,{plugin_extra}]'
             constraints_path = os.path.join(venv_base_path, "constraints.txt")
-            install_cmd = f'source {venv_path}/bin/activate && uv pip install {datahub_package} --constraints {constraints_path}'
+            install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         else:
             datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin_extra}]=={bundled_cli_version}'
             constraints_path = os.path.join(venv_base_path, "constraints.txt")
             install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
-        subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
+        run_shell_command(install_cmd)
 
         print(f"  ✅ Successfully created {venv_name}")
         return True
 
     except subprocess.CalledProcessError as e:
         print(f"  ❌ Failed to create {venv_name}: {e}")
-        # Print stderr if available for debugging
-        if e.stderr:
-            print(f"     Error output: {e.stderr.decode()}")
+        # Print stderr/stdout if available for debugging
+        if hasattr(e, 'stderr') and e.stderr:
+            stderr_str = e.stderr if isinstance(e.stderr, str) else e.stderr.decode()
+            print(f"     STDERR: {stderr_str}")
+        if hasattr(e, 'stdout') and e.stdout:
+            stdout_str = e.stdout if isinstance(e.stdout, str) else e.stdout.decode()
+            print(f"     STDOUT: {stdout_str}")
         return False
 
 

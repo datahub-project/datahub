@@ -28,6 +28,8 @@ ext {
     python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
     // Saas only
     docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-executor' : 'datahub-executor'
+    // Set to true to include Alpine variants in the build (e.g., -PincludeAlpineVariants=true)
+    include_alpine_variants = project.getProperties().getOrDefault("includeAlpineVariants", "true").toBoolean()
 }
 
 task checkPythonVersion(type: Exec) {
@@ -139,19 +141,53 @@ docker {
     // For testing other variants locally, pass this property to override. We do not want to quickstarts to have to build all variants. CI will build all variants due to -PmatrixBuild=true
     defaultVariant = project.getProperties().getOrDefault('datahubExecutorVariant', 'full')
 
-    variants = [
-      "slim": [suffix: "-slim", args: [BUILD_BUNDLED_VENVS: 'true', BASE_IMAGE: 'slim']],
-      "slim-unbundled": [suffix: "-slim-unbundled", args: [BUILD_BUNDLED_VENVS: 'false', BASE_IMAGE: 'slim']],
-      "full-unbundled":  [suffix: "-unbundled", args: [BUILD_BUNDLED_VENVS: 'false', BASE_IMAGE: 'full']],
-      "full": [suffix: "", args: [BUILD_BUNDLED_VENVS: 'true', BASE_IMAGE: 'full']]
+    // Base variants (Ubuntu-based)
+    def baseVariants = [
+      "full": [suffix: "", args: [BASE_IMAGE: 'full']],
+      "slim": [suffix: "-slim", args: [BASE_IMAGE: 'slim']],
+      "locked": [suffix: "-locked", args: [BASE_IMAGE: 'locked']],
+      "slim-unbundled": [suffix: "-slim-unbundled", args: [BASE_IMAGE: 'slim-unbundled']],
+      "full-unbundled":  [suffix: "-unbundled", args: [BASE_IMAGE: 'full-unbundled']]
     ]
 
+    // Alpine variants (only included when -PincludeAlpineVariants=true)
+    def alpineVariants = [
+      "alpine": [suffix: "-alpine", args: [BASE_IMAGE: 'alpine']],
+      "locked-alpine": [suffix: "-locked-alpine", args: [BASE_IMAGE: 'locked-alpine']]
+    ]
+
+    variants = include_alpine_variants ? baseVariants + alpineVariants : baseVariants
+
     // Add build args if they are defined (needed for some CI or enterprise environments)
+    // Validate URLs to prevent injection of malicious values into Docker build args
+    def validateUrl = { String url, String propName ->
+        if (url == null || url.trim().isEmpty()) {
+            return false
+        }
+        // Only allow http:// or https:// URLs
+        if (!url.matches('^https?://[^\\s]+$')) {
+            throw new GradleException("Invalid URL for ${propName}: must be a valid http:// or https:// URL")
+        }
+        return true
+    }
+
     if (project.hasProperty('pipMirrorUrl')) {
-        dockerBuildArgs.PIP_MIRROR_URL = project.getProperty('pipMirrorUrl')
+        def url = project.getProperty('pipMirrorUrl')
+        if (validateUrl(url, 'pipMirrorUrl')) {
+            dockerBuildArgs.PIP_MIRROR_URL = url
+        }
+    }
+    if (project.hasProperty('pipExtraIndexUrl')) {
+        def url = project.getProperty('pipExtraIndexUrl')
+        if (validateUrl(url, 'pipExtraIndexUrl')) {
+            dockerBuildArgs.PIP_EXTRA_INDEX_URL = url
+        }
     }
     if (project.hasProperty('debianAptRepositoryUrl')) {
-        dockerBuildArgs.DEBIAN_REPO_URL = project.getProperty('debianAptRepositoryUrl')
+        def url = project.getProperty('debianAptRepositoryUrl')
+        if (validateUrl(url, 'debianAptRepositoryUrl')) {
+            dockerBuildArgs.DEBIAN_REPO_URL = url
+        }
     }
 
     buildArgs(dockerBuildArgs)
