@@ -682,7 +682,13 @@ class DataHubRestEmitter(Closeable, Emitter):
                 response = self._emit_generic(
                     request.url, payload=request.payload, method=request.method
                 )
-                trace_data = extract_trace_data(response) if response else None
+                trace_data = (
+                    extract_trace_data(
+                        response, warn_on_missing=self._should_trace(emit_mode)
+                    )
+                    if response
+                    else None
+                )
 
         else:
             if mcp.changeType == ChangeTypeClass.DELETE:
@@ -711,7 +717,11 @@ class DataHubRestEmitter(Closeable, Emitter):
 
             response = self._emit_generic(url, payload)
             trace_data = (
-                extract_trace_data_from_mcps(response, [mcp]) if response else None
+                extract_trace_data_from_mcps(
+                    response, [mcp], warn_on_missing=self._should_trace(emit_mode)
+                )
+                if response
+                else None
             )
 
         if trace_data and self._should_trace(emit_mode):
@@ -795,7 +805,13 @@ class DataHubRestEmitter(Closeable, Emitter):
                 response = self._emit_generic(
                     url, payload=_Chunk.join(chunk), method=method
                 )
-                data = extract_trace_data(response) if response else None
+                data = (
+                    extract_trace_data(
+                        response, warn_on_missing=self._should_trace(emit_mode)
+                    )
+                    if response
+                    else None
+                )
                 if data is not None:
                     trace_data.append(data)
 
@@ -870,7 +886,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             payload = json.dumps(payload_dict)
             response = self._emit_generic(url, payload)
             data = (
-                extract_trace_data_from_mcps(response, mcp_chunk) if response else None
+                extract_trace_data_from_mcps(
+                    response, mcp_chunk, warn_on_missing=self._should_trace(emit_mode)
+                )
+                if response
+                else None
             )
             if data is not None:
                 trace_data.append(data)
