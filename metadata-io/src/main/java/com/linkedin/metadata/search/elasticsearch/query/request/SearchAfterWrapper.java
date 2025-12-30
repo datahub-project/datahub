@@ -6,9 +6,11 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.opensearch.search.SearchHit;
 
 @Data
 @AllArgsConstructor
@@ -34,5 +36,22 @@ public class SearchAfterWrapper implements Serializable {
     } catch (IOException e) {
       throw new IllegalStateException("Unable to encode SearchAfterWrapper as scrollId: " + this);
     }
+  }
+
+  @Nullable
+  public static String nextScrollId(SearchHit[] searchHits, int requestedCount) {
+    return nextScrollId(searchHits, requestedCount, null, 0L);
+  }
+
+  @Nullable
+  public static String nextScrollId(
+      SearchHit[] searchHits, int requestedCount, @Nullable String pitId, long expirationTime) {
+    if (searchHits.length == requestedCount && searchHits.length > 0) {
+      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
+      if (sort != null && sort.length > 0) {
+        return new SearchAfterWrapper(sort, pitId, expirationTime).toScrollId();
+      }
+    }
+    return null;
   }
 }
