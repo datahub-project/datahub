@@ -855,6 +855,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "server.servlet.context-path",
           "datahub.gms.basePath",
           "datahub.gms.basePathEnabled",
+          // Aspect size validation configuration
+          "datahub.validation.aspectSize.prePatch.enabled",
+          "datahub.validation.aspectSize.prePatch.warnSizeBytes",
+          "datahub.validation.aspectSize.prePatch.maxSizeBytes",
+          "datahub.validation.aspectSize.prePatch.oversizedRemediation",
+          "datahub.validation.aspectSize.postPatch.enabled",
+          "datahub.validation.aspectSize.postPatch.warnSizeBytes",
+          "datahub.validation.aspectSize.postPatch.maxSizeBytes",
+          "datahub.validation.aspectSize.postPatch.oversizedRemediation",
           // CDC (Change Data Capture) configuration properties
           "kafka.serde.cdc.key.serializer",
           "kafka.serde.cdc.key.deserializer",
