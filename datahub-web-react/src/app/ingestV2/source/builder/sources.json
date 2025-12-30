@@ -310,6 +310,14 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:keycloak",
+        "name": "keycloak",
+        "displayName": "Keycloak",
+        "description": "Import Users and Groups from Keycloak.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/keycloak/",
+        "recipe": "source:\n    type: keycloak\n    config:\n        # API Endpoint\n        server_url: https://keycloak.example.com\n        realm: myrealm\n        \n        # Credentials (Service Account)\n        client_id: your-client-id\n        client_secret: your-client-secret\n        \n        ingest_users: true\n        ingest_groups: true\n        ingest_group_membership: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:vertica",
         "name": "vertica",
         "displayName": "Vertica",

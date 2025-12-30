@@ -1,0 +1,21 @@
+source:
+  type: keycloak
+  config:
+    # Keycloak Coordinates
+    server_url: "https://keycloak.example.com"
+    realm: "myrealm"
+
+    # Credentials
+    client_id: "myclient"
+    client_secret: "mysecret"
+
+    # Optional Configuration
+    verify_ssl: true
+    ingest_users: true
+    ingest_groups: true
+    ingest_group_membership: true
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
