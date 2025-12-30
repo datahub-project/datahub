@@ -93,8 +93,6 @@ class TestDremioContainerFiltering:
 
     def test_wildcard_patterns(self, dremio_api):
         """Test wildcard pattern handling"""
-        from datahub.configuration.common import AllowDenyPattern
-
         dremio_api.filter.config.schema_pattern = AllowDenyPattern(
             allow=[".*"], deny=[]
         )
@@ -102,7 +100,6 @@ class TestDremioContainerFiltering:
         assert dremio_api.filter.should_include_container([], "any_space")
         assert dremio_api.filter.should_include_container(["any_space"], "any_folder")
 
-        # Test with specific wildcard in middle
         dremio_api.filter.config.schema_pattern = AllowDenyPattern(
             allow=["prod.*.public"], deny=[]
         )
@@ -137,7 +134,6 @@ class TestDremioContainerFiltering:
             allow=[".*"], deny=[]
         )
 
-        # Should allow everything when allow pattern is .*
         assert dremio_api.filter.should_include_container([], "any_space")
         assert dremio_api.filter.should_include_container(["any_space"], "any_folder")
         assert dremio_api.filter.should_include_container(["completely"], "different")
@@ -150,7 +146,6 @@ class TestDremioContainerFiltering:
         )
 
         assert dremio_api.filter.should_include_container(["prod"], "data")
-        # Should match the partial path even though pattern doesn't have wildcards
         assert dremio_api.filter.should_include_container(["prod", "data"], "sales")
         assert not dremio_api.filter.should_include_container([], "dev")
         assert not dremio_api.filter.should_include_container(["dev", "data"], "sales")
@@ -162,7 +157,6 @@ class TestDremioContainerFiltering:
         )
 
         assert dremio_api.filter.should_include_container(["prod"], "data")
-        # Should match the partial path even though pattern doesn't have wildcards
         assert not dremio_api.filter.should_include_container(["prod", "data"], "sales")
         assert not dremio_api.filter.should_include_container([], "dev")
         assert not dremio_api.filter.should_include_container(["test"], "data")

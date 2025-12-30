@@ -71,7 +71,6 @@ class DremioFilter:
     ) -> bool:
         """
         Check if a schema (container path) is allowed based on schema_pattern and system schema filtering.
-        Uses the standard is_schema_allowed function for consistency with other platforms.
 
         Args:
             schema_path: List of path components (e.g., ['source', 'folder', 'subfolder'])
@@ -88,59 +87,44 @@ class DremioFilter:
         if not full_path_components:
             return True
 
-        # Construct full schema name for system schema filtering
         full_schema_name = ".".join(full_path_components).lower()
 
-        # First, check if it's a system schema (excluded unless include_system_tables is True)
         if not self.config.include_system_tables and not AllowDenyPattern(
             deny=DREMIO_SYSTEM_TABLES_PATTERN
         ).allowed(full_schema_name):
             return False
 
-        # For root containers, use pattern matching that allows hierarchical prefixes
         if len(full_path_components) == 1:
             container_name = full_path_components[0]
 
-            # Check if container name directly matches any allow pattern
             if self.config.schema_pattern.allowed(container_name):
                 return True
 
-            # Check if container is a prefix of any allow pattern (for hierarchical patterns)
-            # e.g., "prod" should be allowed if pattern is "prod.data.*"
+            # Allow root containers that are prefixes of hierarchical patterns
             for pattern in self.config.schema_pattern.allow:
                 if "." in pattern and pattern.lower().startswith(
                     container_name.lower() + "."
                 ):
-                    # Container is a prefix - check if it's NOT in deny list
-                    # Create a pattern with only deny rules to check exclusion
                     deny_only = AllowDenyPattern(
-                        allow=[".*"],  # Allow everything by default
+                        allow=[".*"],
                         deny=self.config.schema_pattern.deny,
                     )
                     if deny_only.allowed(container_name):
                         return True
             return False
         else:
-            # For nested containers, check direct pattern match and prefix matching for open-ended patterns
             current_path = full_schema_name
 
-            # Check if current path directly matches any allow pattern
             if self.config.schema_pattern.allowed(current_path):
                 return True
 
-            # Check if this path is a prefix of any allow pattern that ends with .*
-            # e.g., path="sdlc.mart" should match pattern="sdlc.mart.analytics.*"
-            # but path="prod.customer.private" should NOT match pattern="prod.*.public"
+            # Allow intermediate paths for open-ended patterns (ending with .*)
             for pattern in self.config.schema_pattern.allow:
-                # Only allow prefix matching for patterns ending with .* (open-ended patterns)
                 if pattern.endswith(".*"):
-                    # Remove the .* suffix to get the prefix pattern
-                    pattern_prefix = pattern[:-2]  # Remove .*
-                    # Check if pattern starts with current path + "." (path is a proper prefix)
+                    pattern_prefix = pattern[:-2]
                     if pattern_prefix.lower().startswith(current_path.lower() + "."):
-                        # This path is a prefix - check deny patterns
                         deny_only = AllowDenyPattern(
-                            allow=[".*"],  # Allow everything by default
+                            allow=[".*"],
                             deny=self.config.schema_pattern.deny,
                         )
                         if deny_only.allowed(current_path):
@@ -161,19 +145,16 @@ class DremioFilter:
         Returns:
             True if the dataset should be included, False otherwise
         """
-        # Construct fully qualified name: source.folder.subfolder.table
         if schema_path:
             full_dataset_name = f"{'.'.join(schema_path)}.{dataset_name}".lower()
         else:
             full_dataset_name = dataset_name.lower()
 
-        # First, check if it's a system table (excluded unless include_system_tables is True)
         if not self.config.include_system_tables and not AllowDenyPattern(
             deny=DREMIO_SYSTEM_TABLES_PATTERN
         ).allowed(full_dataset_name):
             return False
 
-        # Then check the user-configured dataset pattern
         return self.config.dataset_pattern.allowed(full_dataset_name)
 
     def should_include_container(self, path: List[str], name: str) -> bool:
@@ -191,14 +172,9 @@ class DremioAPIOperations:
         self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
     ) -> None:
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
-
-        # Initialize the new filter
         self.filter = DremioFilter(connection_args, report)
-
-        # Keep old fields for backward compatibility during transition
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
-
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.start_time = connection_args.start_time
