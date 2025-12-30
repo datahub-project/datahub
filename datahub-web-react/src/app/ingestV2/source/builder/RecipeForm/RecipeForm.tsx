@@ -9,7 +9,8 @@ import YAML from 'yamljs';
 import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import FormField from '@app/ingestV2/source/builder/RecipeForm/FormField';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import TestConnectionModal from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionModal';
+import { FilterRecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS, RecipeSections } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
@@ -89,7 +90,7 @@ function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string
     );
 }
 
-function shouldRenderFilterSectionHeader(field: RecipeField, index: number, filterFields: RecipeField[]) {
+function shouldRenderFilterSectionHeader(field: FilterRecipeField, index: number, filterFields: FilterRecipeField[]) {
     if (index === 0 && field.section) return true;
     if (field.section && filterFields[index - 1].section !== field.section) return true;
     return false;
@@ -106,17 +107,16 @@ interface Props {
     selectedSource?: IngestionSource;
 }
 
-function RecipeForm(props: Props) {
-    const {
-        state,
-        isEditing,
-        displayRecipe,
-        sourceConfigs,
-        setStagedRecipe,
-        onClickNext,
-        goToPrevious,
-        selectedSource,
-    } = props;
+function RecipeForm({
+    state,
+    isEditing,
+    displayRecipe,
+    sourceConfigs,
+    setStagedRecipe,
+    onClickNext,
+    goToPrevious,
+    selectedSource,
+}: Props) {
     const { type } = state;
     const version = state.config?.version;
     const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
@@ -183,6 +183,7 @@ function RecipeForm(props: Props) {
                                 sourceConfigs={sourceConfigs}
                                 version={version}
                                 selectedSource={selectedSource}
+                                renderModal={(props) => <TestConnectionModal {...props} />}
                             />
                         </TestConnectionWrapper>
                     )}
