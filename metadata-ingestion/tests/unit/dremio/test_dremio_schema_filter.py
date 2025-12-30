@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.dremio.dremio_api import DremioAPIOperations
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
@@ -32,8 +33,9 @@ class TestDremioContainerFiltering:
 
     def test_basic_allow_pattern(self, dremio_api):
         """Test basic allow pattern matching"""
-        dremio_api.filter.config.schema_pattern.allow = ["test"]
-        dremio_api.filter.config.schema_pattern.deny = []
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["test"], deny=[]
+        )
 
         assert dremio_api.filter.should_include_container([], "test")
         assert dremio_api.filter.should_include_container(["test"], "subfolder")
@@ -45,7 +47,9 @@ class TestDremioContainerFiltering:
 
     def test_basic_deny_pattern(self, dremio_api):
         """Test basic deny pattern matching"""
-        dremio_api.filter.config.schema_pattern.allow = [".*"]
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=[".*"], deny=dremio_api.filter.config.schema_pattern.deny
+        )
         dremio_api.filter.config.schema_pattern.deny = ["test_space.*"]
 
         assert not dremio_api.filter.should_include_container([], "test_space")
@@ -58,8 +62,9 @@ class TestDremioContainerFiltering:
 
     def test_hierarchical_matching(self, dremio_api):
         """Test matching with hierarchical paths"""
-        dremio_api.filter.config.schema_pattern.allow = ["prod.data.*"]
-        dremio_api.filter.config.schema_pattern.deny = []
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["prod.data.*"], deny=[]
+        )
 
         assert dremio_api.filter.should_include_container([], "prod")
         assert dremio_api.filter.should_include_container(["prod"], "data")
@@ -71,7 +76,9 @@ class TestDremioContainerFiltering:
 
     def test_allow_and_deny_patterns(self, dremio_api):
         """Test combination of allow and deny patterns"""
-        dremio_api.filter.config.schema_pattern.allow = ["prod.*"]
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["prod.*"], deny=dremio_api.filter.config.schema_pattern.deny
+        )
         dremio_api.filter.config.schema_pattern.deny = ["prod.internal.*"]
 
         assert dremio_api.filter.should_include_container([], "prod")
@@ -86,14 +93,19 @@ class TestDremioContainerFiltering:
 
     def test_wildcard_patterns(self, dremio_api):
         """Test wildcard pattern handling"""
-        dremio_api.filter.config.schema_pattern.allow = [".*"]
-        dremio_api.filter.config.schema_pattern.deny = []
+        from datahub.configuration.common import AllowDenyPattern
+
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=[".*"], deny=[]
+        )
 
         assert dremio_api.filter.should_include_container([], "any_space")
         assert dremio_api.filter.should_include_container(["any_space"], "any_folder")
 
         # Test with specific wildcard in middle
-        dremio_api.filter.config.schema_pattern.allow = ["prod.*.public"]
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["prod.*.public"], deny=[]
+        )
         assert dremio_api.filter.should_include_container(
             ["prod", "customer"], "public"
         )
@@ -107,8 +119,9 @@ class TestDremioContainerFiltering:
 
     def test_case_insensitive_matching(self, dremio_api):
         """Test case-insensitive pattern matching"""
-        dremio_api.filter.config.schema_pattern.allow = ["PROD.*"]
-        dremio_api.filter.config.schema_pattern.deny = []
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["PROD.*"], deny=[]
+        )
 
         assert dremio_api.filter.should_include_container([], "prod")
         assert dremio_api.filter.should_include_container([], "PROD")
@@ -120,8 +133,9 @@ class TestDremioContainerFiltering:
 
     def test_empty_patterns(self, dremio_api):
         """Test behavior with empty patterns"""
-        dremio_api.filter.config.schema_pattern.allow = [".*"]
-        dremio_api.filter.config.schema_pattern.deny = []
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=[".*"], deny=[]
+        )
 
         # Should allow everything when allow pattern is .*
         assert dremio_api.filter.should_include_container([], "any_space")
@@ -131,8 +145,9 @@ class TestDremioContainerFiltering:
 
     def test_partial_path_matching(self, dremio_api):
         """Test matching behavior with partial paths"""
-        dremio_api.filter.config.schema_pattern.allow = ["^pr.*.data.*"]
-        dremio_api.filter.config.schema_pattern.deny = []
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["^pr.*.data.*"], deny=[]
+        )
 
         assert dremio_api.filter.should_include_container(["prod"], "data")
         # Should match the partial path even though pattern doesn't have wildcards
@@ -142,8 +157,9 @@ class TestDremioContainerFiltering:
 
     def test_partial_start_end_chars(self, dremio_api):
         """Test matching behavior with partial paths"""
-        dremio_api.filter.config.schema_pattern.allow = ["pr.*.data$"]
-        dremio_api.filter.config.schema_pattern.deny = []
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["pr.*.data$"], deny=[]
+        )
 
         assert dremio_api.filter.should_include_container(["prod"], "data")
         # Should match the partial path even though pattern doesn't have wildcards

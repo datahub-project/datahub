@@ -16,7 +16,6 @@ from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
@@ -98,18 +97,55 @@ class DremioFilter:
         ).allowed(full_schema_name):
             return False
 
-        # Use is_schema_allowed for all cases to handle hierarchical prefix matching
-        schema_name = full_path_components[-1]
-        parent_path = (
-            ".".join(full_path_components[:-1]) if len(full_path_components) > 1 else ""
-        )
+        # For root containers, use pattern matching that allows hierarchical prefixes
+        if len(full_path_components) == 1:
+            container_name = full_path_components[0]
 
-        return is_schema_allowed(
-            self.config.schema_pattern,
-            schema_name,
-            parent_path,
-            True,  # Always use fully qualified names for Dremio's hierarchical structure
-        )
+            # Check if container name directly matches any allow pattern
+            if self.config.schema_pattern.allowed(container_name):
+                return True
+
+            # Check if container is a prefix of any allow pattern (for hierarchical patterns)
+            # e.g., "prod" should be allowed if pattern is "prod.data.*"
+            for pattern in self.config.schema_pattern.allow:
+                if "." in pattern and pattern.lower().startswith(
+                    container_name.lower() + "."
+                ):
+                    # Container is a prefix - check if it's NOT in deny list
+                    # Create a pattern with only deny rules to check exclusion
+                    deny_only = AllowDenyPattern(
+                        allow=[".*"],  # Allow everything by default
+                        deny=self.config.schema_pattern.deny,
+                    )
+                    if deny_only.allowed(container_name):
+                        return True
+            return False
+        else:
+            # For nested containers, check direct pattern match and prefix matching for open-ended patterns
+            current_path = full_schema_name
+
+            # Check if current path directly matches any allow pattern
+            if self.config.schema_pattern.allowed(current_path):
+                return True
+
+            # Check if this path is a prefix of any allow pattern that ends with .*
+            # e.g., path="sdlc.mart" should match pattern="sdlc.mart.analytics.*"
+            # but path="prod.customer.private" should NOT match pattern="prod.*.public"
+            for pattern in self.config.schema_pattern.allow:
+                # Only allow prefix matching for patterns ending with .* (open-ended patterns)
+                if pattern.endswith(".*"):
+                    # Remove the .* suffix to get the prefix pattern
+                    pattern_prefix = pattern[:-2]  # Remove .*
+                    # Check if pattern starts with current path + "." (path is a proper prefix)
+                    if pattern_prefix.lower().startswith(current_path.lower() + "."):
+                        # This path is a prefix - check deny patterns
+                        deny_only = AllowDenyPattern(
+                            allow=[".*"],  # Allow everything by default
+                            deny=self.config.schema_pattern.deny,
+                        )
+                        if deny_only.allowed(current_path):
+                            return True
+            return False
 
     def is_dataset_allowed(
         self, dataset_name: str, schema_path: List[str], dataset_type: str = "table"
