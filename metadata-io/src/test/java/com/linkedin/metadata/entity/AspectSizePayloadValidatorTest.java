@@ -226,6 +226,54 @@ public class AspectSizePayloadValidatorTest {
     }
   }
 
+  @Test
+  public void testValidationWithWarningThreshold() {
+    // Test warning threshold: size above warning but below max - should NOT throw
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setWarnSizeBytes(1000L); // Warn at 1KB
+    postPatchConfig.setMaxSizeBytes(10000L); // Block at 10KB
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPostPatch(postPatchConfig);
+
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+
+    EntityAspect serializedAspect = new EntityAspect();
+    serializedAspect.setMetadata(generateLargeMetadata(5000)); // 5KB - above warn, below max
+
+    // Should NOT throw - only logs warning
+    validator.validatePayload(systemAspect, serializedAspect);
+
+    // Should not add any deletion requests
+    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    assertEquals(deletions.size(), 0);
+  }
+
+  @Test
+  public void testValidationWithNullWarningThreshold() {
+    // Test that null warnSizeBytes is handled correctly
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setWarnSizeBytes(null); // No warning threshold
+    postPatchConfig.setMaxSizeBytes(10000L);
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPostPatch(postPatchConfig);
+
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+
+    EntityAspect serializedAspect = new EntityAspect();
+    serializedAspect.setMetadata(generateLargeMetadata(5000)); // 5KB
+
+    // Should pass - no warning threshold set
+    validator.validatePayload(systemAspect, serializedAspect);
+
+    // Should not add any deletion requests
+    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    assertEquals(deletions.size(), 0);
+  }
+
   private AspectSizeValidationConfig createEnabledConfig(
       long maxSizeBytes, OversizedAspectRemediation remediation) {
     AspectSizeValidationConfig config = new AspectSizeValidationConfig();

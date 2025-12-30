@@ -423,6 +423,56 @@ public class EbeanSystemAspectTest {
     }
   }
 
+  @Test
+  public void testPrePatchValidationWithWarningThreshold() throws Exception {
+    // Test warning threshold: size above warning but below max - should NOT throw
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setWarnSizeBytes(500L); // Warn at 500 bytes
+    prePatchConfig.setMaxSizeBytes(2000L); // Block at 2000 bytes
+    prePatchConfig.setOversizedRemediation(
+        com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+
+    // Create metadata that exceeds warning but not max
+    when(ebeanAspectV2.getMetadata())
+        .thenReturn(generateLargeMetadata(1000)); // 1KB - above warn, below max
+
+    // Should NOT throw - only logs warning
+    EbeanSystemAspect aspect =
+        EbeanSystemAspect.builder()
+            .validationConfig(config)
+            .forUpdate(ebeanAspectV2, entityRegistry);
+    assertNotNull(aspect);
+  }
+
+  @Test
+  public void testPrePatchValidationWithNullWarningThreshold() throws Exception {
+    // Test that null warnSizeBytes is handled correctly
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setWarnSizeBytes(null); // No warning threshold
+    prePatchConfig.setMaxSizeBytes(2000L);
+    prePatchConfig.setOversizedRemediation(
+        com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
+
+    // Should pass - no warning threshold set
+    EbeanSystemAspect aspect =
+        EbeanSystemAspect.builder()
+            .validationConfig(config)
+            .forUpdate(ebeanAspectV2, entityRegistry);
+    assertNotNull(aspect);
+  }
+
   private com.linkedin.metadata.config.AspectSizeValidationConfig createPrePatchConfig(
       long maxSizeBytes, com.linkedin.metadata.config.OversizedAspectRemediation remediation) {
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
