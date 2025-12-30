@@ -670,9 +670,10 @@ USER datahub
 RUN uv pip install --reinstall -e /metadata-ingestion-modules/acryl-cloud -e .
 
 # Reinstall packages with extras to ensure entry points are created
-RUN uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
+# Also install sqlglot explicitly (needed by executor but not in minimal extras)
+RUN uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2" "sqlglot>=23.0.0"
 
-# Verify critical binaries and no PySpark
+# Verify critical binaries, no PySpark, and sqlglot available
 RUN echo "=== Installed packages ===" && \
   uv pip list && \
   echo "=== Verification ===" && \
@@ -680,6 +681,7 @@ RUN echo "=== Installed packages ===" && \
   which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
   which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
   python3 -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
+  python3 -c "import sqlglot" || (echo "FAIL: sqlglot not importable" && exit 1) && \
   echo "=== All checks passed ==="
 
 
@@ -756,6 +758,208 @@ ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 USER datahub
 WORKDIR /datahub-executor
+
+
+# =============================================================================
+# WOLFI-BASED VARIANTS (glibc-based, supports full dependency set)
+# =============================================================================
+
+# Wolfi runtime base - minimal packages for running the application
+# Uses glibc instead of musl, enabling full dependency support
+FROM cgr.dev/chainguard/wolfi-base:latest AS wolfi-base
+
+ENV HOME=/home/datahub
+USER root
+RUN addgroup -g 1000 datahub && \
+    adduser -u 1000 -G datahub -h $HOME -D datahub && \
+    mkdir -p $HOME && \
+    chown -R datahub:datahub $HOME
+
+# Install runtime dependencies
+RUN apk update && apk add --no-cache \
+    ca-certificates \
+    curl \
+    bash \
+    jq \
+    libffi \
+    libstdc++ \
+    dockerize \
+    uv
+
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+
+# We always want to use the system CA bundle
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+
+# Wolfi build stage - extends runtime base with dev packages and build tools
+FROM wolfi-base AS wolfi-build
+
+ARG PYTHON_VERSION=3.11
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
+ARG PIP_EXTRA_INDEX_URL=""
+
+USER root
+# Add Python 3.11 and dev packages
+# Note: Wolfi bundles C++ in gcc, no separate g++ package - use libstdc++-dev for C++ headers
+RUN apk update && apk add --no-cache \
+    python-3.11 \
+    python-3.11-dev \
+    py3.11-pip \
+    git \
+    wget \
+    unzip \
+    build-base \
+    libffi-dev \
+    openssl-dev \
+    linux-headers \
+    libstdc++-dev
+
+# Configure pip/uv index URLs
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uv pip config set global.index-url ${PIP_MIRROR_URL} || true ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uv pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} || true ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
+
+USER datahub
+WORKDIR $HOME
+RUN uv venv --python "3.11"
+
+
+# =============================================================================
+# VENV BUILDER - WOLFI VARIANT
+# Uses full extras since glibc supports all dependencies including prophet
+# =============================================================================
+FROM wolfi-build AS venv-builder-wolfi
+
+USER root
+
+# Copy source code needed for building
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+COPY --chown=datahub ./docker/snippets/ingestion/constraints.txt /tmp/constraints.txt
+
+WORKDIR /datahub-executor
+
+# Modify pyproject.toml for Wolfi: use s3-slim to avoid PySpark, but keep full platform support
+# Unlike Alpine, we can keep snowflake/bigquery/redshift since glibc supports spacy/blis
+RUN echo "=== Modifying pyproject.toml for Wolfi ===" && \
+  sed -i 's/\[base,snowflake,bigquery,redshift,s3,unity-catalog\]/[base,snowflake,bigquery,redshift,s3-slim]/g' /datahub-executor/pyproject.toml && \
+  echo "=== After modifications ===" && grep -E "acryl-datahub\[|prophet" /datahub-executor/pyproject.toml
+
+ARG DOCKER_VERSION
+ARG RELEASE_VERSION
+
+RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python3 /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+
+# Embed build info into the image
+RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
+
+# Install all dependencies with constraints to ensure version compatibility
+# (e.g., cmdstanpy==1.2.5 is required for prophet==1.1.5)
+USER datahub
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-wolfi \
+  uv pip install --reinstall --constraint /tmp/constraints.txt -e /metadata-ingestion-modules/acryl-cloud -e .
+
+# Reinstall packages with extras to ensure entry points are created
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-wolfi \
+  uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
+
+# Verify critical binaries and no PySpark
+RUN echo "=== Installed packages ===" && \
+  uv pip list && \
+  echo "=== Verification ===" && \
+  python3 -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
+  which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
+  python3 -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
+  echo "=== All checks passed ==="
+
+
+# =============================================================================
+# VENV BUILDER - LOCKED WOLFI VARIANT (network blocked in final stage)
+# =============================================================================
+FROM venv-builder-wolfi AS venv-builder-locked-wolfi
+USER datahub
+
+
+# =============================================================================
+# FINAL STAGE - WOLFI (runtime only, no build tools)
+# =============================================================================
+FROM wolfi-base AS prod-install-wolfi
+
+USER root
+
+# Install Python runtime (no dev packages)
+RUN apk update && apk add --no-cache python-3.11-base
+
+# Copy the venv and Python from the builder stage
+COPY --from=venv-builder-wolfi --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+
+# Copy source code
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+
+# Copy startup files and configs
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+RUN chmod a+x /start_datahub_executor.sh && chmod a+x /health_status
+
+# Copy build info from builder
+COPY --from=venv-builder-wolfi /build_info.json /build_info.json
+
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+USER datahub
+WORKDIR /datahub-executor
+
+
+# =============================================================================
+# FINAL STAGE - LOCKED WOLFI (runtime only, network blocked)
+# =============================================================================
+FROM wolfi-base AS prod-install-locked-wolfi
+
+USER root
+
+# Install Python runtime (no dev packages)
+RUN apk update && apk add --no-cache python-3.11-base
+
+# Copy the venv and Python from the builder stage
+COPY --from=venv-builder-locked-wolfi --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+
+# Copy source code
+COPY --chown=datahub ./datahub-executor /datahub-executor
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
+COPY --chown=datahub ./datahub-integrations-service /datahub-integrations-service
+
+# Copy startup files and configs
+COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
+COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
+COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
+RUN chmod a+x /start_datahub_executor.sh && chmod a+x /health_status
+
+# Copy build info from builder
+COPY --from=venv-builder-locked-wolfi /build_info.json /build_info.json
+
+# Temporarily symlink acryl cloud package for backward compatibility
+RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
+
+# Block network access to PyPI - locked variant only uses bundled venvs
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+USER datahub
+WORKDIR /datahub-executor
+
 
 # =============================================================================
 # FINAL STAGE SELECTOR - Uses APP_ENV and BASE_IMAGE to select the right variant

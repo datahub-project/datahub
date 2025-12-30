@@ -28,8 +28,12 @@ ext {
     python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
     // Saas only
     docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-executor' : 'datahub-executor'
-    // Set to true to include Alpine variants in the build (e.g., -PincludeAlpineVariants=true)
-    include_alpine_variants = project.getProperties().getOrDefault("includeAlpineVariants", "true").toBoolean()
+    // Set to true to include Wolfi variants in the build (e.g., -PincludeWolfiVariants=true)
+    // Wolfi uses glibc and supports full dependencies including prophet/spacy
+    include_wolfi_variants = project.getProperties().getOrDefault("includeWolfiVariants", "true").toBoolean()
+    // Alpine variants are WIP - disabled by default until Remote Executor dependency refactor is complete
+    // Alpine uses musl which doesn't support prophet (CmdStan) or spacy/blis dependencies
+    include_alpine_variants = project.getProperties().getOrDefault("includeAlpineVariants", "false").toBoolean()
 }
 
 task checkPythonVersion(type: Exec) {
@@ -150,13 +154,30 @@ docker {
       "full-unbundled":  [suffix: "-unbundled", args: [BASE_IMAGE: 'full-unbundled']]
     ]
 
-    // Alpine variants (only included when -PincludeAlpineVariants=true)
+    // Wolfi variants (glibc-based, supports full dependencies)
+    // Only included when -PincludeWolfiVariants=true (default: true)
+    def wolfiVariants = [
+      "wolfi": [suffix: "-wolfi", args: [BASE_IMAGE: 'wolfi']],
+      "locked-wolfi": [suffix: "-locked-wolfi", args: [BASE_IMAGE: 'locked-wolfi']]
+    ]
+
+    // Alpine variants - WIP, disabled by default
+    // Alpine uses musl which doesn't support prophet (CmdStan) or spacy/blis dependencies
+    // Only included when -PincludeAlpineVariants=true (default: false)
     def alpineVariants = [
       "alpine": [suffix: "-alpine", args: [BASE_IMAGE: 'alpine']],
       "locked-alpine": [suffix: "-locked-alpine", args: [BASE_IMAGE: 'locked-alpine']]
     ]
 
-    variants = include_alpine_variants ? baseVariants + alpineVariants : baseVariants
+    // Combine variants based on flags
+    def allVariants = baseVariants
+    if (include_wolfi_variants) {
+      allVariants = allVariants + wolfiVariants
+    }
+    if (include_alpine_variants) {
+      allVariants = allVariants + alpineVariants
+    }
+    variants = allVariants
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     // Validate URLs to prevent injection of malicious values into Docker build args

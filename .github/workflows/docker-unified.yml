@@ -48,8 +48,12 @@ env:
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "s0gr1cr3jd"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
-  # Include Alpine variants for releases, or when PR has 'build-alpine-variant' label
-  INCLUDE_ALPINE_VARIANTS: ${{ github.event_name == 'release' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-alpine-variant')) }}
+  # Include Wolfi variants for releases, or when PR has 'build-wolfi-variant' label
+  # Wolfi uses glibc and supports full dependencies including prophet/spacy
+  INCLUDE_WOLFI_VARIANTS: ${{ github.event_name == 'release' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-wolfi-variant')) }}
+  # Alpine variants are WIP - disabled until Remote Executor dependency refactor is complete
+  # Alpine uses musl which doesn't support prophet (CmdStan) or spacy/blis dependencies
+  INCLUDE_ALPINE_VARIANTS: "false"
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
@@ -499,7 +503,7 @@ jobs:
           fi
 
           # Build gradle args with optional custom PyPI index
-          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
+          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
           if [ -n "${{ needs.setup.outputs.pypi_index_url }}" ]; then
             GRADLE_ARGS="$GRADLE_ARGS -PpipExtraIndexUrl=${{ needs.setup.outputs.pypi_index_url }}"
           fi
@@ -520,7 +524,7 @@ jobs:
         # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
         # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
+          GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
           if [ -n "${{ needs.setup.outputs.pypi_index_url }}" ]; then
             GRADLE_ARGS="$GRADLE_ARGS -PpipExtraIndexUrl=${{ needs.setup.outputs.pypi_index_url }}"
           fi
@@ -977,7 +981,7 @@ jobs:
       - name: build images
         if: ${{ env.DEPOT_PROJECT_ID == '' }}
         run: |
-          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
+          GRADLE_ARGS="-Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
           if [ -n "${{ needs.setup.outputs.pypi_index_url }}" ]; then
             GRADLE_ARGS="$GRADLE_ARGS -PpipExtraIndexUrl=${{ needs.setup.outputs.pypi_index_url }}"
           fi
