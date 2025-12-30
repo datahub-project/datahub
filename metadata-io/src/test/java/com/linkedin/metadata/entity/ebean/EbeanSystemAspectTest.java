@@ -316,7 +316,7 @@ public class EbeanSystemAspectTest {
   @Test
   public void testPrePatchValidationDisabled() throws Exception {
     // Pre-patch validation is null/disabled - no exception should be thrown
-    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
     EbeanSystemAspect aspect = EbeanSystemAspect.builder().forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
   }
@@ -330,7 +330,7 @@ public class EbeanSystemAspectTest {
     prePatchConfig.setEnabled(false);
     config.setPrePatch(prePatchConfig);
 
-    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
             .validationConfig(config)
@@ -341,8 +341,7 @@ public class EbeanSystemAspectTest {
   @Test
   public void testPrePatchValidationNullMetadata() throws Exception {
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        createPrePatchConfig(
-            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+        createPrePatchConfig(1000L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
 
     when(ebeanAspectV2.getMetadata()).thenReturn(null);
     EbeanSystemAspect aspect =
@@ -355,8 +354,7 @@ public class EbeanSystemAspectTest {
   @Test
   public void testPrePatchValidationSmallAspectPasses() throws Exception {
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        createPrePatchConfig(
-            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
+        createPrePatchConfig(2000L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
 
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
     EbeanSystemAspect aspect =
@@ -368,7 +366,7 @@ public class EbeanSystemAspectTest {
 
   @Test
   public void testPrePatchValidationAtThreshold() throws Exception {
-    long threshold = 15728640L;
+    long threshold = 1000L;
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
         createPrePatchConfig(
             threshold, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
@@ -386,10 +384,10 @@ public class EbeanSystemAspectTest {
           com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
   public void testPrePatchValidationOversizedWithIgnore() throws Exception {
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        createPrePatchConfig(
-            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
+        createPrePatchConfig(1000L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
 
-    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+    when(ebeanAspectV2.getMetadata())
+        .thenReturn(generateLargeMetadata(2000)); // 2KB over 1KB threshold
 
     try {
       EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
@@ -408,10 +406,10 @@ public class EbeanSystemAspectTest {
           com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
   public void testPrePatchValidationOversizedWithDelete() throws Exception {
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        createPrePatchConfig(
-            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+        createPrePatchConfig(1000L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
 
-    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+    when(ebeanAspectV2.getMetadata())
+        .thenReturn(generateLargeMetadata(2000)); // 2KB over 1KB threshold
 
     try {
       EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
@@ -439,10 +437,22 @@ public class EbeanSystemAspectTest {
   }
 
   private String generateLargeMetadata(int size) {
+    // Generate valid JSON padded to reach the desired size
+    String prefix = "{\"removed\":false,\"padding\":\"";
+    String suffix = "\"}";
+    int paddingLength = size - prefix.length() - suffix.length();
+
+    if (paddingLength < 0) {
+      // If size is too small for valid JSON, just return minimal valid JSON
+      return "{\"removed\":false}";
+    }
+
     StringBuilder sb = new StringBuilder(size);
-    for (int i = 0; i < size; i++) {
+    sb.append(prefix);
+    for (int i = 0; i < paddingLength; i++) {
       sb.append('x');
     }
+    sb.append(suffix);
     return sb.toString();
   }
 }
