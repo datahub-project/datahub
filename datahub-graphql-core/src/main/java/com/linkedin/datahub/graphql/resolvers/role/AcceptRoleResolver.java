@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.role;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
