@@ -1,0 +1,31 @@
+# Alternative configuration using DataHub's native secrets management
+source:
+  type: gdrive
+  config:
+    # Use DataHub's native secret management
+    # This assumes you've stored the service account JSON in DataHub's secret store
+    credentials_secret_urn: "urn:li:dataHubSecret:gdrive-service-account"
+    
+    # Optional: Start scanning from a specific folder ID
+    root_folder_id: null  # Set to null to scan entire My Drive
+    
+    # File filtering - specify which files to include/exclude
+    include_files:
+      allow:
+        - ".*"                        # Include all files by default
+      deny:
+        - ".*\\.tmp$"                 # Skip temporary files
+        
+    # File size limit (in MB) - skip files larger than this
+    max_file_size_mb: 100
+    
+    # Maximum folder depth to scan
+    max_recursion_depth: 10
+
+# DataHub sink configuration
+sink:
+  type: datahub-rest
+  config:
+    server: 'http://localhost:8080'
+    # If you have authentication enabled on DataHub
+    # token: "${DATAHUB_ACCESS_TOKEN}"
