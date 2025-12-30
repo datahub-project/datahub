@@ -1210,7 +1210,7 @@ class DremioAPIOperations:
                     container_data = {
                         **source,  # Original source data
                         "name": space_name,  # Preserve the space name
-                        "container_type": mapped_container_type,
+                        "containerType": mapped_container_type.value,  # Use alias and value
                         "path": [],  # Root spaces should have empty path for proper browse paths
                     }
 
