@@ -98,21 +98,18 @@ class DremioFilter:
         ).allowed(full_schema_name):
             return False
 
-        # For root containers (no parent), use simple pattern matching
-        # For nested schemas, use fully qualified matching
-        if len(full_path_components) == 1:
-            # Root level container - match against the schema pattern directly
-            return self.config.schema_pattern.allowed(full_schema_name)
-        else:
-            # Nested schema - use fully qualified matching
-            schema_name = full_path_components[-1]
-            parent_path = ".".join(full_path_components[:-1])
-            return is_schema_allowed(
-                self.config.schema_pattern,
-                schema_name,
-                parent_path,
-                True,  # Use fully qualified names for nested hierarchies
-            )
+        # Use is_schema_allowed for all cases to handle hierarchical prefix matching
+        schema_name = full_path_components[-1]
+        parent_path = (
+            ".".join(full_path_components[:-1]) if len(full_path_components) > 1 else ""
+        )
+
+        return is_schema_allowed(
+            self.config.schema_pattern,
+            schema_name,
+            parent_path,
+            True,  # Always use fully qualified names for Dremio's hierarchical structure
+        )
 
     def is_dataset_allowed(
         self, dataset_name: str, schema_path: List[str], dataset_type: str = "table"
