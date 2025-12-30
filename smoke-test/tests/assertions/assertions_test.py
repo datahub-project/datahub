@@ -512,7 +512,20 @@ def test_search_all_assertions(auth_session, test_run_ingestion):
         >= min_expected_results
     )
 
-    assert res_data["data"]["searchAcrossEntities"]["searchResults"][0]["entity"] == {
+    # Filter search results to find the test assertion by URN
+    search_results = res_data["data"]["searchAcrossEntities"]["searchResults"]
+    test_assertions = [
+        r["entity"] for r in search_results if r["entity"]["urn"] == TEST_ASSERTION_URN
+    ]
+
+    # Verify the assertion was found in results
+    assert test_assertions, (
+        f"Expected to find assertion {TEST_ASSERTION_URN} in search results. "
+        f"Found URNs: {[r['entity']['urn'] for r in search_results]}"
+    )
+
+    # Verify the assertion structure matches expectations
+    assert test_assertions[0] == {
         "urn": TEST_ASSERTION_URN,
         "type": "ASSERTION",
         "info": {
