@@ -144,15 +144,14 @@ export function IngestionSourceCreatePage() {
     return (
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
-            confirmationModalTitle="You have unsaved change"
-            confirmationModalText={
-                <>
-                    <Text type="span">You have unsaved changes to your new source. </Text>
-                    <Text type="span" weight="bold">
-                        Are you sure you want to leave and discard your unsaved changes?
-                    </Text>
-                </>
+            confirmationModalTitle="You have unsaved changes"
+            confirmationModalContent={
+                <Text color="gray" colorLevel={1700}>
+                    Exiting now will discard your configuration. You can continue setup or exit and start over later
+                </Text>
             }
+            confirmButtonText="Continue Setup"
+            closeButtonText="Exit Without Saving"
         >
             <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />
         </DiscardUnsavedChangesConfirmationProvider>
