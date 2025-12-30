@@ -98,7 +98,7 @@ class ActionRequestOwnerSource(Source):
         action_type = action_request.get("type")
         action_request_entity = action_request.get("entity")
         if action_request_entity is None:
-            self.report.failure(
+            self.report.warning(
                 title="Action request entity not found",
                 message="Action request entity not found",
                 context=str(action_request_urn),
