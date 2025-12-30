@@ -53,6 +53,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Other Notable Changes
 
 - #15714: Kafka topic partition counts are now automatically increased during upgrades if configured values exceed existing partitions. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=false` to disable this behavior while still allowing DataHub to create new topics.
+- (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 
 ## 1.3.0
 

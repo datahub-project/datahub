@@ -34,6 +34,8 @@ env:
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "s0gr1cr3jd"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+  # Include Alpine variants for releases, or when PR has 'build-alpine-variant' label
+  INCLUDE_ALPINE_VARIANTS: ${{ github.event_name == 'release' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-alpine-variant')) }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
@@ -295,23 +297,23 @@ jobs:
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
 
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
         # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
 
       - name: Capture build Id
         id: capture-build-id
         run: |
           pip install jq
-          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
+          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' "${{ github.workspace }}/build/build-metadata.json")
 
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
-          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
+          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' "${{ github.workspace }}/build/build-metadata.json")" >> "$GITHUB_OUTPUT"
 
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -364,9 +366,9 @@ jobs:
         name: Download images from depot
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         run: |
-          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target ${{ matrix.target}}
+          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}" --target "${{ matrix.target}}"
           docker images
-          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
+          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.33.1
@@ -674,7 +676,7 @@ jobs:
       - name: build images
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -682,7 +684,7 @@ jobs:
       - name: pull images from depot
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         run: |
-          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
+          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
           docker images
 
       - name: Disk Space Analysis
@@ -912,11 +914,12 @@ jobs:
       - name: Push images from depot builder
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
-          depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
+          set -euo pipefail
+          depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
             TARGET=$(echo "$line" | jq -r '.target')
             TAG=$(echo "$line" | jq -r '.tags')
 
-            depot push --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target $TARGET --tag $TAG
+            depot push --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}" --target "$TARGET" --tag "$TAG"
           done
 
   deploy_datahub_head:

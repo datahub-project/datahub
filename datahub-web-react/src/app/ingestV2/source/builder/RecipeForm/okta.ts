@@ -5,7 +5,6 @@ import {
     RecipeField,
     setListValuesOnRecipe,
 } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { validateURL } from '@app/ingestV2/source/utils';
 
 export const OKTA_DOMAIN_URL: RecipeField = {
     name: 'okta_domain',
@@ -16,7 +15,7 @@ export const OKTA_DOMAIN_URL: RecipeField = {
     fieldPath: 'source.config.okta_domain',
     placeholder: 'dev-35531955.okta.com',
     required: true,
-    rules: [() => validateURL('Okta Domain URL')],
+    rules: null,
 };
 
 export const OKTA_API_TOKEN: RecipeField = {

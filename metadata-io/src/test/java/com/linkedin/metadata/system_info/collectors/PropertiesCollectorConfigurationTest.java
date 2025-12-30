@@ -111,6 +111,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+
+          // Consistency checks configuration
+          "consistencyChecks.checks.*.*",
+          "consistencyChecks.gracePeriodSeconds",
+
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.partitions",
@@ -244,6 +249,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.serde.usageEvent.value.serializer",
           "kafka.serde.usageEvent.value.deserializer",
           "kafka.bootstrapServers",
+          "kafka.consumer.bootstrapServers",
           "kafka.consumer.healthCheckEnabled",
           "kafka.consumer.maxPartitionFetchBytes",
           "kafka.consumer.mcl.aspectsToDrop",
@@ -261,6 +267,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
+          "kafka.producer.bootstrapServers",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
           "kafka.producer.maxRequestSize",
@@ -745,6 +752,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.schemaFieldsFromSchemaMetadata.enabled",
           "systemUpdate.schemaFieldsFromSchemaMetadata.limit",
           "systemUpdate.waitForSystemUpdate",
+          "systemUpdate.entityConsistency.checkIds",
+          "systemUpdate.entityConsistency.dryRun",
+          "systemUpdate.entityConsistency.entityTypes",
+          "systemUpdate.entityConsistency.gracePeriodSeconds",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.gePitEpochMs",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.includeSoftDeleted",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.lePitEpochMs",
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",
           "metadataChangeProposal.consumer.batch.size",
