@@ -12,7 +12,7 @@ class DremioEntityContainerType(StrEnum):
     SPACE = "SPACE"
     FOLDER = "FOLDER"
     CONTAINER = "CONTAINER"
-    HOME = "HOME SPACE"
+    HOME = "HOME"
 
 
 class DremioDatasetType(StrEnum):

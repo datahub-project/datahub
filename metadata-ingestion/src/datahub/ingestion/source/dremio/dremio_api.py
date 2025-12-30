@@ -98,19 +98,21 @@ class DremioFilter:
         ).allowed(full_schema_name):
             return False
 
-        # Use the standard is_schema_allowed function with fully qualified matching
-        # This makes Dremio consistent with Snowflake/BigQuery behavior
-        schema_name = full_path_components[-1]  # Last component
-        parent_path = (
-            ".".join(full_path_components[:-1]) if len(full_path_components) > 1 else ""
-        )
-
-        return is_schema_allowed(
-            self.config.schema_pattern,
-            schema_name,
-            parent_path,
-            True,  # Always use fully qualified names for Dremio's hierarchical structure
-        )
+        # For root containers (no parent), use simple pattern matching
+        # For nested schemas, use fully qualified matching
+        if len(full_path_components) == 1:
+            # Root level container - match against the schema pattern directly
+            return self.config.schema_pattern.allowed(full_schema_name)
+        else:
+            # Nested schema - use fully qualified matching
+            schema_name = full_path_components[-1]
+            parent_path = ".".join(full_path_components[:-1])
+            return is_schema_allowed(
+                self.config.schema_pattern,
+                schema_name,
+                parent_path,
+                True,  # Use fully qualified names for nested hierarchies
+            )
 
     def is_dataset_allowed(
         self, dataset_name: str, schema_path: List[str], dataset_type: str = "table"
@@ -1142,7 +1144,9 @@ class DremioAPIOperations:
         response = self.get(url="/catalog")
 
         def process_source(source):
-            if source.get("containerType") == DremioEntityContainerType.SOURCE:
+            container_type = source.get("containerType")
+
+            if container_type == DremioEntityContainerType.SOURCE.value:
                 # Only fetch source details if we have an ID
                 source_resp = {}
                 source_config = {}
@@ -1160,11 +1164,21 @@ class DremioAPIOperations:
                     "database", source_config.get("databaseName", "")
                 )
 
-                if self.filter.should_include_container([], source.get("path")[0]):
-                    # Merge API response data for flexible parsing
+                # Extract name from path or use the name field
+                source_name = (
+                    source.get("path", [""])[0]
+                    if source.get("path")
+                    else source.get("name", "")
+                )
+
+                # Check if container should be included
+                if source_name and self.filter.should_include_container(
+                    [], source_name
+                ):
                     container_data = {
                         **source,  # Original source data
                         **source_resp,  # Source details (may be empty)
+                        "name": source_name,  # Preserve the source name
                         "container_type": DremioEntityContainerType.SOURCE,
                         "root_path": source_config.get("rootPath"),
                         "database_name": db,
@@ -1172,12 +1186,31 @@ class DremioAPIOperations:
                     }
 
                     return DremioContainerResponse.model_validate(container_data)
-            else:
-                if self.filter.should_include_container([], source.get("path")[0]):
-                    # Use raw API response with container type override
+            elif container_type in (
+                DremioEntityContainerType.SPACE.value,
+                DremioEntityContainerType.HOME.value,
+            ):
+                # Handle spaces and home spaces
+                # Extract name from path or use the name field
+                space_name = (
+                    source.get("path", [""])[0]
+                    if source.get("path")
+                    else source.get("name", "")
+                )
+
+                # Check if container should be included
+                if space_name and self.filter.should_include_container([], space_name):
+                    # Map HOME to SPACE for subtype (both are treated as spaces in DataHub)
+                    mapped_container_type = (
+                        DremioEntityContainerType.SPACE
+                        if container_type == DremioEntityContainerType.HOME.value
+                        else DremioEntityContainerType.SPACE
+                    )
+
                     container_data = {
                         **source,  # Original source data
-                        "container_type": DremioEntityContainerType.SPACE,
+                        "name": space_name,  # Preserve the space name
+                        "container_type": mapped_container_type,
                         "path": [],  # Root spaces should have empty path for proper browse paths
                     }
 

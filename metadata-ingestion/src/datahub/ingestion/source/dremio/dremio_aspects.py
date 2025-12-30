@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_domain_urn,
     make_group_urn,
@@ -198,14 +199,14 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        if not container.path:
-            browse_paths_v2 = self._create_browse_paths_containers(container)
-            if browse_paths_v2:
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=container_urn,
-                    aspect=browse_paths_v2,
-                )
-                yield mcp.as_workunit()
+        # Browse Paths V2
+        browse_paths_v2 = self._create_browse_paths_containers(container)
+        if browse_paths_v2:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=container_urn,
+                aspect=browse_paths_v2,
+            )
+            yield mcp.as_workunit()
 
         # Container Class Folders
         container_class = self._create_container_class(container)
@@ -366,17 +367,6 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
-        # Add platform instance if present
-        if self.platform_instance:
-            platform_instance_urn = make_dataplatform_instance_urn(
-                self.platform, self.platform_instance
-            )
-            paths.append(
-                BrowsePathEntryClass(
-                    id=platform_instance_urn, urn=platform_instance_urn
-                )
-            )
-
         # Add container type prefix (Spaces/Sources)
         if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
             paths.append(BrowsePathEntryClass(id="Spaces"))
@@ -392,8 +382,11 @@ class DremioAspects:
 
         # Add the entity path elements
         if entity.path:
-            for path_element in entity.path:
-                paths.append(BrowsePathEntryClass(id=path_element))
+            for i, _path_element in enumerate(entity.path):
+                # Build the full path up to this element
+                partial_path = entity.path[: i + 1]
+                container_urn = self.get_container_urn(path=partial_path)
+                paths.append(BrowsePathEntryClass(id=container_urn, urn=container_urn))
 
         if paths:
             return BrowsePathsV2Class(path=paths)
@@ -408,7 +401,7 @@ class DremioAspects:
 
     def _create_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
-            platform=f"urn:li:dataPlatform:{self.platform}",
+            platform=make_data_platform_urn(self.platform),
             instance=(
                 make_dataplatform_instance_urn(self.platform, self.platform_instance)
                 if self.platform_instance
@@ -486,7 +479,7 @@ class DremioAspects:
     def _create_schema_metadata(self, dataset: DremioDataset) -> SchemaMetadataClass:
         return SchemaMetadataClass(
             schemaName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
-            platform=f"urn:li:dataPlatform:{self.platform}",
+            platform=make_data_platform_urn(self.platform),
             version=0,
             fields=[self._create_schema_field(column) for column in dataset.columns],
             platformSchema=MySqlDDLClass(""),

@@ -50,6 +50,7 @@ def run_datahub_cmd(
                 runner=runner,
                 stdout_bytes=empty_buffer.getvalue(),
                 stderr_bytes=empty_buffer.getvalue(),
+                output_bytes=empty_buffer.getvalue(),
                 return_value=None,  # type: ignore[call-arg]
                 exit_code=0,
                 exception=None,
