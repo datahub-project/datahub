@@ -5,7 +5,6 @@ import {
     RecipeField,
     setListValuesOnRecipe,
 } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { validateURL } from '@app/ingestV2/source/utils';
 
 export const AZURE_CLIENT_ID: RecipeField = {
     name: 'client_id',
@@ -52,7 +51,7 @@ export const AZURE_REDIRECT_URL: RecipeField = {
     fieldPath: 'source.config.redirect',
     placeholder: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
     required: true,
-    rules: [() => validateURL('Redirect URI')],
+    rules: null,
 };
 
 export const AZURE_AUTHORITY_URL: RecipeField = {
@@ -64,7 +63,7 @@ export const AZURE_AUTHORITY_URL: RecipeField = {
     fieldPath: 'source.config.authority',
     placeholder: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000',
     required: true,
-    rules: [() => validateURL('Azure authority URL')],
+    rules: null,
 };
 
 export const AZURE_TOKEN_URL: RecipeField = {
@@ -77,7 +76,7 @@ export const AZURE_TOKEN_URL: RecipeField = {
     fieldPath: 'source.config.token_url',
     placeholder: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token',
     required: true,
-    rules: [() => validateURL('Azure token URL')],
+    rules: null,
 };
 
 export const AZURE_GRAPH_URL: RecipeField = {
@@ -89,7 +88,7 @@ export const AZURE_GRAPH_URL: RecipeField = {
     fieldPath: 'source.config.graph_url',
     placeholder: 'https://graph.microsoft.com/v1.0',
     required: true,
-    rules: [() => validateURL('Graph url URL')],
+    rules: null,
 };
 
 export const AZURE_INGEST_USERS: RecipeField = {
