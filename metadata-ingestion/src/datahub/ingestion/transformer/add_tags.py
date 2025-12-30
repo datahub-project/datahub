@@ -97,7 +97,10 @@ class AddTags(BaseTransformer, SingleAspectTransformer):
                 self.processed_tags.setdefault(tag.tag, tag)
 
         if self.config.semantics == TransformerSemantics.PATCH:
-            assert self.ctx.graph
+            if self.ctx.graph is None:
+                raise ValueError(
+                    "PATCH semantics requires a DataHub graph connection (datahub_api configured)"
+                )
             return cast(
                 Optional[Aspect],
                 self._merge_with_server_global_tags(
