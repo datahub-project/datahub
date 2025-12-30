@@ -9,7 +9,7 @@ import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.aspect.AspectSerializationHook;
+import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -91,27 +91,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
-  private List<AspectSerializationHook> serializationHooks = new ArrayList<>();
-  @Nullable private AspectSizeValidationConfig prePatchValidationConfig;
+  @Nonnull private final List<AspectPayloadValidator> payloadValidators;
+  @Nullable private final AspectSizeValidationConfig validationConfig;
 
   public EbeanAspectDao(
       @Nonnull final Database server,
       EbeanConfiguration ebeanConfiguration,
-      MetricUtils metricUtils) {
+      MetricUtils metricUtils,
+      @Nonnull List<AspectPayloadValidator> payloadValidators,
+      @Nullable AspectSizeValidationConfig validationConfig) {
     this.server = server;
     this.batchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
     this.metricUtils = metricUtils;
-  }
-
-  public void setSerializationHooks(@Nonnull List<AspectSerializationHook> hooks) {
-    this.serializationHooks = hooks;
-  }
-
-  public void setPrePatchValidationConfig(@Nonnull AspectSizeValidationConfig config) {
-    this.prePatchValidationConfig = config;
+    this.payloadValidators = payloadValidators;
+    this.validationConfig = validationConfig;
   }
 
   @Override
@@ -1032,9 +1028,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                 Map.Entry::getKey,
                 e ->
                     EbeanSystemAspect.builder()
-                        .serializationHooks(serializationHooks)
-                        .prePatchValidationConfig(prePatchValidationConfig)
-                        .aspectDao(this)
+                        .payloadValidators(payloadValidators)
+                        .validationConfig(validationConfig)
                         .forUpdate(e.getValue(), entityRegistry)));
   }
 

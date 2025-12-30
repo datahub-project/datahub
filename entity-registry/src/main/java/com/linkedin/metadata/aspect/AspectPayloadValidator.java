@@ -3,7 +3,7 @@ package com.linkedin.metadata.aspect;
 import javax.annotation.Nonnull;
 
 /**
- * Hook invoked after an aspect has been serialized to JSON but before it is written to the
+ * Validator invoked after an aspect has been serialized to JSON but before it is written to the
  * database. Enables validation, metrics collection, or other processing without duplicate
  * serialization overhead.
  *
@@ -12,8 +12,8 @@ import javax.annotation.Nonnull;
  * <ul>
  *   <li>Called in {@code SystemAspect.withVersion()} after RecordTemplate → JSON serialization
  *   <li>Runs for ALL aspect writes: REST API, GraphQL, and Kafka MCP ingestion
- *   <li>Multiple hooks are called in registration order; if any hook throws, the DB write is
- *       prevented
+ *   <li>Multiple validators are called in registration order; if any validator throws, the DB write
+ *       is prevented
  * </ul>
  *
  * <p><b>Use Cases:</b>
@@ -27,15 +27,20 @@ import javax.annotation.Nonnull;
  *
  * <p><b>Performance:</b> Aspects MUST be serialized to JSON before database writes - this is a
  * required step, not optional. The JSON string in {@code serializedAspect} is this already-created
- * serialization, so hooks can inspect it at zero additional cost. Since JSON serialization is one
- * of the most expensive operations in MCP processing, performing a second serialization just for
- * validation would effectively double this cost. The hook pattern makes validation essentially free
- * by reusing the required serialization.
+ * serialization, so validators can inspect it at zero additional cost. Since JSON serialization is
+ * one of the most expensive operations in MCP processing, performing a second serialization just
+ * for validation would effectively double this cost. The validator pattern makes validation
+ * essentially free by reusing the required serialization.
  *
- * <p><b>Implementation Note:</b> Hooks are registered as Spring beans and auto-injected via
- * {@code @Autowired List<AspectSerializationHook>} in {@code EntityAspectDaoFactory}.
+ * <p><b>Naming:</b> "Validator" terminology is used for consistency with existing {@code
+ * AspectPayloadValidators} in {@code
+ * metadata-io/src/main/java/com/linkedin/metadata/aspect/validation/}. The term "Hook" is reserved
+ * for MCL hooks and ingestion consumers in this codebase.
+ *
+ * <p><b>Implementation Note:</b> Validators are registered as Spring beans and auto-injected via
+ * {@code @Autowired List<AspectPayloadValidator>} in {@code EntityAspectDaoFactory}.
  */
-public interface AspectSerializationHook {
+public interface AspectPayloadValidator {
   /**
    * Called after aspect serialization but before database write.
    *
@@ -44,6 +49,5 @@ public interface AspectSerializationHook {
    *     getMetadata()})
    * @throws RuntimeException to reject the aspect write (prevents DB persistence)
    */
-  void afterSerialization(
-      @Nonnull SystemAspect systemAspect, @Nonnull EntityAspect serializedAspect);
+  void validatePayload(@Nonnull SystemAspect systemAspect, @Nonnull EntityAspect serializedAspect);
 }

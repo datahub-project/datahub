@@ -112,14 +112,16 @@ Reference Links:
 
 Protects against aspects exceeding deserialization limits. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
 
-| Environment Variable                                              | Default  | Description                                                                                                               | Components |
-| ----------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`  | Enable pre-patch validation - checks existing aspects from DB before patch application                                    | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 15728640 | Max size in bytes for pre-patch aspects (15MB, safety margin below deserialization limit)                                 | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `IGNORE` | Remediation for oversized pre-patch aspects: `IGNORE` (skip write), `REPLACE_WITH_PATCH` (delete old, continue as insert) | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`  | Enable post-patch validation - checks aspects after patch application, before DB write                                    | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 15728640 | Max size in bytes for post-patch aspects (15MB)                                                                           | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION` | `IGNORE` | Remediation for oversized post-patch aspects: `IGNORE` (skip write), `DELETE` (remove from DB)                            | GMS        |
+| Environment Variable                                              | Default  | Description                                                                                                                   | Components |
+| ----------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`  | Enable pre-patch validation - checks existing aspects from DB before patch application                                        | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES`        | `null`   | Optional warning threshold in bytes. Logs warning when exceeded but allows write. Should be lower than maxSizeBytes.          | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 16000000 | Max size in bytes for pre-patch aspects (16MB, matches `INGESTION_MAX_SERIALIZED_STRING_LENGTH`). Skips write when exceeded.  | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `IGNORE` | Remediation for oversized pre-patch aspects: `IGNORE` (skip write), `DELETE` (skip write and delete aspect)                   | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`  | Enable post-patch validation - checks aspects after patch application, before DB write                                        | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARN_SIZE_BYTES`       | `null`   | Optional warning threshold in bytes. Logs warning when exceeded but allows write. Should be lower than maxSizeBytes.          | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 16000000 | Max size in bytes for post-patch aspects (16MB, matches `INGESTION_MAX_SERIALIZED_STRING_LENGTH`). Skips write when exceeded. | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION` | `IGNORE` | Remediation for oversized post-patch aspects: `IGNORE` (skip write), `DELETE` (skip write and delete aspect)                  | GMS        |
 
 **Validation points:**
 
@@ -128,9 +130,8 @@ Protects against aspects exceeding deserialization limits. **Debugging flags - e
 
 **Remediation strategies:**
 
-- `REPLACE_WITH_PATCH` (pre-patch only): Deletes oversized existing aspect, continues with write as insert (no merge). If new patch is also oversized, post-patch validation will catch it.
-- `DELETE` (post-patch only): Hard deletes oversized aspect from database, logs WARNING, skips write, routes MCP to `FailedMetadataChangeProposal` topic
-- `IGNORE` (both): Acknowledges MCP but skips write, logs WARNING, leaves aspect in database (pre-patch), routes MCP to `FailedMetadataChangeProposal` topic
+- `IGNORE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic. Pre-patch: existing oversized aspect remains in database.
+- `DELETE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic, and deletes the aspect.
 
 **When to enable:** Use temporarily when investigating GMS crashes, debugging memory pressure, or cleaning up pre-existing oversized data. Prefer fixing the root cause at ingestion time.
 

@@ -52,7 +52,9 @@ public class EbeanAspectDaoTest {
   @BeforeMethod
   public void setupTest() {
     server = EbeanTestUtils.createTestServer(EbeanAspectDaoTest.class.getSimpleName());
-    testDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, mock(MetricUtils.class));
+    testDao =
+        new EbeanAspectDao(
+            server, EbeanConfiguration.testDefault, mock(MetricUtils.class), List.of(), null);
   }
 
   @AfterMethod
@@ -264,9 +266,8 @@ public class EbeanAspectDaoTest {
             new Status(),
             new SystemMetadata(),
             AuditStampUtils.createDefaultAuditStamp(),
-            null, // serializationHooks
-            null, // prePatchValidationConfig
-            null); // aspectDao
+            null, // payloadValidators
+            null); // validationConfig
 
     // Try to update aspect
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =

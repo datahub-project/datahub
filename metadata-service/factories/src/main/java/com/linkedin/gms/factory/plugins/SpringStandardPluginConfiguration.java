@@ -6,7 +6,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectSerializationHook;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
@@ -26,8 +25,7 @@ import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
-import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.AspectSizeValidationHook;
+import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
@@ -53,7 +51,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 
 @Configuration
 @Slf4j
@@ -586,11 +583,11 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public AspectSerializationHook aspectSizeValidationHook(
-      ConfigurationProvider configProvider, @Lazy AspectDao aspectDao) {
+  public com.linkedin.metadata.aspect.AspectPayloadValidator aspectSizePayloadValidator(
+      ConfigurationProvider configProvider) {
     AspectSizeValidationConfig config = configProvider.getDatahub().getValidation().getAspectSize();
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
-    log.debug("Initialized AspectSizeValidationHook");
-    return hook;
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    log.debug("Initialized AspectSizePayloadValidator");
+    return validator;
   }
 }

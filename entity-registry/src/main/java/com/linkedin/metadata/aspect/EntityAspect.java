@@ -100,7 +100,7 @@ public class EntityAspect {
     @Nonnull private final EntitySpec entitySpec;
     @Nullable private final AspectSpec aspectSpec;
 
-    @Nullable private List<AspectSerializationHook> serializationHooks;
+    @Nullable private List<AspectPayloadValidator> payloadValidators;
 
     @Nonnull
     public String getUrnRaw() {
@@ -188,7 +188,7 @@ public class EntityAspect {
             this.auditStamp,
             this.entitySpec,
             this.aspectSpec,
-            this.serializationHooks);
+            this.payloadValidators);
       }
 
       public EntityAspect.EntitySystemAspect forInsert(
@@ -292,15 +292,15 @@ public class EntityAspect {
                   .map(Urn::toString)
                   .orElse(null));
 
-      // Call serialization hooks after aspect is serialized to JSON
-      // We pass both SystemAspect (this) and EntityAspect (serialized form) to hooks:
+      // Call payload validators after aspect is serialized to JSON
+      // We pass both SystemAspect (this) and EntityAspect (serialized form) to validators:
       // - SystemAspect provides context: URN, aspect spec, RecordTemplate object
-      // - EntityAspect provides the JSON string that was ALREADY serialized for DB write (line 283)
-      // This is NOT duplicate serialization - hooks reuse the JSON created for the DB write,
+      // - EntityAspect provides the JSON string that was ALREADY serialized for DB write
+      // This is NOT duplicate serialization - validators reuse the JSON created for the DB write,
       // making validation/metrics essentially free without re-serializing.
-      if (serializationHooks != null && !serializationHooks.isEmpty()) {
-        for (AspectSerializationHook hook : serializationHooks) {
-          hook.afterSerialization(this, entityAspect);
+      if (payloadValidators != null && !payloadValidators.isEmpty()) {
+        for (AspectPayloadValidator validator : payloadValidators) {
+          validator.validatePayload(this, entityAspect);
         }
       }
 

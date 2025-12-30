@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.aspect.AspectSerializationHook;
+import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -21,7 +21,7 @@ import org.springframework.context.annotation.DependsOn;
 public class EntityAspectDaoFactory {
 
   @Autowired(required = false)
-  private List<AspectSerializationHook> serializationHooks;
+  private List<AspectPayloadValidator> payloadValidators;
 
   @Bean(name = "entityAspectDao")
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
@@ -31,17 +31,16 @@ public class EntityAspectDaoFactory {
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
     EbeanAspectDao ebeanAspectDao =
-        new EbeanAspectDao(server, configurationProvider.getEbean(), metricUtils);
+        new EbeanAspectDao(
+            server,
+            configurationProvider.getEbean(),
+            metricUtils,
+            payloadValidators != null ? payloadValidators : List.of(),
+            configurationProvider.getDatahub().getValidation() != null
+                ? configurationProvider.getDatahub().getValidation().getAspectSize()
+                : null);
     if (configurationProvider.getDatahub().isReadOnly()) {
       ebeanAspectDao.setWritable(false);
-    }
-    if (serializationHooks != null && !serializationHooks.isEmpty()) {
-      ebeanAspectDao.setSerializationHooks(serializationHooks);
-    }
-    if (configurationProvider.getDatahub().getValidation() != null
-        && configurationProvider.getDatahub().getValidation().getAspectSize() != null) {
-      ebeanAspectDao.setPrePatchValidationConfig(
-          configurationProvider.getDatahub().getValidation().getAspectSize());
     }
     return ebeanAspectDao;
   }
@@ -52,7 +51,13 @@ public class EntityAspectDaoFactory {
   @Nonnull
   protected AspectDao createCassandraInstance(
       CqlSession session, final ConfigurationProvider configurationProvider) {
-    CassandraAspectDao cassandraAspectDao = new CassandraAspectDao(session);
+    CassandraAspectDao cassandraAspectDao =
+        new CassandraAspectDao(
+            session,
+            payloadValidators != null ? payloadValidators : List.of(),
+            configurationProvider.getDatahub().getValidation() != null
+                ? configurationProvider.getDatahub().getValidation().getAspectSize()
+                : null);
     if (configurationProvider.getDatahub().isReadOnly()) {
       cassandraAspectDao.setWritable(false);
     }

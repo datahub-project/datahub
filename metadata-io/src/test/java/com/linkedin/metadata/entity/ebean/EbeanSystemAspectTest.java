@@ -13,7 +13,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.validation.AspectValidationContext;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -25,6 +25,7 @@ import java.sql.Timestamp;
 import java.util.Optional;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -68,6 +69,15 @@ public class EbeanSystemAspectTest {
                 new Timestamp(CREATED_TIME),
                 CREATED_BY,
                 null));
+
+    // Clear ThreadLocal before each test
+    AspectValidationContext.clearPendingDeletions();
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Always cleanup ThreadLocal after each test
+    AspectValidationContext.clearPendingDeletions();
   }
 
   @Test
@@ -250,9 +260,8 @@ public class EbeanSystemAspectTest {
             recordTemplate,
             null, // null so that we get it from ebeanAspectV2
             auditStamp,
-            null, // serializationHooks
-            null, // prePatchValidationConfig
-            null); // aspectDao
+            null, // payloadValidators
+            null); // validationConfig
 
     // First call should parse from ebeanAspectV2's system metadata
     SystemMetadata metadata = aspect.getSystemMetadata();
@@ -324,7 +333,7 @@ public class EbeanSystemAspectTest {
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
-            .prePatchValidationConfig(config)
+            .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
   }
@@ -338,7 +347,7 @@ public class EbeanSystemAspectTest {
     when(ebeanAspectV2.getMetadata()).thenReturn(null);
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
-            .prePatchValidationConfig(config)
+            .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
   }
@@ -347,13 +356,12 @@ public class EbeanSystemAspectTest {
   public void testPrePatchValidationSmallAspectPasses() throws Exception {
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
         createPrePatchConfig(
-            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.REPLACE_WITH_PATCH);
+            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
 
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
-            .prePatchValidationConfig(config)
-            .aspectDao(mock(AspectDao.class))
+            .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
   }
@@ -363,13 +371,12 @@ public class EbeanSystemAspectTest {
     long threshold = 15728640L;
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
         createPrePatchConfig(
-            threshold, com.linkedin.metadata.config.OversizedAspectRemediation.REPLACE_WITH_PATCH);
+            threshold, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
 
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata((int) threshold));
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
-            .prePatchValidationConfig(config)
-            .aspectDao(mock(AspectDao.class))
+            .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
   }
@@ -378,7 +385,6 @@ public class EbeanSystemAspectTest {
       expectedExceptions =
           com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
   public void testPrePatchValidationOversizedWithIgnore() throws Exception {
-    AspectDao mockDao = mock(AspectDao.class);
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
         createPrePatchConfig(
             15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
@@ -386,65 +392,35 @@ public class EbeanSystemAspectTest {
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
 
     try {
-      EbeanSystemAspect.builder()
-          .prePatchValidationConfig(config)
-          .aspectDao(mockDao)
-          .forUpdate(ebeanAspectV2, entityRegistry);
+      EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
     } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
       assertEquals(
           e.getValidationPoint(),
           com.linkedin.metadata.entity.validation.ValidationPoint.PRE_DB_PATCH);
-      verifyNoInteractions(mockDao);
+      // IGNORE remediation should NOT add deletion request
+      assertEquals(AspectValidationContext.getPendingDeletions().size(), 0);
       throw e;
     }
-  }
-
-  @Test
-  public void testPrePatchValidationReplaceWithPatchSucceeds() throws Exception {
-    AspectDao mockDao = mock(AspectDao.class);
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        createPrePatchConfig(
-            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.REPLACE_WITH_PATCH);
-
-    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
-
-    // REPLACE_WITH_PATCH should delete and continue (not throw)
-    EbeanSystemAspect aspect =
-        EbeanSystemAspect.builder()
-            .prePatchValidationConfig(config)
-            .aspectDao(mockDao)
-            .forUpdate(ebeanAspectV2, entityRegistry);
-
-    assertNotNull(aspect);
-    // Verify deletion was called
-    verify(mockDao, times(1)).deleteAspect(eq(urn), eq(STATUS_ASPECT_NAME), eq(0L));
   }
 
   @Test(
       expectedExceptions =
           com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
-  public void testPrePatchValidationReplaceWithPatchDeleteFailureThrows() throws Exception {
-    AspectDao mockDao = mock(AspectDao.class);
+  public void testPrePatchValidationOversizedWithDelete() throws Exception {
     com.linkedin.metadata.config.AspectSizeValidationConfig config =
         createPrePatchConfig(
-            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.REPLACE_WITH_PATCH);
+            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
 
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
-    doThrow(new RuntimeException("Database error"))
-        .when(mockDao)
-        .deleteAspect(any(Urn.class), anyString(), anyLong());
 
-    // If deletion fails, should throw exception
     try {
-      EbeanSystemAspect.builder()
-          .prePatchValidationConfig(config)
-          .aspectDao(mockDao)
-          .forUpdate(ebeanAspectV2, entityRegistry);
+      EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
     } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
       assertEquals(
           e.getValidationPoint(),
           com.linkedin.metadata.entity.validation.ValidationPoint.PRE_DB_PATCH);
-      verify(mockDao, times(1)).deleteAspect(eq(urn), eq(STATUS_ASPECT_NAME), eq(0L));
+      // DELETE remediation should add deletion request to ThreadLocal
+      assertEquals(AspectValidationContext.getPendingDeletions().size(), 1);
       throw e;
     }
   }

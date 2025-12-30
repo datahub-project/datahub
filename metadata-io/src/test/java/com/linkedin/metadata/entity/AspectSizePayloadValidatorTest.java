@@ -13,19 +13,23 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
+import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
+import com.linkedin.metadata.entity.validation.AspectValidationContext;
 import com.linkedin.metadata.entity.validation.ValidationPoint;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class AspectSizeValidationHookTest {
+public class AspectSizePayloadValidatorTest {
 
   private final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
   private final EntityRegistry entityRegistry = opContext.getEntityRegistry();
@@ -33,7 +37,6 @@ public class AspectSizeValidationHookTest {
   private final AspectSpec aspectSpec = entitySpec.getAspectSpec(STATUS_ASPECT_NAME);
   private final RecordTemplate recordTemplate = new Status().setRemoved(false);
 
-  @Mock private AspectDao aspectDao;
   @Mock private SystemAspect systemAspect;
 
   private Urn urn;
@@ -47,6 +50,15 @@ public class AspectSizeValidationHookTest {
 
     when(systemAspect.getUrn()).thenReturn(urn);
     when(systemAspect.getAspectSpec()).thenReturn(aspectSpec);
+
+    // Clear ThreadLocal before each test
+    AspectValidationContext.clearPendingDeletions();
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Always cleanup ThreadLocal after each test
+    AspectValidationContext.clearPendingDeletions();
   }
 
   @Test
@@ -54,13 +66,17 @@ public class AspectSizeValidationHookTest {
     AspectSizeValidationConfig config = new AspectSizeValidationConfig();
     config.setPostPatch(null);
 
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
 
-    hook.afterSerialization(systemAspect, serializedAspect);
-    verifyNoInteractions(aspectDao);
+    // Should not throw
+    validator.validatePayload(systemAspect, serializedAspect);
+
+    // Should not add any deletion requests
+    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    assertEquals(deletions.size(), 0);
   }
 
   @Test
@@ -70,52 +86,64 @@ public class AspectSizeValidationHookTest {
     postPatchConfig.setEnabled(false);
     config.setPostPatch(postPatchConfig);
 
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
 
-    hook.afterSerialization(systemAspect, serializedAspect);
-    verifyNoInteractions(aspectDao);
+    // Should not throw
+    validator.validatePayload(systemAspect, serializedAspect);
+
+    // Should not add any deletion requests
+    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    assertEquals(deletions.size(), 0);
   }
 
   @Test
   public void testValidationWithNullMetadata() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(null);
 
-    hook.afterSerialization(systemAspect, serializedAspect);
-    verifyNoInteractions(aspectDao);
+    // Should not throw
+    validator.validatePayload(systemAspect, serializedAspect);
+
+    // Should not add any deletion requests
+    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    assertEquals(deletions.size(), 0);
   }
 
   @Test
   public void testValidationPassesForSmallAspect() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(1000)); // 1KB
 
-    hook.afterSerialization(systemAspect, serializedAspect);
-    verifyNoInteractions(aspectDao);
+    // Should not throw
+    validator.validatePayload(systemAspect, serializedAspect);
+
+    // Should not add any deletion requests
+    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    assertEquals(deletions.size(), 0);
   }
 
   @Test
   public void testValidationFailsWithDeleteRemediation() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
 
     try {
-      hook.afterSerialization(systemAspect, serializedAspect);
+      validator.validatePayload(systemAspect, serializedAspect);
       fail("Expected AspectSizeExceededException");
     } catch (AspectSizeExceededException exception) {
       assertEquals(exception.getValidationPoint(), ValidationPoint.POST_DB_PATCH);
@@ -124,7 +152,15 @@ public class AspectSizeValidationHookTest {
       assertEquals(exception.getUrn(), URN_STRING);
       assertEquals(exception.getAspectName(), STATUS_ASPECT_NAME);
 
-      verify(aspectDao, times(1)).deleteAspect(urn, STATUS_ASPECT_NAME, 0L);
+      // Verify deletion request was added to ThreadLocal
+      List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+      assertEquals(deletions.size(), 1);
+      AspectDeletionRequest deletion = deletions.get(0);
+      assertEquals(deletion.getUrn(), urn);
+      assertEquals(deletion.getAspectName(), STATUS_ASPECT_NAME);
+      assertEquals(deletion.getValidationPoint(), ValidationPoint.POST_DB_PATCH);
+      assertEquals(deletion.getAspectSize(), 20000000L);
+      assertEquals(deletion.getThreshold(), 15728640L);
     }
   }
 
@@ -132,17 +168,20 @@ public class AspectSizeValidationHookTest {
   public void testValidationFailsWithIgnoreRemediation() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.IGNORE);
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
 
     try {
-      hook.afterSerialization(systemAspect, serializedAspect);
+      validator.validatePayload(systemAspect, serializedAspect);
       fail("Expected AspectSizeExceededException");
     } catch (AspectSizeExceededException exception) {
       assertEquals(exception.getValidationPoint(), ValidationPoint.POST_DB_PATCH);
-      verifyNoInteractions(aspectDao);
+
+      // IGNORE remediation should NOT add deletion request
+      List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+      assertEquals(deletions.size(), 0);
     }
   }
 
@@ -151,13 +190,17 @@ public class AspectSizeValidationHookTest {
     long threshold = 15728640L;
     AspectSizeValidationConfig config =
         createEnabledConfig(threshold, OversizedAspectRemediation.DELETE);
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata((int) threshold));
 
-    hook.afterSerialization(systemAspect, serializedAspect);
-    verifyNoInteractions(aspectDao);
+    // Should not throw - exact threshold is allowed
+    validator.validatePayload(systemAspect, serializedAspect);
+
+    // Should not add any deletion requests
+    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    assertEquals(deletions.size(), 0);
   }
 
   @Test
@@ -165,41 +208,21 @@ public class AspectSizeValidationHookTest {
     long threshold = 15728640L;
     AspectSizeValidationConfig config =
         createEnabledConfig(threshold, OversizedAspectRemediation.DELETE);
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata((int) (threshold + 1)));
 
     try {
-      hook.afterSerialization(systemAspect, serializedAspect);
+      validator.validatePayload(systemAspect, serializedAspect);
       fail("Expected AspectSizeExceededException");
     } catch (AspectSizeExceededException exception) {
       assertEquals(exception.getActualSize(), threshold + 1);
       assertEquals(exception.getThreshold(), threshold);
-      verify(aspectDao, times(1)).deleteAspect(urn, STATUS_ASPECT_NAME, 0L);
-    }
-  }
 
-  @Test
-  public void testDeletionFailurePropagatesException() {
-    AspectSizeValidationConfig config =
-        createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
-    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
-
-    EntityAspect serializedAspect = new EntityAspect();
-    serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
-
-    doThrow(new RuntimeException("Database error"))
-        .when(aspectDao)
-        .deleteAspect(urn, STATUS_ASPECT_NAME, 0L);
-
-    try {
-      hook.afterSerialization(systemAspect, serializedAspect);
-      fail("Expected RuntimeException");
-    } catch (RuntimeException exception) {
-      // Database errors should propagate naturally for better incident response
-      assertEquals(exception.getMessage(), "Database error");
-      verify(aspectDao, times(1)).deleteAspect(urn, STATUS_ASPECT_NAME, 0L);
+      // Verify deletion request was added
+      List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+      assertEquals(deletions.size(), 1);
     }
   }
 

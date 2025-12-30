@@ -6,14 +6,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.metadata.aspect.AspectSerializationHook;
+import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
-import com.linkedin.metadata.config.OversizedAspectRemediation;
-import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
-import com.linkedin.metadata.entity.validation.ValidationPoint;
+import com.linkedin.metadata.entity.validation.AspectSizeValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -65,11 +62,9 @@ public class EbeanSystemAspect implements SystemAspect {
 
   @Setter @Nullable private AuditStamp auditStamp;
 
-  @Nullable private List<AspectSerializationHook> serializationHooks;
+  @Nullable private List<AspectPayloadValidator> payloadValidators;
 
-  @Nullable private AspectSizeValidationConfig prePatchValidationConfig;
-
-  @Nullable private AspectDao aspectDao;
+  @Nullable private AspectSizeValidationConfig validationConfig;
 
   @Nonnull
   @Override
@@ -114,15 +109,15 @@ public class EbeanSystemAspect implements SystemAspect {
                 RecordUtils.toJsonString(systemMetadata))
             .toEntityAspect();
 
-    // Call serialization hooks after aspect is serialized to JSON
-    // We pass both SystemAspect (this) and EntityAspect (serialized form) to hooks:
+    // Call payload validators after aspect is serialized to JSON
+    // We pass both SystemAspect (this) and EntityAspect (serialized form) to validators:
     // - SystemAspect provides context: URN, aspect spec, RecordTemplate object
     // - EntityAspect provides the JSON string that was ALREADY serialized for DB write (line 108)
-    // This is NOT duplicate serialization - hooks reuse the JSON created for the DB write,
+    // This is NOT duplicate serialization - validators reuse the JSON created for the DB write,
     // making validation/metrics essentially free without re-serializing.
-    if (serializationHooks != null && !serializationHooks.isEmpty()) {
-      for (AspectSerializationHook hook : serializationHooks) {
-        hook.afterSerialization(this, entityAspect);
+    if (payloadValidators != null && !payloadValidators.isEmpty()) {
+      for (AspectPayloadValidator validator : payloadValidators) {
+        validator.validatePayload(this, entityAspect);
       }
     }
 
@@ -150,9 +145,8 @@ public class EbeanSystemAspect implements SystemAspect {
           this.recordTemplate,
           this.systemMetadata,
           this.auditStamp,
-          this.serializationHooks,
-          this.prePatchValidationConfig,
-          this.aspectDao);
+          this.payloadValidators,
+          this.validationConfig);
     }
 
     public EbeanSystemAspect forUpdate(
@@ -165,62 +159,9 @@ public class EbeanSystemAspect implements SystemAspect {
       this.urn = UrnUtils.getUrn(ebeanAspectV2.getUrn());
       this.aspectName = ebeanAspectV2.getAspect();
 
-      // Pre-patch validation: check existing aspect size from DB
-      if (prePatchValidationConfig != null
-          && prePatchValidationConfig.getPrePatch() != null
-          && prePatchValidationConfig.getPrePatch().isEnabled()) {
-        String rawMetadata = ebeanAspectV2.getMetadata();
-        if (rawMetadata != null) {
-          long actualSize = rawMetadata.length();
-          long threshold = prePatchValidationConfig.getPrePatch().getMaxSizeBytes();
-
-          if (actualSize > threshold) {
-            OversizedAspectRemediation remediation =
-                prePatchValidationConfig.getPrePatch().getOversizedRemediation();
-
-            log.warn(
-                "Oversized pre-patch aspect remediation={}: urn={}, aspect={}, size={} serialized bytes, threshold={} serialized bytes",
-                remediation.logLabel,
-                urn,
-                aspectName,
-                actualSize,
-                threshold);
-
-            // Handle oversized aspect according to remediation strategy
-            if (remediation == OversizedAspectRemediation.REPLACE_WITH_PATCH && aspectDao != null) {
-              try {
-                aspectDao.deleteAspect(urn, aspectName, 0L);
-                log.warn(
-                    "Deleted oversized pre-patch aspect, replacing with new patch as insert: urn={}, aspect={}",
-                    urn,
-                    aspectName);
-                // Clear ebeanAspectV2 so this is treated as an insert (no merge with old data)
-                this.ebeanAspectV2 = null;
-                // Continue processing - don't throw. If the NEW patch is oversized,
-                // post-patch validation will catch it
-              } catch (Exception e) {
-                log.error(
-                    "Failed to delete oversized pre-patch aspect for replacement: urn={}, aspect={}",
-                    urn,
-                    aspectName,
-                    e);
-                // If deletion fails, throw exception to prevent corrupt state
-                throw new AspectSizeExceededException(
-                    ValidationPoint.PRE_DB_PATCH,
-                    actualSize,
-                    threshold,
-                    urn.toString(),
-                    aspectName);
-              }
-            } else {
-              // IGNORE (or any other remediation): throw exception to reject the MCP, leaving
-              // oversized aspect in DB
-              throw new AspectSizeExceededException(
-                  ValidationPoint.PRE_DB_PATCH, actualSize, threshold, urn.toString(), aspectName);
-            }
-          }
-        }
-      }
+      // Pre-patch validation: check existing aspect size from DB using utility
+      AspectSizeValidator.validatePrePatchSize(
+          ebeanAspectV2.getMetadata(), urn, aspectName, validationConfig);
 
       this.recordTemplate =
           Optional.ofNullable(ebeanAspectV2.getMetadata())
@@ -336,9 +277,8 @@ public class EbeanSystemAspect implements SystemAspect {
           recordTemplateCopy,
           systemMetadataCopy,
           auditStampCopy,
-          this.serializationHooks,
-          this.prePatchValidationConfig,
-          this.aspectDao);
+          this.payloadValidators,
+          this.validationConfig);
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }

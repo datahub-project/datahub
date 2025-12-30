@@ -69,6 +69,8 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.AspectValidationContext;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -1037,303 +1039,396 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return opContext.withSpan(
         "ingestAspectsToLocalDB",
         () -> {
-          if (inputBatch.containsDuplicateAspects()) {
-            log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
-            opContext
-                .getMetricUtils()
-                .ifPresent(
-                    metricUtils ->
-                        metricUtils.increment(EntityServiceImpl.class, "batch_with_duplicate", 1));
-          }
+          try {
+            // Clear ThreadLocal at start of each request to ensure fresh state
+            AspectValidationContext.clearPendingDeletions();
 
-          return aspectDao
-              .runInTransactionWithRetry(
-                  (txContext) -> {
-                    // Generate default aspects within the transaction (they are re-calculated on
-                    // retry)
-                    AspectsBatch batchWithDefaults =
-                        DefaultAspectsUtil.withAdditionalChanges(
-                            opContext, inputBatch, this, enableBrowseV2);
+            if (inputBatch.containsDuplicateAspects()) {
+              log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(
+                              EntityServiceImpl.class, "batch_with_duplicate", 1));
+            }
 
-                    final Map<String, Set<String>> urnAspects =
-                        batchWithDefaults.getUrnAspectsMap();
+            IngestAspectsResult result =
+                aspectDao
+                    .runInTransactionWithRetry(
+                        (txContext) -> {
+                          // Generate default aspects within the transaction (they are re-calculated
+                          // on
+                          // retry)
+                          AspectsBatch batchWithDefaults =
+                              DefaultAspectsUtil.withAdditionalChanges(
+                                  opContext, inputBatch, this, enableBrowseV2);
 
-                    // read #1
-                    // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock) in
-                    // order
-                    // to ensure that the aspect's version is not modified outside the transaction.
-                    // We rely on the retry mechanism if the row is modified and will re-read
-                    // (require the
-                    // lock)
+                          final Map<String, Set<String>> urnAspects =
+                              batchWithDefaults.getUrnAspectsMap();
 
-                    // Initial database state from database
-                    final Map<String, Map<String, SystemAspect>> batchAspects =
-                        aspectDao.getLatestAspects(opContext, urnAspects, true);
-                    final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
+                          // read #1
+                          // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
+                          // in
+                          // order
+                          // to ensure that the aspect's version is not modified outside the
+                          // transaction.
+                          // We rely on the retry mechanism if the row is modified and will re-read
+                          // (require the
+                          // lock)
 
-                    // read #2 (potentially)
-                    final Map<String, Map<String, Long>> nextVersions =
-                        EntityUtils.calculateNextVersions(
-                            txContext, aspectDao, batchAspects, urnAspects);
+                          // Initial database state from database
+                          final Map<String, Map<String, SystemAspect>> batchAspects =
+                              aspectDao.getLatestAspects(opContext, urnAspects, true);
+                          final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
 
-                    // 1. Convert patches to full upserts
-                    // 2. Run any entity/aspect level hooks
-                    Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
-                        batchWithDefaults.toUpsertBatchItems(
-                            batchAspects, nextVersions, EntityServiceImpl::applyUpsert);
+                          // read #2 (potentially)
+                          final Map<String, Map<String, Long>> nextVersions =
+                              EntityUtils.calculateNextVersions(
+                                  txContext, aspectDao, batchAspects, urnAspects);
 
-                    // Fetch additional information if needed
-                    final List<ChangeMCP> changeMCPs;
+                          // 1. Convert patches to full upserts
+                          // 2. Run any entity/aspect level hooks
+                          Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
+                              batchWithDefaults.toUpsertBatchItems(
+                                  batchAspects, nextVersions, EntityServiceImpl::applyUpsert);
 
-                    if (!updatedItems.getFirst().isEmpty()) {
-                      // These items are new items from side effects
-                      Map<String, Set<String>> sideEffects = updatedItems.getFirst();
+                          // Fetch additional information if needed
+                          final List<ChangeMCP> changeMCPs;
 
-                      final Map<String, Map<String, Long>> updatedNextVersions;
+                          if (!updatedItems.getFirst().isEmpty()) {
+                            // These items are new items from side effects
+                            Map<String, Set<String>> sideEffects = updatedItems.getFirst();
 
-                      Map<String, Map<String, SystemAspect>> newLatestAspects =
-                          aspectDao.getLatestAspects(opContext, sideEffects, true);
+                            final Map<String, Map<String, Long>> updatedNextVersions;
 
-                      // merge
-                      updatedLatestAspects = AspectsBatch.merge(batchAspects, newLatestAspects);
+                            Map<String, Map<String, SystemAspect>> newLatestAspects =
+                                aspectDao.getLatestAspects(opContext, sideEffects, true);
 
-                      Map<String, Map<String, Long>> newNextVersions =
-                          EntityUtils.calculateNextVersions(
-                              txContext, aspectDao, updatedLatestAspects, updatedItems.getFirst());
-                      // merge
-                      updatedNextVersions = AspectsBatch.merge(nextVersions, newNextVersions);
+                            // merge
+                            updatedLatestAspects =
+                                AspectsBatch.merge(batchAspects, newLatestAspects);
 
-                      changeMCPs =
-                          updatedItems.getSecond().stream()
-                              .peek(
-                                  changeMCP -> {
-                                    // Add previous version to each side-effect
-                                    if (sideEffects
-                                        .getOrDefault(
-                                            changeMCP.getUrn().toString(), Collections.emptySet())
-                                        .contains(changeMCP.getAspectName())) {
+                            Map<String, Map<String, Long>> newNextVersions =
+                                EntityUtils.calculateNextVersions(
+                                    txContext,
+                                    aspectDao,
+                                    updatedLatestAspects,
+                                    updatedItems.getFirst());
+                            // merge
+                            updatedNextVersions = AspectsBatch.merge(nextVersions, newNextVersions);
 
-                                      AspectsBatch.incrementBatchVersion(
-                                          changeMCP,
-                                          updatedLatestAspects,
-                                          updatedNextVersions,
-                                          EntityServiceImpl::applyUpsert);
-                                    }
-                                  })
-                              .collect(Collectors.toList());
-                    } else {
-                      changeMCPs = updatedItems.getSecond();
-                      updatedLatestAspects = batchAspects;
-                    }
+                            changeMCPs =
+                                updatedItems.getSecond().stream()
+                                    .peek(
+                                        changeMCP -> {
+                                          // Add previous version to each side-effect
+                                          if (sideEffects
+                                              .getOrDefault(
+                                                  changeMCP.getUrn().toString(),
+                                                  Collections.emptySet())
+                                              .contains(changeMCP.getAspectName())) {
 
-                    // No changes, return
-                    if (changeMCPs.isEmpty()) {
-                      opContext
-                          .getMetricUtils()
-                          .ifPresent(
-                              metricUtils ->
-                                  metricUtils.increment(EntityServiceImpl.class, "batch_empty", 1));
-                      return TransactionResult.ingestAspectsRollback();
-                    }
+                                            AspectsBatch.incrementBatchVersion(
+                                                changeMCP,
+                                                updatedLatestAspects,
+                                                updatedNextVersions,
+                                                EntityServiceImpl::applyUpsert);
+                                          }
+                                        })
+                                    .collect(Collectors.toList());
+                          } else {
+                            changeMCPs = updatedItems.getSecond();
+                            updatedLatestAspects = batchAspects;
+                          }
 
-                    // do final pre-commit checks with previous aspect value
-                    ValidationExceptionCollection exceptions =
-                        AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext());
-
-                    List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults =
-                        new ArrayList<>();
-                    if (exceptions.hasFatalExceptions()) {
-                      // IF this is a client request/API request we fail the `transaction batch`
-                      if (opContext.getRequestContext() != null) {
-                        opContext
-                            .getMetricUtils()
-                            .ifPresent(
-                                metricUtils ->
-                                    metricUtils.increment(
-                                        EntityServiceImpl.class,
-                                        "batch_request_validation_exception",
-                                        1));
-                        collectMetrics(opContext.getMetricUtils().orElse(null), exceptions);
-                        throw new ValidationException(exceptions);
-                      }
-
-                      opContext
-                          .getMetricUtils()
-                          .ifPresent(
-                              metricUtils ->
-                                  metricUtils.increment(
-                                      EntityServiceImpl.class,
-                                      "batch_consumer_validation_exception",
-                                      1));
-                      log.error(
-                          "mce-consumer batch exceptions: {}",
-                          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
-                      failedUpsertResults =
-                          exceptions
-                              .streamExceptions(changeMCPs.stream())
-                              .map(
-                                  writeItem ->
-                                      Pair.of(
-                                          writeItem,
-                                          exceptions.get(
-                                              Pair.of(
-                                                  writeItem.getUrn(), writeItem.getAspectName()))))
-                              .collect(Collectors.toList());
-                    }
-
-                    // Database Upsert successfully validated results
-                    log.info(
-                        "Ingesting aspects batch to database: {}",
-                        AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
-
-                    List<UpdateAspectResult> upsertResults =
-                        exceptions
-                            .streamSuccessful(changeMCPs.stream())
-                            .map(
-                                writeItem -> {
-
-                                  /*
-                                    Latest aspect after possible in-memory mutation
-                                  */
-                                  final SystemAspect latestAspect =
-                                      updatedLatestAspects
-                                          .getOrDefault(writeItem.getUrn().toString(), Map.of())
-                                          .get(writeItem.getAspectName());
-
-                                  // eliminate unneeded writes within a batch if the latest aspect
-                                  // doesn't match this ChangeMCP
-                                  if (latestAspect != null
-                                      && !Objects.equals(
-                                          latestAspect.getSystemMetadata().getVersion(),
-                                          writeItem.getSystemMetadata().getVersion())) {
-                                    log.debug(
-                                        "Skipping obsolete write: urn: {} aspect: {} version: {}",
-                                        writeItem.getUrn(),
-                                        writeItem.getAspectName(),
-                                        writeItem.getSystemMetadata().getVersion());
-                                    return null;
-                                  }
-
-                                  /*
-                                    This condition is specifically for an older conditional write ingestAspectIfNotPresent()
-                                    overwrite is always true otherwise
-                                  */
-                                  if (overwrite
-                                      || latestAspect == null
-                                      || latestAspect.getDatabaseAspect().isEmpty()) {
-                                    return Optional.ofNullable(
-                                            ingestAspectToLocalDB(
-                                                opContext, txContext, writeItem, latestAspect))
-                                        .map(
-                                            optResult ->
-                                                optResult.toBuilder().request(writeItem).build())
-                                        .orElse(null);
-                                  }
-
-                                  return null;
-                                })
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
-
-                    if (!upsertResults.isEmpty()) {
-                      // commit upserts prior to retention or kafka send, if supported by impl
-                      if (txContext != null) {
-                        try {
-                          txContext.commitAndContinue();
-                        } catch (EntityNotFoundException e) {
-                          if (e.getMessage() != null
-                              && e.getMessage().contains("No rows updated")) {
-                            log.warn("Ignoring no rows updated condition for metadata update", e);
+                          // No changes, return
+                          if (changeMCPs.isEmpty()) {
                             opContext
                                 .getMetricUtils()
                                 .ifPresent(
                                     metricUtils ->
                                         metricUtils.increment(
-                                            EntityServiceImpl.class, "no_rows_updated", 1));
-                            return TransactionResult.rollback();
+                                            EntityServiceImpl.class, "batch_empty", 1));
+                            return TransactionResult.ingestAspectsRollback();
                           }
-                          throw e;
-                        }
-                      }
 
-                      // Retention optimization and tx
-                      if (retentionService != null) {
-                        opContext.withSpan(
-                            "retentionService",
-                            () -> {
-                              List<RetentionService.RetentionContext> retentionBatch =
-                                  upsertResults.stream()
-                                      // Only consider retention when there was a previous version
-                                      .filter(
-                                          result ->
-                                              updatedLatestAspects.containsKey(
-                                                      result.getUrn().toString())
-                                                  && updatedLatestAspects
-                                                      .get(result.getUrn().toString())
-                                                      .containsKey(
-                                                          result.getRequest().getAspectName()))
-                                      .filter(
-                                          result -> {
-                                            RecordTemplate oldAspect = result.getOldValue();
-                                            RecordTemplate newAspect = result.getNewValue();
-                                            // Apply retention policies if there was an update to
-                                            // existing
-                                            // aspect
-                                            // value
-                                            return oldAspect != newAspect
-                                                && oldAspect != null
-                                                && retentionService != null;
-                                          })
-                                      .map(
-                                          result ->
-                                              RetentionService.RetentionContext.builder()
-                                                  .urn(result.getUrn())
-                                                  .aspectName(result.getRequest().getAspectName())
-                                                  .maxVersion(Optional.of(result.getMaxVersion()))
-                                                  .build())
-                                      .collect(Collectors.toList());
-                              retentionService.applyRetentionWithPolicyDefaults(
-                                  opContext, retentionBatch);
-                            },
-                            BATCH_SIZE_ATTR,
-                            String.valueOf(upsertResults.size()));
-                      } else {
-                        log.warn("Retention service is missing!");
-                      }
-                    } else {
-                      opContext
-                          .getMetricUtils()
-                          .ifPresent(
-                              metricUtils ->
-                                  metricUtils.increment(
-                                      EntityServiceImpl.class, "batch_empty_transaction", 1));
-                      // This includes no-op batches. i.e. patch removing non-existent items
-                      log.debug("Empty transaction detected");
-                      if (txContext != null) {
-                        txContext.rollback();
-                      }
-                    }
+                          // do final pre-commit checks with previous aspect value
+                          ValidationExceptionCollection exceptions =
+                              AspectsBatch.validatePreCommit(
+                                  changeMCPs, opContext.getRetrieverContext());
 
-                    // Force flush span processing for DUE Exports
-                    Optional.ofNullable(opContext.getSystemTelemetryContext())
-                        .map(SystemTelemetryContext::getUsageSpanExporter)
-                        .ifPresent(SpanProcessor::forceFlush);
+                          List<Pair<ChangeMCP, Set<AspectValidationException>>>
+                              failedUpsertResults = new ArrayList<>();
+                          if (exceptions.hasFatalExceptions()) {
+                            // IF this is a client request/API request we fail the `transaction
+                            // batch`
+                            if (opContext.getRequestContext() != null) {
+                              opContext
+                                  .getMetricUtils()
+                                  .ifPresent(
+                                      metricUtils ->
+                                          metricUtils.increment(
+                                              EntityServiceImpl.class,
+                                              "batch_request_validation_exception",
+                                              1));
+                              collectMetrics(opContext.getMetricUtils().orElse(null), exceptions);
+                              throw new ValidationException(exceptions);
+                            }
 
-                    return TransactionResult.of(
-                        IngestAspectsResult.builder()
-                            .updateAspectResults(upsertResults)
-                            .failedUpdateAspectResults(failedUpsertResults)
-                            .build());
-                  },
-                  inputBatch,
-                  ebeanMaxTransactionRetry)
-              .stream()
-              .reduce(IngestAspectsResult.EMPTY, IngestAspectsResult::combine);
+                            opContext
+                                .getMetricUtils()
+                                .ifPresent(
+                                    metricUtils ->
+                                        metricUtils.increment(
+                                            EntityServiceImpl.class,
+                                            "batch_consumer_validation_exception",
+                                            1));
+                            log.error(
+                                "mce-consumer batch exceptions: {}",
+                                collectMetrics(
+                                    opContext.getMetricUtils().orElse(null), exceptions));
+                            failedUpsertResults =
+                                exceptions
+                                    .streamExceptions(changeMCPs.stream())
+                                    .map(
+                                        writeItem ->
+                                            Pair.of(
+                                                writeItem,
+                                                exceptions.get(
+                                                    Pair.of(
+                                                        writeItem.getUrn(),
+                                                        writeItem.getAspectName()))))
+                                    .collect(Collectors.toList());
+                          }
+
+                          // Database Upsert successfully validated results
+                          log.info(
+                              "Ingesting aspects batch to database: {}",
+                              AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+
+                          List<UpdateAspectResult> upsertResults =
+                              exceptions
+                                  .streamSuccessful(changeMCPs.stream())
+                                  .map(
+                                      writeItem -> {
+
+                                        /*
+                                          Latest aspect after possible in-memory mutation
+                                        */
+                                        final SystemAspect latestAspect =
+                                            updatedLatestAspects
+                                                .getOrDefault(
+                                                    writeItem.getUrn().toString(), Map.of())
+                                                .get(writeItem.getAspectName());
+
+                                        // eliminate unneeded writes within a batch if the latest
+                                        // aspect
+                                        // doesn't match this ChangeMCP
+                                        if (latestAspect != null
+                                            && !Objects.equals(
+                                                latestAspect.getSystemMetadata().getVersion(),
+                                                writeItem.getSystemMetadata().getVersion())) {
+                                          log.debug(
+                                              "Skipping obsolete write: urn: {} aspect: {} version: {}",
+                                              writeItem.getUrn(),
+                                              writeItem.getAspectName(),
+                                              writeItem.getSystemMetadata().getVersion());
+                                          return null;
+                                        }
+
+                                        /*
+                                          This condition is specifically for an older conditional write ingestAspectIfNotPresent()
+                                          overwrite is always true otherwise
+                                        */
+                                        if (overwrite
+                                            || latestAspect == null
+                                            || latestAspect.getDatabaseAspect().isEmpty()) {
+                                          return Optional.ofNullable(
+                                                  ingestAspectToLocalDB(
+                                                      opContext,
+                                                      txContext,
+                                                      writeItem,
+                                                      latestAspect))
+                                              .map(
+                                                  optResult ->
+                                                      optResult.toBuilder()
+                                                          .request(writeItem)
+                                                          .build())
+                                              .orElse(null);
+                                        }
+
+                                        return null;
+                                      })
+                                  .filter(Objects::nonNull)
+                                  .collect(Collectors.toList());
+
+                          if (!upsertResults.isEmpty()) {
+                            // commit upserts prior to retention or kafka send, if supported by impl
+                            if (txContext != null) {
+                              try {
+                                txContext.commitAndContinue();
+                              } catch (EntityNotFoundException e) {
+                                if (e.getMessage() != null
+                                    && e.getMessage().contains("No rows updated")) {
+                                  log.warn(
+                                      "Ignoring no rows updated condition for metadata update", e);
+                                  opContext
+                                      .getMetricUtils()
+                                      .ifPresent(
+                                          metricUtils ->
+                                              metricUtils.increment(
+                                                  EntityServiceImpl.class, "no_rows_updated", 1));
+                                  return TransactionResult.rollback();
+                                }
+                                throw e;
+                              }
+                            }
+
+                            // Retention optimization and tx
+                            if (retentionService != null) {
+                              opContext.withSpan(
+                                  "retentionService",
+                                  () -> {
+                                    List<RetentionService.RetentionContext> retentionBatch =
+                                        upsertResults.stream()
+                                            // Only consider retention when there was a previous
+                                            // version
+                                            .filter(
+                                                upsertResult ->
+                                                    updatedLatestAspects.containsKey(
+                                                            upsertResult.getUrn().toString())
+                                                        && updatedLatestAspects
+                                                            .get(upsertResult.getUrn().toString())
+                                                            .containsKey(
+                                                                upsertResult
+                                                                    .getRequest()
+                                                                    .getAspectName()))
+                                            .filter(
+                                                upsertResult -> {
+                                                  RecordTemplate oldAspect =
+                                                      upsertResult.getOldValue();
+                                                  RecordTemplate newAspect =
+                                                      upsertResult.getNewValue();
+                                                  // Apply retention policies if there was an update
+                                                  // to
+                                                  // existing
+                                                  // aspect
+                                                  // value
+                                                  return oldAspect != newAspect
+                                                      && oldAspect != null
+                                                      && retentionService != null;
+                                                })
+                                            .map(
+                                                upsertResult ->
+                                                    RetentionService.RetentionContext.builder()
+                                                        .urn(upsertResult.getUrn())
+                                                        .aspectName(
+                                                            upsertResult
+                                                                .getRequest()
+                                                                .getAspectName())
+                                                        .maxVersion(
+                                                            Optional.of(
+                                                                upsertResult.getMaxVersion()))
+                                                        .build())
+                                            .collect(Collectors.toList());
+                                    retentionService.applyRetentionWithPolicyDefaults(
+                                        opContext, retentionBatch);
+                                  },
+                                  BATCH_SIZE_ATTR,
+                                  String.valueOf(upsertResults.size()));
+                            } else {
+                              log.warn("Retention service is missing!");
+                            }
+                          } else {
+                            opContext
+                                .getMetricUtils()
+                                .ifPresent(
+                                    metricUtils ->
+                                        metricUtils.increment(
+                                            EntityServiceImpl.class, "batch_empty_transaction", 1));
+                            // This includes no-op batches. i.e. patch removing non-existent items
+                            log.debug("Empty transaction detected");
+                            if (txContext != null) {
+                              txContext.rollback();
+                            }
+                          }
+
+                          // Force flush span processing for DUE Exports
+                          Optional.ofNullable(opContext.getSystemTelemetryContext())
+                              .map(SystemTelemetryContext::getUsageSpanExporter)
+                              .ifPresent(SpanProcessor::forceFlush);
+
+                          return TransactionResult.of(
+                              IngestAspectsResult.builder()
+                                  .updateAspectResults(upsertResults)
+                                  .failedUpdateAspectResults(failedUpsertResults)
+                                  .build());
+                        },
+                        inputBatch,
+                        ebeanMaxTransactionRetry)
+                    .stream()
+                    .reduce(IngestAspectsResult.EMPTY, IngestAspectsResult::combine);
+
+            // After transaction commits, process any pending deletions collected during validation
+            // This follows existing validation mechanics pattern - validation throws exceptions
+            // during transaction, they're caught, and handled after tx commits what it can.
+            List<AspectDeletionRequest> pendingDeletions =
+                AspectValidationContext.getPendingDeletions();
+            if (!pendingDeletions.isEmpty()) {
+              processPendingDeletions(opContext, pendingDeletions);
+            }
+
+            return result;
+          } finally {
+            // Always cleanup ThreadLocal to prevent memory leaks when thread returns to pool
+            AspectValidationContext.clearPendingDeletions();
+          }
         },
         BATCH_SIZE_ATTR,
         String.valueOf(inputBatch.getItems().size()),
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "ingestAspectsToLocalDB"));
+  }
+
+  /**
+   * Processes pending aspect deletions collected during validation.
+   *
+   * <p>Called after database transaction commits to execute proper EntityService-level deletions
+   * for oversized aspects. Ensures all side effects are handled: database deletion, Elasticsearch
+   * index updates, graph edge cleanup, and consumer hook invocation.
+   *
+   * @param opContext operation context
+   * @param deletions list of deletion requests collected during validation
+   */
+  private void processPendingDeletions(
+      @Nonnull OperationContext opContext, @Nonnull List<AspectDeletionRequest> deletions) {
+
+    for (AspectDeletionRequest deletion : deletions) {
+      try {
+        log.warn(
+            "Executing system-level deletion for oversized aspect: urn={}, aspect={}, validationPoint={}, size={} bytes, threshold={} bytes",
+            deletion.getUrn(),
+            deletion.getAspectName(),
+            deletion.getValidationPoint(),
+            deletion.getAspectSize(),
+            deletion.getThreshold());
+
+        // Call proper deletion through EntityService
+        // This handles all side effects: ES indices, graph edges, consumer hooks, system metadata
+        this.deleteAspect(
+            opContext, deletion.getUrn().toString(), deletion.getAspectName(), Map.of(), false);
+
+      } catch (Exception e) {
+        log.error(
+            "Failed to delete oversized aspect: urn={}, aspect={}",
+            deletion.getUrn(),
+            deletion.getAspectName(),
+            e);
+        // Don't throw - continue with other deletions
+        // The oversized aspect will remain in database and continue to trigger validation
+      }
+    }
   }
 
   public MCLEmitResult produceMCLAsync(@Nonnull OperationContext opContext, MetadataChangeLog mcl) {

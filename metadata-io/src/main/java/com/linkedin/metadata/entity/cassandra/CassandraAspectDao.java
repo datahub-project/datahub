@@ -24,8 +24,10 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -35,6 +37,7 @@ import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.AspectSizeValidator;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -61,9 +64,16 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   private final CqlSession _cqlSession;
   private boolean canWrite = true;
   @Setter private boolean connectionValidated = false;
+  @Nonnull private final List<AspectPayloadValidator> payloadValidators;
+  @Nullable private final AspectSizeValidationConfig validationConfig;
 
-  public CassandraAspectDao(@Nonnull final CqlSession cqlSession) {
+  public CassandraAspectDao(
+      @Nonnull final CqlSession cqlSession,
+      @Nonnull List<AspectPayloadValidator> payloadValidators,
+      @Nullable AspectSizeValidationConfig validationConfig) {
     _cqlSession = cqlSession;
+    this.payloadValidators = payloadValidators;
+    this.validationConfig = validationConfig;
   }
 
   private boolean validateConnection() {
@@ -89,9 +99,16 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     return Optional.ofNullable(getAspect(urn, aspectName, ASPECT_LATEST_VERSION))
         .map(
-            a ->
-                EntityAspect.EntitySystemAspect.builder()
-                    .forUpdate(a, opContext.getEntityRegistry()))
+            a -> {
+              // Pre-patch validation if this is for update
+              if (forUpdate) {
+                AspectSizeValidator.validatePrePatchSize(
+                    a.getMetadata(), UrnUtils.getUrn(urn), aspectName, validationConfig);
+              }
+              return EntityAspect.EntitySystemAspect.builder()
+                  .payloadValidators(payloadValidators)
+                  .forUpdate(a, opContext.getEntityRegistry());
+            })
         .orElse(null);
   }
 
