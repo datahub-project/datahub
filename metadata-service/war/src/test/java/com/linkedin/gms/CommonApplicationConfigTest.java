@@ -1,22 +1,27 @@
 package com.linkedin.gms;
 
-import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
+import java.io.File;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.HttpConfiguration;
+import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.core.env.Environment;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest
 public class CommonApplicationConfigTest {
 
   private CommonApplicationConfig config;
   private Environment mockEnvironment;
 
-  @BeforeEach
+  @BeforeMethod
   public void setup() {
     config = new CommonApplicationConfig();
     mockEnvironment = mock(Environment.class);
