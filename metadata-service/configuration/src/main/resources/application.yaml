@@ -872,11 +872,36 @@ systemUpdate:
   removeQueryEdges:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
     numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
+  entityConsistency:
+    enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED:true}
+    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:true}  # Set to false to apply fixes
+    batchSize: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_BATCH_SIZE:100}
+    delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
+    gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
+    limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
+    entityTypes: []  # Entity types to check. Empty = all types with registered checks.
+    checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_REPROCESS:false}
+    systemMetadataFilterConfig:  # Optional filtering via system metadata index
+      gePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GE_PIT_EPOCH_MS:}  # Only entities modified >= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
+      lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
+      aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
+      includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+
+# Consistency check configuration (shared by upgrade job and API endpoints)
+consistencyChecks:
+  gracePeriodSeconds: ${CONSISTENCY_CHECKS_GRACE_PERIOD_SECONDS:300}  # 5 minutes - default for API endpoints
+  checks:
+    # Per-check configuration, keyed by check ID
+    assertion-monitor-missing:
+      defaultCronSchedule: ${CONSISTENCY_CHECK_ASSERTION_MONITOR_MISSING_CRON:0 0 0 * * ?}
+      defaultCronTimezone: ${CONSISTENCY_CHECK_ASSERTION_MONITOR_MISSING_TIMEZONE:UTC}
 
 healthCheck:
   cacheDurationSeconds: ${HEALTH_CHECK_CACHE_DURATION_SECONDS:5}
