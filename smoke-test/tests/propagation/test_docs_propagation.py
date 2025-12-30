@@ -41,7 +41,7 @@ from tests.integrations_service_utils import (
     stop_action,
     wait_until_action_has_processed_event,
 )
-from tests.utils import wait_for_writes_to_sync
+from tests.utils import get_integrations_service_url, wait_for_writes_to_sync
 
 """
 This file contains tests for the documentation propagation feature. The tests
@@ -73,6 +73,111 @@ TODOs:
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def validate_action_metrics(
+    test_action_urn: str, stage: str, expect_kafka_metrics: bool = True
+) -> None:
+    """Validate that observability metrics are present for the action.
+
+    Args:
+        test_action_urn: URN of the action being tested
+        stage: Stage name (BOOTSTRAP, LIVE, ROLLBACK)
+        expect_kafka_metrics: Whether to expect Kafka consumer metrics
+    """
+    import re
+
+    import requests
+
+    metrics_url = f"{get_integrations_service_url()}/metrics"
+    logger.info(f"Validating metrics for action {test_action_urn} in {stage} stage")
+
+    try:
+        response = requests.get(metrics_url, timeout=10)
+        response.raise_for_status()
+        metrics_text = response.text
+    except Exception as e:
+        logger.warning(f"Failed to fetch metrics: {e}")
+        return
+
+    # Extract action name from URN (e.g., urn:li:dataHubAction:test_doc_propagation -> test_doc_propagation)
+    action_name_match = re.search(r"urn:li:dataHubAction:(.+)", test_action_urn)
+    action_name = action_name_match.group(1) if action_name_match else test_action_urn
+
+    # Phase 1: Check action execution metrics with labels
+    phase1_metrics = [
+        "actions_execution_duration_seconds",
+        "actions_execution_total",
+    ]
+
+    # Phase 2: Check action state tracking metrics
+    phase2_metrics = [
+        "actions_running_count",
+        "actions_success_total",
+        "actions_error_total",
+    ]
+
+    # Phase 3: Check Kafka consumer metrics (if applicable)
+    phase3_metrics = [
+        "actions_kafka_messages_consumed_total",
+        "actions_kafka_last_message_timestamp_seconds",
+    ]
+
+    found_metrics: dict[str, list[str]] = {"phase1": [], "phase2": [], "phase3": []}
+
+    # Check Phase 1 metrics with action context
+    for metric in phase1_metrics:
+        if metric in metrics_text and action_name in metrics_text:
+            found_metrics["phase1"].append(metric)
+
+    # Check Phase 2 metrics
+    for metric in phase2_metrics:
+        if metric in metrics_text:
+            found_metrics["phase2"].append(metric)
+
+    # Check Phase 3 metrics if expected
+    if expect_kafka_metrics:
+        for metric in phase3_metrics:
+            if metric in metrics_text and action_name in metrics_text:
+                found_metrics["phase3"].append(metric)
+
+    # Log findings
+    if found_metrics["phase1"]:
+        logger.info(
+            f"✓ Phase 1 metrics found for {action_name}: {found_metrics['phase1']}"
+        )
+    else:
+        logger.warning(
+            f"⚠ No Phase 1 execution metrics found for {action_name} in {stage}"
+        )
+
+    if found_metrics["phase2"]:
+        logger.info(
+            f"✓ Phase 2 state tracking metrics found: {found_metrics['phase2']}"
+        )
+    else:
+        logger.warning(f"⚠ No Phase 2 state tracking metrics found in {stage}")
+
+    if expect_kafka_metrics:
+        if found_metrics["phase3"]:
+            logger.info(
+                f"✓ Phase 3 Kafka metrics found for {action_name}: {found_metrics['phase3']}"
+            )
+        else:
+            logger.warning(
+                f"⚠ No Phase 3 Kafka metrics found for {action_name} in {stage}"
+            )
+
+    # Count metrics with action context
+    action_metric_lines = [
+        line
+        for line in metrics_text.split("\n")
+        if action_name in line and not line.startswith("#")
+    ]
+    if action_metric_lines:
+        logger.info(
+            f"Found {len(action_metric_lines)} metric lines mentioning action {action_name}"
+        )
 
 
 def kill_action_processes(action_urn=None):
@@ -133,12 +238,12 @@ def cleanup(
     for urn in urns:
         graph_client.delete_entity(urn, hard=True)
     if remove_actions:
-        actions_gql = (pathlib.Path(test_resources_dir) / "actions.gql").read_text()
-        all_actions = graph_client.execute_graphql(
-            query=actions_gql, operation_name="listActions"
-        )
-        logger.debug(f"Got actions: {all_actions}")
         try:
+            actions_gql = (pathlib.Path(test_resources_dir) / "actions.gql").read_text()
+            all_actions = graph_client.execute_graphql(
+                query=actions_gql, operation_name="listActions"
+            )
+            logger.debug(f"Got actions: {all_actions}")
             for action in all_actions["listActionPipelines"]["actionPipelines"]:
                 action_urn = action["urn"]
                 try:
@@ -155,7 +260,7 @@ def cleanup(
                     logger.error(f"Error killing action processes: {e}")
                 graph_client.delete_entity(action_urn, hard=True)
         except Exception as e:
-            logger.error(f"Error deleting action: {e}")
+            logger.error(f"Error listing/deleting actions via GraphQL: {e}")
         try:
             kill_action_processes()
         except Exception as e:
@@ -810,6 +915,14 @@ def docs_propagation_bootstrap(
     time_stages["bootstrap_check_expectations"] = (
         time.time() - time_stages["bootstrap_check_expectations"]
     )
+
+    # Validate observability metrics after bootstrap
+    time_stages["bootstrap_metrics_validation"] = time.time()
+    validate_action_metrics(test_action_urn, "BOOTSTRAP", expect_kafka_metrics=False)
+    time_stages["bootstrap_metrics_validation"] = (
+        time.time() - time_stages["bootstrap_metrics_validation"]
+    )
+
     print(f"---------- Bootstrap time stages: {time_stages} ------------")
 
 
@@ -880,6 +993,14 @@ def docs_propagation_live(
                 assert (
                     not documentation_aspect or not documentation_aspect.documentations
                 )
+
+        # Validate observability metrics during live stage
+        time_stages["live_metrics_validation"] = time.time()
+        validate_action_metrics(test_action_urn, "LIVE", expect_kafka_metrics=True)
+        time_stages["live_metrics_validation"] = (
+            time.time() - time_stages["live_metrics_validation"]
+        )
+
     finally:
         time_stages["stop_action"] = time.time()
         stop_action(test_action_urn, auth_session.integrations_service_url())
@@ -916,3 +1037,6 @@ def docs_propagation_rollback(
                 logger.warning(
                     f"Documentation aspect not found for {expectation.schema_field_urn}. Unexpected but not fatal."
                 )
+
+    # Validate observability metrics after rollback
+    validate_action_metrics(test_action_urn, "ROLLBACK", expect_kafka_metrics=False)

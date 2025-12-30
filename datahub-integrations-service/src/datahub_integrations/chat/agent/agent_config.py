@@ -5,8 +5,12 @@ This module defines AgentConfig, which specifies all aspects of an agent's
 behavior through composition of pluggable components.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional
+
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.agent.conversational_parser import (
@@ -18,6 +22,7 @@ if TYPE_CHECKING:
     from datahub_integrations.chat.chat_history import Message
     from datahub_integrations.chat.context_reducer import ChatContextReducer
     from datahub_integrations.mcp_integration.tool import ToolWrapper
+    from datahub_integrations.observability.bot_metrics import BotPlatform
 
 
 @dataclass
@@ -180,6 +185,13 @@ class AgentConfig:
 
     agent_description: str = ""
     """Optional description of what this agent does"""
+
+    # Observability metadata
+    ai_module: AIModule = AIModule.CHAT
+    """AI module for cost tracking and observability (default: CHAT)"""
+
+    platform: Optional["BotPlatform"] = None
+    """Bot platform if agent is used in a bot context (SLACK or TEAMS)"""
 
 
 # Import here to avoid circular imports

@@ -146,38 +146,26 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
                 )
 
     def act(self, event: EventEnvelope) -> None:
-        if not self._stats.event_processing_stats:
-            self._stats.event_processing_stats = EventProcessingStats()
-        self._stats.event_processing_stats.start(event)
+        if event.event_type == "EntityChangeEvent_v1":
+            assert isinstance(event.event, EntityChangeEvent)
+            assert self.ctx.graph is not None
+            semantic_event = event.event
 
-        success = True
-        try:
-            if event.event_type == "EntityChangeEvent_v1":
-                assert isinstance(event.event, EntityChangeEvent)
-                assert self.ctx.graph is not None
-                semantic_event = event.event
+            if is_snowflake_urn(semantic_event.entityUrn):
+                self._process_propagation_event(event)
 
-                if is_snowflake_urn(semantic_event.entityUrn):
+        elif event.event_type == "MetadataChangeLogEvent_v1":
+            assert isinstance(event.event, MetadataChangeLogEvent)
+            mcl_event = event.event
+
+            # Check if this is a Snowflake URN and a description-related aspect
+            if is_snowflake_urn(mcl_event.entityUrn):
+                # Check if this is a description-related aspect change
+                if mcl_event.aspectName in [
+                    "editableDatasetProperties",
+                    "editableSchemaMetadata",
+                ]:
                     self._process_propagation_event(event)
-
-            elif event.event_type == "MetadataChangeLogEvent_v1":
-                assert isinstance(event.event, MetadataChangeLogEvent)
-                mcl_event = event.event
-
-                # Check if this is a Snowflake URN and a description-related aspect
-                if is_snowflake_urn(mcl_event.entityUrn):
-                    # Check if this is a description-related aspect change
-                    if mcl_event.aspectName in [
-                        "editableDatasetProperties",
-                        "editableSchemaMetadata",
-                    ]:
-                        self._process_propagation_event(event)
-
-        except Exception as e:
-            logger.exception("Error processing event", e)
-            success = False
-        finally:
-            self._stats.event_processing_stats.end(event, success=success)
 
     def rollbackable_assets(self) -> Iterable[SelectedAsset]:
         yield from self.bootstrappable_assets()

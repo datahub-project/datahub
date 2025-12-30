@@ -1,6 +1,7 @@
 import json
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.api.report import Report
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
@@ -22,6 +23,29 @@ class RecordingAction(Action):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "RecordingAction":
         config = RecordingActionConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def bootstrap(self) -> Report:
+        """Bootstrap support for testing action observability.
+
+        RecordingAction doesn't process historical data, but we support bootstrap
+        to enable testing of action lifecycle and observability metrics.
+        """
+        # Write a bootstrap marker to the file
+        bootstrap_marker = {
+            "_bootstrap": True,
+            "_message": "RecordingAction bootstrap completed successfully",
+        }
+
+        if not self._wrote_first:
+            self.file.write("[\n")
+            self._wrote_first = True
+
+        self.file.write(json.dumps(bootstrap_marker, indent=2))
+        self.file.flush()
+
+        print(f"RecordingAction bootstrap completed: {self.config.filename}")
+
+        return Report()
 
     def act(self, event: EventEnvelope) -> None:
         single_line = event.as_json()

@@ -22,6 +22,8 @@ from datahub_integrations.chat.chat_session_manager import (
     ChatSessionManager,
 )
 from datahub_integrations.chat.config import CHAT_MAX_MESSAGE_LENGTH
+from datahub_integrations.observability.cost import get_cost_tracker
+from datahub_integrations.observability.metrics_constants import AIModule
 
 # Create API router
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -185,6 +187,11 @@ def send_streaming_message(
         )
 
     def generate_stream() -> Iterator[str]:
+        import time
+
+        tracker = get_cost_tracker()
+        start_time = time.time()
+
         try:
             # Get system client for conversation management
             system_client = get_system_client()
@@ -219,6 +226,13 @@ def send_streaming_message(
                 event_name = "error" if event.error else "message"
                 yield f"event: {event_name}\ndata: {json.dumps(sse_data)}\n\n"
 
+            # Track successful user message (Tier 1) after completion
+            duration = time.time() - start_time
+            tracker.record_user_request(ai_module=AIModule.CHAT, success=True)
+            tracker.record_user_request_latency(
+                duration_seconds=duration, ai_module=AIModule.CHAT, success=True
+            )
+
             # Send completion event after all messages
             complete_data = {
                 "conversation_urn": request.conversation_urn,
@@ -227,6 +241,14 @@ def send_streaming_message(
 
         except Exception as e:
             logger.exception("Failed to process streaming chat message")
+
+            # Track failed user message (Tier 1)
+            duration = time.time() - start_time
+            tracker.record_user_request(ai_module=AIModule.CHAT, success=False)
+            tracker.record_user_request_latency(
+                duration_seconds=duration, ai_module=AIModule.CHAT, success=False
+            )
+
             error_data = {
                 "error": str(e),
                 "message": "Failed to process message",

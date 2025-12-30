@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import Callable, Dict, Generic, Iterable, List, Optional, TypeVar
 
 from datahub.configuration.common import ConfigModel
@@ -9,6 +10,7 @@ from datahub.secret.datahub_secret_store import (
 )
 from datahub.secret.secret_common import resolve_recipe
 from datahub.secret.secret_store import SecretStore
+from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -67,10 +69,49 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
     def __init__(self, config: AutomationActionConfig, ctx: PipelineContext):
         super().__init__(ctx)
 
-        self._stats = ActionStageReport()
+        # Create stats report with action context for OTEL metrics
+        self._stats = ActionStageReport(
+            action_urn=self.action_urn,
+            action_type=self.__class__.__name__,
+            stage="LIVE",  # Default to LIVE, will be updated in bootstrap/rollback
+        )
 
         self.config = config
         self._stats.start()
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        Hook called when a subclass is defined.
+        Automatically wraps the act() method with event metrics recording.
+        """
+        super().__init_subclass__(**kwargs)
+
+        # Only wrap if this specific class defines act() (not inherited)
+        if "act" in cls.__dict__:
+            original_act = cls.act
+
+            @wraps(original_act)
+            def wrapped_act(self, event: EventEnvelope) -> None:
+                """Wrapped act() with automatic event metrics recording."""
+                # Fallback: no stats available, just call original
+                if not hasattr(self, "_stats"):
+                    return original_act(self, event)
+
+                # Record event start with action context
+                self._stats.record_event_start(event)
+
+                try:
+                    # Call the original act() method
+                    original_act(self, event)
+                    # Record successful completion
+                    self._stats.record_event_end(event, success=True)
+                except Exception:
+                    # Record failure
+                    self._stats.record_event_end(event, success=False)
+                    raise
+
+            # Replace the act() method with wrapped version
+            cls.act = wrapped_act
 
     @abstractmethod
     def rollbackable_assets(self) -> Iterable[T]:
@@ -102,7 +143,11 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
 
     def bootstrap(self) -> None:
         """Bootstrap the action."""
-        bootstrap_report = self._stats = ActionStageReport()
+        bootstrap_report = self._stats = ActionStageReport(
+            action_urn=self.action_urn,
+            action_type=self.__class__.__name__,
+            stage="BOOTSTRAP",
+        )
         bootstrap_report.start()
 
         success = True
@@ -147,7 +192,11 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
 
     def rollback(self) -> None:
         """Rollback the action."""
-        rollback_report = self._stats = ActionStageReport()
+        rollback_report = self._stats = ActionStageReport(
+            action_urn=self.action_urn,
+            action_type=self.__class__.__name__,
+            stage="ROLLBACK",
+        )
         rollback_report.start()
 
         success = True

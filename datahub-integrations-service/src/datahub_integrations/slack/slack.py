@@ -31,6 +31,7 @@ from datahub_integrations.notifications.notification_tracking import (
     NotificationChannel,
     NotificationType,
 )
+from datahub_integrations.observability import BotPlatform, OAuthFlow, otel_duration
 from datahub_integrations.slack.app_manifest import (
     create_app_with_manifest,
     get_slack_app_manifest,
@@ -140,6 +141,10 @@ def reload_slack_credentials() -> None:
 
 
 @public_router.get("/slack/install")
+@otel_duration(
+    metric_name="bot_oauth_duration",
+    labels={"platform": BotPlatform.SLACK.value, "flow": OAuthFlow.INSTALL.value},
+)
 def install_slack_app(request: Request) -> RedirectResponse:
     config = slack_config.reload()
 
@@ -180,6 +185,10 @@ def install_slack_app(request: Request) -> RedirectResponse:
 
 
 @public_router.get("/slack/refresh-installation")
+@otel_duration(
+    metric_name="bot_oauth_duration",
+    labels={"platform": BotPlatform.SLACK.value, "flow": OAuthFlow.REFRESH.value},
+)
 def refresh_slack_app(request: Request) -> RedirectResponse:
     config = slack_config.reload()
 
@@ -222,6 +231,10 @@ def refresh_slack_app(request: Request) -> RedirectResponse:
 
 
 @public_router.get("/slack/oauth_callback")
+@otel_duration(
+    metric_name="bot_oauth_duration",
+    labels={"platform": BotPlatform.SLACK.value, "flow": OAuthFlow.CALLBACK.value},
+)
 def oauth_callback(
     state: str,
     code: Optional[str] = None,

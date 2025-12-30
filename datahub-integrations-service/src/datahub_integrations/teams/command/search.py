@@ -4,6 +4,12 @@ from typing import Optional
 from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_integrations.graphql.slack import SLACK_SEARCH_QUERY
+from datahub_integrations.observability import (
+    BotCommand,
+    BotPlatform,
+    datahub_query_tracker,
+    otel_instrument,
+)
 from datahub_integrations.teams.context import SearchContext
 from datahub_integrations.teams.render.render_search import render_search_teams
 
@@ -23,6 +29,11 @@ ENTITY_TYPES = [
 logger = logging.getLogger(__name__)
 
 
+@otel_instrument(
+    metric_prefix="slack_command",
+    description="Teams search command execution",
+    labels={"platform": BotPlatform.TEAMS, "command": BotCommand.SEARCH},
+)
 async def handle_search_command_teams(
     graph: DataHubGraph, context: SearchContext, user_urn: Optional[str]
 ) -> dict:
@@ -42,7 +53,8 @@ async def handle_search_command_teams(
     }
 
     try:
-        data = graph.execute_graphql(SLACK_SEARCH_QUERY, variables=variables)
+        with datahub_query_tracker("search", BotPlatform.TEAMS):
+            data = graph.execute_graphql(SLACK_SEARCH_QUERY, variables=variables)
         logger.debug(f"search results: {data}")
 
         # Check if we have valid search results

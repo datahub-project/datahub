@@ -415,19 +415,10 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
     def act(self, event: EventEnvelope) -> None:
         """This method responds to changes to glossary terms and propagates them
         to downstream entities"""
-        if not self._stats.event_processing_stats:
-            self._stats.event_processing_stats = EventProcessingStats()
-        self._stats.event_processing_stats.start(event)
-        success = False
-        try:
-            term_propagation_directive = self.should_propagate(event)
-            if term_propagation_directive:
-                logger.info(f"Term propagation directive: {term_propagation_directive}")
-                self.process_directive(term_propagation_directive)
-                self._stats.event_processing_stats.num_events_processed += 1
-            success = True
-        finally:
-            self._stats.event_processing_stats.end(event, success=success)
+        term_propagation_directive = self.should_propagate(event)
+        if term_propagation_directive:
+            logger.info(f"Term propagation directive: {term_propagation_directive}")
+            self.process_directive(term_propagation_directive)
 
     def process_directive(
         self, term_propagation_directive: TermPropagationDirective

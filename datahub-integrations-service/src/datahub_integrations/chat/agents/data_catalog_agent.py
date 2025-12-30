@@ -5,11 +5,14 @@ This module provides the factory function for creating DataCatalog Explorer agen
 which is the default agent for DataHub chat (formerly ChatSession).
 """
 
-from typing import Callable, List, Optional, Sequence, TypeGuard
+from typing import TYPE_CHECKING, Callable, List, Optional, Sequence, TypeGuard
 
 from datahub.sdk.main_client import DataHubClient
 from fastmcp import FastMCP
 from loguru import logger
+
+if TYPE_CHECKING:
+    from datahub_integrations.observability.bot_metrics import BotPlatform
 
 from datahub_integrations.chat.agent import (
     AgentConfig,
@@ -156,6 +159,7 @@ def create_data_catalog_explorer_agent(
     chat_type: ChatType = ChatType.DEFAULT,
     tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
     context: Optional[str] = None,
+    platform: Optional["BotPlatform"] = None,
 ) -> AgentRunner:
     """
     Create a DataCatalog Explorer agent (formerly ChatSession).
@@ -174,6 +178,7 @@ def create_data_catalog_explorer_agent(
         chat_type: Type of chat (UI, Slack, Teams, etc.)
         tools: Optional tools to use (defaults to [mcp])
         context: Optional natural language context about what the user is working on
+        platform: Optional bot platform (SLACK or TEAMS) for observability tracking
 
     Returns:
         Configured AgentRunner instance
@@ -251,6 +256,7 @@ def create_data_catalog_explorer_agent(
         agent_name="DataCatalog Explorer",
         response_formatter=create_response_formatter(chat_type, client),
         completion_check=data_catalog_completion_check,
+        platform=platform,
     )
 
     # Create the agent runner

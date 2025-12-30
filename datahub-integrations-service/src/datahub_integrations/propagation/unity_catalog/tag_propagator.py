@@ -142,47 +142,35 @@ class UnityCatalogPropagatorAction(ExtendedAction[SelectedAsset]):
                 self.unity_catalog_helper.remove_tag(entity_to_apply, tag_to_apply)
 
     def act(self, event: EventEnvelope) -> None:
-        if not self._stats.event_processing_stats:
-            self._stats.event_processing_stats = EventProcessingStats()
-        self._stats.event_processing_stats.start(event)
-        try:
-            if event.event_type == "EntityChangeEvent_v1":
-                assert isinstance(event.event, EntityChangeEvent), (
-                    "Expected EntityChangeEvent_v1 type"
+        if event.event_type == "EntityChangeEvent_v1":
+            assert isinstance(event.event, EntityChangeEvent), (
+                "Expected EntityChangeEvent_v1 type"
+            )
+            assert self.ctx.graph is not None, (
+                "Graph must be initialized in the context"
+            )
+            semantic_event = event.event
+
+            assert isinstance(self.config, UnityCatalogTagPropagatorConfig)
+            if not UrnValidator.is_urn_allowed(semantic_event.entityUrn):
+                return
+            propagation_directive: Union[
+                TagPropagationDirective,
+                UnityCatalogDescriptionSyncDirective,
+                None,
+            ] = None
+            if self.tag_propagator is not None:
+                propagation_directive = self.tag_propagator.should_propagate(
+                    event=event
                 )
-                assert self.ctx.graph is not None, (
-                    "Graph must be initialized in the context"
+
+            if self.description_sync is not None and propagation_directive is None:
+                propagation_directive = self.description_sync.should_propagate(
+                    event=event
                 )
-                semantic_event = event.event
 
-                assert isinstance(self.config, UnityCatalogTagPropagatorConfig)
-                if not UrnValidator.is_urn_allowed(semantic_event.entityUrn):
-                    return
-                propagation_directive: Union[
-                    TagPropagationDirective,
-                    UnityCatalogDescriptionSyncDirective,
-                    None,
-                ] = None
-                if self.tag_propagator is not None:
-                    propagation_directive = self.tag_propagator.should_propagate(
-                        event=event
-                    )
-
-                if self.description_sync is not None and propagation_directive is None:
-                    propagation_directive = self.description_sync.should_propagate(
-                        event=event
-                    )
-
-                if (
-                    propagation_directive is not None
-                    and propagation_directive.propagate
-                ):
-                    self.process_directive(propagation_directive)
-
-            self._stats.event_processing_stats.end(event, success=True)
-        except Exception as e:
-            logger.exception(f"Error processing event: {e}", exc_info=True)
-            self._stats.event_processing_stats.end(event, success=False)
+            if propagation_directive is not None and propagation_directive.propagate:
+                self.process_directive(propagation_directive)
 
     def rollbackable_assets(self) -> Iterable[SelectedAsset]:
         yield from self.bootstrappable_assets()

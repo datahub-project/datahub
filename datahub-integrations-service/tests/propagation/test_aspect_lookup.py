@@ -7,8 +7,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.schema import MySqlDDL
 from datahub.metadata.schema_classes import SchemaMetadataClass, SiblingsClass
 from datahub_actions.api.action_graph import AcrylDataHubGraph
-from datahub_actions.plugin.action.stats_util import ActionStageReport
 
+from datahub_integrations.actions.oss.stats_util import ActionStageReport
 from datahub_integrations.propagation.propagation.propagation_rule_config import (
     AspectLookup,
 )

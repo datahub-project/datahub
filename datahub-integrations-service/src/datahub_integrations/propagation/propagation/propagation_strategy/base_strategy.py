@@ -1,7 +1,7 @@
 from datahub.configuration.common import ConfigModel
 from datahub_actions.api.action_graph import AcrylDataHubGraph
-from datahub_actions.plugin.action.stats_util import ActionStageReport
 
+from datahub_integrations.actions.oss.stats_util import ActionStageReport
 from datahub_integrations.propagation.propagation.propagation_rule_config import (
     EntityLookup,
 )

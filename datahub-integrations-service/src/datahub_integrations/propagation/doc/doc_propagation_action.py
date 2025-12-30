@@ -20,12 +20,12 @@ from datahub_actions.plugin.action.propagation.docs.propagation_action import (
     DocPropagationAction as BaseDocPropagationAction,
     DocPropagationConfig as BaseDocPropagationConfig,
 )
-from datahub_actions.plugin.action.stats_util import EventProcessingStats
 
 from datahub_integrations.actions.action_extended import (
     AutomationActionConfig,
     ExtendedAction,
 )
+from datahub_integrations.actions.oss.stats_util import EventProcessingStats
 
 logger = logging.getLogger(__name__)
 

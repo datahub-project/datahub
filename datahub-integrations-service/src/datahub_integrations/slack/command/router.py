@@ -3,6 +3,7 @@ import logging
 from datahub.ingestion.graph.client import DataHubGraph
 from slack_bolt import Ack, App, Respond
 
+from datahub_integrations.observability import BotPlatform, otel_instrument
 from datahub_integrations.slack.command.ask import handle_ask_command
 from datahub_integrations.slack.command.get import handle_get_command
 from datahub_integrations.slack.command.help import handle_help_command
@@ -15,6 +16,11 @@ logger = logging.getLogger(__name__)
 COMMAND_TEXT_FIELD_NAME = "text"
 
 
+@otel_instrument(
+    metric_prefix="slack_command",
+    description="Slack command routing",
+    labels={"platform": BotPlatform.SLACK},
+)
 def handle_command(
     app: App, graph: DataHubGraph, ack: Ack, respond: Respond, command: dict
 ) -> None:

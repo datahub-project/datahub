@@ -9,6 +9,7 @@ from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
 from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import HumanMessage
 from datahub_integrations.chat.types import ChatType, NextMessage
+from datahub_integrations.observability import BotCommand, BotPlatform, otel_instrument
 from datahub_integrations.teams.teams_history import TeamsConversationHistory
 
 
@@ -50,6 +51,11 @@ def _save_thinking_messages(
         )
 
 
+@otel_instrument(
+    metric_prefix="slack_command",
+    description="Teams ask command execution",
+    labels={"platform": BotPlatform.TEAMS, "command": BotCommand.ASK},
+)
 async def handle_ask_command_teams(
     graph: DataHubGraph,
     question: str,
@@ -105,6 +111,7 @@ async def handle_ask_command_teams(
                 client=DataHubClient(graph=graph),
                 history=history,  # Use conversation history if enabled
                 chat_type=ChatType.TEAMS,
+                platform=BotPlatform.TEAMS,
             )
 
             # If no history or empty history, add the user's question to the chat history

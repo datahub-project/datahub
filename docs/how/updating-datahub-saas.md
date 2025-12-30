@@ -23,13 +23,120 @@ This is over and above updating-datahub.md file
 
 ### Breaking Changes
 
+None.
+
 ### Potential Downtime
+
+None. All observability features are optional and fail gracefully.
 
 ### Deprecations
 
+None.
+
 ### Other Notable Changes
 
+**OpenTelemetry Observability Integration:**
+
+This release adds comprehensive OpenTelemetry-based monitoring to `datahub-integrations-service`, providing deep visibility into Actions, Slack/Teams bots, GenAI operations, and Analytics queries.
+
+**New Capabilities:**
+
+1. **Prometheus `/metrics` Endpoint**: Enabled by default at `http://localhost:9003/metrics`. Scrape this endpoint to collect:
+
+   - Service health metrics (uptime, process stats, Python GC)
+   - Actions metrics (pipeline execution, event processing, Kafka lag)
+   - Slack/Teams bot metrics (commands, API calls, errors by command type)
+   - GenAI metrics (LLM calls, tokens, costs, latency by model/provider)
+   - Analytics metrics (query execution, data preview, schema inspection)
+
+2. **Three-Tier GenAI Tracking**:
+
+   - Tier 1: User requests (end-to-end request/response)
+   - Tier 2: LLM API calls (token usage, costs, cache hits)
+   - Tier 3: Tool invocations (individual tool executions)
+
+   Enables answering: "How many LLM calls per user message?", "Cost per feature?", "Which tools are slow?"
+
+3. **Kafka Consumer Lag Monitoring**: Action subprocesses now export Kafka consumer lag metrics per topic/partition via their own `/metrics` endpoints. Useful for detecting processing delays.
+
+4. **OTLP Push Support** (Optional): Push metrics to OpenTelemetry Collector for centralized aggregation across multiple services.
+
+5. **Graceful Degradation**: Observability failures never block service startup. If OTEL initialization fails, the service continues without metrics and logs the error.
+
+**GenAI Cost Tracking Improvements:**
+
+- **Updated Claude 3.5 Haiku Pricing**: $0.80/$4.00 per million tokens (2025 rates, was $0.25/$1.25). Previous pricing underestimated costs by 320%.
+
+- **AWS Bedrock Premium Detection**: Automatically detects and applies pricing premiums:
+
+  - Regional endpoints (us/eu/apac): +10%
+  - Optimized latency (Trainium2): +25%
+  - Combined: 1.375x total
+
+- **File-Based Custom Pricing**: Configure pricing for custom models via YAML/JSON file (see `GENAI_MODEL_PRICING_FILE`). Uses per-model merging so you only specify models that differ from defaults. Without this, custom model costs won't be estimated (token usage is still tracked).
+
+- **Missing Pricing Warnings**: Logs warnings when pricing unavailable, with guidance on how to add it.
+
+**Recommended Actions:**
+
+- Add Prometheus scrape config for `datahub-integrations-service:9003/metrics`
+- Review GenAI cost dashboards if using Claude 3.5 Haiku - historical costs appear lower than actual
+- Create pricing file for custom models (mount as ConfigMap in Helm)
+- Configure `OTEL_OTLP_ENABLED=true` if pushing to OpenTelemetry Collector (optional)
+
 ### Environment variables
+
+**New OpenTelemetry Configuration (All Optional):**
+
+Core Settings:
+
+- `OTEL_SERVICE_NAME`: Service name for metrics (default: `datahub-integrations-service`)
+- `OTEL_SERVICE_VERSION`: Service version (default: auto-detected)
+- `OTEL_SERVICE_NAMESPACE`: Namespace for grouping (default: `datahub`)
+
+Exporters:
+
+- `OTEL_PROMETHEUS_ENABLED`: Enable Prometheus `/metrics` endpoint (default: `true`)
+- `OTEL_OTLP_ENABLED`: Enable OTLP push to collector (default: `false`)
+- `OTEL_OTLP_ENDPOINT`: Collector endpoint (default: `http://localhost:4317`)
+- `OTEL_OTLP_PROTOCOL`: Protocol - `grpc` or `http` (default: `grpc`)
+- `OTEL_OTLP_TIMEOUT_MS`: Export timeout (default: `10000`)
+- `OTEL_OTLP_HEADERS`: Additional headers as JSON dict (default: `{}`)
+
+Metrics Configuration:
+
+- `OTEL_METRICS_EXPORT_INTERVAL_MS`: Export interval (default: `60000`)
+- `OTEL_METRICS_EXEMPLARS_ENABLED`: Link metrics to traces (default: `true`)
+- `OTEL_HIGH_CARDINALITY_LIMIT`: Max unique label values (default: `100`)
+
+Histogram Buckets (SLO-based):
+
+- `OTEL_SLO_BUCKETS_FAST_SECONDS`: Fast ops like APIs (default: `[0.01, 0.05, 0.25, 1.0, 5.0]`)
+- `OTEL_SLO_BUCKETS_SLOW_SECONDS`: Slow ops like LLM calls (default: `[1.0, 5.0, 15.0, 60.0, 300.0]`)
+
+Tracing:
+
+- `OTEL_TRACING_ENABLED`: Enable distributed tracing (default: `true`)
+- `OTEL_TRACES_SAMPLE_RATE`: Sample rate 0.0-1.0 (default: `0.1` = 10%)
+
+System Metrics:
+
+- `OTEL_SYSTEM_METRICS_ENABLED`: CPU, memory, etc. (default: `true`)
+
+Kafka Lag Monitoring:
+
+- `OTEL_KAFKA_LAG_ENABLED`: Enable lag tracking in action subprocesses (default: `true`)
+- `OTEL_KAFKA_LAG_INTERVAL_SECONDS`: Check interval (default: `30.0`)
+- `OTEL_KAFKA_LAG_TIMEOUT_SECONDS`: API timeout (default: `5.0`)
+
+**New GenAI Cost Tracking:**
+
+- `GENAI_MODEL_PRICING_FILE`: Path to YAML/JSON file with custom model pricing (default: `/etc/datahub/integrations/model-pricing.yaml`). Uses per-model merging - only specify models that differ from defaults. Example YAML: `anthropic: {custom-model: {prompt: 5.0, completion: 10.0}}`. Mount as ConfigMap in Helm.
+
+**Existing Variables with New Behavior:**
+
+- `ENABLE_BEDROCK_OPTIMIZED_LATENCY`: Now affects cost calculations (+25% premium). Previously only API behavior.
+- `ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX`: Now affects cost calculations (+10% premium for us/eu/apac). Previously only routing.
 
 ## v0.3.15
 

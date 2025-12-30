@@ -17,6 +17,7 @@ from datahub_integrations.gen_ai.llm.exceptions import (
     LlmValidationException,
 )
 from datahub_integrations.gen_ai.llm.types import ConverseResponse
+from datahub_integrations.observability.decorators import otel_llm_call
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -27,6 +28,8 @@ if TYPE_CHECKING:
 
 class BedrockLLMWrapper(LLMWrapper):
     """AWS Bedrock LLM wrapper - passes through to native Bedrock API."""
+
+    provider_name = "bedrock"
 
     def _initialize_client(self) -> Any:
         """Initialize AWS Bedrock client using existing infrastructure."""
@@ -39,6 +42,7 @@ class BedrockLLMWrapper(LLMWrapper):
         """Get Bedrock-specific exception classes."""
         return self._client.exceptions
 
+    @otel_llm_call(ai_module="chat")
     def converse(
         self,
         system: List["SystemContentBlockTypeDef"],

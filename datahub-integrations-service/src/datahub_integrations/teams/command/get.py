@@ -3,18 +3,30 @@ import logging
 from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_integrations.graphql.slack import SLACK_GET_ENTITY_QUERY
+from datahub_integrations.observability import (
+    BotCommand,
+    BotPlatform,
+    datahub_query_tracker,
+    otel_instrument,
+)
 from datahub_integrations.teams.render.render_entity import render_entity_card
 
 logger = logging.getLogger(__name__)
 
 
+@otel_instrument(
+    metric_prefix="slack_command",
+    description="Teams get command execution",
+    labels={"platform": BotPlatform.TEAMS, "command": BotCommand.GET},
+)
 async def handle_get_command_teams(graph: DataHubGraph, entity_urn: str) -> dict:
     """Handle get command for Teams."""
 
     try:
         # Fetch the Entity From DataHub
         variables = {"urn": entity_urn}
-        data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
+        with datahub_query_tracker("entity", BotPlatform.TEAMS):
+            data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
 
         logger.debug(f"GraphQL response for {entity_urn}: {data}")
 

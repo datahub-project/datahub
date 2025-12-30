@@ -288,52 +288,36 @@ class TestUnityCatalogPropagatorActionAct:
     def test_act_initializes_stats_if_none(
         self, mock_propagator_action: Mock, mock_event_envelope: Mock
     ) -> None:
-        """Test act method initializes stats if not present."""
-
-        # Set stats to None initially
-        mock_propagator_action._stats.event_processing_stats = None
-
-        with (
-            patch(
-                "datahub_integrations.propagation.unity_catalog.tag_propagator.EventProcessingStats"
-            ) as mock_stats_class,
-            patch(
-                "datahub_integrations.propagation.unity_catalog.tag_propagator.UrnValidator.is_urn_allowed",
-                return_value=True,
-            ),
-        ):
-            mock_stats_instance = Mock(spec=EventProcessingStats)
-            mock_stats_class.return_value = mock_stats_instance
-
-            mock_propagator_action.act(mock_event_envelope)
-
-            # Verify stats were initialized
-            assert (
-                mock_propagator_action._stats.event_processing_stats
-                == mock_stats_instance
-            )
-
-            # Verify stats methods were called
-            mock_stats_instance.start.assert_called_once_with(mock_event_envelope)
-            mock_stats_instance.end.assert_called_once_with(
-                mock_event_envelope, success=True
-            )
-
-    def test_act_uses_existing_stats(
-        self, mock_propagator_action: Mock, mock_event_envelope: Mock, mock_stats: Mock
-    ) -> None:
-        """Test act method uses existing stats if present."""
+        """Test act method calls wrapper's record methods."""
+        # The ExtendedAction wrapper now handles stats initialization
+        # This test verifies the wrapper calls are made
         with patch(
             "datahub_integrations.propagation.unity_catalog.tag_propagator.UrnValidator.is_urn_allowed",
             return_value=True,
         ):
             mock_propagator_action.act(mock_event_envelope)
 
-            # Verify existing stats were used
-            mock_stats.event_processing_stats.start.assert_called_once_with(
+            # Verify the wrapper's record methods were called
+            mock_propagator_action._stats.record_event_start.assert_called_once_with(
                 mock_event_envelope
             )
-            mock_stats.event_processing_stats.end.assert_called_once_with(
+            mock_propagator_action._stats.record_event_end.assert_called_once_with(
+                mock_event_envelope, success=True
+            )
+
+    def test_act_uses_existing_stats(
+        self, mock_propagator_action: Mock, mock_event_envelope: Mock, mock_stats: Mock
+    ) -> None:
+        """Test act method uses wrapper's record methods."""
+        with patch(
+            "datahub_integrations.propagation.unity_catalog.tag_propagator.UrnValidator.is_urn_allowed",
+            return_value=True,
+        ):
+            mock_propagator_action.act(mock_event_envelope)
+
+            # Verify wrapper's record methods were called
+            mock_stats.record_event_start.assert_called_once_with(mock_event_envelope)
+            mock_stats.record_event_end.assert_called_once_with(
                 mock_event_envelope, success=True
             )
 
@@ -347,11 +331,9 @@ class TestUnityCatalogPropagatorActionAct:
 
         mock_propagator_action.act(other_event)
 
-        # Verify stats were still called
-        mock_stats.event_processing_stats.start.assert_called_once_with(other_event)
-        mock_stats.event_processing_stats.end.assert_called_once_with(
-            other_event, success=True
-        )
+        # Verify wrapper's record methods were still called
+        mock_stats.record_event_start.assert_called_once_with(other_event)
+        mock_stats.record_event_end.assert_called_once_with(other_event, success=True)
 
         # Verify process_directive was not called
         mock_propagator_action.process_directive.assert_not_called()
@@ -493,37 +475,29 @@ class TestUnityCatalogPropagatorActionAct:
     def test_act_handles_exceptions_gracefully(
         self, mock_propagator_action: Mock, mock_event_envelope: Mock, mock_stats: Mock
     ) -> None:
-        """Test act method handles exceptions gracefully."""
+        """Test act wrapper records failure and re-raises exception."""
         # Setup tag propagator to raise exception
         mock_tag_propagator = Mock()
         mock_tag_propagator.should_propagate.side_effect = Exception("Processing error")
         mock_propagator_action.tag_propagator = mock_tag_propagator
 
-        with (
-            patch(
-                "datahub_integrations.propagation.unity_catalog.tag_propagator.UrnValidator.is_urn_allowed",
-                return_value=True,
-            ),
-            patch(
-                "datahub_integrations.propagation.unity_catalog.tag_propagator.logger"
-            ) as mock_logger,
+        with patch(
+            "datahub_integrations.propagation.unity_catalog.tag_propagator.UrnValidator.is_urn_allowed",
+            return_value=True,
         ):
-            # Should not raise exception
-            mock_propagator_action.act(mock_event_envelope)
+            # The wrapper catches the exception, records failure, and re-raises
+            with pytest.raises(Exception, match="Processing error"):
+                mock_propagator_action.act(mock_event_envelope)
 
-            # Verify exception was logged
-            mock_logger.exception.assert_called_once_with(
-                "Error processing event: Processing error", exc_info=True
-            )
-            # Verify stats were marked as failed
-            mock_stats.event_processing_stats.end.assert_called_once_with(
+            # Verify stats were marked as failed by the wrapper
+            mock_stats.record_event_end.assert_called_once_with(
                 mock_event_envelope, success=False
             )
 
     def test_act_assertion_error_on_invalid_event_type(
         self, mock_propagator_action: Mock
     ) -> None:
-        """Test act method assertion error with invalid event type."""
+        """Test act wrapper re-raises assertion error on invalid event type."""
 
         # Create event with correct type but invalid event object
         class RandomEntityChangeEvent(Event):
@@ -546,21 +520,14 @@ class TestUnityCatalogPropagatorActionAct:
             meta={},
         )
 
-        with patch(
-            "datahub_integrations.propagation.unity_catalog.tag_propagator.logger"
-        ) as mock_logger:
+        # The wrapper re-raises the assertion error
+        with pytest.raises(AssertionError, match="Expected EntityChangeEvent_v1 type"):
             mock_propagator_action.act(invalid_entity_event_type)
-
-            assert mock_logger.exception.call_count == 1
-            assert (
-                "Error processing event: Expected EntityChangeEvent_v1 type"
-                in mock_logger.exception.call_args[0][0]
-            )
 
     def test_act_assertion_error_on_missing_graph(
         self, mock_propagator_action: Mock
     ) -> None:
-        """Test act method assertion error with invalid event type."""
+        """Test act wrapper re-raises assertion error on missing graph."""
         entity = EventEnvelope(
             event_type="EntityChangeEvent_v1",
             event=EntityChangeEvent(
@@ -576,16 +543,12 @@ class TestUnityCatalogPropagatorActionAct:
         entity.event_type = "EntityChangeEvent_v1"
 
         mock_propagator_action.ctx.graph = None
-        with patch(
-            "datahub_integrations.propagation.unity_catalog.tag_propagator.logger"
-        ) as mock_logger:
-            mock_propagator_action.act(entity)
 
-            assert mock_logger.exception.call_count == 1
-            assert (
-                "Error processing event: Graph must be initialized in the context"
-                in mock_logger.exception.call_args[0][0]
-            )
+        # The wrapper re-raises the assertion error
+        with pytest.raises(
+            AssertionError, match="Graph must be initialized in the context"
+        ):
+            mock_propagator_action.act(entity)
 
     def test_act_no_propagators_configured(
         self, mock_propagator_action: Mock, mock_event_envelope: Mock
@@ -631,9 +594,7 @@ class TestUnityCatalogPropagatorActionAct:
             mock_propagator_action.act(mock_event_envelope)
 
             # Verify complete workflow
-            mock_stats.event_processing_stats.start.assert_called_once_with(
-                mock_event_envelope
-            )
+            mock_stats.record_event_start.assert_called_once_with(mock_event_envelope)
             mock_tag_propagator.should_propagate.assert_called_once_with(
                 event=mock_event_envelope
             )
@@ -641,7 +602,7 @@ class TestUnityCatalogPropagatorActionAct:
             mock_propagator_action.process_directive.assert_called_once_with(
                 mock_tag_directive
             )
-            mock_stats.event_processing_stats.end.assert_called_once_with(
+            mock_stats.record_event_end.assert_called_once_with(
                 mock_event_envelope, success=True
             )
 
@@ -725,14 +686,12 @@ class TestUnityCatalogPropagatorActionMethodsIntegration:
             full_mock_action.act(event)
 
             # Verify complete workflow
-            full_mock_action._stats.event_processing_stats.start.assert_called_once_with(
-                event
-            )
+            full_mock_action._stats.record_event_start.assert_called_once_with(event)
             mock_description_sync.should_propagate.assert_called_once_with(event=event)
             full_mock_action.unity_catalog_helper.apply_description.assert_called_once_with(
                 directive.entity, directive.docs
             )
-            full_mock_action._stats.event_processing_stats.end.assert_called_once_with(
+            full_mock_action._stats.record_event_end.assert_called_once_with(
                 event, success=True
             )
 
@@ -764,14 +723,12 @@ class TestUnityCatalogPropagatorActionMethodsIntegration:
             full_mock_action.act(event)
 
             # Verify complete workflow
-            full_mock_action._stats.event_processing_stats.start.assert_called_once_with(
-                event
-            )
+            full_mock_action._stats.record_event_start.assert_called_once_with(event)
             mock_tag_propagator.should_propagate.assert_called_once_with(event=event)
             full_mock_action.unity_catalog_helper.apply_tag.assert_called_once_with(
                 directive.entity, directive.tag
             )
-            full_mock_action._stats.event_processing_stats.end.assert_called_once_with(
+            full_mock_action._stats.record_event_end.assert_called_once_with(
                 event, success=True
             )
 
@@ -805,13 +762,13 @@ class TestUnityCatalogPropagatorActionMethodsIntegration:
 
         with patch(
             "datahub_integrations.propagation.unity_catalog.tag_propagator.logger"
-        ) as mock_logger:
-            # Should handle exception gracefully
-            full_mock_action.act(event)
+        ):
+            # Wrapper catches exception, records failure, and re-raises
+            with pytest.raises(Exception, match="Unity Catalog connection failed"):
+                full_mock_action.act(event)
 
-            # Verify error handling
-            mock_logger.exception.assert_called_once()
-            full_mock_action._stats.event_processing_stats.end.assert_called_once_with(
+            # Verify wrapper recorded failure
+            full_mock_action._stats.record_event_end.assert_called_once_with(
                 event, success=False
             )
 

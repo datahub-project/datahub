@@ -4,12 +4,12 @@
     # via -r requirements-local.in
 -e ../metadata-ingestion-modules/acryl-cloud
     # via -r requirements-local.in
-acryl-datahub==1.3.1.5rc3
+acryl-datahub==1.3.1.5rc10
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-cloud
     #   acryl-datahub-integrations
-acryl-datahub-actions==1.3.1.5rc3
+acryl-datahub-actions==1.3.1.5rc10
     # via acryl-datahub-integrations
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
@@ -40,7 +40,9 @@ anyio==4.9.0
     #   starlette
     #   watchfiles
 asgiref==3.8.1
-    # via reactpy
+    # via
+    #   opentelemetry-instrumentation-asgi
+    #   reactpy
 asn1crypto==1.5.1
     # via snowflake-connector-python
 asyncer==0.0.8
@@ -222,8 +224,6 @@ debugpy==1.8.15
 deprecated==1.2.14
     # via
     #   acryl-datahub
-    #   opentelemetry-api
-    #   opentelemetry-semantic-conventions
     #   pygithub
 distro==1.9.0
     # via openai
@@ -305,7 +305,6 @@ google-auth==2.35.0
     #   databricks-sdk
     #   google-api-core
     #   google-cloud-aiplatform
-    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-datacatalog
@@ -315,7 +314,7 @@ google-auth==2.35.0
     #   sqlalchemy-bigquery
 google-cloud-aiplatform==1.127.0
     # via langchain-google-vertexai
-google-cloud-appengine-logging==1.6.2
+google-cloud-appengine-logging==0.2.0
     # via google-cloud-logging
 google-cloud-audit-log==0.3.2
     # via google-cloud-logging
@@ -331,7 +330,7 @@ google-cloud-core==2.4.3
     #   google-cloud-storage
 google-cloud-datacatalog==3.27.1
     # via acryl-datahub
-google-cloud-logging==3.5.0
+google-cloud-logging==2.6.0
     # via acryl-datahub
 google-cloud-resource-manager==1.14.2
     # via
@@ -359,6 +358,7 @@ googleapis-common-protos==1.70.0
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
+    #   opentelemetry-exporter-otlp-proto-grpc
 graphene==3.4.3
     # via mlflow
 graphql-core==3.2.6
@@ -372,7 +372,6 @@ greenlet==3.2.4 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or 
 grpc-google-iam-v1==0.14.2
     # via
     #   google-cloud-datacatalog
-    #   google-cloud-logging
     #   google-cloud-resource-manager
 grpcio==1.75.1
     # via
@@ -380,6 +379,7 @@ grpcio==1.75.1
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
+    #   opentelemetry-exporter-otlp-proto-grpc
 grpcio-status==1.62.3
     # via google-api-core
 gunicorn==23.0.0 ; sys_platform != 'win32'
@@ -608,22 +608,65 @@ openapi-pydantic==0.5.1
     # via fastmcp
 openpyxl==3.1.5
     # via databricks-sql-connector
-opentelemetry-api==1.32.1
+opentelemetry-api==1.39.1
     # via
+    #   acryl-datahub-integrations
     #   mlflow-skinny
     #   mlflow-tracing
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-prometheus
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-instrumentation-system-metrics
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-proto==1.27.0
+opentelemetry-exporter-otlp-proto-common==1.39.1
+    # via opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-exporter-otlp-proto-grpc==1.39.1
+    # via acryl-datahub-integrations
+opentelemetry-exporter-prometheus==0.60b1
+    # via acryl-datahub-integrations
+opentelemetry-instrumentation==0.60b1
+    # via
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-instrumentation-system-metrics
+opentelemetry-instrumentation-asgi==0.60b1
+    # via opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-fastapi==0.60b1
+    # via acryl-datahub-integrations
+opentelemetry-instrumentation-httpx==0.60b1
+    # via acryl-datahub-integrations
+opentelemetry-instrumentation-system-metrics==0.60b1
+    # via acryl-datahub-integrations
+opentelemetry-proto==1.39.1
     # via
     #   mlflow-skinny
     #   mlflow-tracing
-opentelemetry-sdk==1.32.1
+    #   opentelemetry-exporter-otlp-proto-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-sdk==1.39.1
     # via
+    #   acryl-datahub-integrations
     #   mlflow-skinny
     #   mlflow-tracing
-opentelemetry-semantic-conventions==0.53b1
-    # via opentelemetry-sdk
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-prometheus
+opentelemetry-semantic-conventions==0.60b1
+    # via
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-httpx
+    #   opentelemetry-sdk
+opentelemetry-util-http==0.60b1
+    # via
+    #   opentelemetry-instrumentation-asgi
+    #   opentelemetry-instrumentation-fastapi
+    #   opentelemetry-instrumentation-httpx
 orjson==3.11.4
     # via
     #   langgraph-sdk
@@ -636,7 +679,9 @@ packaging==24.2
     #   build
     #   docker
     #   google-cloud-aiplatform
+    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
+    #   google-cloud-logging
     #   gunicorn
     #   huggingface-hub
     #   langchain-core
@@ -644,6 +689,7 @@ packaging==24.2
     #   matplotlib
     #   mlflow-skinny
     #   mlflow-tracing
+    #   opentelemetry-instrumentation
     #   snowflake-connector-python
     #   spacy
     #   sqlalchemy-bigquery
@@ -676,7 +722,10 @@ progressbar2==4.4.2
     #   acryl-datahub
     #   acryl-datahub-actions
 prometheus-client==0.20.0
-    # via acryl-datahub-actions
+    # via
+    #   acryl-datahub-actions
+    #   acryl-datahub-integrations
+    #   opentelemetry-exporter-prometheus
 propcache==0.3.2
     # via
     #   aiohttp
@@ -689,14 +738,12 @@ proto-plus==1.26.1
     #   google-cloud-datacatalog
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.8
+protobuf==6.33.2
     # via
     #   google-api-core
     #   google-cloud-aiplatform
-    #   google-cloud-appengine-logging
     #   google-cloud-audit-log
     #   google-cloud-datacatalog
-    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -706,7 +753,9 @@ protobuf==4.25.8
     #   opentelemetry-proto
     #   proto-plus
 psutil==7.0.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   opentelemetry-instrumentation-system-metrics
 py-spy==0.4.1
     # via acryl-datahub-integrations
 pyarrow==21.0.0
@@ -1043,7 +1092,10 @@ typing-extensions==4.15.0
     #   langchain-core
     #   mlflow-skinny
     #   openai
+    #   opentelemetry-api
+    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
     #   pydantic
     #   pydantic-core
     #   pygithub
@@ -1120,6 +1172,8 @@ win32-setctime==1.2.0 ; sys_platform == 'win32'
 wrapt==1.16.0
     # via
     #   deprecated
+    #   opentelemetry-instrumentation
+    #   opentelemetry-instrumentation-httpx
     #   smart-open
 xxhash==3.6.0
     # via langgraph

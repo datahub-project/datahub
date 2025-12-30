@@ -3,7 +3,6 @@
 // smoke-test/tests/library_examples/README.md
 // docs/dev-guides/semantic-search/README.md
 // docs/dev-guides/semantic-search/ARCHITECTURE.md
-// docs/dev-guides/semantic-search/CONFIGURATION.md
 module.exports = {
   overviewSidebar: [
     // Getting Started.

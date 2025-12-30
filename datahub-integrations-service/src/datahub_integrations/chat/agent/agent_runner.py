@@ -14,7 +14,7 @@ import os
 import platform
 import socket
 import uuid
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, cast
 
 import mlflow
 import mlflow.entities
@@ -42,6 +42,11 @@ from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.mcp.mcp_server import with_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.observability import (
+    detect_provider_and_normalize_model,
+    get_cost_tracker,
+)
+from datahub_integrations.observability.cost import TokenUsage as ObsTokenUsage
 from datahub_integrations.slack.utils.string import truncate
 from datahub_integrations.telemetry.chat_events import (
     ChatbotInteractionEvent,
@@ -402,8 +407,58 @@ class AgentRunner:
             )
         except LlmInputTooLongException as e:
             raise AgentMaxTokensExceededError(str(e)) from e
+        except Exception:
+            # Track failed LLM calls
+            tracker = get_cost_tracker()
+            provider, model_name = detect_provider_and_normalize_model(
+                self.config.model_id
+            )
+
+            tracker.record_llm_call(
+                provider=provider,
+                model=model_name,
+                usage=ObsTokenUsage(
+                    prompt_tokens=0, completion_tokens=0, total_tokens=0
+                ),
+                ai_module=self.config.ai_module,
+                success=False,
+            )
+            raise
 
         log_tokens_usage(response["usage"])  # type: ignore[arg-type]
+
+        # Track cost for observability
+        usage = response.get("usage", {})
+        if usage:
+            tracker = get_cost_tracker()
+            provider, model_name = detect_provider_and_normalize_model(
+                self.config.model_id
+            )
+
+            # Extract token counts, including cache tokens if present
+            prompt_tokens = cast(int, usage.get("inputTokens", 0))
+            completion_tokens = cast(int, usage.get("outputTokens", 0))
+            total_tokens = cast(
+                int, usage.get("totalTokens", prompt_tokens + completion_tokens)
+            )
+
+            # Bedrock cache token fields (if using prompt caching)
+            cache_read_tokens = cast(int, usage.get("cacheReadInputTokens", 0))
+            cache_write_tokens = cast(int, usage.get("cacheCreationInputTokens", 0))
+
+            tracker.record_llm_call(
+                provider=provider,
+                model=model_name,
+                usage=ObsTokenUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    cache_read_tokens=cache_read_tokens,
+                    cache_write_tokens=cache_write_tokens,
+                ),
+                ai_module=self.config.ai_module,
+                success=True,
+            )
 
         # Process stop reason
         is_end_turn = False
@@ -551,8 +606,18 @@ class AgentRunner:
                     error=error,
                 )
             )
+            # Track failed tool call (Tier 3)
+            tracker = get_cost_tracker()
+            tracker.record_tool_call(
+                ai_module=self.config.ai_module, tool=tool_name, success=False
+            )
         else:
             self._add_message(ToolResult(tool_request=tool_request, result=result))
+            # Track successful tool call (Tier 3)
+            tracker = get_cost_tracker()
+            tracker.record_tool_call(
+                ai_module=self.config.ai_module, tool=tool_name, success=True
+            )
 
         # Track telemetry
         track_saas_event(

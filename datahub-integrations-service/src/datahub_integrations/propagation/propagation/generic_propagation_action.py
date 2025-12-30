@@ -17,15 +17,14 @@ from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.action.mcl_utils import MCLProcessor
-from datahub_actions.plugin.action.stats_util import (
-    ActionStageReport,
-    EventProcessingStats,
-)
 from pydantic import Field
 
 from datahub_integrations.actions.action_extended import (
     AutomationActionConfig,
     ExtendedAction,
+)
+from datahub_integrations.actions.oss.stats_util import (
+    ActionStageReport,
 )
 from datahub_integrations.propagation.propagation.docs.docs_propagator import (
     DocsPropagator,
@@ -316,21 +315,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
             logger.warning("Property propagation is disabled. Skipping event")
             return
 
-        # Initialize event processing stats if needed
-        if not self._stats.event_processing_stats:
-            self._stats.event_processing_stats = EventProcessingStats()
-
-        stats = self._stats.event_processing_stats
-        assert stats
-
-        stats.start(event)
-
-        try:
-            yield from self._process_event_with_propagators(event)
-            stats.end(event, success=True)
-        except Exception:
-            logger.error(f"Error processing event {event}:", exc_info=True)
-            stats.end(event, success=False)
+        yield from self._process_event_with_propagators(event)
 
     def _process_event_with_propagators(
         self, event: EventEnvelope

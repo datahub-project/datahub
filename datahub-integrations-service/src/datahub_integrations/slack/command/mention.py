@@ -26,6 +26,7 @@ from datahub_integrations.chat.chat_history import (
     Message,
 )
 from datahub_integrations.chat.types import ChatType, NextMessage
+from datahub_integrations.observability import BotCommand, BotPlatform, otel_instrument
 from datahub_integrations.slack.command.mention_helpers import (
     DATAHUB_FEEDBACK_PROMPT,
     DATAHUB_INITIAL_THINKING_MESSAGE,
@@ -134,6 +135,11 @@ def _build_progress_message(steps: List[str]) -> tuple[str, List[dict]]:
         return f":hourglass_flowing_sand: _*{current_step}*_", blocks
 
 
+@otel_instrument(
+    metric_prefix="slack_command",
+    description="Slack mention handling",
+    labels={"platform": BotPlatform.SLACK, "command": BotCommand.MENTION},
+)
 def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     """
     Process a message event and send a response in a thread.
@@ -355,6 +361,7 @@ def _build_agent(
         client=DataHubClient(graph=graph),
         history=history,
         chat_type=ChatType.SLACK,
+        platform=BotPlatform.SLACK,
     )
 
     return agent, thread_history.is_limited_history()

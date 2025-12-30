@@ -14,13 +14,17 @@ import fastapi.responses
 import uvicorn
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub_actions.pipeline.pipeline import Pipeline
+from opentelemetry.exporter.prometheus import PrometheusMetricReader
 
-from datahub_integrations.actions.action_extended import ExtendedAction
 from datahub_integrations.actions.bulk_bootstrap_action import BulkBootstrapAction
 from datahub_integrations.actions.oss.stats_util import ReportingAction
 from datahub_integrations.actions.remote_action_runner import run_action_remotely
 from datahub_integrations.actions.reporter import ActionStatsReporter
 from datahub_integrations.actions.stats_util import Stage
+from datahub_integrations.observability.otel_config import (
+    ObservabilityConfig,
+    setup_meter_provider,
+)
 
 # We force load the telemetry client because it has a side-effect of loading Sentry.
 assert telemetry_instance
@@ -31,7 +35,9 @@ logging.basicConfig(level=logging.INFO)
 REPORTING_FREQ_SEC = 10
 
 
-def make_api(pipeline: Pipeline) -> fastapi.FastAPI:
+def make_api(
+    pipeline: Pipeline, prometheus_reader: PrometheusMetricReader
+) -> fastapi.FastAPI:
     app = fastapi.FastAPI()
 
     @app.get("/ping")
@@ -55,6 +61,35 @@ def make_api(pipeline: Pipeline) -> fastapi.FastAPI:
 
         return main_stats_obj
 
+    @app.get("/metrics")
+    def metrics() -> fastapi.Response:
+        """Expose OpenTelemetry metrics in Prometheus format.
+
+        This allows the main service to scrape subprocess metrics,
+        and also enables direct OTLP export to collectors.
+        """
+        # PrometheusMetricReader has a built-in HTTP handler that generates
+        # the Prometheus exposition format. We'll use its internal method.
+        try:
+            # Get metrics in Prometheus format from the reader
+            from prometheus_client import REGISTRY, generate_latest
+
+            # The PrometheusMetricReader registers metrics with prometheus_client's REGISTRY
+            # We can use generate_latest to get the formatted output
+            metrics_output = generate_latest(REGISTRY)
+
+            return fastapi.Response(
+                content=metrics_output,
+                media_type="text/plain; version=0.0.4; charset=utf-8",
+            )
+        except Exception as e:
+            logger.error(f"Error generating metrics: {e}")
+            return fastapi.Response(
+                content=f"# Error generating metrics: {e}\n",
+                media_type="text/plain",
+                status_code=500,
+            )
+
     return app
 
 
@@ -77,13 +112,43 @@ def setup_reporter(
 
 
 def run_action_locally(recipe: dict, port: int, stage: Stage) -> None:
+    # Initialize OpenTelemetry for this subprocess
+    # This enables both pull-based (Prometheus scraping) and push-based (OTLP export)
+    logger.info("Initializing OpenTelemetry observability in action subprocess...")
+    config = ObservabilityConfig()
+    meter_provider = setup_meter_provider(config)
+
+    # Get the PrometheusMetricReader for exposing /metrics endpoint
+    prometheus_reader = None
+    for reader in meter_provider._sdk_config.metric_readers:
+        if isinstance(reader, PrometheusMetricReader):
+            prometheus_reader = reader
+            break
+
+    if not prometheus_reader:
+        logger.warning(
+            "PrometheusMetricReader not found - /metrics endpoint will not work"
+        )
+        # Create a dummy reader to avoid errors
+        prometheus_reader = PrometheusMetricReader()
+
     # Initialize the pipeline.
     pipeline: Pipeline = Pipeline.create(recipe)
+
+    # Set stage on action if it's an ExtendedAction
+    # This ensures metrics are tagged with the correct stage (LIVE/BOOTSTRAP/ROLLBACK)
+    from datahub_integrations.actions.action_extended import ExtendedAction
+
+    if isinstance(pipeline.action, ExtendedAction):
+        # Use model_copy to update the stage (Pydantic v2 doesn't allow direct field assignment)
+        pipeline.action._stats = pipeline.action._stats.model_copy(
+            update={"stage": stage.value}
+        )
 
     # Run the webserver.
     server = None
     if port is not None:
-        api = make_api(pipeline)
+        api = make_api(pipeline, prometheus_reader)
         server = setup_server(api, port)
 
     # Run the reporter.
@@ -143,6 +208,11 @@ def run_action_locally(recipe: dict, port: int, stage: Stage) -> None:
                 pipeline.action.monitor_bootstrap()
             else:
                 pipeline.action.bootstrap()
+        elif hasattr(pipeline.action, "bootstrap") and callable(
+            pipeline.action.bootstrap
+        ):
+            # Support actions that have a bootstrap method but don't inherit from ExtendedAction
+            pipeline.action.bootstrap()
         else:
             logger.error("Action does not support bootstrap")
             sys.exit(1)

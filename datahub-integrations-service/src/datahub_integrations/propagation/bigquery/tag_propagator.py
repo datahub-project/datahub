@@ -160,49 +160,37 @@ class BigqueryTagPropagatorAction(ExtendedAction[SelectedAsset]):
                 )
 
     def act(self, event: EventEnvelope) -> None:
-        if not self._stats.event_processing_stats:
-            self._stats.event_processing_stats = EventProcessingStats()
-        self._stats.event_processing_stats.start(event)
-        try:
-            if event.event_type == "EntityChangeEvent_v1":
-                assert isinstance(event.event, EntityChangeEvent)
-                assert self.ctx.graph is not None
-                logger.debug(f"Processing event {event.event}")
-                semantic_event = event.event
+        if event.event_type == "EntityChangeEvent_v1":
+            assert isinstance(event.event, EntityChangeEvent)
+            assert self.ctx.graph is not None
+            logger.debug(f"Processing event {event.event}")
+            semantic_event = event.event
 
-                assert isinstance(self.config, BigqueryTagPropagatorConfig)
-                if not is_urn_allowed(semantic_event.entityUrn, self.config.bigquery):
-                    return
-                propagation_directive: Union[
-                    TermPropagationDirective,
-                    TagPropagationDirective,
-                    DescriptionSyncDirective,
-                    None,
-                ] = None
-                if self.tag_propagator is not None:
-                    propagation_directive = self.tag_propagator.should_propagate(
-                        event=event
-                    )
-                if self.term_propagator is not None and propagation_directive is None:
-                    propagation_directive = self.term_propagator.should_propagate(
-                        event=event
-                    )
+            assert isinstance(self.config, BigqueryTagPropagatorConfig)
+            if not is_urn_allowed(semantic_event.entityUrn, self.config.bigquery):
+                return
+            propagation_directive: Union[
+                TermPropagationDirective,
+                TagPropagationDirective,
+                DescriptionSyncDirective,
+                None,
+            ] = None
+            if self.tag_propagator is not None:
+                propagation_directive = self.tag_propagator.should_propagate(
+                    event=event
+                )
+            if self.term_propagator is not None and propagation_directive is None:
+                propagation_directive = self.term_propagator.should_propagate(
+                    event=event
+                )
 
-                if self.description_sync is not None and propagation_directive is None:
-                    propagation_directive = self.description_sync.should_propagate(
-                        event=event
-                    )
+            if self.description_sync is not None and propagation_directive is None:
+                propagation_directive = self.description_sync.should_propagate(
+                    event=event
+                )
 
-                if (
-                    propagation_directive is not None
-                    and propagation_directive.propagate
-                ):
-                    self.process_directive(propagation_directive)
-
-            self._stats.event_processing_stats.end(event, success=True)
-        except Exception as e:
-            logger.exception("Error processing event", e)
-            self._stats.event_processing_stats.end(event, success=False)
+            if propagation_directive is not None and propagation_directive.propagate:
+                self.process_directive(propagation_directive)
 
     def rollbackable_assets(self) -> Iterable[SelectedAsset]:
         yield from self.bootstrappable_assets()

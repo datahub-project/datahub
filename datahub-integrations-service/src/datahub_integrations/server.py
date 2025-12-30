@@ -31,7 +31,6 @@ from datahub_integrations.gen_ai.description_context import (
     TooManyColumnsError,
 )
 from datahub_integrations.gen_ai.router import router as gen_ai_router
-from datahub_integrations.mcp.router import mcp_http_app, mcp_sse_app
 from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
 from datahub_integrations.slack.slack import (
@@ -52,15 +51,101 @@ from datahub_integrations.util.access_log import access_log
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Initialize OpenTelemetry observability before other services
+    from datahub_integrations.observability import (
+        ObservabilityConfig,
+        initialize_observability,
+    )
+
+    config = None
+    try:
+        config = ObservabilityConfig()
+        initialize_observability(config)
+    except Exception as e:
+        # Log error but continue - observability should not block service startup
+        logging.getLogger(__name__).error(
+            f"Failed to initialize observability: {e}. Continuing without metrics."
+        )
+
+    # Initialize subprocess metrics bridge for OTLP push (if enabled)
+    subprocess_bridge = None
+    if config and config.otlp_enabled:
+        try:
+            from datahub_integrations.observability.subprocess_metrics_bridge import (
+                create_subprocess_bridge_if_enabled,
+            )
+
+            # Get subprocess URLs from pipeline manager
+            def get_subprocess_urls() -> list[str]:
+                """Get URLs of all running action subprocesses."""
+                try:
+                    from datahub_integrations.actions.router import pipeline_manager
+
+                    if pipeline_manager and hasattr(pipeline_manager, "pipelines"):
+                        return [
+                            f"http://127.0.0.1:{spec.port}"
+                            for spec in pipeline_manager.pipelines.values()
+                        ]
+                except Exception as e:
+                    logging.getLogger(__name__).warning(
+                        f"Could not get subprocess URLs: {e}"
+                    )
+                return []
+
+            # Start bridge (will scrape and relay metrics via OTLP)
+            subprocess_urls = get_subprocess_urls()
+            if subprocess_urls:
+                subprocess_bridge = await create_subprocess_bridge_if_enabled(
+                    subprocess_urls
+                )
+                logging.getLogger(__name__).info(
+                    f"Subprocess metrics bridge started for {len(subprocess_urls)} subprocess(es)"
+                )
+            else:
+                logging.getLogger(__name__).info(
+                    "No action subprocesses running yet, bridge will start when available"
+                )
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                f"Failed to initialize subprocess metrics bridge: {e}"
+            )
+
     async with contextlib.AsyncExitStack() as stack:
         await stack.enter_async_context(actions_lifespan(app))
-        await stack.enter_async_context(mcp_http_app.lifespan(app))
-        await stack.enter_async_context(mcp_sse_app.lifespan(app))
+
+        # Only initialize MCP if not disabled (useful for testing)
+        if os.environ.get("DISABLE_MCP", "false").lower() != "true":
+            # Lazy import MCP apps to avoid singleton creation at module level
+            from datahub_integrations.mcp.router import mcp_http_app, mcp_sse_app
+
+            await stack.enter_async_context(mcp_http_app.lifespan(app))
+            await stack.enter_async_context(mcp_sse_app.lifespan(app))
 
         yield
 
+        # Cleanup subprocess bridge
+        if subprocess_bridge:
+            try:
+                await subprocess_bridge.stop()
+                logging.getLogger(__name__).info("Subprocess metrics bridge stopped")
+            except Exception as e:
+                logging.getLogger(__name__).warning(
+                    f"Error stopping subprocess metrics bridge: {e}"
+                )
+
 
 app = FastAPI(lifespan=_lifespan)
+
+# Initialize OpenTelemetry auto-instrumentation for FastAPI
+# This must be done after app creation but before adding routes
+try:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app)
+except Exception as e:
+    logging.getLogger(__name__).warning(
+        f"Failed to instrument FastAPI with OpenTelemetry: {e}"
+    )
 
 # Disable the uvicorn-native access logger and use our own.
 # As per https://github.com/Kludex/asgi-logger#usage
@@ -105,6 +190,84 @@ for exception_type, status_code in _exception_type_mapping.items():
 @app.get("/ping")
 def ping() -> str:
     return "pong"
+
+
+@app.get("/metrics")
+async def metrics() -> Response:
+    """Expose Prometheus-compatible metrics endpoint with subprocess aggregation.
+
+    This endpoint returns metrics in Prometheus text format for scraping.
+    It aggregates metrics from:
+    1. Main service process (HTTP, system, GenAI metrics)
+    2. All running action subprocesses (Phase 3 event/asset processing metrics)
+
+    This allows short-lived processes (e.g., bootstrap) to export metrics before termination,
+    while also providing a unified view via scraping.
+
+    Returns:
+        Response with aggregated Prometheus text format metrics.
+    """
+    import httpx
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        from prometheus_client import REGISTRY, generate_latest
+
+        # 1. Get main service metrics
+        main_metrics_bytes = generate_latest(REGISTRY)
+        main_metrics = main_metrics_bytes.decode("utf-8")
+
+        # 2. Scrape metrics from all running action subprocesses
+        subprocess_metrics = []
+
+        try:
+            # Import here to avoid circular dependency
+            from datahub_integrations.actions.router import pipeline_manager
+
+            # Get all running actions
+            if pipeline_manager and hasattr(pipeline_manager, "pipelines"):
+                for action_urn, spec in pipeline_manager.pipelines.items():
+                    try:
+                        # Scrape /metrics from action subprocess via its port
+                        base_url = f"http://127.0.0.1:{spec.port}"
+                        async with httpx.AsyncClient(timeout=2.0) as client:
+                            response = await client.get(f"{base_url}/metrics")
+                            if response.status_code == 200:
+                                subprocess_metrics.append(
+                                    f"# Metrics from action: {action_urn}\n{response.text}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"Failed to scrape metrics from {action_urn}: HTTP {response.status_code}"
+                                )
+                    except httpx.TimeoutException:
+                        logger.warning(f"Timeout scraping metrics from {action_urn}")
+                    except Exception as e:
+                        logger.warning(f"Error scraping metrics from {action_urn}: {e}")
+        except Exception as e:
+            logger.warning(
+                f"Could not access pipeline_manager for subprocess metrics: {e}"
+            )
+
+        # 3. Combine all metrics
+        all_metrics = [main_metrics]
+        if subprocess_metrics:
+            all_metrics.extend(subprocess_metrics)
+
+        combined_output = "\n\n".join(all_metrics)
+
+        return Response(
+            content=combined_output.encode("utf-8"),
+            media_type="text/plain; charset=utf-8",
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate metrics: {e}", exc_info=True)
+        return Response(
+            content=f"# Error generating metrics: {e}\n",
+            media_type="text/plain; charset=utf-8",
+            status_code=500,
+        )
 
 
 @app.get("/", include_in_schema=False)
@@ -170,8 +333,14 @@ app.mount(
     StaticFiles(directory=STATIC_ASSETS_DIR),
     name="integrations-static-dir",
 )
-app.mount("/public/ai", mcp_http_app)
-app.mount("/public/ai-legacy", mcp_sse_app)
+
+# Only mount MCP if not disabled (useful for testing)
+if os.environ.get("DISABLE_MCP", "false").lower() != "true":
+    # Lazy import MCP apps to avoid singleton creation at module level
+    from datahub_integrations.mcp.router import mcp_http_app, mcp_sse_app
+
+    app.mount("/public/ai", mcp_http_app)
+    app.mount("/public/ai-legacy", mcp_sse_app)
 
 app.include_router(internal_router, prefix="/private")
 app.include_router(external_router, prefix="/public")

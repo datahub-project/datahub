@@ -6,8 +6,8 @@ from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 from datahub_actions.api.action_graph import AcrylDataHubGraph
-from datahub_actions.plugin.action.stats_util import ActionStageReport
 
+from datahub_integrations.actions.oss.stats_util import ActionStageReport
 from datahub_integrations.propagation.propagation.propagation_rule_config import (
     AspectLookup,
     EntityLookup,

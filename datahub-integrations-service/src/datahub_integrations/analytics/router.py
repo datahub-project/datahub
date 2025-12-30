@@ -22,6 +22,7 @@ from datahub_integrations.analytics.factory import (
     AnalyticsEngineLocator,
 )
 from datahub_integrations.app import graph
+from datahub_integrations.observability import otel_instrument
 
 router = fastapi.APIRouter()
 engine_factory = AnalyticsEngineFactory(graph)
@@ -127,6 +128,11 @@ class Field(BaseModel):
 
 
 @router.get("/schema")
+@otel_instrument(
+    metric_prefix="analytics_query",
+    description="Analytics schema query",
+    labels={"operation": "schema"},
+)
 def schema(entity_urn: str) -> List[Field]:
     """Return the structure of this dataset."""
 
@@ -139,6 +145,11 @@ def schema(entity_urn: str) -> List[Field]:
 
 
 @router.get("/preview")
+@otel_instrument(
+    metric_prefix="analytics_query",
+    description="Analytics preview query",
+    labels={"operation": "preview"},
+)
 def preview(
     entity_urn: str, limit: int = 100, format: DataFormat = DataFormat.JSON
 ) -> StreamingResponse:
@@ -191,6 +202,11 @@ def data(entity_urn: str, format: DataFormat = DataFormat.JSON) -> StreamingResp
 
 
 @router.post("/query")
+@otel_instrument(
+    metric_prefix="analytics_query",
+    description="Analytics query execution",
+    labels={"operation": "query"},
+)
 def query(
     entity_urn: str,
     format: Optional[str] = None,

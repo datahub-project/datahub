@@ -5,6 +5,12 @@ from datahub.ingestion.graph.client import DataHubGraph
 from slack_bolt import Ack, Respond
 
 from datahub_integrations.graphql.slack import SLACK_SEARCH_QUERY
+from datahub_integrations.observability import (
+    BotCommand,
+    BotPlatform,
+    datahub_query_tracker,
+    otel_instrument,
+)
 from datahub_integrations.slack.context import SearchContext
 from datahub_integrations.slack.render.render_filter import get_graphql_filters
 from datahub_integrations.slack.render.render_search import render_search
@@ -26,6 +32,11 @@ ENTITY_TYPES = [
 logger = logging.getLogger(__name__)
 
 
+@otel_instrument(
+    metric_prefix="slack_command",
+    description="Slack search command execution",
+    labels={"platform": BotPlatform.SLACK, "command": BotCommand.SEARCH},
+)
 def search(
     graph: DataHubGraph,
     ack: Ack,
@@ -46,7 +57,8 @@ def search(
             "orFilters": [{"and": list(get_graphql_filters(context))}],
         }
     }
-    data = graph.execute_graphql(SLACK_SEARCH_QUERY, variables=variables)
+    with datahub_query_tracker("search", BotPlatform.SLACK):
+        data = graph.execute_graphql(SLACK_SEARCH_QUERY, variables=variables)
     logger.debug(f"search: {data}")
 
     # TODO: Ideally, add subscription status to the search results
