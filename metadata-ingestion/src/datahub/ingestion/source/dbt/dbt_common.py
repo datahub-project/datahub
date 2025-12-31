@@ -674,7 +674,7 @@ def _build_table_mapping(
     if tables_section:
         tables_content = tables_section.group(1)
         logger.debug(
-            f"[TABLE_MAPPING] TABLES section found ({len(tables_content)} chars)"
+            f"[TABLE_MAPPING] TABLES section ({len(tables_content)} chars): {tables_content[:400]}"
         )
         alias_matches = _SV_ALIAS_RE.findall(tables_content)
         logger.debug(f"[TABLE_MAPPING] Alias matches: {alias_matches}")
