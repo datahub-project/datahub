@@ -1,5 +1,5 @@
 import { spacing } from '@components';
-import { Form, message } from 'antd';
+import { Form, FormInstance, message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
@@ -56,14 +56,22 @@ function getInitialValues(displayRecipe: string, allFields: RecipeField[]) {
 interface Props {
     state: MultiStepSourceBuilderState;
     displayRecipe: string;
+    form: FormInstance<any>;
+    runFormValidation: () => void;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     selectedSource?: IngestionSource;
-    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, selectedSource, setIsRecipeValid }: Props) {
-    const [form] = Form.useForm();
+function RecipeForm({
+    state,
+    displayRecipe,
+    form,
+    runFormValidation,
+    sourceConfigs,
+    setStagedRecipe,
+    selectedSource,
+}: Props) {
     const areFormValuesChangedRef = useRef<boolean>(false);
 
     const formValues = Form.useWatch([], form);
@@ -78,18 +86,6 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
             filterFields: recipeFields.filterFields.map((field) => resolveDynamicOptions(field, formValues)),
         };
     }, [recipeFields, formValues]);
-
-    const runFormValidation = useCallback(() => {
-        form.validateFields()
-            .then(() => {
-                setIsRecipeValid?.(true);
-            })
-            .catch((error) => {
-                // FYI: `error` could be triggered with empty list of `errorFields` when form is valid
-                const hasErrors = (error.errorFields?.length ?? 0) > 0;
-                setIsRecipeValid?.(!hasErrors);
-            });
-    }, [form, setIsRecipeValid]);
 
     // Run validation when fields changed. Required to revalidate hidden/shown fields
     useEffect(() => {
