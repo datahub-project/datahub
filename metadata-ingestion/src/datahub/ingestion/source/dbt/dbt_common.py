@@ -166,6 +166,22 @@ _SV_DIMENSION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Short form section: captures entire content after DIMENSIONS/METRICS/FACTS keyword
+# when NOT followed by parentheses (which indicates long form with AS syntax)
+# Example: "DIMENSIONS OrdersTable.CUSTOMER_ID, OrdersTable.ORDER_ID"
+# Group 1: keyword (DIMENSIONS/METRICS/FACTS)
+# Group 2: content (comma-separated Table.COLUMN entries)
+_SV_SHORT_FORM_SECTION_RE = re.compile(
+    r"(DIMENSIONS|METRICS|FACTS)\s+(?!\()([^\n]+?)(?=\n|DIMENSIONS|METRICS|FACTS|TABLES|$)",
+    re.IGNORECASE,
+)
+
+# Extracts individual Table.COLUMN from short form section content
+_SV_SHORT_FORM_ENTRY_RE = re.compile(
+    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")",
+    re.IGNORECASE,
+)
+
 # Supported aggregation functions in semantic view metrics
 _SV_AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
 
@@ -636,6 +652,85 @@ class DBTColumnLineageInfo:
     downstream_col: str
 
 
+def _build_table_mapping(
+    compiled_sql: str,
+    upstream_nodes: List[str],
+    all_nodes_map: Dict[str, Any],
+) -> Dict[str, str]:
+    """Build mapping of table references (including aliases) to dbt source node names."""
+    table_to_dbt_name: Dict[str, str] = {}
+    for upstream_dbt_name in upstream_nodes:
+        if upstream_dbt_name in all_nodes_map:
+            upstream_node = all_nodes_map[upstream_dbt_name]
+            table_name = upstream_node.name.upper()
+            table_to_dbt_name[table_name] = upstream_dbt_name
+
+    # Parse TABLES section to extract alias mappings
+    tables_section = _SV_TABLES_SECTION_RE.search(compiled_sql)
+    if tables_section:
+        alias_matches = _SV_ALIAS_RE.findall(tables_section.group(1))
+        for alias, table_name in alias_matches:
+            alias_upper = alias.upper()
+            table_upper = table_name.upper()
+            if table_upper in table_to_dbt_name:
+                table_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
+
+    return table_to_dbt_name
+
+
+def _parse_short_form_entries(
+    compiled_sql: str,
+    table_to_dbt_name: Dict[str, str],
+    cll_info: List["DBTColumnLineageInfo"],
+    seen_cll: Set[Tuple[str, str, str]],
+) -> None:
+    """Parse short form dimensions/metrics without AS keyword."""
+    for section_match in _SV_SHORT_FORM_SECTION_RE.finditer(compiled_sql):
+        section_content = section_match.group(2)
+        for entry_match in _SV_SHORT_FORM_ENTRY_RE.finditer(section_content):
+            table_ref = entry_match.group(1).strip('"').upper()
+            column_name = entry_match.group(2).strip('"').lower()
+
+            if table_ref in table_to_dbt_name:
+                _add_cll_entry(
+                    cll_info,
+                    seen_cll,
+                    table_to_dbt_name[table_ref],
+                    column_name,
+                    column_name,
+                )
+
+
+def _parse_derived_metrics(
+    compiled_sql: str,
+    cll_info: List["DBTColumnLineageInfo"],
+    seen_cll: Set[Tuple[str, str, str]],
+) -> None:
+    """Parse derived metrics computed from other metrics."""
+    metric_to_sources: Dict[str, List[Tuple[str, str]]] = {}
+    for cll in cll_info:
+        if cll.downstream_col not in metric_to_sources:
+            metric_to_sources[cll.downstream_col] = []
+        metric_to_sources[cll.downstream_col].append(
+            (cll.upstream_dbt_name, cll.upstream_col)
+        )
+
+    for match in _SV_DERIVED_METRIC_RE.finditer(compiled_sql):
+        output_metric = match.group(1).strip('"').lower()
+        expression = match.group(2)
+
+        refs = _SV_TABLE_METRIC_REF_RE.findall(expression)
+        for _table_ref, metric_name in refs:
+            metric_name_lower = metric_name.strip('"').lower()
+            if metric_name_lower in metric_to_sources:
+                for upstream_dbt_name, source_col in metric_to_sources[
+                    metric_name_lower
+                ]:
+                    _add_cll_entry(
+                        cll_info, seen_cll, upstream_dbt_name, source_col, output_metric
+                    )
+
+
 def parse_semantic_view_cll(
     compiled_sql: str,
     upstream_nodes: List[str],
@@ -653,26 +748,11 @@ def parse_semantic_view_cll(
     cll_info: List[DBTColumnLineageInfo] = []
     seen_cll: Set[Tuple[str, str, str]] = set()
 
-    # Build mapping of table references to dbt source node names
-    table_to_dbt_name: Dict[str, str] = {}
-    for upstream_dbt_name in upstream_nodes:
-        if upstream_dbt_name in all_nodes_map:
-            upstream_node = all_nodes_map[upstream_dbt_name]
-            table_name = upstream_node.name.upper()
-            table_to_dbt_name[table_name] = upstream_dbt_name
-
+    table_to_dbt_name = _build_table_mapping(
+        compiled_sql, upstream_nodes, all_nodes_map
+    )
     if not table_to_dbt_name:
         return []
-
-    # Parse TABLES section to extract alias mappings (e.g., 'cases' -> 'r_support_case_analysis')
-    tables_section = _SV_TABLES_SECTION_RE.search(compiled_sql)
-    if tables_section:
-        alias_matches = _SV_ALIAS_RE.findall(tables_section.group(1))
-        for alias, table_name in alias_matches:
-            alias_upper = alias.upper()
-            table_upper = table_name.upper()
-            if table_upper in table_to_dbt_name:
-                table_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
 
     # Parse METRICS first (more specific pattern)
     for match in _SV_METRIC_RE.finditer(compiled_sql):
@@ -689,7 +769,7 @@ def parse_semantic_view_cll(
                 output_column,
             )
 
-    # Parse DIMENSIONS/FACTS (simpler 1:1 mapping)
+    # Parse DIMENSIONS/FACTS (simpler 1:1 mapping with AS keyword)
     for match in _SV_DIMENSION_RE.finditer(compiled_sql):
         table_ref = match.group(1).strip('"').upper()
         source_column = match.group(2).strip('"').lower()
@@ -704,30 +784,8 @@ def parse_semantic_view_cll(
                 output_column,
             )
 
-    # Build metric-to-sources map for resolving derived metrics
-    metric_to_sources: Dict[str, List[Tuple[str, str]]] = {}
-    for cll in cll_info:
-        if cll.downstream_col not in metric_to_sources:
-            metric_to_sources[cll.downstream_col] = []
-        metric_to_sources[cll.downstream_col].append(
-            (cll.upstream_dbt_name, cll.upstream_col)
-        )
-
-    # Parse DERIVED METRICS (metrics computed from other metrics)
-    for match in _SV_DERIVED_METRIC_RE.finditer(compiled_sql):
-        output_metric = match.group(1).strip('"').lower()
-        expression = match.group(2)
-
-        refs = _SV_TABLE_METRIC_REF_RE.findall(expression)
-        for _table_ref, metric_name in refs:
-            metric_name_lower = metric_name.strip('"').lower()
-            if metric_name_lower in metric_to_sources:
-                for upstream_dbt_name, source_col in metric_to_sources[
-                    metric_name_lower
-                ]:
-                    _add_cll_entry(
-                        cll_info, seen_cll, upstream_dbt_name, source_col, output_metric
-                    )
+    _parse_short_form_entries(compiled_sql, table_to_dbt_name, cll_info, seen_cll)
+    _parse_derived_metrics(compiled_sql, cll_info, seen_cll)
 
     return cll_info
 

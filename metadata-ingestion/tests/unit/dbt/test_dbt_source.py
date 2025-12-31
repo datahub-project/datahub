@@ -1200,6 +1200,48 @@ def test_parse_semantic_view_cll_no_upstream_mapping() -> None:
     assert len(cll_info) == 0
 
 
+def test_parse_semantic_view_cll_short_form_dimensions() -> None:
+    """
+    Test parsing short form dimensions without AS keyword.
+    Example: "DIMENSIONS OrdersTable.CUSTOMER_ID, OrdersTable.ORDER_ID"
+    In short form, output column name equals source column name.
+    """
+    compiled_sql = """
+    DIMENSIONS OrdersTable.CUSTOMER_ID, OrdersTable.ORDER_ID, OrdersTable.ORDER_TYPE
+    METRICS OrdersTable.GROSS_REVENUE
+    """
+
+    upstream_nodes = ["source.project.shop.ORDERS"]
+    all_nodes_map = {"source.project.shop.ORDERS": _create_mock_node("OrdersTable")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract 4 entries (3 dimensions + 1 metric)
+    assert len(cll_info) == 4
+
+    # Check customer_id (short form: source = output)
+    customer_id = next(
+        (cll for cll in cll_info if cll.downstream_col == "customer_id"), None
+    )
+    assert customer_id is not None
+    assert customer_id.upstream_dbt_name == "source.project.shop.ORDERS"
+    assert customer_id.upstream_col == "customer_id"
+
+    # Check order_type
+    order_type = next(
+        (cll for cll in cll_info if cll.downstream_col == "order_type"), None
+    )
+    assert order_type is not None
+    assert order_type.upstream_col == "order_type"
+
+    # Check metric (also short form)
+    gross_revenue = next(
+        (cll for cll in cll_info if cll.downstream_col == "gross_revenue"), None
+    )
+    assert gross_revenue is not None
+    assert gross_revenue.upstream_col == "gross_revenue"
+
+
 def test_parse_semantic_view_cll_derived_metric_missing_reference() -> None:
     """
     Test derived metric that references a non-existent metric.
