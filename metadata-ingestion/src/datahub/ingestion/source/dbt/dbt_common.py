@@ -2416,12 +2416,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
 
-            logger.debug(
-                f"Creating lineage aspect for {node.dbt_name}: "
-                f"node_type={node.node_type}, upstream_nodes={len(node.upstream_nodes)}, "
-                f"upstream_urns={len(upstream_urns)}, upstream_cll={len(node.upstream_cll)}"
-            )
-
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
                 # For semantic views, use dbt URNs; for others, use the default behavior
                 if node.node_type == "semantic_view":
@@ -2526,23 +2520,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         )
                     )
 
-                logger.debug(
-                    f"Created {len(cll)} fine-grained lineage entries for {node.dbt_name}"
-                )
-
             if not upstream_urns:
                 if node.node_type == "semantic_view":
                     logger.warning(
-                        f"SEMANTIC VIEW: No upstream URNs for {node.dbt_name} - returning None (lineage aspect will NOT be emitted). "
-                        f"This means the dbt entity will show a red X in DataHub UI. "
-                        f"Details: upstream_nodes={node.upstream_nodes}, "
-                        f"CLL entries={len(node.upstream_cll)}, "
-                        f"fineGrainedLineages_created={len(cll) if cll else 0}"
-                    )
-                else:
-                    logger.debug(
-                        f"No upstream URNs for {node.dbt_name} - returning None for lineage aspect. "
-                        f"CLL entries={len(node.upstream_cll)}, upstream_nodes={node.upstream_nodes}"
+                        f"No upstream URNs for semantic view {node.dbt_name}, lineage will not be emitted"
                     )
                 return None
 
