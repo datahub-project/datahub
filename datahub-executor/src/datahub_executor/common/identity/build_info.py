@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class BuildInfo:
         except Exception as e:
             logger.error(f"Error loading build info: {e}")
 
-    def get(self, key: str) -> str:
+    def get(self, key: str) -> Optional[str]:
         return self.build_info.get(key, None)
 
     def get_version(self) -> str:

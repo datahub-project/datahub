@@ -1,0 +1,398 @@
+# ruff: noqa: INP001
+"""
+Shared utilities and constants for Time Series Explorer pages.
+
+This module contains:
+- Session state keys
+- Shared helper functions
+- Configuration dataclasses
+- Logging setup
+"""
+
+import logging
+
+# Import shared config for connection status
+# shared_config is in scripts/ directory (added to sys.path by assertions_ui.py)
+# For tests, we add scripts to path via conftest or the test imports
+import sys as _sys
+import threading
+from dataclasses import dataclass, field
+from pathlib import Path as _Path
+
+import pandas as pd  # noqa: F401
+import plotly.graph_objects as go  # type: ignore[import-untyped]  # noqa: F401
+import streamlit as st
+
+# Local imports - using relative imports within common package
+from .cache_manager import (
+    ALL_ASPECTS,
+    METRIC_CUBE_ASPECTS,
+    MONITOR_ASPECTS,
+    AnomalyEdit,
+    AnomalyEditTracker,
+    get_cache_dir,
+    hostname_to_dir,
+)
+from .data_loaders import DataLoader
+from .env_config import DataHubEnvConfig
+from .preprocessing_ui import (
+    apply_preprocessing,
+    render_before_after_chart,
+    render_preprocessing_config_panel,
+    render_preprocessing_stats,
+)
+
+# Ensure scripts directory is in path for imports
+_scripts_dir = _Path(__file__).parent.parent.parent
+if str(_scripts_dir) not in _sys.path:
+    _sys.path.insert(0, str(_scripts_dir))
+
+from shared_config import (  # type: ignore[import-not-found]  # noqa: E402
+    ACTIVE_ENV_CONFIG,
+    get_active_config,
+    render_connection_status,
+)
+
+# Configure module logger
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+
+# =============================================================================
+# Session State Keys
+# =============================================================================
+
+_SELECTED_ENDPOINT = "ts_explorer_endpoint"
+_SELECTED_ASSERTION = "ts_explorer_assertion"
+_LOADED_TIMESERIES = "ts_explorer_timeseries"
+_DATA_SOURCE = "ts_explorer_data_source"
+_FETCH_CANCELLED = "ts_explorer_fetch_cancelled"
+_FETCH_IN_PROGRESS = "ts_explorer_fetch_in_progress"
+_MONITOR_URN_FOR_ASSERTION = "ts_explorer_monitor_urn"
+_RAW_EVENTS_DF = "ts_explorer_raw_events"
+_SELECTED_MONITOR = "ts_explorer_monitor"
+
+# Thread-safe cancel flag (threading.Event is thread-safe)
+_cancel_event = threading.Event()
+
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+
+@dataclass
+class FetchConfig:
+    """Configuration for API fetch operation.
+
+    This config uses monitors as the primary entity for data fetching.
+    Metric cubes provide timeseries data, and monitor anomaly events
+    provide anomaly detection data.
+    """
+
+    lookback_days: int = 30
+    monitor_urns: list[str] = field(default_factory=list)  # Optional filter
+    monitor_aspects: list[str] = field(default_factory=lambda: ["monitorAnomalyEvent"])
+    metric_cube_aspects: list[str] = field(
+        default_factory=lambda: ["dataHubMetricCubeEvent"]
+    )
+    alias: str = ""
+    sync_mode: str = "full"
+    max_workers: int = 30  # Concurrency for parallel API requests
+    include_active_monitors: bool = True  # Include monitors with ACTIVE status
+    include_inactive_monitors: bool = (
+        True  # Include monitors with INACTIVE/PAUSED status
+    )
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _shorten_urn(urn: str, max_length: int = 60) -> str:
+    """Shorten a URN by truncating the end with ellipsis.
+
+    Args:
+        urn: The URN to shorten
+        max_length: Maximum length before truncation
+
+    Returns:
+        Truncated URN with ... at the end if too long
+    """
+    if not urn:
+        return ""
+
+    if len(urn) <= max_length:
+        return urn
+
+    # Truncate from end with ellipsis
+    return urn[: max_length - 3] + "..."
+
+
+def _render_urn_with_link(
+    label: str,
+    urn: str | None,
+    hostname: str | None = None,
+    assertee_urn: str | None = None,
+    assertion_urn: str | None = None,
+    max_display_length: int = 50,
+) -> None:
+    """Render a URN with optional link and tooltip showing full URN.
+
+    Args:
+        label: Label to show before the URN (e.g., "URN", "Entity")
+        urn: The full URN
+        hostname: DataHub endpoint hostname for generating links
+        assertee_urn: For assertion URNs, the entity the assertion is for
+        assertion_urn: For monitor URNs, the associated assertion to link to
+        max_display_length: Max characters to display before truncating
+    """
+    if not urn:
+        st.markdown(f"**{label}:** -")
+        return
+
+    # Get URL if available
+    url = _get_datahub_url(
+        urn, hostname, assertee_urn=assertee_urn, assertion_urn=assertion_urn
+    )
+    short_urn = _shorten_urn(urn, max_display_length)
+
+    # Build the URN display (link or plain text with hover tooltip)
+    if url:
+        urn_html = f'<a href="{url}" target="_blank" title="{urn}">{short_urn}</a>'
+    else:
+        urn_html = f'<span title="{urn}">{short_urn}</span>'
+
+    st.markdown(
+        f"<strong>{label}:</strong> {urn_html}",
+        unsafe_allow_html=True,
+    )
+
+
+def _get_datahub_url(
+    urn: str,
+    hostname: str | None = None,
+    assertee_urn: str | None = None,
+    assertion_urn: str | None = None,
+) -> str | None:
+    """Generate a DataHub web URL for a given URN.
+
+    Args:
+        urn: The URN to link to (e.g., urn:li:dataset:..., urn:li:assertion:...)
+        hostname: The DataHub endpoint hostname. If None, uses session state.
+        assertee_urn: For assertion URNs, the entity (dataset) the assertion is for.
+        assertion_urn: For monitor URNs, the associated assertion to link to.
+
+    Returns:
+        The full URL to the entity in DataHub web UI, or None if invalid.
+
+    URL format:
+        - Dataset: http://localhost:9002/dataset/{urn}
+        - Assertion: http://localhost:9002/dataset/{assertee_urn}/Quality/List?assertion_urn={encoded_urn}
+        - Monitor (with assertion): links to the assertion page
+        - Monitor (without assertion): links to entity's Quality/Assertions tab
+        - localhost uses http://localhost:9002
+        - other hosts use https://{hostname}
+
+    Examples:
+        - Dataset: http://localhost:9002/dataset/urn:li:dataset:(...)
+        - Assertion: http://localhost:9002/dataset/{assertee}/Quality/List?assertion_urn=...
+    """
+    from urllib.parse import quote
+
+    if not urn:
+        return None
+
+    # Get hostname from session state if not provided
+    if hostname is None:
+        hostname = st.session_state.get("selected_endpoint")
+
+    if not hostname:
+        return None
+
+    # Build base URL
+    if "localhost" in hostname.lower():
+        base_url = "http://localhost:9002"
+    else:
+        # Strip any protocol/path from hostname
+        clean_host = hostname.replace("https://", "").replace("http://", "")
+        clean_host = clean_host.split("/")[0]  # Remove any path
+        base_url = f"https://{clean_host}"
+
+    # Handle assertion URNs specially - they link to dataset Quality tab
+    if urn.startswith("urn:li:assertion:"):
+        if not assertee_urn:
+            return None
+        encoded_assertion = quote(urn, safe="")
+        return f"{base_url}/dataset/{assertee_urn}/Quality/List?assertion_urn={encoded_assertion}"
+
+    # Handle monitor URNs - link to assertion if provided, otherwise entity's Quality tab
+    if urn.startswith("urn:li:monitor:"):
+        # Extract entity URN from monitor URN
+        # Format: urn:li:monitor:(urn:li:dataset:(...),monitor_type)
+        from .run_event_extractor import extract_entity_from_monitor_urn
+
+        entity_urn = extract_entity_from_monitor_urn(urn)
+        if not entity_urn or not entity_urn.startswith("urn:li:dataset:"):
+            return None
+
+        # If we have an associated assertion, link directly to it
+        if assertion_urn and assertee_urn:
+            encoded_assertion = quote(assertion_urn, safe="")
+            return f"{base_url}/dataset/{assertee_urn}/Quality/List?assertion_urn={encoded_assertion}"
+
+        # Otherwise link to the entity's Quality/Assertions tab
+        return f"{base_url}/dataset/{entity_urn}/Quality/Assertions"
+
+    # Determine entity type from URN
+    entity_type = None
+    if urn.startswith("urn:li:dataset:"):
+        entity_type = "dataset"
+    elif urn.startswith("urn:li:dataJob:"):
+        entity_type = "tasks"
+    elif urn.startswith("urn:li:dataFlow:"):
+        entity_type = "pipelines"
+    elif urn.startswith("urn:li:chart:"):
+        entity_type = "chart"
+    elif urn.startswith("urn:li:dashboard:"):
+        entity_type = "dashboard"
+    elif urn.startswith("urn:li:corpuser:"):
+        entity_type = "user"
+    elif urn.startswith("urn:li:corpGroup:"):
+        entity_type = "group"
+
+    if entity_type is None:
+        return None
+
+    return f"{base_url}/{entity_type}/{urn}"
+
+
+def _make_urn_link(
+    urn: str,
+    hostname: str | None = None,
+    max_length: int = 40,
+    show_full_on_hover: bool = True,
+    assertee_urn: str | None = None,
+    assertion_urn: str | None = None,
+) -> str:
+    """Create a clickable markdown link for a URN.
+
+    Args:
+        urn: The URN to link to
+        hostname: The DataHub endpoint hostname
+        max_length: Maximum display length for the shortened URN
+        show_full_on_hover: Whether to show full URN on hover (title attribute)
+        assertee_urn: For assertion URNs, the entity (dataset) the assertion is for.
+        assertion_urn: For monitor URNs, the associated assertion to link to.
+
+    Returns:
+        Markdown string with clickable link, or shortened URN if no link possible.
+    """
+    if not urn:
+        return ""
+
+    short_urn = _shorten_urn(urn, max_length)
+    url = _get_datahub_url(
+        urn, hostname, assertee_urn=assertee_urn, assertion_urn=assertion_urn
+    )
+
+    if url:
+        if show_full_on_hover:
+            # Use HTML link with title for hover
+            return f'<a href="{url}" target="_blank" title="{urn}">{short_urn}</a>'
+        return f"[{short_urn}]({url})"
+    return short_urn
+
+
+def _check_cancelled() -> bool:
+    """Check if fetch has been cancelled (thread-safe)."""
+    return _cancel_event.is_set()
+
+
+def _set_cancelled(value: bool) -> None:
+    """Set the fetch cancelled flag (thread-safe)."""
+    if value:
+        _cancel_event.set()
+    else:
+        _cancel_event.clear()
+
+
+def init_explorer_state():
+    """Initialize explorer state in session state.
+
+    Uses the default endpoint from the registry if no endpoint is selected.
+    """
+    if _SELECTED_ENDPOINT not in st.session_state:
+        st.session_state[_SELECTED_ENDPOINT] = None
+    if _SELECTED_ASSERTION not in st.session_state:
+        st.session_state[_SELECTED_ASSERTION] = None
+    if _LOADED_TIMESERIES not in st.session_state:
+        st.session_state[_LOADED_TIMESERIES] = None
+    if _DATA_SOURCE not in st.session_state:
+        st.session_state[_DATA_SOURCE] = "cache"
+
+    # If no endpoint selected, try to use the default endpoint
+    if st.session_state[_SELECTED_ENDPOINT] is None:
+        loader = DataLoader()
+        default_endpoint = loader.registry.get_default_endpoint()
+        if default_endpoint:
+            # Verify the endpoint still exists
+            endpoints = loader.list_endpoints()
+            if any(ep.hostname == default_endpoint for ep in endpoints):
+                st.session_state[_SELECTED_ENDPOINT] = default_endpoint
+
+
+# =============================================================================
+# Exports
+# =============================================================================
+
+__all__ = [
+    # Logger
+    "logger",
+    # Session state keys
+    "_SELECTED_ENDPOINT",
+    "_SELECTED_ASSERTION",
+    "_LOADED_TIMESERIES",
+    "_DATA_SOURCE",
+    "_FETCH_CANCELLED",
+    "_FETCH_IN_PROGRESS",
+    "_MONITOR_URN_FOR_ASSERTION",
+    "_RAW_EVENTS_DF",
+    "_SELECTED_MONITOR",
+    # Cancel event
+    "_cancel_event",
+    # Config
+    "FetchConfig",
+    # Helper functions
+    "_shorten_urn",
+    "_render_urn_with_link",
+    "_get_datahub_url",
+    "_make_urn_link",
+    "_check_cancelled",
+    "_set_cancelled",
+    "init_explorer_state",
+    # Re-exported from other modules
+    "ACTIVE_ENV_CONFIG",
+    "get_active_config",
+    "render_connection_status",
+    "ALL_ASPECTS",
+    "METRIC_CUBE_ASPECTS",
+    "MONITOR_ASPECTS",
+    "AnomalyEdit",
+    "AnomalyEditTracker",
+    "get_cache_dir",
+    "hostname_to_dir",
+    "DataLoader",
+    "DataHubEnvConfig",
+    "apply_preprocessing",
+    "render_before_after_chart",
+    "render_preprocessing_config_panel",
+    "render_preprocessing_stats",
+]

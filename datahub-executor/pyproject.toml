@@ -45,6 +45,7 @@ dependencies = [
   "h11 >= 0.16", # Older versions h11 vulnerable to CVE-2025-43859.
   "azure-identity==1.21.0",
   "aws-msk-iam-sasl-signer-python==1.0.2",
+  "observe-models>=0.1.0.dev21,<1.0.0",  # Private package from Cloudsmith (CPU-only by default)
 ]
 
 [project.optional-dependencies]
@@ -54,6 +55,9 @@ dev = [
   "streamlit",
   "streamlit-ext",
   "plotly",
+  "duckdb>=0.9.0",  # Efficient parquet querying for time series explorer
+  "boto3>=1.28.0",  # S3 access for time series explorer
+  "observe-models[all]>=0.1.0.dev21,<1.0.0",  # Full observe-models extras for dev
   # Lint/test dependencies
   "ruff==0.9.6",
   "pytest",
@@ -114,5 +118,30 @@ extend-ignore = [
   'B904', # TODO There are warnings in executor code. These need cleanup. Then this can be removed
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Allow relative imports from parent modules in the streamlit_explorer app
+"scripts/streamlit_explorer/**/*.py" = ["TID252"]
+
 [tool.pyright]
 extraPaths = ['tests']
+
+[tool.coverage.run]
+# Exclude non-operational code from coverage
+omit = [
+    "scripts/streamlit_explorer/*",
+    "scripts/streamlit_explorer/**/*",
+    "scripts/assertions_ui.py",
+]
+
+[tool.coverage.report]
+# Exclude non-operational code from coverage reports
+omit = [
+    "scripts/streamlit_explorer/*",
+    "scripts/streamlit_explorer/**/*",
+    "scripts/assertions_ui.py",
+]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

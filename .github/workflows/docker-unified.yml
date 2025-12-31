@@ -498,7 +498,6 @@ jobs:
           CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
           # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
-          # Support both username/password and API key authentication
           UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -535,7 +534,6 @@ jobs:
           CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
           # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
-          # Support both username/password and API key authentication
           UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
@@ -585,7 +583,6 @@ jobs:
           CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
           # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
-          # Support both username/password and API key authentication
           UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true"
@@ -602,7 +599,6 @@ jobs:
           CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
           # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
-          # Support both username/password and API key authentication
           UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true"
@@ -1022,7 +1018,6 @@ jobs:
           CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
           CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
           # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
-          # Support both username/password and API key authentication
           UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
 
       - name: pull images from depot

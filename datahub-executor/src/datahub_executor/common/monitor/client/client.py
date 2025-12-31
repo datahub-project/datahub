@@ -335,6 +335,7 @@ class MonitorClient:
         if (
             not evaluation_spec
             or not evaluation_spec.schedule
+            or not evaluation_spec.parameters
             or not evaluation_spec.parameters.dataset_volume_parameters
         ):
             raise Exception(
@@ -348,6 +349,7 @@ class MonitorClient:
         if (
             not evaluation_spec
             or not evaluation_spec.schedule
+            or not evaluation_spec.parameters
             or not evaluation_spec.parameters.dataset_freshness_parameters
         ):
             raise Exception(
@@ -361,6 +363,7 @@ class MonitorClient:
         if (
             not evaluation_spec
             or not evaluation_spec.schedule
+            or not evaluation_spec.parameters
             or not evaluation_spec.parameters.dataset_field_parameters
         ):
             raise Exception(

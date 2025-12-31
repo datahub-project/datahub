@@ -3,9 +3,14 @@
 import json
 import math
 import random
+
+# Import Streamlit pages and shared config
+# Handle both direct execution (streamlit run) and module import
+import sys
 import time
 from datetime import datetime, timedelta, timezone
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 import datahub.metadata.schema_classes as models
 import pandas as pd
@@ -13,7 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit_ext as ste
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.urns import DatasetUrn
 from plotly.subplots import make_subplots
 from pydantic import TypeAdapter
@@ -30,6 +35,7 @@ from datahub_executor.common.client.fetcher.monitors.graphql.query import (
     GRAPHQL_LIST_MONITORS_QUERY,
 )
 from datahub_executor.common.client.fetcher.monitors.mapper import (
+    SkippableMonitorMappingError,
     graphql_to_monitor,
     graphql_to_monitors,
 )
@@ -62,14 +68,75 @@ from datahub_executor.common.types import (
 )
 from datahub_executor.config import VOLUME_DEFAULT_SENSITIVITY_LEVEL
 
+# Add parent directory to path for direct script execution
+_script_dir = Path(__file__).parent
+if str(_script_dir) not in sys.path:
+    sys.path.insert(0, str(_script_dir))
+
+from shared_config import (  # noqa: E402
+    GRAPH_CLIENT_KEY,
+    METRICS_CLIENT_KEY,
+    MONITOR_CLIENT_KEY,
+    get_configured_graph,
+    render_connection_settings_page,
+    render_connection_status,
+    set_connection_settings_page,
+)
+from streamlit_explorer import EXPLORER_PAGES  # noqa: E402
+
 _SELECTED_MONITOR_KEY = "selected_monitor"
 
-# Initialize connection to DataHub
-graph = get_default_graph()
-metrics_client = MetricClient(graph)
-monitor_client = MonitorClient(graph)
 
-graph.execute_graphql = st.cache_data(graph.execute_graphql)  # type: ignore
+def _get_graph() -> Optional[DataHubGraph]:
+    """
+    Get the DataHub graph client using the centralized shared config.
+
+    The client is cached in session state and automatically cleared when
+    connection settings change. All pages (Create Assertion, All Monitors,
+    Monitor Details, etc.) share the same client instance.
+    """
+    graph = get_configured_graph()
+
+    # Fall back to default graph if not configured
+    if graph is None:
+        try:
+            graph = get_default_graph()
+            # Cache the fallback graph too
+            if graph is not None:
+                graph.execute_graphql = st.cache_data(graph.execute_graphql)  # type: ignore
+                st.session_state[GRAPH_CLIENT_KEY] = graph
+        except Exception:
+            return None
+
+    return graph
+
+
+def _get_metrics_client() -> Optional[MetricClient]:
+    """Get the metrics client, creating if needed."""
+    if METRICS_CLIENT_KEY in st.session_state:
+        return st.session_state[METRICS_CLIENT_KEY]
+
+    graph = _get_graph()
+    if graph is None:
+        return None
+
+    client = MetricClient(graph)
+    st.session_state[METRICS_CLIENT_KEY] = client
+    return client
+
+
+def _get_monitor_client() -> Optional[MonitorClient]:
+    """Get the monitor client, creating if needed."""
+    if MONITOR_CLIENT_KEY in st.session_state:
+        return st.session_state[MONITOR_CLIENT_KEY]
+
+    graph = _get_graph()
+    if graph is None:
+        return None
+
+    client = MonitorClient(graph)
+    st.session_state[MONITOR_CLIENT_KEY] = client
+    return client
 
 
 def generate_sample_metrics(
@@ -105,6 +172,9 @@ def generate_sample_metrics(
 
 def create_volume_smart_assertion(dataset_urn: str) -> tuple[str, str]:
     """Creates a monitor and assertion for a dataset. Returns the URNs."""
+    graph = _get_graph()
+    if graph is None:
+        raise ValueError("No DataHub connection configured")
 
     monitor_urn = default_volume_monitor_urn(dataset_urn)
     assertion_urn = default_volume_assertion_urn(dataset_urn)
@@ -159,10 +229,158 @@ def create_volume_smart_assertion(dataset_urn: str) -> tuple[str, str]:
     return assertion_urn, monitor_urn
 
 
-def generate_volume_sample_data(dataset_urn: str) -> None:
-    """Generates sample row count data for a dataset."""
+def generate_sample_run_events(
+    assertion_urn: str,
+    dataset_urn: str,
+    num_events: int = 30,
+    base_value: float = 1000.0,
+) -> list:
+    """Generate sample assertion run events with realistic patterns.
+
+    Args:
+        assertion_urn: The assertion URN
+        dataset_urn: The dataset URN (assertee)
+        num_events: Number of events to generate
+        base_value: Base metric value (row count)
+
+    Returns:
+        List of MetadataChangeProposalWrapper objects
+    """
+    mcps = []
+    now = int(time.time() * 1000)
+    prev_value = None
+
+    for i in range(num_events, 0, -1):
+        # Generate timestamp (going backward from now, daily)
+        timestamp_ms = now - (i * 24 * 60 * 60 * 1000)
+
+        # Generate value with some variation
+        trend = 10 * (num_events - i)  # slight upward trend
+        noise = random.normalvariate(0, base_value * 0.1)
+        value = base_value + trend + noise
+        value = max(0, int(value))  # Row counts are integers
+
+        # Occasionally generate failures (about 10%)
+        is_success = random.random() > 0.1
+        result_type = (
+            models.AssertionResultTypeClass.SUCCESS
+            if is_success
+            else models.AssertionResultTypeClass.FAILURE
+        )
+
+        run_id = f"sample-{assertion_urn}-{timestamp_ms}"
+
+        # Build nativeResults like the real executor does for volume assertions
+        native_results = {
+            "Metric Value": str(value),  # For display in Time Series Explorer
+        }
+        if prev_value is not None:
+            native_results["Previous Row Count"] = str(prev_value)
+
+        run_event = models.AssertionRunEventClass(
+            timestampMillis=timestamp_ms,
+            runId=run_id,
+            asserteeUrn=dataset_urn,
+            status=models.AssertionRunStatusClass.COMPLETE,
+            assertionUrn=assertion_urn,
+            result=models.AssertionResultClass(
+                type=result_type,
+                rowCount=value,  # Row count for volume assertions
+                nativeResults=native_results,
+                actualAggValue=float(value),
+                # Include metric for proper display
+                metric=models.AssertionMetricClass(
+                    value=float(value),
+                    timestampMs=timestamp_ms,
+                ),
+            ),
+        )
+
+        mcpw = MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=run_event,
+            systemMetadata=models.SystemMetadataClass(
+                runId=run_id, lastObserved=timestamp_ms
+            ),
+        )
+        mcps.append(mcpw)
+        prev_value = value
+
+    return mcps
+
+
+def generate_volume_sample_data(dataset_urn: str) -> str:
+    """Generates sample volume assertion data for a dataset.
+
+    Creates the monitor/assertion if they don't exist, then generates:
+    - Sample metrics (for AI assertion evaluation)
+    - Sample assertion run events (for Time Series Explorer)
+
+    Returns:
+        The monitor URN.
+    """
+    graph = _get_graph()
+    if graph is None:
+        raise ValueError("No DataHub connection configured")
+
+    metrics_client = _get_metrics_client()
+    if metrics_client is None:
+        raise ValueError("No DataHub connection configured")
+
+    monitor_urn = default_volume_monitor_urn(dataset_urn)
+    assertion_urn = default_volume_assertion_urn(dataset_urn)
+
+    # Always ensure monitor and assertion are properly configured
+    # Even if they exist, they might not be properly linked (e.g., created by tests)
+
+    # Create/update the assertion
+    graph.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=models.AssertionInfoClass(
+                source=models.AssertionSourceClass(
+                    type=models.AssertionSourceTypeClass.INFERRED
+                ),
+                type=models.AssertionTypeClass.VOLUME,
+                volumeAssertion=models.VolumeAssertionInfoClass(
+                    type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                    entity=dataset_urn,
+                ),
+            ),
+        )
+    )
+
+    # Create/update the monitor with correct assertion reference
+    graph.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=monitor_urn,
+            aspect=models.MonitorInfoClass(
+                type=models.MonitorTypeClass.ASSERTION,
+                assertionMonitor=models.AssertionMonitorClass(
+                    assertions=[
+                        models.AssertionEvaluationSpecClass(
+                            assertion=assertion_urn,
+                            parameters=models.AssertionEvaluationParametersClass(
+                                type=models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
+                                datasetVolumeParameters=models.DatasetVolumeAssertionParametersClass(
+                                    sourceType=models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE
+                                ),
+                            ),
+                            schedule=models.CronScheduleClass(
+                                cron="0 0 * * *",
+                                timezone="UTC",
+                            ),
+                        )
+                    ]
+                ),
+                status=models.MonitorStatusClass(mode=models.MonitorModeClass.INACTIVE),
+            ),
+        )
+    )
+
+    # Generate sample metrics (for AI evaluation)
     metrics = generate_sample_metrics()
-    metric_urn = make_monitor_metric_cube_urn(dataset_urn)
+    metric_urn = make_monitor_metric_cube_urn(monitor_urn)
 
     for metric in metrics:
         metrics_client.save_metric_value(
@@ -170,10 +388,28 @@ def generate_volume_sample_data(dataset_urn: str) -> None:
             metric=metric,
         )
 
+    # Generate sample assertion run events (for Time Series Explorer)
+    run_event_mcps = generate_sample_run_events(
+        assertion_urn=assertion_urn,
+        dataset_urn=dataset_urn,
+        num_events=30,
+        base_value=1000.0,
+    )
+
+    for mcpw in run_event_mcps:
+        graph.emit_mcp(mcpw)
+
+    return monitor_urn
+
 
 def render_create_assertion_page() -> None:
     """Render the create assertion page."""
     st.header("Create New Volume Assertion")
+
+    # Show connection status
+    if not render_connection_status():
+        st.info("Please configure a DataHub connection to create assertions.")
+        return
 
     with st.form("create_assertion"):
         dataset_urn = st.text_input(
@@ -200,8 +436,11 @@ def render_create_assertion_page() -> None:
                 st.error(f"Unexpected error: {str(e)}")
 
 
-def _get_monitor(monitor_urn: str) -> Monitor:
+def _get_monitor(monitor_urn: str) -> Optional[Monitor]:
     """Get a monitor from the DataHub GraphQL API."""
+    graph = _get_graph()
+    if graph is None:
+        return None
 
     graphql_monitor = graph.execute_graphql(
         GRAPHQL_LIST_MONITORS_QUERY,
@@ -218,15 +457,39 @@ def render_monitor_detail_page() -> None:
 
     st.header("Monitor Details")
 
-    default_monitor_urn = st.session_state.get(_SELECTED_MONITOR_KEY, "")
-    monitor_urn = ste.text_input(
-        "Monitor URN", value=default_monitor_urn, key=_SELECTED_MONITOR_KEY
-    )
+    # Show connection status
+    if not render_connection_status():
+        st.info("Please configure a DataHub connection to view monitor details.")
+        return
+
+    # Initialize session state from query params if available
+    if _SELECTED_MONITOR_KEY not in st.session_state:
+        # Check query params for monitor URN
+        query_monitor = st.query_params.get(_SELECTED_MONITOR_KEY, "")
+        st.session_state[_SELECTED_MONITOR_KEY] = query_monitor
+
+    # Use the session state key directly (no value= to avoid conflict)
+    monitor_urn = ste.text_input("Monitor URN", key=_SELECTED_MONITOR_KEY)
     if not monitor_urn:
         st.error("Monitor URN not provided")
         return
 
-    monitor = _get_monitor(monitor_urn)
+    try:
+        monitor = _get_monitor(monitor_urn)
+    except SkippableMonitorMappingError as e:
+        st.warning(str(e))
+        st.info(
+            "This monitor cannot be loaded because it doesn't have exactly 1 assertion. "
+            "This can happen if:\n"
+            "- The monitor was just created and the assertion hasn't been fully set up\n"
+            "- The monitor has multiple assertions (not yet supported)\n"
+            "- The assertion was deleted"
+        )
+        return
+
+    if monitor is None:
+        st.error("Failed to fetch monitor. Check your connection settings.")
+        return
     st.json(monitor.model_dump_json(), expanded=False)
 
     # TODO: only render for volume assertions.
@@ -317,6 +580,12 @@ Example exclusion windows:
     multiple = math.ceil(timedelta(days=14) / unit)
 
     # Simulation logic.
+    metrics_client = _get_metrics_client()
+    monitor_client = _get_monitor_client()
+    if metrics_client is None or monitor_client is None:
+        st.error("Failed to initialize clients. Check your connection settings.")
+        return
+
     metric_urn = make_monitor_metric_cube_urn(monitor.urn)
     st.write(f"Fetching all metrics for metric_urn {metric_urn}")
     all_metrics = metrics_client.fetch_metric_values(
@@ -353,11 +622,16 @@ Example exclusion windows:
         limit=2000,
     )
     st.write(f"Fetched {len(anomalies)} anomalies")
+
+    # Filter out anomalies with no metric data for display
+    anomalies_with_metrics = [a for a in anomalies if a.metric is not None]
     st.json(
         {
             "anomalies": {
-                a.metric.timestamp().isoformat(): a.metric.value for a in anomalies
-            }
+                a.metric.timestamp().isoformat(): a.metric.value
+                for a in anomalies_with_metrics
+            },
+            "anomalies_without_metrics": len(anomalies) - len(anomalies_with_metrics),
         },
         expanded=False,
     )
@@ -573,8 +847,11 @@ def plot_metrics_and_predictions(
     return fig
 
 
-def _list_monitors(paginate: bool = False) -> List[Monitor]:
+def _list_monitors(paginate: bool = False) -> Optional[List[Monitor]]:
     """List the monitors using the DataHub GraphQL API."""
+    graph = _get_graph()
+    if graph is None:
+        return None
 
     params: dict = {
         "input": {
@@ -610,9 +887,17 @@ def render_monitor_list_page() -> None:
     """Render the list of monitors."""
     st.header("Monitors")
 
+    # Show connection status
+    if not render_connection_status():
+        st.info("Please configure a DataHub connection to view monitors.")
+        return
+
     limited = st.checkbox("Limit to first 100", value=True)
 
     monitors = _list_monitors(paginate=not limited)
+    if monitors is None:
+        st.error("Failed to fetch monitors. Check your connection settings.")
+        return
 
     # Create a dataframe with key monitor information
     monitor_data = []
@@ -668,6 +953,14 @@ def render_load_sample_data_page() -> None:
     """Render the load sample data page."""
     st.header("Load Sample Data")
 
+    # Show connection status
+    if not render_connection_status():
+        st.info("Please configure a DataHub connection to load sample data.")
+        return
+
+    # Track generation result in session state
+    _SAMPLE_DATA_RESULT_KEY = "_sample_data_result"
+
     with st.form("load_sample"):
         dataset_urn = st.text_input(
             "Dataset URN", help="Format: urn:li:dataset:(platform,name,env)"
@@ -680,21 +973,47 @@ def render_load_sample_data_page() -> None:
                 # Validate URN format
                 DatasetUrn.from_string(dataset_urn)
 
-                # Generate and save sample data
-                generate_volume_sample_data(dataset_urn)
+                with st.spinner("Generating sample data..."):
+                    # Generate sample data (creates/updates monitor/assertion)
+                    monitor_urn = generate_volume_sample_data(dataset_urn)
+                    assertion_urn = default_volume_assertion_urn(dataset_urn)
 
-                st.success("Successfully generated sample data!")
-
-                # Link to view assertion page
-                st.query_params[_SELECTED_MONITOR_KEY] = default_volume_assertion_urn(
-                    dataset_urn
-                )
-                st.switch_page(detail_page)
+                # Store result in session state for display outside form
+                st.session_state[_SAMPLE_DATA_RESULT_KEY] = {
+                    "success": True,
+                    "monitor_urn": monitor_urn,
+                    "assertion_urn": assertion_urn,
+                }
+                st.session_state[_SELECTED_MONITOR_KEY] = monitor_urn
+                st.rerun()
 
             except ValueError as e:
                 st.error(f"Error: {str(e)}")
             except Exception as e:
                 st.error(f"Unexpected error: {str(e)}")
+
+    # Display result outside form (so we can use st.button)
+    if _SAMPLE_DATA_RESULT_KEY in st.session_state:
+        result = st.session_state[_SAMPLE_DATA_RESULT_KEY]
+        if result.get("success"):
+            st.success("✅ Successfully generated sample data!")
+
+            # Show what was created
+            st.markdown("**Created/Updated:**")
+            st.code(
+                f"Monitor: {result['monitor_urn']}\nAssertion: {result['assertion_urn']}",
+                language=None,
+            )
+
+            st.info(
+                "💡 **Note:** It may take a few seconds for the data to be indexed. "
+                "If the monitor doesn't load immediately, wait a moment and try again."
+            )
+
+            # Button to navigate to detail page (user-initiated, gives time for indexing)
+            if st.button("View Monitor Details →", type="primary"):
+                del st.session_state[_SAMPLE_DATA_RESULT_KEY]
+                st.switch_page(detail_page)
 
 
 st.set_page_config(
@@ -703,6 +1022,16 @@ st.set_page_config(
 )
 
 # Define pages
+connection_settings_page = st.Page(
+    render_connection_settings_page,
+    title="Connection Settings",
+    icon="⚙️",
+    url_path="/settings",
+)
+
+# Register the connection settings page for navigation from other pages
+set_connection_settings_page(connection_settings_page)
+
 create_page = st.Page(
     lambda: render_create_assertion_page(),
     title="Create Assertion",
@@ -734,9 +1063,13 @@ detail_page = st.Page(
 
 # Navigation menu
 pages = {
+    "Settings": [connection_settings_page],
     "Monitors": [create_page, view_page, detail_page],
     "Tools": [sample_data_page],
 }
+# Add time series explorer pages
+pages.update(EXPLORER_PAGES)
+
 page = st.navigation(pages)
 page.run()
 

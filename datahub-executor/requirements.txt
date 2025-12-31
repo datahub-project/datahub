@@ -18,23 +18,30 @@ acryl-executor==0.3.4
     # via acryl-datahub-executor
 acryl-great-expectations==0.15.50.1
     # via acryl-datahub
-aiohappyeyeballs==2.4.4
+adagio==0.2.6
+    # via fugue
+aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.11.10
-    # via acryl-datahub
-aiosignal==1.3.1
+aiohttp==3.13.3
+    # via
+    #   acryl-datahub
+    #   fsspec
+aiosignal==1.4.0
     # via aiohttp
-alembic==1.14.0
+alembic==1.17.2
     # via databricks-sql-connector
 altair==4.2.0
     # via acryl-great-expectations
 amqp==5.3.1
     # via kombu
+annotated-doc==0.0.4
+    # via fastapi
 annotated-types==0.7.0
     # via pydantic
-anyio==4.7.0
+anyio==4.12.1
     # via
     #   acryl-executor
+    #   httpx
     #   jupyter-server
     #   starlette
     #   watchfiles
@@ -42,30 +49,35 @@ appnope==0.1.4 ; sys_platform == 'darwin'
     # via ipykernel
 apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@8444cf421c0a78043428e85a76665deeca9d63ea
     # via acryl-datahub-executor
-argon2-cffi==23.1.0
-    # via
-    #   jupyter-server
-    #   notebook
+argon2-cffi==25.1.0
+    # via jupyter-server
 argon2-cffi-bindings==21.2.0
     # via argon2-cffi
-arrow==1.3.0
+arrow==1.4.0
     # via isoduration
+asgiref==3.11.0
+    # via mixpanel
 asn1crypto==1.5.1
     # via
     #   oscrypto
     #   scramp
     #   snowflake-connector-python
-asttokens==3.0.0
+asttokens==3.0.1
     # via stack-data
+async-lru==2.0.5
+    # via jupyterlab
 async-timeout==5.0.1 ; python_full_version < '3.11.3'
     # via redis
-attrs==24.2.0
+attrs==25.4.0
     # via
     #   aiohttp
+    #   confluent-kafka
     #   jsonlines
     #   jsonschema
     #   referencing
-avro==1.11.3
+authlib==1.6.6
+    # via confluent-kafka
+avro==1.12.1
     # via
     #   acryl-datahub
     #   avro-gen3
@@ -78,23 +90,25 @@ aws-msk-iam-sasl-signer-python==1.0.2
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-executor
-azure-core==1.33.0
+azure-core==1.37.0
     # via azure-identity
 azure-identity==1.21.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-executor
-beautifulsoup4==4.12.3
+babel==2.17.0
+    # via jupyterlab-server
+beautifulsoup4==4.14.3
     # via
     #   nbconvert
     #   redshift-connector
-billiard==4.2.1
+billiard==4.2.4
     # via celery
-bleach==6.2.0
+bleach==6.3.0
     # via nbconvert
 blis==0.7.11
     # via thinc
-boto3==1.35.76
+boto3==1.42.24
     # via
     #   acryl-datahub
     #   acryl-datahub-cloud
@@ -106,7 +120,8 @@ boto3==1.35.76
     #   moto
     #   redshift-connector
     #   smart-open
-botocore==1.35.76
+    #   snowflake-connector-python
+botocore==1.42.24
     # via
     #   acryl-datahub
     #   acryl-datahub-cloud
@@ -116,16 +131,17 @@ botocore==1.35.76
     #   moto
     #   redshift-connector
     #   s3transfer
-bracex==2.5.post1
+    #   snowflake-connector-python
+bracex==2.6
     # via wcmatch
 cached-property==2.0.1
     # via
     #   acryl-datahub
     #   tableschema
-cachetools==5.5.0
+cachetools==6.2.4
     # via
     #   acryl-datahub
-    #   google-auth
+    #   confluent-kafka
 catalogue==2.0.10
     # via
     #   spacy
@@ -133,9 +149,11 @@ catalogue==2.0.10
     #   thinc
 celery==5.4.0
     # via acryl-datahub-executor
-certifi==2024.8.30
+certifi==2026.1.4
     # via
+    #   confluent-kafka
     #   httpcore
+    #   httpx
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
@@ -147,11 +165,11 @@ cffi==1.17.1
     #   snowflake-connector-python
 chardet==5.2.0
     # via dataflows-tabulator
-charset-normalizer==3.4.0
+charset-normalizer==3.4.4
     # via
     #   requests
     #   snowflake-connector-python
-click==8.1.7
+click==8.3.1
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -165,6 +183,7 @@ click==8.1.7
     #   dataflows-tabulator
     #   tableschema
     #   typer
+    #   typer-slim
     #   uvicorn
 click-default-group==1.2.4
     # via
@@ -172,16 +191,22 @@ click-default-group==1.2.4
     #   acryl-datahub-actions
 click-didyoumean==0.3.1
     # via celery
-click-plugins==1.1.1
+click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
 click-spinner==0.1.10
     # via acryl-datahub
-cloudpathlib==0.20.0
+cloudpathlib==0.23.0
     # via weasel
+cloudpickle==3.1.2
+    # via
+    #   shap
+    #   statsforecast
 cmdstanpy==1.2.5
-    # via prophet
+    # via
+    #   observe-models
+    #   prophet
 colorama==0.4.6
     # via
     #   acryl-great-expectations
@@ -191,24 +216,29 @@ colorama==0.4.6
     #   tqdm
     #   uvicorn
     #   wasabi
-comm==0.2.2
-    # via ipywidgets
+comm==0.2.3
+    # via
+    #   ipykernel
+    #   ipywidgets
 confection==0.1.5
     # via
     #   thinc
     #   weasel
-confluent-kafka==2.6.1
+confluent-kafka==2.13.0
     # via acryl-datahub
-contourpy==1.3.1
+contourpy==1.3.3
     # via matplotlib
+coreforecast==0.0.16
+    # via statsforecast
 croniter==1.3.15
     # via
     #   acryl-datahub-cloud
     #   acryl-datahub-executor
-cryptography==44.0.0
+cryptography==45.0.7
     # via
     #   acryl-datahub
     #   acryl-great-expectations
+    #   authlib
     #   azure-identity
     #   moto
     #   msal
@@ -217,12 +247,16 @@ cryptography==44.0.0
     #   snowflake-connector-python
 cycler==0.12.1
     # via matplotlib
-cymem==2.0.10
+cymem==2.0.13
     # via
     #   preshed
     #   spacy
     #   thinc
-databricks-sdk==0.38.0
+cython==3.2.4
+    # via pmdarima
+darts==0.39.0
+    # via observe-models
+databricks-sdk==0.77.0
     # via acryl-datahub
 databricks-sql-connector==2.9.6
     # via
@@ -230,50 +264,63 @@ databricks-sql-connector==2.9.6
     #   acryl-datahub-executor
 dataflows-tabulator==1.54.3
     # via tableschema
-db-dtypes==1.3.1
+db-dtypes==1.5.0
     # via acryl-datahub
-debugpy==1.8.9
+debugpy==1.8.19
     # via ipykernel
-decorator==5.1.1
+decorator==5.2.1
     # via ipython
 defusedxml==0.7.1
     # via nbconvert
-deprecated==1.2.15
+deprecated==1.3.1
     # via acryl-datahub
 docker==7.1.0
     # via acryl-datahub
+duckdb==1.4.3
+    # via observe-models
 entrypoints==0.4
     # via
     #   acryl-datahub-actions
     #   altair
-    #   jupyter-client
 et-xmlfile==2.0.0
     # via openpyxl
-executing==2.1.0
+executing==2.2.1
     # via stack-data
-expandvars==0.12.0
+expandvars==1.1.2
     # via acryl-datahub
-fastapi==0.118.0
+fastapi==0.128.0
     # via acryl-datahub-executor
-fastavro==1.9.7
+fastavro==1.12.1
     # via
     #   acryl-datahub
     #   confluent-kafka
-fastjsonschema==2.21.1
+fastjsonschema==2.21.2
     # via nbformat
-filelock==3.16.1
-    # via snowflake-connector-python
-fonttools==4.56.0
+filelock==3.20.2
+    # via
+    #   huggingface-hub
+    #   snowflake-connector-python
+    #   torch
+    #   transformers
+fonttools==4.61.1
     # via matplotlib
 fqdn==1.5.1
     # via jsonschema
-frozenlist==1.5.0
+frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-geoalchemy2==0.16.0
+fsspec==2025.12.0
+    # via
+    #   huggingface-hub
+    #   pytorch-lightning
+    #   torch
+    #   triad
+fugue==0.9.4
+    # via statsforecast
+geoalchemy2==0.18.1
     # via acryl-datahub
-google-api-core==2.23.0
+google-api-core==2.25.2
     # via
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -283,7 +330,7 @@ google-api-core==2.23.0
     #   google-cloud-logging
     #   google-cloud-resource-manager
     #   sqlalchemy-bigquery
-google-auth==2.36.0
+google-auth==2.47.0
     # via
     #   databricks-sdk
     #   google-api-core
@@ -293,48 +340,51 @@ google-auth==2.36.0
     #   google-cloud-datacatalog
     #   google-cloud-resource-manager
     #   sqlalchemy-bigquery
-google-cloud-appengine-logging==1.5.0
+google-cloud-appengine-logging==1.7.0
     # via google-cloud-logging
-google-cloud-audit-log==0.3.0
+google-cloud-audit-log==0.4.0
     # via google-cloud-logging
-google-cloud-bigquery==3.27.0
+google-cloud-bigquery==3.40.0
     # via
     #   acryl-datahub
     #   sqlalchemy-bigquery
-google-cloud-core==2.4.1
+google-cloud-core==2.5.0
     # via
     #   google-cloud-bigquery
     #   google-cloud-logging
-google-cloud-datacatalog==3.23.0
+google-cloud-datacatalog==3.28.0
     # via acryl-datahub
 google-cloud-datacatalog-lineage==0.2.2
     # via acryl-datahub
 google-cloud-logging==3.5.0
     # via acryl-datahub
-google-cloud-resource-manager==1.13.1
+google-cloud-resource-manager==1.15.0
     # via acryl-datahub
-google-crc32c==1.6.0
+google-crc32c==1.8.0
     # via google-resumable-media
-google-resumable-media==2.7.2
+google-resumable-media==2.8.0
     # via google-cloud-bigquery
-googleapis-common-protos==1.66.0
+googleapis-common-protos==1.72.0
     # via
     #   google-api-core
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
-greenlet==3.1.1
+greenlet==3.3.0
     # via
     #   acryl-datahub
     #   sqlalchemy
-grpc-google-iam-v1==0.13.1
+grpc-google-iam-v1==0.14.3
     # via
     #   google-cloud-datacatalog
     #   google-cloud-logging
     #   google-cloud-resource-manager
-grpcio==1.68.1
+grpcio==1.76.0
     # via
     #   google-api-core
+    #   google-cloud-appengine-logging
+    #   google-cloud-datacatalog
+    #   google-cloud-resource-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -346,48 +396,65 @@ h11==0.16.0
     #   acryl-datahub-executor
     #   httpcore
     #   uvicorn
-holidays==0.68
-    # via prophet
+hawkesbook==0.1.0
+    # via observe-models
+hf-xet==1.2.0 ; platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+    # via huggingface-hub
+holidays==0.88
+    # via
+    #   darts
+    #   observe-models
+    #   prophet
 httpcore==1.0.9
-    # via acryl-datahub-actions
-httptools==0.6.4
+    # via
+    #   acryl-datahub-actions
+    #   httpx
+httptools==0.7.1
     # via uvicorn
+httpx==0.28.1
+    # via
+    #   confluent-kafka
+    #   jupyterlab
+    #   mixpanel
+huggingface-hub==0.36.0
+    # via
+    #   darts
+    #   observe-models
+    #   tokenizers
+    #   transformers
 humanfriendly==10.0
     # via acryl-datahub
-idna==3.10
+idna==3.11
     # via
     #   anyio
+    #   httpx
     #   jsonschema
     #   requests
     #   snowflake-connector-python
     #   yarl
-ijson==3.3.0
+ijson==3.4.0.post0
     # via
     #   acryl-datahub
     #   dataflows-tabulator
-importlib-metadata==8.5.0
+importlib-metadata==8.7.1
     # via acryl-great-expectations
-importlib-resources==6.4.5
+importlib-resources==6.5.2
     # via
     #   prophet
     #   schwifty
 ipaddress==1.0.23
     # via acryl-datahub-classify
-ipykernel==6.17.1
-    # via
-    #   nbclassic
-    #   notebook
-ipython==8.21.0
+ipykernel==7.1.0
+    # via jupyterlab
+ipython==9.9.0
     # via
     #   acryl-datahub
     #   acryl-great-expectations
     #   ipykernel
     #   ipywidgets
-ipython-genutils==0.2.0
-    # via
-    #   nbclassic
-    #   notebook
-ipywidgets==8.1.5
+ipython-pygments-lexers==1.1.1
+    # via ipython
+ipywidgets==8.1.8
     # via acryl-great-expectations
 isodate==0.7.2
     # via tableschema
@@ -401,18 +468,26 @@ jinja2==3.1.4
     #   acryl-great-expectations
     #   altair
     #   jupyter-server
+    #   jupyterlab
+    #   jupyterlab-server
     #   moto
     #   nbconvert
-    #   notebook
     #   spacy
+    #   torch
 jmespath==1.0.1
     # via
     #   boto3
     #   botocore
-joblib==1.4.2
+joblib==1.5.3
     # via
     #   acryl-datahub-executor
+    #   darts
+    #   observe-models
+    #   pmdarima
+    #   pyod
     #   scikit-learn
+json5==0.13.0
+    # via jupyterlab-server
 jsonlines==4.0.0
     # via dataflows-tabulator
 jsonpatch==1.33
@@ -423,144 +498,176 @@ jsonpointer==3.0.0
     #   jsonschema
 jsonref==1.1.0
     # via acryl-datahub
-jsonschema==4.23.0
+jsonschema==4.26.0
     # via
     #   acryl-datahub
     #   acryl-great-expectations
     #   altair
     #   jupyter-events
+    #   jupyterlab-server
     #   nbformat
     #   tableschema
-jsonschema-specifications==2024.10.1
+jsonschema-specifications==2025.9.1
     # via jsonschema
-jupyter-client==7.4.9
+jupyter-client==8.8.0
     # via
     #   ipykernel
     #   jupyter-server
     #   nbclient
-    #   notebook
-jupyter-core==4.12.0
+jupyter-core==5.9.1
     # via
+    #   ipykernel
     #   jupyter-client
     #   jupyter-server
+    #   jupyterlab
+    #   nbclient
     #   nbconvert
     #   nbformat
-    #   notebook
 jupyter-events==0.12.0
     # via jupyter-server
+jupyter-lsp==2.3.0
+    # via jupyterlab
 jupyter-server==2.17.0
     # via
     #   acryl-datahub
+    #   jupyter-lsp
+    #   jupyterlab
+    #   jupyterlab-server
+    #   notebook
     #   notebook-shim
 jupyter-server-terminals==0.5.3
     # via jupyter-server
+jupyterlab==4.5.1
+    # via notebook
 jupyterlab-pygments==0.3.0
     # via nbconvert
-jupyterlab-widgets==3.0.13
+jupyterlab-server==2.28.0
+    # via
+    #   jupyterlab
+    #   notebook
+jupyterlab-widgets==3.0.16
     # via ipywidgets
-kiwisolver==1.4.8
+kiwisolver==1.4.9
     # via matplotlib
 kombu==5.4.0
     # via
     #   acryl-datahub-executor
     #   celery
-langcodes==3.5.0
+langcodes==3.5.1
     # via spacy
-language-data==1.3.0
-    # via langcodes
+lark==1.3.1
+    # via rfc3987-syntax
+librt==0.7.7 ; platform_python_implementation != 'PyPy'
+    # via mypy
+lightning-utilities==0.15.2
+    # via
+    #   pytorch-lightning
+    #   torchmetrics
 linear-tsv==1.1.0
     # via dataflows-tabulator
+llvmlite==0.46.0
+    # via numba
 loguru==0.7.2
     # via
     #   acryl-datahub-executor
     #   acryl-executor
-lxml==5.3.0
+lxml==5.4.0
     # via redshift-connector
-lz4==4.3.3
+lz4==4.4.5
     # via databricks-sql-connector
-makefun==1.15.6
+makefun==1.16.0
     # via acryl-great-expectations
-mako==1.3.7
+mako==1.3.10
     # via alembic
-marisa-trie==1.2.1
-    # via language-data
-markdown-it-py==3.0.0
+markdown-it-py==4.0.0
     # via rich
-markupsafe==3.0.2
+markupsafe==3.0.3
     # via
     #   jinja2
     #   mako
     #   nbconvert
     #   werkzeug
-marshmallow==3.23.1
+marshmallow==3.26.2
     # via acryl-great-expectations
-matplotlib==3.10.1
-    # via prophet
-matplotlib-inline==0.1.7
+matplotlib==3.10.8
+    # via
+    #   darts
+    #   nfoursid
+    #   prophet
+    #   pyod
+matplotlib-inline==0.2.1
     # via
     #   ipykernel
     #   ipython
 mdurl==0.1.2
     # via markdown-it-py
-mistune==3.0.2
+mistune==3.2.0
     # via
     #   acryl-great-expectations
     #   nbconvert
-mixpanel==4.10.1
+mixpanel==5.0.0
     # via acryl-datahub
-more-itertools==10.5.0
+more-itertools==10.8.0
     # via acryl-datahub
 moto==4.2.14
     # via acryl-datahub
-msal==1.31.1
+mpmath==1.3.0
+    # via sympy
+msal==1.34.0
     # via
     #   acryl-datahub
     #   azure-identity
     #   msal-extensions
 msal-extensions==1.3.1
     # via azure-identity
-multidict==6.1.0
+multidict==6.7.0
     # via
     #   aiohttp
     #   yarl
-murmurhash==1.0.11
+murmurhash==1.0.15
     # via
     #   preshed
     #   spacy
     #   thinc
-mypy==1.13.0
+mypy==1.19.1
     # via sqlalchemy-stubs
-mypy-extensions==1.0.0
+mypy-extensions==1.1.0
     # via
     #   acryl-executor
     #   mypy
     #   typing-inspect
-nbclassic==1.1.0
-    # via notebook
-nbclient==0.6.3
-    # via nbconvert
-nbconvert==7.16.4
+narwhals==2.15.0
     # via
-    #   jupyter-server
-    #   notebook
+    #   darts
+    #   utilsforecast
+nbclient==0.10.4
+    # via nbconvert
+nbconvert==7.16.6
+    # via jupyter-server
 nbformat==5.10.4
     # via
     #   acryl-great-expectations
     #   jupyter-server
     #   nbclient
     #   nbconvert
-    #   notebook
 nest-asyncio==1.6.0
-    # via
-    #   ipykernel
-    #   jupyter-client
-    #   nbclassic
-    #   nbclient
-    #   notebook
-notebook==6.5.7
+    # via ipykernel
+networkx==3.6.1
+    # via torch
+nfoursid==1.0.2
+    # via darts
+notebook==7.5.1
     # via acryl-great-expectations
 notebook-shim==0.2.4
-    # via nbclassic
+    # via
+    #   jupyterlab
+    #   notebook
+numba==0.63.1
+    # via
+    #   hawkesbook
+    #   pyod
+    #   shap
+    #   statsforecast
 numpy==1.26.4
     # via
     #   acryl-datahub
@@ -570,19 +677,78 @@ numpy==1.26.4
     #   blis
     #   cmdstanpy
     #   contourpy
+    #   coreforecast
+    #   darts
     #   databricks-sql-connector
     #   db-dtypes
+    #   hawkesbook
     #   matplotlib
+    #   nfoursid
+    #   numba
+    #   observe-models
     #   pandas
+    #   patsy
+    #   pmdarima
     #   prophet
     #   pydeequ
+    #   pyod
     #   scikit-learn
     #   scipy
+    #   shap
     #   spacy
     #   stanio
+    #   statsforecast
+    #   statsmodels
+    #   tensorboardx
     #   thinc
-oauthlib==3.2.2
+    #   torchmetrics
+    #   transformers
+    #   triad
+    #   utilsforecast
+    #   xarray
+nvidia-cublas-cu12==12.8.4.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via
+    #   nvidia-cudnn-cu12
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-cuda-cupti-cu12==12.8.90 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-cuda-nvrtc-cu12==12.8.93 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-cuda-runtime-cu12==12.8.90 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-cudnn-cu12==9.10.2.21 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-cufft-cu12==11.3.3.83 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-cufile-cu12==1.13.1.3 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-curand-cu12==10.3.9.90 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-cusolver-cu12==11.7.3.90 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-cusparse-cu12==12.5.8.93 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-cusparselt-cu12==0.7.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-nccl-cu12==2.27.5 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-nvjitlink-cu12==12.8.93 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via
+    #   nvidia-cufft-cu12
+    #   nvidia-cusolver-cu12
+    #   nvidia-cusparse-cu12
+    #   torch
+nvidia-nvshmem-cu12==3.3.20 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+nvidia-nvtx-cu12==12.8.90 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+oauthlib==3.3.1
     # via databricks-sql-connector
+observe-models==0.1.0.dev21
+    # via acryl-datahub-executor
 openpyxl==3.1.5
     # via
     #   databricks-sql-connector
@@ -591,26 +757,39 @@ oscrypto @ git+https://github.com/wbond/oscrypto.git@1547f535001ba568b239b879746
     # via acryl-datahub-executor
 overrides==7.7.0 ; python_full_version < '3.12'
     # via jupyter-server
-packaging==24.2
+packaging==25.0
     # via
     #   acryl-datahub
     #   acryl-great-expectations
     #   db-dtypes
     #   geoalchemy2
     #   google-cloud-bigquery
+    #   huggingface-hub
     #   ipykernel
     #   jupyter-events
     #   jupyter-server
+    #   jupyterlab
+    #   jupyterlab-server
+    #   lightning-utilities
     #   marshmallow
     #   matplotlib
     #   nbconvert
+    #   pmdarima
+    #   pytorch-lightning
     #   redshift-connector
+    #   shap
     #   snowflake-connector-python
     #   spacy
     #   sqlalchemy-bigquery
     #   sqlalchemy-redshift
+    #   statsmodels
+    #   tensorboardx
     #   thinc
+    #   torchmetrics
+    #   transformers
+    #   utilsforecast
     #   weasel
+    #   xarray
 pandas==2.1.4
     # via
     #   acryl-datahub
@@ -618,52 +797,71 @@ pandas==2.1.4
     #   acryl-great-expectations
     #   altair
     #   cmdstanpy
+    #   darts
     #   databricks-sql-connector
     #   db-dtypes
+    #   nfoursid
+    #   observe-models
+    #   pmdarima
     #   prophet
     #   pydeequ
+    #   shap
+    #   statsforecast
+    #   statsmodels
+    #   triad
+    #   utilsforecast
+    #   xarray
 pandocfilters==1.5.1
     # via nbconvert
 parse==1.20.2
     # via acryl-datahub
-parso==0.8.4
+parso==0.8.5
     # via jedi
 patchy==2.8.0
     # via acryl-datahub
-pexpect==4.9.0 ; sys_platform != 'win32'
+pathspec==1.0.2
+    # via mypy
+patsy==1.0.2
+    # via statsmodels
+pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
 phonenumbers==8.13.0
     # via acryl-datahub-classify
-pillow==11.1.0
+pillow==12.1.0
     # via matplotlib
-pip==24.3.1
+pip==25.3
     # via acryl-datahub
-platformdirs==4.3.6
-    # via snowflake-connector-python
-preshed==3.0.9
+platformdirs==4.5.1
+    # via
+    #   jupyter-core
+    #   snowflake-connector-python
+pmdarima==2.1.1
+    # via observe-models
+preshed==3.0.12
     # via
     #   spacy
     #   thinc
-progressbar2==4.4.2
+progressbar2==4.5.0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-prometheus-client==0.21.1
+prometheus-client==0.23.1
     # via
     #   acryl-datahub-actions
     #   jupyter-server
-    #   notebook
-prompt-toolkit==3.0.48
+prompt-toolkit==3.0.52
     # via
     #   click-repl
     #   ipython
-propcache==0.2.1
+propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
 prophet==1.1.5
-    # via acryl-datahub-executor
-proto-plus==1.25.0
+    # via
+    #   acryl-datahub-executor
+    #   observe-models
+proto-plus==1.27.0
     # via
     #   google-api-core
     #   google-cloud-appengine-logging
@@ -671,8 +869,9 @@ proto-plus==1.25.0
     #   google-cloud-datacatalog-lineage
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.5
+protobuf==4.25.8
     # via
+    #   databricks-sdk
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-audit-log
@@ -684,12 +883,13 @@ protobuf==4.25.5
     #   grpc-google-iam-v1
     #   grpcio-status
     #   proto-plus
-psutil==7.0.0
+    #   tensorboardx
+psutil==7.2.1
     # via
     #   acryl-datahub
     #   acryl-datahub-executor
     #   ipykernel
-ptyprocess==0.7.0 ; os_name != 'nt' or sys_platform != 'win32'
+ptyprocess==0.7.0 ; os_name != 'nt' or (sys_platform != 'emscripten' and sys_platform != 'win32')
     # via
     #   pexpect
     #   terminado
@@ -699,27 +899,29 @@ py-partiql-parser==0.5.0
     # via moto
 py4j==0.10.9.7
     # via pyspark
-pyarrow==18.1.0
+pyarrow==20.0.0
     # via
     #   acryl-datahub
     #   databricks-sql-connector
     #   db-dtypes
+    #   observe-models
+    #   triad
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
     #   rsa
-pyasn1-modules==0.4.1
+pyasn1-modules==0.4.2
     # via google-auth
 pycountry==24.6.1
     # via schwifty
-pycparser==2.22
+pycparser==2.23
     # via cffi
 pycurl==7.45.3
     # via
     #   acryl-datahub-executor
     #   celery
     #   kombu
-pydantic==2.11.9
+pydantic==2.12.5
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -728,33 +930,41 @@ pydantic==2.11.9
     #   acryl-great-expectations
     #   confection
     #   fastapi
+    #   mixpanel
+    #   observe-models
     #   spacy
     #   thinc
     #   weasel
-pydantic-core==2.33.2
+pydantic-core==2.41.5
     # via
     #   acryl-datahub
     #   pydantic
-pydeequ==1.1.1
+pydeequ==1.5.0
     # via acryl-datahub
-pygments==2.18.0
+pygments==2.19.2
     # via
     #   ipython
+    #   ipython-pygments-lexers
     #   nbconvert
     #   rich
 pyjwt==2.10.1
     # via
     #   msal
+    #   redis
     #   snowflake-connector-python
-pyopenssl==24.3.0
+pyod==2.0.6
+    # via
+    #   darts
+    #   observe-models
+pyopenssl==25.3.0
     # via snowflake-connector-python
-pyparsing==3.2.0
+pyparsing==3.3.1
     # via
     #   acryl-great-expectations
     #   matplotlib
 pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
-pyspark==3.5.6
+pyspark==3.5.7
     # via acryl-datahub
 python-dateutil==2.9.0.post0
     # via
@@ -772,14 +982,18 @@ python-dateutil==2.9.0.post0
     #   moto
     #   pandas
     #   tableschema
-python-dotenv==1.0.1
-    # via uvicorn
-python-json-logger==3.3.0
+python-dotenv==1.2.1
+    # via
+    #   observe-models
+    #   uvicorn
+python-json-logger==4.0.0
     # via jupyter-events
-python-stdnum==1.20
+python-stdnum==2.2
     # via acryl-datahub-classify
 python-utils==3.9.1
     # via progressbar2
+pytorch-lightning==2.5.2
+    # via darts
 pytz==2024.1
     # via
     #   acryl-datahub-cloud
@@ -789,55 +1003,61 @@ pytz==2024.1
     #   pandas
     #   redshift-connector
     #   snowflake-connector-python
-pywin32==308 ; sys_platform == 'win32'
-    # via
-    #   docker
-    #   jupyter-core
-pywinpty==2.0.15 ; os_name == 'nt'
+pywin32==311 ; sys_platform == 'win32'
+    # via docker
+pywinpty==3.0.2 ; os_name == 'nt'
     # via
     #   jupyter-server
     #   jupyter-server-terminals
     #   terminado
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   huggingface-hub
     #   jupyter-events
     #   moto
+    #   observe-models
+    #   pytorch-lightning
     #   responses
+    #   transformers
     #   uvicorn
     #   watchdog
-pyzmq==26.2.0
+pyzmq==27.1.0
     # via
     #   ipykernel
     #   jupyter-client
     #   jupyter-server
-    #   notebook
 ratelimit==2.2.1
     # via acryl-datahub-actions
-redis==5.2.0
+redis==5.3.1
     # via celery
-redshift-connector==2.1.5
+redshift-connector==2.1.10
     # via
     #   acryl-datahub
     #   acryl-datahub-executor
-referencing==0.35.1
+referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
     #   jupyter-events
-requests==2.32.3
+regex==2025.11.3
+    # via transformers
+requests==2.32.5
     # via
     #   acryl-datahub
     #   acryl-great-expectations
     #   azure-core
     #   confluent-kafka
+    #   darts
     #   databricks-sdk
     #   databricks-sql-connector
     #   dataflows-tabulator
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
+    #   huggingface-hub
+    #   jupyterlab-server
     #   mixpanel
     #   moto
     #   msal
@@ -847,10 +1067,11 @@ requests==2.32.3
     #   snowflake-connector-python
     #   spacy
     #   tableschema
+    #   transformers
     #   weasel
-requests-file==2.1.0
+requests-file==3.0.1
     # via acryl-datahub
-responses==0.25.3
+responses==0.25.8
     # via moto
 rfc3339-validator==0.1.4
     # via
@@ -862,13 +1083,15 @@ rfc3986-validator==0.1.1
     # via
     #   jsonschema
     #   jupyter-events
-rich==13.9.4
+rfc3987-syntax==1.1.0
+    # via jsonschema
+rich==14.2.0
     # via typer
-rpds-py==0.22.3
+rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-rsa==4.9
+rsa==4.9.1
     # via google-auth
 rstr==3.2.2
     # via schwifty
@@ -876,66 +1099,85 @@ ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
     #   acryl-great-expectations
-s3transfer==0.10.4
+s3transfer==0.16.0
     # via boto3
-schwifty==2024.6.1
+safetensors==0.7.0
+    # via
+    #   darts
+    #   transformers
+schwifty==2025.9.0
     # via
     #   acryl-datahub
     #   acryl-datahub-classify
-scikit-learn==1.6.1
-    # via acryl-datahub-executor
-scipy==1.14.1
+scikit-learn==1.8.0
+    # via
+    #   acryl-datahub-executor
+    #   darts
+    #   observe-models
+    #   pmdarima
+    #   pyod
+    #   shap
+scipy==1.16.3
     # via
     #   acryl-datahub
     #   acryl-great-expectations
+    #   darts
+    #   hawkesbook
+    #   pmdarima
+    #   pyod
     #   scikit-learn
-scramp==1.4.5
+    #   shap
+    #   statsforecast
+    #   statsmodels
+scramp==1.4.8
     # via redshift-connector
-send2trash==1.8.3
-    # via
-    #   jupyter-server
-    #   notebook
+send2trash==2.0.0
+    # via jupyter-server
 sentry-sdk==2.33.2
     # via
     #   acryl-datahub
     #   acryl-datahub-executor
-setuptools==75.6.0
+setuptools==80.9.0
     # via
     #   apscheduler
-    #   marisa-trie
+    #   jupyterlab
+    #   lightning-utilities
+    #   pmdarima
     #   redshift-connector
     #   spacy
     #   thinc
+    #   torch
+shap==0.49.1
+    # via darts
 shellingham==1.5.4
     # via typer
 six==1.17.0
     # via
     #   apscheduler
     #   avro-gen3
-    #   azure-core
     #   dataflows-tabulator
     #   linear-tsv
-    #   mixpanel
     #   python-dateutil
     #   rfc3339-validator
     #   tableschema
     #   thrift
-smart-open==7.0.5
+    #   triad
+slicer==0.0.8
+    # via shap
+smart-open==7.5.0
     # via
     #   acryl-datahub
     #   weasel
-sniffio==1.3.1
-    # via anyio
-snowflake-connector-python==3.13.2
+snowflake-connector-python==3.18.0
     # via
     #   acryl-datahub
     #   acryl-datahub-executor
     #   snowflake-sqlalchemy
-snowflake-sqlalchemy==1.7.1
+snowflake-sqlalchemy==1.7.3
     # via acryl-datahub
 sortedcontainers==2.4.0
     # via snowflake-connector-python
-soupsieve==2.6
+soupsieve==2.8.1
     # via beautifulsoup4
 spacy==3.7.5
     # via acryl-datahub-classify
@@ -953,7 +1195,7 @@ sqlalchemy==1.4.54
     #   snowflake-sqlalchemy
     #   sqlalchemy-bigquery
     #   sqlalchemy-redshift
-sqlalchemy-bigquery==1.12.0
+sqlalchemy-bigquery==1.16.0
     # via acryl-datahub
 sqlalchemy-redshift==0.8.14
     # via acryl-datahub
@@ -963,9 +1205,9 @@ sqlglot==27.27.0
     # via acryl-datahub
 sqlglotrs==0.7.3
     # via sqlglot
-sqlparse==0.4.4
+sqlparse==0.5.5
     # via acryl-datahub
-srsly==2.4.8
+srsly==2.5.2
     # via
     #   confection
     #   spacy
@@ -977,8 +1219,18 @@ stackprinter==0.2.12
     # via acryl-datahub-actions
 stanio==0.5.1
     # via cmdstanpy
-starlette==0.48.0
+starlette==0.50.0
     # via fastapi
+statsforecast==2.0.1
+    # via observe-models
+statsmodels==0.14.6
+    # via
+    #   darts
+    #   observe-models
+    #   pmdarima
+    #   statsforecast
+sympy==1.14.0
+    # via torch
 tableschema==1.21.0
     # via acryl-datahub
 tabulate==0.9.0
@@ -987,44 +1239,65 @@ tenacity==8.5.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-executor
+tensorboardx==2.6.4
+    # via darts
 terminado==0.18.1
     # via
     #   jupyter-server
     #   jupyter-server-terminals
-    #   notebook
 thinc==8.2.5
     # via spacy
-threadpoolctl==3.5.0
-    # via scikit-learn
+threadpoolctl==3.6.0
+    # via
+    #   scikit-learn
+    #   statsforecast
 thrift==0.16.0
     # via databricks-sql-connector
 tinycss2==1.4.0
-    # via nbconvert
+    # via bleach
+tokenizers==0.22.2
+    # via transformers
 toml==0.10.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-tomlkit==0.13.2
+tomlkit==0.13.3
     # via snowflake-connector-python
-toolz==1.0.0
+toolz==1.1.0
     # via altair
-tornado==6.4.2
+torch==2.9.1
+    # via
+    #   darts
+    #   observe-models
+    #   pytorch-lightning
+    #   torchmetrics
+torchmetrics==1.8.2
+    # via pytorch-lightning
+tornado==6.5.4
     # via
     #   ipykernel
     #   jupyter-client
     #   jupyter-server
+    #   jupyterlab
     #   notebook
     #   terminado
 tqdm==4.67.1
     # via
     #   acryl-great-expectations
     #   cmdstanpy
+    #   darts
+    #   hawkesbook
+    #   huggingface-hub
+    #   observe-models
     #   prophet
+    #   pytorch-lightning
+    #   shap
     #   spacy
+    #   statsforecast
+    #   transformers
 traitlets==5.14.3
     # via
     #   acryl-datahub
-    #   comm
     #   ipykernel
     #   ipython
     #   ipywidgets
@@ -1032,57 +1305,77 @@ traitlets==5.14.3
     #   jupyter-core
     #   jupyter-events
     #   jupyter-server
+    #   jupyterlab
     #   matplotlib-inline
     #   nbclient
     #   nbconvert
     #   nbformat
-    #   notebook
-typer==0.15.1
+transformers==4.57.3
+    # via observe-models
+triad==1.0.0
     # via
-    #   spacy
-    #   weasel
+    #   adagio
+    #   fugue
+triton==3.5.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
+    # via torch
+typer==0.21.1
+    # via spacy
+typer-slim==0.21.1
+    # via weasel
 types-croniter==1.4.0.1
     # via
     #   acryl-datahub-cloud
     #   acryl-datahub-executor
-types-python-dateutil==2.9.0.20250822
-    # via arrow
-typing-extensions==4.12.2
+typing-extensions==4.15.0
     # via
     #   acryl-datahub
     #   acryl-great-expectations
+    #   aiosignal
     #   alembic
     #   anyio
     #   azure-core
     #   azure-identity
+    #   beautifulsoup4
+    #   darts
     #   fastapi
+    #   grpcio
+    #   huggingface-hub
+    #   ipython
+    #   lightning-utilities
     #   mypy
     #   pydantic
     #   pydantic-core
+    #   pyopenssl
     #   python-utils
+    #   pytorch-lightning
+    #   referencing
+    #   shap
     #   snowflake-connector-python
     #   sqlalchemy-stubs
     #   starlette
+    #   torch
     #   typer
+    #   typer-slim
     #   typing-inspect
     #   typing-inspection
 typing-inspect==0.9.0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
-typing-inspection==0.4.1
+typing-inspection==0.4.2
     # via pydantic
-tzdata==2024.2
+tzdata==2025.3
     # via
+    #   arrow
     #   celery
     #   pandas
     #   tzlocal
-tzlocal==5.2
+tzlocal==5.3.1
     # via
     #   acryl-datahub-cloud
     #   acryl-great-expectations
     #   apscheduler
-ujson==5.10.0
+ujson==5.11.0
     # via acryl-datahub
 unicodecsv==0.14.1
     # via
@@ -1098,20 +1391,22 @@ urllib3==1.26.20
     #   databricks-sql-connector
     #   docker
     #   kombu
-    #   mixpanel
+    #   pmdarima
     #   requests
     #   responses
     #   sentry-sdk
-uvicorn==0.32.1
+utilsforecast==0.2.15
+    # via statsforecast
+uvicorn==0.40.0
     # via acryl-datahub-executor
-uvloop==0.21.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
+uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
 vine==5.1.0
     # via
     #   amqp
     #   celery
     #   kombu
-vininfo==1.8.0
+vininfo==1.9.2
     # via acryl-datahub-classify
 wasabi==1.1.3
     # via
@@ -1120,39 +1415,41 @@ wasabi==1.1.3
     #   weasel
 watchdog==3.0.0
     # via acryl-datahub-executor
-watchfiles==1.0.0
+watchfiles==1.1.1
     # via uvicorn
-wcmatch==10.0
+wcmatch==10.1
     # via acryl-datahub
-wcwidth==0.2.13
+wcwidth==0.2.14
     # via prompt-toolkit
-weasel==0.4.1
+weasel==0.4.3
     # via spacy
-webcolors==24.11.1
+webcolors==25.10.0
     # via jsonschema
 webencodings==0.5.1
     # via
     #   bleach
     #   tinycss2
-websocket-client==1.8.0
+websocket-client==1.9.0
     # via jupyter-server
-websockets==14.1
+websockets==15.0.1
     # via uvicorn
-werkzeug==3.1.3
+werkzeug==3.1.4
     # via moto
-widgetsnbextension==4.0.13
+widgetsnbextension==4.0.15
     # via ipywidgets
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
-wrapt==1.17.0
+wrapt==2.0.1
     # via
     #   deprecated
     #   smart-open
-xlrd==2.0.1
+xarray==2025.6.1
+    # via darts
+xlrd==2.0.2
     # via dataflows-tabulator
-xmltodict==0.14.2
+xmltodict==1.0.2
     # via moto
-yarl==1.18.3
+yarl==1.22.0
     # via aiohttp
-zipp==3.21.0
+zipp==3.23.0
     # via importlib-metadata

@@ -320,6 +320,7 @@ def test_graphql_to_monitor_valid(valid_monitor_dict: Dict[str, Any]) -> None:
     assert assertion_spec.assertion.urn == "urn:li:assertion:test-assertion"
     assert assertion_spec.assertion.type == AssertionType.VOLUME
     assert assertion_spec.schedule.cron == "*/15 * * * *"
+    assert assertion_spec.parameters is not None
     assert (
         assertion_spec.parameters.type
         == AssertionEvaluationParametersType.DATASET_VOLUME
