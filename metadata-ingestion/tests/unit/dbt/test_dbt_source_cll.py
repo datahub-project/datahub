@@ -58,3 +58,31 @@ def test_parse_semantic_view_cll_with_sql_comments_after_columns() -> None:
     assert "amount" in downstream_cols
     # Metrics
     assert "revenue" in downstream_cols
+
+
+def test_parse_semantic_view_cll_with_various_functions() -> None:
+    """Test that metric regex matches any function name."""
+    compiled_sql = """
+    TABLES (
+        OrdersTable AS DB.SCHEMA.ORDERS
+    )
+    METRICS (
+        OrdersTable.UNIQUE_CUSTOMERS AS APPROX_COUNT_DISTINCT(CUSTOMER_ID),
+        OrdersTable.MEDIAN_VALUE AS PERCENTILE_CONT(ORDER_VALUE),
+        OrdersTable.VALUE_STDDEV AS STDDEV_SAMP(ORDER_VALUE),
+        OrdersTable.TOTAL AS SUM(AMOUNT)
+    )
+    """
+
+    upstream_nodes: List[str] = ["source.project.shop.ORDERS"]
+    all_nodes_map: Dict[str, Any] = {
+        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    downstream_cols = {cll.downstream_col for cll in cll_info}
+    assert "unique_customers" in downstream_cols
+    assert "median_value" in downstream_cols
+    assert "value_stddev" in downstream_cols
+    assert "total" in downstream_cols

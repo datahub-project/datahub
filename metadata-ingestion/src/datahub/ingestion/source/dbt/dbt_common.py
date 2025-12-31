@@ -160,12 +160,9 @@ _SV_DIMENSION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Aggregation functions supported in metrics
-_SV_AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
-
-# Metric: "TABLE.METRIC AS SUM(SOURCE_COL)"
+# Metric: "TABLE.METRIC AS FUNC(SOURCE_COL)" - matches any aggregation function
 _SV_METRIC_RE = re.compile(
-    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}\s+AS\s+{_SV_AGGREGATIONS}\s*\(\s*{_SV_IDENTIFIER}\s*\)",
+    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}\s+AS\s+\w+\s*\(\s*{_SV_IDENTIFIER}\s*\)",
     re.IGNORECASE,
 )
 
