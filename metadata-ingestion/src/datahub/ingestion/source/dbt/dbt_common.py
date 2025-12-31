@@ -670,33 +670,16 @@ def _build_table_mapping(
             table_name = upstream_node.name.upper()
             table_to_dbt_name[table_name] = upstream_dbt_name
 
-    logger.debug(
-        f"[TABLE_MAPPING] Initial mapping from upstream_nodes: {list(table_to_dbt_name.keys())}"
-    )
-
     # Parse TABLES section to extract alias mappings
     tables_section = _SV_TABLES_SECTION_RE.search(compiled_sql)
     if tables_section:
         tables_content = tables_section.group(1)
-        logger.debug(
-            f"[TABLE_MAPPING] TABLES section ({len(tables_content)} chars): {tables_content[:400]}"
-        )
         alias_matches = _SV_ALIAS_RE.findall(tables_content)
-        logger.debug(f"[TABLE_MAPPING] Alias matches: {alias_matches}")
         for alias, table_name in alias_matches:
             alias_upper = alias.upper()
             table_upper = table_name.upper()
             if table_upper in table_to_dbt_name:
                 table_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
-                logger.debug(
-                    f"[TABLE_MAPPING] Added alias: {alias_upper} -> {table_upper}"
-                )
-            else:
-                logger.debug(
-                    f"[TABLE_MAPPING] Alias table not in mapping: {alias_upper} -> {table_upper}"
-                )
-    else:
-        logger.debug("[TABLE_MAPPING] No TABLES section found")
 
     return table_to_dbt_name
 
@@ -708,21 +691,11 @@ def _parse_short_form_entries(
     seen_cll: Set[Tuple[str, str, str]],
 ) -> None:
     """Parse short form dimensions/metrics without AS keyword."""
-    logger.debug(
-        f"[SHORT_FORM] Searching for short form entries. table_to_dbt_name keys: {list(table_to_dbt_name.keys())}"
-    )
     for section_match in _SV_SHORT_FORM_SECTION_RE.finditer(compiled_sql):
-        keyword = section_match.group(1)
         section_content = section_match.group(2)
-        logger.debug(
-            f"[SHORT_FORM] Found section: {keyword} -> '{section_content.strip()}'"
-        )
         for entry_match in _SV_SHORT_FORM_ENTRY_RE.finditer(section_content):
             table_ref = entry_match.group(1).strip('"').upper()
             column_name = entry_match.group(2).strip('"').lower()
-            logger.debug(
-                f"[SHORT_FORM] Entry: {table_ref}.{column_name}, in_mapping={table_ref in table_to_dbt_name}"
-            )
 
             if table_ref in table_to_dbt_name:
                 _add_cll_entry(
@@ -778,30 +751,16 @@ def parse_semantic_view_cll(
     if not compiled_sql:
         return []
 
-    # Log compiled_sql for debugging - show sections that should be parsed
-    logger.debug(f"[CLL_PARSER] Parsing semantic view DDL ({len(compiled_sql)} chars)")
-    # Log presence of key sections
-    has_dimensions = "DIMENSIONS" in compiled_sql.upper()
-    has_metrics = "METRICS" in compiled_sql.upper()
-    has_facts = "FACTS" in compiled_sql.upper()
-    has_as_keyword = " AS " in compiled_sql.upper()
-    logger.debug(
-        f"[CLL_PARSER] DDL sections: DIMENSIONS={has_dimensions}, METRICS={has_metrics}, "
-        f"FACTS={has_facts}, has_AS_keyword={has_as_keyword}"
-    )
-
     cll_info: List[DBTColumnLineageInfo] = []
     seen_cll: Set[Tuple[str, str, str]] = set()
 
     table_to_dbt_name = _build_table_mapping(
         compiled_sql, upstream_nodes, all_nodes_map
     )
-    logger.debug(f"[CLL_PARSER] Table mapping: {table_to_dbt_name}")
     if not table_to_dbt_name:
         return []
 
     # Parse METRICS first (more specific pattern)
-    unmatched_metric_refs: set = set()
     for match in _SV_METRIC_RE.finditer(compiled_sql):
         table_ref = match.group(1).strip('"').upper()
         output_column = match.group(2).strip('"').lower()
@@ -815,16 +774,8 @@ def parse_semantic_view_cll(
                 source_column,
                 output_column,
             )
-        else:
-            unmatched_metric_refs.add(table_ref)
-
-    if unmatched_metric_refs:
-        logger.debug(
-            f"[CLL_PARSER] Unmatched table refs in METRIC_RE: {unmatched_metric_refs}"
-        )
 
     # Parse DIMENSIONS/FACTS (simpler 1:1 mapping with AS keyword)
-    unmatched_table_refs: set = set()
     for match in _SV_DIMENSION_RE.finditer(compiled_sql):
         table_ref = match.group(1).strip('"').upper()
         source_column = match.group(2).strip('"').lower()
@@ -838,80 +789,10 @@ def parse_semantic_view_cll(
                 source_column,
                 output_column,
             )
-        else:
-            unmatched_table_refs.add(table_ref)
-
-    if unmatched_table_refs:
-        logger.debug(
-            f"[CLL_PARSER] Unmatched table refs in DIMENSION_RE: {unmatched_table_refs}"
-        )
-
-    # Count raw regex matches for debugging
-    metric_match_count = len(list(_SV_METRIC_RE.finditer(compiled_sql)))
-    dim_match_count = len(list(_SV_DIMENSION_RE.finditer(compiled_sql)))
-    logger.debug(
-        f"[CLL_PARSER] Regex matches: METRIC_RE={metric_match_count}, DIMENSION_RE={dim_match_count}"
-    )
-
-    # Debug: show DIMENSIONS section sample
-    dim_section_match = re.search(
-        r"DIMENSIONS\s*\((.*?)\)\s*(?:METRICS|FACTS|COMMENT|$)",
-        compiled_sql,
-        re.IGNORECASE | re.DOTALL,
-    )
-    if dim_section_match:
-        dim_content = dim_section_match.group(1)
-        logger.debug(
-            f"[CLL_PARSER] DIMENSIONS section ({len(dim_content)} chars): {repr(dim_content[:300])}"
-        )
-        # Test regex against the extracted section
-        test_matches = list(_SV_DIMENSION_RE.finditer(dim_content))
-        logger.debug(
-            f"[CLL_PARSER] DIMENSION_RE on section only: {len(test_matches)} matches"
-        )
-        if test_matches:
-            m = test_matches[0]
-            logger.debug(
-                f"[CLL_PARSER] First match: table={m.group(1)}, col={m.group(2)}, out={m.group(3)}"
-            )
-    else:
-        logger.debug("[CLL_PARSER] No DIMENSIONS section found by section regex")
-
-    # Debug: show FACTS section sample
-    facts_section_match = re.search(
-        r"FACTS\s*\((.*?)\)\s*(?:DIMENSIONS|METRICS|COMMENT|$)",
-        compiled_sql,
-        re.IGNORECASE | re.DOTALL,
-    )
-    if facts_section_match:
-        facts_content = facts_section_match.group(1)
-        logger.debug(
-            f"[CLL_PARSER] FACTS section ({len(facts_content)} chars): {repr(facts_content[:300])}"
-        )
-        # Test regex against the extracted section
-        facts_matches = list(_SV_DIMENSION_RE.finditer(facts_content))
-        logger.debug(
-            f"[CLL_PARSER] DIMENSION_RE on FACTS section: {len(facts_matches)} matches"
-        )
-        if facts_matches:
-            m = facts_matches[0]
-            logger.debug(
-                f"[CLL_PARSER] First FACTS match: table={m.group(1)}, col={m.group(2)}, out={m.group(3)}"
-            )
-    else:
-        logger.debug("[CLL_PARSER] No FACTS section found by section regex")
-
-    logger.debug(
-        f"[CLL_PARSER] After METRICS/DIMENSIONS parsing: {len(cll_info)} entries"
-    )
 
     _parse_short_form_entries(compiled_sql, table_to_dbt_name, cll_info, seen_cll)
-    logger.debug(f"[CLL_PARSER] After short form parsing: {len(cll_info)} entries")
 
     _parse_derived_metrics(compiled_sql, cll_info, seen_cll)
-    logger.debug(
-        f"[CLL_PARSER] Final: {len(cll_info)} entries: {[(c.upstream_col, c.downstream_col) for c in cll_info]}"
-    )
 
     return cll_info
 
