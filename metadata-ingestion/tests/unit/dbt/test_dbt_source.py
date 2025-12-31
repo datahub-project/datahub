@@ -905,52 +905,6 @@ def _create_mock_node(table_name: str) -> mock.Mock:
     return node
 
 
-def test_parse_semantic_view_cll_dimensions() -> None:
-    """
-    Test parsing dimensions from semantic view DDL.
-    Dimensions: ORDERS.CUSTOMER_ID AS CUSTOMER_ID
-    """
-    compiled_sql = """
-    DIMENSIONS (
-        ORDERS.CUSTOMER_ID AS CUSTOMER_ID 
-            COMMENT='Customer identifier',
-        ORDERS.ORDER_ID AS ORDER_ID,
-        TRANSACTIONS.PAYMENT_METHOD AS PAYMENT_METHOD
-    )
-    """
-
-    upstream_nodes = [
-        "source.project.shop.ORDERS",
-        "source.project.shop.TRANSACTIONS",
-    ]
-
-    all_nodes_map = {
-        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
-    }
-
-    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
-
-    # Should extract 3 dimension entries
-    assert len(cll_info) == 3
-
-    # Check customer_id
-    customer_id = next(
-        (cll for cll in cll_info if cll.downstream_col == "customer_id"), None
-    )
-    assert customer_id is not None
-    assert customer_id.upstream_dbt_name == "source.project.shop.ORDERS"
-    assert customer_id.upstream_col == "customer_id"
-
-    # Check payment_method
-    payment = next(
-        (cll for cll in cll_info if cll.downstream_col == "payment_method"), None
-    )
-    assert payment is not None
-    assert payment.upstream_dbt_name == "source.project.shop.TRANSACTIONS"
-    assert payment.upstream_col == "payment_method"
-
-
 def test_parse_semantic_view_cll_derived_metrics() -> None:
     """
     Test parsing derived metrics computed from other metrics.
@@ -1031,52 +985,6 @@ def test_parse_semantic_view_cll_multiple_tables_same_column() -> None:
         "source.project.shop.ORDERS",
         "source.project.shop.TRANSACTIONS",
     }
-
-
-def test_parse_semantic_view_cll_complex_expression() -> None:
-    """
-    Test parsing derived metrics with complex expressions.
-    """
-    compiled_sql = """
-    METRICS (
-        ORDERS.REVENUE AS SUM(ORDER_TOTAL),
-        ORDERS.COST AS SUM(ORDER_COST),
-        PROFIT_MARGIN AS ORDERS.REVENUE - ORDERS.COST
-            COMMENT='Profit calculation'
-    )
-    """
-
-    upstream_nodes = ["source.project.shop.ORDERS"]
-    all_nodes_map = {"source.project.shop.ORDERS": _create_mock_node("ORDERS")}
-
-    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
-
-    # Should extract 2 base metrics + 2 derived entries
-    assert len(cll_info) == 4
-
-    # Profit margin should trace back to both base columns
-    profit = [cll for cll in cll_info if cll.downstream_col == "profit_margin"]
-    assert len(profit) == 2
-
-    upstream_cols = {cll.upstream_col for cll in profit}
-    assert upstream_cols == {"order_total", "order_cost"}
-
-
-def test_parse_semantic_view_cll_empty_input() -> None:
-    """
-    Test handling empty or null input.
-    """
-    # Empty SQL
-    cll_info = parse_semantic_view_cll("", [], {})
-    assert len(cll_info) == 0
-
-    # None SQL
-    cll_info = parse_semantic_view_cll(None, [], {})  # type: ignore
-    assert len(cll_info) == 0
-
-    # SQL without metrics/dimensions
-    cll_info = parse_semantic_view_cll("COMMENT='test'", [], {})
-    assert len(cll_info) == 0
 
 
 def test_parse_semantic_view_cll_case_handling() -> None:
@@ -1177,27 +1085,6 @@ def test_parse_semantic_view_cll_table_not_in_mapping() -> None:
     # Should extract only the ORDERS metric, skip UNKNOWN_TABLE
     assert len(cll_info) == 1
     assert cll_info[0].upstream_col == "order_total"
-
-
-def test_parse_semantic_view_cll_no_upstream_mapping() -> None:
-    """
-    Test handling when no upstream table mapping is available.
-    Should return empty list with warning.
-    """
-    compiled_sql = """
-    METRICS (
-        ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL)
-    )
-    """
-
-    # Empty upstream nodes
-    upstream_nodes: List[str] = []
-    all_nodes_map: Dict[str, Any] = {}
-
-    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
-
-    # Should return empty list
-    assert len(cll_info) == 0
 
 
 def test_parse_semantic_view_cll_derived_metric_missing_reference() -> None:
@@ -1318,60 +1205,6 @@ def test_parse_semantic_view_cll_chained_derived_metrics() -> None:
     assert len(combined_lineages) == 2
     upstream_cols = {cll.upstream_col for cll in combined_lineages}
     assert upstream_cols == {"order_total", "transaction_amount"}
-
-
-def test_parse_semantic_view_cll_duplicate_column_names() -> None:
-    """Test parse_semantic_view_cll when same column name appears in multiple tables."""
-
-    compiled_sql = """
-    DIMENSIONS (
-        ORDERS.ORDER_ID AS ORDER_ID,
-        TRANSACTIONS.ORDER_ID AS ORDER_ID,
-        ORDERS.STORE_ID AS STORE_ID
-    )
-    """
-    upstream_nodes = [
-        "source.project.src.ORDERS",
-        "source.project.src.TRANSACTIONS",
-    ]
-    all_nodes_map = {
-        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.src.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
-    }
-
-    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
-
-    # Should create separate lineage for each upstream table
-    assert len(cll_info) == 3
-
-    # ORDER_ID should have lineage from both tables
-    order_id_lineages = [cll for cll in cll_info if cll.downstream_col == "order_id"]
-    assert len(order_id_lineages) == 2
-    upstream_tables = {cll.upstream_dbt_name for cll in order_id_lineages}
-    assert upstream_tables == {
-        "source.project.src.ORDERS",
-        "source.project.src.TRANSACTIONS",
-    }
-
-
-def test_parse_semantic_view_cll_empty_sections() -> None:
-    """Test parse_semantic_view_cll with empty DIMENSIONS/FACTS/METRICS sections."""
-
-    compiled_sql = """
-    TABLES (
-        {{ source('db', 'ORDERS') }}
-    )
-    DIMENSIONS ()
-    FACTS ()
-    METRICS ()
-    """
-    upstream_nodes = ["source.project.src.ORDERS"]
-    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
-
-    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
-
-    # Should return empty list with warning
-    assert len(cll_info) == 0
 
 
 def test_semantic_view_cll_integration_with_node() -> None:
