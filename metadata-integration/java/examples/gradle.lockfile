@@ -1,8 +1,10 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
+biz.aQute.bnd:biz.aQute.bnd.annotation:7.1.0=testCompileClasspath
 com.google.code.findbugs:jsr305:3.0.2=spotless865458226
 com.google.errorprone:error_prone_annotations:2.21.1=spotless865458226
+com.google.errorprone:error_prone_annotations:2.38.0=testCompileClasspath
 com.google.googlejavaformat:google-java-format:1.18.1=spotless865458226
 com.google.guava:failureaccess:1.0.1=spotless865458226
 com.google.guava:guava:32.1.3-jre=spotless865458226
@@ -19,15 +21,20 @@ net.bytebuddy:byte-buddy:1.12.19=testCompileClasspath,testRuntimeClasspath
 org.apache.httpcomponents.client5:httpclient5:5.4.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.httpcomponents.core5:httpcore5-h2:5.3.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.httpcomponents.core5:httpcore5:5.3.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.apache.logging.log4j:log4j-api:2.17.1=testCompileClasspath,testRuntimeClasspath
-org.apache.logging.log4j:log4j-core:2.17.1=testCompileClasspath,testRuntimeClasspath
+org.apache.logging.log4j:log4j-api:2.25.3=testCompileClasspath,testRuntimeClasspath
+org.apache.logging.log4j:log4j-core:2.25.3=testCompileClasspath,testRuntimeClasspath
 org.checkerframework:checker-qual:3.37.0=spotless865458226
 org.jacoco:org.jacoco.agent:0.8.13=jacocoAgent,jacocoAnt
 org.jacoco:org.jacoco.ant:0.8.13=jacocoAnt
 org.jacoco:org.jacoco.core:0.8.13=jacocoAnt
 org.jacoco:org.jacoco.report:0.8.13=jacocoAnt
+org.jspecify:jspecify:1.0.0=testCompileClasspath
 org.mockito:mockito-core:4.11.0=testCompileClasspath,testRuntimeClasspath
 org.objenesis:objenesis:3.3=testRuntimeClasspath
+org.osgi:org.osgi.annotation.bundle:2.0.0=testCompileClasspath
+org.osgi:org.osgi.annotation.versioning:1.1.2=testCompileClasspath
+org.osgi:org.osgi.resource:1.0.0=testCompileClasspath
+org.osgi:org.osgi.service.serviceloader:1.0.0=testCompileClasspath
 org.ow2.asm:asm-commons:9.8=jacocoAnt
 org.ow2.asm:asm-tree:9.8=jacocoAnt
 org.ow2.asm:asm:9.8=jacocoAnt
