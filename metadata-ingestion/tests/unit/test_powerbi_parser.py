@@ -667,7 +667,9 @@ def test_odbc_table_platform_override():
         column_lineage=[],
     )
 
-    overridden_lineage = odbc._apply_table_platform_override(original_lineage)
+    overridden_lineage = odbc._apply_table_platform_override(
+        original_lineage, dsn="TestDSN"
+    )
 
     assert len(overridden_lineage.upstreams) == 1
     # Platform should be changed from athena to mysql
@@ -731,13 +733,98 @@ def test_odbc_table_platform_override_no_match():
         column_lineage=[],
     )
 
-    overridden_lineage = odbc._apply_table_platform_override(original_lineage)
+    overridden_lineage = odbc._apply_table_platform_override(
+        original_lineage, dsn="TestDSN"
+    )
 
     assert len(overridden_lineage.upstreams) == 1
     # Platform should remain unchanged (athena)
     assert (
         overridden_lineage.upstreams[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,my_schema.my_table,PROD)"
+    )
+
+
+def test_odbc_table_platform_override_dsn_scoped():
+    """Test that DSN-scoped override keys take precedence over global keys."""
+    from datahub.ingestion.source.powerbi.config import (
+        DataPlatformPair,
+        PowerBiDashboardSourceConfig,
+    )
+    from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+        ResolvePlatformInstanceFromDatasetTypeMapping,
+    )
+    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
+    from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+
+    # Config with both DSN-scoped and global overrides for the same table
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        odbc_table_platform_override={
+            "ProdDSN:my_schema.my_table": "mysql",  # DSN-scoped
+            "DevDSN:my_schema.my_table": "postgres",  # Different DSN
+            "my_schema.my_table": "oracle",  # Global fallback
+        },
+    )
+
+    table = Table(name="test_table", full_name="test_table")
+
+    odbc = OdbcLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,my_schema.my_table,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    # Test DSN-scoped key for ProdDSN -> mysql
+    overridden_lineage = odbc._apply_table_platform_override(
+        original_lineage, dsn="ProdDSN"
+    )
+    assert (
+        overridden_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,PROD)"
+    )
+
+    # Test DSN-scoped key for DevDSN -> postgres
+    overridden_lineage = odbc._apply_table_platform_override(
+        original_lineage, dsn="DevDSN"
+    )
+    assert (
+        overridden_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,my_schema.my_table,PROD)"
+    )
+
+    # Test fallback to global key for unknown DSN -> oracle
+    overridden_lineage = odbc._apply_table_platform_override(
+        original_lineage, dsn="UnknownDSN"
+    )
+    assert (
+        overridden_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,my_schema.my_table,PROD)"
     )
 
 

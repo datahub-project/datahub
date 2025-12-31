@@ -373,7 +373,10 @@ class PowerBiDashboardSourceConfig(
         "from federated sources (e.g., MySQL) via ODBC. "
         "This override is applied AFTER catalog stripping for Athena tables, so use "
         "2-part names (database.table), not 3-part names (catalog.database.table). "
-        "Example: {'analytics.users': 'mysql', 'reporting.orders': 'postgres'}",
+        "Keys can optionally be prefixed with DSN to scope the override to a specific "
+        "data source (format: 'dsn:database.table'). DSN-scoped keys take precedence "
+        "over global keys. "
+        "Example: {'MyDSN:analytics.users': 'mysql', 'reporting.orders': 'postgres'}",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(

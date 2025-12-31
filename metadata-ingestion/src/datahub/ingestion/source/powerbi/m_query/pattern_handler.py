@@ -1237,7 +1237,7 @@ class OdbcLineage(AbstractLineage):
             result = self._strip_athena_catalog_from_lineage(result)
 
         # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
-        result = self._apply_table_platform_override(result)
+        result = self._apply_table_platform_override(result, dsn)
 
         return result
 
@@ -1324,12 +1324,16 @@ class OdbcLineage(AbstractLineage):
             column_lineage=updated_column_lineage,
         )
 
-    def _apply_table_platform_override(self, lineage: Lineage) -> Lineage:
+    def _apply_table_platform_override(self, lineage: Lineage, dsn: str) -> Lineage:
         """
         Override the platform in URNs for specific tables based on config.
 
         This is used when Athena queries federated data sources (e.g., MySQL)
         and the lineage should point to the actual source platform entity.
+
+        Keys can be:
+        - DSN-scoped: "dsn:database.table" (takes precedence)
+        - Global: "database.table" (fallback)
         """
         if not self.config.odbc_table_platform_override:
             return lineage
@@ -1362,8 +1366,11 @@ class OdbcLineage(AbstractLineage):
 
             table_name = urn[table_start:env_idx]
 
-            # Check if table matches any override
-            new_platform = self.config.odbc_table_platform_override.get(table_name)
+            # Try DSN-scoped key first, then fall back to global key
+            dsn_scoped_key = f"{dsn}:{table_name}"
+            new_platform = self.config.odbc_table_platform_override.get(
+                dsn_scoped_key
+            ) or self.config.odbc_table_platform_override.get(table_name)
             if not new_platform:
                 return urn
 
