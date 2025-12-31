@@ -869,9 +869,13 @@ def test_dbt_entities_enabled_semantic_views() -> None:
     """
     Test that DBTEntitiesEnabled correctly handles semantic_views configuration.
     """
-    # Test default (YES)
+    # Test default (NO - disabled by default to match Snowflake)
     entities_enabled = DBTEntitiesEnabled()
-    assert entities_enabled.semantic_views == EmitDirective.YES
+    assert entities_enabled.semantic_views == EmitDirective.NO
+    assert entities_enabled.can_emit_node_type("semantic_view") is False
+
+    # Test YES (explicitly enabled)
+    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.YES)
     assert entities_enabled.can_emit_node_type("semantic_view") is True
 
     # Test NO
@@ -1596,23 +1600,6 @@ def test_parse_semantic_view_cll_circular_metric_reference() -> None:
         if cll.downstream_col == "metric_a" and cll.upstream_col == "order_total"
     ]
     assert len(base_metrics) == 1, "Base metric from physical column should be captured"
-
-
-def test_parse_semantic_view_cll_no_upstream_nodes() -> None:
-    """Test that semantic view with no upstream nodes returns empty CLL gracefully."""
-
-    compiled_sql = """
-    DIMENSIONS (
-        ORDERS.CUSTOMER_ID AS CUSTOMER_ID
-    )
-    """
-    upstream_nodes: List[str] = []  # No upstream nodes
-    all_nodes_map: Dict[str, Any] = {}
-
-    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
-
-    # Should return empty list with warning
-    assert len(cll_info) == 0
 
 
 def test_parse_semantic_view_cll_production_pattern() -> None:

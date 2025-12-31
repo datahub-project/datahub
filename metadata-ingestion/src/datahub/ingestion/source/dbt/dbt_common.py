@@ -1964,9 +1964,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.platform_instance,
                 )
 
-                # Log column count for debugging
                 column_count = len(node.columns) if node.columns else 0
-                logger.info(
+                logger.debug(
                     f"Processing target platform lineage for {node.dbt_name}: "
                     f"type={node.node_type}, columns={column_count}, materialization={node.materialization}"
                 )
