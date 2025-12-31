@@ -876,6 +876,31 @@ def parse_semantic_view_cll(
             )
     else:
         logger.debug("[CLL_PARSER] No DIMENSIONS section found by section regex")
+
+    # Debug: show FACTS section sample
+    facts_section_match = re.search(
+        r"FACTS\s*\((.*?)\)\s*(?:DIMENSIONS|METRICS|COMMENT|$)",
+        compiled_sql,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if facts_section_match:
+        facts_content = facts_section_match.group(1)
+        logger.debug(
+            f"[CLL_PARSER] FACTS section ({len(facts_content)} chars): {facts_content[:500]}"
+        )
+        # Test regex against the extracted section
+        facts_matches = list(_SV_DIMENSION_RE.finditer(facts_content))
+        logger.debug(
+            f"[CLL_PARSER] DIMENSION_RE on FACTS section: {len(facts_matches)} matches"
+        )
+        if facts_matches:
+            m = facts_matches[0]
+            logger.debug(
+                f"[CLL_PARSER] First FACTS match: table={m.group(1)}, col={m.group(2)}, out={m.group(3)}"
+            )
+    else:
+        logger.debug("[CLL_PARSER] No FACTS section found by section regex")
+
     logger.debug(
         f"[CLL_PARSER] After METRICS/DIMENSIONS parsing: {len(cll_info)} entries"
     )
