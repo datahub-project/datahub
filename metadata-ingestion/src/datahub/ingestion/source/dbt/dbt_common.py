@@ -2365,6 +2365,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # The column-level lineage references dbt columns, not platform columns.
             if node.node_type == "semantic_view":
                 # Force upstream URNs to be dbt entities
+                missing_upstreams = [
+                    upstream_node
+                    for upstream_node in node.upstream_nodes
+                    if upstream_node not in all_nodes_map
+                ]
+                if missing_upstreams:
+                    logger.warning(
+                        f"Semantic view {node.dbt_name}: {len(missing_upstreams)} upstream nodes "
+                        f"not found in all_nodes_map (may be semantic_models which are no longer ingested): "
+                        f"{missing_upstreams}"
+                    )
+
                 upstream_urns = [
                     all_nodes_map[upstream_node].get_urn(
                         target_platform=DBT_PLATFORM,
@@ -2375,7 +2387,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     if upstream_node in all_nodes_map
                 ]
                 logger.debug(
-                    f"Semantic view {node.dbt_name}: Created {len(upstream_urns)} dbt → dbt upstream URNs"
+                    f"Semantic view {node.dbt_name}: Created {len(upstream_urns)} dbt → dbt upstream URNs "
+                    f"from {len(node.upstream_nodes)} upstream_nodes"
                 )
             else:
                 # For regular models, use the default behavior (dbt → Snowflake)
