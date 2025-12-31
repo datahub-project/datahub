@@ -2419,52 +2419,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         # SQL parsing failed entirely, which is already reported above.
                         pass
 
-                # Group by downstream column - each downstream gets one lineage entry with potentially multiple upstreams
-                grouped_cll = list(
-                    groupby_unsorted(node.upstream_cll, lambda x: x.downstream_col)
-                )
-
-                cll = []
-                for downstream, upstreams in grouped_cll:
-                    upstream_list = list(upstreams)
-                    if len(upstream_list) > 1:
-                        upstream_names = [
-                            f"{u.upstream_dbt_name.split('.')[-1]}.{u.upstream_col}"
-                            for u in upstream_list
-                        ]
-                        logger.debug(
-                            f"Column {downstream} has {len(upstream_list)} upstream sources: {upstream_names}"
-                        )
-
-                    cll.append(
-                        FineGrainedLineage(
-                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            upstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    _translate_dbt_name_to_upstream_urn(
-                                        upstream_column.upstream_dbt_name
-                                    ),
-                                    upstream_column.upstream_col,
-                                )
-                                for upstream_column in upstream_list
-                            ],
-                            downstreams=[
-                                mce_builder.make_schema_field_urn(node_urn, downstream)
-                            ],
-                            confidenceScore=(
-                                node.cll_debug_info.confidence
-                                if node.cll_debug_info
-                                else None
-                            ),
-                        )
+                cll = [
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        upstreams=[
+                            mce_builder.make_schema_field_urn(
+                                _translate_dbt_name_to_upstream_urn(
+                                    upstream_column.upstream_dbt_name
+                                ),
+                                upstream_column.upstream_col,
+                            )
+                            for upstream_column in upstreams
+                        ],
+                        downstreams=[
+                            mce_builder.make_schema_field_urn(node_urn, downstream)
+                        ],
+                        confidenceScore=(
+                            node.cll_debug_info.confidence
+                            if node.cll_debug_info
+                            else None
+                        ),
                     )
+                    for downstream, upstreams in groupby_unsorted(
+                        node.upstream_cll, lambda x: x.downstream_col
+                    )
+                ]
 
             if not upstream_urns:
-                if node.node_type == "semantic_view":
-                    logger.warning(
-                        f"No upstream URNs for semantic view {node.dbt_name}, lineage will not be emitted"
-                    )
                 return None
 
             auditStamp = AuditStamp(
