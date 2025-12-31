@@ -300,6 +300,14 @@ class DBTEntitiesEnabled(ConfigModel):
         "Only supported with dbt core.",
     )
 
+    @field_validator("*", mode="before")
+    @classmethod
+    def convert_bool_to_emit_directive(cls, v: Any) -> Any:
+        """Convert boolean values to EmitDirective for backward compatibility."""
+        if isinstance(v, bool):
+            return EmitDirective.YES if v else EmitDirective.NO
+        return v
+
     @model_validator(mode="after")
     def process_only_directive(self) -> "DBTEntitiesEnabled":
         # Checks that at most one is set to ONLY, and then sets the others to NO.

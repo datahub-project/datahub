@@ -887,6 +887,16 @@ def test_dbt_entities_enabled_semantic_views() -> None:
     assert entities_enabled.can_emit_node_type("semantic_view") is True
     assert entities_enabled.can_emit_node_type("model") is False
 
+    # Test backward compatibility: True -> YES
+    entities_enabled = DBTEntitiesEnabled(semantic_views=True)  # type: ignore[arg-type]
+    assert entities_enabled.semantic_views == EmitDirective.YES
+    assert entities_enabled.can_emit_node_type("semantic_view") is True
+
+    # Test backward compatibility: False -> NO
+    entities_enabled = DBTEntitiesEnabled(semantic_views=False)  # type: ignore[arg-type]
+    assert entities_enabled.semantic_views == EmitDirective.NO
+    assert entities_enabled.can_emit_node_type("semantic_view") is False
+
 
 def _create_mock_node(table_name: str) -> mock.Mock:
     """Helper to create a mock DBTNode with a name attribute."""
