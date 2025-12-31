@@ -454,9 +454,9 @@ def test_search_all_assertions(auth_session, test_run_ingestion):
     wait_for_writes_to_sync()
 
     min_expected_results = 1
+    page_size = 10
 
-    json = {
-        "query": """query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {\n
+    graphql_query = """query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {\n
             searchAcrossEntities(input: $input) {\n
                 start\n
                 count\n
@@ -491,41 +491,80 @@ def test_search_all_assertions(auth_session, test_run_ingestion):
                     }\n
                 }\n
             }\n
-        }""",
-        "variables": {
-            "input": {"types": ["ASSERTION"], "query": "*", "start": 0, "count": 10}
-        },
-    }
+        }"""
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    # Paginate through ALL search results to find the target assertion
+    # This handles concurrent tests that may create many assertions
+    test_assertion = None
+    all_urns_seen = []
+    start = 0
+    total_assertions = None
 
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["searchAcrossEntities"]
-    assert res_data["data"]["searchAcrossEntities"]["total"] >= min_expected_results
-    assert (
-        len(res_data["data"]["searchAcrossEntities"]["searchResults"])
-        >= min_expected_results
-    )
+    while test_assertion is None:
+        json = {
+            "query": graphql_query,
+            "variables": {
+                "input": {
+                    "types": ["ASSERTION"],
+                    "query": "*",
+                    "start": start,
+                    "count": page_size,
+                }
+            },
+        }
 
-    # Filter search results to find the test assertion by URN
-    search_results = res_data["data"]["searchAcrossEntities"]["searchResults"]
-    test_assertions = [
-        r["entity"] for r in search_results if r["entity"]["urn"] == TEST_ASSERTION_URN
-    ]
+        response = auth_session.post(
+            f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+        )
+        response.raise_for_status()
+        res_data = response.json()
 
-    # Verify the assertion was found in results
-    assert test_assertions, (
-        f"Expected to find assertion {TEST_ASSERTION_URN} in search results. "
-        f"Found URNs: {[r['entity']['urn'] for r in search_results]}"
+        assert res_data
+        assert res_data["data"]
+        assert res_data["data"]["searchAcrossEntities"]
+
+        search_data = res_data["data"]["searchAcrossEntities"]
+        total_assertions = search_data["total"]
+        search_results = search_data["searchResults"]
+
+        # First page: verify minimum results exist
+        if start == 0:
+            assert total_assertions >= min_expected_results
+            assert len(search_results) >= min_expected_results
+
+        # Collect all URNs for debugging
+        page_urns = [r["entity"]["urn"] for r in search_results]
+        all_urns_seen.extend(page_urns)
+
+        # Search this page for the target assertion
+        matching_assertions = [
+            r["entity"]
+            for r in search_results
+            if r["entity"]["urn"] == TEST_ASSERTION_URN
+        ]
+
+        if matching_assertions:
+            test_assertion = matching_assertions[0]
+            break
+
+        # Check if we've exhausted all results
+        if start + page_size >= total_assertions:
+            # We've searched all pages and didn't find the assertion
+            break
+
+        # Move to next page
+        start += page_size
+
+    # Verify the assertion was found across all pages
+    assert test_assertion is not None, (
+        f"Expected to find assertion {TEST_ASSERTION_URN} in search results across all pages. "
+        f"Searched {len(all_urns_seen)} assertions across {(start // page_size) + 1} page(s). "
+        f"Total assertions in system: {total_assertions}. "
+        f"All URNs seen: {all_urns_seen}"
     )
 
     # Verify the assertion structure matches expectations
-    assert test_assertions[0] == {
+    assert test_assertion == {
         "urn": TEST_ASSERTION_URN,
         "type": "ASSERTION",
         "info": {
