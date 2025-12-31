@@ -147,7 +147,12 @@ _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 # Extracts the TABLES(...) section containing table references and aliases
 # Example: TABLES(orders AS db.schema.orders, customers AS db.schema.customers)
 # Captures: entire content inside TABLES(...)
-_SV_TABLES_SECTION_RE = re.compile(r"TABLES\s*\((.*?)\)", re.IGNORECASE | re.DOTALL)
+# Note: Uses greedy match .*) with lookahead to handle nested parens like PRIMARY KEY(...)
+# The section ends at ) followed by whitespace and next keyword (RELATIONSHIPS, DIMENSIONS, etc.)
+_SV_TABLES_SECTION_RE = re.compile(
+    r"TABLES\s*\((.*)\)(?=\s*(?:RELATIONSHIPS|DIMENSIONS|METRICS|FACTS|COMMENT|$))",
+    re.IGNORECASE | re.DOTALL,
+)
 
 # Extracts alias-to-table mappings from TABLES section
 # Example: "orders AS db.schema.orders" -> captures ("orders", "orders")
