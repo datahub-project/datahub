@@ -136,69 +136,48 @@ _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 
 # =============================================================================
-# Pre-compiled regex patterns for semantic view CLL (Column-Level Lineage) parsing
+# Regex patterns for Snowflake semantic view CLL (Column-Level Lineage) parsing
 # =============================================================================
-# These patterns parse Snowflake semantic view DDL syntax to extract lineage.
-# Semantic views use a declarative DDL format (not standard SQL), e.g.:
-#   CREATE SEMANTIC VIEW sv TABLES(...) DIMENSIONS(...) METRICS(...) FACTS(...)
-#
-# Pattern naming convention: _SV_ prefix = Semantic View
+# Parses Snowflake semantic view DDL to extract column lineage from DIMENSIONS,
+# FACTS, and METRICS sections. Pattern naming: _SV_ prefix = Semantic View
 
-# Extracts the TABLES(...) section containing table references and aliases
-# Example: TABLES(orders AS db.schema.orders, customers AS db.schema.customers)
-# Captures: entire content inside TABLES(...)
-# Note: Uses greedy match .*) with lookahead to handle nested parens like PRIMARY KEY(...)
-# The section ends at ) followed by whitespace and next keyword (RELATIONSHIPS, DIMENSIONS, etc.)
+# Common building blocks for identifier matching
+_SV_IDENTIFIER = r"(\w+|\"[^\"]+\")"  # Matches: word OR "quoted identifier"
+_SV_COL_END = r"(?=\s*(?:,|\)|COMMENT|--|$|\n))"  # Lookahead for column end
+
+# TABLES section: greedy match with lookahead handles nested parens like PRIMARY KEY(...)
 _SV_TABLES_SECTION_RE = re.compile(
     r"TABLES\s*\((.*)\)(?=\s*(?:RELATIONSHIPS|DIMENSIONS|METRICS|FACTS|COMMENT|$))",
     re.IGNORECASE | re.DOTALL,
 )
 
-# Extracts alias-to-table mappings from TABLES section
-# Example: "orders AS db.schema.orders" -> captures ("orders", "orders")
-# Group 1: alias name (e.g., "orders")
-# Group 2: actual table name (e.g., "orders" from "db.schema.orders")
+# Alias mapping: "OrdersTable AS db.schema.orders" -> ("OrdersTable", "orders")
 _SV_ALIAS_RE = re.compile(r"(\w+)\s+as\s+[\w.]+\.(\w+)", re.IGNORECASE)
 
-# Extracts dimension/fact 1:1 column mappings
-# Example: "ORDERS.CUSTOMER_ID AS CUSTOMER_ID" or with quotes: '"ORDERS"."ID" AS "ID"'
-# Group 1: table reference (e.g., "ORDERS")
-# Group 2: source column (e.g., "CUSTOMER_ID")
-# Group 3: output column name (e.g., "CUSTOMER_ID")
-# Lookahead ensures we stop at: comma, closing paren, COMMENT keyword, SQL comment, end of line
+# Dimension/fact: "TABLE.COL AS OUTPUT_COL"
 _SV_DIMENSION_RE = re.compile(
-    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+(\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|--|$|\n))",
+    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}\s+AS\s+{_SV_IDENTIFIER}{_SV_COL_END}",
     re.IGNORECASE,
 )
 
-# Supported aggregation functions in semantic view metrics
+# Aggregation functions supported in metrics
 _SV_AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
 
-# Extracts metric definitions with aggregation functions
-# Example: "ORDERS.REVENUE AS SUM(ORDER_TOTAL)"
-# Group 1: table reference (e.g., "ORDERS")
-# Group 2: output metric name (e.g., "REVENUE")
-# Group 3: source column inside aggregation (e.g., "ORDER_TOTAL")
+# Metric: "TABLE.METRIC AS SUM(SOURCE_COL)"
 _SV_METRIC_RE = re.compile(
-    rf"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+{_SV_AGGREGATIONS}\s*\(\s*(\w+|\"[^\"]+\")\s*\)",
+    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}\s+AS\s+{_SV_AGGREGATIONS}\s*\(\s*{_SV_IDENTIFIER}\s*\)",
     re.IGNORECASE,
 )
 
-# Extracts derived metrics (computed from other metrics)
-# Example: "TOTAL_REVENUE AS ORDERS.GROSS_REVENUE + ORDERS.NET_REVENUE"
-# Group 1: output metric name (e.g., "TOTAL_REVENUE")
-# Group 2: expression containing table.metric references (e.g., "ORDERS.GROSS_REVENUE + ORDERS.NET_REVENUE")
+# Derived metric: "OUTPUT AS TABLE.METRIC + TABLE.METRIC"
 _SV_DERIVED_METRIC_RE = re.compile(
-    r"(\w+|\"[^\"]+\")\s+AS\s+((?:(?:\w+|\"[^\"]+\")\.(?:\w+|\"[^\"]+\")(?:\s*[+\-*/]\s*)?)+)",
+    rf"{_SV_IDENTIFIER}\s+AS\s+((?:{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}(?:\s*[+\-*/]\s*)?)+)",
     re.IGNORECASE,
 )
 
-# Extracts table.column references from derived metric expressions
-# Used to find source metrics in expressions like "ORDERS.REVENUE + ORDERS.COST"
-# Group 1: table reference (e.g., "ORDERS")
-# Group 2: metric/column name (e.g., "REVENUE")
+# Table.column reference extractor for derived metric expressions
 _SV_TABLE_METRIC_REF_RE = re.compile(
-    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")", re.IGNORECASE
+    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}", re.IGNORECASE
 )
 
 
@@ -2355,7 +2334,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
-            # Semantic views use dbt-to-dbt lineage with dbt column references
+            # Semantic views use dbt→dbt lineage (not dbt→warehouse) because:
+            # 1. CLL references dbt source columns, not warehouse columns
+            # 2. Semantic views are a logical layer on top of dbt sources
             if node.node_type == "semantic_view":
                 upstream_urns = [
                     all_nodes_map[upstream_node].get_urn(
