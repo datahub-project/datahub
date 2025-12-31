@@ -665,15 +665,33 @@ def _build_table_mapping(
             table_name = upstream_node.name.upper()
             table_to_dbt_name[table_name] = upstream_dbt_name
 
+    logger.debug(
+        f"[TABLE_MAPPING] Initial mapping from upstream_nodes: {list(table_to_dbt_name.keys())}"
+    )
+
     # Parse TABLES section to extract alias mappings
     tables_section = _SV_TABLES_SECTION_RE.search(compiled_sql)
     if tables_section:
-        alias_matches = _SV_ALIAS_RE.findall(tables_section.group(1))
+        tables_content = tables_section.group(1)
+        logger.debug(
+            f"[TABLE_MAPPING] TABLES section found ({len(tables_content)} chars)"
+        )
+        alias_matches = _SV_ALIAS_RE.findall(tables_content)
+        logger.debug(f"[TABLE_MAPPING] Alias matches: {alias_matches}")
         for alias, table_name in alias_matches:
             alias_upper = alias.upper()
             table_upper = table_name.upper()
             if table_upper in table_to_dbt_name:
                 table_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
+                logger.debug(
+                    f"[TABLE_MAPPING] Added alias: {alias_upper} -> {table_upper}"
+                )
+            else:
+                logger.debug(
+                    f"[TABLE_MAPPING] Alias table not in mapping: {alias_upper} -> {table_upper}"
+                )
+    else:
+        logger.debug("[TABLE_MAPPING] No TABLES section found")
 
     return table_to_dbt_name
 
