@@ -36,7 +36,6 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
-    convert_semantic_view_fields_to_columns,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -167,112 +166,6 @@ def get_columns(
         )
         columns.append(dbtCol)
     return columns
-
-
-def extract_semantic_views(
-    semantic_models_manifest: Dict[str, Dict[str, Any]],
-    all_manifest_entities: Dict[str, Dict[str, Any]],
-    manifest_adapter: str,
-    tag_prefix: str,
-    report: DBTSourceReport,
-) -> List[DBTNode]:
-    """
-    Extract semantic views from the manifest and convert them to DBTNode objects.
-    Semantic views are treated as a node_type='semantic_view'.
-    """
-    semantic_view_nodes = []
-
-    for key, semantic_view in semantic_models_manifest.items():
-        name = semantic_view.get("name", "")
-        description = semantic_view.get("description", "")
-
-        entities = semantic_view.get("entities", [])
-        dimensions = semantic_view.get("dimensions", [])
-        measures = semantic_view.get("measures", [])
-
-        meta = semantic_view.get("meta", {})
-
-        tags = semantic_view.get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
-
-        upstream_nodes = []
-        if "depends_on" in semantic_view and "nodes" in semantic_view["depends_on"]:
-            upstream_nodes = semantic_view["depends_on"]["nodes"]
-
-        dbt_file_path = semantic_view.get("original_file_path")
-        dbt_package_name = semantic_view.get("package_name")
-
-        # Extract database and schema from the referenced model
-        # This is needed to create sibling relationships to the target platform
-        database = None
-        schema = None
-        model_ref = semantic_view.get("model")
-        if model_ref and upstream_nodes:
-            # Try to get database/schema from the first upstream node (the model)
-            for upstream_node in upstream_nodes:
-                if upstream_node in all_manifest_entities:
-                    upstream_entity = all_manifest_entities[upstream_node]
-                    database = upstream_entity.get("database")
-                    schema = upstream_entity.get("schema")
-                    if database and schema:
-                        break
-
-            if not database or not schema:
-                report.warning(
-                    title="Semantic View Missing Database/Schema",
-                    message="Could not resolve database.schema - sibling relationships may not work. Ensure the referenced model exists in the manifest.",
-                    context=f"semantic_model.{name}",
-                )
-
-        # Convert semantic view fields to columns
-        columns = convert_semantic_view_fields_to_columns(
-            entities, dimensions, measures, tag_prefix
-        )
-
-        # Semantic views don't appear in catalog (like tests and ephemeral models)
-        node = DBTNode(
-            database=database,
-            schema=schema,
-            name=name,
-            alias=None,
-            comment="",
-            description=description,
-            language=None,
-            raw_code=None,
-            dbt_adapter=manifest_adapter,
-            dbt_name=key,
-            dbt_file_path=dbt_file_path,
-            dbt_package_name=dbt_package_name,
-            node_type="semantic_view",
-            max_loaded_at=None,
-            materialization=None,
-            catalog_type=None,
-            missing_from_catalog=False,
-            owner=meta.get("owner"),
-            entities=entities,
-            dimensions=dimensions,
-            measures=measures,
-            columns=columns,
-            upstream_nodes=upstream_nodes,
-            meta=meta,
-            tags=tags,
-            query_tag={},
-            compiled_code=None,
-            test_info=None,
-        )
-
-        semantic_view_nodes.append(node)
-
-    if semantic_view_nodes:
-        total_fields = sum(
-            len(n.entities) + len(n.dimensions) + len(n.measures)
-            for n in semantic_view_nodes
-        )
-        logger.info(
-            f"Extracted {len(semantic_view_nodes)} semantic view(s) from manifest with {total_fields} total field(s)"
-        )
-
-    return semantic_view_nodes
 
 
 def extract_dbt_entities(
@@ -705,21 +598,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             include_database_name=self.config.include_database_name,
             report=self.report,
         )
-
-        # Add semantic views as nodes if enabled
-        if (
-            self.config.entities_enabled.semantic_views
-            and "semantic_models" in dbt_manifest_json
-        ):
-            semantic_models_manifest = dbt_manifest_json["semantic_models"]
-            semantic_view_nodes = extract_semantic_views(
-                semantic_models_manifest=semantic_models_manifest,
-                all_manifest_entities=all_manifest_entities,
-                manifest_adapter=manifest_adapter,
-                tag_prefix=self.config.tag_prefix,
-                report=self.report,
-            )
-            nodes.extend(semantic_view_nodes)
 
         return (
             nodes,

@@ -357,43 +357,40 @@ source:
 
 [Experimental] It's also possible to use `skip_sources_in_lineage: true` without disabling sources entirely. If you do this, sources will not participate in the lineage graph - they'll have upstreams but no downstreams. However, they will still contribute to docs, tags, etc to the warehouse entity.
 
-### Semantic Views (dbt 1.8+)
+### Semantic Views
 
-DataHub supports ingesting [dbt semantic models](https://docs.getdbt.com/docs/build/semantic-models) as first-class entities. Semantic models define the logical structure for metrics and dimensions in the dbt Semantic Layer (introduced in dbt 1.6, GA in 1.8).
+DataHub can ingest dbt models that have been materialized as `semantic_view` objects, a pattern used to define a semantic layer directly in warehouses like Snowflake.
 
-#### What are Semantic Views?
+#### What are Materialized Semantic Views?
 
-Semantic views in DataHub represent dbt semantic models - they define entities, dimensions, and measures that can be used to query metrics. When you define a semantic model in dbt:
+A materialized semantic view is a dbt model (a `.sql` file) that uses the `materialized='semantic_view'` configuration. This creates a `SEMANTIC VIEW` object in Snowflake, containing a rich set of metadata including dimensions and metrics.
 
-```yaml
-# models/schema.yml
-semantic_models:
-  - name: orders
-    model: ref('stg_orders')
-    entities:
-      - name: order_id
-        type: primary
-    dimensions:
-      - name: order_date
-        type: time
-      - name: status
-        type: categorical
-    measures:
-      - name: total_revenue
-        agg: sum
-        expr: amount
+When you define a dbt model as a semantic view:
+```sql
+-- models/sales_analytics.sql
+{{ config(
+    materialized='semantic_view'
+) }}
+
+TABLES (
+    OrdersTable AS {{ source('coffee_shop_source', 'ORDERS') }}
+)
+DIMENSIONS (
+    OrdersTable.CUSTOMER_ID AS CUSTOMER_ID
+)
+METRICS (
+    OrdersTable.GROSS_REVENUE AS SUM(ORDER_TOTAL)
+)
 ```
 
 DataHub will:
-1. Create a dataset with subtype `Semantic View`
-2. Extract entities, dimensions, and measures as columns
-3. Auto-tag columns (e.g., `dbt:entity`, `dbt:dimension`, `dbt:measure`, `dbt:sum`)
-4. Create sibling relationships to the target platform (e.g., Snowflake)
-5. Extract column-level lineage from Snowflake semantic view DDL (when available)
+1. Create a dataset with the subtype `Semantic View`.
+2. Create sibling relationships to the underlying Snowflake `SEMANTIC VIEW` object.
+3. Extract column-level lineage from the semantic view's DDL.
 
 #### Configuration
 
-Semantic view ingestion is enabled by default. To control emission:
+Semantic view ingestion is enabled by default. To control emission, you can use the `entities_enabled` config:
 
 ```yaml
 source:
@@ -403,30 +400,21 @@ source:
     catalog_path: target/catalog.json
     target_platform: snowflake
     entities_enabled:
-      semantic_views: Yes  # Default. Use "No" to disable, "Only" to emit only semantic views
+      semantic_views: Yes  # Default. Use "No" to disable, or "Only" to emit only semantic views.
 ```
 
 #### How Semantic Views Appear in DataHub
 
-- **Subtype**: Datasets are tagged with subtype `Semantic View`
-- **Columns**: Entities, dimensions, and measures appear as columns with auto-generated tags:
-  - Entities: `dbt:entity`, `dbt:primary` (or `dbt:foreign`, `dbt:unique`, `dbt:natural`)
-  - Dimensions: `dbt:dimension`, `dbt:time` (or `dbt:categorical`)
-  - Measures: `dbt:measure`, `dbt:sum` (or `dbt:count`, `dbt:avg`, `dbt:min`, `dbt:max`)
-- **Descriptions**: Column descriptions include the field type and expression (if defined)
-- **Lineage**: Upstream lineage to the source dbt model, with column-level lineage when available
+- **Subtype**: Datasets are tagged with the subtype `Semantic View`.
+- **Lineage**: Upstream lineage to the source dbt model is created, with column-level lineage where available.
 
 #### Column-Level Lineage for Snowflake Semantic Views
 
-When using the `dbt_semantic_view` package to materialize semantic views in Snowflake, DataHub can extract column-level lineage from the compiled DDL. This requires:
+For dbt models materialized as semantic views in Snowflake, DataHub can extract column-level lineage from the compiled DDL. This requires:
 
-1. Using Snowflake as the target platform
-2. Having `compiled_code` available in the dbt manifest or dbt Cloud API
+1. Using Snowflake as the `target_platform`.
+2. Having the `compiled_code` for the model available in the dbt manifest or dbt Cloud API.
 
 :::note Limitations
-
-- **Data types**: Semantic view columns show as `unknown` data type since dbt doesn't expose type information for semantic model fields
-- **Column-level lineage**: Currently only supported for Snowflake semantic views. Other platforms will show table-level lineage only.
-- **dbt Cloud**: Some semantic view features may have limited support depending on the dbt Cloud API version
-
+- **Column-level lineage**: This feature is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
 :::

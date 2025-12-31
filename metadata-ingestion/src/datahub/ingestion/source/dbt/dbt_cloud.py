@@ -34,7 +34,6 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
-    convert_semantic_view_fields_to_columns,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -290,29 +289,6 @@ _DBT_FIELDS_BY_TYPE = {
     rawCode
     compiledSql
     compiledCode
-""",
-    "semanticModels": f"""
-    {_DBT_GRAPHQL_COMMON_FIELDS}
-    model
-    dependsOn
-    entities {{
-      name
-      type
-      description
-      expr
-    }}
-    dimensions {{
-      name
-      type
-      description
-      expr
-    }}
-    measures {{
-      name
-      aggr
-      description
-      expr
-    }}
 """,
     # Currently unsupported dbt node types:
     # - metrics
@@ -714,19 +690,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         return None, None
 
-    def _extract_semantic_model_fields(
-        self, node: Dict
-    ) -> Tuple[List[DBTColumn], List[Dict], List[Dict], List[Dict]]:
-        """Extract columns, entities, dimensions, and measures from a semantic model node."""
-        entities = node.get("entities", [])
-        dimensions = node.get("dimensions", [])
-        measures = node.get("measures", [])
-
-        columns = convert_semantic_view_fields_to_columns(
-            entities, dimensions, measures, self.config.tag_prefix
-        )
-        return columns, entities, dimensions, measures
-
     def _extract_test_info(
         self, node: Dict, name: str
     ) -> Tuple[Optional[DBTTest], Optional[DBTTestResult]]:
@@ -817,17 +780,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
-        # Handle columns and semantic model fields
         columns: List[DBTColumn] = []
-        entities: List[Dict] = []
-        dimensions: List[Dict] = []
-        measures: List[Dict] = []
-
-        if resource_type == "semantic_model":
-            columns, entities, dimensions, measures = (
-                self._extract_semantic_model_fields(node)
-            )
-        elif "columns" in node and node["columns"] is not None:
+        if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
                 sorted(
@@ -841,15 +795,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         if resource_type == "test":
             test_info, test_result = self._extract_test_info(node, name)
 
-        # Determine node_type: semantic_model or semantic_view materialization -> "semantic_view"
-        if resource_type == "semantic_model" or materialization == "semantic_view":
+        if materialization == "semantic_view":
             node_type = "semantic_view"
-            if materialization == "semantic_view" and not compiled_code:
-                self.report.warning(
-                    title="Semantic View Missing compiled_code",
-                    message="CLL extraction will be skipped - compiled_code not available from dbt Cloud API",
-                    context=key,
-                )
         else:
             node_type = resource_type
 
@@ -882,9 +829,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_info=test_info,
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
-            entities=entities,
-            dimensions=dimensions,
-            measures=measures,
         )
 
     def _parse_into_dbt_column(

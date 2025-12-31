@@ -11,10 +11,8 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Sequence,
     Set,
     Tuple,
-    TypedDict,
     Union,
 )
 
@@ -137,14 +135,6 @@ DBT_PLATFORM = "dbt"
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 
-# Semantic view constants
-# dbt semantic views (semantic_models) don't expose column data types in the manifest.
-# Unlike regular models/sources that have catalog metadata, semantic view fields
-# (entities, dimensions, measures) are defined in YAML without explicit SQL types.
-# We use "unknown" as a placeholder since the actual types depend on the underlying
-# model columns and any transformations applied via `expr`.
-SEMANTIC_VIEW_UNKNOWN_DATA_TYPE = "unknown"
-
 # =============================================================================
 # Pre-compiled regex patterns for semantic view CLL (Column-Level Lineage) parsing
 # =============================================================================
@@ -227,37 +217,6 @@ def _add_cll_entry(
         )
 
 
-# Semantic view field structures
-class SemanticViewEntity(TypedDict, total=False):
-    """Structure for semantic view entity fields."""
-
-    name: str
-    type: str  # primary, foreign, unique, natural
-    description: str
-    expr: Optional[str]
-
-
-class SemanticViewDimension(TypedDict, total=False):
-    """Structure for semantic view dimension fields."""
-
-    name: str
-    type: str  # categorical, time
-    description: str
-    expr: Optional[str]
-
-
-class SemanticViewMeasure(TypedDict, total=False):
-    """Structure for semantic view measure fields."""
-
-    name: str
-    agg: Optional[str]  # sum, count, avg, min, max (dbt Core manifest.json)
-    aggr: Optional[
-        str
-    ]  # sum, count, avg, min, max (dbt Cloud GraphQL - different field name)
-    description: str
-    expr: Optional[str]
-
-
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_parser_skipped_missing_code: LossyList[str] = field(default_factory=LossyList)
@@ -321,11 +280,8 @@ class DBTEntitiesEnabled(ConfigModel):
     semantic_views: EmitDirective = Field(
         EmitDirective.YES,
         description=(
-            "Emit metadata for dbt semantic views (semantic_models in manifest.json). "
-            "Semantic views define metrics, dimensions, and entities for business analytics. "
-            "They appear in DataHub as datasets with SEMANTIC_VIEW subtype and include tagged columns "
-            "for entities, dimensions, and measures. Set to YES to include them, NO to exclude, "
-            "or ONLY to emit only semantic views."
+            "Emit metadata for dbt models materialized as 'semantic_view'. "
+            "This is used to create semantic layer objects in warehouses like Snowflake."
         ),
     )
     test_definitions: EmitDirective = Field(
@@ -669,107 +625,6 @@ class DBTColumnLineageInfo:
 
     upstream_col: str
     downstream_col: str
-
-
-def convert_semantic_view_fields_to_columns(
-    entities: Sequence[Union[SemanticViewEntity, Dict[str, Any]]],
-    dimensions: Sequence[Union[SemanticViewDimension, Dict[str, Any]]],
-    measures: Sequence[Union[SemanticViewMeasure, Dict[str, Any]]],
-    tag_prefix: str,
-) -> List[DBTColumn]:
-    """
-    Convert semantic view entities, dimensions, and measures into DBTColumn objects.
-
-    Handles both dbt Core (uses 'agg') and dbt Cloud (uses 'aggr') field naming.
-    The inconsistency exists because:
-    - dbt Core manifest.json uses 'agg' (abbreviation of 'aggregation')
-    - dbt Cloud GraphQL API uses 'aggr' (different abbreviation)
-    """
-
-    def build_description(
-        base_desc: str, type_label: str, type_value: str, expr: Optional[str]
-    ) -> str:
-        """Build description with type annotation and expression."""
-        full_desc = base_desc
-        if type_value:
-            full_desc = f"[{type_label}: {type_value}] {full_desc}"
-        if expr:
-            full_desc = f"{full_desc}\nExpression: {expr}"
-        return full_desc.strip()
-
-    columns = []
-
-    # Process entities (join keys)
-    for idx, entity in enumerate(entities):
-        entity_name = entity.get("name", "")
-        entity_type = entity.get("type", "")  # primary, foreign, natural, unique
-        entity_desc = entity.get("description", "")
-        entity_expr = entity.get("expr")
-
-        column = DBTColumn(
-            name=entity_name,
-            comment="",
-            description=build_description(
-                entity_desc, "Entity", entity_type, entity_expr
-            ),
-            index=idx,
-            data_type=SEMANTIC_VIEW_UNKNOWN_DATA_TYPE,
-            meta={},
-            tags=[f"{tag_prefix}entity", f"{tag_prefix}{entity_type}"]
-            if entity_type
-            else [f"{tag_prefix}entity"],
-        )
-        columns.append(column)
-
-    # Process dimensions
-    offset = len(entities)
-    for idx, dimension in enumerate(dimensions):
-        dim_name = dimension.get("name", "")
-        dim_type = dimension.get("type", "")  # categorical, time
-        dim_desc = dimension.get("description", "")
-        dim_expr = dimension.get("expr")
-
-        column = DBTColumn(
-            name=dim_name,
-            comment="",
-            description=build_description(dim_desc, "Dimension", dim_type, dim_expr),
-            index=offset + idx,
-            data_type=SEMANTIC_VIEW_UNKNOWN_DATA_TYPE,
-            meta={},
-            tags=[f"{tag_prefix}dimension", f"{tag_prefix}{dim_type}"]
-            if dim_type
-            else [f"{tag_prefix}dimension"],
-        )
-        columns.append(column)
-
-    # Process measures
-    offset = len(entities) + len(dimensions)
-    for idx, measure in enumerate(measures):
-        measure_name = measure.get("name", "")
-        # Handle both "agg" (dbt Core manifest.json) and "aggr" (dbt Cloud GraphQL API)
-        # dbt uses different field names in different interfaces - we support both
-        measure_agg = measure.get("agg") or measure.get(
-            "aggr", ""
-        )  # sum, count, avg, min, max
-        measure_desc = measure.get("description", "")
-        measure_expr = measure.get("expr")
-
-        column = DBTColumn(
-            name=measure_name,
-            comment="",
-            description=build_description(
-                measure_desc, "Measure", measure_agg or "", measure_expr
-            ),
-            index=offset + idx,
-            data_type=SEMANTIC_VIEW_UNKNOWN_DATA_TYPE,
-            meta={},
-            tags=[f"{tag_prefix}measure", f"{tag_prefix}{measure_agg}"]
-            if measure_agg
-            else [f"{tag_prefix}measure"],
-        )
-        columns.append(column)
-
-    return columns
 
 
 def parse_semantic_view_cll(
