@@ -165,9 +165,9 @@ _SV_ALIAS_RE = re.compile(r"(\w+)\s+as\s+[\w.]+\.(\w+)", re.IGNORECASE)
 # Group 1: table reference (e.g., "ORDERS")
 # Group 2: source column (e.g., "CUSTOMER_ID")
 # Group 3: output column name (e.g., "CUSTOMER_ID")
-# Lookahead ensures we stop at: comma, closing paren, COMMENT keyword, end of line
+# Lookahead ensures we stop at: comma, closing paren, COMMENT keyword, SQL comment, end of line
 _SV_DIMENSION_RE = re.compile(
-    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+(\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|$|\n))",
+    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+(\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|--|$|\n))",
     re.IGNORECASE,
 )
 
