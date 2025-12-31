@@ -1789,11 +1789,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             if upstream_lineage_class:
                 aspects.append(upstream_lineage_class)
-            elif node.node_type == "semantic_view":
-                logger.warning(
-                    f"UpstreamLineageClass is None for semantic view {node.dbt_name} - "
-                    f"lineage will not be emitted"
-                )
 
             # View properties.
             view_prop_aspect = self._create_view_properties_aspect(node)
@@ -1989,12 +1984,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.platform_instance,
                 )
 
-                column_count = len(node.columns) if node.columns else 0
-                logger.debug(
-                    f"Processing target platform lineage for {node.dbt_name}: "
-                    f"type={node.node_type}, columns={column_count}, materialization={node.materialization}"
-                )
-
                 upstreams_lineage_class = make_mapping_upstream_lineage(
                     upstream_urn=upstream_dbt_urn,
                     downstream_urn=node_datahub_urn,
@@ -2002,17 +1991,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
                     skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
-
-                # Log if CLL was created
-                cll_count = len(upstreams_lineage_class.fineGrainedLineages or [])
-                if cll_count > 0:
-                    logger.info(
-                        f"Created {cll_count} column-level lineage entries for {node.dbt_name} → {mce_platform}"
-                    )
-                else:
-                    logger.warning(
-                        f"No column-level lineage created for {node.dbt_name} (has {column_count} columns)"
-                    )
 
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
@@ -2379,18 +2357,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         else:
             # Semantic views use dbt-to-dbt lineage with dbt column references
             if node.node_type == "semantic_view":
-                missing_upstreams = [
-                    upstream_node
-                    for upstream_node in node.upstream_nodes
-                    if upstream_node not in all_nodes_map
-                ]
-                if missing_upstreams:
-                    logger.warning(
-                        f"Semantic view {node.dbt_name}: {len(missing_upstreams)} upstream nodes "
-                        f"not found in all_nodes_map (may be semantic_models which are no longer ingested): "
-                        f"{missing_upstreams}"
-                    )
-
                 upstream_urns = [
                     all_nodes_map[upstream_node].get_urn(
                         target_platform=DBT_PLATFORM,
@@ -2400,10 +2366,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     for upstream_node in node.upstream_nodes
                     if upstream_node in all_nodes_map
                 ]
-                logger.debug(
-                    f"Semantic view {node.dbt_name}: Created {len(upstream_urns)} dbt → dbt upstream URNs "
-                    f"from {len(node.upstream_nodes)} upstream_nodes"
-                )
             else:
                 # For regular models, use the default behavior (dbt → Snowflake)
                 upstream_urns = get_upstreams(
