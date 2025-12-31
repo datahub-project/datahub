@@ -366,6 +366,7 @@ DataHub can ingest dbt models that have been materialized as `semantic_view` obj
 A materialized semantic view is a dbt model (a `.sql` file) that uses the `materialized='semantic_view'` configuration. This creates a `SEMANTIC VIEW` object in Snowflake, containing a rich set of metadata including dimensions and metrics.
 
 When you define a dbt model as a semantic view:
+
 ```sql
 -- models/sales_analytics.sql
 {{ config(
@@ -384,13 +385,14 @@ METRICS (
 ```
 
 DataHub will:
+
 1. Create a dataset with the subtype `Semantic View`.
 2. Create sibling relationships to the underlying Snowflake `SEMANTIC VIEW` object.
 3. Extract column-level lineage from the semantic view's DDL.
 
 #### Configuration
 
-Semantic view ingestion is enabled by default. To control emission, you can use the `entities_enabled` config:
+Semantic view ingestion is disabled by default (matching Snowflake's default behavior). To enable it, use the `entities_enabled` config:
 
 ```yaml
 source:
@@ -400,7 +402,7 @@ source:
     catalog_path: target/catalog.json
     target_platform: snowflake
     entities_enabled:
-      semantic_views: Yes  # Default. Use "No" to disable, or "Only" to emit only semantic views.
+      semantic_views: Yes # Enable semantic view ingestion. Use "Only" to emit only semantic views.
 ```
 
 #### How Semantic Views Appear in DataHub
@@ -416,5 +418,6 @@ For dbt models materialized as semantic views in Snowflake, DataHub can extract 
 2. Having the `compiled_code` for the model available in the dbt manifest or dbt Cloud API.
 
 :::note Limitations
+
 - **Column-level lineage**: This feature is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
-:::
+  :::

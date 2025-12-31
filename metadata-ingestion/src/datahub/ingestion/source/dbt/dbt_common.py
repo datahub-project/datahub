@@ -278,10 +278,11 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit metadata for dbt snapshots when set to Yes or Only",
     )
     semantic_views: EmitDirective = Field(
-        EmitDirective.YES,
+        EmitDirective.NO,
         description=(
             "Emit metadata for dbt models materialized as 'semantic_view'. "
-            "This is used to create semantic layer objects in warehouses like Snowflake."
+            "This is used to create semantic layer objects in warehouses like Snowflake. "
+            "Disabled by default as Snowflake semantic views are also disabled by default."
         ),
     )
     test_definitions: EmitDirective = Field(
