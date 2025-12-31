@@ -258,13 +258,6 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.YES,
         description="Emit metadata for dbt snapshots when set to Yes or Only",
     )
-    semantic_views: EmitDirective = Field(
-        EmitDirective.NO,
-        description=(
-            "Emit metadata for dbt models materialized as 'semantic_view'. "
-            "This is used to create semantic layer objects in warehouses like Snowflake."
-        ),
-    )
     test_definitions: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit metadata for test definitions when enabled when set to Yes or Only",
@@ -317,7 +310,6 @@ class DBTEntitiesEnabled(ConfigModel):
             "seed": self.seeds,
             "snapshot": self.snapshots,
             "test": self.test_definitions,
-            "semantic_view": self.semantic_views,
         }
 
     def can_emit_node_type(self, node_type: str) -> bool:
@@ -766,7 +758,7 @@ class DBTNode:
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
 
-    node_type: str  # source, model, snapshot, seed, test, semantic_view, etc
+    node_type: str  # source, model, snapshot, seed, test (dbt's resource_type)
     max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
@@ -777,7 +769,7 @@ class DBTNode:
 
     owner: Optional[str]
 
-    # Semantic view specific fields (only populated when node_type == 'semantic_view')
+    # Semantic view specific fields (only populated when materialization == 'semantic_view')
     entities: List[Dict[str, Any]] = field(default_factory=list)
     dimensions: List[Dict[str, Any]] = field(default_factory=list)
     measures: List[Dict[str, Any]] = field(default_factory=list)
@@ -1531,10 +1523,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
             depends_on_ephemeral_models = False
-            if (
-                node.node_type == "semantic_view"
-                or node.materialization == "semantic_view"
-            ):
+            if node.materialization == "semantic_view":
                 # CLL parsing uses custom regex (only Snowflake semantic views supported)
                 if node.dbt_adapter != "snowflake":
                     logger.debug(
@@ -2291,7 +2280,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.node_type:
             return None
 
-        if node.node_type == "semantic_view":
+        if node.materialization == "semantic_view":
             subtypes: List[str] = [DatasetSubTypes.SEMANTIC_VIEW]
         else:
             subtypes = [node.node_type.capitalize()]

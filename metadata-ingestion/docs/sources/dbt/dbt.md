@@ -392,18 +392,7 @@ DataHub will:
 
 #### Configuration
 
-Semantic view ingestion is disabled by default. To enable it, use the `entities_enabled` config:
-
-```yaml
-source:
-  type: dbt
-  config:
-    manifest_path: target/manifest.json
-    catalog_path: target/catalog.json
-    target_platform: snowflake
-    entities_enabled:
-      semantic_views: Yes # Enable semantic view ingestion. Use "Only" to emit only semantic views.
-```
+Semantic views are dbt models with `materialized='semantic_view'`. They are emitted by default along with other models when `entities_enabled.models: Yes` (the default).
 
 #### How Semantic Views Appear in DataHub
 

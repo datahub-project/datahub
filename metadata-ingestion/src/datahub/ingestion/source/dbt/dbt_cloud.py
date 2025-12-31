@@ -795,11 +795,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         if resource_type == "test":
             test_info, test_result = self._extract_test_info(node, name)
 
-        if materialization == "semantic_view":
-            node_type = "semantic_view"
-        else:
-            node_type = resource_type
-
         return DBTNode(
             dbt_name=key,
             # TODO: Get the dbt adapter natively.
@@ -810,7 +805,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name=name,
             alias=node.get("alias"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
-            node_type=node_type,
+            node_type=resource_type,
             max_loaded_at=max_loaded_at,
             comment=comment,
             description=description,

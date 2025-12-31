@@ -308,11 +308,6 @@ def extract_dbt_entities(
             test_info=test_info,
         )
 
-        # Override node_type for models using semantic_view materialization
-        # (e.g., dbt_semantic_view package from Snowflake Labs)
-        if materialization == "semantic_view":
-            dbtNode.node_type = "semantic_view"
-
         # Load columns from catalog, and override some properties from manifest.
         if dbtNode.materialization not in [
             "ephemeral",

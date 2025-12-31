@@ -12,10 +12,8 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
-    DBTEntitiesEnabled,
     DBTNode,
     DBTSourceReport,
-    EmitDirective,
     NullTypeClass,
     get_column_type,
     parse_semantic_view_cll,
@@ -838,9 +836,9 @@ def test_dbt_semantic_view_subtype() -> None:
         alias="sales_analytics",
         dbt_name="my_project.sales_analytics",
         dbt_adapter="snowflake",
-        node_type="semantic_view",
+        node_type="model",  # dbt's resource_type for models
         max_loaded_at=None,
-        materialization=None,
+        materialization="semantic_view",  # Semantic views are models with this materialization
         comment="",
         description="Sales analytics semantic view",
         dbt_file_path=None,
@@ -863,39 +861,6 @@ def test_dbt_semantic_view_subtype() -> None:
     assert aspect is not None
     assert isinstance(aspect, SubTypesClass)
     assert DatasetSubTypes.SEMANTIC_VIEW in aspect.typeNames
-
-
-def test_dbt_entities_enabled_semantic_views() -> None:
-    """
-    Test that DBTEntitiesEnabled correctly handles semantic_views configuration.
-    """
-    # Test default (NO - disabled by default to match Snowflake)
-    entities_enabled = DBTEntitiesEnabled()
-    assert entities_enabled.semantic_views == EmitDirective.NO
-    assert entities_enabled.can_emit_node_type("semantic_view") is False
-
-    # Test YES (explicitly enabled)
-    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.YES)
-    assert entities_enabled.can_emit_node_type("semantic_view") is True
-
-    # Test NO
-    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.NO)
-    assert entities_enabled.can_emit_node_type("semantic_view") is False
-
-    # Test ONLY
-    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.ONLY)
-    assert entities_enabled.can_emit_node_type("semantic_view") is True
-    assert entities_enabled.can_emit_node_type("model") is False
-
-    # Test boolean shorthand: True -> YES
-    entities_enabled = DBTEntitiesEnabled(semantic_views=True)  # type: ignore[arg-type]
-    assert entities_enabled.semantic_views == EmitDirective.YES
-    assert entities_enabled.can_emit_node_type("semantic_view") is True
-
-    # Test boolean shorthand: False -> NO
-    entities_enabled = DBTEntitiesEnabled(semantic_views=False)  # type: ignore[arg-type]
-    assert entities_enabled.semantic_views == EmitDirective.NO
-    assert entities_enabled.can_emit_node_type("semantic_view") is False
 
 
 def _create_mock_node(table_name: str) -> mock.Mock:
