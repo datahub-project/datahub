@@ -302,8 +302,7 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.NO,
         description=(
             "Emit metadata for dbt models materialized as 'semantic_view'. "
-            "This is used to create semantic layer objects in warehouses like Snowflake. "
-            "Disabled by default as Snowflake semantic views are also disabled by default."
+            "This is used to create semantic layer objects in warehouses like Snowflake."
         ),
     )
     test_definitions: EmitDirective = Field(
@@ -1298,10 +1297,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # NOTE: This method mutates the DBTNode objects directly.
         self._infer_schemas_and_update_cll(all_nodes_map)
 
-        # CRITICAL: Reconstruct all_nodes from the map to ensure we use the mutated instances.
-        # If load_nodes() returned duplicate node names, only the last instance is in the map,
-        # and only that instance has CLL. By reconstructing from the map, we ensure all
-        # downstream processing uses the mutated nodes with CLL.
+        # Use map values to get nodes with CLL mutations applied
         all_nodes = list(all_nodes_map.values())
 
         nodes = self._filter_nodes(all_nodes)
@@ -2425,11 +2421,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
-            # For semantic views, we want dbt → dbt lineage (not dbt → Snowflake)
-            # because semantic views define logical relationships between dbt entities.
-            # The column-level lineage references dbt columns, not platform columns.
+            # Semantic views use dbt-to-dbt lineage with dbt column references
             if node.node_type == "semantic_view":
-                # Force upstream URNs to be dbt entities
                 missing_upstreams = [
                     upstream_node
                     for upstream_node in node.upstream_nodes

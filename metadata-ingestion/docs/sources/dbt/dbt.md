@@ -392,7 +392,7 @@ DataHub will:
 
 #### Configuration
 
-Semantic view ingestion is disabled by default (matching Snowflake's default behavior). To enable it, use the `entities_enabled` config:
+Semantic view ingestion is disabled by default. To enable it, use the `entities_enabled` config:
 
 ```yaml
 source:
