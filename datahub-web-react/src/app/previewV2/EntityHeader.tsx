@@ -96,15 +96,15 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
 
     return (
         <EntityTitleContainer>
-            <StyledLink to={`${url}/`} {...linkProps}>
+            <StyledLink to={`${url}/`} {...linkProps} onClick={() => onClick?.()}>
                 {previewType === PreviewType.HOVER_CARD ? (
                     <Tooltip title={name} zIndex={zIndices.tooltip}>
-                        <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                        <CardEntityTitle $titleSizePx={titleSizePx} data-testid="entity-title">
                             {name || urn}
                         </CardEntityTitle>
                     </Tooltip>
                 ) : (
-                    <EntityTitle title={name} onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                    <EntityTitle title={name} $titleSizePx={titleSizePx} data-testid="entity-title">
                         <SearchTextHighlighter field="name" text={name || urn} />
                     </EntityTitle>
                 )}

@@ -14,6 +14,7 @@ import com.linkedin.metadata.config.DebeziumConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.MCLProcessingConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -74,6 +75,7 @@ public class CDCSetupConfigTest {
 
     // Create real KafkaConfiguration
     kafkaConfig = new KafkaConfiguration();
+    kafkaConfig.setProducer(new ProducerConfiguration());
     kafkaConfig.setBootstrapServers("localhost:9092");
 
     // Create real KafkaProperties

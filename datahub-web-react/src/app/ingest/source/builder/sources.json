@@ -45,7 +45,7 @@
         "displayName": "Looker",
         "description": "Import Models, Explores, Views, Looks, Dashboards, and lineage from Looker.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/looker/overview#looker",
-        "recipe": "source:\n    type: looker\n    config:\n        # Coosrdinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:lookml",

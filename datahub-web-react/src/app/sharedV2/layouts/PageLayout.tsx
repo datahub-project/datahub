@@ -60,7 +60,7 @@ const BreadcrumbContainer = styled.div`
 interface Props {
     title?: string;
     titlePill?: React.ReactNode;
-    subTitle?: string;
+    subTitle?: string | React.ReactNode;
     leftPanelContent?: React.ReactNode;
     rightPanelContent?: React.ReactNode;
     bottomPanelContent?: React.ReactNode;

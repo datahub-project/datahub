@@ -136,7 +136,11 @@ dependencies {
   }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
-  
+
+  // AWS SDK for Bedrock (semantic search embeddings)
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:bedrockruntime'
+
   // Optional search client shim dependencies
   api externalDependency.elasticsearch8Client
   implementation externalDependency.awsRds
@@ -257,7 +261,7 @@ task testEs7CassandraNeo4j(type: Test) {
   }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-  
+
   group = 'verification'
   description = 'Runs only the testng-es7-cassandra-neo4j.xml test suite'
 }
@@ -276,7 +280,7 @@ task testOpenSearch(type: Test) {
   }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-  
+
   group = 'verification'
   description = 'Runs only the testng-opensearch.xml test suite'
 }
@@ -295,7 +299,7 @@ task testOther(type: Test) {
   }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-  
+
   group = 'verification'
   description = 'Runs only other test suite to debug the failing tests'
 }
@@ -327,4 +331,3 @@ clean {
   //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean
   delete "$projectDir/generated"
 }
-
