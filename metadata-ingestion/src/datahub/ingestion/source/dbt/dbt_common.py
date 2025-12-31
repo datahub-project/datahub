@@ -2331,47 +2331,24 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
-            # Semantic views use dbt→dbt lineage (not dbt→warehouse) because:
-            # 1. CLL references dbt source columns, not warehouse columns
-            # 2. Semantic views are a logical layer on top of dbt sources
-            if node.node_type == "semantic_view":
-                upstream_urns = [
-                    all_nodes_map[upstream_node].get_urn(
-                        target_platform=DBT_PLATFORM,
-                        env=self.config.env,
-                        data_platform_instance=self.config.platform_instance,
-                    )
-                    for upstream_node in node.upstream_nodes
-                    if upstream_node in all_nodes_map
-                ]
-            else:
-                # For regular models, use the default behavior (dbt → Snowflake)
-                upstream_urns = get_upstreams(
-                    node.upstream_nodes,
-                    all_nodes_map,
-                    self.config.target_platform,
-                    self.config.target_platform_instance,
-                    self.config.env,
-                    self.config.platform_instance,
-                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
-                )
+            upstream_urns = get_upstreams(
+                node.upstream_nodes,
+                all_nodes_map,
+                self.config.target_platform,
+                self.config.target_platform_instance,
+                self.config.env,
+                self.config.platform_instance,
+                skip_sources_in_lineage=self.config.skip_sources_in_lineage,
+            )
 
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
-                # For semantic views, use dbt URNs; for others, use the default behavior
-                if node.node_type == "semantic_view":
-                    return all_nodes_map[dbt_name].get_urn(
-                        target_platform=DBT_PLATFORM,
-                        env=self.config.env,
-                        data_platform_instance=self.config.platform_instance,
-                    )
-                else:
-                    return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
-                        dbt_platform_instance=self.config.platform_instance,
-                        target_platform=self.config.target_platform,
-                        target_platform_instance=self.config.target_platform_instance,
-                        env=self.config.env,
-                        skip_sources_in_lineage=self.config.skip_sources_in_lineage,
-                    )
+                return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
+                    dbt_platform_instance=self.config.platform_instance,
+                    target_platform=self.config.target_platform,
+                    target_platform_instance=self.config.target_platform_instance,
+                    env=self.config.env,
+                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
+                )
 
             if node.cll_debug_info and node.cll_debug_info.error:
                 self.report.report_warning(
