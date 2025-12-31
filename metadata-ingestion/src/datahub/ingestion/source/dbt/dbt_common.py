@@ -862,7 +862,7 @@ def parse_semantic_view_cll(
     if dim_section_match:
         dim_content = dim_section_match.group(1)
         logger.debug(
-            f"[CLL_PARSER] DIMENSIONS section ({len(dim_content)} chars): {dim_content[:500]}"
+            f"[CLL_PARSER] DIMENSIONS section ({len(dim_content)} chars): {repr(dim_content[:300])}"
         )
         # Test regex against the extracted section
         test_matches = list(_SV_DIMENSION_RE.finditer(dim_content))
@@ -886,7 +886,7 @@ def parse_semantic_view_cll(
     if facts_section_match:
         facts_content = facts_section_match.group(1)
         logger.debug(
-            f"[CLL_PARSER] FACTS section ({len(facts_content)} chars): {facts_content[:500]}"
+            f"[CLL_PARSER] FACTS section ({len(facts_content)} chars): {repr(facts_content[:300])}"
         )
         # Test regex against the extracted section
         facts_matches = list(_SV_DIMENSION_RE.finditer(facts_content))
