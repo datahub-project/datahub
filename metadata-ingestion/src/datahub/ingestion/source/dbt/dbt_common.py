@@ -755,9 +755,16 @@ def parse_semantic_view_cll(
     if not compiled_sql:
         return []
 
-    # Log first 500 chars of compiled_sql for debugging
+    # Log compiled_sql for debugging - show sections that should be parsed
+    logger.debug(f"[CLL_PARSER] Parsing semantic view DDL ({len(compiled_sql)} chars)")
+    # Log presence of key sections
+    has_dimensions = "DIMENSIONS" in compiled_sql.upper()
+    has_metrics = "METRICS" in compiled_sql.upper()
+    has_facts = "FACTS" in compiled_sql.upper()
+    has_as_keyword = " AS " in compiled_sql.upper()
     logger.debug(
-        f"[CLL_PARSER] Parsing semantic view DDL ({len(compiled_sql)} chars): {compiled_sql[:500]}..."
+        f"[CLL_PARSER] DDL sections: DIMENSIONS={has_dimensions}, METRICS={has_metrics}, "
+        f"FACTS={has_facts}, has_AS_keyword={has_as_keyword}"
     )
 
     cll_info: List[DBTColumnLineageInfo] = []
@@ -800,6 +807,12 @@ def parse_semantic_view_cll(
                 output_column,
             )
 
+    # Count raw regex matches for debugging
+    metric_match_count = len(list(_SV_METRIC_RE.finditer(compiled_sql)))
+    dim_match_count = len(list(_SV_DIMENSION_RE.finditer(compiled_sql)))
+    logger.debug(
+        f"[CLL_PARSER] Regex matches: METRIC_RE={metric_match_count}, DIMENSION_RE={dim_match_count}"
+    )
     logger.debug(
         f"[CLL_PARSER] After METRICS/DIMENSIONS parsing: {len(cll_info)} entries"
     )
