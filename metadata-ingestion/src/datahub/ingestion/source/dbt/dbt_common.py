@@ -778,6 +778,7 @@ def parse_semantic_view_cll(
         return []
 
     # Parse METRICS first (more specific pattern)
+    unmatched_metric_refs: set = set()
     for match in _SV_METRIC_RE.finditer(compiled_sql):
         table_ref = match.group(1).strip('"').upper()
         output_column = match.group(2).strip('"').lower()
@@ -791,8 +792,16 @@ def parse_semantic_view_cll(
                 source_column,
                 output_column,
             )
+        else:
+            unmatched_metric_refs.add(table_ref)
+
+    if unmatched_metric_refs:
+        logger.debug(
+            f"[CLL_PARSER] Unmatched table refs in METRIC_RE: {unmatched_metric_refs}"
+        )
 
     # Parse DIMENSIONS/FACTS (simpler 1:1 mapping with AS keyword)
+    unmatched_table_refs: set = set()
     for match in _SV_DIMENSION_RE.finditer(compiled_sql):
         table_ref = match.group(1).strip('"').upper()
         source_column = match.group(2).strip('"').lower()
@@ -806,6 +815,13 @@ def parse_semantic_view_cll(
                 source_column,
                 output_column,
             )
+        else:
+            unmatched_table_refs.add(table_ref)
+
+    if unmatched_table_refs:
+        logger.debug(
+            f"[CLL_PARSER] Unmatched table refs in DIMENSION_RE: {unmatched_table_refs}"
+        )
 
     # Count raw regex matches for debugging
     metric_match_count = len(list(_SV_METRIC_RE.finditer(compiled_sql)))
