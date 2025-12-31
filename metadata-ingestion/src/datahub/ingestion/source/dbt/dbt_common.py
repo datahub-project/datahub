@@ -685,11 +685,21 @@ def _parse_short_form_entries(
     seen_cll: Set[Tuple[str, str, str]],
 ) -> None:
     """Parse short form dimensions/metrics without AS keyword."""
+    logger.debug(
+        f"[SHORT_FORM] Searching for short form entries. table_to_dbt_name keys: {list(table_to_dbt_name.keys())}"
+    )
     for section_match in _SV_SHORT_FORM_SECTION_RE.finditer(compiled_sql):
+        keyword = section_match.group(1)
         section_content = section_match.group(2)
+        logger.debug(
+            f"[SHORT_FORM] Found section: {keyword} -> '{section_content.strip()}'"
+        )
         for entry_match in _SV_SHORT_FORM_ENTRY_RE.finditer(section_content):
             table_ref = entry_match.group(1).strip('"').upper()
             column_name = entry_match.group(2).strip('"').lower()
+            logger.debug(
+                f"[SHORT_FORM] Entry: {table_ref}.{column_name}, in_mapping={table_ref in table_to_dbt_name}"
+            )
 
             if table_ref in table_to_dbt_name:
                 _add_cll_entry(
@@ -745,12 +755,18 @@ def parse_semantic_view_cll(
     if not compiled_sql:
         return []
 
+    # Log first 500 chars of compiled_sql for debugging
+    logger.debug(
+        f"[CLL_PARSER] Parsing semantic view DDL ({len(compiled_sql)} chars): {compiled_sql[:500]}..."
+    )
+
     cll_info: List[DBTColumnLineageInfo] = []
     seen_cll: Set[Tuple[str, str, str]] = set()
 
     table_to_dbt_name = _build_table_mapping(
         compiled_sql, upstream_nodes, all_nodes_map
     )
+    logger.debug(f"[CLL_PARSER] Table mapping: {table_to_dbt_name}")
     if not table_to_dbt_name:
         return []
 
@@ -784,8 +800,17 @@ def parse_semantic_view_cll(
                 output_column,
             )
 
+    logger.debug(
+        f"[CLL_PARSER] After METRICS/DIMENSIONS parsing: {len(cll_info)} entries"
+    )
+
     _parse_short_form_entries(compiled_sql, table_to_dbt_name, cll_info, seen_cll)
+    logger.debug(f"[CLL_PARSER] After short form parsing: {len(cll_info)} entries")
+
     _parse_derived_metrics(compiled_sql, cll_info, seen_cll)
+    logger.debug(
+        f"[CLL_PARSER] Final: {len(cll_info)} entries: {[(c.upstream_col, c.downstream_col) for c in cll_info]}"
+    )
 
     return cll_info
 
