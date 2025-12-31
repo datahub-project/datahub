@@ -852,6 +852,30 @@ def parse_semantic_view_cll(
     logger.debug(
         f"[CLL_PARSER] Regex matches: METRIC_RE={metric_match_count}, DIMENSION_RE={dim_match_count}"
     )
+
+    # Debug: show DIMENSIONS section sample
+    dim_section_match = re.search(
+        r"DIMENSIONS\s*\((.*?)\)\s*(?:METRICS|FACTS|COMMENT|$)",
+        compiled_sql,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if dim_section_match:
+        dim_content = dim_section_match.group(1)
+        logger.debug(
+            f"[CLL_PARSER] DIMENSIONS section ({len(dim_content)} chars): {dim_content[:500]}"
+        )
+        # Test regex against the extracted section
+        test_matches = list(_SV_DIMENSION_RE.finditer(dim_content))
+        logger.debug(
+            f"[CLL_PARSER] DIMENSION_RE on section only: {len(test_matches)} matches"
+        )
+        if test_matches:
+            m = test_matches[0]
+            logger.debug(
+                f"[CLL_PARSER] First match: table={m.group(1)}, col={m.group(2)}, out={m.group(3)}"
+            )
+    else:
+        logger.debug("[CLL_PARSER] No DIMENSIONS section found by section regex")
     logger.debug(
         f"[CLL_PARSER] After METRICS/DIMENSIONS parsing: {len(cll_info)} entries"
     )
