@@ -283,7 +283,7 @@ class DBTEntitiesEnabled(ConfigModel):
     @field_validator("*", mode="before")
     @classmethod
     def convert_bool_to_emit_directive(cls, v: Any) -> Any:
-        """Convert boolean values to EmitDirective for backward compatibility."""
+        """Allow boolean values as shorthand for EmitDirective.YES/NO."""
         if isinstance(v, bool):
             return EmitDirective.YES if v else EmitDirective.NO
         return v
