@@ -150,8 +150,10 @@ export function IngestionSourceUpdatePage() {
             sourceType: ingestionSourceData?.ingestionSource?.type,
             exitType: 'cancel',
         });
-        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION);
-    }, [history, ingestionSourceData?.ingestionSource?.type, ingestionSourcesListBackUrl]);
+        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
+            createdOrUpdatedSourceUrn: urn,
+        });
+    }, [history, ingestionSourceData?.ingestionSource?.type, ingestionSourcesListBackUrl, urn]);
 
     const isDirtyChecker = useCallback(
         (

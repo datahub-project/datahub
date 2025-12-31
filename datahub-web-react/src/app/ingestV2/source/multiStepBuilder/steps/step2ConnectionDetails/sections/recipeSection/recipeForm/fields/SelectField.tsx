@@ -9,11 +9,17 @@ export function SelectField({ field, updateFormValue }: CommonFieldProps) {
     const form = Form.useFormInstance();
     const value = Form.useWatch([field.name], form);
 
+    const handleUpdate = (values?: string[]) => {
+        const selectedValue = values?.[0];
+        form.setFieldsValue({ [field.name]: selectedValue });
+        updateFormValue(field.name, selectedValue);
+    };
+
     return (
         <RecipeFormItem recipeField={field} showHelperText>
             <SimpleSelect
                 values={value ? [value] : []}
-                onUpdate={(values) => updateFormValue(field.name, values?.[0])}
+                onUpdate={handleUpdate}
                 placeholder={field.placeholder}
                 options={field.options ?? []}
                 showClear={!field.required}
