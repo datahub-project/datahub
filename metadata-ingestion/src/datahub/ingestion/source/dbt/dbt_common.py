@@ -171,22 +171,6 @@ _SV_DIMENSION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Short form section: captures entire content after DIMENSIONS/METRICS/FACTS keyword
-# when NOT followed by parentheses (which indicates long form with AS syntax)
-# Example: "DIMENSIONS OrdersTable.CUSTOMER_ID, OrdersTable.ORDER_ID"
-# Group 1: keyword (DIMENSIONS/METRICS/FACTS)
-# Group 2: content (comma-separated Table.COLUMN entries)
-_SV_SHORT_FORM_SECTION_RE = re.compile(
-    r"(DIMENSIONS|METRICS|FACTS)\s+(?!\()([^\n]+?)(?=\n|DIMENSIONS|METRICS|FACTS|TABLES|$)",
-    re.IGNORECASE,
-)
-
-# Extracts individual Table.COLUMN from short form section content
-_SV_SHORT_FORM_ENTRY_RE = re.compile(
-    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")",
-    re.IGNORECASE,
-)
-
 # Supported aggregation functions in semantic view metrics
 _SV_AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
 
@@ -683,29 +667,6 @@ def _build_table_mapping(
     return table_to_dbt_name
 
 
-def _parse_short_form_entries(
-    compiled_sql: str,
-    table_to_dbt_name: Dict[str, str],
-    cll_info: List["DBTColumnLineageInfo"],
-    seen_cll: Set[Tuple[str, str, str]],
-) -> None:
-    """Parse short form dimensions/metrics without AS keyword."""
-    for section_match in _SV_SHORT_FORM_SECTION_RE.finditer(compiled_sql):
-        section_content = section_match.group(2)
-        for entry_match in _SV_SHORT_FORM_ENTRY_RE.finditer(section_content):
-            table_ref = entry_match.group(1).strip('"').upper()
-            column_name = entry_match.group(2).strip('"').lower()
-
-            if table_ref in table_to_dbt_name:
-                _add_cll_entry(
-                    cll_info,
-                    seen_cll,
-                    table_to_dbt_name[table_ref],
-                    column_name,
-                    column_name,
-                )
-
-
 def _parse_derived_metrics(
     compiled_sql: str,
     cll_info: List["DBTColumnLineageInfo"],
@@ -788,8 +749,6 @@ def parse_semantic_view_cll(
                 source_column,
                 output_column,
             )
-
-    _parse_short_form_entries(compiled_sql, table_to_dbt_name, cll_info, seen_cll)
 
     _parse_derived_metrics(compiled_sql, cll_info, seen_cll)
 
@@ -1600,10 +1559,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 node.node_type == "semantic_view"
                 or node.materialization == "semantic_view"
             ):
-                # Parse semantic view DDL to extract column-level lineage
-                # SQL parser can't handle semantic view DDL syntax, so we use a custom parser
-                # CLL parsing is currently only supported for Snowflake semantic views.
-                # The regex patterns parse Snowflake-specific DDL syntax.
+                # CLL parsing uses custom regex (only Snowflake semantic views supported)
                 if node.dbt_adapter != "snowflake":
                     logger.debug(
                         f"Skipping CLL parsing for semantic view {node.dbt_name}: "
