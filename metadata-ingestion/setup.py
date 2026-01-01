@@ -54,7 +54,7 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
-    # From ruamel-yaml 0.19.0 (Dec 17, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
+    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
 }
