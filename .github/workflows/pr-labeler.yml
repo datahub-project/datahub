@@ -32,15 +32,12 @@ jobs:
           "treff7es",
           "yoonhyejin",
           "gabe-lyons",
-          "hsheth2",
           "jjoyce0510",
           "maggiehays",
           "pedro93",
           "RyanHolstien",
           "sakethvarma397",
           "purnimagarg1",
-          "mayurinehate",
-          "noggi",
           "skrydal",
           "kevinkarchacryl",
           "sgomezvillamor",
@@ -52,7 +49,6 @@ jobs:
           "annadoesdesign",
           "jmacryl",
           "esteban",
-          "anthonyburdi",
           "ligfx",
           "ksrinath",
           "bryanprosser-acryl",
@@ -68,7 +64,8 @@ jobs:
           "alokr-dhub",
           "alfiyas-datahub",
           "dinesh-verma-datahub",
-          "rob-1019"
+          "rob-1019",
+          "kewats"
           ]'),
           github.actor
           )

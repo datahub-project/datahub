@@ -76,8 +76,14 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ARG PIP_EXTRA_INDEX_URL=""
+# Persist settings for subsequent build layers and for optional venv builds
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Also configure pip globally inside the image so tools without env still use the mirror
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
