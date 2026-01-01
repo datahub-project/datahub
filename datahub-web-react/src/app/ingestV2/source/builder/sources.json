@@ -55,7 +55,7 @@
         "displayName": "Looker",
         "description": "Import Models, Explores, Views, Looks, Dashboards, and lineage from Looker.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/looker/overview#looker",
-        "recipe": "source:\n    type: looker\n    config:\n        # Coosrdinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
         "isPopular": true
     },
@@ -165,7 +165,7 @@
         "displayName": "Glue",
         "description": "Import Tables, Databases, Jobs, statistics, and lineage to S3 from AWS Glue.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/glue/",
-        "recipe": "source:\n    type: glue\n    config:\n        # AWS credentials. \n        aws_region: # The region for your AWS Glue instance. \n        # Add secret in Secrets Tab with relevant names for each variable\n        # The access key for your AWS account.\n        aws_access_key_id: \"${AWS_ACCESS_KEY_ID}\"\n        # The secret key for your AWS account.\n        aws_secret_access_key: \"${AWS_SECRET_KEY}\"\n        aws_session_token: # The session key for your AWS account. This is only needed when you are using temporary credentials.\n        # aws_role: # (Optional) The role to assume (Role chaining supported by using a sorted list).\n\n        # Allow / Deny specific databases & tables\n        # database_pattern:\n        #    allow:\n        #        - \"flights-database\"\n        # table_pattern:\n        #    allow:\n        #        - \"avro\"",
+        "recipe": "source:\n    type: glue\n    config:\n        env: PROD\n        extract_owners: true\n        extract_transforms: true\n",
         "category": "Data Lake",
         "isPopular": true
     },
@@ -215,7 +215,7 @@
         "displayName": "Oracle",
         "description": "Import Databases, Schemas, Tables, Views, statistics, and lineage from Oracle.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/oracle/",
-        "recipe": "source: \n    type: oracle\n    config:\n        # Coordinates\n        host_port: # Your Oracle host and port, e.g. oracle:5432\n        database: # Your Oracle database name, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${ORACLE_USERNAME}\" # Your Oracle username, e.g. admin\n        password: \"${ORACLE_PASSWORD}\" # Your Oracle password, e.g. password_01\n\n        # Optional service name\n        # service_name: # Your service name, e.g. svc # omit database if using this option\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source: \n    type: oracle\n    config:\n        host_port: null\n        database: null\n        env: PROD\n        include_tables: true\n        include_views: true\n        include_view_lineage: true\n        include_view_column_lineage: true\n",
         "category": "Database",
         "isPopular": true
     },
@@ -315,7 +315,7 @@
         "displayName": "Vertica",
         "description": "Import Databases, Schemas, Tables, Views, Projections, statistics, and lineage from Vertica.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/vertica/",
-        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Database_Name\n        # Credentials\n        username: Vertica_User\n        password: Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  ",
+        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: # localhost:5433\n        # The name of the vertica database\n        database: # Database_Name\n        # Credentials\n        username: # Vertica_User\n        password: # Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  ",
         "category": "Data Warehouse",
         "isPopular": false
     },
@@ -395,7 +395,7 @@
         "displayName": "Dremio",
         "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
-        "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n        #true if https, otherwise false\n        tls: true\n\n        #For cloud instance\n        #is_dremio_cloud: True\n        #dremio_cloud_project_id: <project_id>\n\n        #Credentials with personal access token\n        authentication_method: PAT\n        password: pass\n\n        #Or Credentials with basic auth\n        #authentication_method: password\n        #username: null\n        #password: null\n\n       ingest_owner: true\n\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: dremio\n    config:\n        dremio_cloud_region: US\n        port: 9047\n        tls: true\n        authentication_method: PAT\n        password: pass\n        env: PROD\n        ingest_owner: true\n",
         "category": "Query Engine",
         "isPopular": true
     },

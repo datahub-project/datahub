@@ -5,13 +5,10 @@ import { Route, RouteProps, Switch, useLocation } from 'react-router-dom';
 import AppProviders from '@app/AppProviders';
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
 import { useTrackPageView } from '@app/analytics';
-import { LogIn } from '@app/auth/LogIn';
-import { SignUp } from '@app/auth/SignUp';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import LoginV2 from '@app/auth/loginV2/LoginV2';
 import ResetCredentialsV2 from '@app/auth/resetCredentialsV2/ResetCredentialsV2';
 import SignUpV2 from '@app/auth/signupV2/SignUpV2';
-import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
@@ -40,12 +37,11 @@ const ProtectedRoute = ({
 export const Routes = (): JSX.Element => {
     useTrackPageView();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
-    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     return (
         <Switch>
-            <Route path={PageRoutes.LOG_IN} component={showIngestionOnboardingRedesignV1 ? LoginV2 : LogIn} />
-            <Route path={PageRoutes.SIGN_UP} component={showIngestionOnboardingRedesignV1 ? SignUpV2 : SignUp} />
+            <Route path={PageRoutes.LOG_IN} component={LoginV2} />
+            <Route path={PageRoutes.SIGN_UP} component={SignUpV2} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentialsV2} />
             <ProtectedRoute
                 isLoggedIn={isLoggedIn}

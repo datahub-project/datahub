@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationResolver;
@@ -530,11 +531,7 @@ public class GmsGraphQLEngine {
   public final List<BrowsableEntityType<?, ?>> browsableTypes;
 
   public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
-
-    this.graphQLPlugins =
-        List.of(
-            // Add new plugins here
-            );
+    this.graphQLPlugins = List.of(new SemanticSearchPlugin());
 
     this.graphQLPlugins.forEach(plugin -> plugin.init(args));
 
@@ -741,8 +738,7 @@ public class GmsGraphQLEngine {
     return loadableTypes.stream()
         .collect(
             Collectors.toMap(
-                LoadableType::name,
-                (graphType) -> (context) -> createDataLoader(graphType, context)));
+                LoadableType::name, graphType -> context -> createDataLoader(graphType, context)));
   }
 
   /**
@@ -1176,7 +1172,7 @@ public class GmsGraphQLEngine {
                       ResolverUtils.filterEntitiesForExistence(
                           context.getOperationContext(), urn, entityClient, checkForExistence))
               .map(
-                  (urn) -> {
+                  urn -> {
                     try {
                       return UrnToEntityMapper.map(context, urn);
                     } catch (Exception e) {
@@ -1364,7 +1360,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
-                  "acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
+                  "acceptRole",
+                  new AcceptRoleResolver(
+                      this.roleService, this.inviteTokenService, this.systemEntityClient))
               .dataFetcher("createPost", new CreatePostResolver(this.postService))
               .dataFetcher("deletePost", new DeletePostResolver(this.postService))
               .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
