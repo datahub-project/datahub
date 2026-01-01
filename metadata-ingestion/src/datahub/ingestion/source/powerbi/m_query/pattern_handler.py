@@ -39,6 +39,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -1257,47 +1258,34 @@ class OdbcLineage(AbstractLineage):
         - Table-level lineage (upstreams[*].urn)
         - Column-level lineage (column_lineage[*].upstreams[*].table)
         """
-        platform_marker = "urn:li:dataplatform:athena,"
 
         def strip_catalog_from_urn(urn: str) -> str:
             """Strip first part from 3-part table names in URN."""
-            urn_lower = urn.lower()
-
-            marker_idx = urn_lower.find(platform_marker)
-            if marker_idx == -1:
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except Exception:
                 return urn
 
-            # Position right after the platform marker (after "athena,")
-            table_start = marker_idx + len(platform_marker)
-
-            # Find the environment part (,PROD) or (,DEV) etc.
-            env_idx = urn.find(",", table_start)
-            if env_idx == -1:
-                return urn
-
-            table_path = urn[table_start:env_idx]
-            parts = table_path.split(".")
-
-            # Only strip if there are 3+ parts (catalog.database.table)
+            parts = parsed.name.split(".")
             if len(parts) < 3:
                 return urn
 
             # Strip first part, keep remaining parts (database.table)
-            stripped_path = ".".join(parts[1:])
-
-            # Reconstruct URN without the first part
-            stripped_urn = urn[:table_start] + stripped_path + urn[env_idx:]
+            stripped_name = ".".join(parts[1:])
+            stripped_urn = str(
+                DatasetUrn(platform=parsed.platform, name=stripped_name, env=parsed.env)
+            )
             logger.debug(f"Stripped catalog prefix from URN: {urn} -> {stripped_urn}")
             return stripped_urn
 
         # Strip catalog from upstream table URNs
         updated_upstreams: List[DataPlatformTable] = []
         for upstream in lineage.upstreams:
-            new_urn = strip_catalog_from_urn(upstream.urn)
+            stripped_urn = strip_catalog_from_urn(upstream.urn)
             updated_upstreams.append(
                 DataPlatformTable(
                     data_platform_pair=upstream.data_platform_pair,
-                    urn=new_urn,
+                    urn=stripped_urn,
                 )
             )
 
@@ -1306,9 +1294,9 @@ class OdbcLineage(AbstractLineage):
         for col_info in lineage.column_lineage:
             updated_col_upstreams: List[ColumnRef] = []
             for col_ref in col_info.upstreams:
-                new_table_urn = strip_catalog_from_urn(col_ref.table)
+                stripped_table_urn = strip_catalog_from_urn(col_ref.table)
                 updated_col_upstreams.append(
-                    ColumnRef(table=new_table_urn, column=col_ref.column)
+                    ColumnRef(table=stripped_table_urn, column=col_ref.column)
                 )
 
             updated_column_lineage.append(
@@ -1340,55 +1328,38 @@ class OdbcLineage(AbstractLineage):
 
         def override_platform_in_urn(urn: str) -> str:
             """Check if table matches override config and replace platform."""
-            # Extract table name from URN: urn:li:dataset:(urn:li:dataPlatform:X,TABLE_NAME,ENV)
-            # Find the table name between the platform comma and the env comma
-            platform_prefix = "urn:li:dataplatform:"
-            urn_lower = urn.lower()
-
-            platform_start = urn_lower.find(platform_prefix)
-            if platform_start == -1:
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except Exception:
                 return urn
 
-            # Find platform end (the comma after platform name)
-            platform_name_start = platform_start + len(platform_prefix)
-            platform_end = urn.find(",", platform_name_start)
-            if platform_end == -1:
-                return urn
-
-            # Extract current platform
-            current_platform = urn[platform_name_start:platform_end]
-
-            # Find table name (between platform comma and env comma)
-            table_start = platform_end + 1
-            env_idx = urn.find(",", table_start)
-            if env_idx == -1:
-                return urn
-
-            table_name = urn[table_start:env_idx]
+            table_name = parsed.name
+            current_platform = str(parsed.platform)
 
             # Try DSN-scoped key first, then fall back to global key
             dsn_scoped_key = f"{dsn}:{table_name}"
-            new_platform = self.config.odbc_table_platform_override.get(
+            target_platform = self.config.odbc_table_platform_override.get(
                 dsn_scoped_key
             ) or self.config.odbc_table_platform_override.get(table_name)
-            if not new_platform:
+            if not target_platform:
                 return urn
 
-            # Replace platform in URN
-            new_urn = urn[:platform_name_start] + new_platform + urn[platform_end:]
-            logger.debug(
-                f"Overriding platform for table {table_name}: {current_platform} -> {new_platform}"
+            overridden_urn = str(
+                DatasetUrn(platform=target_platform, name=table_name, env=parsed.env)
             )
-            return new_urn
+            logger.debug(
+                f"Overriding platform for table {table_name}: {current_platform} -> {target_platform}"
+            )
+            return overridden_urn
 
         # Apply override to upstream table URNs
         updated_upstreams: List[DataPlatformTable] = []
         for upstream in lineage.upstreams:
-            new_urn = override_platform_in_urn(upstream.urn)
+            overridden_urn = override_platform_in_urn(upstream.urn)
             updated_upstreams.append(
                 DataPlatformTable(
                     data_platform_pair=upstream.data_platform_pair,
-                    urn=new_urn,
+                    urn=overridden_urn,
                 )
             )
 
@@ -1397,9 +1368,9 @@ class OdbcLineage(AbstractLineage):
         for col_info in lineage.column_lineage:
             updated_col_upstreams: List[ColumnRef] = []
             for col_ref in col_info.upstreams:
-                new_table_urn = override_platform_in_urn(col_ref.table)
+                overridden_table_urn = override_platform_in_urn(col_ref.table)
                 updated_col_upstreams.append(
-                    ColumnRef(table=new_table_urn, column=col_ref.column)
+                    ColumnRef(table=overridden_table_urn, column=col_ref.column)
                 )
 
             updated_column_lineage.append(
