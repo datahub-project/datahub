@@ -1,4 +1,4 @@
-import { Button, Text } from '@components';
+import { Button, Text, Tooltip } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -90,16 +90,21 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
         );
 
         if (canGoToNext()) {
-            buttons.push(
-                <Button
-                    key="next"
-                    size="sm"
-                    disabled={!isCurrentStepCompleted()}
-                    onClick={goToNext}
-                    data-testid="next-button"
-                >
+            const isDisabled = !isCurrentStepCompleted();
+            const nextButton = (
+                <Button key="next" size="sm" disabled={isDisabled} onClick={goToNext} data-testid="next-button">
                     Next
-                </Button>,
+                </Button>
+            );
+
+            buttons.push(
+                isDisabled ? (
+                    <Tooltip key="next" title="Please complete all required fields before moving to the next step">
+                        <span>{nextButton}</span>
+                    </Tooltip>
+                ) : (
+                    nextButton
+                ),
             );
         }
 
