@@ -30,6 +30,9 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import Urn
 from datahub.utilities.urns.urn import guess_entity_type
 
+# Unit Separator character (U+241F) used in arrayPrimaryKeys for nested paths
+UNIT_SEPARATOR = "\u241f"
+
 
 @runtime_checkable
 class SupportsToObj(Protocol):
@@ -155,3 +158,96 @@ class MetadataPatchProposal:
                 raise ValueError(
                     f"{context}: {e.destinationUrn} is not of type {entity_type}"
                 )
+
+
+def parse_patch_path(path_str: str) -> PatchPath:
+    """
+    Parse a JSON Patch path string into a PatchPath tuple.
+
+    Args:
+        path_str: A JSON Patch path string (e.g., "/tags/urn:li:tag:test")
+
+    Returns:
+        A PatchPath tuple representing the path components
+    """
+    # Remove leading slash and split
+    if not path_str.startswith("/"):
+        raise ValueError(f"Patch path must start with '/': {path_str}")
+    parts = path_str[1:].split("/")
+    # Unquote each part
+    unquoted_parts = []
+    for part in parts:
+        if not part:
+            continue
+        # Unquote: ~1 -> /, ~0 -> ~
+        unquoted = part.replace("~1", "/").replace("~0", "~")
+        unquoted_parts.append(unquoted)
+    return tuple(unquoted_parts)
+
+
+@dataclass
+class GenericJsonPatch:
+    """
+    Represents a GenericJsonPatch structure with arrayPrimaryKeys support.
+
+    This extends standard JSON Patch to support idempotent array operations
+    using composite keys instead of array indices.
+    """
+
+    array_primary_keys: Dict[str, List[str]]
+    patch: List[_Patch]
+    force_generic_patch: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "arrayPrimaryKeys": self.array_primary_keys,
+            "patch": [op.to_obj() for op in self.patch],
+            "forceGenericPatch": self.force_generic_patch,
+        }
+
+    def to_generic_aspect(self) -> GenericAspectClass:
+        """Serialize to GenericAspectClass for use in MetadataChangeProposalClass."""
+        return GenericAspectClass(
+            value=json.dumps(
+                pre_json_transform(_recursive_to_obj(self.to_dict()))
+            ).encode(),
+            contentType=JSON_PATCH_CONTENT_TYPE,
+        )
+
+    @classmethod
+    def from_dict(cls, patch_dict: Dict[str, Any]) -> "GenericJsonPatch":
+        """
+        Create a GenericJsonPatch from a dictionary (e.g., from parsed JSON).
+
+        Args:
+            patch_dict: Dictionary containing arrayPrimaryKeys, patch, and optionally forceGenericPatch
+
+        Returns:
+            A GenericJsonPatch instance
+        """
+        array_primary_keys = patch_dict.get("arrayPrimaryKeys", {})
+        force_generic_patch = patch_dict.get("forceGenericPatch", False)
+        patch_ops = patch_dict.get("patch", [])
+
+        # Convert dict-based patch operations to _Patch instances
+        patch_list = []
+        for op_dict in patch_ops:
+            op_str = op_dict.get("op")
+            path_str = op_dict.get("path", "")
+            value = op_dict.get("value")
+
+            # Validate op
+            if op_str not in ("add", "remove", "replace"):
+                raise ValueError(f"Unsupported patch operation: {op_str}")
+
+            # Parse path string to tuple
+            path_tuple = parse_patch_path(path_str)
+
+            patch_list.append(_Patch(op=op_str, path=path_tuple, value=value))
+
+        return cls(
+            array_primary_keys=array_primary_keys,
+            patch=patch_list,
+            force_generic_patch=force_generic_patch,
+        )
