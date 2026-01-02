@@ -1,9 +1,6 @@
 name: check python dependencies
 
 on:
-  push:
-    branches:
-      - cr-oss-0102-pin-deps
   pull_request:
     branches:
       - "**"
@@ -88,8 +85,8 @@ jobs:
 
       - name: Checkout master branch
         run: |
-          git fetch origin cr-tmp-master-deps
-          git checkout origin/cr-tmp-master-deps
+          git fetch origin master
+          git checkout origin/master
 
       - name: Analyze dependencies on master branch
         run: |
