@@ -5,9 +5,6 @@ on:
     branches:
       - "**"
     paths:
-      - ".github/workflows/check-python-deps.yml"
-      - ".github/scripts/check_python_deps.py"
-      - ".github/scripts/dep-analyzer.py"
       - "**/requirements*.txt"
       - "**/setup.py"
       - "**/pyproject.toml"
