@@ -1,5 +1,6 @@
 import { useContext } from 'react';
 
+import { loadFromLocalStorage, setInLocalStorage } from '@app/sharedV2/hooks/useFeatureFlag';
 import { AppConfigContext } from '@src/appConfigContext';
 
 /**
@@ -74,12 +75,21 @@ export function useIsFreshnessAssertionTuningEnabled() {
     return appConfig.config.featureFlags.freshnessAssertionTuningEnabled;
 }
 
+const FREE_TRIAL_INSTANCE_KEY = 'isFreeTrialInstance';
+
 /**
  * Check if the instance is configured for a free trial
  */
 export function useIsFreeTrialInstance() {
     const appConfig = useAppConfig();
-    return appConfig.config.trialConfig.trialEnabled;
+    const isFreeTrial = appConfig.config.trialConfig.trialEnabled;
+
+    if (appConfig.loaded) {
+        setInLocalStorage(FREE_TRIAL_INSTANCE_KEY, isFreeTrial);
+        return isFreeTrial;
+    }
+
+    return loadFromLocalStorage(FREE_TRIAL_INSTANCE_KEY);
 }
 
 /**
