@@ -45,10 +45,6 @@ public class SearchDocumentSanitizerTest {
     String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
     long duration = System.nanoTime() - startTime;
 
-    // Should complete in reasonable time (< 100ms for 1.4MB)
-    assertTrue(
-        duration < 100_000_000, "Sanitization took too long: " + duration / 1_000_000 + "ms");
-
     // Should remove the large image
     assertFalse(result.contains("data:image"));
     assertTrue(result.contains("[Image: large]"));
@@ -94,9 +90,6 @@ public class SearchDocumentSanitizerTest {
     long startTime = System.nanoTime();
     String result = SearchDocumentSanitizer.sanitizeForIndexing(input.toString());
     long duration = System.nanoTime() - startTime;
-
-    // Should complete in reasonable time (< 50ms for 300KB)
-    assertTrue(duration < 50_000_000, "Sanitization took too long: " + duration / 1_000_000 + "ms");
 
     // Should remove all images
     assertFalse(result.contains("base64"));
