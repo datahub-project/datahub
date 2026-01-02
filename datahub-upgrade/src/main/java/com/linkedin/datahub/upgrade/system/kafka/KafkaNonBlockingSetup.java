@@ -12,13 +12,13 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 @Slf4j
 public class KafkaNonBlockingSetup implements NonBlockingSystemUpgrade {
 
-  private final List<UpgradeStep> _steps;
+  private final List<UpgradeStep> steps;
 
   public KafkaNonBlockingSetup(
       OperationContext opContext,
       KafkaConfiguration kafkaConfiguration,
       KafkaProperties kafkaProperties) {
-    _steps =
+    this.steps =
         ImmutableList.of(
             new ConfluentSchemaRegistryCleanupPolicyStep(
                 opContext, kafkaConfiguration, kafkaProperties));
@@ -31,6 +31,6 @@ public class KafkaNonBlockingSetup implements NonBlockingSystemUpgrade {
 
   @Override
   public List<UpgradeStep> steps() {
-    return _steps;
+    return steps;
   }
 }
