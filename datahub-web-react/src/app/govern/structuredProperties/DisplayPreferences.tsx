@@ -177,7 +177,7 @@ const DisplayPreferences = ({
                     modalText={
                         <p>
                             <span>Another property </span>
-                            <Pill label={getDisplayName(badgeProperty)} size="sm" color="violet" clickable={false} />
+                            <Pill label={getDisplayName(badgeProperty)} size="sm" color="primary" clickable={false} />
                             &nbsp;is already being shown on asset previews, but only one property is allowed at a time.
                             Do you want to replace the current property? This will hide {getDisplayName(
                                 badgeProperty,

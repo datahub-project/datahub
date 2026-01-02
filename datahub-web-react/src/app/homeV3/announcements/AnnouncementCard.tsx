@@ -45,9 +45,9 @@ interface Props {
 export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
     return (
         <Card
-            icon={<Icon icon="MegaphoneSimple" source="phosphor" color="violet" weight="fill" size="2xl" />}
+            icon={<Icon icon="MegaphoneSimple" source="phosphor" color="primary" weight="fill" size="2xl" />}
             title={
-                <Text color="violet" weight="semiBold" size="md" lineHeight="normal">
+                <Text color="primary" weight="semiBold" size="md" lineHeight="normal">
                     {announcement.content.title}
                 </Text>
             }
@@ -60,7 +60,7 @@ export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
                 <StyledIcon
                     icon="X"
                     source="phosphor"
-                    color="violet"
+                    color="primary"
                     size="xl"
                     onClick={() => onDismiss(announcement.urn)}
                 />

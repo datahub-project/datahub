@@ -66,8 +66,10 @@ export const Icon = ({
                     sx={{
                         fontSize: getFontSize(size),
                         color: getColor(color, colorLevel, theme),
+                        '&:hover': {
+                            color: 'white',
+                        }
                     }}
-                    style={{ color: getColor(color, colorLevel, theme) }}
                     weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
                 />
             </Tooltip>

@@ -38,7 +38,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${colors.primary[500]};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -116,7 +116,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         padding: 8px 8px;
         border-radius: 4px;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${colors.primary[500]};
     }
 
     ${({ $addPaddingLeft }) =>

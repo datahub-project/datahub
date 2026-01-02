@@ -19,8 +19,10 @@ import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/type
 
 const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
-    background-color: ${(props) =>
+    border-style: solid;
+    border-color: ${(props) =>
         props.isThemeV2 ? props.theme.styles['primary-color'] : REDESIGN_COLORS.LINK_HOVER_BLUE};
+    background-color: white;
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;
@@ -29,6 +31,9 @@ const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
 
     :hover {
         cursor: pointer;
+        color: white;
+        background-color: ${(props) =>
+            props.isThemeV2 ? props.theme.styles['primary-color'] : REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
 `;
 
@@ -195,7 +200,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
             >
                 <Tooltip title="Add property" placement="left" showArrow={false}>
                     <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
-                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
+                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="primary" />
                     </AddButton>
                 </Tooltip>
             </Dropdown>
