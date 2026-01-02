@@ -96,7 +96,7 @@ export const StyledInput = styled.input<{
     &:checked + ${Slider} {
         background: ${(props) =>
             !props.disabled
-                ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(83.44, 63, 209, 0.20) 100%), #533FD1'
+                ? `linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, ${getColor(props.colorScheme, 400, props.theme)}AA 100%), ${getColor(props.colorScheme, 500, props.theme)}`
                 : colors.gray[100]};
 
         &:before {
