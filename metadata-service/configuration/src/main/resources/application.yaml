@@ -510,6 +510,7 @@ elasticsearch:
 kafka:
   setup:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
+    autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:true}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
 
   # Topic defaults applied when individual topic configuration is missing
