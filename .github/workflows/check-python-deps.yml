@@ -88,8 +88,8 @@ jobs:
 
       - name: Checkout master branch
         run: |
-          git fetch origin master
-          git checkout origin/master
+          git fetch origin cr-tmp-master-deps
+          git checkout origin/cr-tmp-master-deps
 
       - name: Analyze dependencies on master branch
         run: |
