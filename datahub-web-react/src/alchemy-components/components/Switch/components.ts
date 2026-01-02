@@ -116,7 +116,7 @@ export const StyledIcon = styled(Icon)<{ checked?: boolean; size: SizeOptions }>
     ({ checked, size }) => ({
         left: getIconTransformPositionLeft(size, checked || false),
         top: getIconTransformPositionTop(size),
-        color: checked ? colors.violet[500] : colors.gray[500],
+        color: checked ? colors.primary[500] : colors.gray[500],
     }),
     {
         transition: `${transition.duration.normal} all`,
