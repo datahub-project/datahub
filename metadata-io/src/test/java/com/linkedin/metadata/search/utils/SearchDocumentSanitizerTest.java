@@ -5,12 +5,11 @@ import static org.testng.Assert.*;
 import org.testng.annotations.Test;
 
 public class SearchDocumentSanitizerTest {
-  private static final String DESCRIPTION_FIELD_NAME = "description";
 
   @Test
   public void testPreserveExternalImageLinks() {
     String input = "![diagram](https://example.com/image.png) is good";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
+    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
 
     // External URLs should be preserved
     assertEquals(result, input);
@@ -19,16 +18,16 @@ public class SearchDocumentSanitizerTest {
   @Test
   public void testPreservePlainText() {
     String input = "This is a plain description without images";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
+    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
 
     assertEquals(result, input);
   }
 
   @Test
   public void testNullAndEmptyStrings() {
-    assertNull(SearchDocumentSanitizer.sanitizeForIndexing(null, DESCRIPTION_FIELD_NAME));
-    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing("", DESCRIPTION_FIELD_NAME), "");
-    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing("   ", DESCRIPTION_FIELD_NAME), "   ");
+    assertNull(SearchDocumentSanitizer.sanitizeForIndexing(null));
+    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing(""), "");
+    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing("   "), "   ");
   }
 
   @Test
@@ -43,7 +42,7 @@ public class SearchDocumentSanitizerTest {
     String input = "Description " + largeBase64 + " more text";
 
     long startTime = System.nanoTime();
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
+    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
     long duration = System.nanoTime() - startTime;
 
     // Should complete in reasonable time (< 100ms for 1.4MB)
@@ -70,8 +69,8 @@ public class SearchDocumentSanitizerTest {
   public void testIdempotency() {
     String input = "![img](data:image/png;base64,ABC) text";
 
-    String result1 = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
-    String result2 = SearchDocumentSanitizer.sanitizeForIndexing(result1, DESCRIPTION_FIELD_NAME);
+    String result1 = SearchDocumentSanitizer.sanitizeForIndexing(input);
+    String result2 = SearchDocumentSanitizer.sanitizeForIndexing(result1);
 
     // Sanitizing twice should produce same result
     assertEquals(result1, result2);
@@ -93,8 +92,7 @@ public class SearchDocumentSanitizerTest {
     input.append("End");
 
     long startTime = System.nanoTime();
-    String result =
-        SearchDocumentSanitizer.sanitizeForIndexing(input.toString(), DESCRIPTION_FIELD_NAME);
+    String result = SearchDocumentSanitizer.sanitizeForIndexing(input.toString());
     long duration = System.nanoTime() - startTime;
 
     // Should complete in reasonable time (< 50ms for 300KB)

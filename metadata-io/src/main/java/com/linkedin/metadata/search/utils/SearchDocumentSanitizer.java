@@ -34,15 +34,9 @@ public class SearchDocumentSanitizer {
 
   private static final String BASE64_IMAGE_MARKER = "data:image";
 
-  private static final String DESCRIPTION_FIELD_NAME = "description";
-
   @Nullable
-  public static String sanitizeForIndexing(@Nullable String value, String fieldName) {
+  public static String sanitizeForIndexing(@Nullable String value) {
     if (value == null || value.isEmpty()) {
-      return value;
-    }
-
-    if (fieldName != null && !fieldName.equals(DESCRIPTION_FIELD_NAME)) {
       return value;
     }
 
