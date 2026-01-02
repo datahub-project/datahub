@@ -368,7 +368,6 @@ org.jacoco:org.jacoco.report:0.8.12=jacocoAnt
 org.javassist:javassist:3.26.0-GA=dataModel,dataTemplate,integTestRuntimeClasspath,modelValidation,restClient,restModelResolverPath,runtimeClasspath,testDataModel,testDataTemplate,testRestClient,testRuntimeClasspath
 org.javatuples:javatuples:1.2=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.json:json:20231013=compileClasspath,integTestCompileClasspath,integTestRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.jspecify:jspecify:1.0.0=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.junit.jupiter:junit-jupiter-api:5.6.1=integTestCompileClasspath,integTestCompileOnly,integTestRuntimeClasspath
 org.junit.jupiter:junit-jupiter-engine:5.6.1=integTestRuntimeClasspath
 org.junit.jupiter:junit-jupiter-params:5.6.1=integTestCompileClasspath,integTestCompileOnly

@@ -439,7 +439,6 @@ org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3=runtimeClasspath,test
 org.jetbrains.kotlinx:kotlinx-serialization-core:1.7.3=runtimeClasspath,testRuntimeClasspath
 org.jetbrains:annotations:13.0=runtimeClasspath,testRuntimeClasspath
 org.json:json:20231013=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.jspecify:jspecify:1.0.0=runtimeClasspath,testRuntimeClasspath
 org.junit.jupiter:junit-jupiter-api:5.11.4=testCompileClasspath,testRuntimeClasspath
 org.junit.jupiter:junit-jupiter-engine:5.11.4=testRuntimeClasspath
 org.junit.jupiter:junit-jupiter-params:5.11.4=testCompileClasspath,testRuntimeClasspath

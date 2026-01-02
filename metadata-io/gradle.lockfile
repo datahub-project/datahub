@@ -418,7 +418,6 @@ org.javassist:javassist:3.26.0-GA=compileClasspath,runtimeClasspath,testCompileC
 org.javatuples:javatuples:1.2=compileClasspath,runtimeClasspath,testCompileClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
 org.jetbrains:annotations:17.0.0=testCompileClasspath,testRuntimeClasspath
 org.json:json:20231013=compileClasspath,runtimeClasspath,testCompileClasspath,testFixturesCompileClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
-org.jspecify:jspecify:1.0.0=runtimeClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
 org.junit.jupiter:junit-jupiter-api:5.11.4=testCompileClasspath,testFixturesCompileClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath
 org.junit.jupiter:junit-jupiter-engine:5.11.4=testFixturesRuntimeClasspath,testRuntimeClasspath
 org.junit.jupiter:junit-jupiter-params:5.11.4=testCompileClasspath,testFixturesCompileClasspath,testFixturesRuntimeClasspath,testRuntimeClasspath

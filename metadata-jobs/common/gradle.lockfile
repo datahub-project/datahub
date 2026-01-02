@@ -392,7 +392,6 @@ org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3=runtimeClasspath,test
 org.jetbrains.kotlinx:kotlinx-serialization-core:1.7.3=runtimeClasspath,testRuntimeClasspath
 org.jetbrains:annotations:13.0=runtimeClasspath,testRuntimeClasspath
 org.json:json:20231013=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.jspecify:jspecify:1.0.0=runtimeClasspath,testRuntimeClasspath
 org.knowm.xchart:xchart:3.2.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.latencyutils:LatencyUtils:2.0.3=runtimeClasspath,testRuntimeClasspath
 org.locationtech.jts:jts-core:1.15.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

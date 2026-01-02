@@ -199,7 +199,6 @@ org.jacoco:org.jacoco.ant:0.8.12=jacocoAnt
 org.jacoco:org.jacoco.core:0.8.12=jacocoAnt
 org.jacoco:org.jacoco.report:0.8.12=jacocoAnt
 org.javassist:javassist:3.26.0-GA=dataModel,dataTemplate,restClient,runtimeClasspath,testDataModel,testDataTemplate,testRestClient,testRuntimeClasspath
-org.jspecify:jspecify:1.0.0=restClient,restClientCompile,testRestClient
 org.knowm.xchart:xchart:3.2.2=pegasusPlugin,restClient,restClientCompile,testRestClient
 org.ow2.asm:asm-commons:9.7=jacocoAnt
 org.ow2.asm:asm-tree:9.7=jacocoAnt

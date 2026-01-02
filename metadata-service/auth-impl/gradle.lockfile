@@ -302,7 +302,6 @@ org.jacoco:org.jacoco.report:0.8.12=jacocoAnt
 org.javassist:javassist:3.26.0-GA=runtimeClasspath,testRuntimeClasspath
 org.javatuples:javatuples:1.2=runtimeClasspath,testRuntimeClasspath
 org.json:json:20231013=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.jspecify:jspecify:1.0.0=runtimeClasspath,testRuntimeClasspath
 org.knowm.xchart:xchart:3.2.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.latencyutils:LatencyUtils:2.0.3=runtimeClasspath,testRuntimeClasspath
 org.locationtech.jts:jts-core:1.15.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

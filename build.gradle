@@ -517,6 +517,13 @@ subprojects {
       preserveFileTimestamps = false
     }*/
 
+    // Exclude unwanted transitive dependencies from log4j (fixed in logging-parent 12.0.0)
+    // See: https://github.com/apache/logging-log4j2/issues/3066
+    configurations.all {
+      exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
+      exclude group: 'org.jspecify', module: 'jspecify'
+    }
+
     dependencies {
       implementation externalDependency.annotationApi
       constraints {
