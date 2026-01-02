@@ -391,8 +391,8 @@ export const StyledSelect = styled(Select)`
 
         &:hover,
         &:focus-within {
-            border: 1px solid ${colors.violet[200]} !important;
-            outline: 2px solid ${colors.violet[200]} !important;
+            border: 1px solid ${colors.primary[200]} !important;
+            outline: 2px solid ${colors.primary[200]} !important;
             box-shadow: none !important;
         }
     }

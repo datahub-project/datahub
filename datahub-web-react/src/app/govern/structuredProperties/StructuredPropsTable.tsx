@@ -1,4 +1,4 @@
-import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
+import { colors, Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 
@@ -143,7 +143,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            <TableIcon color="#705EE4" />
+                            <TableIcon color={colors.primary[400]} />
                         </IconContainer>
                         <DataContainer>
                             <PropName
