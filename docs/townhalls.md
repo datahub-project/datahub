@@ -4,7 +4,7 @@ We hold virtual Town Hall meetings with the DataHub Community every other month 
 
 It's a great opportunity for the Community to come together to discuss project and roadmap updates, see live demos of upcoming features, and hear case studies from other Community Members.
 
-[Register for the December Town Hall](https://events.datahub.com/december-townhall-2025/)
+[Register for the January Town Hall](https://events.datahub.com/january-townhall-2026/)
 
 ## Upcoming Events
 

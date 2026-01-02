@@ -434,6 +434,7 @@ services:
       NEO4J_PASSWORD: datahub
       NEO4J_URI: bolt://neo4j
       NEO4J_USERNAME: neo4j
+      PARTITIONS: '3'
       REPROCESS_DEFAULT_BROWSE_PATHS_V2: 'false'
       SCHEMA_REGISTRY_SYSTEM_UPDATE: 'true'
       SCHEMA_REGISTRY_TYPE: INTERNAL
