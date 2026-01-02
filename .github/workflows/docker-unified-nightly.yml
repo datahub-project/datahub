@@ -113,18 +113,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
-          mkdir -p ${{ github.workspace }}/build
-          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
-          unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
-          ls -l ${{ github.workspace }}/build/
+          mkdir -p "${{ github.workspace }}/build"
+          gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
+          unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
+          ls -l "${{ github.workspace }}/build/"
 
       - name: Collect image:tag from build log
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
-          echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
+          echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
       - name: Show collected images
         run: |
@@ -236,18 +236,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
-          mkdir -p ${{ github.workspace }}/build
-          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
-          unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
-          ls -l ${{ github.workspace }}/build/
+          mkdir -p "${{ github.workspace }}/build"
+          gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
+          unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
+          ls -l "${{ github.workspace }}/build/"
 
       - name: Collect image:tag from build log
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
-          echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
+          echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
       - name: Show collected images
         run: |
@@ -436,18 +436,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
-          mkdir -p ${{ github.workspace }}/build
-          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
-          unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
-          ls -l ${{ github.workspace }}/build/
+          mkdir -p "${{ github.workspace }}/build"
+          gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
+          unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
+          ls -l "${{ github.workspace }}/build/"
 
       - name: Collect image:tag from build log
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
-          echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
+          echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
       - name: Show collected images
         run: |

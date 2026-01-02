@@ -1,6 +1,9 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 // smoke-test/tests/library_examples/README.md
+// docs/dev-guides/semantic-search/README.md
+// docs/dev-guides/semantic-search/ARCHITECTURE.md
+// docs/dev-guides/semantic-search/CONFIGURATION.md
 module.exports = {
   overviewSidebar: [
     // Getting Started.
@@ -264,6 +267,11 @@ module.exports = {
           id: "docs/ui-ingestion",
         },
         {
+          label: "Ingestion Security",
+          type: "doc",
+          id: "docs/metadata-ingestion-security",
+        },
+        {
           label: "Lineage",
           type: "category",
           link: {
@@ -285,6 +293,11 @@ module.exports = {
               label: "Managing Lineage via UI",
               type: "doc",
               id: "docs/features/feature-guides/ui-lineage",
+            },
+            {
+              type: "doc",
+              id: "docs/lineage/openlineage",
+              label: "OpenLineage",
             },
           ],
         },
@@ -684,7 +697,6 @@ module.exports = {
             "metadata-ingestion/schedule_docs/kubernetes",
           ],
         },
-
         "docs/platform-instances",
         "docs/lineage/sql_parsing",
         "metadata-ingestion/docs/dev_guides/stateful",
@@ -692,6 +704,7 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
         "metadata-ingestion/docs/dev_guides/sql_profiles",
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
+        "docs/iceberg-catalog",
       ],
     },
     // APIs & SDKs.
@@ -703,6 +716,7 @@ module.exports = {
     {
       type: "category",
       label: "Open Source DataHub Metadata Standard",
+      link: { type: "doc", id: "docs/metadata-standards" },
       collapsed: false,
       items: [
         {
@@ -728,22 +742,6 @@ module.exports = {
       ],
     },
     "docs/what-is-datahub/datahub-concepts",
-    {
-      type: "category",
-      label: "Metadata Standards",
-      link: { type: "doc", id: "docs/metadata-standards" },
-      items: [
-        {
-          type: "doc",
-          id: "docs/iceberg-catalog",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/openlineage",
-          label: "OpenLineage",
-        },
-      ],
-    },
     {
       type: "doc",
       id: "docs/api/datahub-apis",
@@ -1220,6 +1218,12 @@ module.exports = {
         "docs/CONTRIBUTING",
         "docs/links",
         "docs/rfc",
+        {
+          type: "category",
+          label: "RFCs",
+          link: { type: "doc", id: "docs/rfcs/README" },
+          items: [],
+        },
         "SECURITY",
       ],
     },

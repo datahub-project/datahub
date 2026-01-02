@@ -126,6 +126,7 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
     /^\s*$/, //Empty string
   ];
 
