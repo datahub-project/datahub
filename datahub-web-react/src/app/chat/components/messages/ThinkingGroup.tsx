@@ -8,8 +8,9 @@ import { DataHubAiConversationMessage, DataHubAiConversationMessageType } from '
 
 const ThinkingContainer = styled.div`
     display: flex;
-    padding: 4px 0px 0px 0px;
+    padding: 0;
     justify-content: flex-start;
+    margin-bottom: -24px; /* Reduce gap to 8px between thinking and following message */
 `;
 
 const ThinkingContent = styled.div`
@@ -24,7 +25,6 @@ const ThinkingHeader = styled.div`
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    margin-bottom: 4px;
     width: 100%;
 `;
 
@@ -75,11 +75,13 @@ const TextWrapper = styled.div`
 `;
 
 const ThinkingBubble = styled.div`
+    display: flex;
+    flex-direction: column;
     padding: 8px 0;
     max-height: 300px;
     overflow-y: auto;
     width: 100%;
-    margin-bottom: 8px;
+    gap: 12px;
 
     /* Custom scrollbar */
     &::-webkit-scrollbar {
@@ -104,11 +106,6 @@ const ThinkingMessageBlock = styled.div`
     font-size: 12px;
     line-height: 1.5;
     color: ${colors.gray[600]};
-    margin-bottom: 12px;
-
-    &:last-child {
-        margin-bottom: 0;
-    }
 `;
 
 const MarkdownContent = styled.div`

@@ -16,6 +16,8 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useGetDataHubAiConversationQuery } from '@graphql/aiChat.generated';
 import { Entity } from '@types';
 
+const truncateTitle = (text: string) => (text.length > 100 ? `${text.substring(0, 100)}...` : text);
+
 const Container = styled.div`
     display: flex;
     flex-direction: column;
@@ -32,10 +34,6 @@ const Header = styled.div`
     align-items: center;
 `;
 
-const HeaderTitle = styled.div`
-    max-width: 100%;
-`;
-
 const ContentWrapper = styled.div`
     display: flex;
     flex-direction: column;
@@ -48,109 +46,38 @@ const MessagesContainer = styled.div<{ $variant?: ChatVariant }>`
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    overflow-x: ${(props) => (props.$variant === ChatVariant.Compact ? 'hidden' : 'visible')};
     display: flex;
-    flex-direction: ${(props) => (props.$variant === ChatVariant.Compact ? 'column' : 'row')};
-    justify-content: ${(props) => (props.$variant === ChatVariant.Compact ? 'flex-start' : 'center')};
-    /* Reduce right padding slightly in compact to account for scrollbar space */
+    flex-direction: column;
     padding: ${(props) => (props.$variant === ChatVariant.Compact ? '20px 12px 20px 20px' : '0')};
-    gap: ${(props) => (props.$variant === ChatVariant.Compact ? '32px' : '0')};
     width: 100%;
     max-width: 100%;
     min-width: 0;
-
-    /* Compact: hide scrollbars until hover to match prior sidebar UX */
-    ${(props) =>
-        props.$variant === ChatVariant.Compact
-            ? `
-        &::-webkit-scrollbar {
-            width: 6px;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        &::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        &::-webkit-scrollbar-thumb {
-            background-color: transparent;
-            border-radius: 3px;
-            transition: background-color 0.2s;
-        }
-
-        &:hover::-webkit-scrollbar-thumb {
-            background-color: ${colors.gray[200]};
-        }
-
-        &::-webkit-scrollbar-thumb:hover {
-            background-color: ${colors.gray[300]};
-        }
-
-        scrollbar-width: thin;
-        scrollbar-color: transparent transparent;
-
-        &:hover {
-            scrollbar-color: ${colors.gray[200]} transparent;
-        }
-    `
-            : ''}
+    ${(props) => props.$variant === ChatVariant.Compact && 'overflow-x: hidden;'}
 `;
 
 const MessagesContent = styled.div<{ $variant?: ChatVariant }>`
     width: 100%;
-    max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '60%')};
-    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '0' : '24px 12px')};
+    max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '800px')};
+    margin: ${(props) => (props.$variant === ChatVariant.Compact ? '0' : '0 auto')};
+    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '0' : '24px 16px 0 16px')};
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 0;
-
-    @media (max-width: 1400px) {
-        max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '70%')};
-    }
-
-    @media (max-width: 1200px) {
-        max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '80%')};
-    }
-
-    @media (max-width: 1000px) {
-        max-width: 90%;
-    }
-
-    @media (max-width: 800px) {
-        max-width: 100%;
-    }
+    gap: 32px;
 `;
 
 const InputContainer = styled.div<{ $variant?: ChatVariant }>`
     display: flex;
-    flex-direction: ${(props) => (props.$variant === ChatVariant.Compact ? 'column' : 'row')};
-    justify-content: ${(props) => (props.$variant === ChatVariant.Compact ? 'flex-start' : 'center')};
-    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '12px 16px 16px 16px' : '16px 0')};
-    background: ${(props) => (props.$variant === ChatVariant.Compact ? 'white' : 'transparent')};
-    gap: ${(props) => (props.$variant === ChatVariant.Compact ? '8px' : '0')};
+    flex-direction: column;
+    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '12px 16px 16px 16px' : '16px')};
+    gap: 8px;
+    ${(props) => props.$variant === ChatVariant.Compact && 'background: white;'}
 `;
 
 const InputContent = styled.div<{ $variant?: ChatVariant }>`
     width: 100%;
-    max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '60%')};
-
-    @media (max-width: 1400px) {
-        max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '70%')};
-    }
-
-    @media (max-width: 1200px) {
-        max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '80%')};
-    }
-
-    @media (max-width: 1000px) {
-        max-width: 90%;
-    }
-
-    @media (max-width: 800px) {
-        max-width: 100%;
-    }
+    max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '800px')};
+    margin: ${(props) => (props.$variant === ChatVariant.Compact ? '0' : '0 auto')};
 `;
 
 const LoadingContainer = styled.div`
@@ -162,17 +89,16 @@ const LoadingContainer = styled.div`
     gap: 16px;
 `;
 
-export const EmptyStateContainer = styled.div<{ $variant?: ChatVariant }>`
+const EmptyStateContainer = styled.div<{ $variant?: ChatVariant }>`
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '24px' : '40px')};
+    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '24px' : '40px 40px 200px 40px')};
     height: 100%;
-    margin-top: ${(props) => (props.$variant === ChatVariant.Compact ? '0' : '-100px')};
 `;
 
-export const EmptyStateLogoContainer = styled.div`
+const EmptyStateLogoContainer = styled.div`
     margin-bottom: 20px;
 
     svg {
@@ -181,37 +107,26 @@ export const EmptyStateLogoContainer = styled.div`
     }
 `;
 
-export const EmptyStateTitle = styled.div`
+const EmptyStateTitle = styled.div`
     font-size: 20px;
     font-weight: 600;
     color: ${colors.gray[600]};
     margin: 0 0 20px 0;
     text-align: center;
+    text-wrap: auto;
 `;
 
-export const EmptyStateInputWrapper = styled.div<{ $variant?: ChatVariant }>`
+const EmptyStateInputWrapper = styled.div<{ $variant?: ChatVariant }>`
     width: 100%;
-    max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '700px')};
+    max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '800px')};
 `;
 
-export const EmptyStateSuggestionsContainer = styled.div<{ $variant?: ChatVariant }>`
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    justify-content: center;
-    align-items: center;
-    margin-top: 24px;
-    width: 100%;
-    max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '700px')};
-`;
-
-export const EmptyStatePillsWrapper = styled.div<{ $variant?: ChatVariant }>`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-    width: 100%;
-`;
+const ChatLogo = ({ logoUrl }: { logoUrl?: string | null }) =>
+    logoUrl ? (
+        <img src={logoUrl} alt="DataHub" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
+    ) : (
+        <ChatCircle size={64} weight="duotone" color="#1890ff" />
+    );
 
 interface ChatAreaProps {
     conversationUrn?: string;
@@ -345,9 +260,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
             setTimeout(() => {
                 // Update title optimistically for auto-sent messages (same as handleSend)
                 if (messages.length === 0 && setTitle) {
-                    const title =
-                        initialMessage.length > 100 ? `${initialMessage.substring(0, 100)}...` : initialMessage;
-                    setTitle(title);
+                    setTitle(truncateTitle(initialMessage));
                 }
                 handleSendMessage(initialMessage);
                 updateInputValue('');
@@ -361,8 +274,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         }
         // Update title optimistically on first message
         if (messages.length === 0 && setTitle) {
-            const title = inputValue.length > 100 ? `${inputValue.substring(0, 100)}...` : inputValue;
-            setTitle(title);
+            setTitle(truncateTitle(inputValue));
         }
         handleSendMessage(inputValue);
         updateInputValue('');
@@ -372,8 +284,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         if (isStreaming) return;
         // Update title optimistically on first message
         if (messages.length === 0 && setTitle) {
-            const title = question.length > 100 ? `${question.substring(0, 100)}...` : question;
-            setTitle(title);
+            setTitle(truncateTitle(question));
         }
         handleSendMessage(question);
     };
@@ -404,11 +315,9 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         <Container>
             {variant !== ChatVariant.Compact && (
                 <Header>
-                    <HeaderTitle>
-                        <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
-                            {removeMarkdown(titleFromParent || conversation.title || 'New Chat')}
-                        </Text>
-                    </HeaderTitle>
+                    <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
+                        {removeMarkdown(titleFromParent || conversation.title || 'New Chat')}
+                    </Text>
                 </Header>
             )}
             <ContentWrapper>
@@ -417,15 +326,11 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                         {showEmptyState ? (
                             <EmptyStateContainer $variant={variant}>
                                 <EmptyStateLogoContainer>
-                                    {appConfig.config?.visualConfig?.logoUrl || themeConfig?.assets?.logoUrl ? (
-                                        <img
-                                            src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
-                                            alt="DataHub"
-                                            style={{ width: '40px', height: '40px', objectFit: 'contain' }}
-                                        />
-                                    ) : (
-                                        <ChatCircle size={64} weight="duotone" color="#1890ff" />
-                                    )}
+                                    <ChatLogo
+                                        logoUrl={
+                                            appConfig.config?.visualConfig?.logoUrl || themeConfig?.assets?.logoUrl
+                                        }
+                                    />
                                 </EmptyStateLogoContainer>
                                 <EmptyStateTitle>What can we help with today?</EmptyStateTitle>
                                 <EmptyStateInputWrapper $variant={variant}>
@@ -544,15 +449,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     <MessagesContent $variant={variant}>
                         <EmptyStateContainer $variant={variant}>
                             <EmptyStateLogoContainer>
-                                {appConfig.config?.visualConfig?.logoUrl || themeConfig?.assets?.logoUrl ? (
-                                    <img
-                                        src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
-                                        alt="DataHub"
-                                        style={{ width: '40px', height: '40px', objectFit: 'contain' }}
-                                    />
-                                ) : (
-                                    <ChatCircle size={64} weight="duotone" color="#1890ff" />
-                                )}
+                                <ChatLogo
+                                    logoUrl={appConfig.config?.visualConfig?.logoUrl || themeConfig?.assets?.logoUrl}
+                                />
                             </EmptyStateLogoContainer>
                             <EmptyStateTitle>What can we help with today?</EmptyStateTitle>
                             <EmptyStateInputWrapper $variant={variant}>

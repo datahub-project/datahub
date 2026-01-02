@@ -41,8 +41,6 @@ const MessengerContainer = styled.div`
     overflow: hidden; /* Prevent content from overflowing */
 `;
 
-const SidebarContainer = styled.div``;
-
 const Sidebar = styled.div`
     width: 300px;
     border-right: 1px solid ${colors.gray[100]};
@@ -77,7 +75,6 @@ export const ChatPage = () => {
     const userUrn = useGetAuthenticatedUserUrn();
     const entityRegistry = useEntityRegistryV2();
     const sidebarWidth = useSidebarWidth();
-    const pageContainerRef = useRef<HTMLDivElement>(null);
 
     // Extract conversation URN from URL query params
     const searchParams = new URLSearchParams(location.search);
@@ -168,44 +165,41 @@ export const ChatPage = () => {
     );
 
     // Handle creating a new conversation
-    const handleCreateConversation = useCallback(
-        async (_silent = false) => {
-            try {
-                const result = await createConversation({
-                    variables: {
-                        input: {
-                            title: null, // Title will be set from first message
-                            originType: DataHubAiConversationOriginType.DatahubUi,
-                        },
+    const handleCreateConversation = useCallback(async () => {
+        try {
+            const result = await createConversation({
+                variables: {
+                    input: {
+                        title: null, // Title will be set from first message
+                        originType: DataHubAiConversationOriginType.DatahubUi,
                     },
+                },
+            });
+
+            if (result.data?.createDataHubAiConversation) {
+                const newConversation = result.data.createDataHubAiConversation;
+
+                // Add to list immediately via React state (same shape as server data)
+                setOptimisticConversations((prev) => [
+                    mapToConversationListItem(newConversation),
+                    ...prev.filter((c) => c.urn !== newConversation.urn),
+                ]);
+
+                // Emit analytics event for chat creation
+                // Origin is 'search_bar' if there's an initialMessage, otherwise 'manual'
+                analytics.event({
+                    type: EventType.CreateDataHubChatEvent,
+                    origin: initialMessageRef.current ? 'search_bar' : 'manual',
+                    conversationUrn: newConversation.urn,
                 });
 
-                if (result.data?.createDataHubAiConversation) {
-                    const newConversation = result.data.createDataHubAiConversation;
-
-                    // Add to list immediately via React state (same shape as server data)
-                    setOptimisticConversations((prev) => [
-                        mapToConversationListItem(newConversation),
-                        ...prev.filter((c) => c.urn !== newConversation.urn),
-                    ]);
-
-                    // Emit analytics event for chat creation
-                    // Origin is 'search_bar' if there's an initialMessage, otherwise 'manual'
-                    analytics.event({
-                        type: EventType.CreateDataHubChatEvent,
-                        origin: initialMessageRef.current ? 'search_bar' : 'manual',
-                        conversationUrn: newConversation.urn,
-                    });
-
-                    // Navigate to the new conversation
-                    history.push(`${PageRoutes.AI_CHAT}?conversation=${newConversation.urn}`);
-                }
-            } catch (error) {
-                console.error('Failed to create conversation:', error);
+                // Navigate to the new conversation
+                history.push(`${PageRoutes.AI_CHAT}?conversation=${newConversation.urn}`);
             }
-        },
-        [createConversation, history],
-    );
+        } catch (error) {
+            console.error('Failed to create conversation:', error);
+        }
+    }, [createConversation, history]);
 
     // Auto-create or select conversation on mount
     useEffect(() => {
@@ -218,7 +212,7 @@ export const ChatPage = () => {
             // If we have an initialMessage (from "Ask DataHub"), always create a new conversation
             if (initialMessageRef.current) {
                 setHasAutoCreated(true);
-                handleCreateConversation(true);
+                handleCreateConversation();
                 return;
             }
 
@@ -233,7 +227,7 @@ export const ChatPage = () => {
 
             // Otherwise, auto-create a new conversation
             setHasAutoCreated(true);
-            handleCreateConversation(true);
+            handleCreateConversation();
         }
     }, [
         selectedConversationUrn,
@@ -322,7 +316,7 @@ export const ChatPage = () => {
     }, [selectedEntity]);
 
     return (
-        <PageContainer ref={pageContainerRef}>
+        <PageContainer>
             <MessengerContainer>
                 <Sidebar>
                     <ConversationList
@@ -364,17 +358,15 @@ export const ChatPage = () => {
                 </MainContent>
             </MessengerContainer>
             {selectedEntity && !isSidebarClosed && (
-                <SidebarContainer>
-                    <EntitySidebarContext.Provider
-                        value={{ width: sidebarWidth, isClosed: isSidebarClosed, setSidebarClosed: setIsSidebarClosed }}
-                    >
-                        <EntitySidebarContainer key={selectedEntity.urn} data-testid="entity-sidebar" height="100%">
-                            <CompactContext.Provider value>
-                                {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
-                            </CompactContext.Provider>
-                        </EntitySidebarContainer>
-                    </EntitySidebarContext.Provider>
-                </SidebarContainer>
+                <EntitySidebarContext.Provider
+                    value={{ width: sidebarWidth, isClosed: isSidebarClosed, setSidebarClosed: setIsSidebarClosed }}
+                >
+                    <EntitySidebarContainer key={selectedEntity.urn} data-testid="entity-sidebar" height="100%">
+                        <CompactContext.Provider value>
+                            {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
+                        </CompactContext.Provider>
+                    </EntitySidebarContainer>
+                </EntitySidebarContext.Provider>
             )}
         </PageContainer>
     );

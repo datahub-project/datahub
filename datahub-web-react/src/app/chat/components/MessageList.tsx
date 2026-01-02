@@ -37,47 +37,34 @@ export const MessageList: React.FC<MessageListProps> = ({
     return (
         <>
             {messageGroups.map((group, index) => {
-                const isLast = index === messageGroups.length - 1;
                 const isThinking = group.type === 'thinking';
-                let compactSpacing = 0;
-                if (variant === ChatVariant.Compact) {
-                    if (isLast) {
-                        compactSpacing = 0;
-                    } else if (isThinking) {
-                        compactSpacing = 4;
-                    } else {
-                        compactSpacing = 32;
-                    }
-                }
                 if (isThinking) {
                     const firstMessageTime = group.messages[0]?.time || index;
                     // Thinking group is complete if there's a next group (non-thinking) or if we're not streaming
                     const isComplete = index < messageGroups.length - 1 || !isStreaming;
                     return (
-                        <div key={`thinking-group-${firstMessageTime}`} style={{ marginBottom: compactSpacing }}>
-                            <ThinkingGroup
-                                messages={group.messages}
-                                verboseMode={verboseMode}
-                                isComplete={isComplete}
-                            />
-                        </div>
+                        <ThinkingGroup
+                            key={`thinking-group-${firstMessageTime}`}
+                            messages={group.messages}
+                            verboseMode={verboseMode}
+                            isComplete={isComplete}
+                        />
                     );
                 }
                 const messageText = group.message.content?.text || '';
                 const messageKey = `${group.message.time}-${messageText.substring(0, 20)}`;
 
                 return (
-                    <div key={messageKey} style={{ marginBottom: compactSpacing }}>
-                        <ChatMessage
-                            message={group.message}
-                            variant={variant}
-                            allowedActions={messageActions}
-                            showReferences={showReferences}
-                            conversationUrn={conversationUrn}
-                            selectedEntityUrn={selectedEntityUrn}
-                            onEntitySelect={onEntitySelect}
-                        />
-                    </div>
+                    <ChatMessage
+                        key={messageKey}
+                        message={group.message}
+                        variant={variant}
+                        allowedActions={messageActions}
+                        showReferences={showReferences}
+                        conversationUrn={conversationUrn}
+                        selectedEntityUrn={selectedEntityUrn}
+                        onEntitySelect={onEntitySelect}
+                    />
                 );
             })}
             {isStreaming &&
