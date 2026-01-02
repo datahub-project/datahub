@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { loadFeatureFlagFromLocalStorage, useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
+import { loadFromLocalStorage, useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { useAppConfig } from '@app/useAppConfig';
 
 // Mocks
@@ -101,22 +101,22 @@ describe('useFeatureFlag', () => {
     });
 });
 
-describe('loadFeatureFlagFromLocalStorage', () => {
+describe('loadFromLocalStorage', () => {
     beforeEach(() => {
         localStorage.clear();
     });
 
     it('should return true if localStorage value is true', () => {
         localStorage.setItem('someFlag', 'true');
-        expect(loadFeatureFlagFromLocalStorage('someFlag')).toBe(true);
+        expect(loadFromLocalStorage('someFlag')).toBe(true);
     });
 
     it('should return false if localStorage value is false', () => {
         localStorage.setItem('someFlag', 'false');
-        expect(loadFeatureFlagFromLocalStorage('someFlag')).toBe(false);
+        expect(loadFromLocalStorage('someFlag')).toBe(false);
     });
 
     it('should return false if localStorage has no key', () => {
-        expect(loadFeatureFlagFromLocalStorage('someFlag')).toBe(false);
+        expect(loadFromLocalStorage('someFlag')).toBe(false);
     });
 });
