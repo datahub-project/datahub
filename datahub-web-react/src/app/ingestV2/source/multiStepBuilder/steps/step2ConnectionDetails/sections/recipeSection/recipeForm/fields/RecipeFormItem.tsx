@@ -51,6 +51,7 @@ export function RecipeFormItem({
                 name={recipeField?.name}
                 tooltip={showTooltip ? (recipeField?.tooltip ?? tooltip) : undefined}
                 rules={rules}
+                showError={false}
                 {...props}
             >
                 {children}
