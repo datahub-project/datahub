@@ -13,7 +13,7 @@ const StyledEditor = styled(Editor)`
     &&& {
         .remirror-editor {
             padding: 0;
-            color: ${colors.violet[500]};
+            color: ${colors.primary[500]};
 
             p {
                 margin-bottom: 0;
@@ -32,7 +32,7 @@ const StyledEditor = styled(Editor)`
 `;
 
 const cardStyles = {
-    backgroundColor: colors.violet[0],
+    backgroundColor: colors.primary[0],
     padding: '8px',
     border: 'none',
 };
