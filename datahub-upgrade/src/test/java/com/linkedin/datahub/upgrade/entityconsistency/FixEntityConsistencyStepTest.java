@@ -35,7 +35,9 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.consistency.ConsistencyCheckRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyFixRegistry;
+import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
+import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
 import com.linkedin.metadata.aspect.consistency.check.assertion.*;
 import com.linkedin.metadata.aspect.consistency.check.monitor.*;
@@ -67,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -1337,6 +1340,7 @@ public class FixEntityConsistencyStepTest {
     for (Urn urn : List.of(urn1, urn2, urn3, urn4, urn5, urn6)) {
       AssertionInfo assertionInfo = new AssertionInfo();
       assertionInfo.setEntityUrn(validEntityUrn);
+
       EnvelopedAspectMap aspects = new EnvelopedAspectMap();
       aspects.put(
           ASSERTION_INFO_ASPECT_NAME,
