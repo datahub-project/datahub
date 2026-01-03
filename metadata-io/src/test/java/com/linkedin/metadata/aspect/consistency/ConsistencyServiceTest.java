@@ -19,8 +19,11 @@ import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.aspect.consistency.fix.HardDeleteEntityFix;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -231,24 +234,230 @@ public class ConsistencyServiceTest {
   // Entity Type Validation Tests (tested via checkBatch behavior)
   // ============================================================================
 
+  // discoverIssue Tests
+  // ============================================================================
+
+  @Mock private OperationContext mockOpContext;
+  @Mock private RetrieverContext mockRetrieverContext;
+  @Mock private EntityRegistry mockEntityRegistry;
+  @Mock private EntitySpec mockEntitySpec;
+
+  @Test
+  public void testDiscoverIssueFindsIssue() throws Exception {
+    Urn testUrn = UrnUtils.getUrn("urn:li:assertion:test-123");
+
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("assertion")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getAspectSpecMap()).thenReturn(Map.of());
+
+    EntityResponse response = new EntityResponse();
+    when(mockEntityService.getEntitiesV2(
+            eq(mockOpContext), eq("assertion"), eq(Set.of(testUrn)), any(), eq(false)))
+        .thenReturn(Map.of(testUrn, response));
+
+    ConsistencyCheck issueCheck =
+        new ConsistencyCheck() {
+          @Override
+          @Nonnull
+          public String getId() {
+            return "test-discover-check";
+          }
+
+          @Override
+          @Nonnull
+          public String getName() {
+            return "Test Discover Check";
+          }
+
+          @Override
+          @Nonnull
+          public String getDescription() {
+            return "Check for discover tests";
+          }
+
+          @Override
+          @Nonnull
+          public String getEntityType() {
+            return "assertion";
+          }
+
+          @Override
+          @Nonnull
+          public Optional<Set<String>> getRequiredAspects() {
+            return Optional.of(Set.of("assertionInfo"));
+          }
+
+          @Override
+          @Nonnull
+          public List<ConsistencyIssue> check(
+              @Nonnull CheckContext ctx, @Nonnull Map<Urn, EntityResponse> entityResponses) {
+            return entityResponses.keySet().stream()
+                .map(
+                    urn ->
+                        ConsistencyIssue.builder()
+                            .entityUrn(urn)
+                            .entityType("assertion")
+                            .checkId("test-discover-check")
+                            .fixType(ConsistencyFixType.SOFT_DELETE)
+                            .description("Discovered issue")
+                            .build())
+                .toList();
+          }
+        };
+
+    ConsistencyCheckRegistry discoverRegistry = new ConsistencyCheckRegistry(List.of(issueCheck));
+    ConsistencyService serviceWithDiscoverCheck =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, discoverRegistry, fixRegistry);
+
+    Optional<ConsistencyIssue> result =
+        serviceWithDiscoverCheck.discoverIssue(mockOpContext, testUrn, "test-discover-check");
+
+    assertTrue(result.isPresent());
+    assertEquals(result.get().getEntityUrn(), testUrn);
+    assertEquals(result.get().getCheckId(), "test-discover-check");
+    assertEquals(result.get().getFixType(), ConsistencyFixType.SOFT_DELETE);
+  }
+
+  @Test
+  public void testDiscoverIssueNoIssueFound() throws Exception {
+    Urn testUrn = UrnUtils.getUrn("urn:li:assertion:test-456");
+
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("assertion")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getAspectSpecMap()).thenReturn(Map.of());
+
+    EntityResponse response = new EntityResponse();
+    when(mockEntityService.getEntitiesV2(
+            eq(mockOpContext), eq("assertion"), eq(Set.of(testUrn)), any(), eq(false)))
+        .thenReturn(Map.of(testUrn, response));
+
+    Optional<ConsistencyIssue> result =
+        consistencyService.discoverIssue(mockOpContext, testUrn, "test-assertion-check");
+
+    assertFalse(result.isPresent());
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testDiscoverIssueUnknownCheckId() {
+    Urn testUrn = UrnUtils.getUrn("urn:li:assertion:test-789");
+    consistencyService.discoverIssue(mockOpContext, testUrn, "non-existent-check");
+  }
+
+  @Test
+  public void testDiscoverIssueEntityNotFound() throws Exception {
+    Urn testUrn = UrnUtils.getUrn("urn:li:assertion:missing");
+
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("assertion")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getAspectSpecMap()).thenReturn(Map.of());
+
+    when(mockEntityService.getEntitiesV2(
+            eq(mockOpContext), eq("assertion"), eq(Set.of(testUrn)), any(), eq(false)))
+        .thenReturn(Map.of());
+
+    Optional<ConsistencyIssue> result =
+        consistencyService.discoverIssue(mockOpContext, testUrn, "test-assertion-check");
+
+    assertFalse(result.isPresent());
+  }
+
+  @Test
+  public void testDiscoverIssueRequiresAllAspects() throws Exception {
+    Urn testUrn = UrnUtils.getUrn("urn:li:assertion:all-aspects");
+
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("assertion")).thenReturn(mockEntitySpec);
+    Set<String> allAspects = Set.of("aspect1", "aspect2", "aspect3");
+    when(mockEntitySpec.getAspectSpecMap())
+        .thenReturn(
+            Map.of(
+                "aspect1", mock(com.linkedin.metadata.models.AspectSpec.class),
+                "aspect2", mock(com.linkedin.metadata.models.AspectSpec.class),
+                "aspect3", mock(com.linkedin.metadata.models.AspectSpec.class)));
+
+    EntityResponse response = new EntityResponse();
+    when(mockEntityService.getEntitiesV2(
+            eq(mockOpContext), eq("assertion"), eq(Set.of(testUrn)), eq(allAspects), eq(false)))
+        .thenReturn(Map.of(testUrn, response));
+
+    ConsistencyCheckRegistry allAspectsRegistry =
+        new ConsistencyCheckRegistry(List.of(new TestRequiresAllAspectsCheck()));
+    ConsistencyService serviceWithAllAspects =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, allAspectsRegistry, fixRegistry);
+
+    Optional<ConsistencyIssue> result =
+        serviceWithAllAspects.discoverIssue(mockOpContext, testUrn, "test-requires-all-aspects");
+
+    assertFalse(result.isPresent());
+    verify(mockEntityService)
+        .getEntitiesV2(
+            eq(mockOpContext), eq("assertion"), eq(Set.of(testUrn)), eq(allAspects), eq(false));
+  }
+
+  // ============================================================================
+  // checkBatch URN Entity Type Validation Tests
+  // ============================================================================
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testCheckBatchUrnsWithMixedEntityTypes() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Urn monitorUrn = UrnUtils.getUrn("urn:li:monitor:test-2");
+
+    consistencyService.checkBatch(
+        mockOpContext,
+        CheckBatchRequest.builder().urns(Set.of(assertionUrn, monitorUrn)).batchSize(100).build());
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testCheckBatchUrnsWithMismatchedEntityType() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-1");
+
+    consistencyService.checkBatch(
+        mockOpContext,
+        CheckBatchRequest.builder()
+            .urns(Set.of(assertionUrn))
+            .entityType("monitor")
+            .batchSize(100)
+            .build());
+  }
+
+  @Test
+  public void testCheckBatchUrnEntityTypeFromUrnsMismatchesCheckIdsReturnsEmpty() {
+    Urn monitorUrn = UrnUtils.getUrn("urn:li:monitor:test-1");
+
+    CheckResult result =
+        consistencyService.checkBatch(
+            mockOpContext,
+            CheckBatchRequest.builder()
+                .urns(Set.of(monitorUrn))
+                .checkIds(List.of("test-assertion-check"))
+                .batchSize(100)
+                .build());
+
+    assertNotNull(result);
+    assertEquals(result.getEntitiesScanned(), 0);
+  }
+
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testCheckBatchRequiresEntityTypeOrCheckIds() {
-    // Neither entityType nor checkIds provided - should throw
-    consistencyService.checkBatch(null, CheckBatchRequest.builder().batchSize(100).build());
+    consistencyService.checkBatch(
+        mockOpContext, CheckBatchRequest.builder().batchSize(100).build());
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testCheckBatchWithEmptyEntityType() {
     // Empty entityType without checkIds - should throw
     consistencyService.checkBatch(
-        null, CheckBatchRequest.builder().entityType("").batchSize(100).build());
+        mockOpContext, CheckBatchRequest.builder().entityType("").batchSize(100).build());
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testCheckBatchWithInvalidCheckIds() {
     // CheckIds that don't match any registered checks - should throw
     consistencyService.checkBatch(
-        null,
+        mockOpContext,
         CheckBatchRequest.builder().checkIds(List.of("non-existent-check")).batchSize(100).build());
   }
 
@@ -256,7 +465,7 @@ public class ConsistencyServiceTest {
   public void testCheckBatchWithMixedEntityTypeCheckIds() {
     // CheckIds from different entity types - should throw
     consistencyService.checkBatch(
-        null,
+        mockOpContext,
         CheckBatchRequest.builder()
             .checkIds(List.of("test-assertion-check", "test-monitor-check"))
             .batchSize(100)
@@ -265,9 +474,8 @@ public class ConsistencyServiceTest {
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testCheckBatchWithMismatchedEntityTypeAndCheckIds() {
-    // EntityType doesn't match the check's entity type - should throw
     consistencyService.checkBatch(
-        null,
+        mockOpContext,
         CheckBatchRequest.builder()
             .entityType("monitor")
             .checkIds(List.of("test-assertion-check"))
@@ -275,45 +483,12 @@ public class ConsistencyServiceTest {
             .build());
   }
 
-  @Test
-  public void testCheckBatchWithValidEntityType() {
-    // Valid entityType - should not throw (empty result is fine)
-    CheckResult result =
-        consistencyService.checkBatch(
-            null, CheckBatchRequest.builder().entityType("assertion").batchSize(100).build());
-    assertNotNull(result);
-  }
-
-  @Test
-  public void testCheckBatchWithValidCheckIds() {
-    // Valid checkIds for same entity type - should not throw
-    CheckResult result =
-        consistencyService.checkBatch(
-            null,
-            CheckBatchRequest.builder()
-                .checkIds(List.of("test-assertion-check", "test-assertion-check-2"))
-                .batchSize(100)
-                .build());
-    assertNotNull(result);
-  }
-
-  @Test
-  public void testCheckBatchWithMatchingEntityTypeAndCheckIds() {
-    // EntityType matches check's entity type - should not throw
-    CheckResult result =
-        consistencyService.checkBatch(
-            null,
-            CheckBatchRequest.builder()
-                .entityType("assertion")
-                .checkIds(List.of("test-assertion-check"))
-                .batchSize(100)
-                .build());
-    assertNotNull(result);
-  }
+  // ============================================================================
+  // checkBatch Wildcard Check Tests
+  // ============================================================================
 
   @Test
   public void testCheckBatchWithWildcardCheckRequiresEntityType() {
-    // Create a wildcard check
     ConsistencyCheck wildcardCheck =
         new ConsistencyCheck() {
           @Override
@@ -360,10 +535,9 @@ public class ConsistencyServiceTest {
         new ConsistencyService(
             mockEntityService, mockEsSystemMetadataDAO, null, wildcardRegistry, fixRegistry);
 
-    // Wildcard check without entityType - should throw
     try {
       serviceWithWildcard.checkBatch(
-          null,
+          mockOpContext,
           CheckBatchRequest.builder()
               .checkIds(List.of("test-wildcard-check"))
               .batchSize(100)
@@ -372,67 +546,6 @@ public class ConsistencyServiceTest {
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("entityType is required"));
     }
-  }
-
-  @Test
-  public void testCheckBatchWithWildcardCheckAndEntityType() {
-    // Create a wildcard check
-    ConsistencyCheck wildcardCheck =
-        new ConsistencyCheck() {
-          @Override
-          @Nonnull
-          public String getId() {
-            return "test-wildcard-check";
-          }
-
-          @Override
-          @Nonnull
-          public String getName() {
-            return "Test Wildcard Check";
-          }
-
-          @Override
-          @Nonnull
-          public String getDescription() {
-            return "Test wildcard check";
-          }
-
-          @Override
-          @Nonnull
-          public String getEntityType() {
-            return ConsistencyCheckRegistry.WILDCARD_ENTITY_TYPE;
-          }
-
-          @Override
-          @Nonnull
-          public Optional<Set<String>> getRequiredAspects() {
-            return Optional.of(Set.of());
-          }
-
-          @Override
-          @Nonnull
-          public List<ConsistencyIssue> check(
-              @Nonnull CheckContext ctx, @Nonnull Map<Urn, EntityResponse> entityResponses) {
-            return List.of();
-          }
-        };
-
-    ConsistencyCheckRegistry wildcardRegistry =
-        new ConsistencyCheckRegistry(List.of(wildcardCheck));
-    ConsistencyService serviceWithWildcard =
-        new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, wildcardRegistry, fixRegistry);
-
-    // Wildcard check with entityType - should not throw
-    CheckResult result =
-        serviceWithWildcard.checkBatch(
-            null,
-            CheckBatchRequest.builder()
-                .entityType("assertion")
-                .checkIds(List.of("test-wildcard-check"))
-                .batchSize(100)
-                .build());
-    assertNotNull(result);
   }
 
   // ============================================================================
@@ -549,14 +662,15 @@ public class ConsistencyServiceTest {
 
   @Test
   public void testCheckBatchReturnsEmptyForNoChecks() {
-    // Create a service with no checks for a specific entity type
     ConsistencyCheckRegistry emptyRegistry = new ConsistencyCheckRegistry(List.of());
     ConsistencyService serviceWithEmptyRegistry =
         new ConsistencyService(
             mockEntityService, mockEsSystemMetadataDAO, null, emptyRegistry, fixRegistry);
 
-    // Should return empty result (no checks to run)
-    CheckResult result = serviceWithEmptyRegistry.checkBatch(null, "dataset", null, 100);
+    CheckResult result =
+        serviceWithEmptyRegistry.checkBatch(
+            mockOpContext,
+            CheckBatchRequest.builder().entityType("dataset").batchSize(100).build());
     assertNotNull(result);
     assertEquals(result.getEntitiesScanned(), 0);
     assertEquals(result.getIssuesFound(), 0);
@@ -597,8 +711,6 @@ public class ConsistencyServiceTest {
   // ============================================================================
   // fixIssues Tests
   // ============================================================================
-
-  @Mock private OperationContext mockOpContext;
 
   @Test
   public void testFixIssuesSuccessfulFix() {
@@ -1667,8 +1779,6 @@ public class ConsistencyServiceTest {
     Set<Urn> urnsFromEs = new HashSet<>();
     Map<Urn, EntityResponse> entitiesFromSql = Map.of();
 
-    // Empty set - no need to mock entityService.exists()
-
     CheckResult result =
         consistencyService.processBatchResults(
             mockOpContext,
@@ -1682,5 +1792,253 @@ public class ConsistencyServiceTest {
     assertEquals(result.getEntitiesScanned(), 0);
     assertEquals(result.getIssuesFound(), 0);
     assertNull(result.getScrollId());
+  }
+
+  // ============================================================================
+  // discoverIssue Orphan Check Tests
+  // ============================================================================
+
+  @Test
+  public void testDiscoverIssueOrphanCheckEntityDoesNotExist() {
+    Urn orphanUrn = UrnUtils.getUrn("urn:li:assertion:orphan-entity");
+
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(orphanUrn)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    ConsistencyCheckRegistry orphanRegistry =
+        new ConsistencyCheckRegistry(
+            List.of(new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck()));
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+
+    Optional<ConsistencyIssue> result =
+        serviceWithOrphanCheck.discoverIssue(mockOpContext, orphanUrn, "orphan-index-document");
+
+    assertTrue(result.isPresent());
+    assertEquals(result.get().getEntityUrn(), orphanUrn);
+    assertEquals(result.get().getCheckId(), "orphan-index-document");
+    assertEquals(result.get().getFixType(), ConsistencyFixType.DELETE_INDEX_DOCUMENTS);
+    assertTrue(result.get().getDescription().contains("orphaned"));
+  }
+
+  @Test
+  public void testDiscoverIssueOrphanCheckEntityExists() {
+    Urn existingUrn = UrnUtils.getUrn("urn:li:assertion:existing-entity");
+
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(existingUrn)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of(existingUrn));
+
+    ConsistencyCheckRegistry orphanRegistry =
+        new ConsistencyCheckRegistry(
+            List.of(new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck()));
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+
+    Optional<ConsistencyIssue> result =
+        serviceWithOrphanCheck.discoverIssue(mockOpContext, existingUrn, "orphan-index-document");
+
+    assertFalse(result.isPresent());
+  }
+
+  // ============================================================================
+  // checkBatch URN Entity Type Derivation Tests
+  // ============================================================================
+
+  @Test
+  public void testCheckBatchDeriveEntityTypeFromSingleUrn() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-1");
+
+    CheckResult result =
+        consistencyService.checkBatch(
+            mockOpContext,
+            CheckBatchRequest.builder().urns(Set.of(assertionUrn)).batchSize(100).build());
+
+    assertNotNull(result);
+    assertEquals(result.getEntitiesScanned(), 0);
+  }
+
+  @Test
+  public void testCheckBatchDeriveEntityTypeFromMultipleUrns() {
+    Urn urn1 = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Urn urn2 = UrnUtils.getUrn("urn:li:assertion:test-2");
+    Urn urn3 = UrnUtils.getUrn("urn:li:assertion:test-3");
+
+    CheckResult result =
+        consistencyService.checkBatch(
+            mockOpContext,
+            CheckBatchRequest.builder().urns(Set.of(urn1, urn2, urn3)).batchSize(100).build());
+
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testCheckBatchEntityTypeMatchesUrns() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-1");
+
+    CheckResult result =
+        consistencyService.checkBatch(
+            mockOpContext,
+            CheckBatchRequest.builder()
+                .urns(Set.of(assertionUrn))
+                .entityType("assertion")
+                .batchSize(100)
+                .build());
+
+    assertNotNull(result);
+  }
+
+  // ============================================================================
+  // checkBatchInternal with checkIds filter Tests
+  // ============================================================================
+
+  @Test
+  public void testCheckBatchInternalWithSpecificCheckIds() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
+
+    List<ConsistencyIssue> issues =
+        consistencyService.checkBatchInternal(
+            mockOpContext, "assertion", entities, null, List.of("test-assertion-check"));
+
+    assertTrue(issues.isEmpty());
+  }
+
+  @Test
+  public void testCheckBatchInternalWithEmptyCheckIds() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
+
+    List<ConsistencyIssue> issues =
+        consistencyService.checkBatchInternal(
+            mockOpContext, "assertion", entities, null, List.of());
+
+    assertTrue(issues.isEmpty());
+  }
+
+  @Test
+  public void testCheckBatchInternalWithNullCheckIds() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
+
+    List<ConsistencyIssue> issues =
+        consistencyService.checkBatchInternal(mockOpContext, "assertion", entities, null, null);
+
+    assertTrue(issues.isEmpty());
+  }
+
+  // ============================================================================
+  // runChecks Error Handling Tests
+  // ============================================================================
+
+  @Test
+  public void testRunChecksLogsErrorAndContinuesOnException() {
+    ConsistencyCheck errorCheck =
+        new ConsistencyCheck() {
+          @Override
+          @Nonnull
+          public String getId() {
+            return "error-check";
+          }
+
+          @Override
+          @Nonnull
+          public String getName() {
+            return "Error Check";
+          }
+
+          @Override
+          @Nonnull
+          public String getDescription() {
+            return "Check that throws";
+          }
+
+          @Override
+          @Nonnull
+          public String getEntityType() {
+            return "assertion";
+          }
+
+          @Override
+          @Nonnull
+          public Optional<Set<String>> getRequiredAspects() {
+            return Optional.of(Set.of());
+          }
+
+          @Override
+          @Nonnull
+          public List<ConsistencyIssue> check(
+              @Nonnull CheckContext ctx, @Nonnull Map<Urn, EntityResponse> entityResponses) {
+            throw new RuntimeException("Simulated error in check");
+          }
+        };
+
+    ConsistencyCheck successCheck =
+        new ConsistencyCheck() {
+          @Override
+          @Nonnull
+          public String getId() {
+            return "success-check";
+          }
+
+          @Override
+          @Nonnull
+          public String getName() {
+            return "Success Check";
+          }
+
+          @Override
+          @Nonnull
+          public String getDescription() {
+            return "Check that succeeds";
+          }
+
+          @Override
+          @Nonnull
+          public String getEntityType() {
+            return "assertion";
+          }
+
+          @Override
+          @Nonnull
+          public Optional<Set<String>> getRequiredAspects() {
+            return Optional.of(Set.of());
+          }
+
+          @Override
+          @Nonnull
+          public List<ConsistencyIssue> check(
+              @Nonnull CheckContext ctx, @Nonnull Map<Urn, EntityResponse> entityResponses) {
+            return entityResponses.keySet().stream()
+                .map(
+                    urn ->
+                        ConsistencyIssue.builder()
+                            .entityUrn(urn)
+                            .entityType("assertion")
+                            .checkId("success-check")
+                            .fixType(ConsistencyFixType.SOFT_DELETE)
+                            .description("Issue found")
+                            .build())
+                .toList();
+          }
+        };
+
+    ConsistencyCheckRegistry mixedRegistry =
+        new ConsistencyCheckRegistry(List.of(errorCheck, successCheck));
+    ConsistencyService mixedService =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, mixedRegistry, fixRegistry);
+
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test");
+    Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
+
+    List<ConsistencyIssue> issues =
+        mixedService.checkBatchInternal(mockOpContext, "assertion", entities);
+
+    assertEquals(issues.size(), 1);
+    assertEquals(issues.get(0).getCheckId(), "success-check");
   }
 }

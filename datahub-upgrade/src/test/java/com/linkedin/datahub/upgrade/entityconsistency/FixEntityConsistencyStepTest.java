@@ -1337,6 +1337,7 @@ public class FixEntityConsistencyStepTest {
     for (Urn urn : List.of(urn1, urn2, urn3, urn4, urn5, urn6)) {
       AssertionInfo assertionInfo = new AssertionInfo();
       assertionInfo.setEntityUrn(validEntityUrn);
+
       EnvelopedAspectMap aspects = new EnvelopedAspectMap();
       aspects.put(
           ASSERTION_INFO_ASPECT_NAME,

@@ -2814,3 +2814,70 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **3a3677c8e6** - feat(observability): add Kafka consumer lag monitoring (#15769)
   *by Shirshanka Das <shirshanka@apache.org> on 2025-12-28*
+
+## Upstream Merge Session - 2026-01-02 02:45:15
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 18
+- **Strategy**: stacked
+- **Started**: 2026-01-02 02:45:15
+
+### Commits Included in This Merge
+
+- **5ba2e0c6fa** - chore(ci): cleanup pr labeler (#15771)
+  *by Aseem Bansal <asmbansal2@gmail.com> on 2025-12-29*
+
+- **5df21ccbcb** - chore(ci): Update pr-labeler to include Santosh as DH team member (#15772)
+  *by Santosh Kewat <santosh.kewat@datahub.com> on 2025-12-29*
+
+- **d5e02aabf1** - feat(consistency-checks): api and upgrade consistency checks (#15766)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2025-12-29*
+
+- **3368d12626** - fix(sql-parsing): split MSSQL statements when previous expression ends with parentheses (#15730)
+  *by Alfiya S <alfiya.samiulla@datahub.com> on 2025-12-30*
+
+- **6114815dd0** - improvement(ui/ingestion): update copy of abandonment flow modal (#15778)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2025-12-30*
+
+- **336960ffcc** - improvement(ui/ingestion): minor UI improvements in ingestion flow (#15779)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2025-12-30*
+
+- **29e9e2f880** - fix(ingestion/schema-resolver): add enabler for sql parsing for more than 3 parts and implement in dremio (#15733)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2025-12-30*
+
+- **c29577c222** - Add HTTPS Support and Allow Disabling HTTP in Play Frontend (#15757)
+  *by rahul MALAWADKAR <49741611+relaxedboi@users.noreply.github.com> on 2025-12-30*
+
+- **76041c6fea** - feat(ui) Update copy for ingestion page subtitles (#15759)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2025-12-30*
+
+- **2177c1111a** - feat(ci): add pipMirrorUrl and pipExtraIndexUrl support for Docker builds (#15773)
+  *by Esteban Gutierrez <esteban.gutierrez@acryl.io> on 2025-12-30*
+
+- **1a3bfd87bf** - fix(openapi-timeseries): return scrollId (#15784)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2025-12-30*
+
+- **a5caded7a3** - Update townhalls.md (#15781)
+  *by jatherley <jen.atherley@acryl.io> on 2025-12-31*
+
+- **b3e7332f60** - docs: update top of site banner for upcoming Jan Townhall. (#15785)
+  *by Gray Ayer <grayayer@gmail.com> on 2025-12-31*
+
+- **3b59317253** - config(quickstart): 3 partitions for quickstart topics (#15780)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2025-12-31*
+
+- **a80e8030c3** - fix(gms) Clear user role membership cache after accepting role (#15782)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2025-12-31*
+
+- **68274db278** - fix(ui) Stop showing validation errors and enable "Next" when in YAML editor (#15783)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2025-12-31*
+
+- **df6f791d56** - fix(ui/ingestion): bug fixes in the new ingestion flow (#15786)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-01-01*
+
+- **c5104984a8** - fix(ingest/build: Pin ruamel.yaml version (#15788)
+  *by Tamas Nemeth <treff7es@gmail.com> on 2026-01-02*

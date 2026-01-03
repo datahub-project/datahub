@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p>December Town Hall 12/10</p><a href="https://events.datahub.com/december-townhall-2025/?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><p>January Town Hall 1/29</p><a href="https://events.datahub.com/january-townhall-2026/?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
