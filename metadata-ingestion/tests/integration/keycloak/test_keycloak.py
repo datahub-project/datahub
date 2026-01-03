@@ -246,10 +246,10 @@ def run_ingest(
             "datahub.ingestion.source.identity.keycloak.KeycloakOpenIDConnection"
         ) as MockConnection,
         patch(
-            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-            mock_datahub_graph,
-        ),
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph"
+        ) as MockDataHubGraph,
     ):
+        MockDataHubGraph.return_value = mock_datahub_graph
         mocked_functions_reference(MockAdmin=MockAdmin, MockConnection=MockConnection)
 
         pipeline = Pipeline.create(recipe)
