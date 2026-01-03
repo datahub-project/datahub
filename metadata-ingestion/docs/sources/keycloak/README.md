@@ -14,9 +14,9 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 | Source Concept | DataHub Concept | Notes |
 |DataHub Concept | Source Concept | Notes |
-|User | [CorpUser](../../generated/metamodel/entities/corpuser.md) | Mapped from Keycloak Users. |
-|Group | [CorpGroup](../../generated/metamodel/entities/corpgroup.md) | Mapped from Keycloak Groups. Nested groups are flattened but can retain hierarchy if configured (though current implementation flattens for ingestion). |
-|Group Membership | [GroupMembership](../../generated/metamodel/aspects/groupMembership.md) | Relates CorpUsers to CorpGroups. |
+|User | [CorpUser](https://docs.datahub.com/docs/generated/metamodel/entities/corpuser) | Mapped from Keycloak Users. |
+|Group | [CorpGroup](https://docs.datahub.com/docs/generated/metamodel/entities/corpgroup) | Mapped from Keycloak Groups. Nested groups are flattened but can retain hierarchy if configured (though current implementation flattens for ingestion). |
+|Group Membership | [GroupMembership](https://docs.datahub.com/docs/generated/metamodel/entities/corpgroup#group-membership) | Relates CorpUsers to CorpGroups. |
 
 ### Supported Capabilities
 
