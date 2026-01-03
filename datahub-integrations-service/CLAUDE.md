@@ -36,11 +36,22 @@ uvicorn datahub_integrations.server:app --host 0.0.0.0 --port 9003 --reload
 
 Run formatting / linting / type checking / relevant tests after all changes
 
+**Direct pytest usage (fastest):**
+
 ```bash
 source venv/bin/activate
 
-# Run tests
+# Run all tests
 pytest
+
+# Run specific test file
+pytest tests/propagation/test_bootstrap_filter_serialization.py -v
+
+# Filter by test name pattern
+pytest -k test_bootstrap_filters
+
+# Run last failed tests
+pytest --lf
 
 # Run formatting
 ruff format
@@ -50,6 +61,21 @@ ruff check
 
 # Run type checking
 mypy src/ tests/
+```
+
+**Via Gradle:**
+
+```bash
+# Run all tests
+./gradlew :datahub-integrations-service:test
+
+# Run specific tests using -PpytestArgs
+./gradlew :datahub-integrations-service:pytest -PpytestArgs="tests/propagation/test_bootstrap_filter_serialization.py -v"
+./gradlew :datahub-integrations-service:pytest -PpytestArgs="-k test_bootstrap_filters"
+
+# Note: This is a Python module - DO NOT use the standard --tests flag
+# If you try: ./gradlew :datahub-integrations-service:test --tests "pattern"
+# You'll get a helpful error with the correct syntax to use
 ```
 
 ## Architecture Overview

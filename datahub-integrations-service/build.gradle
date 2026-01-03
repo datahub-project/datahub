@@ -114,9 +114,48 @@ task lintFix(type: Exec, dependsOn: installDev) {
 }
 
 task pytest(type: Exec, dependsOn: [installDev]) {
+    // Allow passing custom pytest arguments via -PpytestArgs="..."
+    // Example: ./gradlew :datahub-integrations-service:pytest -PpytestArgs="tests/propagation/test_bootstrap_filter_serialization.py -v"
+    def pytestArgs = project.hasProperty('pytestArgs') ? project.property('pytestArgs') : ''
+    def defaultArgs = pytestArgs ? '' : "${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pytest ${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+        "${venv_name}/bin/pytest ${defaultArgs} ${pytestArgs}"
 }
+
+// Check if --tests flag was used and fail with helpful message
+gradle.taskGraph.whenReady { graph ->
+    if (graph.hasTask(":${project.name}:test")) {
+        def testTask = tasks.findByName('test')
+        if (testTask && (!testTask.filter.includePatterns.empty || !testTask.filter.commandLineIncludePatterns.empty)) {
+            throw new GradleException("""
+
+                ❌ ERROR: This is a Python module using pytest, not JUnit.
+
+                The --tests flag doesn't work here. Instead, use:
+
+                ✅ ./gradlew :datahub-integrations-service:pytest -PpytestArgs="<pytest-args>"
+
+                Examples:
+                  # Run specific test file
+                  ./gradlew :datahub-integrations-service:pytest -PpytestArgs="tests/propagation/test_bootstrap_filter_serialization.py -v"
+
+                  # Filter by test name pattern
+                  ./gradlew :datahub-integrations-service:pytest -PpytestArgs="-k test_bootstrap_filters"
+
+                  # Run last failed tests
+                  ./gradlew :datahub-integrations-service:pytest -PpytestArgs="--lf"
+
+                  # Or use pytest directly (faster)
+                  cd datahub-integrations-service && source venv/bin/activate && pytest <args>
+
+                See: https://docs.pytest.org/en/stable/how-to/usage.html
+
+            """.stripIndent())
+        }
+    }
+}
+
 test.finalizedBy(pytest)
 
 task cleanPythonCache(type: Exec) {
