@@ -1,20 +1,24 @@
+import json
 import os
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 
 
-class GoogleDriveConfig(ConfigModel):
+class GoogleDriveConfig(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigModel):
     """Configuration for Google Drive source"""
-
-    # Google Drive API requires service account credentials (API keys not supported)
-    credentials_path: Optional[str] = Field(
+    # DataHub secret containing full service account JSON (preferred approach)
+    credentials_json: Optional[str] = Field(
         default=None,
-        description="Path to the Google service account credentials JSON file. "
-        "If not provided, will look for GOOGLE_APPLICATION_CREDENTIALS environment variable. "
-        "Note: Google Drive API does not support API key authentication.",
+        description="Google service account credentials as JSON string. "
+        "This should be stored as a DataHub secret (e.g., ${GOOGLE_CREDENTIALS_JSON}). "
+        "Preferred over credentials_path for DataHub secrets integration.",
     )
 
     # Folder filtering
@@ -27,6 +31,14 @@ class GoogleDriveConfig(ConfigModel):
     include_files: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for files to include",
+    )
+
+    # MIME type filtering
+    include_mime_types: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="MIME type patterns to include/exclude. Examples: "
+        "application/vnd.google-apps.spreadsheet (Google Sheets), "
+        "application/pdf (PDF files), text/csv (CSV files)",
     )
 
     # File size limits
@@ -60,24 +72,44 @@ class GoogleDriveConfig(ConfigModel):
         "If not provided, will scan entire My Drive.",
     )
 
-    @field_validator("credentials_path")
+    @field_validator("credentials_json")
     @classmethod
-    def validate_credentials_path(cls, v):
+    def validate_credentials_json(cls, v):
         if v is None:
-            # Check for environment variable
+            # Check for environment variable fallback
             env_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            if env_creds:
-                return env_creds
+            if env_creds and os.path.exists(env_creds):
+                # Read from environment variable file path
+                with open(env_creds, 'r') as f:
+                    return f.read()
             else:
                 raise ValueError(
-                    "credentials_path must be provided or GOOGLE_APPLICATION_CREDENTIALS environment variable must be set. "
+                    "credentials_json must be provided as a DataHub secret (e.g., ${GOOGLE_CREDENTIALS_JSON}) "
+                    "or GOOGLE_APPLICATION_CREDENTIALS environment variable must point to a valid file. "
                     "Note: Google Drive API requires service account authentication (API keys are not supported)."
                 )
-
-        if not os.path.exists(v):
-            raise ValueError(f"Credentials file not found at path: {v}")
-
+        
+        # Validate that it's valid JSON
+        try:
+            json.loads(v)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"credentials_json must be valid JSON: {e}")
+            
         return v
+
+    def get_credentials_dict(self):
+        """Get credentials as a dictionary for Google API client"""
+        if self.credentials_json:
+            # Use credentials from JSON string (DataHub secret)
+            return json.loads(self.credentials_json)
+        else:
+            # Fallback to environment variable
+            env_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            if env_creds and os.path.exists(env_creds):
+                with open(env_creds, 'r') as f:
+                    return json.load(f)
+            else:
+                raise ValueError("No valid credentials configuration found")
 
     @field_validator("max_file_size_mb")
     @classmethod

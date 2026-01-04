@@ -1,13 +1,13 @@
 import { FieldType, RecipeField } from '@src/app/ingest/source/builder/RecipeForm/common';
 
-export const GOOGLE_DRIVE_CREDENTIALS_PATH: RecipeField = {
-    name: 'credentials_path',
-    label: 'Credentials Path',
-    tooltip: 'Path to the Google service account credentials JSON file',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.credentials_path',
-    placeholder: '/path/to/credentials.json',
-    required: true,
+export const GOOGLE_DRIVE_CREDENTIALS_JSON: RecipeField = {
+    name: 'credentials_json',
+    label: 'Service Account JSON',
+    tooltip: 'Google service account credentials as JSON string. Store this as a DataHub secret for security.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.credentials_json',
+    placeholder: '{"type":"service_account","project_id":"my-project",...}',
+    required: false,
     rules: null,
 };
 
@@ -95,4 +95,7 @@ export const FOLDER_PATTERN_DENY: RecipeField = {
     rules: null,
 };
 
-export const GOOGLE_DRIVE_FIELDS = [GOOGLE_DRIVE_CREDENTIALS_PATH, ROOT_FOLDER_ID];
+export const GOOGLE_DRIVE_FIELDS = [
+    GOOGLE_DRIVE_CREDENTIALS_JSON,
+    ROOT_FOLDER_ID,
+];

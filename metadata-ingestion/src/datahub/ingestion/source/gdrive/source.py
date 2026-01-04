@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Union
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -7,13 +7,16 @@ from googleapiclient.errors import HttpError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.sdk.dataset import Dataset
 
 try:
     from datahub.ingestion.source.gdrive.config import GoogleDriveConfig
@@ -27,6 +30,10 @@ logger = logging.getLogger(__name__)
 @platform_name("Google Drive")
 @config_class(GoogleDriveConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "File metadata extraction")
+@capability(SourceCapability.CONTAINERS, "Folder hierarchy support")
 class GoogleDriveSource(Source):
     """
     Google Drive DataHub source connector
@@ -48,7 +55,7 @@ class GoogleDriveSource(Source):
         config = GoogleDriveConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, Dataset]]:
         """
         Generate work units from Google Drive files
 
@@ -78,21 +85,20 @@ class GoogleDriveSource(Source):
     def authenticate(self) -> None:
         """Authenticate with Google Drive API using service account credentials"""
         try:
-            if self.config.credentials_path:
-                # Use service account credentials file
-                credentials = Credentials.from_service_account_file(
-                    self.config.credentials_path,
-                    scopes=["https://www.googleapis.com/auth/drive.readonly"],
-                )
-                # Build the service
-                self.service = build("drive", "v3", credentials=credentials)
-                logger.info(
-                    "Successfully authenticated with Google Drive API using service account"
-                )
-            else:
-                raise ValueError(
-                    "credentials_path must be provided (Google Drive API does not support API key authentication)"
-                )
+            # Get credentials dictionary (handles both file path and individual fields)
+            creds_dict = self.config.get_credentials_dict()
+            
+            # Create credentials from dictionary
+            credentials = Credentials.from_service_account_info(
+                creds_dict,
+                scopes=["https://www.googleapis.com/auth/drive.readonly"],
+            )
+            
+            # Build the service
+            self.service = build("drive", "v3", credentials=credentials)
+            logger.info(
+                "Successfully authenticated with Google Drive API using service account"
+            )
 
         except Exception as e:
             logger.error(f"Failed to authenticate with Google Drive: {e}")
@@ -101,7 +107,7 @@ class GoogleDriveSource(Source):
 
     def _process_folder(
         self, folder_id: str, depth: int = 0
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Union[MetadataWorkUnit, Dataset]]:
         """Process a Google Drive folder and its contents"""
         if depth >= self.config.max_recursion_depth:
             logger.warning(
@@ -138,9 +144,9 @@ class GoogleDriveSource(Source):
 
                 for file_info in files:
                     # Process individual file
-                    file_workunit = self._process_file(file_info)
-                    if file_workunit:
-                        yield file_workunit
+                    file_entity = self._process_file(file_info)
+                    if file_entity:
+                        yield file_entity
 
                     # If it's a folder, recurse into it
                     if (
@@ -167,7 +173,7 @@ class GoogleDriveSource(Source):
             )
             raise
 
-    def _process_file(self, file_info: Dict) -> Optional[MetadataWorkUnit]:
+    def _process_file(self, file_info: Dict) -> Optional[Dataset]:
         """Process an individual Google Drive file"""
         try:
             file_name = file_info.get("name", "Unknown")
@@ -177,7 +183,7 @@ class GoogleDriveSource(Source):
             # Process folders as container datasets
             if mime_type == "application/vnd.google-apps.folder":
                 logger.debug(f"Processing folder as dataset: {file_name}")
-                return self._create_folder_workunit(file_info)
+                return self._create_folder_dataset(file_info)
 
             # Check file size limit
             file_size = int(file_info.get("size", 0))
@@ -185,23 +191,26 @@ class GoogleDriveSource(Source):
                 logger.info(f"Skipping large file {file_name} ({file_size} bytes)")
                 return None
 
-            # Apply inclusion/exclusion patterns
+            # Apply filename inclusion/exclusion patterns
             if self.config.include_files:
                 if not self.config.include_files.allowed(file_name):
-                    logger.debug(f"Skipping file {file_name} due to patterns")
+                    logger.debug(f"Skipping file {file_name} due to filename patterns")
                     return None
 
-            # Create a simple metadata work unit for now
-            # In a real implementation, you would create proper DataHub entities
-            from datahub.emitter.mcp import MetadataChangeProposalWrapper
-            from datahub.ingestion.api.workunit import MetadataWorkUnit
-            from datahub.metadata.schema_classes import DatasetPropertiesClass
+            # Apply MIME type inclusion/exclusion patterns
+            if self.config.include_mime_types:
+                if not self.config.include_mime_types.allowed(mime_type):
+                    logger.debug(f"Skipping file {file_name} due to MIME type {mime_type}")
+                    return None
 
-            # Create basic file metadata
-            dataset_properties = DatasetPropertiesClass(
-                name=file_name,
+            # Create Dataset entity using SDK
+            dataset = Dataset(
+                platform="gdrive",
+                name=file_id,  # Use file_id as the unique identifier
+                display_name=file_name,
                 description=f"Google Drive file: {file_name}",
-                customProperties={
+                env="PROD",
+                custom_properties={
                     "file_id": file_id,
                     "mime_type": mime_type,
                     "size": str(file_size),
@@ -209,42 +218,31 @@ class GoogleDriveSource(Source):
                     "modified_time": file_info.get("modifiedTime", ""),
                     "web_view_link": file_info.get("webViewLink", ""),
                 },
+                external_url=file_info.get("webViewLink"),
             )
-
-            # Create work unit
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:gdrive,{file_id},PROD)",
-                aspectName="datasetProperties",
-                aspect=dataset_properties,
-            )
-
-            wu = MetadataWorkUnit(id=f"gdrive-{file_id}", mcp=mcp)
 
             logger.debug(f"Processed file: {file_name}")
-            self.report.report_workunit(wu)
-            return wu
+            return dataset
 
         except Exception as e:
             logger.error(f"Error processing file {file_info}: {e}")
             self.report.report_failure("file_processing", f"Error processing file: {e}")
             return None
 
-    def _create_folder_workunit(self, folder_info: Dict) -> Optional[MetadataWorkUnit]:
-        """Create a work unit for a Google Drive folder as a container dataset"""
+    def _create_folder_dataset(self, folder_info: Dict) -> Optional[Dataset]:
+        """Create a Dataset entity for a Google Drive folder"""
         try:
-            from datahub.emitter.mcp import MetadataChangeProposalWrapper
-            from datahub.ingestion.api.workunit import MetadataWorkUnit
-            from datahub.metadata.schema_classes import DatasetPropertiesClass
-
             folder_name = folder_info.get("name", "Unknown Folder")
             folder_id = folder_info.get("id")
 
-            # Create folder metadata
-            dataset_properties = DatasetPropertiesClass(
-                name=folder_name,
+            # Create Dataset entity using SDK for folder
+            dataset = Dataset(
+                platform=self.config.type,
+                name=folder_id,  # Use folder_id as the unique identifier
+                display_name=folder_name,
                 description=f"Google Drive folder: {folder_name}",
-                customProperties={
+                env="PROD",
+                custom_properties={
                     "platform": "Google Drive",
                     "folder_id": folder_id,
                     "mime_type": folder_info.get("mimeType", ""),
@@ -253,21 +251,11 @@ class GoogleDriveSource(Source):
                     "web_view_link": folder_info.get("webViewLink", ""),
                     "type": "folder",
                 },
+                external_url=folder_info.get("webViewLink"),
             )
-
-            # Create work unit for folder
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:gdrive,{folder_id},PROD)",
-                aspectName="datasetProperties",
-                aspect=dataset_properties,
-            )
-
-            wu = MetadataWorkUnit(id=f"gdrive-folder-{folder_id}", mcp=mcp)
 
             logger.debug(f"Processed folder: {folder_name}")
-            self.report.report_workunit(wu)
-            return wu
+            return dataset
 
         except Exception as e:
             logger.error(f"Error processing folder {folder_info}: {e}")
@@ -276,7 +264,7 @@ class GoogleDriveSource(Source):
             )
             return None
 
-    def _process_shared_files(self) -> Iterable[MetadataWorkUnit]:
+    def _process_shared_files(self) -> Iterable[Union[MetadataWorkUnit, Dataset]]:
         """Process files that have been shared with the service account"""
         try:
             logger.info("Processing files shared with service account...")
@@ -297,9 +285,9 @@ class GoogleDriveSource(Source):
 
             for file_info in files:
                 # Process shared file
-                file_workunit = self._process_file(file_info)
-                if file_workunit:
-                    yield file_workunit
+                file_entity = self._process_file(file_info)
+                if file_entity:
+                    yield file_entity
 
                 # If it's a shared folder, process its contents too
                 if file_info.get("mimeType") == "application/vnd.google-apps.folder":
