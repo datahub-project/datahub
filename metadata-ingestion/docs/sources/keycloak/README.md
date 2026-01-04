@@ -12,11 +12,11 @@ The Keycloak source ingests metadata about Users, Groups, and Group Membership f
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept   | DataHub Concept                                                                     | Notes                            |
-| ---------------- | ----------------------------------------------------------------------------------- | -------------------------------- |
-| User             | [CorpUser](docs/generated/metamodel/entities/corpuser.md)                           | Mapped from Keycloak Users.      |
-| Group            | [CorpGroup](docs/generated/metamodel/entities/corpgroup.md)                         | Mapped from Keycloak Groups.     |
-| Group Membership | [Group Membership](docs/generated/metamodel/entities/corpgroup.md#group-membership) | Relates CorpUsers to CorpGroups. |
+| Source Concept   | DataHub Concept                                                                                           | Notes                            |
+| ---------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| User             | [CorpUser](https://docs.datahub.com/docs/generated/metamodel/entities/corpuser)                           | Mapped from Keycloak Users.      |
+| Group            | [CorpGroup](https://docs.datahub.com/docs/generated/metamodel/entities/corpgroup)                         | Mapped from Keycloak Groups.     |
+| Group Membership | [Group Membership](https://docs.datahub.com/docs/generated/metamodel/entities/corpgroup#group-membership) | Relates CorpUsers to CorpGroups. |
 
 ### Supported Capabilities
 
