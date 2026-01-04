@@ -8,8 +8,9 @@ interface Props {
     enableTabClosingHandling?: boolean;
     enableRedirectHandling?: boolean;
     confirmationModalTitle?: string;
-    confirmationModalText?: React.ReactNode;
+    confirmationModalContent?: React.ReactNode;
     confirmButtonText?: string;
+    closeButtonText?: string;
 }
 
 interface ConfirmationArgs {
@@ -35,8 +36,9 @@ export function DiscardUnsavedChangesConfirmationProvider({
     enableTabClosingHandling = true,
     enableRedirectHandling = true,
     confirmationModalTitle,
-    confirmationModalText,
+    confirmationModalContent,
     confirmButtonText,
+    closeButtonText,
 }: React.PropsWithChildren<Props>) {
     const [isDirty, setIsDirty] = useState<boolean>(false);
     const [isConfirmationShown, setIsConfirmationShown] = useState<boolean>(false);
@@ -79,7 +81,7 @@ export function DiscardUnsavedChangesConfirmationProvider({
         [isDirty, isRedirectConfirmed, enableRedirectHandling],
     );
 
-    const onRedirectConfrirm = useCallback(() => {
+    const onRedirectConfirm = useCallback(() => {
         setIsRedirectConfirmationShown(false);
         setIsRedirectConfirmed(true);
         // Defer redirect to the next tick
@@ -96,15 +98,20 @@ export function DiscardUnsavedChangesConfirmationProvider({
 
             <ConfirmationModal
                 isOpen={isConfirmationShown}
-                modalTitle={confirmationModalTitle ?? 'Discard unsaved changes?'}
-                modalText={confirmationModalText ?? 'Your changes will be lost. Are you sure you want to leave?'}
+                modalTitle={confirmationModalTitle ?? 'You have unsaved changes'}
+                modalText={
+                    confirmationModalContent ??
+                    'Exiting now will discard your changes. You can continue or exit and start over later'
+                }
                 closeButtonColor="gray"
-                handleClose={() => {
+                handleConfirm={() => {
                     setIsConfirmationShown(false);
                     setIsRedirectConfirmed(false); // restore redirect handling
                 }}
-                confirmButtonText={confirmButtonText ?? 'Confirm'}
-                handleConfirm={() => onConfirmHandler?.()}
+                confirmButtonText={confirmButtonText ?? 'Continue'}
+                handleClose={() => onConfirmHandler?.()}
+                closeButtonText={closeButtonText ?? 'Exit'}
+                closeOnPrimaryAction
             />
 
             {enableRedirectHandling && (
@@ -113,14 +120,17 @@ export function DiscardUnsavedChangesConfirmationProvider({
 
                     <ConfirmationModal
                         isOpen={isRedirectConfirmationShown}
-                        modalTitle={confirmationModalTitle ?? 'Discard unsaved changes?'}
+                        modalTitle={confirmationModalTitle ?? 'You have unsaved changes'}
                         modalText={
-                            confirmationModalText ?? 'Your changes will be lost. Are you sure you want to leave?'
+                            confirmationModalContent ??
+                            'Exiting now will discard your changes. You can continue or exit and start over later'
                         }
                         closeButtonColor="gray"
-                        handleClose={() => setIsRedirectConfirmationShown(false)}
-                        confirmButtonText={confirmButtonText ?? 'Confirm'}
-                        handleConfirm={onRedirectConfrirm}
+                        handleConfirm={() => setIsRedirectConfirmationShown(false)}
+                        confirmButtonText={confirmButtonText ?? 'Continue'}
+                        handleClose={onRedirectConfirm}
+                        closeButtonText={closeButtonText ?? 'Exit'}
+                        closeOnPrimaryAction
                     />
                 </>
             )}
