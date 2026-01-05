@@ -143,6 +143,10 @@ def test_deploy_source_vars_from_config_file():
                 "debugMode": False,
                 "executorId": "other-default",
                 "version": "1.3.1.1",
+                "extraArgs": [
+                    {"key": "extra_pip_requirements", "value": '["polars"]'},
+                    {"key": "extra_env_vars", "value": '{"VAR0": "value0"}'},
+                ],
             },
         },
     }
@@ -186,6 +190,10 @@ def test_deploy_source_name_precedence():
                 "debugMode": False,
                 "executorId": "other-default",
                 "version": "1.3.1.1",
+                "extraArgs": [
+                    {"key": "extra_pip_requirements", "value": '["polars"]'},
+                    {"key": "extra_env_vars", "value": '{"VAR0": "value0"}'},
+                ],
             },
         },
     }
