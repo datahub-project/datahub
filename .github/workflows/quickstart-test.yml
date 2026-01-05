@@ -145,7 +145,7 @@ jobs:
     strategy:
       matrix:
         # TODO: once more supported versions are added, this should become list last n versions
-        datahub_version: ["v1.1.0", "v1.2.0", "head"]
+        datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "head"]
       fail-fast: false
     steps:
       - name: Free up disk space
