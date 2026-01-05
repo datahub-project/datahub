@@ -1,19 +1,19 @@
 import { spacing } from '@components';
-import { Form, message } from 'antd';
-import React, { useCallback, useMemo } from 'react';
+import { Form, FormInstance, message } from 'antd';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
 import { FormHeader } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FormHeader';
 import TestConnectionModal from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionModal';
 import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
+import { resolveDynamicOptions } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/utils';
 import { getValuesFromRecipe } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/utils';
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
 import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/FiltersSection';
@@ -56,21 +56,50 @@ function getInitialValues(displayRecipe: string, allFields: RecipeField[]) {
 interface Props {
     state: MultiStepSourceBuilderState;
     displayRecipe: string;
+    form: FormInstance<any>;
+    runFormValidation: () => void;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     selectedSource?: IngestionSource;
-    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, selectedSource, setIsRecipeValid }: Props) {
+function RecipeForm({
+    state,
+    displayRecipe,
+    form,
+    runFormValidation,
+    sourceConfigs,
+    setStagedRecipe,
+    selectedSource,
+}: Props) {
+    const areFormValuesChangedRef = useRef<boolean>(false);
+
+    const formValues = Form.useWatch([], form);
+
     const { type } = state;
     const version = state.config?.version;
-    const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type as string];
+    const recipeFields = RECIPE_FIELDS[type as string];
+    const { fields, advancedFields, filterFields } = useMemo(() => {
+        return {
+            fields: recipeFields.fields.map((field) => resolveDynamicOptions(field, formValues)),
+            advancedFields: recipeFields.advancedFields.map((field) => resolveDynamicOptions(field, formValues)),
+            filterFields: recipeFields.filterFields.map((field) => resolveDynamicOptions(field, formValues)),
+        };
+    }, [recipeFields, formValues]);
+
+    // Run validation when fields changed. Required to revalidate hidden/shown fields
+    useEffect(() => {
+        // Run validation when form values were changed
+        if (areFormValuesChangedRef.current) {
+            // Run validation on the next tick when the new state of fields is already rendered
+            setTimeout(() => runFormValidation(), 0);
+        }
+    }, [runFormValidation]);
+
     const allFields = useMemo(
         () => [...fields, ...advancedFields, ...filterFields],
         [fields, advancedFields, filterFields],
     );
-    const [form] = Form.useForm();
 
     const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
 
@@ -92,6 +121,13 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
                 }
             });
 
+            // Remove hidden fields from the recipe before converting to YAML
+            allFields.forEach((recipeField) => {
+                if (recipeField.hidden) {
+                    updatedValues = setFieldValueOnRecipe(updatedValues, null, recipeField.fieldPath);
+                }
+            });
+
             const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
             setStagedRecipe(stagedRecipe);
         },
@@ -100,19 +136,11 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
 
     const updateFormValues = useCallback(
         (changedValues: any, allValues: any) => {
+            areFormValuesChangedRef.current = true;
             updateRecipe(changedValues, allValues);
-
-            form.validateFields()
-                .then(() => {
-                    setIsRecipeValid?.(true);
-                })
-                .catch((error) => {
-                    // FYI: `error` could be triggered with empty list of `errorFields` when form is valid
-                    const hasErrors = (error.errorFields?.length ?? 0) > 0;
-                    setIsRecipeValid?.(!hasErrors);
-                });
+            runFormValidation();
         },
-        [setIsRecipeValid, updateRecipe, form],
+        [runFormValidation, updateRecipe],
     );
 
     const updateFormValue = useCallback(

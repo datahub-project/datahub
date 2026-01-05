@@ -54,7 +54,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     password || Cypress.env("ADMIN_PASSWORD"),
     { delay: 0 },
   );
-  cy.contains("Sign In").click();
+  cy.get("[data-testid='sign-in']").click();
   cy.get(".ant-avatar-circle").should("be.visible");
   notFirstTimeVisit();
 });
@@ -64,7 +64,7 @@ Cypress.Commands.add("visitWithLogin", (url) => {
   cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
   cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   notFirstTimeVisit();
-  cy.contains("Sign In").click();
+  cy.get("[data-testid='sign-in']").click();
 });
 
 // Login commands for onboarding tour testing (without setting skipOnboardingTour)
@@ -519,9 +519,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.enterTextInTestId("name", name);
     cy.enterTextInTestId("password", password);
     cy.enterTextInTestId("confirmPassword", password);
-    cy.mouseover("#title").click();
-    cy.waitTextVisible("Other").click();
-    cy.get("[type=submit]").click();
+    cy.get('[data-testid="sign-up"]').click();
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);

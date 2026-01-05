@@ -52,6 +52,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #15714: Kafka topic partition counts are now automatically increased during upgrades if configured values exceed existing partitions. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=false` to disable this behavior while still allowing DataHub to create new topics.
+- (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
+
 ## 1.3.0
 
 ### Breaking Changes
@@ -61,6 +64,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - As a side effect, this upgrade in pydantic version has implicit consequences for `iceberg` ingestion source. If it is run from CLI and `datahub` CLI was installed with all extras (`acryl-datahub[all]`), then `pyiceberg` has been kept at `0.4.0` version in such environment, just to satisfiy the pydantic v1 restriction. However now, `pyiceberg` will be installed in the newest available version. While this is a breaking change in the behaviour, versions `>0.4.0` have been used for some time by Managed Ingestion.
   - Additionally, there have been changes to the catalog connection configuration details - especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`, `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version `0.8.0`. To check whether your configuration will work, consult https://py.iceberg.apache.org/configuration/#catalogs. Because of that, `pyiceberg` dependency has been restricted to be `0.8.0` at least.
   - Anyway, **there are no changes needed for iceberg recipes orchestrated via the Managed Ingestion UI**
+- The `acryl-datahub-airflow-plugin` now requires specifying the appropriate installation extra based on your Airflow version due to different OpenLineage dependencies:
+  - **For Airflow 2.x (2.7+)**: Install with `pip install 'acryl-datahub-airflow-plugin[airflow2]'`
+  - **For Airflow 3.x (3.0+)**: Install with `pip install 'acryl-datahub-airflow-plugin[airflow3]'`
+  - **For Airflow 3.0.x specifically**: You'll also need to bump pydantic: `pip install 'acryl-datahub-airflow-plugin[airflow3]' 'pydantic>=2.11.8'`
+  - Installing without the appropriate extra will result in missing OpenLineage dependencies and lineage extraction will not work properly. The plugin automatically detects your Airflow version and uses the appropriate integration once the correct extra is installed.
 - Auto-detection for SearchClientShim requires permission for the cluster info endpoint on ElasticSearch/OpenSearch. If you are using a restrictive account to access your cluster, you may need to directly configure the engine type rather than relying on auto-detection. These are the two environment variables needed to be configured for GMS as well as MCE & MAE consumers (available in helm charts as well):
   - ELASTICSEARCH_SHIM_ENGINE_TYPE & ELASTICSEARCH_SHIM_AUTO_DETECT (.Values.global.elasticsearch.engineType and .Values.global.elasticsearch.autoDetect respectively for helm)
   - Allowed values: ELASTICSEARCH_SHIM_ENGINE_TYPE["ELASTICSEARCH_7", "ELASTICSEARCH_8", "OPENSEARCH_2", "AUTO_DETECT"] , ELASTICSEARCH_SHIM_AUTO_DETECT["true","false"]
@@ -75,6 +83,14 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- Airflow 3.x Support: The `acryl-datahub-airflow-plugin` now supports Apache Airflow 3.x while maintaining backward compatibility with Airflow 2.5+. Key changes include:
+  - **Kill Switch Migration**: The plugin's kill switch behavior has changed between versions:
+    - **Airflow 2.x**: Continue using Airflow Variables to disable the plugin (set the Airflow Variable `datahub_airflow_plugin_disable_listener` to `true`)
+    - **Airflow 3.x**: Use environment variable `AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true` to disable the plugin. This change is required to comply with Airflow 3.x's strict database access restrictions during listener initialization.
+  - **Configuration Changes**: Airflow 3.x moved some configuration keys (e.g., `WEBSERVER__BASE_URL` → `API__BASE_URL`). The plugin automatically detects and uses the correct configuration for each version.
+  - **SubDAG Removal**: SubDAG support has been removed in Airflow 3.x. Users should migrate to TaskGroups for visual grouping of tasks.
+  - **New SQLParser Integration**: Airflow 3.x uses a unified SQLParser patch architecture for lineage extraction, replacing operator-specific extractors. This provides better consistency and column-level lineage across all SQL operators.
+  - For detailed migration instructions and compatibility information, see `metadata-ingestion-modules/airflow-plugin/AIRFLOW_3_MIGRATION.md` in the DataHub repository.
 - #15118: (Ingestion) The Oracle source now includes stored procedures, functions, packages, and materialized views with automatic lineage generation. Use `procedure_pattern` to filter procedures if needed. See the Oracle source documentation for permissions and configuration details.
 - #14717: The Tableau ingestion source now enables `extract_lineage_from_unsupported_custom_sql_queries` by default. This improves the quality of lineage extracted by using DataHub's SQL parser in cases where the Tableau Catalog API fails to return lineage for Custom SQL queries.
 - #14824: DataHub now supports CDC (Change Data Capture) mode for generating MetadataChangeLogs with guaranteed ordering based on database transaction commits. CDC mode is optional and disabled by default. When enabled via `CDC_MCL_PROCESSING_ENABLED=true`, MCLs are generated from Debezium-captured database changes rather than directly from GMS. This provides stronger ordering guarantees and decoupled processing. Requires MySQL 5.7+ or PostgreSQL 10+ with replication enabled. See [CDC Configuration Guide](configure-cdc.md) for setup instructions.

@@ -36,7 +36,11 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -86,8 +90,46 @@ public class SystemUpdateConfig {
   @Bean(name = "systemUpdateNonBlocking")
   public SystemUpdateNonBlocking systemUpdateNonBlocking(
       final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
-      @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking) {
-    return new SystemUpdateNonBlocking(nonBlockingSystemUpgrades, bootstrapMCPNonBlocking);
+      @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking,
+      final org.springframework.boot.ApplicationArguments applicationArguments) {
+
+    List<NonBlockingSystemUpgrade> filteredUpgrades = nonBlockingSystemUpgrades;
+
+    // Filter by classname(s) if specified via -n or --nonblocking-classname (comma-delimited)
+    List<String> classnameValues = applicationArguments.getOptionValues("n");
+    if (classnameValues == null || classnameValues.isEmpty()) {
+      classnameValues = applicationArguments.getOptionValues("nonblocking-classname");
+    }
+
+    if (classnameValues != null && !classnameValues.isEmpty()) {
+      Set<String> targetClassnames =
+          Arrays.stream(classnameValues.get(0).split(","))
+              .map(String::trim)
+              .filter(s -> !s.isEmpty())
+              .collect(Collectors.toSet());
+
+      log.info("Filtering non-blocking upgrades to run only: {}", targetClassnames);
+
+      filteredUpgrades =
+          nonBlockingSystemUpgrades.stream()
+              .filter(upgrade -> targetClassnames.contains(upgrade.id()))
+              .toList();
+
+      if (filteredUpgrades.isEmpty()) {
+        log.warn(
+            "No non-blocking upgrades found matching '{}'. Available upgrades: {}",
+            targetClassnames,
+            nonBlockingSystemUpgrades.stream().map(NonBlockingSystemUpgrade::id).toList());
+      } else if (filteredUpgrades.size() < targetClassnames.size()) {
+        Set<String> foundIds =
+            filteredUpgrades.stream().map(NonBlockingSystemUpgrade::id).collect(Collectors.toSet());
+        Set<String> notFound = new HashSet<>(targetClassnames);
+        notFound.removeAll(foundIds);
+        log.warn("Some requested upgrades were not found: {}", notFound);
+      }
+    }
+
+    return new SystemUpdateNonBlocking(filteredUpgrades, bootstrapMCPNonBlocking);
   }
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")

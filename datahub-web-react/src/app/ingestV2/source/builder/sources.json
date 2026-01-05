@@ -55,7 +55,7 @@
         "displayName": "Looker",
         "description": "Import Models, Explores, Views, Looks, Dashboards, and lineage from Looker.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/looker/overview#looker",
-        "recipe": "source:\n    type: looker\n    config:\n        # Coosrdinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
         "isPopular": true
     },
@@ -165,7 +165,7 @@
         "displayName": "Glue",
         "description": "Import Tables, Databases, Jobs, statistics, and lineage to S3 from AWS Glue.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/glue/",
-        "recipe": "source:\n    type: glue\n    config:\n        # AWS credentials. \n        aws_region: # The region for your AWS Glue instance. \n        # Add secret in Secrets Tab with relevant names for each variable\n        # The access key for your AWS account.\n        aws_access_key_id: \"${AWS_ACCESS_KEY_ID}\"\n        # The secret key for your AWS account.\n        aws_secret_access_key: \"${AWS_SECRET_KEY}\"\n        aws_session_token: # The session key for your AWS account. This is only needed when you are using temporary credentials.\n        # aws_role: # (Optional) The role to assume (Role chaining supported by using a sorted list).\n\n        # Allow / Deny specific databases & tables\n        # database_pattern:\n        #    allow:\n        #        - \"flights-database\"\n        # table_pattern:\n        #    allow:\n        #        - \"avro\"",
+        "recipe": "source:\n    type: glue\n    config:\n        env: PROD\n        extract_owners: true\n        extract_transforms: true\n",
         "category": "Data Lake",
         "isPopular": true
     },
@@ -215,7 +215,7 @@
         "displayName": "Oracle",
         "description": "Import Databases, Schemas, Tables, Views, statistics, and lineage from Oracle.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/oracle/",
-        "recipe": "source: \n    type: oracle\n    config:\n        # Coordinates\n        host_port: # Your Oracle host and port, e.g. oracle:5432\n        database: # Your Oracle database name, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${ORACLE_USERNAME}\" # Your Oracle username, e.g. admin\n        password: \"${ORACLE_PASSWORD}\" # Your Oracle password, e.g. password_01\n\n        # Optional service name\n        # service_name: # Your service name, e.g. svc # omit database if using this option\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source: \n    type: oracle\n    config:\n        host_port: null\n        database: null\n        env: PROD\n        include_tables: true\n        include_views: true\n        include_view_lineage: true\n        include_view_column_lineage: true\n",
         "category": "Database",
         "isPopular": true
     },
@@ -315,7 +315,7 @@
         "displayName": "Vertica",
         "description": "Import Databases, Schemas, Tables, Views, Projections, statistics, and lineage from Vertica.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/vertica/",
-        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Database_Name\n        # Credentials\n        username: Vertica_User\n        password: Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  ",
+        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: # localhost:5433\n        # The name of the vertica database\n        database: # Database_Name\n        # Credentials\n        username: # Vertica_User\n        password: # Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  ",
         "category": "Data Warehouse",
         "isPopular": false
     },
@@ -395,7 +395,7 @@
         "displayName": "Dremio",
         "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
-        "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n        #true if https, otherwise false\n        tls: true\n\n        #For cloud instance\n        #is_dremio_cloud: True\n        #dremio_cloud_project_id: <project_id>\n\n        #Credentials with personal access token\n        authentication_method: PAT\n        password: pass\n\n        #Or Credentials with basic auth\n        #authentication_method: password\n        #username: null\n        #password: null\n\n       ingest_owner: true\n\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: dremio\n    config:\n        dremio_cloud_region: US\n        port: 9047\n        tls: true\n        authentication_method: PAT\n        password: pass\n        env: PROD\n        ingest_owner: true\n",
         "category": "Query Engine",
         "isPopular": true
     },
@@ -403,6 +403,7 @@
         "urn": "urn:li:dataPlatform:cassandra",
         "name": "cassandra",
         "displayName": "CassandraDB",
+        "description": "Import Tables, Keyspaces, and column schemas from Cassandra.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/cassandra",
         "recipe": "source:\n  type: cassandra\n  config:\n    # Credentials for on prem cassandra\n    contact_point: localhost\n    port: 9042\n    username: admin\n    password: password\n\n    # Or\n    # Credentials Astra Cloud\n    #cloud_config:\n    #  secure_connect_bundle: Path to Secure Connect Bundle (.zip)\n    #  token: Application Token\n\n    # Optional Allow / Deny extraction of particular keyspaces.\n    keyspace_pattern:\n      allow: [.*]\n\n    # Optional Allow / Deny extraction of particular tables.\n    table_pattern:\n      allow: [.*]",
         "category": "Database",
@@ -442,6 +443,7 @@
         "urn": "urn:li:dataPlatform:hex",
         "name": "hex",
         "displayName": "Hex",
+        "description": "Import Projects, Components, and lineage from Hex.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hex/",
         "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex Workspace name\n     token: # Your PAT or Workspace token",
         "category": "BI & Analytics",
@@ -451,6 +453,7 @@
         "urn": "urn:li:dataPlatform:grafana",
         "name": "grafana",
         "displayName": "Grafana",
+        "description": "Import Dashboards, Charts, and Data sources from Grafana",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/grafana/",
         "recipe": "source:\n    type: \"grafana\"\n    config:\n        url: \"https://grafana.company.com:443\"\n        service_account_token: token\n        verify_ssl: true",
         "category": "Miscellaneous",
@@ -470,6 +473,7 @@
         "urn": "urn:li:dataPlatform:airflow",
         "name": "airflow",
         "displayName": "Airflow",
+        "description": "Import DAGs, Tasks, and lineage from Airflow.",
         "docsUrl": "https://docs.datahub.com/docs/lineage/airflow",
         "recipe": "",
         "category": "Orchestration",
@@ -480,6 +484,7 @@
         "urn": "urn:li:dataPlatform:dagster",
         "name": "dagster",
         "displayName": "Dagster",
+        "description": "Import Pipelines, Jobs, Assets, and lineage from Dagster.",
         "docsUrl": "https://docs.datahub.com/docs/lineage/dagster",
         "recipe": "",
         "category": "Orchestration",
@@ -490,10 +495,41 @@
         "urn": "urn:li:dataPlatform:spark",
         "name": "spark",
         "displayName": "Spark",
+        "description": "Import Pipelines, Jobs, and column-level lineage from Spark.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage",
         "recipe": "",
         "category": "Orchestration",
         "isPopular": false,
         "isExternal": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:s3",
+        "name": "s3",
+        "displayName": "S3",
+        "description": "Import Datasets, Folders, S3 Buckets, and inferred schemas from S3.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/s3",
+        "recipe": "source:\n  type: s3\n  config:\n    path_specs:\n      - include: \"s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*\"\n\n    aws_config:\n      aws_access_key_id: key_id\n      aws_secret_access_key: access_key\n      aws_region: us-east-2\n    env: \"PROD\"\n    profiling:\n      enabled: false",
+        "category": "Data Lake",
+        "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:sagemaker",
+        "name": "sagemaker",
+        "displayName": "SageMaker",
+        "description": "Import Feature Groups, Models, Jobs, and lineage from SageMaker.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sagemaker",
+        "recipe": "source:\n  type: sagemaker\n  config:\n    # Coordinates\n    aws_region: \"my-aws-region\"",
+        "category": "ML Platforms",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:feast",
+        "name": "feast",
+        "displayName": "Feast",
+        "description": "Import Feature Tables, Features, Entities, and Data Sources from Feast.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/feast",
+        "recipe": "source:\n  type: feast\n  config:\n    # Coordinates\n    path: \"/path/to/repository/\"\n    # Options\n    environment: \"PROD\"",
+        "category": "ML Platforms",
+        "isPopular": false
     }
 ]

@@ -1,6 +1,19 @@
 ### Prerequisites
 
-The Hive Metastore source connects directly to the Hive metastore database (MySQL, PostgreSQL, etc.) to extract metadata. This approach is faster and more comprehensive than connecting via HiveServer2, especially for large deployments.
+The Hive Metastore connector supports two connection modes:
+
+1. **SQL Mode (Default)**: Connects directly to the Hive metastore database (MySQL, PostgreSQL, etc.)
+2. **Thrift Mode**: Connects to Hive Metastore via the Thrift API (port 9083), with Kerberos support
+
+Choose your connection mode based on your environment:
+
+| Feature            | SQL Mode (default)               | Thrift Mode                      |
+| ------------------ | -------------------------------- | -------------------------------- |
+| **Use when**       | Direct database access available | Only HMS Thrift API accessible   |
+| **Authentication** | Database credentials             | Kerberos/SASL or unauthenticated |
+| **Port**           | Database port (3306/5432)        | Thrift port (9083)               |
+| **Dependencies**   | Database drivers                 | `pymetastore`, `thrift-sasl`     |
+| **Filtering**      | SQL WHERE clauses supported      | Pattern-based filtering only     |
 
 Before configuring the DataHub connector, ensure you have:
 
@@ -174,6 +187,102 @@ source:
         sslmode: require
 ```
 
+### Thrift Connection Mode
+
+Use `connection_type: thrift` when you cannot access the metastore database directly but have access to the HMS Thrift API (typically port 9083). This is common in:
+
+- Kerberized Hadoop clusters where database access is restricted
+- Cloud-managed Hive services that only expose the Thrift API
+- Environments with strict network segmentation
+
+#### Thrift Mode Prerequisites
+
+Before using Thrift mode, ensure:
+
+1. **Network Access**: The machine running DataHub ingestion can reach HMS on port 9083
+2. **HMS Service Running**: The Hive Metastore service is running and accepting Thrift connections
+3. **For Kerberos**: A valid Kerberos ticket is available (see Kerberos section below)
+
+**Verify connectivity**:
+
+```bash
+# Test network connectivity to HMS
+telnet hms.company.com 9083
+
+# For Kerberos environments, verify ticket
+klist
+```
+
+#### Thrift Mode Dependencies
+
+```bash
+# Install with Thrift support
+pip install 'acryl-datahub[hive-metastore]'
+
+# For Kerberos authentication, also install:
+pip install thrift-sasl pyhive[hive-pure-sasl]
+```
+
+#### Thrift Configuration Options
+
+| Option                        | Type      | Default | Required         | Description                                                   |
+| ----------------------------- | --------- | ------- | ---------------- | ------------------------------------------------------------- |
+| `connection_type`             | string    | `sql`   | Yes (for Thrift) | Set to `thrift` to enable Thrift mode                         |
+| `host_port`                   | string    | -       | Yes              | HMS host and port (e.g., `hms.company.com:9083`)              |
+| `use_kerberos`                | boolean   | `false` | No               | Enable Kerberos/SASL authentication                           |
+| `kerberos_service_name`       | string    | `hive`  | No               | Kerberos service principal name                               |
+| `kerberos_hostname_override`  | string    | -       | No               | Override hostname for Kerberos principal (for load balancers) |
+| `timeout_seconds`             | int       | `60`    | No               | Connection timeout in seconds                                 |
+| `max_retries`                 | int       | `3`     | No               | Maximum retry attempts for transient failures                 |
+| `catalog_name`                | string    | -       | No               | HMS 3.x catalog name (e.g., `spark_catalog`)                  |
+| `include_catalog_name_in_ids` | boolean   | `false` | No               | Include catalog in dataset URNs                               |
+| `database_pattern`            | AllowDeny | -       | No               | Filter databases by regex pattern                             |
+| `table_pattern`               | AllowDeny | -       | No               | Filter tables by regex pattern                                |
+
+**Note**: SQL `WHERE` clause options (`tables_where_clause_suffix`, `views_where_clause_suffix`, `schemas_where_clause_suffix`) have been **deprecated** for security reasons (SQL injection risk) and are no longer supported. Use `database_pattern` and `table_pattern` instead.
+
+#### Basic Thrift Configuration
+
+```yaml
+source:
+  type: hive-metastore
+  config:
+    connection_type: thrift
+    host_port: hms.company.com:9083
+```
+
+#### Thrift with Kerberos Authentication
+
+Ensure you have a valid Kerberos ticket (`kinit -kt /path/to/keytab user@REALM`) before running ingestion:
+
+```yaml
+source:
+  type: hive-metastore
+  config:
+    connection_type: thrift
+    host_port: hms.company.com:9083
+    use_kerberos: true
+    kerberos_service_name: hive # Change if HMS uses different principal
+    # kerberos_hostname_override: hms-internal.company.com  # If using load balancer
+    # catalog_name: spark_catalog  # For HMS 3.x multi-catalog
+    database_pattern: # Pattern filtering (WHERE clauses NOT supported)
+      allow:
+        - "^prod_.*"
+```
+
+#### Thrift Mode Dependencies
+
+```bash
+pip install 'acryl-datahub[hive-metastore]'  # Add thrift-sasl for Kerberos
+```
+
+#### Thrift Mode Limitations
+
+- **No Presto/Trino view lineage**: View SQL parsing requires SQL mode
+- **No WHERE clause filtering**: Use `database_pattern`/`table_pattern` instead
+- **Kerberos ticket required**: Must have valid ticket before running (not embedded in config)
+- **HMS version compatibility**: Tested with HMS 2.x and 3.x
+
 ### Storage Lineage
 
 The Hive Metastore connector supports the same storage lineage features as the Hive connector, with enhanced performance due to direct database access.
@@ -294,7 +403,7 @@ source:
 
 #### Table Filtering with SQL
 
-For more complex filtering, use SQL WHERE clauses:
+For filtering by database name, use pattern-based filtering:
 
 ```yaml
 source:
@@ -302,14 +411,17 @@ source:
   config:
     # ... connection config ...
 
-    # Custom SQL filter for tables
-    tables_where_clause_suffix: 'AND d."name" in (''production_db'', ''analytics_db'')'
-
-    # Custom SQL filter for views
-    views_where_clause_suffix: 'AND d."name" in (''production_db'', ''analytics_db'')'
+    # Filter to specific databases using regex patterns
+    database_pattern:
+      allow:
+        - "^production_db$"
+        - "^analytics_db$"
+      deny:
+        - "^test_.*"
+        - ".*_staging$"
 ```
 
-**Note**: The WHERE clause suffix is appended to the internal query. Use proper SQL syntax for your database type (e.g., quoted identifiers for PostgreSQL).
+**Note**: The deprecated `*_where_clause_suffix` options have been removed for security reasons. Use `database_pattern` and `table_pattern` for filtering.
 
 ### Performance Considerations
 
