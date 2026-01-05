@@ -1,4 +1,6 @@
 #!/bin/sh
+set -euo pipefail
+
 export PGPASSWORD=$POSTGRES_PASSWORD
 
 POSTGRES_CREATE_DB=${POSTGRES_CREATE_DB:-true}
