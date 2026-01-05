@@ -260,7 +260,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    *     datastore
    * @return the system aspect to be persisted to the datastore
    */
-  static SystemAspect applyUpsert(ChangeMCP changeMCP, SystemAspect latestAspect) {
+  static SystemAspect applyUpsert(
+      ChangeMCP changeMCP,
+      SystemAspect latestAspect,
+      @Nonnull List<com.linkedin.metadata.aspect.AspectPayloadValidator> payloadValidators,
+      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfig validationConfig) {
 
     try {
       // This is the proposed version for this MCP, it can never be 0 (even if stored with row
@@ -329,6 +333,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       } else {
         // insert
         return EbeanSystemAspect.builder()
+            .payloadValidators(payloadValidators)
+            .validationConfig(validationConfig)
             .forInsert(
                 changeMCP.getUrn(),
                 changeMCP.getAspectName(),
@@ -1091,7 +1097,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // 2. Run any entity/aspect level hooks
                           Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
                               batchWithDefaults.toUpsertBatchItems(
-                                  batchAspects, nextVersions, EntityServiceImpl::applyUpsert);
+                                  batchAspects,
+                                  nextVersions,
+                                  (changeMCP, systemAspect) ->
+                                      applyUpsert(
+                                          changeMCP,
+                                          systemAspect,
+                                          aspectDao.getPayloadValidators(),
+                                          aspectDao.getValidationConfig()));
 
                           // Fetch additional information if needed
                           final List<ChangeMCP> changeMCPs;
@@ -1133,7 +1146,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                 changeMCP,
                                                 updatedLatestAspects,
                                                 updatedNextVersions,
-                                                EntityServiceImpl::applyUpsert);
+                                                (mcp, sysAspect) ->
+                                                    applyUpsert(
+                                                        mcp,
+                                                        sysAspect,
+                                                        aspectDao.getPayloadValidators(),
+                                                        aspectDao.getValidationConfig()));
                                           }
                                         })
                                     .collect(Collectors.toList());
@@ -3147,7 +3165,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final ChangeMCP writeItem,
       @Nullable SystemAspect latestAspect) {
 
-    SystemAspect upsertAspect = applyUpsert(writeItem, latestAspect);
+    SystemAspect upsertAspect =
+        applyUpsert(
+            writeItem,
+            latestAspect,
+            aspectDao.getPayloadValidators(),
+            aspectDao.getValidationConfig());
 
     // save to database
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =

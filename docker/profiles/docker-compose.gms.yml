@@ -498,6 +498,19 @@ services:
         condition: service_completed_successfully
   datahub-gms-debug:
     <<: *datahub-gms-service-dev
+    environment:
+      <<: *datahub-gms-dev-env
+      METADATA_SERVICE_AUTH_ENABLED: 'false'
+      # Pre-patch validation: validates existing aspect from DB before applying patches
+      DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED: 'true'
+      DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_WARN_SIZE_BYTES: '1048576'
+      DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES: '1572864'
+      DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION: 'IGNORE'
+      # Post-patch validation: validates aspect after patch application, before DB write (catches new writes)
+      DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED: 'true'
+      DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_WARN_SIZE_BYTES: '1048576'
+      DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES: '1572864'
+      DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION: 'IGNORE'
     profiles:
       - debug
       - debug-backend

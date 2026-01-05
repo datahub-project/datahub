@@ -91,8 +91,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
-  @Nonnull private final List<AspectPayloadValidator> payloadValidators;
-  @Nullable private final AspectSizeValidationConfig validationConfig;
+  @Getter @Nonnull private final List<AspectPayloadValidator> payloadValidators;
+  @Getter @Nullable private final AspectSizeValidationConfig validationConfig;
 
   public EbeanAspectDao(
       @Nonnull final Database server,

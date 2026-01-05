@@ -90,6 +90,7 @@ public class EbeanSystemAspect implements SystemAspect {
   @Override
   @Nonnull
   public EntityAspect withVersion(long version) {
+    log.info("withVersion({}) called for urn={}, aspect={}", version, getUrn(), getAspectName());
     if (systemMetadata == null) {
       throw new IllegalStateException("Cannot save without system metadata");
     }
@@ -115,7 +116,17 @@ public class EbeanSystemAspect implements SystemAspect {
     // - EntityAspect provides the JSON string that was ALREADY serialized for DB write (line 108)
     // This is NOT duplicate serialization - validators reuse the JSON created for the DB write,
     // making validation/metrics essentially free without re-serializing.
+    log.debug(
+        "withVersion() called with {} validators, metadata size: {} bytes",
+        payloadValidators != null ? payloadValidators.size() : 0,
+        entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
     if (payloadValidators != null && !payloadValidators.isEmpty()) {
+      log.info(
+          "Invoking {} AspectPayloadValidators for urn={}, aspect={}, size={} bytes",
+          payloadValidators.size(),
+          getUrn(),
+          getAspectName(),
+          entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
       for (AspectPayloadValidator validator : payloadValidators) {
         validator.validatePayload(this, entityAspect);
       }

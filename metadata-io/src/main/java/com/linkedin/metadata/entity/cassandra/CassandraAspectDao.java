@@ -55,6 +55,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,8 +65,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   private final CqlSession _cqlSession;
   private boolean canWrite = true;
   @Setter private boolean connectionValidated = false;
-  @Nonnull private final List<AspectPayloadValidator> payloadValidators;
-  @Nullable private final AspectSizeValidationConfig validationConfig;
+  @Getter @Nonnull private final List<AspectPayloadValidator> payloadValidators;
+  @Getter @Nullable private final AspectSizeValidationConfig validationConfig;
 
   public CassandraAspectDao(
       @Nonnull final CqlSession cqlSession,

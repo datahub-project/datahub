@@ -587,7 +587,10 @@ public class SpringStandardPluginConfiguration {
       ConfigurationProvider configProvider) {
     AspectSizeValidationConfig config = configProvider.getDatahub().getValidation().getAspectSize();
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
-    log.debug("Initialized AspectSizePayloadValidator");
+    log.info(
+        "Initialized AspectSizePayloadValidator with config: prePatch={}, postPatch={}",
+        config.getPrePatch(),
+        config.getPostPatch());
     return validator;
   }
 }

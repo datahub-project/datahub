@@ -10,6 +10,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.Database;
 import java.util.List;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
+@Slf4j
 @Configuration
 public class EntityAspectDaoFactory {
 
@@ -30,6 +32,12 @@ public class EntityAspectDaoFactory {
       @Qualifier("ebeanServer") final Database server,
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
+    log.info(
+        "Creating EntityAspectDao with {} AspectPayloadValidators: {}",
+        payloadValidators != null ? payloadValidators.size() : 0,
+        payloadValidators != null
+            ? payloadValidators.stream().map(v -> v.getClass().getSimpleName()).toList()
+            : "[]");
     EbeanAspectDao ebeanAspectDao =
         new EbeanAspectDao(
             server,
