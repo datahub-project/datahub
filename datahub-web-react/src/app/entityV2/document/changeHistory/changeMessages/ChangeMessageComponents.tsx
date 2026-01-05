@@ -69,7 +69,7 @@ const ActorDisplay: React.FC<ActorDisplayProps> = ({ actorName, actor }) => {
     if (isSystem) {
         return (
             <ActorName>
-                <Icon icon="Sparkle" color="primary" size="sm" />
+                <Icon icon="Sparkle" source="phosphor" color="primary" size="sm" weight="fill" />
                 {actorName}
             </ActorName>
         );

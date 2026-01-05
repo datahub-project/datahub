@@ -31,7 +31,9 @@ const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
 
     :hover {
         cursor: pointer;
-        color: white;
+        & svg {
+            color: white;
+        }
         background-color: ${(props) =>
             props.isThemeV2 ? props.theme.styles['primary-color'] : REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
