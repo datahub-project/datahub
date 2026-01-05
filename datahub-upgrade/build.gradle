@@ -59,8 +59,8 @@ dependencies {
     implementation('commons-beanutils:commons-beanutils:1.11.0') {
       because("CVE-2025-48734")
     }
-    implementation('io.netty:netty-codec-smtp:4.1.128.Final') {
-      because("CVE: GHSA-jq43-27x9-3v86 - Netty SMTP Command Injection")
+    implementation('io.netty:netty-codec-smtp:4.1.130.Final') {
+      because("CVE: GHSA-jq43-27x9-3v86 - Netty SMTP Command Injection, CVE-2025-67735 - CRLF Injection")
     }
   }
 

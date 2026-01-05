@@ -6,6 +6,9 @@ on:
       - "Docker Build, Scan, Test"
       - "build & test"
       - "metadata-io"
+      - "Metadata Ingestion"
+      - "Nightly Docker Test"
+      - "Quickstart Test"
     types: [completed]
 
 permissions:
