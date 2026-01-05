@@ -38,6 +38,7 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
@@ -65,9 +66,12 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -158,9 +162,19 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)),
-                        new SearchEntity().setEntity(TEST_URNS.get(2)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-0"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(2))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-2"))))));
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
             eq(List.of("dataset")),
@@ -177,9 +191,19 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(2)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)),
-                        new SearchEntity().setEntity(TEST_URNS.get(0)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(2))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-2"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-0"))))));
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
             eq(List.of("dataset")),
@@ -606,11 +630,19 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     ScrollResult expectedResult =
         new ScrollResult()
             .setNumEntities(2)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-2"))))));
 
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
@@ -646,6 +678,68 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollEntitiesWithMissingValueParam() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))));
+
+    // Capture the sort criteria passed to the SearchService
+    ArgumentCaptor<List> sortCriteriaCaptor = ArgumentCaptor.forClass(List.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            sortCriteriaCaptor.capture(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    // Execute request with sortCriteria containing missingValue parameter
+    String requestBody =
+        "{\n"
+            + "  \"entities\": [\"dataset\"],\n"
+            + "  \"sortCriteria\": [\n"
+            + "    {\n"
+            + "      \"field\": \"name\",\n"
+            + "      \"order\": \"ASCENDING\",\n"
+            + "      \"missingValue\": \"FIRST\"\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify missingValue is set on the pegasus SortCriterion
+    List capturedSortCriteria = sortCriteriaCaptor.getValue();
+    assertNotNull(capturedSortCriteria);
+    assertTrue(capturedSortCriteria.size() > 0);
+    com.linkedin.metadata.query.filter.SortCriterion captured =
+        (com.linkedin.metadata.query.filter.SortCriterion) capturedSortCriteria.get(0);
+    assertEquals("_first", captured.data().get("missingValue"));
+  }
+
+  @Test
   public void testScrollEntitiesWithPitKeepAlive() throws Exception {
     List<Urn> TEST_URNS =
         List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
@@ -653,8 +747,15 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     ScrollResult expectedResult =
         new ScrollResult()
             .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
-                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))))
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))))
             .setScrollId("test-scroll-id");
 
     when(mockSearchService.scrollAcrossEntities(
@@ -699,11 +800,20 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     ScrollResult expectedResult =
         new ScrollResult()
             .setNumEntities(2)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)))))
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))))
             .setScrollId("test-scroll-id");
 
     // Use ArgumentCaptor to capture the OperationContext and verify slice options
@@ -773,9 +883,16 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setMetadata(testSearchResultMetadata())
             .setNumEntities(1)
             .setEntities(
-                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))));
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-1"))))));
 
     // Use ArgumentCaptor to capture the OperationContext and verify no slice options
     ArgumentCaptor<OperationContext> opContextCaptor =
@@ -1585,5 +1702,13 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     assertNotNull(headers);
     assertEquals("test-value", headers.get("X-Custom-Header"));
     assertEquals("123", headers.get("X-Version-Match"));
+  }
+
+  private SearchResultMetadata testSearchResultMetadata() {
+    AggregationMetadata aggregationMetadata = new AggregationMetadata();
+    aggregationMetadata.setAggregations(new LongMap(Collections.singletonMap("testPlatform", 1L)));
+    aggregationMetadata.setName("platform");
+    return new SearchResultMetadata()
+        .setAggregations(new AggregationMetadataArray(aggregationMetadata));
   }
 }

@@ -75,7 +75,16 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
   public void testDetectCloudProviderTraditional() {
     // No cloud environment variables should result in "traditional"
     String traditionalResult =
-        localEbeanConfigFactory.detectCloudProvider("jdbc:mysql://localhost:3306/datahub");
+        CrossCloudIamUtils.detectCloudProvider(
+            "jdbc:mysql://localhost:3306/datahub",
+            "auto",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
     assertEquals(traditionalResult, "traditional");
   }
 
@@ -84,7 +93,16 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
     // Test cloud provider detection when set to "auto" (default)
     // With no cloud environment variables and localhost URL, should detect "traditional"
     String result =
-        localEbeanConfigFactory.detectCloudProvider("jdbc:mysql://localhost:3306/datahub");
+        CrossCloudIamUtils.detectCloudProvider(
+            "jdbc:mysql://localhost:3306/datahub",
+            "auto",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
     assertEquals(result, "traditional"); // Should detect traditional when no cloud indicators
   }
 
@@ -112,8 +130,19 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
   public void testConfigureCrossCloudIam() {
     String originalUrl = "jdbc:mysql://localhost:3306/datahub";
 
-    LocalEbeanConfigFactory.CrossCloudConfig result =
-        localEbeanConfigFactory.configureCrossCloudIam(originalUrl);
+    CrossCloudIamUtils.CrossCloudConfig result =
+        CrossCloudIamUtils.configureCrossCloudIam(
+            originalUrl,
+            "com.mysql.cj.jdbc.Driver",
+            false,
+            "auto",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
 
     assertNotNull(result);
     assertEquals(result.driver, "com.mysql.cj.jdbc.Driver");
@@ -123,14 +152,21 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
 
   @Test
   public void testConfigureCrossCloudIamWithUnsupportedCloud() {
-    // Override non-cloud properties using reflection
-    ReflectionTestUtils.setField(localEbeanConfigFactory, "useIamAuth", true);
-    ReflectionTestUtils.setField(localEbeanConfigFactory, "cloudProvider", "azure");
-
     String originalUrl = "jdbc:mysql://localhost:3306/datahub";
 
-    LocalEbeanConfigFactory.CrossCloudConfig result =
-        localEbeanConfigFactory.configureCrossCloudIam(originalUrl);
+    CrossCloudIamUtils.CrossCloudConfig result =
+        CrossCloudIamUtils.configureCrossCloudIam(
+            originalUrl,
+            "com.mysql.cj.jdbc.Driver",
+            true,
+            "azure",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
 
     assertNotNull(result);
     assertEquals(result.driver, "com.mysql.cj.jdbc.Driver");
@@ -141,33 +177,31 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
   @Test
   public void testIsPostgresUrl() {
     // Test PostgreSQL URL
-    boolean result =
-        localEbeanConfigFactory.isPostgresUrl("jdbc:postgresql://localhost:5432/datahub");
+    boolean result = CrossCloudIamUtils.isPostgresUrl("jdbc:postgresql://localhost:5432/datahub");
     assertTrue(result);
 
     // Test MySQL URL
-    boolean mysqlResult =
-        localEbeanConfigFactory.isPostgresUrl("jdbc:mysql://localhost:3306/datahub");
+    boolean mysqlResult = CrossCloudIamUtils.isPostgresUrl("jdbc:mysql://localhost:3306/datahub");
     assertTrue(!mysqlResult);
 
     // Test null URL
-    boolean nullResult = localEbeanConfigFactory.isPostgresUrl((String) null);
+    boolean nullResult = CrossCloudIamUtils.isPostgresUrl((String) null);
     assertTrue(!nullResult);
   }
 
   @Test
   public void testIsMysqlUrl() {
     // Test MySQL URL
-    boolean result = localEbeanConfigFactory.isMysqlUrl("jdbc:mysql://localhost:3306/datahub");
+    boolean result = CrossCloudIamUtils.isMysqlUrl("jdbc:mysql://localhost:3306/datahub");
     assertTrue(result);
 
     // Test PostgreSQL URL
     boolean postgresResult =
-        localEbeanConfigFactory.isMysqlUrl("jdbc:postgresql://localhost:5432/datahub");
+        CrossCloudIamUtils.isMysqlUrl("jdbc:postgresql://localhost:5432/datahub");
     assertTrue(!postgresResult);
 
     // Test null URL
-    boolean nullResult = localEbeanConfigFactory.isMysqlUrl((String) null);
+    boolean nullResult = CrossCloudIamUtils.isMysqlUrl((String) null);
     assertTrue(!nullResult);
   }
 

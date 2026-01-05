@@ -82,6 +82,9 @@ public class DataHubAppConfiguration {
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
 
+  /** MCL Processing configurations */
+  private MetadataChangeLogConfig metadataChangeLog;
+
   /** Timeseries Aspect Service configuration */
   private TimeseriesAspectServiceConfig timeseriesAspectService;
 
@@ -96,4 +99,7 @@ public class DataHubAppConfiguration {
 
   /** Structured properties related configurations */
   private StructuredPropertiesConfiguration structuredProperties;
+
+  /** Consistency checks configuration */
+  private ConsistencyChecksConfiguration consistencyChecks;
 }

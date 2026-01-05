@@ -10,6 +10,7 @@ import {
     CodeExtension,
     DropCursorExtension,
     FontSizeExtension,
+    GapCursorExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -37,6 +38,7 @@ import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingT
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
+import { colors } from '@components/theme';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
 
@@ -52,11 +54,8 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         dataTestId,
         onKeyDown,
         hideBorder,
-        uploadFile,
-        onFileUploadAttempt,
-        onFileUploadFailed,
-        onFileUploadSucceeded,
-        onFileDownloadView,
+        uploadFileProps,
+        fixedBottomToolbar,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -66,18 +65,18 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
             new DataHubMentionsExtension({}),
-            new DropCursorExtension({}),
+            new DropCursorExtension({
+                color: colors.primary[100],
+                width: 2,
+            }),
             new HardBreakExtension(),
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
             new FileDragDropExtension({
-                onFileUpload: uploadFile,
-                onFileUploadAttempt,
-                onFileUploadFailed,
-                onFileUploadSucceeded,
-                onFileDownloadView,
+                uploadFileProps,
             }),
+            new GapCursorExtension(), // required to allow cursor placement next to non-editable inline elements
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
@@ -115,6 +114,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             $readOnly={readOnly}
             onKeyDown={onKeyDown}
             $hideBorder={hideBorder}
+            $fixedBottomToolbar={fixedBottomToolbar}
         >
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
@@ -126,7 +126,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar styles={toolbarStyles} />
+                            <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
                             <CodeBlockToolbar />
                             {!hideHighlightToolbar && <FloatingToolbar />}
                             <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />

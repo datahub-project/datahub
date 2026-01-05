@@ -141,6 +141,7 @@ def get_search_results(auth_session, entity_type: str) -> Dict[str, Any]:
         "dashboard": "DASHBOARD",
         "dataJob": "DATA_JOB",
         "dataFlow": "DATA_FLOW",
+        "dataProduct": "DATA_PRODUCT",
         "container": "CONTAINER",
         "tag": "TAG",
         "corpUser": "CORP_USER",
@@ -267,3 +268,113 @@ def get_metadata_analytics_charts(auth_session) -> Dict[str, Any]:
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["getMetadataAnalyticsCharts"]
+
+
+@with_test_retry()
+def get_data_product(auth_session, urn: str) -> Optional[Dict[str, Any]]:
+    """Get a data product by URN."""
+    query = """
+        query getDataProduct($urn: String!) {
+            dataProduct(urn: $urn) {
+                urn
+                type
+                properties {
+                    name
+                    description
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataProduct"]
+
+
+@with_test_retry()
+def search_across_lineage(
+    auth_session,
+    urn: str,
+    direction: str = "UPSTREAM",
+    query: str = "*",
+    count: int = 10,
+) -> Dict[str, Any]:
+    """Search across lineage from a given entity."""
+    graphql_query = """
+        query searchAcrossLineage($input: SearchAcrossLineageInput!) {
+            searchAcrossLineage(input: $input) {
+                start
+                count
+                total
+                searchResults {
+                    entity {
+                        urn
+                    }
+                    paths {
+                        path {
+                            urn
+                        }
+                    }
+                    degree
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "urn": urn,
+            "direction": direction,
+            "query": query,
+            "count": count,
+        }
+    }
+
+    res_data = execute_graphql(auth_session, graphql_query, variables)
+    return res_data["data"]["searchAcrossLineage"]
+
+
+@with_test_retry()
+def scroll_across_lineage(
+    auth_session,
+    urn: str,
+    direction: str = "UPSTREAM",
+    scroll_id: Optional[str] = None,
+    query: str = "*",
+    keep_alive: str = "5m",
+    count: int = 10,
+) -> Dict[str, Any]:
+    """Scroll across lineage from a given entity."""
+    graphql_query = """
+        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
+            scrollAcrossLineage(input: $input) {
+                nextScrollId
+                count
+                total
+                searchResults {
+                    entity {
+                        urn
+                    }
+                    paths {
+                        path {
+                            urn
+                        }
+                    }
+                    degree
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "urn": urn,
+            "direction": direction,
+            "query": query,
+            "count": count,
+            "keepAlive": keep_alive,
+        }
+    }
+    if scroll_id:
+        variables["input"]["scrollId"] = scroll_id
+
+    res_data = execute_graphql(auth_session, graphql_query, variables)
+    return res_data["data"]["scrollAcrossLineage"]

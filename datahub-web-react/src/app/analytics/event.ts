@@ -167,6 +167,18 @@ export enum EventType {
     FileUploadFailedEvent,
     FileUploadSucceededEvent,
     FileDownloadViewEvent,
+    FileUploadLatencyEvent,
+    FileDownloadLatencyEvent,
+    CreateDocumentEvent,
+    MoveDocumentEvent,
+    EditDocumentEvent,
+    DeleteDocumentEvent,
+    IngestionTestConnectionClickEvent,
+    IngestionTestConnectionCloseEvent,
+    EnterIngestionFlowEvent,
+    IngestionSelectSourceEvent,
+    IngestionEnterConfigurationEvent,
+    IngestionExitConfigurationEvent,
 }
 
 /**
@@ -231,7 +243,7 @@ export interface HomePageViewEvent extends BaseEvent {
  */
 export interface SignUpEvent extends BaseEvent {
     type: EventType.SignUpEvent;
-    title: string;
+    title?: string;
 }
 
 /**
@@ -643,6 +655,24 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     outcome?: string;
 }
 
+export interface IngestionTestConnectionClickEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionClickEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
+export interface IngestionTestConnectionCloseEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionCloseEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    hasCompleted?: boolean;
+    status?: 'success' | 'failure' | 'partialSuccess' | 'running';
+    ingestionOnboardingRedesignV1?: boolean;
+    failedCapabilities?: string[];
+    durationMs?: number;
+}
+
 export interface IngestionViewAllClickEvent extends BaseEvent {
     type: EventType.IngestionViewAllClickEvent;
     executionUrn?: string;
@@ -658,6 +688,8 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     executionUrn: string;
     executionStatus: string;
     viewedSection: string;
+    sourceType?: string;
+    recipeUrn?: string;
 }
 
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
@@ -674,6 +706,7 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -683,6 +716,7 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -693,6 +727,39 @@ export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
     sourceType?: string;
     sourceUrn?: string;
+}
+
+// New ingestion flow events
+
+export interface EnterIngestionFlowEvent extends BaseEvent {
+    type: EventType.EnterIngestionFlowEvent;
+    entryPoint:
+        | 'demo_data_banner'
+        | 'get_started_checklist'
+        | 'sources_page_cta'
+        | 'intercept_toast'
+        | 'nav_menu'
+        | 'direct_url';
+}
+
+export interface IngestionSelectSourceEvent extends BaseEvent {
+    type: EventType.IngestionSelectSourceEvent;
+    sourceType: string;
+}
+
+export interface IngestionEnterConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionEnterConfigurationEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    recipeUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionExitConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionExitConfigurationEvent;
+    sourceType?: string;
+    recipeUrn?: string;
+    exitType: 'save_draft' | 'save_and_run' | 'abandon' | 'cancel';
 }
 
 // TODO: Find a way to use this event
@@ -1220,6 +1287,68 @@ export interface FileDownloadViewEvent extends BaseEvent {
     schemaFieldUrn?: string;
 }
 
+export interface FileUploadLatencyEvent extends BaseEvent {
+    type: EventType.FileUploadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+export interface FileDownloadLatencyEvent extends BaseEvent {
+    type: EventType.FileDownloadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+/**
+ * Logged when a user creates a new document.
+ */
+export interface CreateDocumentEvent extends BaseEvent {
+    type: EventType.CreateDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
+    hasParent: boolean;
+    parentDocumentUrn?: string;
+}
+
+/**
+ * Logged when a user moves a document to a different parent.
+ */
+export interface MoveDocumentEvent extends BaseEvent {
+    type: EventType.MoveDocumentEvent;
+    documentUrn: string;
+    oldParentDocumentUrn?: string;
+    newParentDocumentUrn?: string;
+}
+
+/**
+ * Describes what kind of edit was made to a document.
+ */
+export enum DocumentEditType {
+    Title = 'Title',
+    Contents = 'Contents',
+    PublishState = 'PublishState',
+    Type = 'Type',
+}
+
+/**
+ * Logged when a user edits a document.
+ */
+export interface EditDocumentEvent extends BaseEvent {
+    type: EventType.EditDocumentEvent;
+    documentUrn: string;
+    editType: DocumentEditType;
+    documentType?: string;
+}
+
+/**
+ * Logged when a user deletes a document.
+ */
+export interface DeleteDocumentEvent extends BaseEvent {
+    type: EventType.DeleteDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1364,4 +1493,16 @@ export type Event =
     | FileUploadAttemptEvent
     | FileUploadFailedEvent
     | FileUploadSucceededEvent
-    | FileDownloadViewEvent;
+    | FileDownloadViewEvent
+    | FileUploadLatencyEvent
+    | FileDownloadLatencyEvent
+    | CreateDocumentEvent
+    | MoveDocumentEvent
+    | EditDocumentEvent
+    | DeleteDocumentEvent
+    | IngestionTestConnectionClickEvent
+    | IngestionTestConnectionCloseEvent
+    | EnterIngestionFlowEvent
+    | IngestionSelectSourceEvent
+    | IngestionEnterConfigurationEvent
+    | IngestionExitConfigurationEvent;

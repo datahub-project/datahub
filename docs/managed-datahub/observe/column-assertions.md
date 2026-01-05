@@ -175,6 +175,26 @@ You can choose from any of the columns from the table listed in the dropdown.
   **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
   assertion. Note, Smart Assertions are not supported for Column Value Assertions today.
 
+  In addition, for the In Set and Not In Set operators, you can now choose how to provide the set of allowed values:
+
+  - Static List: Manually enter a list of values (e.g., city names like "chicago", "new york").
+  - Custom SQL: Provide a SQL query that returns a single column of possible values for the set. At evaluation time, DataHub executes this query using your configured data platform connection and compares each row’s column value against the returned set.
+
+  Notes when using Custom SQL for sets:
+
+  - The query must return exactly one column. Use `SELECT DISTINCT` to avoid duplicates if desired.
+  - The values returned should be comparable to the selected column’s data type (e.g., strings for VARCHAR/STRING columns, numbers for numeric columns).
+  - The query runs in the same warehouse connection you configured for the dataset. Ensure the account has read access to referenced objects and use fully qualified table names.
+  - Large or complex queries may impact evaluation latency and cost on your warehouse.
+
+  Example (allowed city values sourced from a reference table):
+
+  ```sql
+  SELECT DISTINCT city
+  FROM reference_data.geo.cities
+  WHERE active = TRUE
+  ```
+
 - **Column Metric Assertions**: You will be able to choose from a list of common metrics and then specify the operator
   and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
   with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a

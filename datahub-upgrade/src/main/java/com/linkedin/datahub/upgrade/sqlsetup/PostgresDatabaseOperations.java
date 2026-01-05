@@ -36,16 +36,41 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
 
   @Override
   public String createIamUserSql(String username, String iamRole) {
-    // PostgreSQL - IAM authentication (requires additional setup)
+    // PostgreSQL RDS - IAM authentication uses the rds_iam role
+    // The iamRole parameter is not used for PostgreSQL (IAM permissions are managed by AWS IAM)
+    // The actual IAM permissions are managed by AWS IAM policies, not stored in PostgreSQL
     String escapedUser = escapePostgresIdentifier(username);
-    return "CREATE USER " + escapedUser + " WITH LOGIN;";
+    return String.format(
+        """
+        DO
+        $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH LOGIN;
+            END IF;
+        END
+        $$;
+        GRANT rds_iam TO %s;
+        """,
+        escapedUser, escapedUser, escapedUser);
   }
 
   @Override
   public String createTraditionalUserSql(String username, String password) {
     String escapedUser = escapePostgresIdentifier(username);
     String escapedPassword = escapePostgresStringLiteral(password);
-    return "CREATE USER " + escapedUser + " WITH PASSWORD " + escapedPassword + ";";
+    return String.format(
+        """
+        DO
+        $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH PASSWORD %s;
+            END IF;
+        END
+        $$;
+        """,
+        escapedUser, escapedUser, escapedPassword);
   }
 
   @Override
@@ -61,6 +86,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
     // Properly escape identifiers and string literals to prevent SQL injection
     String escapedUser = escapePostgresIdentifier(cdcUser);
     String escapedPassword = escapePostgresStringLiteral(cdcPassword);
+    String escapedUserLiteral = escapePostgresStringLiteral(cdcUser);
 
     return String.format(
         """
@@ -74,25 +100,27 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
         $$;
         ALTER USER %s WITH REPLICATION;
         """,
-        escapedPassword, escapedUser, escapedPassword, escapedUser);
+        escapedUserLiteral, escapedUser, escapedPassword, escapedUser);
   }
 
   @Override
-  public String grantCdcPrivilegesSql(String cdcUser, String databaseName) {
+  public java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName) {
     // PostgreSQL comprehensive CDC privileges (matching original init-cdc.sql)
-    return String.format(
-        """
-        GRANT CONNECT ON DATABASE "%s" TO "%s";
-        GRANT USAGE ON SCHEMA public TO "%s";
-        GRANT CREATE ON DATABASE "%s" TO "%s";
-        GRANT SELECT ON ALL TABLES IN SCHEMA public TO "%s";
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO "%s";
-        ALTER USER "%s" WITH SUPERUSER;
-        ALTER TABLE public.metadata_aspect_v2 OWNER TO "%s";
-        ALTER TABLE public.metadata_aspect_v2 REPLICA IDENTITY FULL;
-        CREATE PUBLICATION dbz_publication FOR TABLE public.metadata_aspect_v2;
-        """,
-        databaseName, cdcUser, cdcUser, databaseName, cdcUser, cdcUser, cdcUser, cdcUser, cdcUser);
+    // Return as separate statements since JDBC doesn't support multiple statements in one execution
+    String escapedUser = escapePostgresIdentifier(cdcUser);
+    String escapedDatabase = escapePostgresIdentifier(databaseName);
+
+    return java.util.Arrays.asList(
+        String.format("GRANT CONNECT ON DATABASE %s TO %s", escapedDatabase, escapedUser),
+        String.format("GRANT USAGE ON SCHEMA public TO %s", escapedUser),
+        String.format("GRANT CREATE ON DATABASE %s TO %s", escapedDatabase, escapedUser),
+        String.format("GRANT SELECT ON ALL TABLES IN SCHEMA public TO %s", escapedUser),
+        String.format(
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %s", escapedUser),
+        String.format("ALTER USER %s WITH SUPERUSER", escapedUser),
+        String.format("ALTER TABLE public.metadata_aspect_v2 OWNER TO %s", escapedUser),
+        "ALTER TABLE public.metadata_aspect_v2 REPLICA IDENTITY FULL",
+        "CREATE PUBLICATION dbz_publication FOR TABLE public.metadata_aspect_v2");
   }
 
   @Override

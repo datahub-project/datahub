@@ -242,7 +242,7 @@ class LDAPSource(StatefulIngestionSourceBase):
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
         """Factory method."""
-        config = LDAPSourceConfig.parse_obj(config_dict)
+        config = LDAPSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

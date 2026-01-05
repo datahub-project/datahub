@@ -6,4 +6,5 @@ export interface ModulePositionInput {
     rowIndex?: number; // Row index after wrapping
     rowSide?: RowSide;
     moduleIndex?: number; // Index of the module within the row (for precise removal)
+    numberOfModulesInRow?: number; // Number of modules in the row
 }

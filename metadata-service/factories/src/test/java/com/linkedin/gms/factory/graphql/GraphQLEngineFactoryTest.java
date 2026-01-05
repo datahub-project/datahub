@@ -17,6 +17,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.MappingsBuilderFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -28,7 +29,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -62,14 +63,19 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = {ConfigurationProvider.class, GraphQLEngineFactory.class})
+@SpringBootTest(
+    classes = {
+      ConfigurationProvider.class,
+      GraphQLEngineFactory.class,
+      MappingsBuilderFactory.class,
+    })
 @ContextConfiguration(classes = GraphQLEngineFactoryTest.TestConfig.class)
 @TestPropertySource(
     locations = "classpath:/application.yaml",
     properties = {
       "platformAnalytics.enabled=false",
       "graphQL.concurrency.separateThreadPool=true",
-      "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30"
+      "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30",
     })
 public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
@@ -113,6 +119,18 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
+
+  @MockitoBean
+  @Qualifier("semanticSearchService")
+  private com.linkedin.metadata.search.SemanticSearchService semanticSearchService;
+
+  @MockitoBean
+  @Qualifier("cachingEntitySearchService")
+  private com.linkedin.metadata.search.client.CachingEntitySearchService cachingEntitySearchService;
+
+  @MockitoBean
+  @Qualifier("semanticEntitySearchService")
+  private com.linkedin.metadata.search.semantic.SemanticEntitySearch semanticEntitySearchService;
 
   @MockitoBean
   @Qualifier("graphService")

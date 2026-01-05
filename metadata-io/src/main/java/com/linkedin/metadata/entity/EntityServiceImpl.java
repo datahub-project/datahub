@@ -1750,7 +1750,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result.toString();
   }
 
-  private boolean preprocessEvent(
+  boolean preprocessEvent(
       @Nonnull OperationContext opContext, MetadataChangeLog metadataChangeLog) {
     // Deletes cannot rely on System Metadata being passed through so can't always be determined by
     // system metadata,
@@ -1779,6 +1779,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Integer getCountAspect(
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike) {
     return aspectDao.countAspect(aspectName, urnLike);
+  }
+
+  @Override
+  public Integer countAspect(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
+    logger.accept(String.format("Args are %s", args));
+    return aspectDao.countAspect(args);
   }
 
   @Nonnull
@@ -2604,26 +2610,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = opContext.getKeyAspectName(urn);
 
-    SystemAspect latestKey = null;
-    try {
-      latestKey = aspectDao.getLatestAspect(opContext, urn.toString(), keyAspectName, false);
-    } catch (EntityNotFoundException e) {
-      log.warn("Entity to delete does not exist. {}", urn);
-    }
-    if (latestKey == null || latestKey.getSystemMetadata() == null) {
-      return new RollbackRunResult(
-          removedAspects, rowsDeletedFromEntityDeletion, removedAspectResults);
-    }
-
-    SystemMetadata latestKeySystemMetadata = latestKey.getSystemMetadata();
-
     RollbackResult result =
         deleteAspectWithoutMCL(
-            opContext,
-            urn.toString(),
-            keyAspectName,
-            Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()),
-            true);
+            opContext, urn.toString(), keyAspectName, Collections.emptyMap(), true);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -2631,7 +2620,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       summary.setKeyAspect(true);
       summary.setAspectName(keyAspectName);
       summary.setVersion(0);
-      summary.setTimestamp(latestKey.getCreatedOn().getTime());
+      long aspectTime =
+          result.getOldSystemMetadata() != null
+                  && result.getOldSystemMetadata().getAspectCreated() != null
+              ? result.getOldSystemMetadata().getAspectCreated().getTime()
+              : System.currentTimeMillis();
+      summary.setTimestamp(aspectTime);
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);

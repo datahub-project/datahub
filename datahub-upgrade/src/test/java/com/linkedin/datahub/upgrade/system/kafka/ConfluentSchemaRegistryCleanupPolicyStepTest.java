@@ -13,6 +13,7 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.config.kafka.SetupConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -37,6 +38,7 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
 
     // Create real KafkaConfiguration with test data
     kafkaConfiguration = new KafkaConfiguration();
+    kafkaConfiguration.setProducer(new ProducerConfiguration());
     kafkaConfiguration.setBootstrapServers("localhost:9092");
 
     SetupConfiguration setupConfig = new SetupConfiguration();
@@ -74,6 +76,18 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
   public void testSkipWhenSetupConfigIsNull() {
     // Set setup configuration as null
     kafkaConfiguration.setSetup(null);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = step.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
+  public void testSkipWhenPreCreateTopicsDisabled() {
+    // Set preCreateTopics to false
+    kafkaConfiguration.getSetup().setPreCreateTopics(false);
 
     UpgradeContext mockContext = mock(UpgradeContext.class);
     UpgradeStepResult result = step.executable().apply(mockContext);

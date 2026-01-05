@@ -7,8 +7,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -16,12 +16,14 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -40,10 +42,10 @@ import org.opensearch.action.search.SearchResponse;
 @RequiredArgsConstructor
 public class ElasticSearchService implements EntitySearchService, ElasticSearchIndexed {
   private final ESIndexBuilder indexBuilder;
-  private final EntityRegistry entityRegistry;
-  private final IndexConvention indexConvention;
-  private final SettingsBuilder settingsBuilder;
   @Getter private final SearchServiceConfiguration searchServiceConfig;
+  private final ElasticSearchConfiguration elasticSearchConfiguration;
+  private final MappingsBuilder mappingsBuilder;
+  private final SettingsBuilder settingsBuilder;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
@@ -68,8 +70,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Getter private final ESWriteDAO esWriteDAO;
 
   @Override
-  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    for (ReindexConfig config : buildReindexConfigs(properties)) {
+  public void reindexAll(
+      @Nonnull OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
         indexBuilder.buildIndex(config);
       } catch (IOException e) {
@@ -80,22 +84,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
+      @Nonnull OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    Map<String, Object> settings = settingsBuilder.getSettings();
 
-    return entityRegistry.getEntitySpecs().values().stream()
-        .map(
-            entitySpec -> {
-              try {
-                Map<String, Object> mappings =
-                    MappingsBuilder.getMappings(entityRegistry, entitySpec, properties);
-                return indexBuilder.buildReindexState(
-                    indexConvention.getIndexName(entitySpec), mappings, settings);
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            })
-        .collect(Collectors.toList());
+    return indexBuilder.buildReindexConfigs(
+        opContext, settingsBuilder, mappingsBuilder, properties);
   }
 
   /**
@@ -106,30 +99,36 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @return index configurations impacted by the new property
    */
   public List<ReindexConfig> buildReindexConfigsWithNewStructProp(
-      Urn urn, StructuredPropertyDefinition property) {
-    Map<String, Object> settings = settingsBuilder.getSettings();
+      @Nonnull OperationContext opContext, Urn urn, StructuredPropertyDefinition property) {
 
-    return entityRegistry.getEntitySpecs().values().stream()
-        .map(
-            entitySpec -> {
-              try {
-                Map<String, Object> mappings =
-                    MappingsBuilder.getMappings(
-                        entityRegistry, entitySpec, List.of(Pair.of(urn, property)));
-                return indexBuilder.buildReindexState(
-                    indexConvention.getIndexName(entitySpec), mappings, settings, true);
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            })
-        .filter(Objects::nonNull)
-        .filter(ReindexConfig::hasNewStructuredProperty)
-        .collect(Collectors.toList());
+    return indexBuilder.buildReindexConfigsWithNewStructProp(
+        opContext, settingsBuilder, mappingsBuilder, urn, property);
   }
 
   @Override
   public void clear(@Nonnull OperationContext opContext) {
-    esWriteDAO.clear(opContext);
+    Set<String> deletedIndexNames = esWriteDAO.clear(opContext);
+
+    // Recreate the indices that were deleted
+    if (!deletedIndexNames.isEmpty()) {
+      try {
+        List<ReindexConfig> allConfigs =
+            indexBuilder.buildReindexConfigs(
+                opContext, settingsBuilder, mappingsBuilder, Collections.emptySet());
+
+        // Filter to only recreate indices that were deleted
+        for (ReindexConfig config : allConfigs) {
+          if (deletedIndexNames.contains(config.name())) {
+            indexBuilder.buildIndex(config);
+            log.info("Recreated index {} after clearing", config.name());
+          }
+        }
+        log.info("Recreated {} indices after clearing", deletedIndexNames.size());
+      } catch (IOException e) {
+        log.error("Failed to recreate indices after clearing", e);
+        throw new RuntimeException("Failed to recreate indices after clearing", e);
+      }
+    }
   }
 
   @Override
@@ -155,6 +154,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     esWriteDAO.upsertDocument(opContext, entityName, document, docId);
   }
 
+  /**
+   * Updates or inserts the given search document in the specified index. This method works directly
+   * with index names, useful for V3 multi-entity indices.
+   *
+   * @param indexName name of the index
+   * @param document the document to update / insert
+   * @param docId the ID of the document
+   */
+  public void upsertDocumentByIndexName(
+      @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+    log.debug(
+        String.format(
+            "Upserting Search document indexName: %s, document: %s, docId: %s",
+            indexName, document, docId));
+    esWriteDAO.upsertDocumentByIndexName(indexName, document, docId);
+  }
+
   @Override
   public void deleteDocument(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
@@ -163,16 +179,95 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     esWriteDAO.deleteDocument(opContext, entityName, docId);
   }
 
+  /**
+   * Deletes the document with the given document ID from the specified index. This method works
+   * directly with index names, useful for V3 multi-entity indices.
+   *
+   * @param indexName name of the index
+   * @param docId the ID of the document to delete
+   */
+  public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
+    log.debug(String.format("Deleting Search document indexName: %s, docId: %s", indexName, docId));
+    esWriteDAO.deleteDocumentByIndexName(indexName, docId);
+  }
+
+  /**
+   * Checks if the given index exists in OpenSearch.
+   *
+   * @param indexName name of the index to check
+   * @return true if the index exists, false otherwise
+   */
+  public boolean indexExists(@Nonnull String indexName) {
+    return esWriteDAO.indexExists(indexName);
+  }
+
+  /**
+   * Applies a script update to a document in a specific index. This method works directly with
+   * index names, useful for applying script updates to semantic indices.
+   *
+   * @param indexName the name of the index
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateByIndexName(
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    log.debug(
+        "Applying script update to indexName: {}, docId: {}, script: {}",
+        indexName,
+        docId,
+        scriptSource);
+    esWriteDAO.applyScriptUpdateByIndexName(indexName, docId, scriptSource, scriptParams, upsert);
+  }
+
+  /**
+   * Updates or inserts the given search document in the V3 index for the specified search group.
+   * This method uses the index convention to properly construct the V3 index name.
+   *
+   * @param opContext the operation context
+   * @param searchGroup the search group name
+   * @param document the document to update / insert
+   * @param docId the ID of the document
+   */
+  public void upsertDocumentBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String document,
+      @Nonnull String docId) {
+    log.debug(
+        String.format(
+            "Upserting Search document searchGroup: %s, document: %s, docId: %s",
+            searchGroup, document, docId));
+    esWriteDAO.upsertDocumentBySearchGroup(opContext, searchGroup, document, docId);
+  }
+
+  /**
+   * Deletes the document with the given document ID from the V3 index for the specified search
+   * group. This method uses the index convention to properly construct the V3 index name.
+   *
+   * @param opContext the operation context
+   * @param searchGroup the search group name
+   * @param docId the ID of the document to delete
+   */
+  public void deleteDocumentBySearchGroup(
+      @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
+    log.debug(
+        String.format("Deleting Search document searchGroup: %s, docId: %s", searchGroup, docId));
+    esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
+  }
+
   @Override
   public void appendRunId(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
-    final String docId = getIndexConvention().getEntityDocumentId(urn);
+    final String entityName = urn.getEntityType();
+    final String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
 
-    log.debug(
-        "Appending run id for entity name: {}, doc id: {}, run id: {}",
-        urn.getEntityType(),
-        docId,
-        runId);
+    log.info("Appending run id for entity '{}', docId='{}', runId='{}'", entityName, docId, runId);
 
     // Create an upsert document that will be used if the document doesn't exist
     Map<String, Object> upsert = new HashMap<>();
@@ -182,9 +277,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     Map<String, Object> scriptParams = new HashMap<>();
     scriptParams.put("runId", runId);
     scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
+
+    // Update V2 index
     esWriteDAO.applyScriptUpdate(
         opContext,
-        urn.getEntityType(),
+        entityName,
         docId,
         /*
           Parameterized script used to apply updates to the runId field of the index.
@@ -194,6 +291,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         SCRIPT_SOURCE,
         scriptParams,
         upsert);
+
+    // Dual-write to semantic index if it exists
+    String semanticIndexName =
+        opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
+    if (indexExists(semanticIndexName)) {
+      log.info(
+          "Semantic dual-write: APPEND_RUNID to '{}' for entity '{}', docId='{}', runId='{}'",
+          semanticIndexName,
+          entityName,
+          docId,
+          runId);
+      applyScriptUpdateByIndexName(semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
+    } else {
+      log.info(
+          "Semantic dual-write: SKIP - index '{}' does not exist for runId update",
+          semanticIndexName);
+    }
   }
 
   @Nonnull
@@ -497,11 +611,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         keepAlive,
         size,
         facets);
-  }
-
-  @Override
-  public IndexConvention getIndexConvention() {
-    return indexConvention;
   }
 
   @Override

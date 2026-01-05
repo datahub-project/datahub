@@ -1,6 +1,7 @@
 query getMe {
     me {
         corpUser {
+            type
             urn
             username
             info {
@@ -70,6 +71,7 @@ query getMe {
             manageApplications
             manageFeatures
             manageHomePageTemplates
+            manageDocuments
         }
     }
 }

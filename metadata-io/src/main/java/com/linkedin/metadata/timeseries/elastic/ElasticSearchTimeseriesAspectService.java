@@ -228,6 +228,7 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
+      @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return entityRegistry.getEntitySpecs().values().stream()
         .flatMap(
@@ -284,8 +285,10 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    for (ReindexConfig config : buildReindexConfigs(properties)) {
+  public void reindexAll(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
         indexBuilder.buildIndex(config);
       } catch (IOException e) {
@@ -758,9 +761,12 @@ public class ElasticSearchTimeseriesAspectService
                     ElasticSearchTimeseriesAspectService.toEnvAspectGenericDocument(opContext, hit))
             .collect(Collectors.toList());
 
+    String nextScrollId = SearchAfterWrapper.nextScrollId(response.getHits().getHits(), count);
+
     return TimeseriesScrollResult.builder()
         .numResults(totalCount)
         .pageSize(response.getHits().getHits().length)
+        .scrollId(nextScrollId)
         .events(resultPairs.stream().map(Pair::getFirst).collect(Collectors.toList()))
         .documents(resultPairs.stream().map(Pair::getSecond).collect(Collectors.toList()))
         .build();

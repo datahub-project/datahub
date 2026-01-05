@@ -190,7 +190,10 @@ public class IngestPoliciesStep implements BootstrapStep {
     }
 
     final String docId =
-        _entitySearchService.getIndexConvention().getEntityDocumentId(entityResponse.getUrn());
+        systemOperationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityDocumentId(entityResponse.getUrn());
 
     _entitySearchService.upsertDocument(
         systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId);

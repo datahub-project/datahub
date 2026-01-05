@@ -9,7 +9,6 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -403,13 +402,6 @@ public interface EntitySearchService {
    */
   @Nonnull
   Map<Urn, Map<String, Object>> raw(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns);
-
-  /**
-   * Return index convention
-   *
-   * @return convent
-   */
-  IndexConvention getIndexConvention();
 
   default void appendRunId(
       @Nonnull final OperationContext opContext, @Nonnull List<IngestResult> results) {
