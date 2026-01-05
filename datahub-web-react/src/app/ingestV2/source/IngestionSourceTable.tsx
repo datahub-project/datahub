@@ -6,6 +6,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { EXECUTION_REQUEST_STATUS_PENDING } from '@app/ingestV2/executions/constants';
 import { getDisplayablePoolId } from '@app/ingestV2/executor_saas/utils';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn, { wrapDateTimeColumnWithHover } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
@@ -188,7 +189,11 @@ function IngestionSourceTable({
                 />
             ),
             width: '10%',
-            onCellClick: (record) => record.lastExecUrn && setFocusExecutionUrn(record.lastExecUrn),
+            onCellClick: (record) =>
+                record.lastExecStatus !== EXECUTION_REQUEST_STATUS_PENDING &&
+                record.lastExecUrn &&
+                setFocusExecutionUrn(record.lastExecUrn),
+            isCellClickable: (record) => record.lastExecStatus !== EXECUTION_REQUEST_STATUS_PENDING,
         },
 
         {

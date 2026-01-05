@@ -258,6 +258,9 @@ export const Table = <T,>({
                                             const cellContent = column.cellWrapper
                                                 ? column.cellWrapper(content, row)
                                                 : content;
+                                            const clickable = column.isCellClickable
+                                                ? column.isCellClickable(row)
+                                                : !!column.onCellClick;
 
                                             return (
                                                 <TableCell
@@ -271,11 +274,11 @@ export const Table = <T,>({
                                                     isGroupHeader={canExpand}
                                                     isExpanded={isExpanded}
                                                     onClick={() => {
-                                                        if (column.onCellClick) {
+                                                        if (clickable && column.onCellClick) {
                                                             column.onCellClick(row);
                                                         }
                                                     }}
-                                                    style={{ cursor: column.onCellClick ? 'pointer' : 'default' }}
+                                                    style={{ cursor: clickable ? 'pointer' : 'default' }}
                                                     className={column.cellWrapper ? 'hoverable-cell' : undefined}
                                                     data-testid={column.key}
                                                 >
