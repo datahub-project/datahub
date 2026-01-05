@@ -27,6 +27,34 @@ def test_patch_to_obj():
     assert result == {"op": "remove", "path": "/tags/test", "value": {}}
 
 
+def test_patch_quote_unquote_path_component():
+    """Test _Patch quote/unquote path component methods."""
+    # Simple values
+    assert _Patch.quote_path_component("test") == "test"
+    assert _Patch.unquote_path_component("test") == "test"
+
+    # Values with slashes
+    assert _Patch.quote_path_component("test/path") == "test~1path"
+    assert _Patch.unquote_path_component("test~1path") == "test/path"
+
+    # Values with tildes
+    assert _Patch.quote_path_component("test~tilde") == "test~0tilde"
+    assert _Patch.unquote_path_component("test~0tilde") == "test~tilde"
+
+    # Values with both slashes and tildes
+    # Note: "~1" in input is a literal "~" followed by "1", not an escaped "/"
+    # So we escape "~" to "~0" first, then "/" to "~1"
+    assert _Patch.quote_path_component("test~1/path") == "test~01~1path"
+    assert _Patch.unquote_path_component("test~01~1path") == "test~1/path"
+
+    # Round-trip test
+    test_values = ["simple", "with/slash", "with~tilde", "complex~1/path"]
+    for value in test_values:
+        quoted = _Patch.quote_path_component(value)
+        unquoted = _Patch.unquote_path_component(quoted)
+        assert unquoted == value, f"Round-trip failed for: {value}"
+
+
 def test_parse_patch_path():
     """Test parsing JSON Patch path strings to PatchPath tuples."""
     # Simple path

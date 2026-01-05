@@ -11,6 +11,7 @@ from typing import (
     Protocol,
     Tuple,
     Union,
+    get_args,
     runtime_checkable,
 )
 
@@ -50,6 +51,7 @@ def _recursive_to_obj(obj: Any) -> Any:
 
 PatchPath = Tuple[Union[LiteralString, Urn], ...]
 PatchOp = Literal["add", "remove", "replace"]
+_VALID_PATCH_OPS = set(get_args(PatchOp))
 
 
 @dataclass
@@ -58,8 +60,18 @@ class _Patch(SupportsToObj):
     path: PatchPath
     value: Any
 
+    @classmethod
+    def quote_path_component(cls, value: Union[str, Urn]) -> str:
+        """Quote a single path component for JSON Patch, based on https://jsonpatch.com/#json-pointer"""
+        return str(value).replace("~", "~0").replace("/", "~1")
+
+    @classmethod
+    def unquote_path_component(cls, value: str) -> str:
+        """Unquote a single path component from JSON Patch, based on https://jsonpatch.com/#json-pointer"""
+        return value.replace("~1", "/").replace("~0", "~")
+
     def to_obj(self) -> Dict:
-        quoted_path = "/" + "/".join(MetadataPatchProposal.quote(p) for p in self.path)
+        quoted_path = "/" + "/".join(self.quote_path_component(p) for p in self.path)
         return {
             "op": self.op,
             "path": quoted_path,
@@ -86,10 +98,9 @@ class MetadataPatchProposal:
         self.audit_header = audit_header
         self.patches = defaultdict(list)
 
-    # Json Patch quoting based on https://jsonpatch.com/#json-pointer
     @classmethod
     def quote(cls, value: Union[str, Urn]) -> str:
-        return str(value).replace("~", "~0").replace("/", "~1")
+        return _Patch.quote_path_component(value)
 
     def _add_patch(
         self,
@@ -179,8 +190,7 @@ def parse_patch_path(path_str: str) -> PatchPath:
     for part in parts:
         if not part:
             continue
-        # Unquote: ~1 -> /, ~0 -> ~
-        unquoted = part.replace("~1", "/").replace("~0", "~")
+        unquoted = _Patch.unquote_path_component(part)
         unquoted_parts.append(unquoted)
     return tuple(unquoted_parts)
 
@@ -192,6 +202,8 @@ class GenericJsonPatch:
 
     This extends standard JSON Patch to support idempotent array operations
     using composite keys instead of array indices.
+
+    Mirrors the Java class: com.linkedin.metadata.aspect.patch.GenericJsonPatch
     """
 
     array_primary_keys: Dict[str, List[str]]
@@ -238,7 +250,7 @@ class GenericJsonPatch:
             value = op_dict.get("value")
 
             # Validate op
-            if op_str not in ("add", "remove", "replace"):
+            if op_str not in _VALID_PATCH_OPS:
                 raise ValueError(f"Unsupported patch operation: {op_str}")
 
             # Parse path string to tuple
