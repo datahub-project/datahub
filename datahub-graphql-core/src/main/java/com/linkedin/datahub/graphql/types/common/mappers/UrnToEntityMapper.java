@@ -38,6 +38,7 @@ import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Notebook;
+import com.linkedin.datahub.graphql.generated.Organization;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.Post;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
@@ -117,11 +118,13 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new CorpUser();
       ((CorpUser) partialEntity).setUrn(input.toString());
       ((CorpUser) partialEntity).setType(EntityType.CORP_USER);
+      ((CorpUser) partialEntity).setUsername(input.getId());
     }
     if (input.getEntityType().equals("corpGroup")) {
       partialEntity = new CorpGroup();
       ((CorpGroup) partialEntity).setUrn(input.toString());
       ((CorpGroup) partialEntity).setType(EntityType.CORP_GROUP);
+      ((CorpGroup) partialEntity).setName(input.getId());
     }
     if (input.getEntityType().equals("mlFeature")) {
       partialEntity = new MLFeature();
@@ -207,6 +210,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new DataProduct();
       ((DataProduct) partialEntity).setUrn(input.toString());
       ((DataProduct) partialEntity).setType(EntityType.DATA_PRODUCT);
+    }
+    if (input.getEntityType().equals(ORGANIZATION_ENTITY_NAME)) {
+      partialEntity = new Organization();
+      ((Organization) partialEntity).setUrn(input.toString());
+      ((Organization) partialEntity).setType(EntityType.ORGANIZATION);
     }
     if (input.getEntityType().equals(OWNERSHIP_TYPE_ENTITY_NAME)) {
       partialEntity = new OwnershipTypeEntity();

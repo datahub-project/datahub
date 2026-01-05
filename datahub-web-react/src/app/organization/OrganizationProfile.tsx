@@ -1,0 +1,16 @@
+import React from 'react';
+import { useParams } from 'react-router-dom';
+
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityType } from '@src/types.generated';
+
+export const OrganizationProfile = () => {
+    const { urn } = useParams<{ urn: string }>();
+    const entityRegistry = useEntityRegistry();
+
+    if (!urn) return <div>Invalid organization URN</div>;
+
+    // Use the entity registry to render the profile
+    // This properly delegates to OrganizationEntity.renderProfile
+    return <>{entityRegistry.renderProfile(EntityType.Organization, urn)}</>;
+};

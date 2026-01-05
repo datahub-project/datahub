@@ -29,6 +29,7 @@ import { StructuredPropertyEntity } from '@app/entity/structuredProperty/Structu
 import { TagEntity } from '@app/entity/tag/Tag';
 import { UserEntity } from '@app/entity/user/User';
 import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
+import { OrganizationEntity } from '@app/organization/OrganizationEntity';
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
@@ -62,5 +63,6 @@ export default function buildEntityRegistry() {
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
     registry.register(new ApplicationEntity());
+    registry.register(new OrganizationEntity());
     return registry;
 }

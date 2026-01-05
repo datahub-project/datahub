@@ -6,6 +6,7 @@ import DeleteDropdown from '@app/entity/shared/components/styled/search/action/D
 import DeprecationDropdown from '@app/entity/shared/components/styled/search/action/DeprecationDropdown';
 import DomainDropdown from '@app/entity/shared/components/styled/search/action/DomainsDropdown';
 import GlossaryTermDropdown from '@app/entity/shared/components/styled/search/action/GlossaryTermsDropdown';
+import OrganizationsDropdown from '@app/entity/shared/components/styled/search/action/OrganizationsDropdown';
 import OwnersDropdown from '@app/entity/shared/components/styled/search/action/OwnersDropdown';
 import TagsDropdown from '@app/entity/shared/components/styled/search/action/TagsDropdown';
 import { SelectActionGroups } from '@app/entity/shared/components/styled/search/types';
@@ -27,6 +28,7 @@ const DEFAULT_ACTION_GROUPS = [
     SelectActionGroups.CHANGE_DEPRECATION,
     SelectActionGroups.DELETE,
     SelectActionGroups.CHANGE_DATA_PRODUCTS,
+    SelectActionGroups.CHANGE_ORGANIZATIONS,
 ];
 
 type Props = {
@@ -130,6 +132,16 @@ export const SearchSelectActions = ({
                     disabled={
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.DATA_PRODUCTS, selectedEntityTypes)
+                    }
+                    refetch={refetch}
+                />
+            )}
+            {visibleActionGroups.has(SelectActionGroups.CHANGE_ORGANIZATIONS) && (
+                <OrganizationsDropdown
+                    urns={selectedEntityUrns}
+                    disabled={
+                        selectedEntityUrns.length === 0 ||
+                        !isEntityCapabilitySupported(EntityCapabilityType.ORGANIZATIONS, selectedEntityTypes)
                     }
                     refetch={refetch}
                 />

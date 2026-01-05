@@ -40,6 +40,9 @@ fragment dataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    organizations {
+        ...entityOrganization
+    }
     ...entityDataProduct
     status {
         removed

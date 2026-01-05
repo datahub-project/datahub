@@ -93,6 +93,7 @@ public class DatasetType
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
           VERSION_PROPERTIES_ASPECT_NAME,
           LOGICAL_PARENT_ASPECT_NAME,
+          ORGANIZATIONS_ASPECT_NAME,
           ASSET_SETTINGS_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
@@ -320,7 +321,8 @@ public class DatasetType
     final ConjunctivePrivilegeGroup specificPrivilegeGroup =
         new ConjunctivePrivilegeGroup(specificPrivileges);
 
-    // If you either have all entity privileges, or have the specific privileges required, you are
+    // If you either have all entity privileges, or have the specific privileges
+    // required, you are
     // authorized.
     return new DisjunctivePrivilegeGroup(
         ImmutableList.of(allPrivilegesGroup, specificPrivilegeGroup));

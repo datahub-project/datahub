@@ -288,8 +288,9 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                                     yScale={{ type: 'linear' }}
                                     margin={{ top: 20, right: 20, bottom: 80, left: 60 }}
                                 >
-                                    <Grid columns={false} numTicks={5} lineStyle={{ stroke: '#EAEAEA' }} />
-                                    <Axis
+                                    <>
+                                        <Grid columns={false} numTicks={5} lineStyle={{ stroke: '#EAEAEA' }} />
+                                        <Axis
                                         orientation="bottom"
                                         tickFormat={(tickValue) => {
                                             const bar = filteredBarChartData.find((d) => d.x === tickValue);
@@ -359,9 +360,10 @@ const StackedBarChartWithTooltip = ({ stackedBarChartData, allSegmentLabels, seg
                                                         </>
                                                     }
                                                 />
-                                            );
+                                            ) as React.ReactNode;
                                         }}
                                     />
+                                    </>
                                 </XYChart>
                                 {tooltipData && (
                                     <TooltipInPortal key={Math.random()} top={tooltipTop} left={tooltipLeft}>

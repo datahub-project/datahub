@@ -50,6 +50,9 @@ query getContainer($urn: String!) {
         domain {
             ...entityDomain
         }
+        organizations {
+            ...entityOrganization
+        }
         ...entityDataProduct
         deprecation {
             ...deprecationFields

@@ -83,7 +83,8 @@ public class ChartType
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          ORGANIZATIONS_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS =
       ImmutableSet.of("access", "queryType", "tool", "type");
 

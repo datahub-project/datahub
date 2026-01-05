@@ -38,6 +38,7 @@ import {
     InstitutionalMemory,
     InstitutionalMemoryUpdate,
     Maybe,
+    Organization,
     Ownership,
     OwnershipUpdate,
     ParentContainersResult,
@@ -97,6 +98,7 @@ export type GenericEntityProperties = {
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
     applications?: Maybe<ApplicationAssociation[]>;
+    organizations?: Maybe<Organization[]>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;

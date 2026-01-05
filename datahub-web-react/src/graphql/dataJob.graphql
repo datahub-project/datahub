@@ -19,6 +19,12 @@ query getDataJob($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        domain {
+            ...entityDomain
+        }
+        organizations {
+            ...entityOrganization
+        }
         forms {
             ...formsFields
         }

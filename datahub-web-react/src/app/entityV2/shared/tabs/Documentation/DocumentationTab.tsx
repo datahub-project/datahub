@@ -6,6 +6,7 @@ import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -119,6 +120,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                         >
                             <PlusOutlined /> Add Documentation
                         </Button>
+                        {!hideLinksButton && <AddLinkModal />}
                     </EmptyTab>
                 </EmptyTabWrapper>
             )}

@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.OrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
@@ -39,6 +40,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
 import com.linkedin.ml.metadata.EditableMLPrimaryKeyProperties;
 import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
+import com.linkedin.organization.Organizations;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -117,6 +119,11 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        ORGANIZATIONS_ASPECT_NAME,
+        (mlPrimaryKey, dataMap) ->
+            mlPrimaryKey.setOrganizations(
+                OrganizationsAspectMapper.map(context, new Organizations(dataMap))));
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLPrimaryKey.class);
     } else {

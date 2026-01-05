@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import EntityGroups from '@app/entity/shared/EntityGroups';
+import { EntityOrganizations } from '@app/entity/shared/EntityOrganizations';
 import {
     AboutSection,
     AboutSectionText,
@@ -48,6 +49,7 @@ type SideBarData = {
     dataHubRoles: Array<EntityRelationship>;
     countryCode: string | undefined;
     username: string | undefined;
+    organizations?: Array<EntityRelationship>;
 };
 
 type Props = {
@@ -76,11 +78,13 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
         urn,
         countryCode,
         username,
+        organizations,
     } = sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
 
     const [groupSectionExpanded, setGroupSectionExpanded] = useState(false);
+    const [organizationsSectionExpanded, setOrganizationsSectionExpanded] = useState(false);
     const [editProfileModal, showEditProfileModal] = useState(false);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const me = useUserContext();
@@ -200,6 +204,19 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                             groupMemberRelationships={groupsDetails}
                         />
                     </GroupsSection>
+                    {organizations && organizations.length > 0 && (
+                        <>
+                            <Divider className="divider-organizationsSection" />
+                            <GroupsSection>
+                                Organizations
+                                <EntityOrganizations
+                                    readMore={organizationsSectionExpanded}
+                                    setReadMore={() => setOrganizationsSectionExpanded(!organizationsSectionExpanded)}
+                                    organizationRelationships={organizations}
+                                />
+                            </GroupsSection>
+                        </>
+                    )}
                 </SideBarSubSection>
                 {isProfileOwner && (
                     <EditButton>

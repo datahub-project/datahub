@@ -131,101 +131,103 @@ export function LineChart({
                             captureEvents={!isEmpty}
                             {...scales}
                         >
-                            {renderGradients?.()}
+                            <>
+                                {renderGradients?.()}
 
-                            <DynamicMarginSetter
-                                setMargin={setDynamicMargin}
-                                wrapperRef={wrapperRef}
-                                minimalMargin={defaultMargin}
-                            />
-
-                            <Axis
-                                orientation="left"
-                                numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
-                                axisClassName="left-axis"
-                                {...mergedLeftAxisProps}
-                            />
-
-                            <Axis
-                                orientation="bottom"
-                                numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, data)}
-                                tickClassName="bottom-axis-tick"
-                                {...mergedBottomAxisProps}
-                            />
-
-                            <Group className="content-group">
-                                {/* Left vertical line for y-axis */}
-                                {showLeftAxisLine && (
-                                    <line
-                                        x1={dynamicMargin.left}
-                                        x2={dynamicMargin.left}
-                                        y1={0}
-                                        y2={height - dynamicMargin.bottom}
-                                        stroke={mergedGridProps.stroke}
-                                    />
-                                )}
-
-                                {/* Bottom horizontal line for x-axis */}
-                                {showBottomAxisLine && (
-                                    <line
-                                        x1={dynamicMargin.left}
-                                        x2={width - dynamicMargin.right}
-                                        y1={height - dynamicMargin.bottom}
-                                        y2={height - dynamicMargin.bottom}
-                                        stroke={mergedGridProps.stroke}
-                                    />
-                                )}
-
-                                {showGrid && (
-                                    <Grid
-                                        numTicks={computeGridNumTicks?.(width, height, dynamicMargin, data)}
-                                        {...mergedGridProps}
-                                    />
-                                )}
-
-                                <AreaSeries<AxisScale, AxisScale, Datum>
-                                    dataKey="line-chart-seria-01"
-                                    data={data}
-                                    fill={!isEmpty ? areaColor : 'transparent'}
-                                    curve={curveMonotoneX}
-                                    lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
-                                    y0Accessor={y0Accessor}
-                                    {...accessors}
+                                <DynamicMarginSetter
+                                    setMargin={setDynamicMargin}
+                                    wrapperRef={wrapperRef}
+                                    minimalMargin={defaultMargin}
                                 />
 
-                                {showGlyphOnSingleDataPoint && data.length === 1 && (
-                                    <GlyphSeries<AxisScale, AxisScale, Datum>
+                                <Axis
+                                    orientation="left"
+                                    numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                    axisClassName="left-axis"
+                                    {...mergedLeftAxisProps}
+                                />
+
+                                <Axis
+                                    orientation="bottom"
+                                    numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                    tickClassName="bottom-axis-tick"
+                                    {...mergedBottomAxisProps}
+                                />
+
+                                <Group className="content-group">
+                                    {/* Left vertical line for y-axis */}
+                                    {showLeftAxisLine && (
+                                        <line
+                                            x1={dynamicMargin.left}
+                                            x2={dynamicMargin.left}
+                                            y1={0}
+                                            y2={height - dynamicMargin.bottom}
+                                            stroke={mergedGridProps.stroke}
+                                        />
+                                    )}
+
+                                    {/* Bottom horizontal line for x-axis */}
+                                    {showBottomAxisLine && (
+                                        <line
+                                            x1={dynamicMargin.left}
+                                            x2={width - dynamicMargin.right}
+                                            y1={height - dynamicMargin.bottom}
+                                            y2={height - dynamicMargin.bottom}
+                                            stroke={mergedGridProps.stroke}
+                                        />
+                                    )}
+
+                                    {showGrid && (
+                                        <Grid
+                                            numTicks={computeGridNumTicks?.(width, height, dynamicMargin, data)}
+                                            {...mergedGridProps}
+                                        />
+                                    )}
+
+                                    <AreaSeries<AxisScale, AxisScale, Datum>
                                         dataKey="line-chart-seria-01"
                                         data={data}
-                                        renderGlyph={renderGlyphOnSingleDataPoint}
+                                        fill={!isEmpty ? areaColor : 'transparent'}
+                                        curve={curveMonotoneX}
+                                        lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
+                                        y0Accessor={y0Accessor}
                                         {...accessors}
                                     />
-                                )}
-                            </Group>
 
-                            <Tooltip<Datum>
-                                snapTooltipToDatumX
-                                snapTooltipToDatumY
-                                showVerticalCrosshair
-                                applyPositionStyle
-                                showSeriesGlyphs
-                                verticalCrosshairStyle={toolbarVerticalCrosshairStyle}
-                                renderGlyph={renderTooltipGlyph}
-                                unstyled
-                                renderTooltip={({ tooltipData }) => {
-                                    return (
-                                        tooltipData?.nearestDatum && (
-                                            <Popover
-                                                open
-                                                defaultOpen
-                                                placement="topLeft"
-                                                key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
-                                                content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
-                                            />
-                                        )
-                                    );
-                                }}
-                            />
+                                    {showGlyphOnSingleDataPoint && data.length === 1 && (
+                                        <GlyphSeries<AxisScale, AxisScale, Datum>
+                                            dataKey="line-chart-seria-01"
+                                            data={data}
+                                            renderGlyph={renderGlyphOnSingleDataPoint as any}
+                                            {...accessors}
+                                        />
+                                    )}
+                                </Group>
+
+                                <Tooltip<Datum>
+                                    snapTooltipToDatumX
+                                    snapTooltipToDatumY
+                                    showVerticalCrosshair
+                                    applyPositionStyle
+                                    showSeriesGlyphs
+                                    verticalCrosshairStyle={toolbarVerticalCrosshairStyle as any}
+                                    renderGlyph={renderTooltipGlyph as any}
+                                    unstyled
+                                    renderTooltip={({ tooltipData }) => {
+                                        return (
+                                            (tooltipData?.nearestDatum && (
+                                                <Popover
+                                                    open
+                                                    defaultOpen
+                                                    placement="topLeft"
+                                                    key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
+                                                    content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
+                                                />
+                                            ))
+                                        ) as React.ReactNode;
+                                    }}
+                                />
+                            </>
                         </XYChart>
                     );
                 }}

@@ -53,6 +53,7 @@ export enum SelectActionGroups {
     CHANGE_DEPRECATION,
     DELETE,
     CHANGE_DATA_PRODUCTS,
+    CHANGE_ORGANIZATIONS,
 }
 
 /**

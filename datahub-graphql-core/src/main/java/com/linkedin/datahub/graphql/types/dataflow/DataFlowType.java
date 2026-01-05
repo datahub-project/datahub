@@ -80,7 +80,8 @@ public class DataFlowType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          ORGANIZATIONS_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
   private final EntityClient _entityClient;
 

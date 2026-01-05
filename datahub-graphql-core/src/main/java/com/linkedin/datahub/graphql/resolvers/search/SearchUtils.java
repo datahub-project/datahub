@@ -93,7 +93,8 @@ public class SearchUtils {
           EntityType.BUSINESS_ATTRIBUTE,
           EntityType.SCHEMA_FIELD,
           EntityType.APPLICATION,
-          EntityType.DOCUMENT);
+          EntityType.DOCUMENT,
+          EntityType.ORGANIZATION);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
@@ -116,7 +117,8 @@ public class SearchUtils {
           EntityType.DOMAIN,
           EntityType.BUSINESS_ATTRIBUTE,
           EntityType.APPLICATION,
-          EntityType.STRUCTURED_PROPERTY);
+          EntityType.STRUCTURED_PROPERTY,
+          EntityType.ORGANIZATION);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =
@@ -295,7 +297,7 @@ public class SearchUtils {
     }
   }
 
-  //  Assumption is that filter values for degree are either null, 3+, 2, or 1.
+  // Assumption is that filter values for degree are either null, 3+, 2, or 1.
   public static Integer getMaxHops(List<FacetFilterInput> filters) {
     Set<String> degreeFilterValues =
         filters.stream()
@@ -392,7 +394,8 @@ public class SearchUtils {
     final List<String> entityNames =
         entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
-    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
+    // escape forward slash since it is a reserved character in Elasticsearch,
+    // default to * if
     // blank/empty
     final String query =
         StringUtils.isNotBlank(inputQuery) ? ResolverUtils.escapeForwardSlash(inputQuery) : "*";
@@ -487,7 +490,8 @@ public class SearchUtils {
     final List<String> entityNames =
         entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
-    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
+    // escape forward slash since it is a reserved character in Elasticsearch,
+    // default to * if
     // blank/empty
     final String query =
         StringUtils.isNotBlank(inputQuery) ? ResolverUtils.escapeForwardSlash(inputQuery) : "*";

@@ -12,6 +12,7 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarViewDefinitionSection } from '@app/entity/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOrganizationSection } from '@app/entity/shared/containers/profile/sidebar/Organization/SidebarOrganizationSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarSiblingsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
@@ -262,6 +263,9 @@ export class DatasetEntity implements Entity<Dataset> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarOrganizationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -395,6 +399,7 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.ORGANIZATIONS,
         ]);
     };
 

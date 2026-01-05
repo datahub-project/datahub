@@ -13,6 +13,7 @@ import { EntityProfileTab } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import SidebarEntitiesSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
+import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
@@ -114,6 +115,9 @@ export class DomainEntity implements Entity<Domain> {
         },
         {
             component: SidebarEntitiesSection,
+        },
+        {
+            component: SidebarOrganizationSection,
         },
         {
             component: SidebarOwnerSection,

@@ -13,6 +13,7 @@ export const TAGS_FILTER_NAME = 'tags';
 export const GLOSSARY_TERMS_FILTER_NAME = 'glossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
+export const ORGANIZATIONS_FILTER_NAME = 'organizations';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
@@ -61,6 +62,7 @@ export const FILTERS_TO_TRUNCATE = [
     GLOSSARY_TERMS_FILTER_NAME,
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
+    ORGANIZATIONS_FILTER_NAME,
     OWNERS_FILTER_NAME,
     ENTITY_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
@@ -75,6 +77,7 @@ export const ORDERED_FIELDS = [
     TAGS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     DOMAINS_FILTER_NAME,
+    ORGANIZATIONS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
     FIELD_GLOSSARY_TERMS_FILTER_NAME,
     FIELD_PATHS_FILTER_NAME,
@@ -93,6 +96,7 @@ export const FIELD_TO_LABEL = {
     owners: 'Owner',
     tags: 'Tag',
     domains: 'Domain',
+    organizations: 'Organization',
     platform: 'Platform',
     fieldTags: 'Column Tag',
     glossaryTerms: 'Glossary Term',
