@@ -1,4 +1,5 @@
 import json
+from unittest.mock import ANY
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import UNIT_SEPARATOR, GenericJsonPatch, _Patch
@@ -122,15 +123,37 @@ def test_global_tags_upsert_mode():
 
     # Verify GenericJsonPatch structure
     patch_dict = json.loads(result.aspect.value.decode())
-    assert "arrayPrimaryKeys" in patch_dict
-    assert "patch" in patch_dict
-    assert len(patch_dict["patch"]) == 1  # Single operation in upsert mode
-    assert patch_dict["patch"][0]["op"] == "add"
-    assert patch_dict["patch"][0]["path"] == f"/tags/{ATTRIBUTION_SOURCE}"
-    # Value should be a map of all tags
-    assert isinstance(patch_dict["patch"][0]["value"], dict)
-    assert "urn:li:tag:tagA" in patch_dict["patch"][0]["value"]
-    assert "urn:li:tag:tagB" in patch_dict["patch"][0]["value"]
+
+    expected_patch_dict = {
+        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/tags/{ATTRIBUTION_SOURCE}",
+                "value": {
+                    "urn:li:tag:tagA": {
+                        "tag": "urn:li:tag:tagA",
+                        "attribution": {
+                            "time": ANY,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": ATTRIBUTION_SOURCE,
+                        },
+                    },
+                    "urn:li:tag:tagB": {
+                        "tag": "urn:li:tag:tagB",
+                        "attribution": {
+                            "time": ANY,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": ATTRIBUTION_SOURCE,
+                        },
+                    },
+                },
+            }
+        ],
+        "forceGenericPatch": False,
+    }
+
+    assert patch_dict == expected_patch_dict
 
 
 def test_global_tags_patch_mode():
@@ -168,10 +191,39 @@ def test_global_tags_patch_mode():
 
     # Verify patch mode creates individual operations
     patch_dict = json.loads(result.aspect.value.decode())
-    assert len(patch_dict["patch"]) == 2  # One operation per tag
-    paths = [op["path"] for op in patch_dict["patch"]]
-    assert f"/tags/{ATTRIBUTION_SOURCE}/urn:li:tag:tagA" in paths
-    assert f"/tags/{ATTRIBUTION_SOURCE}/urn:li:tag:tagB" in paths
+
+    expected_patch_dict = {
+        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/tags/{ATTRIBUTION_SOURCE}/urn:li:tag:tagA",
+                "value": {
+                    "tag": "urn:li:tag:tagA",
+                    "attribution": {
+                        "time": ANY,
+                        "actor": "urn:li:corpuser:datahub",
+                        "source": ATTRIBUTION_SOURCE,
+                    },
+                },
+            },
+            {
+                "op": "add",
+                "path": f"/tags/{ATTRIBUTION_SOURCE}/urn:li:tag:tagB",
+                "value": {
+                    "tag": "urn:li:tag:tagB",
+                    "attribution": {
+                        "time": ANY,
+                        "actor": "urn:li:corpuser:datahub",
+                        "source": ATTRIBUTION_SOURCE,
+                    },
+                },
+            },
+        ],
+        "forceGenericPatch": False,
+    }
+
+    assert patch_dict == expected_patch_dict
 
 
 def test_global_tags_with_source_detail():
@@ -249,11 +301,39 @@ def test_ownership_upsert_mode():
     assert result.aspect is not None
 
     patch_dict = json.loads(result.aspect.value.decode())
-    assert "arrayPrimaryKeys" in patch_dict
-    assert patch_dict["arrayPrimaryKeys"]["owners"] == [
-        f"attribution{UNIT_SEPARATOR}source",
-        "owner",
-    ]
+
+    expected_patch_dict = {
+        "arrayPrimaryKeys": {"owners": [f"attribution{UNIT_SEPARATOR}source", "owner"]},
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/owners/{ATTRIBUTION_SOURCE}",
+                "value": {
+                    "urn:li:corpuser:user1": {
+                        "owner": "urn:li:corpuser:user1",
+                        "type": "DATAOWNER",
+                        "attribution": {
+                            "time": ANY,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": ATTRIBUTION_SOURCE,
+                        },
+                    },
+                    "urn:li:corpuser:user2": {
+                        "owner": "urn:li:corpuser:user2",
+                        "type": "DATAOWNER",
+                        "attribution": {
+                            "time": ANY,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": ATTRIBUTION_SOURCE,
+                        },
+                    },
+                },
+            }
+        ],
+        "forceGenericPatch": False,
+    }
+
+    assert patch_dict == expected_patch_dict
 
 
 # Test GlossaryTerms transformer
@@ -350,14 +430,86 @@ def test_patch_input_with_attribution():
 
     # Verify attribution was added
     patch_dict = json.loads(result.aspect.value.decode())
-    assert len(patch_dict["patch"]) == 1
-    tag_value = patch_dict["patch"][0]["value"]
-    assert "attribution" in tag_value
-    assert tag_value["attribution"]["source"] == ATTRIBUTION_SOURCE
-    # Original context should be preserved
-    assert tag_value["context"] == "existing context"
-    # Original arrayPrimaryKeys should be preserved
-    assert patch_dict["arrayPrimaryKeys"] == existing_patch["arrayPrimaryKeys"]
+
+    expected_patch_dict = {
+        "arrayPrimaryKeys": existing_patch["arrayPrimaryKeys"],
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/tags/{ATTRIBUTION_SOURCE}/urn:li:tag:tagC",
+                "value": {
+                    "context": "existing context",
+                    "tag": "urn:li:tag:tagC",
+                    "attribution": {
+                        "time": ANY,
+                        "actor": "urn:li:corpuser:datahub",
+                        "source": ATTRIBUTION_SOURCE,
+                    },
+                },
+            }
+        ],
+        "forceGenericPatch": False,
+    }
+
+    assert patch_dict == expected_patch_dict
+
+
+def test_patch_input_different_attribution_source():
+    """Test that PATCH inputs with different attribution source pass through unchanged."""
+    config = SetAttributionConfig(
+        attribution_source=ATTRIBUTION_SOURCE,
+        patch_mode=False,
+    )
+    ctx = PipelineContext(run_id="test")
+    transformer = SetAttributionTransformer(config, ctx)
+
+    # Create a PATCH MCP with existing patch operations using a different attribution source
+    different_source = "urn:li:platformResource:different-source"
+    existing_patch = {
+        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/tags/{different_source}/urn:li:tag:tagC",
+                "value": {
+                    "tag": "urn:li:tag:tagC",
+                    "context": "existing context",
+                    "attribution": {
+                        "time": 1234567890,
+                        "actor": "urn:li:corpuser:other",
+                        "source": different_source,
+                    },
+                },
+            }
+        ],
+        "forceGenericPatch": False,
+    }
+    patch_aspect = GenericAspectClass(
+        value=json.dumps(existing_patch).encode(),
+        contentType="application/json-patch+json",
+    )
+    mcp = MetadataChangeProposalClass(
+        entityUrn=SAMPLE_URN,
+        entityType="dataset",
+        aspectName="globalTags",
+        aspect=patch_aspect,
+        changeType=ChangeTypeClass.PATCH,
+    )
+
+    envelope = RecordEnvelope(record=mcp, metadata={})
+    results = list(transformer.transform([envelope]))
+
+    assert len(results) == 1
+    result = results[0].record
+    assert isinstance(result, MetadataChangeProposalClass)
+    assert result.changeType == ChangeTypeClass.PATCH
+    assert result.aspect is not None
+
+    # Verify patch operations pass through unchanged (different attribution source)
+    patch_dict = json.loads(result.aspect.value.decode())
+
+    # Should be identical to input since attribution source doesn't match
+    assert patch_dict == existing_patch
 
 
 def test_patch_input_unsupported_content_type():
@@ -447,10 +599,20 @@ def test_empty_aspect():
     result = results[0].record
     assert result.aspect is not None
     patch_dict = json.loads(result.aspect.value.decode())
-    # Empty aspect should still create a patch (with empty value map in upsert mode)
-    assert len(patch_dict["patch"]) == 1
-    # Value should be an empty dict
-    assert patch_dict["patch"][0]["value"] == {}
+
+    expected_patch_dict = {
+        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/tags/{ATTRIBUTION_SOURCE}",
+                "value": {},
+            }
+        ],
+        "forceGenericPatch": False,
+    }
+
+    assert patch_dict == expected_patch_dict
 
 
 def test_unsupported_aspect_passthrough():
@@ -526,6 +688,26 @@ def test_attribution_overwrite_warning():
     result = results[0].record
     assert result.aspect is not None
     patch_dict = json.loads(result.aspect.value.decode())
-    tag_value = patch_dict["patch"][0]["value"]["urn:li:tag:tagA"]
-    # Attribution should be overwritten with new source
-    assert tag_value["attribution"]["source"] == ATTRIBUTION_SOURCE
+
+    expected_patch_dict = {
+        "arrayPrimaryKeys": {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]},
+        "patch": [
+            {
+                "op": "add",
+                "path": f"/tags/{ATTRIBUTION_SOURCE}",
+                "value": {
+                    "urn:li:tag:tagA": {
+                        "tag": "urn:li:tag:tagA",
+                        "attribution": {
+                            "time": ANY,
+                            "actor": "urn:li:corpuser:datahub",
+                            "source": ATTRIBUTION_SOURCE,
+                        },
+                    },
+                },
+            }
+        ],
+        "forceGenericPatch": False,
+    }
+
+    assert patch_dict == expected_patch_dict
