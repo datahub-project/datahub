@@ -117,9 +117,9 @@ mkdir -p "$OUTPUT_DIR"
 
 # Fetch recent successful workflow runs from acryl-main branch
 echo "Fetching recent successful workflow runs from acryl-main branch..."
-RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?branch=acryl-main" \
-    --jq ".workflow_runs[] | select(.conclusion==\"success\" and .head_branch==\"acryl-main\") | .id" \
-    | head -n "$RUN_COUNT")
+# Use jq limit to avoid SIGPIPE from head command - process all results within jq
+RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?branch=acryl-main&per_page=30" \
+    --jq "[.workflow_runs[] | select(.conclusion==\"success\" and .head_branch==\"acryl-main\") | .id] | .[:$RUN_COUNT] | .[]")
 
 if [[ -z "$RUN_IDS" ]]; then
     echo "Error: No successful workflow runs found on acryl-main branch"
