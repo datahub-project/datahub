@@ -1,0 +1,61 @@
+{
+  "version": "1.0",
+  "session_id": "marge-session-626569b6",
+  "checkpoint_timestamp": "2026-01-05T02:00:19.025562",
+  "upstream_remote": "upstream",
+  "upstream_branch": "master",
+  "target_branch": "acryl-main",
+  "merge_strategy": "stacked",
+  "pr_number": null,
+  "max_attempts": 3,
+  "commits_to_merge": [
+    "f395a1a0e7bfba115f401f8d33681d9401ec3793",
+    "782f2f690b69318ebe8230e223ebe712bc912dc8",
+    "da70ab602d479bedf237ce90ebd57e312a16560a",
+    "22a780c3113a5c900dfb386c83deb527ff72a874",
+    "a8bd2e5463461844eb7c10bd4249689a6c51a2b9"
+  ],
+  "next_commit_index": 2,
+  "processed_commits": [
+    {
+      "sha": "f395a1a0e7bfba115f401f8d33681d9401ec3793",
+      "short_hash": "f395a1a0e7",
+      "message": "feat(kafka): automatically upsize topic partition counts (#15714)",
+      "author": "rob-1019 <rob.caskey@datahub.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "782f2f690b69318ebe8230e223ebe712bc912dc8",
+      "short_hash": "782f2f690b",
+      "message": "fix(search): Sanitize base64 images from search index to prevent indexing failures (#15689)",
+      "author": "Deepak Garg <deepak.garg@datahub.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    }
+  ],
+  "stack": {
+    "size": 2,
+    "commit_shas": [
+      "f395a1a0e7bfba115f401f8d33681d9401ec3793",
+      "782f2f690b69318ebe8230e223ebe712bc912dc8"
+    ],
+    "commit_messages": [
+      "feat(kafka): automatically upsize topic partition counts (#15714)",
+      "fix(search): Sanitize base64 images from search index to prevent indexing failures (#15689)"
+    ],
+    "last_committed": "2026-01-05T02:00:19.025577"
+  },
+  "git_state": {
+    "head_sha": "0d7e6403709d28b21f698aaecb2ba1e21f02f161",
+    "branch": "marge-session-626569b6-branch",
+    "working_tree_clean": false,
+    "uncommitted_files": [
+      "marge_checkpoints/marge-session-626569b6.json"
+    ]
+  }
+}
