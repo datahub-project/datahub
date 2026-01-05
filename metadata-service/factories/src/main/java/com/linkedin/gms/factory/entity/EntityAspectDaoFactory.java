@@ -32,7 +32,7 @@ public class EntityAspectDaoFactory {
       @Qualifier("ebeanServer") final Database server,
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
-    log.info(
+    log.debug(
         "Creating EntityAspectDao with {} AspectPayloadValidators: {}",
         payloadValidators != null ? payloadValidators.size() : 0,
         payloadValidators != null

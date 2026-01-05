@@ -90,7 +90,7 @@ public class EbeanSystemAspect implements SystemAspect {
   @Override
   @Nonnull
   public EntityAspect withVersion(long version) {
-    log.info("withVersion({}) called for urn={}, aspect={}", version, getUrn(), getAspectName());
+    log.debug("withVersion({}) called for urn={}, aspect={}", version, getUrn(), getAspectName());
     if (systemMetadata == null) {
       throw new IllegalStateException("Cannot save without system metadata");
     }
@@ -121,7 +121,7 @@ public class EbeanSystemAspect implements SystemAspect {
         payloadValidators != null ? payloadValidators.size() : 0,
         entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
     if (payloadValidators != null && !payloadValidators.isEmpty()) {
-      log.info(
+      log.debug(
           "Invoking {} AspectPayloadValidators for urn={}, aspect={}, size={} bytes",
           payloadValidators.size(),
           getUrn(),
