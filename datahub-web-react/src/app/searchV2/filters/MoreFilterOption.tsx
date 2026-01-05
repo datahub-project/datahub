@@ -1,4 +1,5 @@
 import { RightOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
 
@@ -14,6 +15,7 @@ import { FacetFilterInput, FacetMetadata } from '@types';
 const IconNameWrapper = styled.span`
     display: flex;
     align-items: center;
+    overflow: hidden;
 `;
 
 const StyledValueSelector = styled(ValueSelector)<{ width: number; height: number; isElementOutsideWindow: boolean }>`
@@ -25,6 +27,12 @@ const StyledValueSelector = styled(ValueSelector)<{ width: number; height: numbe
 const StyledRightOutlined = styled(RightOutlined)`
     font-size: 12px;
     height: 12px;
+`;
+
+const TruncatedTextWrapper = styled.span`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 interface Props {
@@ -69,11 +77,15 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
                 data-testid={`more-filter-${displayName?.replace(/\s/g, '-')}`}
                 ref={labelRef}
             >
-                <IconNameWrapper>
-                    {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                    {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                </IconNameWrapper>
-                <StyledRightOutlined />
+                <Tooltip title={displayName} placement="left">
+                    <IconNameWrapper>
+                        {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
+                        <TruncatedTextWrapper>
+                            {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                        </TruncatedTextWrapper>
+                    </IconNameWrapper>
+                    <StyledRightOutlined />
+                </Tooltip>
             </MoreFilterOptionLabel>
         </StyledValueSelector>
     );
