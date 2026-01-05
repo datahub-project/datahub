@@ -80,6 +80,14 @@
         "recipe": "source:\n  type: dbt-cloud\n  config:\n    account_id: null\n    project_id: null\n    job_id: null\n    target_platform: null\n    stateful_ingestion:\n      enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:dbt",
+        "name": "dbt",
+        "displayName": "dbt",
+        "description": "Import Sources, Seeds, Models, Snapshots, Tests, and lineage from dbt.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dbt/",
+        "recipe": "source:\n  type: dbt\n  config:\n    manifest_path: # path to manifest.json\n    catalog_path: # path to catalog.json\n    target_platform: # e.g. snowflake, bigquery\n    stateful_ingestion:\n      enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",
