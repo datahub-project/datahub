@@ -219,7 +219,7 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
 
 def _docker_compose_v2() -> List[str]:
     try:
-        # Check for the docker compose v2 plugin.
+        # Check for the docker compose v2 or newer plugin.
         compose_version = subprocess.check_output(
             ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
         ).decode()
