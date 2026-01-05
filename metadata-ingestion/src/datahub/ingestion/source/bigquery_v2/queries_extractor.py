@@ -492,32 +492,14 @@ def _is_allow_all_pattern(allow_patterns: List[str]) -> bool:
     """
     Check if allow patterns effectively match everything.
 
-    This detects common "match all" patterns to avoid unnecessary filtering.
-    When a pattern matches everything, we skip adding it to the WHERE clause
-    since it would have no effect on filtering.
+    When detected, we skip adding the allow filter since it has no effect.
 
     Design Choice - all() vs any():
-        Uses all() instead of any() to be conservative: only treat as allow-all
-        if ALL patterns are explicitly allow-all patterns. This preserves user
-        intent even if they provide logically redundant patterns like [".*", "specific"].
+        Uses all() to be conservative: only treat as allow-all if ALL patterns
+        are allow-all. This preserves user intent for auditability, even if
+        logically redundant (e.g., [".*", "specific"] still generates SQL).
 
-        While (REGEXP_CONTAINS(user_email, '.*') OR ...) is logically equivalent to TRUE,
-        this function intentionally returns False for mixed patterns to preserve
-        the user's explicit configuration in the generated SQL for auditability.
-
-    Recognized "allow all" patterns:
-        - ".*"        : Zero or more of any character
-        - ".+"        : One or more of any character
-        - "^.*$"      : Anchored zero or more of any character
-        - "^.+$"      : Anchored one or more of any character
-        - "[\\s\\S]*" : Zero or more of whitespace or non-whitespace (matches all)
-        - "[\\s\\S]+" : One or more of whitespace or non-whitespace (matches all)
-
-    Args:
-        allow_patterns: List of regex pattern strings
-
-    Returns:
-        True if all patterns are allow-all patterns, False otherwise
+    Recognized patterns: ".*", ".+", "^.*$", "^.+$", "[\\s\\S]*", "[\\s\\S]+"
     """
     if not allow_patterns:
         return True
@@ -654,8 +636,8 @@ def _build_enriched_query_log_query(
         start_time: Start of the time window for query log
         end_time: End of the time window for query log
         user_filter: SQL WHERE clause condition for filtering by user_email.
-                     Defaults to "TRUE" (no filtering). Use _build_user_filter_from_pattern()
-                     to generate this from an AllowDenyPattern.
+                     Defaults to "TRUE" (no filtering). Use _build_user_filter()
+                     to generate this from allow/deny pattern lists.
 
     Returns:
         SQL query string to fetch query log
