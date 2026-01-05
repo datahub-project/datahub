@@ -1,30 +1,34 @@
+import json
 import logging
 import os
-import json
-from pathlib import Path
-
 from collections import defaultdict
-from contextlib import contextmanager
-import pytest
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from _pytest.nodes import Item
+
+import pytest
 import requests
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
-from tests.test_result_msg import send_message, get_module_tracker
+from _pytest.nodes import Item
+
+from datahub.ingestion.graph.client import (
+    DatahubClientConfig,
+    DataHubGraph,
+    get_default_graph,
+)
+from tests.test_result_msg import get_module_tracker, send_message
 from tests.utilities import env_vars
 
 from tests.utils import (
     TestSessionWrapper,
-    get_frontend_session,
-    wait_for_healthcheck_util,
-    ingest_file_via_rest,
     delete_urns,
     delete_urns_from_file,
-    wait_for_writes_to_sync,
     get_admin_credentials,
+    get_frontend_session,
     get_frontend_url,
+    ingest_file_via_rest,
+    wait_for_healthcheck_util,
+    wait_for_writes_to_sync,
 )
-from tests.utilities.metadata_operations import verify_auth_session, get_default_channel_name
+from tests.utilities.metadata_operations import get_default_channel_name, verify_auth_session
 
 logger = logging.getLogger(__name__)
 
@@ -42,19 +46,12 @@ def build_auth_session():
 
     return session
 
-@contextmanager
-def auth_session_context():
-    # this enable auth_session to be used outside of tests as well, while retaining the auth_session fixture
-    auth_session = build_auth_session()
-    try:
-        yield auth_session
-    finally:
-        auth_session.destroy()
 
 @pytest.fixture(scope="session")
 def auth_session():
-    with auth_session_context() as session:
-        yield session
+    session = build_auth_session()
+    yield session
+    session.destroy()
 
 
 def build_graph_client(auth_session, openapi_ingestion=False):
@@ -95,7 +92,7 @@ def _ingest_cleanup_data_impl(
     graph_client,
     data_file: str,
     test_name: str,
-    to_delete_urns: Optional[List[str]] = None
+    to_delete_urns: Optional[List[str]] = None,
 ):
     """Helper for ingesting test data with automatic cleanup.
 
@@ -242,7 +239,9 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
-def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) -> List[Tuple[str, List[Item], float]]:
+def aggregate_module_weights(
+    items: List[Item], test_weights: Dict[str, float]
+) -> List[Tuple[str, List[Item], float]]:
     """
     Group test items by module and aggregate their weights.
 
@@ -348,10 +347,16 @@ def pytest_collection_modifyitems(
 
     # Create weighted tuples for bin-packing: (module_path, weight)
     # We'll also keep track of the items for each module
-    module_map = {module_path: module_items for module_path, module_items, _ in module_data}
-    weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
+    module_map = {
+        module_path: module_items for module_path, module_items, _ in module_data
+    }
+    weighted_modules = [
+        (module_path, total_weight) for module_path, _, total_weight in module_data
+    ]
 
-    logger.debug(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+    logger.info(
+        f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches"
+    )
 
     # Apply bin-packing to modules
     module_batches = bin_pack_tasks(weighted_modules, batch_count)
@@ -365,8 +370,9 @@ def pytest_collection_modifyitems(
     for module_path in selected_modules:
         selected_items.extend(module_map[module_path])
 
-    logger.debug(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+    logger.info(
+        f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules"
+    )
 
     # Replace items with the filtered list
     items[:] = selected_items
-

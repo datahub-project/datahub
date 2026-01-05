@@ -7,9 +7,9 @@ from typing import Any, Optional
 
 import pytest
 import requests
-import tenacity
 
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utilities.metadata_operations import update_description
 from tests.utils import (
     execute_graphql,
     get_admin_credentials,
@@ -17,7 +17,6 @@ from tests.utils import (
     get_kafka_broker_url,
     get_kafka_schema_registry,
     get_root_urn,
-    get_sleep_info,
     ingest_file_via_rest,
     wait_for_writes_to_sync,
     with_test_retry,
@@ -26,8 +25,6 @@ from tests.utils import (
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
-
-from tests.utilities.metadata_operations import update_description
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"
@@ -406,9 +403,7 @@ def test_frontend_search_across_entities(auth_session, query, min_expected_resul
             }
         }
     }"""
-    variables = {
-        "input": {"types": [], "query": f"{query}", "start": 0, "count": 10}
-    }
+    variables = {"input": {"types": [], "query": f"{query}", "start": 0, "count": 10}}
     res_data = execute_graphql(auth_session, graphql_query, variables)
 
     assert res_data["data"]["searchAcrossEntities"]
@@ -853,7 +848,6 @@ def test_update_corp_group_description(auth_session):
     ]
 )
 def test_remove_user(auth_session):
-
     query = """mutation removeUser($urn: String!) {\n
             removeUser(urn: $urn) }"""
     variables = {"urn": "urn:li:corpuser:jdoe"}
@@ -900,7 +894,6 @@ def test_remove_group(auth_session):
     ]
 )
 def test_create_group(auth_session):
-
     query = """mutation createGroup($input: CreateGroupInput!) {\n
             createGroup(input: $input) }"""
     variables = {
@@ -1223,5 +1216,3 @@ def test_native_user_endpoints(auth_session):
     )
     remove_user_response.raise_for_status()
     assert "errors" not in remove_user_response
-
-
