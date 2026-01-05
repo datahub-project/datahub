@@ -381,10 +381,15 @@ class SetAttributionTransformer(BaseTransformer):
                     new_patch_ops.append(_Patch(op=op, path=path_tuple, value=value))
 
             # Create new GenericJsonPatch with updated operations
+            # If array_primary_keys is non-empty, force_generic_patch should be True for consistency
+            force_generic = (
+                bool(existing_generic_patch.array_primary_keys)
+                or existing_generic_patch.force_generic_patch
+            )
             generic_json_patch = GenericJsonPatch(
                 array_primary_keys=existing_generic_patch.array_primary_keys,
                 patch=new_patch_ops,
-                force_generic_patch=existing_generic_patch.force_generic_patch,
+                force_generic_patch=force_generic,
             )
 
             # Create MCP
@@ -487,10 +492,11 @@ class SetAttributionTransformer(BaseTransformer):
         }
 
         # Create GenericJsonPatch
+        # When array_primary_keys is non-empty, force_generic_patch should be True for consistency
         generic_json_patch = GenericJsonPatch(
             array_primary_keys=array_primary_keys,
             patch=patch_ops,
-            force_generic_patch=False,
+            force_generic_patch=True,
         )
 
         # Create MCP

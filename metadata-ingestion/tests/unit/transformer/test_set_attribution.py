@@ -54,7 +54,7 @@ def test_generic_json_patch_to_dict():
     patch = GenericJsonPatch(
         array_primary_keys=array_primary_keys,
         patch=patch_ops,
-        force_generic_patch=False,
+        force_generic_patch=True,
     )
 
     result = patch.to_dict()
@@ -62,7 +62,7 @@ def test_generic_json_patch_to_dict():
         "tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]
     }
     assert len(result["patch"]) == 2
-    assert result["forceGenericPatch"] is False
+    assert result["forceGenericPatch"] is True
 
 
 def test_generic_json_patch_to_generic_aspect():
@@ -150,7 +150,7 @@ def test_global_tags_upsert_mode():
                 },
             }
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
 
     assert patch_dict == expected_patch_dict
@@ -220,7 +220,7 @@ def test_global_tags_patch_mode():
                 },
             },
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
 
     assert patch_dict == expected_patch_dict
@@ -330,7 +330,7 @@ def test_ownership_upsert_mode():
                 },
             }
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
 
     assert patch_dict == expected_patch_dict
@@ -404,7 +404,7 @@ def test_patch_input_with_attribution():
                 },
             }
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
     patch_aspect = GenericAspectClass(
         value=json.dumps(existing_patch).encode(),
@@ -448,7 +448,7 @@ def test_patch_input_with_attribution():
                 },
             }
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
 
     assert patch_dict == expected_patch_dict
@@ -482,7 +482,7 @@ def test_patch_input_different_attribution_source():
                 },
             }
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
     patch_aspect = GenericAspectClass(
         value=json.dumps(existing_patch).encode(),
@@ -609,7 +609,7 @@ def test_empty_aspect():
                 "value": {},
             }
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
 
     assert patch_dict == expected_patch_dict
@@ -707,7 +707,7 @@ def test_attribution_overwrite_warning():
                 },
             }
         ],
-        "forceGenericPatch": False,
+        "forceGenericPatch": True,
     }
 
     assert patch_dict == expected_patch_dict
