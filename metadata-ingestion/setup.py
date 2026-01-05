@@ -54,7 +54,9 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
-    "ruamel.yaml",
+    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
+    # which is not available as wheel.
+    "ruamel.yaml<0.19.0",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -69,7 +71,8 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    "confluent_kafka[schemaregistry,avro]>=2.10.1",
+    # 2.13.0 introduced some breaking changes that require some development
+    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
