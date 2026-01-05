@@ -482,13 +482,21 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
-    pushdown_user_filter: bool = Field(
-        default=False,
-        description="If enabled, pushes down `usage.user_email_pattern` filtering to BigQuery's "
-        "INFORMATION_SCHEMA.JOBS query using REGEXP_CONTAINS for improved performance. "
-        "When disabled (default), filtering is done client-side using Python regex. "
-        "Enable this for large query volumes to reduce data transfer from BigQuery. "
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of user email regex patterns (e.g., 'bot_.*', '.*service.*@.*\\.iam\\.gserviceaccount\\.com') "
+        "which will NOT be considered for lineage/usage/queries extraction. "
+        "Uses BigQuery's REGEXP_CONTAINS for server-side filtering. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of user email regex patterns (e.g., 'analyst_.*@company\\.com') "
+        "which WILL be considered for lineage/usage/queries extraction. "
+        "Uses BigQuery's REGEXP_CONTAINS for server-side filtering. "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
     )
 
     _include_view_lineage = pydantic_removed_field("include_view_lineage")
@@ -563,6 +571,41 @@ class BigQueryV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
+        return self
+
+    @field_validator(
+        "pushdown_deny_usernames", "pushdown_allow_usernames", mode="after"
+    )
+    @classmethod
+    def validate_pushdown_username_patterns(cls, patterns: List[str]) -> List[str]:
+        """Validate and normalize pushdown username patterns.
+
+        - Strips leading/trailing whitespace from each pattern
+        - Rejects empty patterns (after stripping)
+
+        Note: Regex syntax is not validated here because BigQuery uses RE2,
+        which differs from Python's regex. Invalid patterns will fail at runtime.
+        """
+        validated = []
+        for i, pattern in enumerate(patterns):
+            stripped = pattern.strip()
+            if not stripped:
+                raise ValueError(
+                    f"Empty pattern at index {i}. "
+                    "Remove empty strings from pushdown username patterns."
+                )
+            validated.append(stripped)
+        return validated
+
+    @model_validator(mode="after")
+    def validate_pushdown_config(self) -> "BigQueryV2Config":
+        if (
+            self.pushdown_deny_usernames or self.pushdown_allow_usernames
+        ) and not self.use_queries_v2:
+            raise ValueError(
+                "pushdown_deny_usernames and pushdown_allow_usernames require use_queries_v2=True. "
+                "Either enable use_queries_v2 or remove the pushdown username filters."
+            )
         return self
 
     def get_table_pattern(self, pattern: List[str]) -> str:

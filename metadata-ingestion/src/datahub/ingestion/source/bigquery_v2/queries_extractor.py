@@ -98,15 +98,20 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
 
     user_email_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for user emails to filter in usage.",
+        description="Regex patterns for user emails to filter in usage. Applied client-side.",
     )
 
-    pushdown_user_filter: bool = Field(
-        default=False,
-        description="If enabled, pushes down user_email_pattern filtering to BigQuery's "
-        "INFORMATION_SCHEMA.JOBS query using REGEXP_CONTAINS for improved performance. "
-        "When disabled (default), filtering is done client-side using Python regex. "
-        "Enable this for large query volumes to reduce data transfer from BigQuery.",
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of user email regex patterns to exclude from extraction. "
+        "Uses BigQuery's REGEXP_CONTAINS for server-side filtering.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of user email regex patterns to include in extraction. "
+        "Uses BigQuery's REGEXP_CONTAINS for server-side filtering. "
+        "If empty, all users not in deny list are included.",
     )
 
     top_n_queries: PositiveInt = Field(
@@ -405,10 +410,11 @@ class BigQueryQueriesExtractor(Closeable):
     def fetch_region_query_log(
         self, project: BigqueryProject, region: str
     ) -> Iterable[ObservedQuery]:
-        # Build user filter for pushdown if enabled
-        if self.config.pushdown_user_filter:
-            user_filter = _build_user_filter_from_pattern(
-                self.config.user_email_pattern
+        # Build user filter for pushdown if patterns are configured
+        if self.config.pushdown_deny_usernames or self.config.pushdown_allow_usernames:
+            user_filter = _build_user_filter(
+                allow_patterns=self.config.pushdown_allow_usernames,
+                deny_patterns=self.config.pushdown_deny_usernames,
             )
             logger.debug(f"Using pushdown user filter: {user_filter}")
         else:
@@ -490,6 +496,15 @@ def _is_allow_all_pattern(allow_patterns: List[str]) -> bool:
     When a pattern matches everything, we skip adding it to the WHERE clause
     since it would have no effect on filtering.
 
+    Design Choice - all() vs any():
+        Uses all() instead of any() to be conservative: only treat as allow-all
+        if ALL patterns are explicitly allow-all patterns. This preserves user
+        intent even if they provide logically redundant patterns like [".*", "specific"].
+
+        While (REGEXP_CONTAINS(user_email, '.*') OR ...) is logically equivalent to TRUE,
+        this function intentionally returns False for mixed patterns to preserve
+        the user's explicit configuration in the generated SQL for auditability.
+
     Recognized "allow all" patterns:
         - ".*"        : Zero or more of any character
         - ".+"        : One or more of any character
@@ -498,23 +513,16 @@ def _is_allow_all_pattern(allow_patterns: List[str]) -> bool:
         - "[\\s\\S]*" : Zero or more of whitespace or non-whitespace (matches all)
         - "[\\s\\S]+" : One or more of whitespace or non-whitespace (matches all)
 
-    Note: Only single-pattern lists are checked. Multiple patterns are never
-    considered "allow all" even if one of them is ".*", because the intent
-    is likely to restrict to specific patterns.
-
     Args:
         allow_patterns: List of regex pattern strings
 
     Returns:
-        True if the patterns effectively allow all, False otherwise
+        True if all patterns are allow-all patterns, False otherwise
     """
     if not allow_patterns:
         return True
-    if len(allow_patterns) == 1:
-        pattern = allow_patterns[0]
-        # Common patterns that match everything
-        return pattern in [".*", ".+", "^.*$", "^.+$", "[\\s\\S]*", "[\\s\\S]+"]
-    return False
+    allow_all_patterns = {".*", ".+", "^.*$", "^.+$", "[\\s\\S]*", "[\\s\\S]+"}
+    return all(pattern in allow_all_patterns for pattern in allow_patterns)
 
 
 def _escape_for_bigquery_string(pattern: str) -> str:
@@ -547,9 +555,12 @@ def _escape_for_bigquery_string(pattern: str) -> str:
     return escaped
 
 
-def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
+def _build_user_filter(
+    allow_patterns: List[str],
+    deny_patterns: List[str],
+) -> str:
     """
-    Convert AllowDenyPattern (Python regex) to BigQuery SQL WHERE clause.
+    Convert allow/deny regex patterns to BigQuery SQL WHERE clause.
 
     Uses REGEXP_CONTAINS for full regex support. This allows pushing down
     user filtering to BigQuery for improved performance.
@@ -558,57 +569,45 @@ def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
     to prevent SQL injection. Backslashes are escaped first, then single quotes.
 
     Args:
-        pattern: AllowDenyPattern with allow/deny regex patterns
+        allow_patterns: List of regex patterns for users to include
+        deny_patterns: List of regex patterns for users to exclude
 
     Returns:
         A SQL WHERE condition string, or "TRUE" if no filtering should be applied
 
     Example:
-        pattern = AllowDenyPattern(allow=["analyst_.*@example\\.com"], deny=["bot_.*"])
-        result = _build_user_filter_from_pattern(pattern)
+        result = _build_user_filter(
+            allow_patterns=["analyst_.*@example\\.com"],
+            deny_patterns=["bot_.*"]
+        )
         # Returns: "(REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')) AND NOT REGEXP_CONTAINS(user_email, 'bot_.*')"
     """
     conditions = []
 
-    logger.debug(
-        f"Translating user_email_pattern to SQL: "
-        f"allow={pattern.allow}, deny={pattern.deny}, ignoreCase={pattern.ignoreCase}"
-    )
+    logger.debug(f"Building user filter: allow={allow_patterns}, deny={deny_patterns}")
 
     # Handle ALLOW patterns (inclusions)
     # Skip if it's the default "allow all" pattern
-    if pattern.allow and not _is_allow_all_pattern(pattern.allow):
+    if allow_patterns and not _is_allow_all_pattern(allow_patterns):
         allow_conditions = []
-        for regex_pattern in pattern.allow:
+        for regex_pattern in allow_patterns:
             # Escape for SQL safety (prevents SQL injection)
             escaped = _escape_for_bigquery_string(regex_pattern)
             logger.debug(f"Allow pattern '{regex_pattern}' escaped to '{escaped}'")
-            # Use case-insensitive matching if configured
-            # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
-            # e.g., [A-Z] and [[:upper:]] should work correctly
-            if pattern.ignoreCase:
-                allow_conditions.append(f"REGEXP_CONTAINS(user_email, '(?i){escaped}')")
-            else:
-                allow_conditions.append(f"REGEXP_CONTAINS(user_email, '{escaped}')")
+            allow_conditions.append(f"REGEXP_CONTAINS(user_email, '{escaped}')")
         if allow_conditions:
             conditions.append(f"({' OR '.join(allow_conditions)})")
-    elif pattern.allow:
+    elif allow_patterns:
         logger.debug(
-            f"Skipping allow patterns {pattern.allow} - detected as 'allow all' pattern"
+            f"Skipping allow patterns {allow_patterns} - detected as 'allow all' pattern"
         )
 
     # Handle DENY patterns (exclusions)
-    if pattern.deny:
-        for regex_pattern in pattern.deny:
-            # Escape for SQL safety (prevents SQL injection)
-            escaped = _escape_for_bigquery_string(regex_pattern)
-            logger.debug(f"Deny pattern '{regex_pattern}' escaped to '{escaped}'")
-            # Use case-insensitive matching if configured
-            # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
-            if pattern.ignoreCase:
-                conditions.append(f"NOT REGEXP_CONTAINS(user_email, '(?i){escaped}')")
-            else:
-                conditions.append(f"NOT REGEXP_CONTAINS(user_email, '{escaped}')")
+    for regex_pattern in deny_patterns:
+        # Escape for SQL safety (prevents SQL injection)
+        escaped = _escape_for_bigquery_string(regex_pattern)
+        logger.debug(f"Deny pattern '{regex_pattern}' escaped to '{escaped}'")
+        conditions.append(f"NOT REGEXP_CONTAINS(user_email, '{escaped}')")
 
     result = " AND ".join(conditions) if conditions else "TRUE"
     logger.debug(f"Generated SQL user filter: {result}")

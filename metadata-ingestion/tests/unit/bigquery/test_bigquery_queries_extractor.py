@@ -1,15 +1,15 @@
 """
 Unit tests for BigQuery queries extractor user filter functionality.
 
-This module tests the pushdown_user_filter feature that converts Python regex
-patterns (AllowDenyPattern) to BigQuery SQL WHERE clauses using REGEXP_CONTAINS.
+This module tests the pushdown user filter feature that converts regex
+patterns to BigQuery SQL WHERE clauses using REGEXP_CONTAINS.
 
 Test Classes:
-    TestBuildUserFilterFromPattern: Core filter building logic (27 tests)
+    TestBuildUserFilter: Core filter building logic
     TestEscapeForBigQueryString: SQL-injection-safe escaping (6 tests)
     TestIsAllowAllPattern: Allow-all pattern detection (8 tests)
     TestBuildEnrichedQueryLogQuery: Query builder integration (4 tests)
-    TestIntegration: End-to-end flow tests (4 tests)
+    TestIntegration: End-to-end flow tests
     TestFetchRegionQueryLogWithPushdown: Integration with extractor (2 tests)
 
 Security Tests:
@@ -17,342 +17,331 @@ Security Tests:
     - Backslash-quote escape bypass attempts
     - Multiple backslash edge cases
     - Full integration security validation
-
-Note on ignoreCase=False:
-    Most tests use ignoreCase=False to test pattern translation logic in isolation.
-    This separates pattern escaping/translation concerns from case-sensitivity behavior.
-    Case-insensitive behavior (the default in AllowDenyPattern) is tested separately in:
-      - test_case_insensitive_pattern
-      - test_case_insensitive_preserves_character_classes
-      - test_full_flow_with_case_insensitive
 """
 
+import re
 from datetime import datetime, timezone
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     _build_enriched_query_log_query,
-    _build_user_filter_from_pattern,
+    _build_user_filter,
     _escape_for_bigquery_string,
     _is_allow_all_pattern,
 )
 
 
-class TestBuildUserFilterFromPattern:
-    """Tests for _build_user_filter_from_pattern function."""
+class TestBuildUserFilter:
+    """Tests for _build_user_filter function."""
 
-    def test_allow_all_pattern_returns_true(self):
-        """Default allow-all pattern should return TRUE (no filtering)."""
-        pattern = AllowDenyPattern.allow_all()
-        result = _build_user_filter_from_pattern(pattern)
-        assert result == "TRUE"
-
-    def test_empty_pattern_returns_true(self):
-        """Empty pattern should return TRUE (no filtering)."""
-        pattern = AllowDenyPattern(allow=[], deny=[])
-        result = _build_user_filter_from_pattern(pattern)
+    def test_empty_patterns_returns_true(self):
+        """Empty patterns should return TRUE (no filtering)."""
+        result = _build_user_filter(allow_patterns=[], deny_patterns=[])
         assert result == "TRUE"
 
     def test_single_allow_pattern(self):
         """Single allow pattern should generate REGEXP_CONTAINS condition."""
-        pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=["analyst_.*@example\\.com"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Uses regular strings (not raw) with escaped backslashes
-        assert "REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')" in result
+        assert result == "(REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com'))"
 
     def test_multiple_allow_patterns(self):
         """Multiple allow patterns should be OR'd together."""
-        pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com", "admin_.*@example\\.com"],
-            deny=[],
-            ignoreCase=False,
+        result = _build_user_filter(
+            allow_patterns=["analyst_.*@example\\.com", "admin_.*@example\\.com"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        assert "REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')" in result
-        assert "REGEXP_CONTAINS(user_email, 'admin_.*@example\\\\.com')" in result
-        assert " OR " in result
+        assert (
+            result
+            == "(REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com') OR REGEXP_CONTAINS(user_email, 'admin_.*@example\\\\.com'))"
+        )
 
     def test_single_deny_pattern(self):
         """Single deny pattern should generate NOT REGEXP_CONTAINS condition."""
-        pattern = AllowDenyPattern(allow=[".*"], deny=["bot_.*"], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
+        result = _build_user_filter(
+            allow_patterns=[],
+            deny_patterns=["bot_.*"],
+        )
+        assert result == "NOT REGEXP_CONTAINS(user_email, 'bot_.*')"
 
     def test_multiple_deny_patterns(self):
         """Multiple deny patterns should each generate separate NOT conditions."""
-        pattern = AllowDenyPattern(
-            allow=[".*"], deny=["bot_.*", "service_.*"], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=[],
+            deny_patterns=["bot_.*", "service_.*"],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
-        assert "NOT REGEXP_CONTAINS(user_email, 'service_.*')" in result
-        # Both deny conditions should be ANDed
-        assert result.count("NOT REGEXP_CONTAINS") == 2
+        assert (
+            result
+            == "NOT REGEXP_CONTAINS(user_email, 'bot_.*') AND NOT REGEXP_CONTAINS(user_email, 'service_.*')"
+        )
 
     def test_combined_allow_and_deny_patterns(self):
         """Combined allow and deny patterns should produce proper AND conditions."""
-        pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com"],
-            deny=["bot_.*", "test_.*"],
-            ignoreCase=False,
+        result = _build_user_filter(
+            allow_patterns=["analyst_.*@example\\.com"],
+            deny_patterns=["bot_.*", "test_.*"],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Should have allow condition
-        assert "REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')" in result
-        # Should have deny conditions
-        assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
-        assert "NOT REGEXP_CONTAINS(user_email, 'test_.*')" in result
-        # All conditions should be ANDed
-        assert " AND " in result
-
-    def test_case_insensitive_pattern(self):
-        """Case insensitive pattern should use (?i) flag to preserve character classes."""
-        pattern = AllowDenyPattern(
-            allow=["ANALYST_.*"], deny=["BOT_.*"], ignoreCase=True
+        assert (
+            result
+            == "(REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')) AND NOT REGEXP_CONTAINS(user_email, 'bot_.*') AND NOT REGEXP_CONTAINS(user_email, 'test_.*')"
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Should use (?i) flag instead of LOWER() to preserve character class semantics
-        assert "REGEXP_CONTAINS(user_email, '(?i)ANALYST_.*')" in result
-        assert "NOT REGEXP_CONTAINS(user_email, '(?i)BOT_.*')" in result
-
-    def test_case_sensitive_pattern(self):
-        """Case sensitive pattern (default) should not use (?i) flag."""
-        pattern = AllowDenyPattern(
-            allow=["Analyst_.*"], deny=["Bot_.*"], ignoreCase=False
-        )
-        result = _build_user_filter_from_pattern(pattern)
-        assert "REGEXP_CONTAINS(user_email, 'Analyst_.*')" in result
-        assert "NOT REGEXP_CONTAINS(user_email, 'Bot_.*')" in result
-        assert "(?i)" not in result
 
     def test_single_quote_escaping(self):
         """Single quotes in patterns should be escaped for SQL safety."""
-        pattern = AllowDenyPattern(allow=["user's_pattern"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Single quote should be escaped with backslash
-        assert "\\'" in result
-        # Verify it's properly escaped in the REGEXP_CONTAINS call
-        assert "REGEXP_CONTAINS(user_email, 'user\\'s_pattern')" in result
+        result = _build_user_filter(
+            allow_patterns=["user's_pattern"],
+            deny_patterns=[],
+        )
+        assert result == "(REGEXP_CONTAINS(user_email, 'user\\'s_pattern'))"
 
     def test_complex_regex_pattern(self):
         """Complex regex patterns should be passed through correctly."""
-        pattern = AllowDenyPattern(
-            allow=["^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"],
-            deny=[],
-            ignoreCase=False,
+        result = _build_user_filter(
+            allow_patterns=["^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Backslashes are doubled for SQL string literal
         assert (
-            "REGEXP_CONTAINS(user_email, '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$')"
-            in result
+            result
+            == "(REGEXP_CONTAINS(user_email, '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$'))"
         )
 
     def test_wildcard_pattern(self):
         """Wildcard patterns (.*) should work correctly."""
-        pattern = AllowDenyPattern(
-            allow=[".*@company\\.com"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=[".*@company\\.com"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        assert "REGEXP_CONTAINS(user_email, '.*@company\\\\.com')" in result
+        assert result == "(REGEXP_CONTAINS(user_email, '.*@company\\\\.com'))"
 
-    def test_only_deny_with_default_allow(self):
-        """Only deny patterns with default allow should just have deny conditions."""
-        pattern = AllowDenyPattern(
-            allow=[".*"], deny=["bot_.*", "service_.*"], ignoreCase=False
+    def test_only_deny_patterns(self):
+        """Only deny patterns should just have deny conditions."""
+        result = _build_user_filter(
+            allow_patterns=[],
+            deny_patterns=["bot_.*", "service_.*"],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Should not have allow condition (default .* is skipped)
-        assert result.count("REGEXP_CONTAINS") == 2  # Only deny conditions
-        assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
-        assert "NOT REGEXP_CONTAINS(user_email, 'service_.*')" in result
+        assert (
+            result
+            == "NOT REGEXP_CONTAINS(user_email, 'bot_.*') AND NOT REGEXP_CONTAINS(user_email, 'service_.*')"
+        )
 
     # === Additional Edge Cases ===
 
     def test_backslash_in_pattern(self):
         """Backslashes in patterns should be doubled for SQL string literals."""
-        pattern = AllowDenyPattern(
-            allow=["user\\d+@example\\.com"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=["user\\d+@example\\.com"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Backslash is doubled in SQL string literal
-        assert "user\\\\d+@example\\\\.com" in result
+        assert result == "(REGEXP_CONTAINS(user_email, 'user\\\\d+@example\\\\.com'))"
 
     def test_special_regex_anchors(self):
         """Regex anchors (^, $) should work correctly."""
-        pattern = AllowDenyPattern(allow=["^admin@.*$"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        assert "^admin@.*$" in result
+        result = _build_user_filter(
+            allow_patterns=["^admin@.*$"],
+            deny_patterns=[],
+        )
+        assert result == "(REGEXP_CONTAINS(user_email, '^admin@.*$'))"
 
     def test_regex_groups_and_alternation(self):
         """Regex groups and alternation should be preserved."""
-        pattern = AllowDenyPattern(
-            allow=["(analyst|engineer)_.*@example\\.com"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=["(analyst|engineer)_.*@example\\.com"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Backslashes doubled for SQL
-        assert "(analyst|engineer)_.*@example\\\\.com" in result
+        assert (
+            result
+            == "(REGEXP_CONTAINS(user_email, '(analyst|engineer)_.*@example\\\\.com'))"
+        )
 
     def test_empty_string_pattern(self):
         """Empty string pattern should still work (matches empty)."""
-        pattern = AllowDenyPattern(allow=[""], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Empty string is a valid regex pattern - uses regular string
-        assert "REGEXP_CONTAINS(user_email, '')" in result
+        result = _build_user_filter(
+            allow_patterns=[""],
+            deny_patterns=[],
+        )
+        assert result == "(REGEXP_CONTAINS(user_email, ''))"
 
     def test_dot_star_only_in_allow(self):
         """Single .* in allow should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=[".*"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Should return TRUE since .* is allow-all
+        result = _build_user_filter(
+            allow_patterns=[".*"],
+            deny_patterns=[],
+        )
         assert result == "TRUE"
 
     def test_multiple_patterns_including_dot_star(self):
         """Multiple allow patterns including .* should not skip filtering."""
-        pattern = AllowDenyPattern(
-            allow=[".*", "specific_user"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=[".*", "specific_user"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # When there are multiple patterns, we shouldn't treat as allow-all
-        assert "REGEXP_CONTAINS" in result
+        assert (
+            result
+            == "(REGEXP_CONTAINS(user_email, '.*') OR REGEXP_CONTAINS(user_email, 'specific_user'))"
+        )
 
     def test_unicode_pattern(self):
         """Unicode characters in patterns should work."""
-        pattern = AllowDenyPattern(
-            allow=["用户.*@example\\.com"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=["用户.*@example\\.com"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Backslashes doubled
-        assert "用户.*@example\\\\.com" in result
+        assert result == "(REGEXP_CONTAINS(user_email, '用户.*@example\\\\.com'))"
 
     def test_newline_in_pattern(self):
         """Newline escape sequences in patterns should be preserved."""
-        pattern = AllowDenyPattern(allow=["user\\ntest"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Backslashes doubled for SQL
-        assert "user\\\\ntest" in result
+        result = _build_user_filter(
+            allow_patterns=["user\\ntest"],
+            deny_patterns=[],
+        )
+        assert result == "(REGEXP_CONTAINS(user_email, 'user\\\\ntest'))"
 
     def test_multiple_single_quotes(self):
         """Multiple single quotes should all be escaped."""
-        pattern = AllowDenyPattern(
-            allow=["user's_name's_pattern"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=["user's_name's_pattern"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Each single quote should be escaped
         assert result.count("\\'") == 2
-
-    def test_deny_only_without_explicit_allow(self):
-        """Deny-only patterns without explicit allow should work."""
-        pattern = AllowDenyPattern(deny=["bot_.*"], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
-
-    def test_case_insensitive_preserves_character_classes(self):
-        """Case insensitive mode should preserve character classes like [A-Z]."""
-        pattern = AllowDenyPattern(allow=["USER_[A-Z]+@EXAMPLE\\.COM"], ignoreCase=True)
-        result = _build_user_filter_from_pattern(pattern)
-        # Should use (?i) flag and preserve original pattern including [A-Z]
-        # Backslashes doubled for SQL
-        assert "(?i)USER_[A-Z]+@EXAMPLE\\\\.COM" in result
-        # Should NOT use LOWER() which would break character classes
-        assert "LOWER" not in result
 
     def test_very_long_pattern(self):
         """Very long patterns should be handled without truncation."""
         long_domain = "a" * 100 + "@" + "b" * 100 + "\\.com"
-        pattern = AllowDenyPattern(allow=[long_domain], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Backslash in \\.com is doubled
-        expected = "a" * 100 + "@" + "b" * 100 + "\\\\.com"
-        assert expected in result
+        result = _build_user_filter(
+            allow_patterns=[long_domain],
+            deny_patterns=[],
+        )
+        expected_pattern = "a" * 100 + "@" + "b" * 100 + "\\\\.com"
+        assert result == f"(REGEXP_CONTAINS(user_email, '{expected_pattern}'))"
 
     def test_sql_injection_attempt_semicolon(self):
         """SQL injection attempts with semicolons should be safely escaped."""
-        pattern = AllowDenyPattern(
-            allow=["user@example.com; DROP TABLE users;--"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=["user@example.com; DROP TABLE users;--"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # The pattern is safely escaped in a regular string
-        assert "user@example.com; DROP TABLE users;--" in result
-        # Verify it's inside REGEXP_CONTAINS with regular string
-        assert "REGEXP_CONTAINS(user_email, '" in result
+        # Semicolons are safe inside REGEXP_CONTAINS string literal
+        assert (
+            result
+            == "(REGEXP_CONTAINS(user_email, 'user@example.com; DROP TABLE users;--'))"
+        )
 
     def test_parentheses_balanced(self):
         """Generated SQL should have balanced parentheses."""
-        pattern = AllowDenyPattern(
-            allow=["analyst_.*", "admin_.*"],
-            deny=["bot_.*", "service_.*"],
-            ignoreCase=False,
+        result = _build_user_filter(
+            allow_patterns=["analyst_.*", "admin_.*"],
+            deny_patterns=["bot_.*", "service_.*"],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # Count parentheses
         assert result.count("(") == result.count(")")
 
     # === Security Tests ===
 
     def test_sql_injection_with_quote_breakout(self):
         """SQL injection attempts with quote breakout should be safely escaped."""
-        # This is the critical security test - the pattern tries to break out
-        # of the string literal using a single quote
-        pattern = AllowDenyPattern(
-            allow=["test') OR 1=1 --"], deny=[], ignoreCase=False
+        result = _build_user_filter(
+            allow_patterns=["test') OR 1=1 --"],
+            deny_patterns=[],
         )
-        result = _build_user_filter_from_pattern(pattern)
-        # The single quote should be escaped
-        assert "\\'" in result
-        # The full pattern should be safely contained within the string
-        assert "REGEXP_CONTAINS(user_email, 'test\\') OR 1=1 --')" in result
+        # Quote is escaped, preventing SQL injection breakout
+        assert result == "(REGEXP_CONTAINS(user_email, 'test\\') OR 1=1 --'))"
 
     def test_sql_injection_with_backslash_quote(self):
         """SQL injection using backslash to escape the escape should be prevented."""
-        # Attack: pattern ends with backslash, trying to escape our escape character
-        # e.g., input "test\" would try to make \' become \\ followed by unescaped '
-        pattern = AllowDenyPattern(allow=["test\\"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Backslash should be doubled, so result is test\\ which is safe
-        assert "test\\\\" in result
-        # Verify the string is properly closed within REGEXP_CONTAINS
-        assert "'test\\\\')" in result
+        result = _build_user_filter(
+            allow_patterns=["test\\"],
+            deny_patterns=[],
+        )
+        # Backslash is doubled, preventing escape sequence injection
+        assert result == "(REGEXP_CONTAINS(user_email, 'test\\\\'))"
 
     def test_sql_injection_backslash_before_quote(self):
         """Backslash before quote should not allow injection."""
-        # Attack: \' in pattern - if we only escape quotes, this becomes \\' in SQL
-        # which is a literal backslash followed by an unescaped quote = injection!
-        pattern = AllowDenyPattern(allow=["test\\'more"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Both backslash and quote are escaped: test\\'more -> test\\\\'more in SQL
-        assert "test\\\\\\'more" in result
+        result = _build_user_filter(
+            allow_patterns=["test\\'more"],
+            deny_patterns=[],
+        )
+        # Both backslash and quote are escaped
+        assert result == "(REGEXP_CONTAINS(user_email, 'test\\\\\\'more'))"
 
     def test_sql_injection_multiple_backslashes_and_quote(self):
         """Multiple backslashes followed by quote should be safely handled."""
-        pattern = AllowDenyPattern(allow=["test\\\\'end"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
-        # Each backslash doubled, then quote escaped
-        # Input: test\\'end (two backslashes, then quote)
-        # Output: test\\\\\\'end (four backslashes, escaped quote)
-        assert "\\\\\\\\\\'" in result
+        result = _build_user_filter(
+            allow_patterns=["test\\\\'end"],
+            deny_patterns=[],
+        )
+        # Two backslashes become four, then quote is escaped
+        assert result == "(REGEXP_CONTAINS(user_email, 'test\\\\\\\\\\'end'))"
 
     # === Allow-All Pattern Detection Tests ===
 
     def test_dot_plus_treated_as_allow_all(self):
         """Pattern .+ should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=[".+"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
+        result = _build_user_filter(
+            allow_patterns=[".+"],
+            deny_patterns=[],
+        )
         assert result == "TRUE"
 
     def test_anchored_dot_star_treated_as_allow_all(self):
         """Pattern ^.*$ should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=["^.*$"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
+        result = _build_user_filter(
+            allow_patterns=["^.*$"],
+            deny_patterns=[],
+        )
         assert result == "TRUE"
 
     def test_anchored_dot_plus_treated_as_allow_all(self):
         """Pattern ^.+$ should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=["^.+$"], deny=[], ignoreCase=False)
-        result = _build_user_filter_from_pattern(pattern)
+        result = _build_user_filter(
+            allow_patterns=["^.+$"],
+            deny_patterns=[],
+        )
         assert result == "TRUE"
+
+    def test_case_insensitive_with_flag(self):
+        """Users can use (?i) flag for case-insensitive matching."""
+        result = _build_user_filter(
+            allow_patterns=["(?i)ANALYST_.*"],
+            deny_patterns=["(?i)BOT_.*"],
+        )
+        assert (
+            result
+            == "(REGEXP_CONTAINS(user_email, '(?i)ANALYST_.*')) AND NOT REGEXP_CONTAINS(user_email, '(?i)BOT_.*')"
+        )
+
+    def test_allow_all_with_deny_patterns(self):
+        """Allow-all pattern (.*) with deny patterns should still apply deny filters."""
+        result = _build_user_filter(
+            allow_patterns=[".*"],
+            deny_patterns=["bot_.*", "service_.*"],
+        )
+        # Allow-all should be skipped, but deny should be applied
+        assert (
+            result
+            == "NOT REGEXP_CONTAINS(user_email, 'bot_.*') AND NOT REGEXP_CONTAINS(user_email, 'service_.*')"
+        )
+
+    def test_service_account_pattern(self):
+        """Common use case: filtering out GCP service accounts."""
+        result = _build_user_filter(
+            allow_patterns=[],
+            deny_patterns=[".*@.*\\.iam\\.gserviceaccount\\.com"],
+        )
+        # Backslashes should be doubled for SQL
+        assert (
+            result
+            == "NOT REGEXP_CONTAINS(user_email, '.*@.*\\\\.iam\\\\.gserviceaccount\\\\.com')"
+        )
+
+    def test_multiple_allow_all_patterns_with_deny(self):
+        """Multiple allow-all patterns with deny should still apply deny."""
+        result = _build_user_filter(
+            allow_patterns=[".*", ".+"],
+            deny_patterns=["bot_.*"],
+        )
+        # All patterns are "allow all" patterns, so only deny filter is applied
+        assert result == "NOT REGEXP_CONTAINS(user_email, 'bot_.*')"
 
 
 class TestEscapeForBigQueryString:
@@ -429,16 +418,21 @@ class TestBuildEnrichedQueryLogQuery:
     """Tests for _build_enriched_query_log_query function with user filter."""
 
     def test_default_user_filter(self):
-        """Query should include TRUE as default user filter."""
+        """Query should include TRUE as default user filter in WHERE clause."""
         query = _build_enriched_query_log_query(
             project_id="test-project",
             region="region-us",
             start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
             end_time=datetime(2024, 1, 2, tzinfo=timezone.utc),
         )
-        # Default filter is TRUE, but it should be in the WHERE clause
-        assert "TRUE" in query
+        # Verify query structure
         assert "WHERE" in query
+        assert "statement_type not in" in query
+        # Verify TRUE is the user_filter (last condition before ORDER BY)
+        # Using regex to precisely check the position of TRUE in the WHERE clause
+        assert re.search(r"AND\s+TRUE\s+ORDER BY", query), (
+            "TRUE should be the last WHERE condition before ORDER BY"
+        )
 
     def test_custom_user_filter(self):
         """Query should include custom user filter in WHERE clause."""
@@ -491,15 +485,12 @@ class TestBuildEnrichedQueryLogQuery:
 class TestIntegration:
     """Integration tests for the full flow from pattern to query."""
 
-    def test_full_flow_with_allow_deny_pattern(self):
-        """Test the complete flow from AllowDenyPattern to SQL query."""
-        pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com", "data_.*@example\\.com"],
-            deny=["bot_.*", "service_account_.*"],
-            ignoreCase=False,
+    def test_full_flow_with_allow_deny_patterns(self):
+        """Test the complete flow from patterns to SQL query."""
+        user_filter = _build_user_filter(
+            allow_patterns=["analyst_.*@example\\.com", "data_.*@example\\.com"],
+            deny_patterns=["bot_.*", "service_account_.*"],
         )
-
-        user_filter = _build_user_filter_from_pattern(pattern)
         query = _build_enriched_query_log_query(
             project_id="prod-project",
             region="region-us",
@@ -516,13 +507,12 @@ class TestIntegration:
         assert "NOT REGEXP_CONTAINS" in query
         assert "INFORMATION_SCHEMA.JOBS" in query
 
-    def test_full_flow_with_case_insensitive(self):
-        """Test full flow with case insensitive pattern."""
-        pattern = AllowDenyPattern(
-            allow=["ANALYST_.*"], deny=["BOT_.*"], ignoreCase=True
+    def test_full_flow_with_case_insensitive_flag(self):
+        """Test full flow with (?i) flag for case insensitive matching."""
+        user_filter = _build_user_filter(
+            allow_patterns=["(?i)ANALYST_.*"],
+            deny_patterns=["(?i)BOT_.*"],
         )
-
-        user_filter = _build_user_filter_from_pattern(pattern)
         query = _build_enriched_query_log_query(
             project_id="test-project",
             region="region-eu",
@@ -531,17 +521,16 @@ class TestIntegration:
             user_filter=user_filter,
         )
 
-        # Case insensitive should use (?i) flag
+        # Case insensitive flag should be preserved
         assert "(?i)ANALYST_.*" in query
         assert "(?i)BOT_.*" in query
-        # Should NOT use LOWER() which breaks character classes
-        assert "LOWER(user_email)" not in query
 
     def test_no_filter_produces_valid_query(self):
-        """Test that no filter (allow all) produces a valid query."""
-        pattern = AllowDenyPattern.allow_all()
-
-        user_filter = _build_user_filter_from_pattern(pattern)
+        """Test that no filter (empty patterns) produces a valid query."""
+        user_filter = _build_user_filter(
+            allow_patterns=[],
+            deny_patterns=[],
+        )
         assert user_filter == "TRUE"
 
         query = _build_enriched_query_log_query(
@@ -559,13 +548,10 @@ class TestIntegration:
     def test_security_sql_injection_in_full_flow(self):
         """Test that SQL injection attempts are safely handled in full flow."""
         # Critical security test: pattern with quote breakout attempt
-        pattern = AllowDenyPattern(
-            allow=["legit@example.com"],
-            deny=["attacker') OR 1=1 --"],
-            ignoreCase=False,
+        user_filter = _build_user_filter(
+            allow_patterns=["legit@example.com"],
+            deny_patterns=["attacker') OR 1=1 --"],
         )
-
-        user_filter = _build_user_filter_from_pattern(pattern)
         query = _build_enriched_query_log_query(
             project_id="test-project",
             region="region-us",
@@ -581,14 +567,14 @@ class TestIntegration:
 
 
 class TestFetchRegionQueryLogWithPushdown:
-    """Tests for fetch_region_query_log with pushdown_user_filter enabled.
+    """Tests for fetch_region_query_log with pushdown username filters.
 
-    These tests cover the integration path where pushdown_user_filter=True
-    triggers the call to _build_user_filter_from_pattern.
+    These tests cover the integration path where pushdown_deny_usernames
+    and pushdown_allow_usernames trigger the call to _build_user_filter.
     """
 
-    def test_pushdown_user_filter_builds_filter_and_logs(self):
-        """Test that pushdown_user_filter=True builds filter and logs debug message."""
+    def test_pushdown_with_patterns_builds_filter_and_logs(self):
+        """Test that pushdown patterns build filter and log debug message."""
         from unittest.mock import MagicMock, patch
 
         from datahub.ingestion.source.bigquery_v2.queries_extractor import (
@@ -596,12 +582,10 @@ class TestFetchRegionQueryLogWithPushdown:
             BigQueryQueriesExtractorConfig,
         )
 
-        # Create a mock config with pushdown enabled
+        # Create a mock config with pushdown patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
-        config.pushdown_user_filter = True
-        config.user_email_pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com"], deny=["bot_.*"]
-        )
+        config.pushdown_deny_usernames = ["bot_.*"]
+        config.pushdown_allow_usernames = ["analyst_.*@example\\.com"]
         config.window = MagicMock()
         config.window.start_time = None
         config.window.end_time = None
@@ -634,8 +618,8 @@ class TestFetchRegionQueryLogWithPushdown:
             # Call fetch_region_query_log which should use pushdown filter
             list(extractor.fetch_region_query_log(mock_project, "region-us"))
 
-            # Verify _build_user_filter_from_pattern was called (via the query)
-            # The query should contain our filter pattern
+            # Verify _build_user_filter was called (via the query)
+            # The query should contain our filter patterns
             call_args = mock_connection.query.call_args[0][0]
             assert "analyst_.*@example\\\\.com" in call_args
             assert "NOT REGEXP_CONTAINS" in call_args
@@ -646,8 +630,8 @@ class TestFetchRegionQueryLogWithPushdown:
             debug_call = str(mock_logger.debug.call_args)
             assert "pushdown user filter" in debug_call.lower()
 
-    def test_pushdown_disabled_uses_true_filter(self):
-        """Test that pushdown_user_filter=False uses TRUE as filter."""
+    def test_empty_pushdown_patterns_uses_true_filter(self):
+        """Test that empty pushdown patterns use TRUE as filter."""
         from unittest.mock import MagicMock, patch
 
         from datahub.ingestion.source.bigquery_v2.queries_extractor import (
@@ -655,12 +639,10 @@ class TestFetchRegionQueryLogWithPushdown:
             BigQueryQueriesExtractorConfig,
         )
 
-        # Create a mock config with pushdown DISABLED
+        # Create a mock config with NO pushdown patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
-        config.pushdown_user_filter = False
-        config.user_email_pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com"], deny=["bot_.*"]
-        )
+        config.pushdown_deny_usernames = []
+        config.pushdown_allow_usernames = []
 
         # Create mock dependencies
         mock_connection = MagicMock()
@@ -687,5 +669,171 @@ class TestFetchRegionQueryLogWithPushdown:
 
             # Verify the query uses TRUE (no pushdown filter)
             call_args = mock_connection.query.call_args[0][0]
-            # Should NOT contain the pattern (pushdown disabled)
-            assert "analyst_.*@example" not in call_args or "TRUE" in call_args
+            # When no patterns, should use TRUE
+            assert "TRUE" in call_args
+
+    def test_only_deny_patterns_builds_filter(self):
+        """Test that only deny patterns (no allow) builds correct filter."""
+        from unittest.mock import MagicMock, patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractor,
+            BigQueryQueriesExtractorConfig,
+        )
+
+        # Create a mock config with ONLY deny patterns
+        config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.pushdown_deny_usernames = ["bot_.*", "service_.*"]
+        config.pushdown_allow_usernames = []
+
+        mock_connection = MagicMock()
+        mock_connection.query.return_value = iter([])
+        mock_report = MagicMock()
+
+        with patch.object(
+            BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+        ):
+            extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+            extractor.config = config
+            extractor.connection = mock_connection
+            extractor.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+            extractor.end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+            extractor.structured_report = mock_report
+
+            mock_project = MagicMock()
+            mock_project.id = "test-project"
+
+            list(extractor.fetch_region_query_log(mock_project, "region-us"))
+
+            call_args = mock_connection.query.call_args[0][0]
+            assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in call_args
+            assert "NOT REGEXP_CONTAINS(user_email, 'service_.*')" in call_args
+
+    def test_only_allow_patterns_builds_filter(self):
+        """Test that only allow patterns (no deny) builds correct filter."""
+        from unittest.mock import MagicMock, patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractor,
+            BigQueryQueriesExtractorConfig,
+        )
+
+        # Create a mock config with ONLY allow patterns
+        config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.pushdown_deny_usernames = []
+        config.pushdown_allow_usernames = ["analyst_.*@company\\.com"]
+
+        mock_connection = MagicMock()
+        mock_connection.query.return_value = iter([])
+        mock_report = MagicMock()
+
+        with patch.object(
+            BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+        ):
+            extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+            extractor.config = config
+            extractor.connection = mock_connection
+            extractor.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+            extractor.end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+            extractor.structured_report = mock_report
+
+            mock_project = MagicMock()
+            mock_project.id = "test-project"
+
+            list(extractor.fetch_region_query_log(mock_project, "region-us"))
+
+            call_args = mock_connection.query.call_args[0][0]
+            assert (
+                "REGEXP_CONTAINS(user_email, 'analyst_.*@company\\\\.com')" in call_args
+            )
+            assert "NOT REGEXP_CONTAINS" not in call_args
+
+
+class TestBigQueryConfigValidator:
+    """Tests for BigQuery config validation."""
+
+    def test_pushdown_config_requires_queries_v2(self):
+        """Test that pushdown config raises error when use_queries_v2 is False."""
+        import pytest
+
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            BigQueryV2Config(
+                use_queries_v2=False,
+                pushdown_deny_usernames=["bot_.*"],
+            )
+
+        assert "use_queries_v2=True" in str(exc_info.value)
+
+    def test_pushdown_config_works_with_queries_v2_enabled(self):
+        """Test that pushdown config works when use_queries_v2 is True (default)."""
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+
+        # Should not raise - use_queries_v2 defaults to True
+        config = BigQueryV2Config(
+            pushdown_deny_usernames=["bot_.*"],
+            pushdown_allow_usernames=["analyst_.*"],
+        )
+        assert config.pushdown_deny_usernames == ["bot_.*"]
+        assert config.pushdown_allow_usernames == ["analyst_.*"]
+
+    def test_empty_pushdown_config_is_valid(self):
+        """Test that empty pushdown config is valid."""
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+
+        # Should not raise
+        config = BigQueryV2Config(
+            pushdown_deny_usernames=[],
+            pushdown_allow_usernames=[],
+        )
+        assert config.pushdown_deny_usernames == []
+        assert config.pushdown_allow_usernames == []
+
+    def test_pushdown_patterns_strips_whitespace(self):
+        """Test that whitespace is stripped from pushdown patterns."""
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+
+        config = BigQueryV2Config(
+            pushdown_deny_usernames=["  bot_.*  ", " service_.*"],
+            pushdown_allow_usernames=["analyst_.*  "],
+        )
+        # Whitespace should be stripped
+        assert config.pushdown_deny_usernames == ["bot_.*", "service_.*"]
+        assert config.pushdown_allow_usernames == ["analyst_.*"]
+
+    def test_pushdown_rejects_empty_string_pattern(self):
+        """Test that empty string patterns are rejected."""
+        import pytest
+
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            BigQueryV2Config(
+                pushdown_deny_usernames=["bot_.*", ""],
+            )
+        assert "Empty pattern" in str(exc_info.value)
+
+    def test_pushdown_rejects_whitespace_only_pattern(self):
+        """Test that whitespace-only patterns are rejected."""
+        import pytest
+
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            BigQueryV2Config(
+                pushdown_allow_usernames=["analyst_.*", "   "],
+            )
+        assert "Empty pattern" in str(exc_info.value)
