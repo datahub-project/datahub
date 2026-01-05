@@ -223,7 +223,9 @@ def _docker_compose_v2() -> List[str]:
         compose_version = subprocess.check_output(
             ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
         ).decode()
-        assert compose_version.startswith("2.") or compose_version.startswith("v2.")
+        assert not (
+            compose_version.startswith("1.") or compose_version.startswith("v1.")
+        )
         return ["docker", "compose"]
     except (OSError, subprocess.CalledProcessError, AssertionError):
         # We'll check for docker-compose as well.
@@ -231,14 +233,16 @@ def _docker_compose_v2() -> List[str]:
             compose_version = subprocess.check_output(
                 ["docker-compose", "version", "--short"], stderr=subprocess.STDOUT
             ).decode()
-            if compose_version.startswith("2.") or compose_version.startswith("v2."):
+            if not (
+                compose_version.startswith("1.") or compose_version.startswith("v1.")
+            ):
                 # This will happen if docker compose v2 is installed in standalone mode
                 # instead of as a plugin.
                 return ["docker-compose"]
 
             raise DockerComposeVersionError(
-                f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2. "
-                "Please upgrade to Docker Compose v2. "
+                f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2 or later. "
+                "Please upgrade to Docker Compose v2 or later. "
                 "See https://docs.docker.com/compose/compose-v2/ for more information."
             )
         except (OSError, subprocess.CalledProcessError):
