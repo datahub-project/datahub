@@ -6,6 +6,11 @@ on:
       - "Docker Build, Scan, Test"
       - "build & test"
       - "metadata-io"
+      - "Metadata Ingestion"
+      - "Nightly Docker Test"
+      - "Quickstart Test"
+      - "Release Tests"
+      - "Release Validation"
     types: [completed]
 
 permissions:
@@ -15,7 +20,7 @@ permissions:
 jobs:
   monitor:
     name: Monitor Workflow Completion
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     if: github.event.workflow_run.head_repository.full_name == github.repository
 
     steps:
