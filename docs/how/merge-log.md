@@ -2881,3 +2881,31 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **c5104984a8** - fix(ingest/build: Pin ruamel.yaml version (#15788)
   *by Tamas Nemeth <treff7es@gmail.com> on 2026-01-02*
+
+## Upstream Merge Session - 2026-01-05 02:00:08
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 5
+- **Strategy**: stacked
+- **Started**: 2026-01-05 02:00:08
+
+### Commits Included in This Merge
+
+- **f395a1a0e7** - feat(kafka): automatically upsize topic partition counts (#15714)
+  *by rob-1019 <rob.caskey@datahub.com> on 2026-01-02*
+
+- **782f2f690b** - fix(search): Sanitize base64 images from search index to prevent indexing failures (#15689)
+  *by Deepak Garg <deepak.garg@datahub.com> on 2026-01-03*
+
+- **da70ab602d** - fix(security): address multiple CVEs in dependencies and Docker images (#15787)
+  *by Esteban Gutierrez <esteban.gutierrez@acryl.io> on 2026-01-02*
+
+- **22a780c311** - refactor: Unify get_current_checkpoint_from_pipeline helper (#15487)
+  *by varun patil <varun.patil578@gmail.com> on 2026-01-03*
+
+- **a8bd2e5463** - feat(docker) Raise failed init job of database if execution failed (#15768)
+  *by nhuantho <91556274+nhuantho@users.noreply.github.com> on 2026-01-03*
