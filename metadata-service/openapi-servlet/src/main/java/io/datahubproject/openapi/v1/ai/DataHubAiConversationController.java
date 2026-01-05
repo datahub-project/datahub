@@ -5,17 +5,21 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.billing.BillingHandler;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.integration.StreamingChatClient;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.RateLimitExceededException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,17 +54,24 @@ public class DataHubAiConversationController {
   private final DataHubAiConversationService conversationService;
   private final OperationContext systemOperationContext;
   private final AuthorizerChain authorizerChain;
+  @Nullable private final BillingHandler billingHandler;
+  @Nullable private final ConfigurationProvider configProvider;
 
   @Autowired
   public DataHubAiConversationController(
       IntegrationsService integrationsService,
       DataHubAiConversationService conversationService,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      AuthorizerChain authorizerChain) {
+      AuthorizerChain authorizerChain,
+      @Autowired(required = false) @Qualifier("billingHandler") BillingHandler billingHandler,
+      @Autowired(required = false) @Qualifier("configurationProvider")
+          ConfigurationProvider configProvider) {
     this.integrationsService = integrationsService;
     this.conversationService = conversationService;
     this.systemOperationContext = systemOperationContext;
     this.authorizerChain = authorizerChain;
+    this.billingHandler = billingHandler;
+    this.configProvider = configProvider;
   }
 
   @Data
@@ -134,6 +145,9 @@ public class DataHubAiConversationController {
           "You are not authorized to send messages to this conversation. Only the conversation creator can send messages.");
     }
 
+    // Check usage limit
+    checkUsageLimit();
+
     log.debug(
         "Processing chat request for user: {}, conversation: {}",
         authenticatedUserUrn,
@@ -193,8 +207,9 @@ public class DataHubAiConversationController {
                 // Complete the stream
                 emitter.send(SseEmitter.event().name(COMPLETE_EVENT_NAME).data(""));
                 emitter.complete();
-                log.debug(
-                    "Chat stream completed for conversation: {}", request.getConversationUrn());
+
+                // Report usage after successful completion
+                reportUsage(request.getConversationUrn(), authenticatedUserUrn);
 
               } catch (Exception e) {
                 log.error(
@@ -248,5 +263,77 @@ public class DataHubAiConversationController {
         authorizerChain,
         authentication,
         true);
+  }
+
+  /**
+   * Check usage limit for Ask DataHub.
+   *
+   * <p>This method is called before processing an AI chat request. It checks if the instance has
+   * remaining credits in the billing system (Metronome) for the Ask DataHub product. If the limit
+   * is exhausted, it throws a RateLimitExceededException which results in a 429 Too Many Requests
+   * response.
+   *
+   * @throws RateLimitExceededException if usage limit is exceeded
+   */
+  private void checkUsageLimit() {
+    // Check if billing handler is available
+    if (billingHandler == null || !billingHandler.isEnabled()) {
+      return;
+    }
+
+    // Get product ID for Ask DataHub from free trial contract configuration by product name
+    // TODO: Eventually, we'll get rid of the hardcoded "freeTrial" contract type and use the actual
+    // contract type from the billing configuration.
+    String productId = billingHandler.getProductId("freeTrial", "askDataHub");
+    if (productId == null) {
+      log.warn(
+          "Product ID not found for 'askDataHub' in billing configuration, skipping usage check");
+      return;
+    }
+
+    // Check if credits remain for the product
+    if (!billingHandler.hasRemainingCredits(productId)) {
+      log.warn("Usage limit exceeded for Ask DataHub (product: {})", productId);
+      throw new RateLimitExceededException(
+          "Oops! You've exceeded your monthly account limit for Ask DataHub. Reach out to the DataHub team to upgrade your plan.");
+    }
+  }
+
+  /**
+   * Report usage after successful AI chat completion.
+   *
+   * <p>This method is called after an AI chat response is successfully generated and streamed to
+   * the client. It reports the usage to the billing system (Metronome) to decrement the customer's
+   * credit balance.
+   *
+   * @param conversationUrn The conversation URN (used to generate transaction ID)
+   * @param userUrn The user URN who made the request
+   */
+  private void reportUsage(String conversationUrn, String userUrn) {
+    // Check if billing handler is available
+    if (billingHandler == null || !billingHandler.isEnabled()) {
+      return;
+    }
+
+    // Generate unique transaction ID
+    String transactionId = conversationUrn + "_" + System.currentTimeMillis();
+
+    try {
+      // Build properties map
+      java.util.Map<String, Object> properties = new java.util.HashMap<>();
+      properties.put("conversation_id", conversationUrn);
+      if (userUrn != null && !userUrn.isEmpty()) {
+        properties.put("user_id", userUrn);
+      }
+
+      billingHandler.reportUsage(
+          BillingHandler.EVENT_TYPE_AI_MESSAGE, transactionId, 1, properties);
+    } catch (Exception e) {
+      log.error(
+          "Failed to report usage for conversation: {}, transaction: {}",
+          conversationUrn,
+          transactionId,
+          e);
+    }
   }
 }

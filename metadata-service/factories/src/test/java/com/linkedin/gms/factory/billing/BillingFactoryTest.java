@@ -1,0 +1,192 @@
+package com.linkedin.gms.factory.billing;
+
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.billing.BillingHandler;
+import com.linkedin.metadata.config.BillingConfiguration;
+import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.Test;
+
+/** Unit tests for BillingFactory. */
+@TestPropertySource(
+    properties = {
+      "baseUrl=http://localhost:9002",
+      "datahub.billing.enabled=true",
+      "datahub.billing.provider=metronome",
+      "datahub.billing.metronome.apiKey=test-api-key",
+      "datahub.billing.metronome.baseUrl=https://api.metronome.com",
+      "datahub.billing.metronome.contracts.freeTrial.rateCardId=test-rate-card",
+      "datahub.billing.metronome.contracts.freeTrial.recurringCredits[0].productId=test-product",
+      "datahub.billing.metronome.contracts.freeTrial.recurringCredits[0].creditTypeId=test-credit-type",
+      "datahub.billing.metronome.contracts.freeTrial.recurringCredits[0].monthlyCredits=1000",
+      "datahub.billing.metronome.contracts.freeTrial.recurringCredits[0].displayName=Ask DataHub Answers"
+    })
+@ContextConfiguration(classes = {BillingFactoryTest.BillingFactoryTestConfig.class})
+public class BillingFactoryTest extends AbstractTestNGSpringContextTests {
+
+  @Test
+  public void testBillingHandlerCreationWhenEnabled() {
+    // Get the BillingHandler bean
+    BillingHandler billingHandler =
+        applicationContext.getBean("billingHandler", BillingHandler.class);
+
+    // Verify that the BillingHandler is created
+    assertNotNull(billingHandler, "BillingHandler should be created when billing is enabled");
+
+    // Verify that billing is enabled
+    assertTrue(billingHandler.isEnabled(), "Billing should be enabled");
+  }
+
+  @Test
+  public void testBillingHandlerNotCreatedWhenDisabled() {
+    // Create a new application context with billing disabled
+    org.springframework.context.annotation.AnnotationConfigApplicationContext disabledContext =
+        new org.springframework.context.annotation.AnnotationConfigApplicationContext();
+    disabledContext.register(BillingDisabledTestConfig.class);
+    disabledContext.refresh();
+
+    // Verify that BillingHandler bean does not exist
+    boolean beanExists = disabledContext.containsBean("billingHandler");
+    assertFalse(beanExists, "BillingHandler should not be created when billing is disabled");
+
+    // Close the context
+    disabledContext.close();
+  }
+
+  @Test
+  public void testBillingHandlerUsesCorrectProvider() {
+    // Get the BillingHandler bean
+    BillingHandler billingHandler =
+        applicationContext.getBean("billingHandler", BillingHandler.class);
+
+    // Verify basic functionality
+    assertNotNull(billingHandler);
+    assertTrue(billingHandler.isEnabled());
+  }
+
+  @TestConfiguration
+  @ComponentScan(basePackages = "com.linkedin.gms.factory.billing")
+  static class BillingFactoryTestConfig {
+
+    @Bean
+    @Primary
+    public ConfigurationProvider configurationProvider() {
+      ConfigurationProvider mockProvider = mock(ConfigurationProvider.class);
+      when(mockProvider.getDatahub()).thenReturn(dataHubConfiguration());
+      return mockProvider;
+    }
+
+    @Bean
+    @Primary
+    public DataHubConfiguration dataHubConfiguration() {
+      DataHubConfiguration config = new DataHubConfiguration();
+      config.setBilling(billingConfiguration());
+      return config;
+    }
+
+    @Bean
+    @Primary
+    public BillingConfiguration billingConfiguration() {
+      BillingConfiguration config = new BillingConfiguration();
+      config.setEnabled(true);
+      config.setProvider("metronome");
+
+      // Create Metronome configuration
+      BillingConfiguration.MetronomeConfiguration metronomeConfig =
+          new BillingConfiguration.MetronomeConfiguration();
+      metronomeConfig.setApiKey("test-api-key");
+      metronomeConfig.setBaseUrl("https://api.metronome.com");
+
+      // Create free trial configuration
+      BillingConfiguration.MetronomeConfiguration.ContractConfiguration freeTrialConfig =
+          new BillingConfiguration.MetronomeConfiguration.ContractConfiguration();
+      freeTrialConfig.setRateCardId("test-rate-card");
+
+      // Create recurring credit
+      BillingConfiguration.MetronomeConfiguration.ContractConfiguration.RecurringCredit credit =
+          new BillingConfiguration.MetronomeConfiguration.ContractConfiguration.RecurringCredit();
+      credit.setProductId("test-product");
+      credit.setCreditTypeId("test-credit-type");
+      credit.setMonthlyCredits(1000);
+      credit.setDisplayName("Test Credits");
+
+      freeTrialConfig.setRecurringCredits(java.util.Arrays.asList(credit));
+
+      // Add freeTrial contract to contracts map
+      java.util.Map<String, BillingConfiguration.MetronomeConfiguration.ContractConfiguration>
+          contracts = new java.util.HashMap<>();
+      contracts.put("freeTrial", freeTrialConfig);
+      metronomeConfig.setContracts(contracts);
+
+      config.setMetronome(metronomeConfig);
+
+      return config;
+    }
+
+    @Bean
+    @Qualifier("entityService")
+    public EntityService<?> entityService() {
+      return mock(EntityService.class);
+    }
+
+    @Bean
+    @Qualifier("systemOperationContext")
+    public OperationContext systemOperationContext() {
+      return mock(OperationContext.class);
+    }
+  }
+
+  @TestConfiguration
+  @ComponentScan(basePackages = "com.linkedin.gms.factory.billing")
+  static class BillingDisabledTestConfig {
+
+    @Bean
+    @Primary
+    public ConfigurationProvider configurationProvider() {
+      ConfigurationProvider mockProvider = mock(ConfigurationProvider.class);
+      when(mockProvider.getDatahub()).thenReturn(dataHubConfiguration());
+      return mockProvider;
+    }
+
+    @Bean
+    @Primary
+    public DataHubConfiguration dataHubConfiguration() {
+      DataHubConfiguration config = new DataHubConfiguration();
+      config.setBilling(billingConfiguration());
+      return config;
+    }
+
+    @Bean
+    @Primary
+    public BillingConfiguration billingConfiguration() {
+      BillingConfiguration config = new BillingConfiguration();
+      config.setEnabled(false); // Billing disabled
+      config.setProvider("metronome");
+      return config;
+    }
+
+    @Bean
+    @Qualifier("entityService")
+    public EntityService<?> entityService() {
+      return mock(EntityService.class);
+    }
+
+    @Bean
+    @Qualifier("systemOperationContext")
+    public OperationContext systemOperationContext() {
+      return mock(OperationContext.class);
+    }
+  }
+}

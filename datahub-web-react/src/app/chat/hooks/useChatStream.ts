@@ -342,7 +342,23 @@ export const useChatStream = ({
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    // Extract error message from response
+                    let errorMessage = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.text();
+                        if (errorData && errorData.trim()) {
+                            const parsed = JSON.parse(errorData);
+                            // Backend returns error in "error" field
+                            errorMessage = parsed.error || parsed.message || errorMessage;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing response:', e);
+                        // Use default error message if parsing fails
+                    }
+
+                    const httpError: any = new Error(errorMessage);
+                    httpError.status = response.status;
+                    throw httpError;
                 }
 
                 const reader = response.body?.getReader();
@@ -413,13 +429,19 @@ export const useChatStream = ({
                         chatLocation,
                     });
 
-                    // Create an error message to display in the chat
+                    // For rate limit errors (429), use the message from backend
+                    // For other errors, use generic message
+                    const errorText =
+                        error.status === 429
+                            ? error.message
+                            : 'Oops! An unexpected error occurred. 🥹 Please try again in a little while.';
+
                     const errorMessage: DataHubAiConversationMessage = {
                         type: DataHubAiConversationMessageType.Text,
                         time: Date.now(),
                         actor: { type: DataHubAiConversationActorType.Agent },
                         content: {
-                            text: 'Oops! An unexpected error occurred. 🥹 Please try again in a little while.',
+                            text: errorText,
                         },
                     };
 

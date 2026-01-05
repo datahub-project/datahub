@@ -83,6 +83,7 @@ public class NativeUserService {
     updateCorpUserInfo(opContext, userUrn, fullName, email, title);
     updateCorpUserStatus(opContext, userUrn);
     updateCorpUserCredentials(opContext, userUrn, password);
+
     if (getDataHubUpdates != null) {
       updateCorpUserSettings(opContext, userUrn, email, getDataHubUpdates);
     }

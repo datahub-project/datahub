@@ -36,6 +36,8 @@ public class DataHubConfiguration {
 
   private S3Configuration s3;
 
+  private BillingConfiguration billing;
+
   @Data
   public static class DataHubMetrics {
     private MetricsOptions hookLatency;

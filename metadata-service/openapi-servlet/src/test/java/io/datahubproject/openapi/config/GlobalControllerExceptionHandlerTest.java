@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
+import io.datahubproject.openapi.exception.RateLimitExceededException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -148,6 +149,22 @@ public class GlobalControllerExceptionHandlerTest {
     assertEquals(response.getStatusCode(), HttpStatus.FORBIDDEN);
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Actor denied");
+  }
+
+  @Test
+  public void testHandleRateLimitExceededException() {
+    RateLimitExceededException ex =
+        new RateLimitExceededException(
+            "Oops! You've exceeded your monthly account limit for Ask DataHub. Reach out to the DataHub team to upgrade your plan.");
+
+    ResponseEntity<Map<String, String>> response =
+        GlobalControllerExceptionHandler.handleRateLimitExceededException(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.TOO_MANY_REQUESTS);
+    assertNotNull(response.getBody());
+    assertEquals(
+        response.getBody().get("error"),
+        "Oops! You've exceeded your monthly account limit for Ask DataHub. Reach out to the DataHub team to upgrade your plan.");
   }
 
   @Test

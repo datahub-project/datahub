@@ -7,6 +7,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
+import io.datahubproject.openapi.exception.RateLimitExceededException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -77,6 +78,12 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(ActorAccessException.class)
   public static ResponseEntity<Map<String, String>> actorAccessException(ActorAccessException e) {
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
+  }
+
+  @ExceptionHandler(RateLimitExceededException.class)
+  public static ResponseEntity<Map<String, String>> handleRateLimitExceededException(
+      RateLimitExceededException e) {
+    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.TOO_MANY_REQUESTS);
   }
 
   @ExceptionHandler(RuntimeException.class)

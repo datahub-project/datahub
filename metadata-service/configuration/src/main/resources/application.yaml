@@ -183,6 +183,32 @@ datahub:
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
 
+  billing:
+    # Enable billing and usage tracking for rate limiting
+    enabled: ${BILLING_ENABLED:false}
+    # Billing provider to use (metronome, stripe, etc.)
+    provider: ${BILLING_PROVIDER:metronome}
+
+    metronome:
+      # Metronome API key for authentication
+      apiKey: ${METRONOME_API_KEY:}
+      # Metronome API base URL
+      baseUrl: ${METRONOME_BASE_URL:https://api.metronome.com}
+
+      # Named contract templates for different customer types
+      contracts:
+        # Free trial contract configuration
+        freeTrial:
+          # Metronome rate card ID that defines pricing structure
+          rateCardId: ${METRONOME_FREE_TRIAL_RATE_CARD_ID:}
+          # Recurring credit allocations
+          recurringCredits:
+            - productName: askDataHub
+              productId: ${METRONOME_ASK_DATAHUB_PRODUCT_ID:}
+              creditTypeId: ${METRONOME_ASK_DATAHUB_ANSWER_CREDIT_TYPE_ID:}
+              monthlyCredits: ${ASK_DATAHUB_MONTHLY_ANSWERS_CREDITS:1000}
+              displayName: ${METRONOME_FREE_TRIAL_ASK_DATAHUB_RECURRING_CREDITS_NAME:"Ask DataHub Answers"}
+
 controlPlane:
   url: ${DATAHUB_CONTROL_PLANE_URL:https://app.datahub.com}
   apiKey: ${DATAHUB_CONTROL_PLANE_API_KEY:}
@@ -1056,6 +1082,9 @@ systemUpdate:
     retryIntervalSeconds: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_RETRY_INTERVAL:2}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_REPROCESS:false}
+  provisionFreeTrialBilling:
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PROVISION_FREE_TRIAL_BILLING_REPROCESS:false}
   purgeLegacyExecutors:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_BATCH_SIZE:1000}

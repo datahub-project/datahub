@@ -132,10 +132,11 @@ describe('useChatStream', () => {
         expect(mockOnStreamComplete).toHaveBeenCalled();
     });
 
-    it('should handle HTTP errors', async () => {
+    it('should handle HTTP errors with no error message', async () => {
         const mockResponse = {
             ok: false,
             status: 500,
+            text: vi.fn().mockResolvedValue(''),
         };
 
         mockFetch.mockResolvedValueOnce(mockResponse);
@@ -163,6 +164,85 @@ describe('useChatStream', () => {
                 type: DataHubAiConversationMessageType.Text,
                 content: {
                     text: 'Oops! An unexpected error occurred. 🥹 Please try again in a little while.',
+                },
+            }),
+        );
+    });
+
+    it('should handle HTTP errors with JSON error message', async () => {
+        const mockResponse = {
+            ok: false,
+            status: 403,
+            text: vi.fn().mockResolvedValue(JSON.stringify({ error: 'Access denied' })),
+        };
+
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const { result } = renderHook(() =>
+            useChatStream({
+                conversationUrn: mockConversationUrn,
+                onMessageReceived: mockOnMessageReceived,
+                onStreamComplete: mockOnStreamComplete,
+                chatLocation: 'ask_datahub_tab',
+            }),
+        );
+
+        await act(async () => {
+            await result.current.sendMessage('Test message');
+        });
+
+        await waitFor(() => {
+            expect(result.current.isStreaming).toBe(false);
+            expect(result.current.error).toBe('Access denied');
+        });
+
+        // Should display generic error for non-429 errors
+        expect(mockOnMessageReceived).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: DataHubAiConversationMessageType.Text,
+                content: {
+                    text: 'Oops! An unexpected error occurred. 🥹 Please try again in a little while.',
+                },
+            }),
+        );
+    });
+
+    it('should handle 429 rate limit errors with backend message', async () => {
+        const rateLimitMessage =
+            "Oops! You've exceeded your monthly account limit for Ask DataHub. Reach out to the DataHub team to upgrade your plan.";
+        const mockResponse = {
+            ok: false,
+            status: 429,
+            text: vi.fn().mockResolvedValue(JSON.stringify({ error: rateLimitMessage })),
+        };
+
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const { result } = renderHook(() =>
+            useChatStream({
+                conversationUrn: mockConversationUrn,
+                onMessageReceived: mockOnMessageReceived,
+                onStreamComplete: mockOnStreamComplete,
+                chatLocation: 'ask_datahub_tab',
+            }),
+        );
+
+        await act(async () => {
+            await result.current.sendMessage('Test message');
+        });
+
+        await waitFor(() => {
+            expect(result.current.isStreaming).toBe(false);
+            expect(result.current.error).toBe(rateLimitMessage);
+        });
+
+        // Should display the rate limit message from backend
+        expect(mockOnMessageReceived).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: DataHubAiConversationMessageType.Text,
+                actor: { type: DataHubAiConversationActorType.Agent },
+                content: {
+                    text: rateLimitMessage,
                 },
             }),
         );

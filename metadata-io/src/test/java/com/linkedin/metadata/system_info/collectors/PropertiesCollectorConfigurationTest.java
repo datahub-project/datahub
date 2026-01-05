@@ -85,7 +85,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.config.database.password",
 
           // Control plane
-          "controlPlane.apiKey");
+          "controlPlane.apiKey",
+
+          // Billing
+          "datahub.billing.metronome.apiKey");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -182,7 +185,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.models.*.spaceType",
           "elasticsearch.entityIndex.semanticSearch.models.*.m",
           "elasticsearch.entityIndex.semanticSearch.models.*.knnEngine",
-          "elasticsearch.entityIndex.semanticSearch.models.*.efConstruction");
+          "elasticsearch.entityIndex.semanticSearch.models.*.efConstruction",
+
+          // Billing configuration with dynamic indices
+          "datahub.billing.metronome.contracts.freeTrial.rateCardId",
+          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].productName",
+          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].productId",
+          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].creditTypeId",
+          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].monthlyCredits",
+          "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].displayName");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -1066,7 +1077,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Control plane
           "controlPlane.url",
-          "controlPlane.cacheTtlMinutes"
+          "controlPlane.cacheTtlMinutes",
+
+          // Billing
+          "datahub.billing.provider",
+          "datahub.billing.metronome.baseUrl"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
