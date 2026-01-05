@@ -133,6 +133,10 @@ Kafka Lag Monitoring:
 
 - `GENAI_MODEL_PRICING_FILE`: Path to YAML/JSON file with custom model pricing (default: `/etc/datahub/integrations/model-pricing.yaml`). Uses per-model merging - only specify models that differ from defaults. Example YAML: `anthropic: {custom-model: {prompt: 5.0, completion: 10.0}}`. Mount as ConfigMap in Helm.
 
+**New Observe Environment Variables:**
+
+- `FRESHNESS_ASSERTION_TUNING_ENABLED`: Turns on the ability to tune smart freshness assertions (default: `true`)
+
 **Existing Variables with New Behavior:**
 
 - `ENABLE_BEDROCK_OPTIMIZED_LATENCY`: Now affects cost calculations (+25% premium). Previously only API behavior.
