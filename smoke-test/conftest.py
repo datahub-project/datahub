@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -45,6 +46,16 @@ def build_auth_session():
     verify_auth_session(session, context="after building auth session")
 
     return session
+
+
+@contextmanager
+def auth_session_context():
+    """Context manager that creates and cleans up an auth session."""
+    session = build_auth_session()
+    try:
+        yield session
+    finally:
+        session.destroy()
 
 
 @pytest.fixture(scope="session")
