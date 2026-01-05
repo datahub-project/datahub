@@ -1,0 +1,59 @@
+name: Flake Test Report
+
+on:
+  schedule:
+    - cron: "0 8 * * 0" # Every Sunday at 8am UTC
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Fetch PostHog flake data
+        id: fetch_data
+        continue-on-error: true
+        env:
+          POSTHOG_READ_API_KEY: ${{ secrets.POSTHOG_READ_API_KEY }}
+        run: |
+          if [ -z "$POSTHOG_READ_API_KEY" ]; then
+            echo "⚠️ POSTHOG_READ_API_KEY not configured, skipping report"
+            exit 0
+          fi
+
+          python3 .github/scripts/fetch_posthog_flake_report.py \
+            --posthog-api-key "$POSTHOG_READ_API_KEY" \
+            --posthog-host "https://us.posthog.com" \
+            --project-id "267244" \
+            --insight-id "nkKYhNp7:Fork:acryldata/datahub-fork" \
+            --insight-id "BumyM8n4:OSS:datahub-project/datahub" \
+            --output-dir ./flake-report
+
+      - name: Upload raw data artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flake-test-data
+          path: ./flake-report/*.json
+          retention-days: 30
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flake-test-report
+          path: ./flake-report/*.md
+          retention-days: 30
