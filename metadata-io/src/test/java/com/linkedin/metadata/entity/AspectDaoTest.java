@@ -513,5 +513,17 @@ public class AspectDaoTest {
         Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
       return Optional.empty();
     }
+
+    @Nonnull
+    @Override
+    public List<com.linkedin.metadata.aspect.AspectPayloadValidator> getPayloadValidators() {
+      return java.util.Collections.emptyList();
+    }
+
+    @Nullable
+    @Override
+    public com.linkedin.metadata.config.AspectSizeValidationConfig getValidationConfig() {
+      return null;
+    }
   }
 }

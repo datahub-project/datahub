@@ -161,7 +161,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // Apply upsert
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(changeMCP, latestAspect, Collections.emptyList(), null);
 
     // Verify metadata was updated but content remained same
     assertEquals(changeMCP.getNextAspectVersion(), 1, "1 which is then incremented back to 2");
@@ -217,7 +218,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // Apply upsert
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(changeMCP, latestAspect, Collections.emptyList(), null);
 
     // Verify both metadata and content were updated
     assertEquals(changeMCP.getNextAspectVersion(), 2, "Expected acceptance of proposed version");
@@ -260,7 +262,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // No existing aspect
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, null);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(changeMCP, null, Collections.emptyList(), null);
 
     // Verify new aspect was created correctly
     assertNotNull(result);
@@ -300,7 +303,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // No existing aspect
-    SystemAspect result1 = EntityServiceImpl.applyUpsert(changeMCP1, null);
+    SystemAspect result1 =
+        EntityServiceImpl.applyUpsert(changeMCP1, null, Collections.emptyList(), null);
 
     // Change 1
     assertNotNull(result1);
@@ -325,7 +329,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     SystemAspect result2 =
-        EntityServiceImpl.applyUpsert(changeMCP2, result1); // pass previous as latest
+        EntityServiceImpl.applyUpsert(
+            changeMCP2, result1, Collections.emptyList(), null); // pass previous as latest
 
     // Change 2
     assertNotNull(result2);
@@ -376,7 +381,8 @@ public class EntityServiceImplTest {
             .nextAspectVersion(1L)
             .build(opContext.getAspectRetriever());
 
-    SystemAspect upsert = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect upsert =
+        EntityServiceImpl.applyUpsert(changeMCP, latestAspect, Collections.emptyList(), null);
     assertEquals(upsert.getSystemMetadataVersion(), Optional.of(1L));
     assertEquals(upsert.getVersion(), 0);
     assertEquals(changeMCP.getNextAspectVersion(), 1);
