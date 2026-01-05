@@ -54,27 +54,17 @@ DEFAULT_NAME_PREFIX = "New Assertion"
 DEFAULT_NAME_SUFFIX_LENGTH = 8
 
 
-DEFAULT_HOURLY_SCHEDULE: models.CronScheduleClass = models.CronScheduleClass(
-    cron="0 * * * *",  # Every hour, matches the UI default
-    timezone=str(
-        tzlocal.get_localzone()
-    ),  # User local timezone, matches the UI default
-)
-DEFAULT_SCHEDULE: models.CronScheduleClass = DEFAULT_HOURLY_SCHEDULE
-
-DEFAULT_DAILY_SCHEDULE = models.CronScheduleClass(
+DEFAULT_DAILY_SCHEDULE: models.CronScheduleClass = models.CronScheduleClass(
     cron="0 0 * * *",  # Every day at midnight, matches the UI default
     timezone=str(
         tzlocal.get_localzone()
     ),  # User local timezone, matches the UI default
 )
+DEFAULT_SCHEDULE: models.CronScheduleClass = DEFAULT_DAILY_SCHEDULE
 
-DEFAULT_EVERY_SIX_HOURS_SCHEDULE = models.CronScheduleClass(
-    cron="0 */6 * * *",  # Every 6 hours, matches the UI default
-    timezone=str(
-        tzlocal.get_localzone()
-    ),  # User local timezone, matches the UI default
-)
+# Legacy aliases - all now point to daily schedule for consistency
+DEFAULT_HOURLY_SCHEDULE: models.CronScheduleClass = DEFAULT_DAILY_SCHEDULE
+DEFAULT_EVERY_SIX_HOURS_SCHEDULE: models.CronScheduleClass = DEFAULT_DAILY_SCHEDULE
 
 TYPE_CLASS_NAME_TO_TYPE_MAP = {
     "StringTypeClass": "STRING",

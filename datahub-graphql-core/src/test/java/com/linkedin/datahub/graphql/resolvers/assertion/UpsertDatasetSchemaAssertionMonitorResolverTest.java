@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
+import com.linkedin.datahub.graphql.generated.CronScheduleInput;
 import com.linkedin.datahub.graphql.generated.MonitorMode;
 import com.linkedin.datahub.graphql.generated.SchemaAssertionCompatibility;
 import com.linkedin.datahub.graphql.generated.SchemaAssertionInput;
@@ -107,6 +108,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                 new com.linkedin.datahub.graphql.generated.SchemaAssertionFieldInput(
                     "field2", SchemaFieldDataType.BOOLEAN, "nativeBoolean"))));
     input.setActions(new AssertionActionsInput(Collections.emptyList(), Collections.emptyList()));
+    input.setEvaluationSchedule(new CronScheduleInput("0 0 * * *", "UTC"));
     when(dataFetchingEnvironment.getArgument("assertionUrn")).thenReturn(null);
     when(dataFetchingEnvironment.getArgument("input")).thenReturn(input);
     when(dataFetchingEnvironment.getContext()).thenReturn(mockContext);
@@ -180,6 +182,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                 new com.linkedin.datahub.graphql.generated.SchemaAssertionFieldInput(
                     "field2", SchemaFieldDataType.BOOLEAN, "nativeBoolean"))));
     input.setActions(new AssertionActionsInput(Collections.emptyList(), Collections.emptyList()));
+    input.setEvaluationSchedule(new CronScheduleInput("0 0 * * *", "UTC"));
 
     // Change the fields.
     String assertionUrn = TEST_ASSERTION_URN;
@@ -350,6 +353,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     input.setMode(MonitorMode.ACTIVE);
     input.setAssertion(
         new SchemaAssertionInput(SchemaAssertionCompatibility.SUPERSET, ImmutableList.of()));
+    input.setEvaluationSchedule(new CronScheduleInput("0 0 * * *", "UTC"));
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("assertionUrn"))).thenReturn(null);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);

@@ -697,7 +697,7 @@ class SmartVolumeAssertionOutputParams:
                 incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
                 tags=["urn:li:tag:my_tag_1"],
                 updated_by=_any_user,
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             SmartVolumeAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
@@ -717,7 +717,7 @@ class SmartVolumeAssertionOutputParams:
                 created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
                 updated_by=_any_user,
                 updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             id="minimal_valid_full_input",
         ),
@@ -744,7 +744,7 @@ class SmartVolumeAssertionOutputParams:
                 ],
                 tags=["urn:li:tag:my_tag_1", "urn:li:tag:my_tag_2"],
                 updated_by=_any_user,
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             SmartVolumeAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
@@ -774,7 +774,7 @@ class SmartVolumeAssertionOutputParams:
                 created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
                 updated_by=_any_user,
                 updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             id="multiple_incident_behaviors_and_tags_and_exclusion_windows",
         ),
@@ -789,7 +789,7 @@ class SmartVolumeAssertionOutputParams:
                 incident_behavior="resolve_on_pass",  # String input
                 tags=["urn:li:tag:my_tag_1"],
                 updated_by=_any_user,
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             SmartVolumeAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
@@ -806,7 +806,7 @@ class SmartVolumeAssertionOutputParams:
                 created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
                 updated_by=_any_user,
                 updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             id="string_incident_behavior_input_smart_volume",
         ),
@@ -1218,7 +1218,7 @@ def test_sync_smart_volume_assertion_valid_full_input(
         tags=[TagUrn.from_string("urn:li:tag:test_tag")],  # Not default
         updated_by=CorpUserUrn.from_string("urn:li:corpuser:test_user"),  # Not default
         schedule=models.CronScheduleClass(
-            cron="0 * * * *", timezone="UTC"
+            cron="0 0 * * *", timezone="UTC"
         ),  # Not default
     )
     mock_upsert = MagicMock()
@@ -2216,7 +2216,7 @@ class SqlAssertionOutputParams:
                 incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
                 tags=["urn:li:tag:my_tag_1"],
                 updated_by=_any_user,
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             SqlAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
@@ -2230,7 +2230,7 @@ class SqlAssertionOutputParams:
                 created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
                 updated_by=_any_user,
                 updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             id="full_input_metric_change",
         ),
@@ -2635,7 +2635,7 @@ class SmartColumnMetricAssertionOutputParams:
                 incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
                 tags=["urn:li:tag:my_tag_1"],
                 updated_by=_any_user,
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             SmartColumnMetricAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
@@ -2658,7 +2658,7 @@ class SmartColumnMetricAssertionOutputParams:
                 created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
                 updated_by=_any_user,
                 updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             id="full_valid_input_single_value",
         ),
@@ -2675,7 +2675,7 @@ class SmartColumnMetricAssertionOutputParams:
                 incident_behavior="raise_on_fail",  # String input
                 tags=["urn:li:tag:my_tag_1"],
                 updated_by=_any_user,
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             SmartColumnMetricAssertionOutputParams(
                 dataset_urn=_any_dataset_urn,
@@ -2695,7 +2695,7 @@ class SmartColumnMetricAssertionOutputParams:
                 created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
                 updated_by=_any_user,
                 updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-                schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+                schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
             ),
             id="string_incident_behavior_input_smart_column_metric",
         ),

@@ -12,6 +12,42 @@ const clickElement = (locator) => {
   cy.get(locator).click();
 };
 
+// Helper to clean up any existing assertions on the dataset before the test runs.
+// This ensures tests are resilient to leftover state from previous failed runs.
+const cleanupExistingAssertions = () => {
+  // Wait for page to load - either assertion rows appear or empty state message
+  cy.get(".acryl-assertions-table-row, .ant-empty-description", {
+    timeout: 10000,
+  }).should("exist");
+  cy.get("body").then(($body) => {
+    if ($body.find(".acryl-assertions-table-row").length > 0) {
+      // Remove assertions one by one
+      const removeAssertion = () => {
+        cy.get("body").then(($innerBody) => {
+          if ($innerBody.find(".acryl-assertions-table-row").length > 0) {
+            cy.get(".acryl-assertions-table-row")
+              .first()
+              .find("button")
+              .last()
+              .click();
+            cy.get(".ant-dropdown-menu-item")
+              .find(".anticon-delete")
+              .closest(".ant-dropdown-menu-item")
+              .click();
+            cy.waitTextVisible("Confirm Assertion Removal");
+            cy.get("button").contains("Yes").click();
+            cy.waitTextVisible("Removed assertion.");
+            cy.ensureTextNotPresent("Removed assertion.");
+            // Recursively check for more assertions
+            removeAssertion();
+          }
+        });
+      };
+      removeAssertion();
+    }
+  });
+};
+
 describe("create and manage volume assertion", () => {
   beforeEach(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
@@ -38,6 +74,8 @@ describe("create and manage volume assertion", () => {
     cy.goToDataset(datasetUrn, datasetName, true);
     cy.openEntityTab("Quality");
     clickElement("#acryl-validation-tab-assertions-sub-tab");
+    // Clean up any existing assertions from previous failed test runs
+    cleanupExistingAssertions();
     cy.waitTextVisible("No assertions have run");
     enableButtonWithId("#create-assertion-btn-main");
     cy.get("#create-assertion-btn-main").click();
@@ -61,7 +99,7 @@ describe("create and manage volume assertion", () => {
     cy.waitTextVisible("Table has at most 1,000 rows");
     cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Row count over time");
-    cy.waitTextVisible("Runs at 0 minutes past the hour, every 6 hours.");
+    cy.waitTextVisible("12:00 AM");
 
     // stop the monitor, verify that assertion stopped successfully
     clickElement("body");

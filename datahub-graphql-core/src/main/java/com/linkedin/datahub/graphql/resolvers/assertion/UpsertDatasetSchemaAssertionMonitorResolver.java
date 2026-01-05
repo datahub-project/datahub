@@ -9,7 +9,6 @@ import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -38,11 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UpsertDatasetSchemaAssertionMonitorResolver
     implements DataFetcher<CompletableFuture<Assertion>> {
-
-  // hourly run
-  private final String HOURLY_CRON_SCHEDULE = "0 */6 * * *";
-  private final CronSchedule DEFAULT_CRON_SCHEDULE =
-      new CronSchedule().setCron(HOURLY_CRON_SCHEDULE).setTimezone("UTC");
 
   private final AssertionService _assertionService;
   private final MonitorService _monitorService;
@@ -137,9 +131,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
                   monitorUrn,
                   assertionUrn,
                   entityUrn,
-                  input.getEvaluationSchedule() != null
-                      ? createCronSchedule(input.getEvaluationSchedule())
-                      : DEFAULT_CRON_SCHEDULE,
+                  createCronSchedule(input.getEvaluationSchedule()),
                   mapEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
                   input.getExecutorId(),

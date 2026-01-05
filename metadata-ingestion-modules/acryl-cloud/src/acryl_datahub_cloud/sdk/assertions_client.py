@@ -156,7 +156,7 @@ class AssertionsClient:
         empty string), it will be unset.
 
         Schedule behavior:
-            - Create case: Uses default hourly schedule ("0 * * * *")
+            - Create case: Uses default daily schedule ("0 0 * * *")
             - Update case: Preserves existing schedule from backend (not modifiable)
 
         Args:
@@ -230,7 +230,7 @@ class AssertionsClient:
         empty string), it will be unset.
 
         Schedule behavior:
-            - Create case: Uses default hourly schedule ("0 * * * *") or provided schedule
+            - Create case: Uses default daily schedule ("0 0 * * *") or provided schedule
             - Update case: Schedule is updated if provided, otherwise existing schedule is preserved.
 
         Args:
@@ -252,7 +252,7 @@ class AssertionsClient:
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
@@ -307,7 +307,7 @@ class AssertionsClient:
         empty string), it will be unset.
 
         Schedule behavior:
-            - Create case: Uses default schedule of every 6 hours or provided schedule
+            - Create case: Uses default daily schedule ("0 0 * * *") or provided schedule
             - Update case: Uses existing schedule or provided schedule.
 
         Examples:
@@ -366,7 +366,7 @@ class AssertionsClient:
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
@@ -423,7 +423,7 @@ class AssertionsClient:
         empty string), it will be unset.
 
         Schedule behavior:
-            - Create case: Uses default schedule of every 6 hours or provided schedule
+            - Create case: Uses default daily schedule ("0 0 * * *") or provided schedule
             - Update case: Uses existing schedule or provided schedule.
 
         Examples:
@@ -465,7 +465,7 @@ class AssertionsClient:
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
@@ -543,7 +543,7 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             freshness_schedule_check_type (Optional[Union[str, FreshnessAssertionScheduleCheckType, models.FreshnessAssertionScheduleTypeClass]]): The freshness schedule check type to be applied to the assertion. Valid values are: "since_the_last_check", "fixed_interval".
-            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
             lookback_window (Optional[TimeWindowSizeInputTypes]): The lookback window to be applied to the assertion. Valid values are:
                 - TimeWindowSize(unit=CalendarInterval.MINUTE, multiple=10) for 10 minutes
                 - TimeWindowSize(unit=CalendarInterval.HOUR, multiple=2) for 2 hours
@@ -617,7 +617,7 @@ class AssertionsClient:
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
             criteria_condition (Optional[Union[str, VolumeAssertionCondition]]): Optional condition for the volume assertion. Valid values are:
                 - "ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO" -> The row count is less than or equal to the threshold.
                 - "ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO" -> The row count is greater than or equal to the threshold.
@@ -712,7 +712,7 @@ class AssertionsClient:
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.

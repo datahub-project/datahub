@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    DEFAULT_HOURLY_SCHEDULE,
+    DEFAULT_DAILY_SCHEDULE,
     LAST_MODIFIED_ALLOWED_FIELD_TYPES,
     AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
@@ -71,7 +71,7 @@ class _SmartFreshnessAssertionInput(
             enabled=enabled,
             schedule=schedule
             if schedule is not None
-            else DEFAULT_HOURLY_SCHEDULE,  # Use provided schedule or default for create case
+            else DEFAULT_DAILY_SCHEDULE,  # Use provided schedule or default for create case
             detection_mechanism=detection_mechanism,
             incident_behavior=incident_behavior,
             tags=tags,
@@ -114,7 +114,7 @@ class _SmartFreshnessAssertionInput(
     def _convert_schedule(self) -> models.CronScheduleClass:
         """Create a schedule for a smart freshness assertion.
 
-        For create case, uses DEFAULT_HOURLY_SCHEDULE. For update case, preserves existing schedule.
+        For create case, uses DEFAULT_DAILY_SCHEDULE. For update case, preserves existing schedule.
 
         Returns:
             A CronScheduleClass with appropriate schedule settings.

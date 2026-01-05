@@ -12,12 +12,12 @@ import {
     VolumeAssertionType,
 } from '@types';
 
-// Every 6 hours.
-export const DEFAULT_ASSERTION_EVALUATION_SCHEDULE = '0 */6 * * *';
+// Daily at midnight.
+export const DEFAULT_ASSERTION_EVALUATION_SCHEDULE = '0 0 * * *';
 
-// Table cannot be more than 6 hours late.
+// Table cannot be more than 24 hours late.
 export const DEFAULT_ASSERTION_EVALUATION_INTERVAL_UNIT = DateInterval.Hour;
-export const DEFAULT_ASSERTION_EVALUATION_INTERVAL_MULTIPLE = 6;
+export const DEFAULT_ASSERTION_EVALUATION_INTERVAL_MULTIPLE = 24;
 
 // Information used for rendering different types of assertions.
 export const ASSERTION_TYPES = [
@@ -47,7 +47,7 @@ export const DEFAULT_BUILDER_STATE = {
         actions: null,
     },
     schedule: {
-        cron: DEFAULT_ASSERTION_EVALUATION_SCHEDULE, // Every 6 hours.
+        cron: DEFAULT_ASSERTION_EVALUATION_SCHEDULE, // Daily at midnight.
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
     parameters: null,
@@ -58,9 +58,12 @@ export const DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE = {
     type: FreshnessAssertionType.DatasetChange,
     schedule: {
         type: FreshnessAssertionScheduleType.SinceTheLastCheck,
+        // Note: fixedInterval is defined here as a fallback default for when the user
+        // switches from SinceTheLastCheck to FixedInterval mode in the UI builder.
+        // It is not used when type is SinceTheLastCheck.
         fixedInterval: {
             unit: DateInterval.Hour,
-            multiple: 6,
+            multiple: 24,
         },
     },
 };

@@ -696,9 +696,8 @@ input UpsertDatasetSchemaAssertionMonitorInput {
 
   """
   A cron schedule dictating when the assertion is evaluated.
-  If not provided, a default of every 6 hours will be used.
   """
-  evaluationSchedule: CronScheduleInput
+  evaluationSchedule: CronScheduleInput!
 }
 
 """

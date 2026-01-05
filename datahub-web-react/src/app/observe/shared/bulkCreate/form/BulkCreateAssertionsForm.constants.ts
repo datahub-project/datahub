@@ -34,7 +34,7 @@ export const DEFAULT_INFERENCE_SETTINGS: AssertionMonitorBuilderState['inference
 };
 
 export const DEFAULT_CRON_SCHEDULE: CronSchedule = {
-    cron: '0 * * * *', // runs every hour at minute 0
+    cron: '0 0 * * *', // runs daily at midnight
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 };
 

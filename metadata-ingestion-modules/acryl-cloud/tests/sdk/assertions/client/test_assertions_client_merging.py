@@ -1379,20 +1379,20 @@ def _validate_assertion_vs_input(
     assert assertion.updated_at == expected_output_params.updated_at
 
 
-def test_smart_freshness_assertion_create_case_uses_default_hourly_schedule(
+def test_smart_freshness_assertion_create_case_uses_default_daily_schedule(
     freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    """Test that create case uses DEFAULT_SCHEDULE (hourly) when no schedule provided."""
+    """Test that create case uses DEFAULT_SCHEDULE (daily) when no schedule provided."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert = MagicMock()
     freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    # Create assertion using sync with urn=None - should use default hourly schedule
+    # Create assertion using sync with urn=None - should use default daily schedule
     assertion = client.sync_smart_freshness_assertion(dataset_urn=any_dataset_urn)
 
-    # Verify the assertion has the default hourly schedule
-    assert assertion.schedule.cron == DEFAULT_SCHEDULE.cron  # "0 * * * *" (hourly)
+    # Verify the assertion has the default daily schedule
+    assert assertion.schedule.cron == DEFAULT_SCHEDULE.cron  # "0 0 * * *" (daily)
     assert assertion.schedule.timezone == DEFAULT_SCHEDULE.timezone
 
     # Verify upsert was called twice (assertion + monitor)
@@ -1413,7 +1413,7 @@ def test_smart_freshness_assertion_update_case_preserves_existing_schedule(
 
     # Create a custom schedule different from DEFAULT_SCHEDULE to ensure preservation is tested
     custom_schedule = models.CronScheduleClass(
-        cron="0 0 * * *",  # Daily at midnight (different from DEFAULT_SCHEDULE "0 * * * *")
+        cron="0 */6 * * *",  # Every 6 hours (different from DEFAULT_SCHEDULE "0 0 * * *")
         timezone="UTC",  # Different timezone too
     )
 

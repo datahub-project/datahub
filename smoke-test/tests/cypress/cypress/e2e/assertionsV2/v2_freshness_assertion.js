@@ -8,6 +8,42 @@ const clickElement = (locator) => {
   cy.get(locator).click();
 };
 
+// Helper to clean up any existing assertions on the dataset before the test runs.
+// This ensures tests are resilient to leftover state from previous failed runs.
+const cleanupExistingAssertions = () => {
+  // Wait for page to load - either assertion rows appear or empty state message
+  cy.get(".acryl-assertions-table-row, .ant-empty-description", {
+    timeout: 10000,
+  }).should("exist");
+  cy.get("body").then(($body) => {
+    if ($body.find(".acryl-assertions-table-row").length > 0) {
+      // Remove assertions one by one
+      const removeAssertion = () => {
+        cy.get("body").then(($innerBody) => {
+          if ($innerBody.find(".acryl-assertions-table-row").length > 0) {
+            cy.get(".acryl-assertions-table-row")
+              .first()
+              .find("button")
+              .last()
+              .click();
+            cy.get(".ant-dropdown-menu-item")
+              .find(".anticon-delete")
+              .closest(".ant-dropdown-menu-item")
+              .click();
+            cy.waitTextVisible("Confirm Assertion Removal");
+            cy.get("button").contains("Yes").click();
+            cy.waitTextVisible("Removed assertion.");
+            cy.ensureTextNotPresent("Removed assertion.");
+            // Recursively check for more assertions
+            removeAssertion();
+          }
+        });
+      };
+      removeAssertion();
+    }
+  });
+};
+
 const setAssertionMonitorsFlag = (isOn) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
@@ -34,6 +70,8 @@ describe("create and manage freshness assertion", () => {
     cy.goToDataset(datasetUrn, datasetName, true);
     cy.openEntityTab("Quality");
     clickElement("#acryl-validation-tab-assertions-sub-tab");
+    // Clean up any existing assertions from previous failed test runs
+    cleanupExistingAssertions();
     cy.waitTextVisible("No assertions have run");
     clickElement("#create-assertion-btn-main");
     cy.waitTextVisible("New Assertion Monitor");
@@ -49,19 +87,19 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Created!");
     cy.ensureTextNotPresent("Created!");
     // verifyAssertionCount("add");
-    cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
+    cy.waitTextVisible("12:00 am");
     clickElement(".acryl-assertions-table-row");
     cy.waitTextVisible("Freshness check results over time");
-    cy.waitTextVisible("Runs at 0 minutes past the hour, every 6 hours.");
+    cy.waitTextVisible("12:00 AM");
     // stop the monitor, verify that assertion stopped successfully
     clickElement("body");
-    cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
+    cy.waitTextVisible("12:00 am");
     clickElement('[data-testid="assertion-start-stop-action"]');
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
     cy.get(".ant-popover-inner-content").contains("Start").should("be.visible");
     // restart the monitor, verify that assertion restarted successfully
-    cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
+    cy.waitTextVisible("12:00 am");
     clickElement('[data-testid="assertion-start-icon"]');
     cy.waitTextVisible("Start Monitoring");
     cy.get("button").contains("Yes").click();
@@ -92,7 +130,7 @@ describe("create and manage freshness assertion", () => {
 
     // remove assertion
     clickElement("body");
-    cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours ");
+    cy.waitTextVisible("12:00 am");
     cy.get(".acryl-assertions-table-row").find("button").last().click();
     cy.get(".ant-dropdown-menu-item")
       .find(".anticon-delete")

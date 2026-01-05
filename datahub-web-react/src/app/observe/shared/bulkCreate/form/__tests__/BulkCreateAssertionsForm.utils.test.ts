@@ -368,7 +368,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
             };
 
             const mockCronSchedule = {
-                cron: '0 * * * *',
+                cron: '0 0 * * *',
                 timezone: 'UTC',
             };
 
@@ -425,7 +425,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
                     },
                     actions: mockActions,
                     evaluationSchedule: {
-                        cron: '0 * * * *',
+                        cron: '0 0 * * *',
                         timezone: 'UTC',
                     },
                 });
@@ -455,7 +455,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
                                 multiple: 12,
                             },
                             cron: {
-                                cron: '0 * * * *',
+                                cron: '0 0 * * *',
                                 timezone: 'UTC',
                             },
                         },
@@ -465,7 +465,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
                     },
                     actions: mockActions,
                     evaluationSchedule: {
-                        cron: '0 * * * *',
+                        cron: '0 0 * * *',
                         timezone: 'UTC',
                     },
                 });
@@ -491,7 +491,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
                         schedule: {
                             type: FreshnessAssertionScheduleType.SinceTheLastCheck,
                             cron: {
-                                cron: '0 * * * *',
+                                cron: '0 0 * * *',
                                 timezone: 'UTC',
                             },
                         },
@@ -501,7 +501,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
                     },
                     actions: mockActions,
                     evaluationSchedule: {
-                        cron: '0 * * * *',
+                        cron: '0 0 * * *',
                         timezone: 'UTC',
                     },
                 });
@@ -611,7 +611,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
             };
 
             const mockCronSchedule = {
-                cron: '0 * * * *',
+                cron: '0 0 * * *',
                 timezone: 'UTC',
             };
 
@@ -659,7 +659,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
                     },
                     actions: mockActions,
                     evaluationSchedule: {
-                        cron: '0 * * * *',
+                        cron: '0 0 * * *',
                         timezone: 'UTC',
                     },
                 });
