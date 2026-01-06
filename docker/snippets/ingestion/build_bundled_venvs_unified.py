@@ -73,9 +73,11 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
         # Install DataHub with the specific plugin
         print(f"  → Installing datahub with {plugin_extra} plugin...")
         # Use local metadata-ingestion if available (for development), otherwise use PyPI
+        # Note: Do NOT use -e (editable) install - the venv is copied to final image
+        # where /metadata-ingestion won't exist, breaking editable symlinks
         if os.path.exists('/metadata-ingestion/setup.py'):
             print(f"  → Using local /metadata-ingestion source")
-            datahub_package = f'-e /metadata-ingestion[datahub-rest,datahub-kafka,file,{plugin_extra}]'
+            datahub_package = f'/metadata-ingestion[datahub-rest,datahub-kafka,file,{plugin_extra}]'
             constraints_path = os.path.join(venv_base_path, "constraints.txt")
             install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         else:
