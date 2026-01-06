@@ -1,13 +1,50 @@
-# DataHub Executor Images: Full (default) and Slim
+# DataHub Executor Images
 
 ## Overview
 
-There are two published variants of the DataHub Executor image built from docker/datahub-executor/Dockerfile:
+The DataHub Executor image is built from `docker/datahub-executor/Dockerfile` with multiple variants optimized for different use cases.
 
-- Default (full): includes prebuilt ingestion virtualenvs (“bundled venvs”) for a small default plugin set. Tagged as `<tag>` (no suffix).
-- Slim: contains no prebuilt venvs. It keeps the unified venv builder scripts inside the image so you can add your own plugin venvs at build time. Tagged as `<tag>-slim`.
+### Image Variants
 
-Important: If you need to build your own plugin venvs, always start FROM the slim image. The default (full) image is intended for direct use and may not contain or expose everything required for extending with custom venvs in some distributions/environments.
+| Variant          | Base OS       | Bundled Venvs      | Tag Suffix       | Use Case                       |
+| ---------------- | ------------- | ------------------ | ---------------- | ------------------------------ |
+| `full` (default) | Ubuntu 24.04  | ✅ Yes             | (none)           | Maximum compatibility          |
+| `slim`           | Ubuntu 24.04  | ❌ No              | `-slim`          | Extend with custom plugins     |
+| `locked-wolfi`   | Wolfi (glibc) | ✅ Yes             | `-locked-wolfi`  | Security-focused, minimal CVEs |
+| `slim-alpine`    | Alpine 3.22   | ❌ No              | `-slim-alpine`   | Smallest footprint             |
+| `locked-alpine`  | Alpine 3.22   | ⚠️ NOT IMPLEMENTED | `-locked-alpine` | (Bundled venvs stage missing)  |
+
+### Tag Format
+
+```
+datahub-executor:<tag>                 # full (Ubuntu, with bundled venvs)
+datahub-executor:<tag>-slim            # slim (Ubuntu, no bundled venvs)
+datahub-executor:<tag>-locked-wolfi    # wolfi (Wolfi, with bundled venvs)
+datahub-executor:<tag>-slim-alpine     # alpine (Alpine, no bundled venvs)
+```
+
+### Wolfi Variant (`locked-wolfi`)
+
+The Wolfi variant uses [Chainguard's Wolfi](https://wolfi.dev/) as the base OS:
+
+- **glibc-based**: Full compatibility with Python packages requiring native extensions (prophet, spacy, etc.)
+- **Minimal CVE surface**: Rolling updates with rapid security patches
+- **Bundled venvs**: Pre-built plugin virtualenvs at `/opt/datahub/venvs`
+- **Locked PyPI**: Runtime `pip install` disabled for air-gapped/security-sensitive environments
+
+### Alpine Variants (Limited Support)
+
+Alpine uses musl libc which has known incompatibilities:
+
+- `slim-alpine`: Available for extending with custom plugins (no bundled venvs)
+- `locked-alpine`: **NOT IMPLEMENTED** - bundled venvs stage missing due to musl compatibility issues with some Python packages
+
+### Choosing the Right Variant
+
+- **`full`**: Maximum compatibility, all pre-built plugins included
+- **`slim`**: Start here to build custom plugin sets (Ubuntu-based)
+- **`locked-wolfi`**: Security-focused production deployments with pre-built plugins
+- **`slim-alpine`**: Smallest image size when building custom plugins
 
 The builder creates per‑plugin virtualenvs under `/opt/datahub/venvs` using predictable names: `<plugin>-bundled`.
 
@@ -31,7 +68,53 @@ Examples:
 
 ## Publishing (for maintainers)
 
-Build and push both variants. Note: `RELEASE_VERSION` is required by the Dockerfile; set appropriately.
+### Using GitHub Actions Workflow (Recommended)
+
+The `build-datahub-executor-bundled.yml` workflow builds and publishes images with customizable plugin bundles.
+
+**Workflow Inputs:**
+
+| Input             | Type    | Default                   | Description                               |
+| ----------------- | ------- | ------------------------- | ----------------------------------------- |
+| `build_wolfi`     | boolean | `true`                    | Build Wolfi variant (`-locked-wolfi`)     |
+| `build_ubuntu`    | boolean | `true`                    | Build Ubuntu variant (`-slim`)            |
+| `build_alpine`    | boolean | `false`                   | Build Alpine variant (NOT IMPLEMENTED)    |
+| `plugins`         | string  | `s3,demo-data,looker,...` | Comma-separated plugin list               |
+| `tag_override`    | string  | (empty)                   | Override tag (defaults to branch/release) |
+| `push_ecr`        | boolean | `false`                   | Push to ECR                               |
+| `push_cloudsmith` | boolean | `false`                   | Push to Cloudsmith                        |
+
+**Example: Build wolfi with only S3 plugin**
+
+1. Go to Actions → "Build and Publish Bundled VENV DataHub Executor"
+2. Click "Run workflow"
+3. Set:
+   - `build_wolfi`: ✅
+   - `build_ubuntu`: ❌
+   - `plugins`: `s3`
+   - `push_cloudsmith`: ✅
+
+**Output:** `docker.cloudsmith.io/datahub/re/datahub-executor:<tag>-locked-wolfi`
+
+### Using Gradle (Local Development)
+
+Build specific variants locally:
+
+```bash
+# Wolfi variant with custom plugins
+./gradlew :datahub-executor:docker \
+  -PdatahubExecutorVariant=locked-wolfi \
+  -PbundledVenvPlugins=s3,bigquery
+
+# Ubuntu slim variant
+./gradlew :datahub-executor:docker \
+  -PdatahubExecutorVariant=slim \
+  -PbundledVenvPlugins=snowflake,redshift
+```
+
+### Using Docker Buildx (Manual)
+
+Build and push variants manually. Note: `RELEASE_VERSION` is required by the Dockerfile.
 
 ```bash
 # Full (default) — prebuilt venvs
@@ -151,6 +234,38 @@ ENV PIP_EXTRA_INDEX_URL=https://additional-mirror/simple
 
 - Multi‑arch builds: add `--platform linux/amd64,linux/arm64` to `docker buildx build` if you plan to publish multi‑arch images.
 - Summary: Use `datahub-executor:<tag>-slim` as your base when building custom plugin venvs. The default `:<tag>` image is for direct use and not intended as a base for further venv bundling.
+
+## Slim Plugin Variants
+
+Some plugins have `-slim` variants that exclude PySpark dependencies for smaller image size:
+
+| Plugin | Regular              | Slim                      | Difference                     |
+| ------ | -------------------- | ------------------------- | ------------------------------ |
+| `s3`   | `acryl-datahub[s3]`  | `acryl-datahub[s3-slim]`  | No PySpark/data-lake-profiling |
+| `gcs`  | `acryl-datahub[gcs]` | `acryl-datahub[gcs-slim]` | No PySpark/data-lake-profiling |
+| `abs`  | `acryl-datahub[abs]` | `acryl-datahub[abs-slim]` | No PySpark/data-lake-profiling |
+
+When `BUNDLED_VENV_SLIM_MODE=true` (default in bundled builds), plugins with slim variants automatically use the slim version.
+
+## Provenance Tracking
+
+Bundled images include provenance metadata at `/opt/datahub/venvs/metadata.json`:
+
+```json
+{
+  "bundled_plugins": ["s3", "bigquery", "looker"],
+  "cli_version": "1.3.1.4",
+  "slim_mode": "true",
+  "github_run_id": "12345678"
+}
+```
+
+To inspect an image's bundled configuration:
+
+```bash
+docker run --rm datahub-executor:<tag>-locked-wolfi \
+  cat /opt/datahub/venvs/metadata.json | jq
+```
 
 ## Troubleshooting / FAQ
 

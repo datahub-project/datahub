@@ -1,0 +1,215 @@
+name: Build and Publish Bundled VENV DataHub Executor
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_wolfi:
+        description: "Build Wolfi variant (locked-wolfi)"
+        type: boolean
+        default: true
+      build_ubuntu:
+        description: "Build Ubuntu variant (slim)"
+        type: boolean
+        default: true
+      build_alpine:
+        description: "Build Alpine variant - NOT IMPLEMENTED (bundled venvs stage missing)"
+        type: boolean
+        default: false
+      plugins:
+        description: "Bundled plugins (comma-separated)"
+        type: string
+        default: "s3,demo-data"
+      tag_override:
+        description: "Override image tag (leave empty to derive from branch/release)"
+        type: string
+        required: false
+        default: ""
+      push_ecr:
+        description: "Push to ECR"
+        type: boolean
+        default: false
+      push_cloudsmith:
+        description: "Push to Cloudsmith"
+        type: boolean
+        default: false
+
+env:
+  IMAGE_NAME: datahub-executor
+  DOCKER_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
+  # Cloudsmith config
+  CLOUDSMITH_ORG: "datahub"
+  CLOUDSMITH_REPO: "re"
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.compute-tag.outputs.tag }}
+      python_release_version: ${{ steps.compute-tag.outputs.python_release_version }}
+      cli_version: ${{ steps.resolve-cli-version.outputs.cli_version }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute tag from branch/release
+        id: compute-tag
+        env:
+          TAG_OVERRIDE: ${{ inputs.tag_override }}
+        run: |
+          source .github/scripts/docker_helpers.sh
+
+          if [ -n "$TAG_OVERRIDE" ]; then
+            TAG="$TAG_OVERRIDE"
+            # For overrides, use a simple python version
+            PYTHON_VERSION="1!0.0.0+docker.${TAG}"
+          else
+            TAG=$(get_tag)
+            PYTHON_VERSION=$(get_python_docker_release_v)
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "python_release_version=$PYTHON_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Computed tag: $TAG"
+          echo "Python release version: $PYTHON_VERSION"
+
+      - name: Resolve CLI version
+        id: resolve-cli-version
+        run: |
+          CLI_VERSION=$(sed -n 's/.*cliVersion *= *"\([^"]*\)".*/\1/p' gradle/versioning/cliVersion.gradle)
+          echo "cli_version=$CLI_VERSION" >> "$GITHUB_OUTPUT"
+          echo "CLI version: $CLI_VERSION"
+
+      - name: Set build matrix
+        id: set-matrix
+        env:
+          BUILD_WOLFI: ${{ inputs.build_wolfi }}
+          BUILD_UBUNTU: ${{ inputs.build_ubuntu }}
+          BUILD_ALPINE: ${{ inputs.build_alpine }}
+        run: |
+          VARIANTS="[]"
+
+          if [ "$BUILD_WOLFI" = "true" ]; then
+            VARIANTS=$(echo "$VARIANTS" | jq '. + [{"name": "wolfi", "variant": "locked-wolfi", "suffix": "-locked-wolfi"}]')
+          fi
+
+          if [ "$BUILD_UBUNTU" = "true" ]; then
+            VARIANTS=$(echo "$VARIANTS" | jq '. + [{"name": "ubuntu", "variant": "slim", "suffix": "-slim"}]')
+          fi
+
+          if [ "$BUILD_ALPINE" = "true" ]; then
+            VARIANTS=$(echo "$VARIANTS" | jq '. + [{"name": "alpine", "variant": "slim-alpine", "suffix": "-slim-alpine"}]')
+          fi
+
+          echo "matrix={\"include\":$VARIANTS}" >> "$GITHUB_OUTPUT"
+          echo "Building variants: $VARIANTS"
+
+  build:
+    needs: setup
+    if: ${{ needs.setup.outputs.matrix != '{"include":[]}' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+    env:
+      TAG: ${{ needs.setup.outputs.tag }}
+      PYTHON_RELEASE_VERSION: ${{ needs.setup.outputs.python_release_version }}
+      CLI_VERSION: ${{ needs.setup.outputs.cli_version }}
+      PLUGINS: ${{ inputs.plugins }}
+      VARIANT: ${{ matrix.variant }}
+      VARIANT_NAME: ${{ matrix.name }}
+      TAG_SUFFIX: ${{ matrix.suffix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Build with Gradle
+        run: |
+          echo "Building $VARIANT_NAME variant"
+          echo "  Tag: $TAG"
+          echo "  Python Release Version: $PYTHON_RELEASE_VERSION"
+          echo "  CLI Version: $CLI_VERSION"
+          echo "  Plugins: $PLUGINS"
+          echo "  Variant: $VARIANT"
+
+          ./gradlew :datahub-executor:docker \
+            -Ptag="$TAG" \
+            -PpythonDockerVersion="$PYTHON_RELEASE_VERSION" \
+            -PdockerRegistry="$DOCKER_REGISTRY" \
+            -PdatahubExecutorVariant="$VARIANT" \
+            -PbundledVenvPlugins="$PLUGINS" \
+            -PgithubRunId="${{ github.run_id }}"
+
+          echo "Built image: $DOCKER_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+          docker images | grep "$IMAGE_NAME"
+
+      - name: Read build metadata
+        id: build-metadata
+        run: |
+          if [ -f "build/version.json" ]; then
+            echo "=== build/version.json ==="
+            cat build/version.json
+            FULL_VERSION=$(jq -r '.fullVersion // empty' build/version.json)
+            echo "full_version=$FULL_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Note: OCI labels are embedded via Dockerfile (build_info.json, metadata.json)
+          # Additional labels would require modifying the gradle docker plugin
+          echo "Image ready: $DOCKER_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+
+      # --- ECR ---
+      - name: Login to ECR
+        if: ${{ inputs.push_ecr }}
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push to ECR
+        if: ${{ inputs.push_ecr }}
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        run: |
+          ECR_IMAGE="$ECR_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+          SRC_IMAGE="$DOCKER_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+          docker tag "$SRC_IMAGE" "$ECR_IMAGE"
+          docker push "$ECR_IMAGE"
+          echo "### ECR :whale:" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pushed: \`$ECR_IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # --- Cloudsmith ---
+      - name: Login to Cloudsmith
+        if: ${{ inputs.push_cloudsmith }}
+        env:
+          CLOUDSMITH_USERNAME: ${{ secrets.CLOUDSMITH_USERNAME }}
+          CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
+        run: |
+          echo "$CLOUDSMITH_PASSWORD" | docker login docker.cloudsmith.io \
+            --username "$CLOUDSMITH_USERNAME" \
+            --password-stdin
+
+      - name: Push to Cloudsmith
+        if: ${{ inputs.push_cloudsmith }}
+        run: |
+          CLOUDSMITH_IMAGE="docker.cloudsmith.io/$CLOUDSMITH_ORG/$CLOUDSMITH_REPO/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+          SRC_IMAGE="$DOCKER_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+          docker tag "$SRC_IMAGE" "$CLOUDSMITH_IMAGE"
+          docker push "$CLOUDSMITH_IMAGE"
+          echo "### Cloudsmith :package:" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pushed: \`$CLOUDSMITH_IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+
+          ### Build Info ($VARIANT_NAME)
+          | Property | Value |
+          |----------|-------|
+          | **Run ID** | \`${{ github.run_id }}\` |
+          | **Variant** | \`$VARIANT_NAME\` |
+          | **Tag** | \`$TAG$TAG_SUFFIX\` |
+          | **CLI Version** | \`$CLI_VERSION\` |
+          | **Full Version** | \`${{ steps.build-metadata.outputs.full_version }}\` |
+          | **Plugins** | \`$PLUGINS\` |
+          EOF

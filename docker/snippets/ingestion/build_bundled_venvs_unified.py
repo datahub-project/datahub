@@ -11,7 +11,8 @@ import sys
 from typing import List, Tuple
 
 # Adding a new plug-in with a -slim variant has to be defined here
-PLUGINS_WITH_SLIM_VARIANT = ['s3']
+# These plugins have PySpark dependencies for data lake profiling - use -slim to exclude PySpark
+PLUGINS_WITH_SLIM_VARIANT = ['s3', 'gcs', 'abs']
 
 
 def run_shell_command(cmd: str) -> None:

@@ -766,6 +766,9 @@ WORKDIR /datahub-executor
 
 # Wolfi runtime base - minimal packages for running the application
 # Uses glibc instead of musl, enabling full dependency support
+# For now we must pin wolfi-base to latest until we get access to Chainguard
+# Using wolfi-base:latest is acceptable for now but no SLAs for remediation.
+
 FROM cgr.dev/chainguard/wolfi-base:latest AS wolfi-base
 
 ENV HOME=/home/datahub
@@ -853,13 +856,25 @@ RUN echo "=== Modifying pyproject.toml for Wolfi ===" && \
 
 ARG DOCKER_VERSION
 ARG RELEASE_VERSION
+ARG GITHUB_RUN_ID=""
+ARG BUNDLED_VENV_PLUGINS=""
 
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python3 /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
 
-# Embed build info into the image
-RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
+# Embed build info into the image (including provenance and bundled plugins)
+RUN jq -n \
+    --arg docker_version "$DOCKER_VERSION" \
+    --arg release_version "$RELEASE_VERSION" \
+    --arg github_run_id "$GITHUB_RUN_ID" \
+    --arg bundled_plugins "$BUNDLED_VENV_PLUGINS" \
+    '{
+        docker_version: $docker_version,
+        release_version: $release_version,
+        github_run_id: $github_run_id,
+        bundled_plugins: (if $bundled_plugins != "" then ($bundled_plugins | split(",")) else [] end)
+    }' > /build_info.json
 
 # Install all dependencies with constraints to ensure version compatibility
 # (e.g., cmdstanpy==1.2.5 is required for prophet==1.1.5)
@@ -890,6 +905,61 @@ USER datahub
 
 
 # =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS - WOLFI VARIANT
+# =============================================================================
+FROM wolfi-build AS bundled-venvs-wolfi
+USER root
+
+# Set up bundled venv configuration for WOLFI variant (without PySpark, like slim)
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ARG BUNDLED_CLI_VERSION
+ARG GITHUB_RUN_ID=""
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ENV GITHUB_RUN_ID=${GITHUB_RUN_ID}
+
+# Create venv directory and ensure ownership
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy the self-contained venv build scripts into a stable location for reuse
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
+
+# Copy metadata-ingestion source (needed to build wheels)
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+
+# Make scripts executable
+RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
+    chmod +x /usr/local/bin/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Build bundled venvs using our self-contained script (slim mode, no PySpark)
+WORKDIR /tmp
+RUN /usr/local/bin/build_bundled_venvs_unified.sh
+
+# Create metadata file for bundled venvs (provenance tracking)
+RUN jq -n \
+    --arg plugins "$BUNDLED_VENV_PLUGINS" \
+    --arg cli_version "$BUNDLED_CLI_VERSION" \
+    --arg slim_mode "$BUNDLED_VENV_SLIM_MODE" \
+    --arg github_run_id "$GITHUB_RUN_ID" \
+    '{
+        bundled_plugins: ($plugins | split(",")),
+        cli_version: $cli_version,
+        slim_mode: ($slim_mode == "true"),
+        github_run_id: $github_run_id
+    }' > ${DATAHUB_BUNDLED_VENV_PATH}/metadata.json
+
+USER datahub
+
+
+# =============================================================================
 # FINAL STAGE - WOLFI (runtime only, no build tools)
 # =============================================================================
 FROM wolfi-base AS prod-install-wolfi
@@ -901,6 +971,12 @@ RUN apk update && apk add --no-cache python-3.11-base
 
 # Copy the venv and Python from the builder stage
 COPY --from=venv-builder-wolfi --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+
+# Copy bundled venvs and build scripts from bundled-venvs-wolfi stage
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+COPY --from=bundled-venvs-wolfi $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-venvs-wolfi /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --from=bundled-venvs-wolfi /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/
 
 # Copy source code
 COPY --chown=datahub ./datahub-executor /datahub-executor
@@ -935,6 +1011,12 @@ RUN apk update && apk add --no-cache python-3.11-base
 
 # Copy the venv and Python from the builder stage
 COPY --from=venv-builder-locked-wolfi --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
+
+# Copy bundled venvs and build scripts from bundled-venvs-wolfi stage
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+COPY --from=bundled-venvs-wolfi $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-venvs-wolfi /usr/local/bin/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --from=bundled-venvs-wolfi /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/
 
 # Copy source code
 COPY --chown=datahub ./datahub-executor /datahub-executor

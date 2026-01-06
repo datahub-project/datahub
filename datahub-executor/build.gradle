@@ -34,6 +34,13 @@ ext {
     // Alpine variants are WIP - disabled by default until Remote Executor dependency refactor is complete
     // Alpine uses musl which doesn't support prophet (CmdStan) or spacy/blis dependencies
     include_alpine_variants = project.getProperties().getOrDefault("includeAlpineVariants", "false").toBoolean()
+    // Bundled venv plugins - override via -PbundledVenvPlugins="s3,bigquery,..."
+    bundled_venv_plugins = project.getProperties().getOrDefault(
+        "bundledVenvPlugins",
+        "s3,demo-data,looker,lookml,bigquery,gcs,postgres,mssql,mssql-odbc,dataplex"
+    )
+    // GitHub Run ID for provenance tracking - passed from CI via -PgithubRunId="..."
+    github_run_id = project.getProperties().getOrDefault("githubRunId", "")
 }
 
 task checkPythonVersion(type: Exec) {
@@ -133,6 +140,7 @@ docker {
         include "datahub-executor/pyproject.toml"
         include "datahub-executor/requirements*"
         include "metadata-ingestion-modules/acryl-cloud/**"
+        include "metadata-ingestion/**"  // Required for bundled venvs build
         include "python-build/**"
 
     }.exclude {
@@ -140,7 +148,13 @@ docker {
     }
     additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]
+    def dockerBuildArgs = [
+        DOCKER_VERSION: "${version}-slim",
+        RELEASE_VERSION: python_docker_version,
+        BUNDLED_CLI_VERSION: cliVersion,
+        BUNDLED_VENV_PLUGINS: bundled_venv_plugins,
+        GITHUB_RUN_ID: github_run_id
+    ]
 
     // For testing other variants locally, pass this property to override. We do not want to quickstarts to have to build all variants. CI will build all variants due to -PmatrixBuild=true
     defaultVariant = project.getProperties().getOrDefault('datahubExecutorVariant', 'full')
