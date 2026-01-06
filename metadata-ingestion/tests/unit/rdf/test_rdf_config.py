@@ -138,3 +138,42 @@ class TestRDFConfig:
         assert config.extensions == [".ttl", ".rdf", ".owl", ".n3", ".nt"]
         assert config.export_only is None
         assert config.skip_export is None
+        assert config.include_provisional is False  # Default should be False
+
+    def test_include_provisional_default(self):
+        """Test that include_provisional defaults to False."""
+        config_dict: dict = {"source": "test.ttl"}
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.include_provisional is False
+
+    def test_include_provisional_can_be_set_to_true(self):
+        """Test that include_provisional can be set to True."""
+        config_dict = {
+            "source": "test.ttl",
+            "include_provisional": True,
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+
+        assert config.include_provisional is True
+
+    def test_include_provisional_must_be_boolean(self):
+        """Test that include_provisional must be a boolean."""
+        config_dict = {
+            "source": "test.ttl",
+            "include_provisional": "yes",  # Should be coerced to True
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+        # Pydantic v2 coerces "yes" to True
+        assert config.include_provisional is True
+
+        # Test invalid value
+        config_dict_invalid = {
+            "source": "test.ttl",
+            "include_provisional": 123,  # Cannot be coerced to bool
+        }
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate(config_dict_invalid)
+
+        error_str = str(exc_info.value).lower()
+        assert "bool" in error_str or "boolean" in error_str or "type" in error_str

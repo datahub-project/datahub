@@ -572,3 +572,184 @@ def test_malformed_rdf_error(malformed_ttl, tmp_path, mock_datahub_graph_instanc
     assert isinstance(pipeline.source, RDFSource)
     assert pipeline.source.report.failures, "Expected failures for malformed RDF"
     # May or may not produce work units depending on error handling granularity
+
+
+@pytest.fixture
+def fibo_with_provisional_ttl(tmp_path):
+    """Create a FIBO-style RDF file with provisional and released terms."""
+    ttl_content = """@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fibo-fnd-utl-av: <https://www.omg.org/spec/Commons/AnnotationVocabulary/> .
+
+<http://example.org/ReleasedTerm> a owl:Class ;
+    rdfs:label "Released Term" ;
+    rdfs:comment "A term that has been released" ;
+    fibo-fnd-utl-av:hasMaturityLevel fibo-fnd-utl-av:Release .
+
+<http://example.org/ProvisionalTerm> a owl:Class ;
+    rdfs:label "Provisional Term" ;
+    rdfs:comment "A term that is still provisional" ;
+    fibo-fnd-utl-av:hasMaturityLevel fibo-fnd-utl-av:Provisional .
+
+<http://example.org/NoMaturityTerm> a owl:Class ;
+    rdfs:label "No Maturity Term" ;
+    rdfs:comment "A term without maturity level" .
+"""
+    ttl_file = tmp_path / "fibo_provisional.ttl"
+    ttl_file.write_text(ttl_content)
+    return str(ttl_file)
+
+
+@pytest.fixture
+def fibo_with_named_individual_ttl(tmp_path):
+    """Create a FIBO-style RDF file with NamedIndividual."""
+    ttl_content = """@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<http://example.org/AccountType> a owl:NamedIndividual ;
+    rdfs:label "Account Type" ;
+    rdfs:comment "A type of account in the system" .
+
+<http://example.org/ClassTerm> a owl:Class ;
+    rdfs:label "Class Term" ;
+    rdfs:comment "A term that is an OWL Class" .
+"""
+    ttl_file = tmp_path / "fibo_named_individual.ttl"
+    ttl_file.write_text(ttl_content)
+    return str(ttl_file)
+
+
+@pytest.mark.integration
+def test_fibo_exclude_provisional_terms(
+    fibo_with_provisional_ttl, pytestconfig, tmp_path, mock_datahub_graph_instance
+):
+    """Test that provisional terms are excluded when include_provisional is False."""
+    output_path = tmp_path / "fibo_exclude_provisional_output.json"
+    golden_path = _resources_dir / "fibo_exclude_provisional_golden.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "rdf-test-fibo-exclude-provisional",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": fibo_with_provisional_ttl,
+                    "format": "turtle",
+                    "dialect": "fibo",
+                    "include_provisional": False,
+                    "environment": "PROD",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": str(output_path),
+                },
+            },
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(golden_path),
+    )
+
+    # Verify that provisional terms are excluded
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSource
+
+    assert isinstance(pipeline.source, RDFSource)
+    # Should have extracted released term and no maturity term, but not provisional
+    # The exact count depends on the golden file, but we verify via golden file check
+
+
+@pytest.mark.integration
+def test_fibo_include_provisional_terms(
+    fibo_with_provisional_ttl, pytestconfig, tmp_path, mock_datahub_graph_instance
+):
+    """Test that provisional terms are included when include_provisional is True."""
+    output_path = tmp_path / "fibo_include_provisional_output.json"
+    golden_path = _resources_dir / "fibo_include_provisional_golden.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "rdf-test-fibo-include-provisional",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": fibo_with_provisional_ttl,
+                    "format": "turtle",
+                    "dialect": "fibo",
+                    "include_provisional": True,
+                    "environment": "PROD",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": str(output_path),
+                },
+            },
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(golden_path),
+    )
+
+    # Verify that provisional terms are included
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSource
+
+    assert isinstance(pipeline.source, RDFSource)
+    # Should have extracted all terms including provisional
+    # The exact count depends on the golden file, but we verify via golden file check
+
+
+@pytest.mark.integration
+def test_fibo_named_individual_ingestion(
+    fibo_with_named_individual_ttl, pytestconfig, tmp_path, mock_datahub_graph_instance
+):
+    """Test that NamedIndividual entities can be ingested."""
+    output_path = tmp_path / "fibo_named_individual_output.json"
+    golden_path = _resources_dir / "fibo_named_individual_golden.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "rdf-test-fibo-named-individual",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": fibo_with_named_individual_ttl,
+                    "format": "turtle",
+                    "dialect": "generic",  # Use generic to support both OWL.Class and NamedIndividual
+                    "environment": "PROD",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": str(output_path),
+                },
+            },
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(golden_path),
+    )
