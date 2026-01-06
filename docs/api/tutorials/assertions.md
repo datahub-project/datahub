@@ -25,6 +25,12 @@ This guide will show you how to create, schedule, run and delete Assertions for 
 
 The actor making API calls must have the `Edit Assertions` and `Edit Monitors` privileges for the Tables at hand.
 
+If you are using the Python examples in this guide, install the DataHub Cloud SDK extension:
+
+```bash
+pip install acryl-datahub-cloud
+```
+
 ## Create Assertions
 
 You can create new dataset Assertions to DataHub using the following APIs.
@@ -376,8 +382,8 @@ smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
 
 print(f"Created smart column assertion: {smart_column_assertion.urn}")
 
-# Create regular column metric assertion (fixed threshold)
-column_assertion = client.assertions.sync_column_metric_assertion(
+# Create regular column metric assertion (fixed threshold on aggregated metric)
+column_metric_assertion = client.assertions.sync_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="price",
     metric_type="min",
@@ -391,7 +397,48 @@ column_assertion = client.assertions.sync_column_metric_assertion(
     enabled=True
 )
 
-print(f"Created column assertion: {column_assertion.urn}")
+print(f"Created column metric assertion: {column_metric_assertion.urn}")
+
+# ----------------------------
+# Column value assertions (row-level checks)
+# ----------------------------
+
+# Example 1: Simple email validation with regex pattern
+# Validates that all email values match a valid email format
+email_regex_assertion = client.assertions.sync_column_value_assertion(
+    dataset_urn=dataset_urn,
+    column_name="email",
+    operator="regex_match",
+    criteria_parameters=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+)
+
+print(f"Created email regex assertion: {email_regex_assertion.urn}")
+
+# Example 2: Detailed column value assertion with all parameters
+# Validates individual row values in a column against semantic constraints
+column_value_assertion = client.assertions.sync_column_value_assertion(
+    dataset_urn=dataset_urn,
+    column_name="quantity",
+    display_name="Quantity Positive Check",
+    # Operator applied to each row's value (e.g., "greater_than", "between", "regex_match", "not_null")
+    operator="greater_than",
+    criteria_parameters=0,  # Each quantity must be > 0
+    # Optional: Apply a transform before validation (currently supports "length" for strings)
+    # transform="length",
+    # Fail threshold configuration
+    fail_threshold_type="count",  # How to count failures: "count" (absolute number) or "percentage"
+    fail_threshold_value=0,  # Assertion fails if this many rows fail (0 = zero tolerance)
+    # Whether to exclude null values from validation
+    exclude_nulls=True,
+    # Evaluation schedule - how often to check
+    schedule="0 */4 * * *",  # Every 4 hours (cron format)
+    # Tags for grouping and categorization
+    tags=["automated", "column_quality", "value_validation"],
+    # Enable the assertion
+    enabled=True
+)
+
+print(f"Created column value assertion: {column_value_assertion.urn}")
 ```
 
 </TabItem>
@@ -442,6 +489,35 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
+---
+
+To create a new **smart SQL** assertion (AI anomaly detection), use the same mutation with `inferWithAI: true`.
+
+```graphql
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC
+      description: "<description of the smart SQL assertion>"
+      statement: "<SQL query to be evaluated>"
+      inferWithAI: true
+      inferenceSettings: { sensitivity: { level: 5 } }
+      # Placeholder operator and parameters (AI will infer actual thresholds)
+      operator: GREATER_THAN_OR_EQUAL_TO
+      parameters: { value: { value: "0", type: NUMBER } }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
 </TabItem>
 <TabItem value="python" label="Python">
 
@@ -483,6 +559,28 @@ range_sql_assertion = client.assertions.sync_sql_assertion(
 )
 
 print(f"Created range SQL assertion: {range_sql_assertion.urn}")
+
+# ----------------------------
+# Smart SQL assertions (AI anomaly detection)
+# ----------------------------
+
+smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Smart Revenue Monitor",
+    # The SQL statement to evaluate - should return a single numeric value
+    statement="SELECT SUM(revenue) FROM database.schema.table WHERE date >= CURRENT_DATE - INTERVAL '1 day'",
+    # AI sensitivity setting
+    sensitivity="medium",  # options: "low", "medium", "high"
+    # Evaluation schedule
+    schedule="0 */6 * * *",  # Every 6 hours
+    # Optional: training data lookback
+    training_data_lookback_days=60,
+    # Tags
+    tags=["automated", "revenue", "smart_sql"],
+    enabled=True
+)
+
+print(f"Created smart SQL assertion: {smart_sql_assertion.urn}")
 ```
 
 </TabItem>
@@ -530,6 +628,75 @@ This API will return a unique identifier (URN) for the new assertion if you were
   },
   "extensions": {}
 }
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+# Initialize the client
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# Create schema assertion with exact match compatibility
+dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+
+schema_assertion = client.assertions.sync_schema_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Expected Schema Check",
+    # Compatibility mode - how strictly to match the schema
+    compatibility="EXACT_MATCH",  # options: "EXACT_MATCH", "SUPERSET", "SUBSET"
+    # Expected schema fields
+    fields=[
+        {"path": "id", "type": "STRING"},
+        {"path": "count", "type": "NUMBER"},
+        {"path": "created_at", "type": "TIME"},
+        {"path": "is_active", "type": "BOOLEAN"},
+    ],
+    # Tags for grouping
+    tags=["automated", "schema", "data_quality"],
+    # Enable the assertion
+    enabled=True
+)
+
+print(f"Created schema assertion: {schema_assertion.urn}")
+
+# Create schema assertion with superset compatibility
+# (actual schema must contain at least these fields, but can have more)
+superset_assertion = client.assertions.sync_schema_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Required Fields Check",
+    compatibility="SUPERSET",
+    fields=[
+        {"path": "id", "type": "STRING"},
+        {"path": "name", "type": "STRING"},
+    ],
+    # Evaluation schedule
+    schedule="0 */6 * * *",  # Every 6 hours
+    tags=["automated", "schema", "required_fields"],
+    enabled=True
+)
+
+print(f"Created superset schema assertion: {superset_assertion.urn}")
+
+# Create schema assertion with native type specification
+detailed_schema_assertion = client.assertions.sync_schema_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Detailed Schema Validation",
+    compatibility="EXACT_MATCH",
+    fields=[
+        {"path": "id", "type": "STRING", "native_type": "VARCHAR(255)"},
+        {"path": "amount", "type": "NUMBER", "native_type": "DECIMAL(10,2)"},
+        {"path": "metadata", "type": "STRUCT"},
+        {"path": "metadata.key", "type": "STRING"},
+        {"path": "tags", "type": "ARRAY"},
+    ],
+    enabled=True
+)
+
+print(f"Created detailed schema assertion: {detailed_schema_assertion.urn}")
 ```
 
 </TabItem>
