@@ -1,5 +1,5 @@
 [tools]
 java = "17"
-node = "23"
+node = "22"
 python = "3.11"
 yarn = "latest"
