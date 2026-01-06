@@ -1,0 +1,9 @@
+[tools]
+java = "17"
+node = "23"
+pre-commit = "latest"
+python = "3.11"
+yarn = "latest"
+
+[env]
+_.python.venv = { path = ".virtualenvs/datahub-oss", create = true, uv_create_args = ['--seed'] }
