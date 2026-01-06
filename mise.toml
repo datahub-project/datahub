@@ -1,7 +1,6 @@
 [tools]
 java = "17"
 node = "23"
-pre-commit = "latest"
 python = "3.11"
 yarn = "latest"
 
