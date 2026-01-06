@@ -33,7 +33,7 @@ brew install --cask docker
 ### Option 2: Using mise
 
 Alternatively you can use [mise en place](https://mise.jdx.dev/) for managing tool installation.
-You can use the existing [mise.toml](../mise.toml) file in the repository and let mise manage the tool versions.
+You can see the existing mise.toml file in the repository and let mise manage the tool versions.
 
 You can install mise cli by following the instructions on https://mise.jdx.dev/getting-started.html
 
