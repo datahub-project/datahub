@@ -89,15 +89,15 @@ jobs:
           VARIANTS="[]"
 
           if [ "$BUILD_WOLFI" = "true" ]; then
-            VARIANTS=$(echo "$VARIANTS" | jq '. + [{"name": "wolfi", "variant": "locked-wolfi", "suffix": "-locked-wolfi"}]')
+            VARIANTS=$(echo "$VARIANTS" | jq -c '. + [{"name": "wolfi", "variant": "locked-wolfi", "suffix": "-locked-wolfi"}]')
           fi
 
           if [ "$BUILD_UBUNTU" = "true" ]; then
-            VARIANTS=$(echo "$VARIANTS" | jq '. + [{"name": "ubuntu", "variant": "slim", "suffix": "-slim"}]')
+            VARIANTS=$(echo "$VARIANTS" | jq -c '. + [{"name": "ubuntu", "variant": "slim", "suffix": "-slim"}]')
           fi
 
           if [ "$BUILD_ALPINE" = "true" ]; then
-            VARIANTS=$(echo "$VARIANTS" | jq '. + [{"name": "alpine", "variant": "slim-alpine", "suffix": "-slim-alpine"}]')
+            VARIANTS=$(echo "$VARIANTS" | jq -c '. + [{"name": "alpine", "variant": "slim-alpine", "suffix": "-slim-alpine"}]')
           fi
 
           echo "matrix={\"include\":$VARIANTS}" >> "$GITHUB_OUTPUT"
