@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
+import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -45,13 +46,7 @@ public class StructuredPropertyMappingBuilder {
               StructuredPropertyDefinition definition = pair.getValue();
               return definition.getEntityTypes() != null
                   && definition.getEntityTypes().stream()
-                      .anyMatch(
-                          urn -> {
-                            // Extract entity type name from URN like "urn:li:entityType:dataset"
-                            String urnString = urn.toString();
-                            String[] parts = urnString.split(":");
-                            return parts.length > 3 && parts[3].equals(entityType);
-                          });
+                      .anyMatch(entityTypeUrn -> entityTypeMatches(entityTypeUrn, entityType));
             })
         .forEach(
             pair -> {
