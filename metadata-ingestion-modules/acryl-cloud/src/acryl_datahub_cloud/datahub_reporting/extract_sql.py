@@ -4,10 +4,14 @@ import shutil
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Literal, Optional
 
 import boto3
+from botocore.exceptions import ClientError
 from pydantic import field_validator
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.service_resource import ObjectSummary
 
 from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
     DataHubBasedS3Dataset,
@@ -42,26 +46,36 @@ class DataHubReportingExtractSQLSourceConfig(ConfigModel):
     server: Optional[DatahubClientConfig] = None
     sql_backup_config: S3ClientConfig
     extract_sql_store: FileStoreBackedDatasetConfig
+    # Maximum size (in bytes) of files to stream from S3 per batch using chunked streaming.
+    # Files are streamed in 8MB chunks directly from S3 to ZIP without writing to disk, processing
+    # files in batches to limit peak memory usage. This prevents both disk pressure and excessive
+    # memory consumption during batch processing.
+    # Default: 5GB (5 * 1024 * 1024 * 1024 bytes)
+    batch_size_bytes: int = 5 * 1024 * 1024 * 1024
 
     @field_validator("extract_sql_store", mode="before")
     @classmethod
     def set_default_extract_soft_delete_flag(cls, v):
-        if v is not None:
-            if "dataset_registration_spec" not in v:
-                v["dataset_registration_spec"] = DatasetRegistrationSpec(
-                    soft_deleted=False
-                )
-            elif "soft_deleted" not in v["dataset_registration_spec"]:
-                v["dataset_registration_spec"]["soft_deleted"] = False
+        if v is None:
+            return v
 
-            if "file" not in v:
-                default_config = FileStoreBackedDatasetConfig.dummy()
-                v["file"] = (
-                    f"{default_config.file_name}.{default_config.file_extension}"
-                )
-            else:
-                v["file_name"] = v["file"].split(".")[0]
-                v["file_extension"] = v["file"].split(".")[-1]
+        # If v is already a FileStoreBackedDatasetConfig object, skip dict-based modifications
+        if isinstance(v, FileStoreBackedDatasetConfig):
+            return v
+
+        # v is a dictionary - apply default values
+        if "dataset_registration_spec" not in v:
+            v["dataset_registration_spec"] = DatasetRegistrationSpec(soft_deleted=False)
+        elif "soft_deleted" not in v["dataset_registration_spec"]:
+            v["dataset_registration_spec"]["soft_deleted"] = False
+
+        if "file" not in v:
+            default_config = FileStoreBackedDatasetConfig.dummy()
+            v["file"] = f"{default_config.file_name}.{default_config.file_extension}"
+        else:
+            v["file_name"] = v["file"].split(".")[0]
+            v["file_extension"] = v["file"].split(".")[-1]
+
         return v
 
 
@@ -167,19 +181,16 @@ class DataHubReportingExtractSQLSource(Source):
 
             self._clean_up_old_state(state_directory=tmp_dir)
 
-            files_downloaded: bool = self._download_files(
+            files_downloaded: bool = self._download_and_zip_in_batches(
                 bucket=self.config.sql_backup_config.bucket,
                 prefix=bucket_prefix,
-                target_dir=f"{tmp_dir}/download/",
+                batch_dir=f"{tmp_dir}/download/",
+                output_zip=f"{tmp_dir}/{output_file}",
+                batch_size_bytes=self.config.batch_size_bytes,
             )
             if not files_downloaded:
                 logger.warning(f"Skipping as no files were found in {bucket_prefix}")
                 return
-
-            self._zip_folder(
-                folder_path=f"{tmp_dir}/download",
-                output_file=f"{tmp_dir}/{output_file}",
-            )
 
             # Compute profile & schema information, this is based on the parquet files that were downloaded and not the zip file.
             # We must hard-code the local file from which the dataset will be created, otherwise the upload to s3 will be in
@@ -211,40 +222,219 @@ class DataHubReportingExtractSQLSource(Source):
         path = Path(f"{state_directory}/download/")
         path.mkdir(parents=True, exist_ok=True)
 
-    def _download_files(self, bucket: str, prefix: str, target_dir: str) -> bool:
-        objects = boto3.resource("s3").Bucket(bucket).objects.filter(Prefix=prefix)
+    @staticmethod
+    def _stream_file_to_zip_from_local(
+        local_file_path: str,
+        zipf: zipfile.ZipFile,
+        file_name: str,
+        chunk_size: int,
+    ) -> None:
+        """Stream file from local disk to ZIP using chunked reads."""
+        with (
+            open(local_file_path, "rb") as local_file,
+            zipf.open(file_name, "w") as zip_entry,
+        ):
+            while True:
+                chunk = local_file.read(chunk_size)
+                if not chunk:
+                    break
+                zip_entry.write(chunk)
 
-        files_downloaded = False
+    def _stream_file_to_zip_from_s3(
+        self,
+        bucket: str,
+        file_key: str,
+        zipf: zipfile.ZipFile,
+        file_name: str,
+        chunk_size: int,
+    ) -> None:
+        """Stream file from S3 to ZIP using chunked reads."""
+        s3_response = self.s3_client.get_object(Bucket=bucket, Key=file_key)
+        body_stream = s3_response["Body"]
 
-        # Iterate over objects in the time partition path
-        for obj in objects:
-            # Extract file key
-            file_key = obj.key
-
-            # Generate local file path
-            local_file_path = os.path.join(
-                os.getcwd(), target_dir, os.path.basename(file_key)
-            )
-
-            logger.info(f"Downloading s3://{bucket}/{file_key} to {local_file_path}")
-
-            # Download file from S3
-            self.s3_client.download_file(bucket, file_key, local_file_path)
-
-            files_downloaded = True
-
-        return files_downloaded
+        with zipf.open(file_name, "w") as zip_entry:
+            while True:
+                chunk = body_stream.read(chunk_size)
+                if not chunk:
+                    break
+                zip_entry.write(chunk)
 
     @staticmethod
-    def _zip_folder(folder_path: str, output_file: str) -> None:
-        logger.info(f"Zipping {folder_path} to {output_file}")
-        with zipfile.ZipFile(output_file, "x", zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(folder_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    logger.info(f"Adding {file_path} to ZIP file")
-                    # Add file to zip archive with relative path
-                    zipf.write(file_path, os.path.relpath(file_path, folder_path))
+    def _group_objects_into_batches(
+        objects: List["ObjectSummary"], batch_size_bytes: int
+    ) -> List[List["ObjectSummary"]]:
+        """
+        Group S3 objects into batches based on cumulative size.
+
+        Files larger than batch_size_bytes get their own batch.
+        """
+        batches: List[List["ObjectSummary"]] = []
+        current_batch: List["ObjectSummary"] = []
+        current_batch_size = 0
+
+        for obj in objects:
+            obj_size = obj.size
+
+            # If file is larger than batch size, give it its own batch
+            if obj_size > batch_size_bytes:
+                if current_batch:
+                    batches.append(current_batch)
+                    current_batch = []
+                    current_batch_size = 0
+
+                batches.append([obj])  # Solo batch for large file
+                logger.warning(
+                    f"File {obj.key} ({obj_size / (1024**2):.2f} MB) exceeds batch size "
+                    f"({batch_size_bytes / (1024**2):.2f} MB), processing in separate batch"
+                )
+                continue
+
+            # If adding this file would exceed batch size, start a new batch
+            if (
+                current_batch_size > 0
+                and current_batch_size + obj_size > batch_size_bytes
+            ):
+                batches.append(current_batch)
+                current_batch = []
+                current_batch_size = 0
+
+            current_batch.append(obj)
+            current_batch_size += obj_size
+
+        # Add the last batch if it has files
+        if current_batch:
+            batches.append(current_batch)
+
+        return batches
+
+    def _download_and_zip_in_batches(
+        self,
+        bucket: str,
+        prefix: str,
+        batch_dir: str,
+        output_zip: str,
+        batch_size_bytes: int,
+    ) -> bool:
+        """
+        Stream files from S3 directly into ZIP using chunked streaming, processing in batches to limit memory usage.
+
+        Downloads the first file to batch_dir for schema/profile computation, then streams all files to ZIP
+        using 8MB chunks to ensure constant memory usage regardless of individual file sizes.
+
+        Args:
+            bucket: S3 bucket name
+            prefix: S3 prefix to filter objects
+            batch_dir: Local directory for temporary sample file download (for schema computation)
+            output_zip: Output ZIP file path
+            batch_size_bytes: Maximum total size of files to stream in each batch before flushing
+
+        Returns:
+            True if any files were processed, False otherwise
+        """
+        s3_resource = boto3.resource("s3")
+        objects = list(s3_resource.Bucket(bucket).objects.filter(Prefix=prefix))
+
+        if not objects:
+            return False
+
+        logger.info(
+            f"Found {len(objects)} files in s3://{bucket}/{prefix}, streaming in batches of up to {batch_size_bytes / (1024**2):.2f} MB"
+        )
+
+        # Download first file to batch_dir for schema/profile computation
+        # This is required by register_dataset() which needs a local parquet file to generate schema
+        os.makedirs(batch_dir, exist_ok=True)
+        first_obj = objects[0]
+        sample_file_path = os.path.join(batch_dir, os.path.basename(first_obj.key))
+
+        try:
+            logger.info(
+                f"Downloading first file s3://{bucket}/{first_obj.key} ({first_obj.size / (1024**2):.2f} MB) "
+                f"to {sample_file_path} for schema computation"
+            )
+            self.s3_client.download_file(bucket, first_obj.key, sample_file_path)
+        except ClientError as e:
+            logger.error(f"Failed to download first file for schema computation: {e}")
+            raise RuntimeError(
+                f"Cannot compute schema without at least one sample file: {e}"
+            ) from e
+
+        # Group objects into batches based on cumulative size
+        batches = self._group_objects_into_batches(objects, batch_size_bytes)
+        logger.info(f"Split {len(objects)} files into {len(batches)} batches")
+
+        # Track whether we've processed the first file to avoid downloading it twice
+        first_obj_processed = False
+
+        # Process each batch: stream from S3 directly to ZIP using chunked reads
+        zip_mode: Literal["x", "a"] = "x"  # Create new file for first batch
+        chunk_size = 8 * 1024 * 1024  # 8MB chunks for constant memory usage
+
+        for batch_idx, batch in enumerate(batches):
+            batch_size_mb = sum(obj.size for obj in batch) / (1024 * 1024)
+            logger.info(
+                f"Processing batch {batch_idx + 1}/{len(batches)} with {len(batch)} files ({batch_size_mb:.2f} MB)"
+            )
+
+            # Stream files from S3 directly into ZIP using chunked reads
+            with zipfile.ZipFile(output_zip, zip_mode, zipfile.ZIP_DEFLATED) as zipf:
+                for obj in batch:
+                    file_key = obj.key
+
+                    # Preserve S3 path structure in ZIP to avoid filename collisions
+                    # Strip only the common prefix, keep subdirectories
+                    relative_path = file_key[len(prefix) :].lstrip("/")
+                    file_name = (
+                        relative_path if relative_path else os.path.basename(file_key)
+                    )
+
+                    try:
+                        # If this is the first file and we already downloaded it, reuse local copy
+                        if not first_obj_processed and file_key == first_obj.key:
+                            logger.info(
+                                f"Adding {file_name} ({obj.size / (1024**2):.2f} MB) to ZIP from local file "
+                                f"(already downloaded for schema computation)"
+                            )
+                            self._stream_file_to_zip_from_local(
+                                sample_file_path, zipf, file_name, chunk_size
+                            )
+                            first_obj_processed = True
+                        else:
+                            # Stream from S3 using chunked reads for constant memory usage
+                            logger.info(
+                                f"Streaming {file_name} ({obj.size / (1024**2):.2f} MB) from S3 using chunked reads"
+                            )
+                            self._stream_file_to_zip_from_s3(
+                                bucket, file_key, zipf, file_name, chunk_size
+                            )
+
+                        logger.info(f"Added {file_name} to ZIP file")
+
+                    except ClientError as e:
+                        logger.error(f"Failed to stream s3://{bucket}/{file_key}: {e}")
+                        raise RuntimeError(
+                            f"Failed to stream file {file_key} from S3: {e}"
+                        ) from e
+                    except Exception as e:
+                        logger.error(
+                            f"Unexpected error processing s3://{bucket}/{file_key}: {e}"
+                        )
+                        raise RuntimeError(
+                            f"Failed to process file {file_key}: {e}"
+                        ) from e
+
+            # After first batch, switch to append mode for subsequent batches
+            zip_mode = "a"
+
+            logger.info(
+                f"Batch {batch_idx + 1}/{len(batches)} complete, streamed {len(batch)} files"
+            )
+
+        total_size_mb = sum(obj.size for obj in objects) / (1024 * 1024)
+        logger.info(
+            f"Successfully streamed all {len(objects)} files ({total_size_mb:.2f} MB) across {len(batches)} batches"
+        )
+        return True
 
     def get_report(self) -> SourceReport:
         return self.report
