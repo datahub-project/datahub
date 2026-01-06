@@ -10,6 +10,7 @@ import {
     useMoveDocumentMutation,
     useUpdateDocumentContentsMutation,
 } from '@graphql/document.generated';
+import { DocumentState } from '@types';
 
 /**
  * Hooks that combine tree state updates with backend mutations.
@@ -51,7 +52,9 @@ export function useCreateDocumentTreeMutation() {
                             title: input.title,
                             parentDocument: input.parentDocument,
                             subType: input.subType, // No default subType - let users choose
+                            state: DocumentState.Published, // UI-created documents are published by default
                             contents: { text: '' }, // Empty initial content
+                            settings: { showInGlobalContext: true }, // UI-created documents are always visible in global context
                         },
                     },
                 });
@@ -218,19 +221,16 @@ export function useDeleteDocumentTreeMutation() {
 
     const deleteDocument = useCallback(
         async (urn: string) => {
-            // Get node for rollback
+            // Get node for rollback (may be null if document isn't in tree, e.g., opened in modal)
             const node = getNode(urn);
 
-            if (!node) {
-                console.error('Document not found in tree:', urn);
-                return false;
+            // 1. Optimistically update tree state (only if node exists in tree)
+            if (node) {
+                deleteNode(urn);
             }
 
-            // 1. Optimistically update tree state
-            deleteNode(urn);
-
             try {
-                // 2. Call backend mutation
+                // 2. Call backend mutation (always call, even if not in tree)
                 const result = await deleteDocumentMutation({
                     variables: { urn },
                 });
@@ -251,8 +251,10 @@ export function useDeleteDocumentTreeMutation() {
                 console.error('Failed to delete document:', error);
                 message.error('Failed to delete document');
 
-                // 3. Rollback on error
-                addNode(node);
+                // 3. Rollback on error (only if node was in tree)
+                if (node) {
+                    addNode(node);
+                }
 
                 return false;
             }

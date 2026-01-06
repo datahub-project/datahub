@@ -1,7 +1,7 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -9,7 +9,8 @@
             "customProperties": {
                 "platform": "grafana",
                 "instance": "local-grafana",
-                "dashboard_id": "default"
+                "dashboard_id": "default",
+                "folder_id": "0"
             },
             "name": "Test Integration Dashboard",
             "description": "A comprehensive test dashboard for integration testing with various panel types and data sources"
@@ -22,24 +23,8 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -56,7 +41,81 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                },
+                {
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -73,18 +132,22 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                }
-            ]
+            "customProperties": {
+                "type": "postgres",
+                "datasource_uid": "test-postgres",
+                "panel_id": "2",
+                "dashboard_uid": "default",
+                "dashboard_title": "Test Integration Dashboard"
+            },
+            "name": "Response Times by Dimension",
+            "description": "Grafana panel 'Response Times by Dimension' in dashboard 'Test Integration Dashboard' using datasource test-postgres",
+            "tags": []
         }
     },
     "systemMetadata": {
@@ -111,8 +174,84 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n  time,\n  value,\n  dimension\nFROM test_metrics\nWHERE\n  metric = 'response_time' AND time > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'\nORDER BY\n  time ASC",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
+                },
+                {
+                    "tag": "urn:li:tag:integration-test"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -159,128 +298,8 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:test-tag"
-                },
-                {
-                    "tag": "urn:li:tag:integration-test"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:grafana",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "type": "postgres",
-                "uid": "test-postgres",
-                "full_path": "postgres.test-postgres.2"
-            },
-            "name": "test-postgres (Response Times by Dimension)",
-            "description": "",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -362,316 +381,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:test-tag"
-                },
-                {
-                    "tag": "urn:li:tag:integration-test"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:grafana",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "type": "timeseries",
-                "datasourceType": "postgres",
-                "datasourceUid": "test-postgres",
-                "description": "Response times tracked across different dimensions",
-                "targetsCount": "1"
-            },
-            "title": "Response Times by Dimension",
-            "description": "Response times tracked across different dimensions",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "chartUrl": "http://localhost:3000/d/default?viewPanel=2",
-            "inputs": [
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)"
-                }
-            ],
-            "type": "LINE"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:test-tag"
-                },
-                {
-                    "tag": "urn:li:tag:integration-test"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),value)",
-                    "schemaField": {
-                        "fieldPath": "value",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "value",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),time)",
-                    "schemaField": {
-                        "fieldPath": "time",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NullType": {}
-                            }
-                        },
-                        "nativeDataType": "",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),value)",
-                    "schemaField": {
-                        "fieldPath": "value",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NullType": {}
-                            }
-                        },
-                        "nativeDataType": "",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),dimension)",
-                    "schemaField": {
-                        "fieldPath": "dimension",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NullType": {}
-                            }
-                        },
-                        "nativeDataType": "",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),time)",
-                    "schemaField": {
-                        "fieldPath": "time",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.TimeType": {}
-                            }
-                        },
-                        "nativeDataType": "timestamp",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD),value_ms)",
-                    "schemaField": {
-                        "fieldPath": "value_ms",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "value",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -688,18 +398,20 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "type": "postgres",
-                "uid": "test-postgres",
-                "full_path": "postgres.test-postgres.4"
+                "datasource_uid": "test-postgres",
+                "panel_id": "4",
+                "dashboard_uid": "default",
+                "dashboard_title": "Test Integration Dashboard"
             },
-            "name": "test-postgres (Recent Metrics)",
-            "description": "",
+            "name": "Recent Metrics",
+            "description": "Grafana panel 'Recent Metrics' in dashboard 'Test Integration Dashboard' using datasource test-postgres",
             "tags": []
         }
     },
@@ -710,8 +422,107 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
+                },
+                {
+                    "tag": "urn:li:tag:integration-test"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n  time,\n  metric,\n  value,\n  dimension\nFROM test_metrics\nWHERE\n  time > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'\nORDER BY\n  time DESC\nLIMIT 10",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
+                },
+                {
+                    "tag": "urn:li:tag:integration-test"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -726,8 +537,24 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -809,7 +636,90 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "postgres",
+                "datasource_uid": "test-postgres",
+                "panel_id": "5",
+                "dashboard_uid": "default",
+                "dashboard_title": "Test Integration Dashboard"
+            },
+            "name": "Total Metrics Count",
+            "description": "Grafana panel 'Total Metrics Count' in dashboard 'Test Integration Dashboard' using datasource test-postgres",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -832,12 +742,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -847,8 +757,8 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.1)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -859,8 +769,546 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "postgres.test-postgres.5",
+            "platform": "urn:li:dataPlatform:grafana",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "count",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "time",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "timestamp",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n  COUNT(*) AS count\nFROM test_metrics\nWHERE\n  time > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View",
+                "Grafana Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "rate(process_cpu_seconds_total[5m])",
+            "viewLanguage": "PromQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                },
+                {
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                },
+                {
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                },
+                {
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "timeseries",
+                "datasourceType": "postgres",
+                "datasourceUid": "test-postgres",
+                "description": "Response times tracked across different dimensions",
+                "targetsCount": "1"
+            },
+            "title": "Response Times by Dimension",
+            "description": "Response times tracked across different dimensions",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://localhost:3000/d/default?viewPanel=2",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD)"
+                }
+            ],
+            "type": "LINE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
+                },
+                {
+                    "tag": "urn:li:tag:integration-test"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD),value)",
+                    "schemaField": {
+                        "fieldPath": "value",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "value",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD),time)",
+                    "schemaField": {
+                        "fieldPath": "time",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD),value)",
+                    "schemaField": {
+                        "fieldPath": "value",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD),dimension)",
+                    "schemaField": {
+                        "fieldPath": "dimension",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD),time)",
+                    "schemaField": {
+                        "fieldPath": "time",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.TimeType": {}
+                            }
+                        },
+                        "nativeDataType": "timestamp",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.2,PROD),value_ms)",
+                    "schemaField": {
+                        "fieldPath": "value_ms",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "value",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(grafana,local-grafana.default.2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                },
+                {
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
             ]
         }
@@ -933,7 +1381,7 @@
             "chartUrl": "http://localhost:3000/d/default?viewPanel=4",
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD)"
                 }
             ],
             "type": "TABLE"
@@ -977,7 +1425,7 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),metric)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),metric)",
                     "schemaField": {
                         "fieldPath": "metric",
                         "nullable": false,
@@ -992,7 +1440,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),value)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),value)",
                     "schemaField": {
                         "fieldPath": "value",
                         "nullable": false,
@@ -1007,7 +1455,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),dimension)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),dimension)",
                     "schemaField": {
                         "fieldPath": "dimension",
                         "nullable": false,
@@ -1022,7 +1470,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),time)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),time)",
                     "schemaField": {
                         "fieldPath": "time",
                         "nullable": false,
@@ -1037,7 +1485,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),metric)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),metric)",
                     "schemaField": {
                         "fieldPath": "metric",
                         "nullable": false,
@@ -1052,7 +1500,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),value)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),value)",
                     "schemaField": {
                         "fieldPath": "value",
                         "nullable": false,
@@ -1067,7 +1515,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),dimension)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),dimension)",
                     "schemaField": {
                         "fieldPath": "dimension",
                         "nullable": false,
@@ -1082,7 +1530,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),time)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),time)",
                     "schemaField": {
                         "fieldPath": "time",
                         "nullable": false,
@@ -1097,7 +1545,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD),value)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.4,PROD),value)",
                     "schemaField": {
                         "fieldPath": "value",
                         "nullable": false,
@@ -1127,7 +1575,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
         }
     },
     "systemMetadata": {
@@ -1149,186 +1597,12 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:grafana",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "type": "postgres",
-                "uid": "test-postgres",
-                "full_path": "postgres.test-postgres.5"
-            },
-            "name": "test-postgres (Total Metrics Count)",
-            "description": "",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "postgres.test-postgres.5",
-            "platform": "urn:li:dataPlatform:grafana",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": ""
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "count",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
                 },
                 {
-                    "fieldPath": "time",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.TimeType": {}
-                        }
-                    },
-                    "nativeDataType": "timestamp",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:test-tag"
-                },
-                {
-                    "tag": "urn:li:tag:integration-test"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
             ]
         }
@@ -1401,7 +1675,7 @@
             "chartUrl": "http://localhost:3000/d/default?viewPanel=5",
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD)"
                 }
             ],
             "type": "TEXT"
@@ -1437,6 +1711,48 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "prometheus",
+                "datasource_uid": "test-prometheus",
+                "panel_id": "6",
+                "dashboard_uid": "default",
+                "dashboard_title": "Test Integration Dashboard"
+            },
+            "name": "System Metrics",
+            "description": "Grafana panel 'System Metrics' in dashboard 'Test Integration Dashboard' using datasource test-prometheus",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(grafana,local-grafana.default.5)",
     "changeType": "UPSERT",
@@ -1445,7 +1761,7 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD),count)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD),count)",
                     "schemaField": {
                         "fieldPath": "count",
                         "nullable": false,
@@ -1460,7 +1776,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD),count)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD),count)",
                     "schemaField": {
                         "fieldPath": "count",
                         "nullable": false,
@@ -1475,7 +1791,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD),time)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.default.5,PROD),time)",
                     "schemaField": {
                         "fieldPath": "time",
                         "nullable": false,
@@ -1505,7 +1821,46 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:test-tag"
+                },
+                {
+                    "tag": "urn:li:tag:integration-test"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -1527,8 +1882,12 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
             ]
         }
@@ -1541,63 +1900,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:grafana",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "type": "prometheus",
-                "uid": "test-prometheus",
-                "full_path": "prometheus.test-prometheus.6"
-            },
-            "name": "test-prometheus (System Metrics)",
-            "description": "",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -1654,70 +1957,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:test-tag"
-                },
-                {
-                    "tag": "urn:li:tag:integration-test"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
     "changeType": "UPSERT",
@@ -1735,6 +1974,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
     "changeType": "UPSERT",
@@ -1742,6 +1997,31 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:prometheus,local.test-prometheus,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1779,7 +2059,7 @@
             "chartUrl": "http://localhost:3000/d/default?viewPanel=6",
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)"
                 }
             ],
             "type": "LINE"
@@ -1815,6 +2095,35 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
+                },
+                {
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(grafana,local-grafana.default.6)",
     "changeType": "UPSERT",
@@ -1823,7 +2132,7 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD),CPU Usage)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD),CPU Usage)",
                     "schemaField": {
                         "fieldPath": "CPU Usage",
                         "nullable": false,
@@ -1838,7 +2147,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD),Memory Usage)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.default.6,PROD),Memory Usage)",
                     "schemaField": {
                         "fieldPath": "Memory Usage",
                         "nullable": false,
@@ -1868,7 +2177,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
         }
     },
     "systemMetadata": {
@@ -1890,108 +2199,12 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
                 {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.4,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.postgres.test-postgres.5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,local.grafana.test-postgres,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:grafana,local-grafana.prometheus.test-prometheus.6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:prometheus,local.test-prometheus,PROD)",
-                    "type": "TRANSFORMED"
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
             ]
         }
@@ -2066,32 +2279,6 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
     "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:default",
-                    "type": "TECHNICAL_OWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
-    "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
         "json": {
@@ -2134,7 +2321,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+            "container": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
         }
     },
     "systemMetadata": {
@@ -2156,8 +2343,12 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:ae0ac23df7f392b003891eb008eea810",
-                    "urn": "urn:li:container:ae0ac23df7f392b003891eb008eea810"
+                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
+                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
+                },
+                {
+                    "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
+                    "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
             ]
         }
@@ -2192,6 +2383,32 @@
     "aspect": {
         "json": {
             "name": "test-tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:Anonymous",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {

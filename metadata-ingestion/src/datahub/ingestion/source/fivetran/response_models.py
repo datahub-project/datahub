@@ -1,50 +1,37 @@
 import datetime
-from typing import Dict, List
+from typing import Optional
 
-from pydantic import BaseModel
-
-
-class FivetranConnectionWarnings(BaseModel):
-    code: str  # Warning Code
-    message: str  # Warning Message
-    details: Dict  # Warning Details
-
-
-class FivetranConnectionStatus(BaseModel):
-    setup_state: str  # Setup State
-    schema_status: str  # Schema Status
-    sync_state: str  # Sync State
-    update_state: str  # Update State
-    is_historical_sync: bool  # Is Historical Sync
-    warnings: List[FivetranConnectionWarnings]  # Warnings
+from pydantic import BaseModel, ConfigDict
 
 
 class FivetranConnectionConfig(BaseModel):
-    # Note: Connection Config is different for different connectors
+    """Connection config for Google Sheets connector."""
+
+    model_config = ConfigDict(extra="ignore")
+
     auth_type: str  # Auth Type
     sheet_id: str  # Sheet ID - URL to the Google Sheet
     named_range: str  # Named Range
 
 
-class FivetranConnectionSourceSyncDetails(BaseModel):
-    last_synced: datetime.datetime  # Last Synced
-
-
 class FivetranConnectionDetails(BaseModel):
     """
-    Note: This reponse class only captures fields that are relevant to the Google Sheets Connector
+    Note: This response class only captures fields that are relevant to the Google Sheets Connector.
+    Extra fields from the API response are ignored via ConfigDict.
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     id: str  # Source ID
     group_id: str  # Destination ID
     service: str  # Connector Type
     created_at: datetime.datetime
-    succeeded_at: datetime.datetime
+    succeeded_at: Optional[datetime.datetime] = (
+        None  # Succeeded At (may be None if connector hasn't succeeded yet)
+    )
     paused: bool  # Paused Status
     sync_frequency: int  # Sync Frequency (minutes)
-    status: FivetranConnectionStatus  # Status
     config: FivetranConnectionConfig  # Connection Config
-    source_sync_details: FivetranConnectionSourceSyncDetails  # Source Sync Details
 
     """
     # Sample Response for Google Sheets Connector
