@@ -516,7 +516,12 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 dialect_enum = RDFDialect(self.config.dialect)
                 if dialect_enum == RDFDialect.FIBO:
-                    return FIBODialect()
+                    include_provisional = (
+                        self.config.include_provisional
+                        if hasattr(self.config, "include_provisional")
+                        else False
+                    )
+                    return FIBODialect(include_provisional=include_provisional)
                 if dialect_enum == RDFDialect.DEFAULT:
                     return DefaultDialect()
                 if dialect_enum == RDFDialect.GENERIC:
@@ -526,7 +531,12 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                     f"Invalid dialect '{self.config.dialect}', defaulting to auto-detection"
                 )
 
-        return DialectRouter()
+        include_provisional = (
+            self.config.include_provisional
+            if hasattr(self.config, "include_provisional")
+            else False
+        )
+        return DialectRouter(include_provisional=include_provisional)
 
     def _extract_glossary_terms(
         self, graph: Graph, registry: Any, context: Dict[str, Any]
@@ -651,6 +661,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             "export_only": export_only,
             "skip_export": skip_export,
             "dialect": dialect_instance,
+            "include_provisional": self.config.include_provisional,
         }
 
         # Helper to check if a CLI name should be processed

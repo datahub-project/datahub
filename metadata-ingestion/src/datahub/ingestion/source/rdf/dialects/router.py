@@ -18,15 +18,25 @@ from datahub.ingestion.source.rdf.dialects.generic import GenericDialect
 class DialectRouter(RDFDialectInterface):
     """Router that handles dialect detection and routing."""
 
-    def __init__(self, forced_dialect: Optional[RDFDialect] = None):
+    def __init__(
+        self,
+        forced_dialect: Optional[RDFDialect] = None,
+        include_provisional: bool = False,
+    ):
         """
         Initialize the dialect router.
 
         Args:
             forced_dialect: If provided, force this dialect instead of auto-detection
+            include_provisional: If True, include terms with provisional/work-in-progress status
         """
         self.forced_dialect = forced_dialect
-        self._available_dialects = [DefaultDialect(), FIBODialect(), GenericDialect()]
+        self.include_provisional = include_provisional
+        self._available_dialects = [
+            DefaultDialect(),
+            FIBODialect(include_provisional=include_provisional),
+            GenericDialect(),
+        ]
 
     @property
     def dialect_type(self) -> RDFDialect:
