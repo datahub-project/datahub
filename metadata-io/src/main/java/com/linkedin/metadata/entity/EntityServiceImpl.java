@@ -70,6 +70,8 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.AspectOperationContext;
+import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
 import com.linkedin.metadata.entity.validation.AspectValidationContext;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
@@ -1388,17 +1390,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .stream()
                     .reduce(IngestAspectsResult.EMPTY, IngestAspectsResult::combine);
 
-            // After transaction commits, process any pending deletions collected during validation
-            // This follows existing validation mechanics pattern - validation throws exceptions
-            // during transaction, they're caught, and handled after tx commits what it can.
+            return result;
+          } catch (AspectSizeExceededException e) {
+            // Aspect size validation failed during transaction. For DELETE remediation,
+            // we still need to process pending deletions that were collected before the exception.
+            // The exception will be re-thrown after processing deletions to maintain error
+            // propagation.
+            log.warn(
+                "Aspect size validation failed, will process pending deletions and re-throw: {}",
+                e.getMessage());
+            // Fall through to finally block to process deletions, then re-throw
+            throw e;
+          } finally {
+            // Process pending deletions whether transaction succeeded or failed.
+            // For DELETE remediation, this is where actual deletion happens.
+            // Must run in finally block to ensure deletions are processed even when
+            // AspectSizeExceededException is thrown during validation.
             List<AspectDeletionRequest> pendingDeletions =
                 AspectValidationContext.getPendingDeletions();
             if (!pendingDeletions.isEmpty()) {
               processPendingDeletions(opContext, pendingDeletions);
             }
 
-            return result;
-          } finally {
             // Always cleanup ThreadLocal to prevent memory leaks when thread returns to pool
             AspectValidationContext.clearPendingDeletions();
           }
@@ -1432,10 +1445,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             deletion.getAspectSize(),
             deletion.getThreshold());
 
-        // Call proper deletion through EntityService
-        // This handles all side effects: ES indices, graph edges, consumer hooks, system metadata
-        this.deleteAspect(
-            opContext, deletion.getUrn().toString(), deletion.getAspectName(), Map.of(), false);
+        // Set ThreadLocal flag to skip size validation during remediation deletion
+        // This prevents circular validation when deleting oversized aspects
+        AspectOperationContext.set("isRemediationDeletion", true);
+        try {
+          // Call proper deletion through EntityService
+          // This handles all side effects: ES indices, graph edges, consumer hooks, system metadata
+          this.deleteAspect(
+              opContext, deletion.getUrn().toString(), deletion.getAspectName(), Map.of(), false);
+        } finally {
+          // Always clear ThreadLocal to prevent memory leaks
+          AspectOperationContext.clear();
+        }
 
       } catch (Exception e) {
         log.error(

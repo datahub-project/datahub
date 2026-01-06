@@ -35,13 +35,8 @@ public class AspectSizeValidator {
   /**
    * Validates pre-patch aspect size (existing aspect from database).
    *
-   * <p>If aspect is oversized:
-   *
-   * <ul>
-   *   <li>Logs WARNING with URN, aspect name, size, and threshold
-   *   <li>For DELETE remediation: adds deletion request to ThreadLocal for later execution
-   *   <li>Throws AspectSizeExceededException to skip the aspect write
-   * </ul>
+   * <p>This is a convenience method that calls {@link #validatePrePatchSize(String, Urn, String,
+   * AspectSizeValidationConfig, java.util.Map)} with null context.
    *
    * @param rawMetadata serialized aspect JSON from database (may be null for new aspects)
    * @param urn entity URN
@@ -54,6 +49,43 @@ public class AspectSizeValidator {
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       @Nullable AspectSizeValidationConfig config) {
+    validatePrePatchSize(rawMetadata, urn, aspectName, config, null);
+  }
+
+  /**
+   * Validates pre-patch aspect size (existing aspect from database).
+   *
+   * <p>If aspect is oversized:
+   *
+   * <ul>
+   *   <li>Logs WARNING with URN, aspect name, size, and threshold
+   *   <li>For DELETE remediation: adds deletion request to ThreadLocal for later execution
+   *   <li>Throws AspectSizeExceededException to skip the aspect write
+   * </ul>
+   *
+   * @param rawMetadata serialized aspect JSON from database (may be null for new aspects)
+   * @param urn entity URN
+   * @param aspectName aspect name
+   * @param config aspect size validation configuration (may be null if validation disabled)
+   * @param context optional context map (may contain "isRemediationDeletion" flag to skip
+   *     validation)
+   * @throws AspectSizeExceededException if aspect exceeds configured size threshold
+   */
+  public static void validatePrePatchSize(
+      @Nullable String rawMetadata,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable AspectSizeValidationConfig config,
+      @Nullable java.util.Map<String, Object> context) {
+
+    // Skip validation if this is a remediation deletion to avoid circular validation
+    if (context != null && Boolean.TRUE.equals(context.get("isRemediationDeletion"))) {
+      log.debug(
+          "Skipping pre-patch size validation for remediation deletion: urn={}, aspect={}",
+          urn,
+          aspectName);
+      return;
+    }
 
     // Validation disabled
     if (config == null || config.getPrePatch() == null || !config.getPrePatch().isEnabled()) {
