@@ -2454,7 +2454,7 @@ def test_sync_sql_assertion_missing_required_params_for_creation(
     # Test missing criteria_condition
     with pytest.raises(
         SDKUsageError,
-        match="criteria_condition is required when creating a new assertion",
+        match="criteria_condition and criteria_parameters must both be provided or both omitted",
     ):
         client.sync_sql_assertion(
             dataset_urn=any_dataset_urn,
@@ -2466,7 +2466,7 @@ def test_sync_sql_assertion_missing_required_params_for_creation(
     # Test missing criteria_parameters
     with pytest.raises(
         SDKUsageError,
-        match="criteria_parameters is required when creating a new assertion",
+        match="criteria_condition and criteria_parameters must both be provided or both omitted",
     ):
         client.sync_sql_assertion(
             dataset_urn=any_dataset_urn,

@@ -11,6 +11,7 @@ from acryl_datahub_cloud.sdk.assertion_client.helpers import (
     _merge_field,
     _print_experimental_warning,
     _validate_required_field,
+    resolve_updated_by,
     retrieve_assertion_and_monitor_by_urn,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
@@ -58,12 +59,7 @@ class SmartSqlAssertionClient:
         _print_experimental_warning()
         now_utc = datetime.now(timezone.utc)
 
-        resolved_updated_by = updated_by
-        if resolved_updated_by is None:
-            logger.warning(
-                f"updated_by is not set, using {DEFAULT_CREATED_BY} as a placeholder"
-            )
-            resolved_updated_by = DEFAULT_CREATED_BY
+        resolved_updated_by = resolve_updated_by(updated_by)
 
         # Validate statement is provided for new assertions, since we can't fetch it from an existing one
         if urn is None:
@@ -152,6 +148,10 @@ class SmartSqlAssertionClient:
             schedule=schedule,
         )
 
+    # TODO: Refactoring planned - See https://github.com/acryldata/datahub-fork/pull/7585
+    # This method (lines 156-270) contains duplicated orchestration logic that exists
+    # in 7 other assertion client files. A future PR will extract this into a
+    # BaseAssertionClient with template method pattern. See PR #7585 for details.
     def _retrieve_and_merge_smart_sql_assertion_and_monitor(
         self,
         dataset_urn: Union[str, DatasetUrn],
@@ -206,15 +206,14 @@ class SmartSqlAssertionClient:
             self._retrieve_assertion_and_monitor(assertion_input)
         )
 
+        existing_assertion: Optional[SmartSqlAssertion] = None
+
         if maybe_assertion_entity and maybe_monitor_entity:
             existing_assertion = SmartSqlAssertion._from_entities(
                 maybe_assertion_entity, maybe_monitor_entity
             )
         elif maybe_assertion_entity and not maybe_monitor_entity:
-            # Create a placeholder monitor when the monitor entity is missing but assertion exists
-            monitor_mode = (
-                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
-            )
+            monitor_mode = "INACTIVE" if enabled is False else "ACTIVE"
             existing_assertion = SmartSqlAssertion._from_entities(
                 maybe_assertion_entity,
                 Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
@@ -239,12 +238,11 @@ class SmartSqlAssertionClient:
                 schedule=schedule,
             )
 
+        # At this point, existing_assertion must be set (we return early if not maybe_assertion_entity)
+        assert existing_assertion is not None
+
         # Validate dataset URN hasn't changed to prevent assertion corruption
-        if (
-            existing_assertion
-            and hasattr(existing_assertion, "dataset_urn")
-            and existing_assertion.dataset_urn != assertion_input.dataset_urn
-        ):
+        if existing_assertion.dataset_urn != assertion_input.dataset_urn:
             raise SDKUsageError(
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )

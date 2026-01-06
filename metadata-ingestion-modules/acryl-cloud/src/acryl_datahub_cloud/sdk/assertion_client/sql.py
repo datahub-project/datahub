@@ -13,6 +13,7 @@ from acryl_datahub_cloud.sdk.assertion_client.helpers import (
     _merge_field,
     _print_experimental_warning,
     _validate_required_field,
+    resolve_updated_by,
     retrieve_assertion_and_monitor_by_urn,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
@@ -51,17 +52,19 @@ class SqlAssertionClient:
     ) -> None:
         """Validate required parameters for SQL assertion creation."""
         _validate_required_field(
-            statement, "statement", "when creating a new assertion (urn is None)"
+            statement,
+            "statement",
+            "when creating a new assertion (urn is None). Provide a SQL query like 'SELECT COUNT(*) FROM table'",
         )
         _validate_required_field(
             criteria_condition,
             "criteria_condition",
-            "when creating a new assertion (urn is None)",
+            "when creating a new assertion (urn is None). Must be one of: IS_EQUAL_TO, IS_GREATER_THAN, IS_LESS_THAN, IS_WITHIN_A_RANGE, etc.",
         )
         _validate_required_field(
             criteria_parameters,
             "criteria_parameters",
-            "when creating a new assertion (urn is None)",
+            "when creating a new assertion (urn is None). Provide a single value (e.g., 100) or a range (e.g., (10, 100))",
         )
 
     def sync_sql_assertion(
@@ -84,28 +87,19 @@ class SqlAssertionClient:
         _print_experimental_warning()
         now_utc = datetime.now(timezone.utc)
 
-        resolved_updated_by = updated_by
-        if resolved_updated_by is None:
-            logger.warning(
-                f"updated_by is not set, using {DEFAULT_CREATED_BY} as a placeholder"
+        resolved_updated_by = resolve_updated_by(updated_by)
+
+        # Validate that criteria_condition and criteria_parameters are both provided or both omitted
+        if (criteria_condition is None) != (criteria_parameters is None):
+            raise SDKUsageError(
+                "criteria_condition and criteria_parameters must both be provided or both omitted"
             )
-            resolved_updated_by = DEFAULT_CREATED_BY
 
         # Validate required params for new assertions upfront, since we can't fetch them from an existing one
         if urn is None:
             logger.info("URN is not set, creating a new assertion")
             self._validate_sql_assertion_creation_params(
                 statement, criteria_condition, criteria_parameters
-            )
-            # After validation, these cannot be None
-            assert statement is not None
-            assert criteria_condition is not None
-            assert criteria_parameters is not None
-
-        # Validate that criteria_condition and criteria_parameters are both provided or both omitted
-        if (criteria_condition is None) != (criteria_parameters is None):
-            raise SDKUsageError(
-                "criteria_condition and criteria_parameters must both be provided or both omitted"
             )
 
         # Build criteria if condition and parameters are provided
@@ -130,7 +124,9 @@ class SqlAssertionClient:
             schedule=schedule,
         )
 
-        # After merge, ensure required fields exist (either provided or fetched from existing assertion)
+        # Validate after merge to catch two scenarios:
+        # 1. Developer forgot required fields when creating new assertion (caught earlier)
+        # 2. Developer provided a URN that doesn't exist or points to invalid assertion
         if merged_assertion_input.statement is None:
             raise SDKUsageError(
                 f"statement is required but was not provided and not found in existing assertion {urn}. "
@@ -184,6 +180,10 @@ class SqlAssertionClient:
             schedule=schedule,
         )
 
+    # TODO: Refactoring planned - See https://github.com/acryldata/datahub-fork/pull/7585
+    # This method (lines 187-290) contains duplicated orchestration logic that exists
+    # in 7 other assertion client files. A future PR will extract this into a
+    # BaseAssertionClient with template method pattern. See PR #7585 for details.
     def _retrieve_and_merge_sql_assertion_and_monitor(
         self,
         dataset_urn: Union[str, DatasetUrn],
@@ -239,10 +239,7 @@ class SqlAssertionClient:
                 maybe_assertion_entity, maybe_monitor_entity
             )
         elif maybe_assertion_entity and not maybe_monitor_entity:
-            # Create a placeholder monitor when the monitor entity is missing but assertion exists
-            monitor_mode = (
-                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
-            )
+            monitor_mode = "INACTIVE" if enabled is False else "ACTIVE"
             existing_assertion = SqlAssertion._from_entities(
                 maybe_assertion_entity,
                 Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
@@ -269,10 +266,7 @@ class SqlAssertionClient:
         assert existing_assertion is not None
 
         # Validate dataset URN hasn't changed to prevent assertion corruption
-        if (
-            hasattr(existing_assertion, "dataset_urn")
-            and existing_assertion.dataset_urn != assertion_input.dataset_urn
-        ):
+        if existing_assertion.dataset_urn != assertion_input.dataset_urn:
             raise SDKUsageError(
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )

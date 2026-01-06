@@ -145,3 +145,52 @@ def test_sync_sql_assertion_raises_on_partial_criteria_parameters_only(
             criteria_parameters=50,
             # criteria_condition missing
         )
+
+
+def test_sync_sql_assertion_single_fetch_optimization(
+    sql_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync_sql_assertion only fetches backend data once when updating an existing assertion.
+
+    This test validates the single-fetch optimization: when updating an assertion,
+    we should fetch the assertion and monitor entities once and reuse that data
+    for merging, rather than fetching multiple times.
+    """
+    from unittest.mock import MagicMock
+
+    client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Wrap the entity client's get method with a spy to count calls
+    original_get = client.client.entities.get
+    get_spy = MagicMock(wraps=original_get)
+    client.client.entities.get = get_spy  # type: ignore[method-assign]
+
+    # Mock upsert to prevent actual writes
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign]
+
+    # Call sync_sql_assertion with a URN (update scenario) and only changing enabled status
+    # This should fetch backend data once to get existing values
+    result = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn="urn:li:assertion:smart_freshness_assertion",  # Use the URN from conftest fixtures
+        enabled=False,  # Only change enabled status, other fields should be fetched
+    )
+
+    # Verify that the assertion was created successfully with fetched values
+    assert result is not None
+    assert result.statement == "SELECT COUNT(*) FROM test_table"
+    assert result.criteria is not None
+
+    # Verify that entities.get() was called exactly twice:
+    # 1. Once for fetching the assertion entity
+    # 2. Once for fetching the monitor entity (after search finds the monitor URN)
+    # This proves the single-fetch optimization: we don't re-fetch the same data multiple times
+    assert get_spy.call_count == 2, (
+        f"Expected exactly 2 calls to entities.get() (assertion + monitor), but got {get_spy.call_count}"
+    )
+
+    # Verify we fetched the correct URNs
+    call_args = [str(call[0][0]) for call in get_spy.call_args_list]
+    assert "urn:li:assertion:smart_freshness_assertion" in call_args
+    # Monitor URN will vary based on the fixture setup

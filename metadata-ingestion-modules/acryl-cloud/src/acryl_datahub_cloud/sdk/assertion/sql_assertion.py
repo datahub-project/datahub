@@ -61,7 +61,9 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active, inactive).
             statement: The SQL statement to be used for the assertion.
-            criteria: The criteria to be used for the assertion. May be None for corrupted assertions.
+            criteria: The criteria to be used for the assertion.
+                May be None only if backend data is corrupted - this should never happen under normal
+                circumstances, but the SDK handles it gracefully to aid debugging.
             schedule: The schedule of the assertion.
             tags: The tags applied to the assertion.
             incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.

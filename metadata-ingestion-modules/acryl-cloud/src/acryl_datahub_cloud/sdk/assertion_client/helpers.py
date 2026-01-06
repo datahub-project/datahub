@@ -77,6 +77,25 @@ def _validate_required_field(
         raise SDKUsageError(f"{field_name} is required {context}")
 
 
+def resolve_updated_by(
+    updated_by: Optional[Union[str, CorpUserUrn]],
+) -> Union[str, CorpUserUrn]:
+    """Resolve the updated_by field, using DEFAULT_CREATED_BY if not provided.
+
+    Args:
+        updated_by: The updated_by value from the user input, or None.
+
+    Returns:
+        The resolved updated_by value.
+    """
+    if updated_by is None:
+        logger.warning(
+            f"updated_by is not set, using {DEFAULT_CREATED_BY} as a placeholder"
+        )
+        return DEFAULT_CREATED_BY
+    return updated_by
+
+
 def retrieve_assertion_and_monitor_by_urn(
     client: "DataHubClient",
     assertion_urn: Union[str, AssertionUrn],
