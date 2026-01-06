@@ -504,6 +504,133 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 # Continue to next work unit
 
+    def _create_dialect_instance(self):
+        """Create dialect instance from config or default to auto-detection."""
+        from datahub.ingestion.source.rdf.dialects.base import RDFDialect
+        from datahub.ingestion.source.rdf.dialects.bcbs239 import DefaultDialect
+        from datahub.ingestion.source.rdf.dialects.fibo import FIBODialect
+        from datahub.ingestion.source.rdf.dialects.generic import GenericDialect
+        from datahub.ingestion.source.rdf.dialects.router import DialectRouter
+
+        if hasattr(self, "config") and self.config.dialect:
+            try:
+                dialect_enum = RDFDialect(self.config.dialect)
+                if dialect_enum == RDFDialect.FIBO:
+                    return FIBODialect()
+                if dialect_enum == RDFDialect.DEFAULT:
+                    return DefaultDialect()
+                if dialect_enum == RDFDialect.GENERIC:
+                    return GenericDialect()
+            except ValueError:
+                logger.warning(
+                    f"Invalid dialect '{self.config.dialect}', defaulting to auto-detection"
+                )
+
+        return DialectRouter()
+
+    def _extract_glossary_terms(
+        self, graph: Graph, registry: Any, context: Dict[str, Any]
+    ) -> List[Any]:
+        """Extract glossary terms from RDF graph."""
+        entity_type = (
+            registry.get_entity_type_from_cli_name("glossary") or "glossary_term"
+        )
+        extractor = registry.get_extractor(entity_type)
+
+        if not extractor:
+            return []
+
+        try:
+            datahub_terms = extractor.extract_all(graph, context)
+            logger.debug(
+                f"Extracted {len(datahub_terms)} glossary terms from RDF graph"
+            )
+            return datahub_terms
+        except Exception as e:
+            self.report.report_failure(
+                "Failed to extract glossary terms",
+                context=f"Entity type: {entity_type}",
+                exc=e,
+            )
+            logger.error(f"Failed to extract glossary terms: {e}", exc_info=True)
+            return []
+
+    def _extract_relationships(
+        self, graph: Graph, registry: Any, context: Dict[str, Any]
+    ) -> List[Any]:
+        """Extract relationships from RDF graph."""
+        entity_type = (
+            registry.get_entity_type_from_cli_name("relationship") or "relationship"
+        )
+        extractor = registry.get_extractor(entity_type)
+
+        if not extractor:
+            return []
+
+        try:
+            rdf_relationships = extractor.extract_all(graph, context)
+            converter = registry.get_converter(entity_type)
+            if not converter:
+                return []
+
+            datahub_relationships = []
+            for rdf_rel in rdf_relationships:
+                try:
+                    datahub_rel = converter.convert(rdf_rel, context)
+                    if datahub_rel:
+                        datahub_relationships.append(datahub_rel)
+                except Exception as e:
+                    rel_source = (
+                        str(rdf_rel.source_urn)
+                        if hasattr(rdf_rel, "source_urn")
+                        else "unknown"
+                    )
+                    rel_target = (
+                        str(rdf_rel.target_urn)
+                        if hasattr(rdf_rel, "target_urn")
+                        else "unknown"
+                    )
+                    self.report.report_failure(
+                        "Failed to convert relationship",
+                        context=f"Source: {rel_source}, Target: {rel_target}",
+                        exc=e,
+                    )
+                    logger.warning(
+                        f"Failed to convert relationship {rel_source} -> {rel_target}: {e}",
+                        exc_info=True,
+                    )
+
+            logger.debug(
+                f"Extracted {len(datahub_relationships)} relationships from RDF graph"
+            )
+            return datahub_relationships
+        except Exception as e:
+            self.report.report_failure(
+                "Failed to extract relationships",
+                context=f"Entity type: {entity_type}",
+                exc=e,
+            )
+            logger.error(f"Failed to extract relationships: {e}", exc_info=True)
+            return []
+
+    def _build_domains(
+        self, glossary_terms: List[Any], context: Dict[str, Any]
+    ) -> List[Any]:
+        """Build domain hierarchy from glossary terms."""
+        try:
+            domain_builder = DomainBuilder()
+            domains = domain_builder.build_domains(glossary_terms, context)
+            logger.debug(f"Built {len(domains)} domains from glossary term hierarchy")
+            return domains
+        except Exception as e:
+            self.report.report_failure(
+                "Failed to build domain hierarchy",
+                context=f"Glossary terms: {len(glossary_terms)}",
+                exc=e,
+            )
+            logger.error(f"Failed to build domain hierarchy: {e}", exc_info=True)
+            return []
+
     def _convert_rdf_to_datahub_ast(
         self,
         graph: Graph,
@@ -517,11 +644,13 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         Inlined from facade to eliminate unnecessary abstraction layer.
         """
         registry = create_default_registry()
+        dialect_instance = self._create_dialect_instance()
 
         context = {
             "environment": environment,
             "export_only": export_only,
             "skip_export": skip_export,
+            "dialect": dialect_instance,
         }
 
         # Helper to check if a CLI name should be processed
@@ -532,117 +661,25 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 return False
             return True
 
-        # Helper to get entity type from CLI name
-        def get_entity_type(cli_name: str) -> Optional[str]:
-            return registry.get_entity_type_from_cli_name(cli_name)
-
         # Create DataHubGraph
         datahub_graph = DataHubGraph()
 
-        # Extract glossary terms (now returns DataHub AST directly)
+        # Extract glossary terms
         if should_process_cli_name("glossary"):
-            entity_type = get_entity_type("glossary") or "glossary_term"
-            extractor = registry.get_extractor(entity_type)
+            datahub_graph.glossary_terms = self._extract_glossary_terms(
+                graph, registry, context
+            )
 
-            if extractor:
-                try:
-                    datahub_terms = extractor.extract_all(graph, context)
-                    datahub_graph.glossary_terms = datahub_terms
-                    logger.debug(
-                        f"Extracted {len(datahub_terms)} glossary terms from RDF graph"
-                    )
-                except Exception as e:
-                    self.report.report_failure(
-                        "Failed to extract glossary terms",
-                        context=f"Entity type: {entity_type}",
-                        exc=e,
-                    )
-                    logger.error(
-                        f"Failed to extract glossary terms: {e}",
-                        exc_info=True,
-                    )
-                    # Continue with empty list - partial success
-                    datahub_graph.glossary_terms = []
-
-        # Extract relationships independently (using RelationshipExtractor)
+        # Extract relationships
         if should_process_cli_name("relationship"):
-            entity_type = get_entity_type("relationship") or "relationship"
-            extractor = registry.get_extractor(entity_type)
-
-            if extractor:
-                try:
-                    # Extract RDF relationships
-                    rdf_relationships = extractor.extract_all(graph, context)
-
-                    # Convert RDF relationships to DataHub relationships
-                    converter = registry.get_converter(entity_type)
-                    if converter:
-                        datahub_relationships = []
-                        for rdf_rel in rdf_relationships:
-                            try:
-                                datahub_rel = converter.convert(rdf_rel, context)
-                                if datahub_rel:
-                                    datahub_relationships.append(datahub_rel)
-                            except Exception as e:
-                                # Continue processing other relationships
-                                rel_source = (
-                                    str(rdf_rel.source_urn)
-                                    if hasattr(rdf_rel, "source_urn")
-                                    else "unknown"
-                                )
-                                rel_target = (
-                                    str(rdf_rel.target_urn)
-                                    if hasattr(rdf_rel, "target_urn")
-                                    else "unknown"
-                                )
-                                self.report.report_failure(
-                                    "Failed to convert relationship",
-                                    context=f"Source: {rel_source}, Target: {rel_target}",
-                                    exc=e,
-                                )
-                                logger.warning(
-                                    f"Failed to convert relationship {rel_source} -> {rel_target}: {e}",
-                                    exc_info=True,
-                                )
-                                # Continue to next relationship
-                        datahub_graph.relationships.extend(datahub_relationships)
-                        logger.debug(
-                            f"Extracted {len(datahub_relationships)} relationships from RDF graph"
-                        )
-                except Exception as e:
-                    self.report.report_failure(
-                        "Failed to extract relationships",
-                        context=f"Entity type: {entity_type}",
-                        exc=e,
-                    )
-                    logger.error(
-                        f"Failed to extract relationships: {e}",
-                        exc_info=True,
-                    )
-                    # Continue with empty list - partial success
-                    datahub_graph.relationships = []
+            datahub_graph.relationships = self._extract_relationships(
+                graph, registry, context
+            )
 
         # Build domains
-        try:
-            domain_builder = DomainBuilder()
-            datahub_graph.domains = domain_builder.build_domains(
-                datahub_graph.glossary_terms, context
-            )
-            logger.debug(
-                f"Built {len(datahub_graph.domains)} domains from glossary term hierarchy"
-            )
-        except Exception as e:
-            self.report.report_failure(
-                "Failed to build domain hierarchy",
-                context=f"Glossary terms: {len(datahub_graph.glossary_terms)}",
-                exc=e,
-            )
-            logger.error(
-                f"Failed to build domain hierarchy: {e}",
-                exc_info=True,
-            )
-            # Continue with empty list - partial success
-            datahub_graph.domains = []
+        datahub_graph.domains = self._build_domains(
+            datahub_graph.glossary_terms, context
+        )
 
         return datahub_graph
 

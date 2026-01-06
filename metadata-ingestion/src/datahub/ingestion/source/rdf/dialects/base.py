@@ -97,3 +97,16 @@ class RDFDialectInterface(ABC):
             True if the URI looks like a structured property
         """
         pass
+
+    def extract_custom_properties(self, graph: Graph, uri: URIRef) -> dict:
+        """
+        Extract dialect-specific custom properties from a URI.
+
+        Args:
+            graph: RDFLib Graph containing the URI
+            uri: URIRef to extract properties from
+
+        Returns:
+            Dictionary of custom properties (empty dict by default)
+        """
+        return {}
