@@ -1630,8 +1630,9 @@ def test_sync_sql_assertion_upserts_entities(
     # Verify the assertion was created correctly
     assert assertion is not None
     assert str(assertion.dataset_urn) == str(any_dataset_urn)
-    assert assertion._criteria.condition == SqlAssertionCondition.IS_EQUAL_TO
-    assert assertion._criteria.parameters == 42
+    assert assertion.criteria is not None
+    assert assertion.criteria.condition == SqlAssertionCondition.IS_EQUAL_TO
+    assert assertion.criteria.parameters == 42
     assert assertion.statement == "SELECT COUNT(*) FROM users"
 
 

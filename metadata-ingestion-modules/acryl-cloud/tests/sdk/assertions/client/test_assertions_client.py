@@ -17,6 +17,9 @@ from acryl_datahub_cloud.sdk.assertion.assertion_base import (
 from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
     SmartColumnMetricAssertion,
 )
+from acryl_datahub_cloud.sdk.assertion_client.helpers import (
+    retrieve_assertion_and_monitor_by_urn,
+)
 from acryl_datahub_cloud.sdk.assertion_client.smart_freshness import (
     SmartFreshnessAssertionClient,
 )
@@ -1478,9 +1481,6 @@ def test_retrieve_assertion_and_monitor(
     test_params: RetrieveAssertionAndMonitorTestParams,
 ) -> None:
     """Test retrieve_assertion_and_monitor_by_urn with different existence scenarios."""
-    from acryl_datahub_cloud.sdk.assertion_client.helpers import (
-        retrieve_assertion_and_monitor_by_urn,
-    )
 
     # Mock entity retrieval based on existence flags
     def mock_get_entity(urn) -> Union[Assertion, Monitor, None]:  # type: ignore[no-untyped-def]
@@ -2327,8 +2327,9 @@ def test_sync_sql_assertion_upserts_when_urn_not_provided(
     # Verify the assertion was created correctly
     assert assertion is not None
     assert assertion.statement == "SELECT COUNT(*) FROM table"
-    assert assertion._criteria.condition == SqlAssertionCondition.IS_GREATER_THAN
-    assert assertion._criteria.parameters == 100
+    assert assertion.criteria is not None
+    assert assertion.criteria.condition == SqlAssertionCondition.IS_GREATER_THAN
+    assert assertion.criteria.parameters == 100
 
 
 def test_sync_sql_assertion_upserts_entities_when_urn_is_none(
@@ -2493,8 +2494,9 @@ def test_sync_sql_assertion_optional_params_for_merge(
 
     # Verify that the values were correctly fetched from the existing assertion
     assert result.statement == "SELECT COUNT(*) FROM test_table"
-    assert result._criteria.condition == SqlAssertionCondition.IS_GREATER_THAN
-    assert result._criteria.parameters == 100
+    assert result.criteria is not None
+    assert result.criteria.condition == SqlAssertionCondition.IS_GREATER_THAN
+    assert result.criteria.parameters == 100
 
 
 def test_sync_sql_assertion_uses_string_incident_behavior_resolve_on_pass(

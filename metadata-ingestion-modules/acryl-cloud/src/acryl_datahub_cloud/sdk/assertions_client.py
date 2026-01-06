@@ -18,6 +18,7 @@ from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
 from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
     SmartColumnMetricAssertion,
 )
+from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import SmartSqlAssertion
 from acryl_datahub_cloud.sdk.assertion_client.column_metric import (
     ColumnMetricAssertionClient,
 )
@@ -32,6 +33,9 @@ from acryl_datahub_cloud.sdk.assertion_client.smart_column_metric import (
 )
 from acryl_datahub_cloud.sdk.assertion_client.smart_freshness import (
     SmartFreshnessAssertionClient,
+)
+from acryl_datahub_cloud.sdk.assertion_client.smart_sql import (
+    SmartSqlAssertionClient,
 )
 from acryl_datahub_cloud.sdk.assertion_client.smart_volume import (
     SmartVolumeAssertionClient,
@@ -89,6 +93,7 @@ class AssertionsClient:
         self._sql_client = SqlAssertionClient(client)
         self._smart_freshness_client = SmartFreshnessAssertionClient(client)
         self._smart_volume_client = SmartVolumeAssertionClient(client)
+        self._smart_sql_client = SmartSqlAssertionClient(client)
         self._smart_column_metric_client = SmartColumnMetricAssertionClient(client)
         self._column_metric_client = ColumnMetricAssertionClient(client)
         # Create a cached version of the existence check with TTL using time bucketing
@@ -729,6 +734,85 @@ class AssertionsClient:
             statement=statement,
             criteria_condition=criteria_condition,
             criteria_parameters=criteria_parameters,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            updated_by=updated_by,
+            schedule=schedule,
+        )
+
+    def sync_smart_sql_assertion(
+        self,
+        *,
+        dataset_urn: Union[str, DatasetUrn],
+        statement: Optional[str] = None,
+        urn: Optional[Union[str, AssertionUrn]] = None,
+        display_name: Optional[str] = None,
+        enabled: Optional[bool] = None,
+        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
+        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
+        training_data_lookback_days: Optional[int] = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
+        tags: Optional[TagsInputType] = None,
+        updated_by: Optional[Union[str, CorpUserUrn]] = None,
+        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        skip_dataset_exists_check: bool = False,
+    ) -> SmartSqlAssertion:
+        """Upsert and merge a smart SQL assertion with AI-powered inference.
+
+        Note:
+            Keyword arguments are required.
+
+        Upsert and merge is a combination of create and update. If the assertion does not exist,
+        it will be created. If it does exist, it will be updated. Existing assertion fields will
+        be updated if the input value is not None. If the input value is None, the existing value
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
+
+        Smart SQL assertions use machine learning to infer appropriate thresholds for your
+        SQL query results, rather than requiring you to specify fixed threshold values.
+
+        Schedule behavior:
+            - Create case: Uses default schedule of every 6 hours or provided schedule
+            - Update case: Uses existing schedule or provided schedule.
+
+        Args:
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            statement (Optional[str]): The SQL statement to be used for the assertion. Required when creating a new assertion (urn=None), optional when updating an existing assertion.
+                The SQL query should return a single numeric value. Example: "SELECT COUNT(*) FROM table WHERE status = 'active'"
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
+            sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity level for AI inference. Valid values are: "low", "medium", "high".
+                - "low": Less sensitive, fewer alerts for anomalies
+                - "medium": Balanced sensitivity (default)
+                - "high": More sensitive, more alerts for smaller deviations
+            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported. Valid values are:
+                - {"start": "2025-01-01T00:00:00", "end": "2025-01-02T00:00:00"} (using ISO strings)
+                - {"start": datetime(2025, 1, 1, 0, 0, 0), "end": datetime(2025, 1, 2, 0, 0, 0)} (using datetime objects)
+                - FixedRangeExclusionWindow(start=datetime(2025, 1, 1, 0, 0, 0), end=datetime(2025, 1, 2, 0, 0, 0)) (using typed object)
+                - A list of any of the above formats
+            training_data_lookback_days (Optional[int]): The number of days of historical data to use for training the AI model.
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 */6 * * *" for every 6 hours using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
+
+        Returns:
+            SmartSqlAssertion: The created or updated assertion.
+        """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
+        return self._smart_sql_client.sync_smart_sql_assertion(
+            dataset_urn=dataset_urn,
+            statement=statement,
+            urn=urn,
+            display_name=display_name,
+            enabled=enabled,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
             incident_behavior=incident_behavior,
             tags=tags,
             updated_by=updated_by,

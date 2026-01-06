@@ -3,6 +3,7 @@ This module contains the base classes and mixins for assertions.
 
 The actual assertion classes are now split into separate files for better maintainability:
 - SmartFreshnessAssertion -> smart_freshness_assertion.py
+- SmartSqlAssertion -> smart_sql_assertion.py
 - SmartVolumeAssertion -> smart_volume_assertion.py
 - VolumeAssertion -> volume_assertion.py
 - FreshnessAssertion -> freshness_assertion.py
@@ -25,6 +26,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
     DetectionMechanism,
     ExclusionWindowTypes,
+    FixedRangeExclusionWindow,
     InferenceSensitivity,
     _DetectionMechanismTypes,
 )
@@ -156,12 +158,6 @@ class _HasSmartFunctionality:
                         f"Monitor {monitor.urn} has a fixed range exclusion window with no fixed range, skipping"
                     )
                     continue
-                # Import FixedRangeExclusionWindow locally to avoid circular import
-                # between assertion_base.py and assertion_input.py
-                from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-                    FixedRangeExclusionWindow,
-                )
-
                 exclusion_windows.append(
                     FixedRangeExclusionWindow(
                         start=parse_ts_millis(raw_window.fixedRange.startTimeMillis),
@@ -716,10 +712,17 @@ class _AssertionPublic(ABC):
 
 if TYPE_CHECKING:
     # Import the assertion classes from their separate files for type checking
+    from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
+        ColumnMetricAssertion,
+    )
     from acryl_datahub_cloud.sdk.assertion.freshness_assertion import FreshnessAssertion
+    from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
+        SmartColumnMetricAssertion,
+    )
     from acryl_datahub_cloud.sdk.assertion.smart_freshness_assertion import (
         SmartFreshnessAssertion,
     )
+    from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import SmartSqlAssertion
     from acryl_datahub_cloud.sdk.assertion.smart_volume_assertion import (
         SmartVolumeAssertion,
     )
@@ -756,6 +759,24 @@ def __getattr__(name: str) -> type:
         from acryl_datahub_cloud.sdk.assertion.sql_assertion import SqlAssertion
 
         return SqlAssertion
+    elif name == "SmartSqlAssertion":
+        from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import (
+            SmartSqlAssertion,
+        )
+
+        return SmartSqlAssertion
+    elif name == "ColumnMetricAssertion":
+        from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
+            ColumnMetricAssertion,
+        )
+
+        return ColumnMetricAssertion
+    elif name == "SmartColumnMetricAssertion":
+        from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
+            SmartColumnMetricAssertion,
+        )
+
+        return SmartColumnMetricAssertion
     else:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
@@ -768,8 +789,11 @@ __all__ = [
     "_HasColumnMetricFunctionality",
     "_AssertionPublic",
     "SmartFreshnessAssertion",
+    "SmartSqlAssertion",
     "SmartVolumeAssertion",
+    "SmartColumnMetricAssertion",
     "VolumeAssertion",
     "FreshnessAssertion",
     "SqlAssertion",
+    "ColumnMetricAssertion",
 ]

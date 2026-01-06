@@ -5,7 +5,7 @@ This module provides classes for creating and managing different types of assert
 - Column metric assertions (native and smart)
 - Freshness assertions (native and smart)
 - Volume assertions (native and smart)
-- SQL assertions
+- SQL assertions (native and smart)
 
 Each assertion type has been split into separate files for better maintainability.
 """
@@ -27,6 +27,7 @@ from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
 from acryl_datahub_cloud.sdk.assertion.smart_freshness_assertion import (
     SmartFreshnessAssertion,
 )
+from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import SmartSqlAssertion
 from acryl_datahub_cloud.sdk.assertion.smart_volume_assertion import (
     SmartVolumeAssertion,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "FreshnessAssertion",
     "SmartColumnMetricAssertion",
     "SmartFreshnessAssertion",
+    "SmartSqlAssertion",
     "SmartVolumeAssertion",
     "SqlAssertion",
     "VolumeAssertion",

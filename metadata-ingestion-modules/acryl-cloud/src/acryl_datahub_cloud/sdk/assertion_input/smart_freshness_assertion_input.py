@@ -43,10 +43,8 @@ class _SmartFreshnessAssertionInput(
     def __init__(
         self,
         *,
-        # Required fields
         dataset_urn: Union[str, DatasetUrn],
         entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
-        # Optional fields
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,

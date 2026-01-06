@@ -41,7 +41,7 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
         display_name: str,
         mode: AssertionMode,
         statement: str,
-        criteria: SqlAssertionCriteria,
+        criteria: Optional[SqlAssertionCriteria],
         schedule: models.CronScheduleClass,
         tags: list[TagUrn],
         incident_behavior: list[AssertionIncidentBehavior],
@@ -61,7 +61,7 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active, inactive).
             statement: The SQL statement to be used for the assertion.
-            criteria: The criteria to be used for the assertion.
+            criteria: The criteria to be used for the assertion. May be None for corrupted assertions.
             schedule: The schedule of the assertion.
             tags: The tags applied to the assertion.
             incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
@@ -94,13 +94,26 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
         return self._statement
 
     @property
+    def criteria(self) -> Optional[SqlAssertionCriteria]:
+        """Return the criteria for this assertion, or None if corrupted."""
+        return self._criteria
+
+    @property
     def criteria_condition(self) -> Union[SqlAssertionCondition, str]:
+        if self._criteria is None:
+            raise ValueError(
+                "Cannot access criteria_condition on corrupted assertion with missing criteria"
+            )
         return self._criteria.condition
 
     @property
     def criteria_parameters(
         self,
     ) -> Union[Union[float, int], tuple[Union[float, int], Union[float, int]]]:
+        if self._criteria is None:
+            raise ValueError(
+                "Cannot access criteria_parameters on corrupted assertion with missing criteria"
+            )
         return self._criteria.parameters
 
     @staticmethod
@@ -196,12 +209,17 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
         )
 
     @staticmethod
-    def _get_criteria(assertion: Assertion) -> SqlAssertionCriteria:
+    def _get_criteria(assertion: Assertion) -> Optional[SqlAssertionCriteria]:
         if assertion.info is None:
             raise SDKNotYetSupportedError(
                 f"Assertion {assertion.urn} does not have a SQL assertion info, which is not supported"
             )
         if isinstance(assertion.info, models.SqlAssertionInfoClass):
+            # Return None for corrupted assertions with missing parameters or operator
+            # This allows validation to happen later with a clearer error message
+            if assertion.info.parameters is None or assertion.info.operator is None:
+                return None
+
             parameters: Union[float, tuple[float, float]]
             if assertion.info.parameters.value is not None:
                 parameters = float(assertion.info.parameters.value.value)
@@ -215,9 +233,8 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
                     float(assertion.info.parameters.maxValue.value),
                 )
             else:
-                raise SDKNotYetSupportedError(
-                    f"Assertion {assertion.urn} does not have a valid parameters for the SQL assertion"
-                )
+                # Parameters field exists but has no valid values - corrupted data
+                return None
 
             condition = SqlAssertion._get_condition_from_model_assertion_info(
                 assertion.info

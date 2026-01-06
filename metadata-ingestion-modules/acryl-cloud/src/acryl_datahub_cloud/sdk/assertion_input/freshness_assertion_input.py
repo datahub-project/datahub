@@ -83,11 +83,9 @@ class _FreshnessAssertionInput(_AssertionInput, _HasFreshnessFeatures):
     def __init__(
         self,
         *,
-        # Required fields
         dataset_urn: Union[str, DatasetUrn],
         entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
         urn: Optional[Union[str, AssertionUrn]] = None,
-        # Optional fields
         display_name: Optional[str] = None,
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,

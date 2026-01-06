@@ -682,8 +682,6 @@ def test_smart_column_metric_monitor_info_conversion(
         updated_at=datetime.fromtimestamp(1717929600),
     )
 
-    from datahub.metadata.urns import AssertionUrn
-
     monitor_info = assertion_input._create_monitor_info(
         assertion_urn=AssertionUrn("urn:li:assertion:123"),
         status=models.MonitorStatusClass(mode=models.MonitorModeClass.ACTIVE),
@@ -1005,10 +1003,6 @@ def test_smart_column_metric_assertion_input_detection_mechanism_validation(
     expected_error_contains: str,
 ) -> None:
     """Test that unsupported detection mechanisms raise SDKUsageError."""
-    from datetime import datetime
-
-    from datahub.metadata import schema_classes as models
-
     with pytest.raises(SDKNotYetSupportedError) as exc_info:
         assertion_input = _SmartColumnMetricAssertionInput(
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",

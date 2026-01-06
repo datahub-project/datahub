@@ -810,3 +810,120 @@ def native_column_metric_stub_datahub_client(
 def stub_entity_client() -> StubEntityClient:
     """A generic stub entity client that can be used for all types of assertions."""
     return StubEntityClient()
+
+
+@pytest.fixture
+def smart_sql_assertion_entity_with_all_fields(
+    any_assertion_urn: AssertionUrn,
+) -> Assertion:
+    """A smart SQL assertion entity for testing."""
+    return Assertion(
+        id=any_assertion_urn,
+        info=models.SqlAssertionInfoClass(
+            type=models.SqlAssertionTypeClass.METRIC,
+            entity=_any_dataset_urn,
+            statement="SELECT COUNT(*) FROM test_table WHERE status = 'active'",
+            operator=models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+            parameters=models.AssertionStdParametersClass(
+                value=models.AssertionStdParameterClass(
+                    type=models.AssertionStdParameterTypeClass.NUMBER,
+                    value="0",
+                ),
+            ),
+        ),
+        description="Smart SQL Assertion",
+        source=models.AssertionSourceClass(
+            type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions use INFERRED source type
+            created=models.AuditStampClass(
+                actor="urn:li:corpuser:acryl-cloud-user-created",
+                time=1609459200000,  # 2021-01-01 00:00:00 UTC
+            ),
+        ),
+        last_updated=models.AuditStampClass(
+            actor="urn:li:corpuser:acryl-cloud-user-updated",
+            time=1609545600000,  # 2021-01-02 00:00:00 UTC
+        ),
+        tags=[
+            models.TagAssociationClass(
+                tag="urn:li:tag:smart_sql_assertion_tag",
+            )
+        ],
+        on_failure=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RAISE_INCIDENT,
+            )
+        ],
+        on_success=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RESOLVE_INCIDENT,
+            )
+        ],
+    )
+
+
+@pytest.fixture
+def smart_sql_monitor_with_all_fields(
+    any_monitor_urn: MonitorUrn, any_assertion_urn: AssertionUrn
+) -> Monitor:
+    """A monitor with all fields set for smart SQL assertions."""
+    return Monitor(
+        id=any_monitor_urn,
+        info=models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=models.MonitorStatusClass(
+                mode=models.MonitorModeClass.ACTIVE,
+            ),
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(any_assertion_urn),
+                        schedule=models.CronScheduleClass(
+                            cron="0 */6 * * *",  # Every 6 hours for smart SQL assertions
+                            timezone="UTC",
+                        ),
+                        parameters=models.AssertionEvaluationParametersClass(
+                            type=models.AssertionEvaluationParametersTypeClass.DATASET_SQL,
+                        ),
+                    )
+                ],
+                settings=models.AssertionMonitorSettingsClass(
+                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                        exclusionWindows=[
+                            models.AssertionExclusionWindowClass(
+                                type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,
+                                fixedRange=models.AbsoluteTimeWindowClass(
+                                    startTimeMillis=1609459200000,  # 2021-01-01 00:00:00 UTC
+                                    endTimeMillis=1609545600000,  # 2021-01-02 00:00:00 UTC
+                                ),
+                            ),
+                        ],
+                        trainingDataLookbackWindowDays=99,  # To differentiate from the default value
+                        sensitivity=models.AssertionMonitorSensitivityClass(
+                            level=5,  # MEDIUM
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+@pytest.fixture
+def smart_sql_stub_entity_client(
+    smart_sql_monitor_with_all_fields: Monitor,
+    smart_sql_assertion_entity_with_all_fields: Assertion,
+) -> StubEntityClient:
+    return StubEntityClient(
+        monitor_entity=smart_sql_monitor_with_all_fields,
+        assertion_entity=smart_sql_assertion_entity_with_all_fields,
+    )
+
+
+@pytest.fixture
+def smart_sql_stub_datahub_client(
+    smart_sql_stub_entity_client: StubEntityClient,
+) -> StubDataHubClient:
+    return StubDataHubClient(
+        entity_client=smart_sql_stub_entity_client,
+        existing_urns=DEFAULT_EXISTING_DATASET_URNS,
+    )

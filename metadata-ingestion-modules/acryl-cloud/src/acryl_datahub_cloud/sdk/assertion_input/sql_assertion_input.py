@@ -193,13 +193,11 @@ class _SqlAssertionInput(_AssertionInput):
     def __init__(
         self,
         *,
-        # Required fields
         dataset_urn: Union[str, DatasetUrn],
         entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
+        criteria: Optional[SqlAssertionCriteria],
+        statement: Optional[str],
         urn: Optional[Union[str, AssertionUrn]] = None,
-        criteria: SqlAssertionCriteria,
-        statement: str,
-        # Optional fields
         display_name: Optional[str] = None,
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
@@ -265,6 +263,12 @@ class _SqlAssertionInput(_AssertionInput):
         Returns:
             A SqlAssertionInfoClass configured for sql.
         """
+        # Validate required fields are present
+        if self.statement is None:
+            raise SDKUsageError("statement is required for SQL assertions")
+        if self.criteria is None:
+            raise SDKUsageError("criteria is required for SQL assertions")
+
         SqlAssertionCriteria.validate(self.criteria)
 
         return models.SqlAssertionInfoClass(
@@ -292,7 +296,7 @@ class _SqlAssertionInput(_AssertionInput):
     # Not used for sql assertions
     def _convert_assertion_source_type_and_field(
         self,
-    ) -> tuple[str, Optional[FieldSpecType]]:
+    ) -> tuple[str, None]:
         return "None", None
 
     # Not used for sql assertions

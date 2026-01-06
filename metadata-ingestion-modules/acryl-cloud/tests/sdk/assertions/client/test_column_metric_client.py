@@ -7,11 +7,17 @@ import pytest
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
+from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
+    ColumnMetricAssertion,
+)
 from acryl_datahub_cloud.sdk.assertion_client.column_metric import (
     ColumnMetricAssertionClient,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
+)
+from acryl_datahub_cloud.sdk.assertion_input.column_metric_assertion_input import (
+    _ColumnMetricAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
@@ -274,13 +280,6 @@ def test_merge_column_metric_input_merges_all_fields(
     active_monitor: Monitor,
 ) -> None:
     """Test that _merge_column_metric_input correctly merges fields."""
-    from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
-        ColumnMetricAssertion,
-    )
-    from acryl_datahub_cloud.sdk.assertion_input.column_metric_assertion_input import (
-        _ColumnMetricAssertionInput,
-    )
-
     stub_entity_client = StubEntityClient(
         monitor_entity=active_monitor,
         assertion_entity=column_metric_assertion_with_value_params,
