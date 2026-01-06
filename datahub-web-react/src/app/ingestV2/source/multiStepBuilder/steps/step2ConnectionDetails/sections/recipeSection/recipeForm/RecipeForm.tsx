@@ -1,6 +1,6 @@
 import { spacing } from '@components';
 import { Form, FormInstance, message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
@@ -73,6 +73,7 @@ function RecipeForm({
     selectedSource,
 }: Props) {
     const areFormValuesChangedRef = useRef<boolean>(false);
+    const areFormValuesInitializedRef = useRef<boolean>(false);
 
     const formValues = Form.useWatch([], form);
 
@@ -87,6 +88,8 @@ function RecipeForm({
         };
     }, [recipeFields, formValues]);
 
+    const [initialValues, setInitialValues] = useState({});
+
     // Run validation when fields changed. Required to revalidate hidden/shown fields
     useEffect(() => {
         // Run validation when form values were changed
@@ -100,6 +103,16 @@ function RecipeForm({
         () => [...fields, ...advancedFields, ...filterFields],
         [fields, advancedFields, filterFields],
     );
+
+    useEffect(() => {
+        if (areFormValuesInitializedRef.current) {
+            return;
+        }
+        areFormValuesInitializedRef.current = true;
+        const values = getInitialValues(displayRecipe, allFields);
+        setInitialValues(values);
+        form.setFieldsValue(values);
+    }, [allFields, displayRecipe, form]);
 
     const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
 
@@ -152,12 +165,7 @@ function RecipeForm({
     );
 
     return (
-        <Form
-            layout="vertical"
-            initialValues={getInitialValues(displayRecipe, allFields)}
-            form={form}
-            onValuesChange={updateFormValues}
-        >
+        <Form layout="vertical" initialValues={initialValues} form={form} onValuesChange={updateFormValues}>
             <SectionsContainer>
                 <FormHeader />
 

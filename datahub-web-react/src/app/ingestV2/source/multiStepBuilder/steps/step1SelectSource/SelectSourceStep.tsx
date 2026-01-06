@@ -110,7 +110,6 @@ export function SelectSourceStep() {
             config: undefined,
             name: undefined,
             owners: undefined,
-            schedule: undefined,
         });
         goToNext();
     };

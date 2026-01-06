@@ -23,7 +23,7 @@ import {
 } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsFreeTrialInstance } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 
@@ -90,6 +90,9 @@ export const ManageIngestionPage = () => {
     const canViewPools = canManagePools || canViewIngestionPage;
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
+
+    const isFreeTrialInstance = useIsFreeTrialInstance();
+
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     // undefined == not loaded, null == no permissions
@@ -283,18 +286,21 @@ export const ManageIngestionPage = () => {
                             Create secret
                         </Button>
                     )}
-                    {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canViewPools && (
-                        <Button
-                            variant="filled"
-                            onClick={handleCreatePool}
-                            data-testid="create-pool-button"
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                            id={REMOTE_EXECUTORS_CREATE_SOURCE_ID}
-                            disabled={!canManagePools}
-                        >
-                            Create pool
-                        </Button>
-                    )}
+                    {selectedTab === TabType.RemoteExecutors &&
+                        showRemoteExecutorsTab &&
+                        canViewPools &&
+                        !isFreeTrialInstance && (
+                            <Button
+                                variant="filled"
+                                onClick={handleCreatePool}
+                                data-testid="create-pool-button"
+                                icon={{ icon: 'Plus', source: 'phosphor' }}
+                                id={REMOTE_EXECUTORS_CREATE_SOURCE_ID}
+                                disabled={!canManagePools}
+                            >
+                                Create pool
+                            </Button>
+                        )}
                 </HeaderActionsContainer>
             </PageHeaderContainer>
             <PageContentContainer>
