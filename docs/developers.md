@@ -48,7 +48,7 @@ Fork and clone the repo if you haven't done so already. Refer: [Building the Pro
 > mise trust
 
 # Needed once if the required tools haven't been installed via mise before
-# or if there is a addition of new tools or change in tool versions since last use
+# or if a new tool is added or tool version changed since last use
 > mise install
 ```
 
@@ -60,10 +60,10 @@ You can verify the tools are activated correctly by running
 # Check tool versions installed
 ❯ mise ls --local
 Tool    Version  Source                             Requested
-java    17.0.2   ~/datahub/repos/datahub/mise.toml  17
-node    22.21.1  ~/datahub/repos/datahub/mise.toml  22
-python  3.11.14  ~/datahub/repos/datahub/mise.toml  3.11
-yarn    4.12.0   ~/datahub/repos/datahub/mise.toml  latest
+java    17.0.2   ~/path/to/datahub/mise.toml  17
+node    22.21.1  ~/path/to/datahub/mise.toml  22
+python  3.11.14  ~/path/to/datahub/mise.toml  3.11
+yarn    4.12.0   ~/path/to/datahub/mise.toml  latest
 ```
 
 ## Building the Project
