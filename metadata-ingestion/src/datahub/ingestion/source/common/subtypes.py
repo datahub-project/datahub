@@ -31,6 +31,7 @@ class DatasetSubTypes(StrEnum):
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    SEMANTIC_VIEW = "Semantic View"
     DYNAMIC_TABLE = "Dynamic Table"
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
@@ -83,6 +84,7 @@ class BIContainerSubTypes(StrEnum):
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
     MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+    ADF_DATA_FACTORY = "Data Factory"
 
 
 class JobContainerSubTypes(StrEnum):
@@ -142,6 +144,47 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"
 
 
+class DataJobSubTypes(StrEnum):
+    # ADF Activity Types
+    ADF_COPY_ACTIVITY = "Copy Activity"
+    ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"
+    ADF_EXECUTE_PIPELINE = "Execute Pipeline"
+    ADF_LOOKUP_ACTIVITY = "Lookup Activity"
+    ADF_GET_METADATA_ACTIVITY = "Get Metadata Activity"
+    ADF_STORED_PROCEDURE_ACTIVITY = "Stored Procedure Activity"
+    ADF_SCRIPT_ACTIVITY = "Script Activity"
+    ADF_WEB_ACTIVITY = "Web Activity"
+    ADF_WEBHOOK_ACTIVITY = "Webhook Activity"
+    ADF_IF_CONDITION = "If Condition"
+    ADF_FOREACH_LOOP = "ForEach Loop"
+    ADF_UNTIL_LOOP = "Until Loop"
+    ADF_WAIT_ACTIVITY = "Wait Activity"
+    ADF_SET_VARIABLE = "Set Variable"
+    ADF_APPEND_VARIABLE = "Append Variable"
+    ADF_SWITCH_ACTIVITY = "Switch Activity"
+    ADF_FILTER_ACTIVITY = "Filter Activity"
+    ADF_VALIDATION_ACTIVITY = "Validation Activity"
+    ADF_DATABRICKS_NOTEBOOK = "Databricks Notebook"
+    ADF_DATABRICKS_SPARK_JAR = "Databricks Spark Jar"
+    ADF_DATABRICKS_SPARK_PYTHON = "Databricks Spark Python"
+    ADF_HDINSIGHT_HIVE = "HDInsight Hive"
+    ADF_HDINSIGHT_PIG = "HDInsight Pig"
+    ADF_HDINSIGHT_SPARK = "HDInsight Spark"
+    ADF_HDINSIGHT_MAPREDUCE = "HDInsight MapReduce"
+    ADF_HDINSIGHT_STREAMING = "HDInsight Streaming"
+    ADF_AZURE_FUNCTION_ACTIVITY = "Azure Function Activity"
+    ADF_AZURE_ML_BATCH = "Azure ML Batch"
+    ADF_AZURE_ML_UPDATE = "Azure ML Update"
+    ADF_AZURE_ML_PIPELINE = "Azure ML Pipeline"
+    ADF_CUSTOM_ACTIVITY = "Custom Activity"
+    ADF_DELETE_ACTIVITY = "Delete Activity"
+    ADF_SYNAPSE_NOTEBOOK = "Synapse Notebook"
+    ADF_SPARK_JOB = "Spark Job"
+    ADF_SYNAPSE_SPARK_JOB = "Synapse Spark Job"
+    ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
+    ADF_FAIL_ACTIVITY = "Fail Activity"
+
+
 def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
     source_enums = [
@@ -152,6 +195,7 @@ def create_source_capability_modifier_enum():
         JobContainerSubTypes,
         BIAssetSubTypes,
         MLAssetSubTypes,
+        DataJobSubTypes,
     ]
 
     for enum_class in source_enums:

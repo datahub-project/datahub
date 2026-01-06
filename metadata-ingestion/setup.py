@@ -54,7 +54,9 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
-    "ruamel.yaml",
+    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
+    # which is not available as wheel.
+    "ruamel.yaml<0.19.0",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -69,7 +71,8 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    "confluent_kafka[schemaregistry,avro]>=2.10.1",
+    # 2.13.0 introduced some breaking changes that require some development
+    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -357,6 +360,11 @@ abs_base = {
     *path_spec_common,
 }
 
+azure_data_factory = {
+    "azure-identity>=1.21.0",
+    "azure-mgmt-datafactory>=9.0.0",
+}
+
 data_lake_profiling = {
     "pydeequ>=1.1.0",
     "pyspark~=3.5.6",
@@ -459,6 +467,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity!=8.4.0",
     },
     "azure-ad": set(),
+    "azure-data-factory": azure_data_factory,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -797,6 +806,7 @@ full_test_dev_requirements = {
         dependency
         for plugin in [
             "athena",
+            "azure-data-factory",
             "circuit-breaker",
             "clickhouse",
             "delta-lake",
@@ -834,6 +844,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
+        "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",

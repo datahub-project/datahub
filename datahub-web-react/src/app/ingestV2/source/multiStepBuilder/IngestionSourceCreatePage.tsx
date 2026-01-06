@@ -10,9 +10,11 @@ import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils'
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
+import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
+import { ScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStepSubtitle';
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
 import {
     IngestionSourceFormStep,
@@ -33,6 +35,7 @@ const PLACEHOLDER_URN = 'placeholder-urn';
 const STEPS: IngestionSourceFormStep[] = [
     {
         label: 'Select Source',
+        subTitle: <SelectSourceSubtitle />,
         key: 'selectSource',
         content: <SelectSourceStep />,
         hideRightPanel: true,
@@ -46,9 +49,9 @@ const STEPS: IngestionSourceFormStep[] = [
     },
     {
         label: 'Sync Schedule ',
+        subTitle: <ScheduleStepSubtitle />,
         key: 'syncSchedule',
         content: <ScheduleStep />,
-        subTitle: 'Configure an ingestion schedule',
     },
 ];
 
@@ -144,15 +147,14 @@ export function IngestionSourceCreatePage() {
     return (
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
-            confirmationModalTitle="You have unsaved change"
-            confirmationModalText={
-                <>
-                    <Text type="span">You have unsaved changes to your new source. </Text>
-                    <Text type="span" weight="bold">
-                        Are you sure you want to leave and discard your unsaved changes?
-                    </Text>
-                </>
+            confirmationModalTitle="You have unsaved changes"
+            confirmationModalContent={
+                <Text color="gray" colorLevel={1700}>
+                    Exiting now will discard your configuration. You can continue setup or exit and start over later
+                </Text>
             }
+            confirmButtonText="Continue Setup"
+            closeButtonText="Exit Without Saving"
         >
             <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />
         </DiscardUnsavedChangesConfirmationProvider>
