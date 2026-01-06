@@ -484,18 +484,18 @@ class BigQueryV2Config(
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
-        description="List of user email regex patterns (e.g., 'bot_.*', '.*service.*@.*\\.iam\\.gserviceaccount\\.com') "
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "
         "which will NOT be considered for lineage/usage/queries extraction. "
-        "Uses BigQuery's REGEXP_CONTAINS for server-side filtering. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'bot_%' matches 'Bot_User@example.com'). "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
     )
 
     pushdown_allow_usernames: List[str] = Field(
         default=[],
-        description="List of user email regex patterns (e.g., 'analyst_.*@company\\.com') "
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'analyst_%@company.com') "
         "which WILL be considered for lineage/usage/queries extraction. "
-        "Uses BigQuery's REGEXP_CONTAINS for server-side filtering. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'analyst_%' matches 'Analyst_John@company.com'). "
         "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
     )
 
@@ -583,8 +583,8 @@ class BigQueryV2Config(
         - Strips leading/trailing whitespace from each pattern
         - Rejects empty patterns (after stripping)
 
-        Note: Regex syntax is not validated here because BigQuery uses RE2,
-        which differs from Python's regex. Invalid patterns will fail at runtime.
+        Note: Patterns use SQL LIKE syntax (% = any characters, _ = single character).
+        Invalid patterns will fail at runtime when the SQL query is executed.
         """
         validated = []
         for i, pattern in enumerate(patterns):

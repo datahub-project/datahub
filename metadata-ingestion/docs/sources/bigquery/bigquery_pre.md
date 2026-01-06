@@ -159,36 +159,25 @@ source:
   config:
     use_queries_v2: true # Required for pushdown
     pushdown_deny_usernames:
-      - "bot_.*"
-      - ".*@.*\\.iam\\.gserviceaccount\\.com" # Exclude service accounts
+      - "bot_%"
+      - "%@%.iam.gserviceaccount.com" # Exclude service accounts
     pushdown_allow_usernames:
-      - "analyst_.*@example\\.com"
-      - "data_.*@example\\.com"
+      - "analyst_%@example.com"
+      - "data_%@example.com"
 ```
 
 **Behavior:**
 
-- When patterns are configured: Filtering happens server-side with BigQuery SQL using `REGEXP_CONTAINS()`
+- When patterns are configured: Filtering happens server-side with BigQuery SQL using case-insensitive `LIKE`
 - When empty (default): No server-side filtering; use `usage.user_email_pattern` for client-side filtering
-- Patterns use Python regex syntax (converted to BigQuery RE2 syntax)
-
-**Pattern Syntax: Regex vs SQL LIKE**
-
-**Important:** BigQuery uses **regex patterns**, unlike Snowflake which uses SQL LIKE patterns.
-
-| Pattern Type              | BigQuery (Regex) | Snowflake (SQL LIKE) |
-| ------------------------- | ---------------- | -------------------- |
-| Wildcard (any characters) | `.*`             | `%`                  |
-| Single character          | `.`              | `_`                  |
-| Literal dot               | `\\.`            | `.`                  |
-| Start with "bot"          | `^bot_.*`        | `bot_%`              |
-
-**Tip:** Use regex-aware tools to test your patterns before deploying to production.
+- Patterns use SQL LIKE syntax (`%` = any characters, `_` = single character)
+- Matching is case-insensitive (e.g., `bot_%` matches `Bot_User@example.com`)
+- If a user matches both allow AND deny patterns, deny takes precedence (user is excluded)
 
 **Prerequisites:**
 
 - `use_queries_v2: true` must be enabled (default)
-- Patterns must be valid regex
+- Patterns must be valid SQL LIKE patterns
 
 **Note:** These configs are independent from `usage.user_email_pattern`. The pushdown filters are applied at the SQL query level for performance, while `user_email_pattern` is applied client-side during processing.
 
