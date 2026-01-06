@@ -921,6 +921,10 @@ ENV GITHUB_RUN_ID=${GITHUB_RUN_ID}
 RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
     chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
 
+# Create /usr/bin/python symlink for Wolfi (uv venv expects it)
+# Wolfi only has python3.11, not a generic 'python' symlink like Ubuntu
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
+
 # Copy the self-contained venv build scripts into a stable location for reuse
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
@@ -961,6 +965,9 @@ USER root
 # Install Python runtime (no dev packages)
 RUN apk update && apk add --no-cache python-3.11-base
 
+# Create /usr/bin/python symlink for Wolfi (bundled venvs expect it)
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
+
 # Copy the venv and Python from the builder stage
 COPY --from=venv-builder-wolfi --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
 
@@ -1000,6 +1007,9 @@ USER root
 
 # Install Python runtime (no dev packages)
 RUN apk update && apk add --no-cache python-3.11-base
+
+# Create /usr/bin/python symlink for Wolfi (bundled venvs expect it)
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
 
 # Copy the venv and Python from the builder stage
 COPY --from=venv-builder-locked-wolfi --chown=datahub:datahub /home/datahub/.venv /home/datahub/.venv
