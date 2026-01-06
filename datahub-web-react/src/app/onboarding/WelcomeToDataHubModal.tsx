@@ -6,6 +6,7 @@ import { useIsDocumentationInferenceEnabled } from '@app/entityV2/shared/compone
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/shared/localStorageUtils';
+import { useIsFreeTrialInstance } from '@app/useAppConfig';
 import {
     LoadingContainer,
     SlideContainer,
@@ -25,20 +26,25 @@ interface VideoSources {
     lineage: string;
     impact: string;
     aiDocs?: string;
+    askDataHub?: string;
 }
 
 export const WelcomeToDataHubModal = () => {
     const [shouldShow, setShouldShow] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [videoSources, setVideoSources] = useState<VideoSources | null>(null);
-    const [videoLoading, setVideoLoading] = useState(false);
     const [videosReady, setVideosReady] = useState<{ [key in keyof VideoSources]?: boolean }>({});
     const hasTrackedView = useRef(false);
     const carouselRef = useRef<any>(null);
+    const loadedForTrialConfig = useRef<boolean | null>(null);
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
     const shouldSkipWelcomeModal = checkShouldSkipWelcomeModal();
     const isDocumentationSlideEnabled = useIsDocumentationInferenceEnabled();
-    const TOTAL_CAROUSEL_SLIDES = isDocumentationSlideEnabled ? 5 : 4;
+    const isFreeTrialInstance = useIsFreeTrialInstance();
+    // Free trial: askDataHub + search + lineage + final = 4 slides
+    // Non-trial: search + lineage + impact + (optional aiDocs) + final = 4-5 slides
+    const nonTrialSlideCount = isDocumentationSlideEnabled ? 5 : 4;
+    const TOTAL_CAROUSEL_SLIDES = isFreeTrialInstance ? 4 : nonTrialSlideCount;
     const MODAL_IMAGE_WIDTH_RAW = 620;
     const MODAL_IMAGE_WIDTH = `${MODAL_IMAGE_WIDTH_RAW}px`;
     const MODAL_WIDTH_NUM = MODAL_IMAGE_WIDTH_RAW + 45; // Add padding
@@ -62,28 +68,43 @@ export const WelcomeToDataHubModal = () => {
 
     // Show modal immediately, load videos individually as they complete
     useEffect(() => {
-        if (shouldShow && !videoSources) {
-            // Show modal immediately with empty video sources
-            const emptyVideoSources: VideoSources = {
-                search: '',
-                lineage: '',
-                impact: '',
-                aiDocs: undefined,
-            };
-            setVideoSources(emptyVideoSources);
-            setVideoLoading(false);
+        if (!shouldShow) return;
 
-            // Load all videos in parallel, update each as it completes
-            const loadVideo = async (videoKey: keyof VideoSources, importPromise: Promise<{ default: string }>) => {
-                try {
-                    const module = await importPromise;
-                    setVideoSources((prev) => (prev ? { ...prev, [videoKey]: module.default } : prev));
-                } catch (error) {
-                    console.error(`Failed to load ${videoKey} video:`, error);
-                }
-            };
+        // Check if we need to reload videos due to trial config change
+        if (loadedForTrialConfig.current === isFreeTrialInstance && videoSources) {
+            // Already loaded for this config, no need to reload
+            return;
+        }
 
-            // Start loading all videos simultaneously
+        // Reset video sources when trial config changes to avoid race condition
+        const emptyVideoSources: VideoSources = {
+            search: '',
+            lineage: '',
+            impact: '',
+            aiDocs: undefined,
+            askDataHub: undefined,
+        };
+        setVideoSources(emptyVideoSources);
+        setVideosReady({}); // Reset ready state to avoid stale video references
+        loadedForTrialConfig.current = isFreeTrialInstance;
+
+        // Load all videos in parallel, update each as it completes
+        const loadVideo = async (videoKey: keyof VideoSources, importPromise: Promise<{ default: string }>) => {
+            try {
+                const module = await importPromise;
+                setVideoSources((prev) => (prev ? { ...prev, [videoKey]: module.default } : prev));
+            } catch (error) {
+                console.error(`Failed to load ${videoKey} video:`, error);
+            }
+        };
+
+        // Free trial instances: Load askDataHub instead of impact and aiDocs
+        if (isFreeTrialInstance) {
+            loadVideo('search', import('@images/FTE-search.mp4'));
+            loadVideo('lineage', import('@images/FTE-lineage.mp4'));
+            loadVideo('askDataHub', import('@images/FTE-ask-datahub.mp4'));
+        } else {
+            // Non-trial instances: Load all videos as before
             loadVideo('search', import('@images/FTE-search.mp4'));
             loadVideo('lineage', import('@images/FTE-lineage.mp4'));
             loadVideo('impact', import('@images/FTE-impact.mp4'));
@@ -92,7 +113,7 @@ export const WelcomeToDataHubModal = () => {
                 loadVideo('aiDocs', import('@images/FTE-ai-documentation.mp4'));
             }
         }
-    }, [isDocumentationSlideEnabled, shouldShow, videoSources]);
+    }, [isDocumentationSlideEnabled, isFreeTrialInstance, shouldShow, videoSources]);
 
     // Handle when video elements are fully loaded
     const handleVideoLoad = (videoKey: keyof VideoSources) => {
@@ -151,7 +172,7 @@ export const WelcomeToDataHubModal = () => {
     if (!shouldShow) return null;
 
     // Show loading state while videos are being loaded
-    if (videoLoading || !videoSources) {
+    if (!videoSources) {
         return (
             <Modal
                 title={WELCOME_TO_DATAHUB_MODAL_TITLE}
@@ -224,6 +245,25 @@ export const WelcomeToDataHubModal = () => {
                 }
                 infinite={false}
             >
+                {isFreeTrialInstance && (
+                    <SlideContainer>
+                        <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
+                            Your Instance is Ready
+                        </Heading>
+                        <Heading type="h3" size="md" color="gray" colorLevel={1700}>
+                            We&apos;ve loaded sample data with real-world examples to help you get familiar with
+                            DataHub. Ask DataHub can answer questions about impact analysis, lineage, and more.
+                        </Heading>
+                        <VideoContainer>
+                            <VideoSlide
+                                videoSrc={videoSources?.askDataHub}
+                                isReady={videosReady.askDataHub || false}
+                                onVideoLoad={() => handleVideoLoad('askDataHub')}
+                                width={MODAL_IMAGE_WIDTH}
+                            />
+                        </VideoContainer>
+                    </SlideContainer>
+                )}
                 <SlideContainer>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Find Any Asset, Anywhere
@@ -256,23 +296,25 @@ export const WelcomeToDataHubModal = () => {
                         />
                     </VideoContainer>
                 </SlideContainer>
-                <SlideContainer>
-                    <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
-                        Manage Breaking Changes Confidently
-                    </Heading>
-                    <Heading type="h3" size="md" color="gray" colorLevel={1700}>
-                        Preview the full impact of schema and column changes
-                    </Heading>
-                    <VideoContainer>
-                        <VideoSlide
-                            videoSrc={videoSources?.impact}
-                            isReady={videosReady.impact || false}
-                            onVideoLoad={() => handleVideoLoad('impact')}
-                            width={MODAL_IMAGE_WIDTH}
-                        />
-                    </VideoContainer>
-                </SlideContainer>
-                {videoSources.aiDocs && (
+                {!isFreeTrialInstance && (
+                    <SlideContainer>
+                        <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
+                            Manage Breaking Changes Confidently
+                        </Heading>
+                        <Heading type="h3" size="md" color="gray" colorLevel={1700}>
+                            Preview the full impact of schema and column changes
+                        </Heading>
+                        <VideoContainer>
+                            <VideoSlide
+                                videoSrc={videoSources?.impact}
+                                isReady={videosReady.impact || false}
+                                onVideoLoad={() => handleVideoLoad('impact')}
+                                width={MODAL_IMAGE_WIDTH}
+                            />
+                        </VideoContainer>
+                    </SlideContainer>
+                )}
+                {!isFreeTrialInstance && videoSources.aiDocs && (
                     <SlideContainer>
                         <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                             Documentation Without the Work
