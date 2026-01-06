@@ -50,6 +50,7 @@ out/
 
 # Mise
 **/mise.local.toml
+**/.mise.local.toml
 
 #spark-lineage
 **/spark-lineage/metastore_db/

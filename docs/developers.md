@@ -7,12 +7,14 @@ title: "Local Development"
 ## Requirements
 
 - [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
-- [Python 3.10](https://www.python.org/downloads/release/python-3100/)
+- [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
 - [Docker Compose >=2.20](https://docs.docker.com/compose/)
 - [Yarn >=v1.22](https://yarnpkg.com/en/docs/cli/) for documentation building
 - Docker engine with at least 8GB of memory to run tests.
+
+### Option 1: Using Homebrew on Mac
 
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
@@ -21,11 +23,47 @@ On macOS, these can be installed using [Homebrew](https://brew.sh/).
 brew install openjdk@17
 
 # Install Python
-brew install python@3.10  # you may need to add this to your PATH
+brew install python@3.11  # you may need to add this to your PATH
 # alternatively, you can use pyenv to manage your python versions
 
 # Install docker and docker compose
 brew install --cask docker
+```
+
+### Option 2: Using mise
+
+Alternatively you can use [mise en place](https://mise.jdx.dev/) for managing tool installation.
+You can use the existing [mise.toml](../mise.toml) file in the repository and let mise manage the tool versions.
+
+You can install mise cli by following the instructions on https://mise.jdx.dev/getting-started.html
+
+Fork and clone the repo if you haven't done so already. Refer: [Building the Project](#building-the-project)
+
+```shell
+# Enter the root folder of the repo
+> cd datahub
+
+# Needed the first time to allow mise to auto activate the tools
+# mentioned in mise.toml
+> mise trust
+
+# Needed once if the required tools haven't been installed via mise before
+# or if there is a addition of new tools or change in tool versions since last use
+> mise install
+```
+
+After this the required tools should be auto activated as soon as you enter the folder where the repo is cloned
+
+You can verify the tools are activated correctly by running
+
+```shell
+# Check tool versions installed
+❯ mise ls --local
+Tool    Version  Source                             Requested
+java    17.0.2   ~/datahub/repos/datahub/mise.toml  17
+node    22.21.1  ~/datahub/repos/datahub/mise.toml  22
+python  3.11.14  ~/datahub/repos/datahub/mise.toml  3.11
+yarn    4.12.0   ~/datahub/repos/datahub/mise.toml  latest
 ```
 
 ## Building the Project
