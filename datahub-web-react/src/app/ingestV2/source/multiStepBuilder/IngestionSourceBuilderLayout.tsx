@@ -90,9 +90,26 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
             sourceName: state?.name,
             currentStep: currentStep?.label,
             stepContext: currentStep?.context,
+            recipe: state?.config?.recipe,
+            executorId: state?.config?.executorId,
+            version: state?.config?.version,
+            debugMode: state?.config?.debugMode,
+            extraArgs: state?.config?.extraArgs,
         });
         return { text: contextText };
-    }, [isEditing, sourceUrn, state?.type, state?.name, currentStep?.label, currentStep?.context]);
+    }, [
+        isEditing,
+        sourceUrn,
+        state?.type,
+        state?.name,
+        state?.config?.recipe,
+        state?.config?.executorId,
+        state?.config?.version,
+        state?.config?.debugMode,
+        state?.config?.extraArgs,
+        currentStep?.label,
+        currentStep?.context,
+    ]);
 
     return (
         <PageLayout

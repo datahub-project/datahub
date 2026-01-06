@@ -5,6 +5,11 @@ export interface BuildChatContextParams {
     sourceName?: string;
     currentStep?: string;
     stepContext?: string;
+    recipe?: string;
+    executorId?: string | null;
+    version?: string | null;
+    debugMode?: boolean | null;
+    extraArgs?: Array<{ key: string; value: string }> | null;
 }
 
 export function buildIngestionSourceChatContext({
@@ -14,6 +19,11 @@ export function buildIngestionSourceChatContext({
     sourceName,
     currentStep,
     stepContext,
+    recipe,
+    executorId,
+    version,
+    debugMode,
+    extraArgs,
 }: BuildChatContextParams): string {
     const parts: string[] = [];
 
@@ -45,6 +55,31 @@ export function buildIngestionSourceChatContext({
         if (stepContext) {
             parts.push(` This is the context of what that step is meant for: ${stepContext}`);
         }
+    }
+
+    // Add recipe if available
+    if (recipe) {
+        parts.push(` The current ingestion recipe configuration is: ${recipe}`);
+    }
+
+    // Add advanced configuration details if any are set
+    const advancedDetails: string[] = [];
+    if (executorId) {
+        advancedDetails.push(`executor ID: "${executorId}"`);
+    }
+    if (version) {
+        advancedDetails.push(`CLI version: "${version}"`);
+    }
+    if (debugMode !== null && debugMode !== undefined) {
+        advancedDetails.push(`debug mode: ${debugMode ? 'enabled' : 'disabled'}`);
+    }
+    if (extraArgs && extraArgs.length > 0) {
+        const argsStr = extraArgs.map((arg) => `${arg.key}=${arg.value}`).join(', ');
+        advancedDetails.push(`extra arguments: ${argsStr}`);
+    }
+
+    if (advancedDetails.length > 0) {
+        parts.push(` Advanced configuration: ${advancedDetails.join(', ')}.`);
     }
 
     // Add helpful context about what the user might need

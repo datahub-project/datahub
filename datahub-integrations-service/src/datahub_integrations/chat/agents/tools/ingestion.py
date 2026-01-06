@@ -142,6 +142,11 @@ def get_ingestion_source(urn: str) -> dict:
     to better understand the specified source. This tool will retrieve information
     such as the name, type, config, schedule, and platform of the ingestion source.
 
+    Note that the current recipe may be sent along with a user's question in context
+    and that represents the current state of the ingestion recipe in the case that
+    the user is editing it. Use the given recipe from context as the in progress
+    recipe.
+
     The config of the ingestion source will contain the recipe of the source, its
     version, executor ID, whether it's in debug mode or node, and any extra args
     associated with the source.

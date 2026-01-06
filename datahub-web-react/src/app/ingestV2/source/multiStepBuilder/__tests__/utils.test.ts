@@ -126,6 +126,107 @@ describe('buildIngestionSourceChatContext', () => {
         });
     });
 
+    describe('recipe', () => {
+        it('should include recipe when provided', () => {
+            const recipe = '{"source": {"type": "mysql", "config": {"host": "localhost"}}}';
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                recipe,
+            });
+
+            expect(result).toContain(` The current ingestion recipe configuration is: ${recipe}`);
+        });
+
+        it('should handle missing recipe', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+            });
+
+            expect(result).not.toContain('recipe configuration');
+        });
+    });
+
+    describe('advanced configuration', () => {
+        it('should include executor ID when provided', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                executorId: 'custom-executor',
+            });
+
+            expect(result).toContain('Advanced configuration: executor ID: "custom-executor".');
+        });
+
+        it('should include CLI version when provided', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                version: '0.12.0',
+            });
+
+            expect(result).toContain('Advanced configuration: CLI version: "0.12.0".');
+        });
+
+        it('should include debug mode when enabled', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                debugMode: true,
+            });
+
+            expect(result).toContain('Advanced configuration: debug mode: enabled.');
+        });
+
+        it('should include debug mode when disabled', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                debugMode: false,
+            });
+
+            expect(result).toContain('Advanced configuration: debug mode: disabled.');
+        });
+
+        it('should include extra arguments when provided', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                extraArgs: [
+                    { key: 'arg1', value: 'value1' },
+                    { key: 'arg2', value: 'value2' },
+                ],
+            });
+
+            expect(result).toContain('Advanced configuration: extra arguments: arg1=value1, arg2=value2.');
+        });
+
+        it('should combine multiple advanced configuration options', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                executorId: 'custom-executor',
+                version: '0.12.0',
+                debugMode: true,
+                extraArgs: [{ key: 'timeout', value: '300' }],
+            });
+
+            expect(result).toContain(
+                'Advanced configuration: executor ID: "custom-executor", CLI version: "0.12.0", debug mode: enabled, extra arguments: timeout=300.',
+            );
+        });
+
+        it('should not include advanced configuration section when no options are set', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+            });
+
+            expect(result).not.toContain('Advanced configuration');
+        });
+
+        it('should handle empty extra arguments array', () => {
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                extraArgs: [],
+            });
+
+            expect(result).not.toContain('extra arguments');
+        });
+    });
+
     describe('complete scenarios', () => {
         it('should build complete context for creating a new source with all fields', () => {
             const result = buildIngestionSourceChatContext({
@@ -153,6 +254,31 @@ describe('buildIngestionSourceChatContext', () => {
 
             expect(result).toBe(
                 'The user is editing an existing ingestion sourcewith URN: urn:li:dataSource:456. The source type is "snowflake". The source name is "Data Warehouse". The user is currently on the "Connection Details" step. This is the context of what that step is meant for: Configure connection parameters This is a configuration context where the user may ask questions about connection details, authentication, scheduling, or troubleshooting configuration issues.',
+            );
+        });
+
+        it('should build complete context with recipe and advanced configuration', () => {
+            const recipe = '{"source": {"type": "mysql", "config": {"host": "localhost", "port": 3306}}}';
+            const result = buildIngestionSourceChatContext({
+                isEditing: false,
+                sourceType: 'mysql',
+                sourceName: 'Production DB',
+                currentStep: 'Connection Details',
+                stepContext: 'Configure database connection',
+                recipe,
+                executorId: 'production-executor',
+                version: '0.13.0',
+                debugMode: true,
+                extraArgs: [{ key: 'max-workers', value: '5' }],
+            });
+
+            expect(result).toContain('The user is creating a new ingestion source');
+            expect(result).toContain('The source type is "mysql"');
+            expect(result).toContain('The source name is "Production DB"');
+            expect(result).toContain('The user is currently on the "Connection Details" step');
+            expect(result).toContain(`The current ingestion recipe configuration is: ${recipe}`);
+            expect(result).toContain(
+                'Advanced configuration: executor ID: "production-executor", CLI version: "0.13.0", debug mode: enabled, extra arguments: max-workers=5.',
             );
         });
 

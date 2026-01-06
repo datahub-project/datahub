@@ -134,7 +134,7 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
       final Integer activeIncidentCount = searchResult.getNumEntities();
 
       final Health.Builder healthBuilder = new Health.Builder().setType(HealthStatusType.INCIDENTS);
-      if (activeIncidentCount > 0) {
+      if (activeIncidentCount > 0 && searchResult.getEntities().size() > 0) {
         final Urn latestIncidentUrn = searchResult.getEntities().get(0).getEntity();
         final IncidentInfo latestIncidentInfo = getIncidentInfo(context, latestIncidentUrn);
         final Long latestIncidentTimestamp =
