@@ -215,6 +215,101 @@ public class AspectSizeValidatorTest {
     assertEquals(deletions.get(1).getAspectName(), "aspect2");
   }
 
+  @Test
+  public void testValidationSkippedForRemediationDeletion() {
+    AspectSizeValidationConfig config =
+        createEnabledConfig(1000L, OversizedAspectRemediation.DELETE);
+
+    String metadata = generateLargeMetadata(20000000); // 20MB - way over threshold
+
+    // Create context map with isRemediationDeletion flag
+    java.util.Map<String, Object> context = new java.util.HashMap<>();
+    context.put("isRemediationDeletion", true);
+
+    // Should not throw even though aspect is oversized
+    AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config, context);
+
+    // Should not add deletion requests
+    assertEquals(AspectValidationContext.getPendingDeletions().size(), 0);
+  }
+
+  @Test
+  public void testValidationSkippedWithFalseRemediationFlag() {
+    AspectSizeValidationConfig config =
+        createEnabledConfig(1000L, OversizedAspectRemediation.DELETE);
+
+    String metadata = generateLargeMetadata(20000); // Over threshold
+
+    // Create context map with isRemediationDeletion = false
+    java.util.Map<String, Object> context = new java.util.HashMap<>();
+    context.put("isRemediationDeletion", false);
+
+    // Should throw because flag is false
+    try {
+      AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config, context);
+      fail("Expected AspectSizeExceededException");
+    } catch (AspectSizeExceededException e) {
+      assertEquals(e.getActualSize(), 20000L);
+    }
+  }
+
+  @Test
+  public void testValidationWithWarningThreshold() {
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig prePatchConfig = new AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setWarnSizeBytes(1000L); // Warn at 1KB
+    prePatchConfig.setMaxSizeBytes(10000L); // Block at 10KB
+    prePatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+
+    String metadata = generateLargeMetadata(5000); // 5KB - above warn, below max
+
+    // Should NOT throw - only logs warning
+    AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config);
+
+    // Should not add deletion requests
+    assertEquals(AspectValidationContext.getPendingDeletions().size(), 0);
+  }
+
+  @Test
+  public void testValidationWithNullWarningThreshold() {
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig prePatchConfig = new AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setWarnSizeBytes(null); // No warning threshold
+    prePatchConfig.setMaxSizeBytes(10000L);
+    prePatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+
+    String metadata = generateLargeMetadata(5000); // 5KB
+
+    // Should pass - no warning threshold set
+    AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config);
+
+    // Should not add deletion requests
+    assertEquals(AspectValidationContext.getPendingDeletions().size(), 0);
+  }
+
+  @Test
+  public void testValidationWithEmptyContext() {
+    AspectSizeValidationConfig config =
+        createEnabledConfig(1000L, OversizedAspectRemediation.DELETE);
+
+    String metadata = generateLargeMetadata(20000); // Over threshold
+
+    // Empty context should not skip validation
+    java.util.Map<String, Object> context = new java.util.HashMap<>();
+
+    try {
+      AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config, context);
+      fail("Expected AspectSizeExceededException");
+    } catch (AspectSizeExceededException e) {
+      // Expected - validation should run normally
+      assertEquals(e.getActualSize(), 20000L);
+    }
+  }
+
   private AspectSizeValidationConfig createEnabledConfig(
       long maxSizeBytes, OversizedAspectRemediation remediation) {
     AspectSizeValidationConfig config = new AspectSizeValidationConfig();
