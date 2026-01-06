@@ -74,7 +74,7 @@ framework_common = {
 plugins: Dict[str, Set[str]] = {
     # Source Plugins
     "kafka": {
-        "confluent-kafka[schemaregistry]",
+        "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
     "executor": {
