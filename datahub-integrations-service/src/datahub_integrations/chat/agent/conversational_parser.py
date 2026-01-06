@@ -5,10 +5,9 @@ This module defines how agents parse their conversational messages (thinking, re
 into user-visible progress text. Different agents can use different message formats.
 """
 
-from typing import TYPE_CHECKING, Optional, Protocol
+from typing import Optional, Protocol
 
-if TYPE_CHECKING:
-    from datahub_integrations.chat.agent.agent_runner import AgentRunner
+from datahub_integrations.chat.utils import PlanGetter
 
 
 class ConversationalParser(Protocol):
@@ -25,14 +24,14 @@ class ConversationalParser(Protocol):
     """
 
     def parse_message(
-        self, message_text: str, agent: Optional["AgentRunner"] = None
+        self, message_text: str, get_plan: Optional[PlanGetter] = None
     ) -> str:
         """
         Parse a message and extract user-visible progress text.
 
         Args:
             message_text: Raw message text from LLM
-            agent: Optional agent instance for context (e.g., accessing plan state)
+            get_plan: Optional callback to retrieve plans by ID for progress formatting
 
         Returns:
             User-friendly text to display as progress
@@ -49,7 +48,7 @@ class PlainTextParser:
     """
 
     def parse_message(
-        self, message_text: str, agent: Optional["AgentRunner"] = None
+        self, message_text: str, get_plan: Optional[PlanGetter] = None
     ) -> str:
         """Return the message text with basic sanitization."""
         return message_text.strip()
@@ -65,19 +64,19 @@ class XmlReasoningParser:
     - <warning>, <confidence> - Important caveats
     - <user_requested>, <what_found>, <exact_match> - Entity matching
 
-    If plan fields are present and agent has plan_cache, formats with
+    If plan getter is provided and plan fields are present, formats with
     plan progress indicators showing completed/in-progress/pending steps.
     """
 
     def parse_message(
-        self, message_text: str, agent: Optional["AgentRunner"] = None
+        self, message_text: str, get_plan: Optional[PlanGetter] = None
     ) -> str:
         """
         Parse XML reasoning message and format for user display.
 
         Args:
             message_text: XML reasoning message
-            agent: Agent instance (used for plan formatting if available)
+            get_plan: Optional callback to retrieve plans by ID
 
         Returns:
             Formatted user-visible text
@@ -85,12 +84,4 @@ class XmlReasoningParser:
         from datahub_integrations.chat.utils import parse_reasoning_message
 
         parsed = parse_reasoning_message(message_text)
-
-        # If agent has plan_cache (planning capability), pass for plan formatting
-        # Use hasattr check since not all AgentRunners may have planning enabled
-        if agent and hasattr(agent, "plan_cache"):
-            # Pass agent directly - to_user_visible_message will access plan_cache
-            return parsed.to_user_visible_message(session=agent)  # type: ignore
-        else:
-            # No plan formatting
-            return parsed.to_user_visible_message(session=None)
+        return parsed.to_user_visible_message(get_plan=get_plan)

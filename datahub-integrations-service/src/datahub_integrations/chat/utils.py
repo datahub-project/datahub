@@ -1,23 +1,34 @@
 """Utility functions for chat functionality."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from bs4 import BeautifulSoup
 from loguru import logger
 
 if TYPE_CHECKING:
-    from datahub_integrations.chat.agent.agent_runner import AgentRunner
     from datahub_integrations.chat.chat_api import ChatContext
-    from datahub_integrations.chat.planner.tools import get_plan_by_id
-else:
-    # Import at runtime to avoid circular dependency
-    def get_plan_by_id(*args, **kwargs):
-        from datahub_integrations.chat.planner.tools import (
-            get_plan_by_id as _get_plan_by_id,
-        )
+    from datahub_integrations.chat.planner.models import Plan
 
-        return _get_plan_by_id(*args, **kwargs)
+
+class PlanGetter(Protocol):
+    """
+    Callback protocol for retrieving plans by ID from plan storage.
+
+    This allows any component that can look up plans to provide progress formatting.
+    """
+
+    def __call__(self, plan_id: str) -> Optional["Plan"]:
+        """
+        Retrieve a plan by its ID.
+
+        Args:
+            plan_id: The unique identifier of the plan (e.g., "plan_abc123")
+
+        Returns:
+            The Plan object if found, None otherwise
+        """
+        ...
 
 
 @dataclass(frozen=True)
@@ -57,11 +68,11 @@ class ParsedReasoning:
     plan_step: Optional[str] = None
     step_status: Optional[str] = None
 
-    def to_user_visible_message(self, session: Optional["AgentRunner"] = None) -> str:
+    def to_user_visible_message(self, get_plan: Optional[PlanGetter] = None) -> str:
         """
         Create a user-visible message from the parsed reasoning.
 
-        If plan fields are present and agent/session is provided, formats the message
+        If plan fields are present and a plan getter is provided, formats the message
         as a plan progress display with step indicators.
 
         Otherwise, prioritizes showing:
@@ -70,14 +81,14 @@ class ParsedReasoning:
         3. Confidence level if medium or low
 
         Args:
-            session: Optional AgentRunner to retrieve plan information
-                    (parameter name kept as 'session' for compatibility)
+            get_plan: Optional callback to retrieve plans by ID.
+                     See PlanGetter protocol for signature.
 
         Returns:
             A human-readable string suitable for showing to users
         """
-        # If plan fields are present and we have an agent, show plan progress
-        if self.plan_id and session:
+        # If plan fields are present and we can look up plans, show plan progress
+        if self.plan_id and get_plan:
             # Get basic reasoning message to show under current step
             parts = self._format_message_parts()
             basic_reasoning = " - ".join(parts) if parts else self.raw_text.strip()
@@ -87,7 +98,7 @@ class ParsedReasoning:
                 plan_id=self.plan_id,
                 current_step_id=self.plan_step,
                 step_status=self.step_status,
-                agent=session,
+                get_plan=get_plan,
                 reasoning_message=basic_reasoning,
             )
 
@@ -272,7 +283,7 @@ def format_plan_progress(
     plan_id: str,
     current_step_id: Optional[str],
     step_status: Optional[str],
-    agent: "AgentRunner",
+    get_plan: PlanGetter,
     reasoning_message: str,
 ) -> str:
     """
@@ -289,14 +300,14 @@ def format_plan_progress(
         plan_id: The plan identifier
         current_step_id: ID of the currently executing step (e.g., "s1")
         step_status: Status of current step (e.g., "in_progress", "completed")
-        agent: AgentRunner to retrieve the plan from
+        get_plan: Callback to retrieve the plan by ID
         reasoning_message: The reasoning message to display under the current step
 
     Returns:
         Formatted string with plan progress display
     """
     # Retrieve the plan
-    plan = get_plan_by_id(plan_id, agent)
+    plan = get_plan(plan_id)
     if not plan:
         # Plan not found, just return the reasoning message
         return reasoning_message

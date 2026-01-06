@@ -35,7 +35,7 @@ RECIPE_XML = """\
       Example constraints object in your plan:
       {
         "tool_allowlist": ["search", "get_entities", "respond_to_user"],
-        "max_tool_calls": 10
+        "max_llm_turns": 10
       }
     </constraints>
     

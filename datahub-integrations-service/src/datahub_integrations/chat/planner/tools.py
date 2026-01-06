@@ -19,7 +19,6 @@ to handle failures gracefully.
 
 import json
 import uuid
-from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -51,11 +50,11 @@ from datahub_integrations.mcp.mcp_server import get_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper, async_background
 
 if TYPE_CHECKING:
-    from datahub_integrations.chat.agent.agent_runner import AgentRunner
     from datahub_integrations.mcp_integration.external_mcp_manager import (
         ExternalToolWrapper,
     )
 
+from datahub_integrations.chat.planner.planning_context import PlanningContext
 
 # =============================================================================
 # Planner LLM Response
@@ -300,49 +299,6 @@ def _create_templated_plan_internal(
 # Planner configuration
 PLANNER_MODEL = model_config.chat_assistant_ai.model
 PLANNER_TEMPERATURE = 0.3  # Low temperature for consistent structured output
-
-
-def get_plan_by_id(plan_id: str, agent: "AgentRunner") -> Optional[Plan]:
-    """
-    Retrieve a plan from the session's cache by its ID.
-
-    Args:
-        plan_id: The unique identifier of the plan
-        session: The ChatSession instance containing the plan cache
-
-    Returns:
-        The Plan object if found, None otherwise
-    """
-    plan_data = agent.plan_cache.get(plan_id)
-    if plan_data:
-        return plan_data.get("plan")
-    return None
-
-
-def _get_available_tools(agent: "AgentRunner") -> List[str]:
-    """
-    Get the names of all plannable tools available to the agent.
-
-    Args:
-        agent: The AgentRunner instance
-
-    Returns:
-        List of tool names
-    """
-    return [tool.name for tool in agent.get_plannable_tools()]
-
-
-def _get_tool_descriptions(agent: "AgentRunner") -> Dict[str, str]:
-    """
-    Get descriptions for all plannable tools available to the agent.
-
-    Args:
-        agent: The AgentRunner instance
-
-    Returns:
-        Dictionary mapping tool names to their descriptions
-    """
-    return {tool.name: tool.description for tool in agent.get_plannable_tools()}
 
 
 _PLANNER_SYSTEM_PROMPT = """\
@@ -624,7 +580,7 @@ def _call_planner_llm(
 
 
 def create_plan(
-    agent: "AgentRunner",
+    ctx: PlanningContext,
     task: str,
     context: Optional[str] = None,
     evidence: Optional[Dict[str, Any]] = None,
@@ -698,7 +654,7 @@ def create_plan(
             - title: Human-readable plan title
             - goal: Overall objective of the plan
             - assumptions: List of assumptions made during planning
-            - constraints: Execution constraints (tool_allowlist, max_tool_calls)
+            - constraints: Execution constraints (tool_allowlist, max_llm_turns)
             - steps: Sequential list of Step objects, each with:
                 * id: Step identifier (s0, s1, s2...)
                 * description: What this step accomplishes
@@ -720,8 +676,8 @@ def create_plan(
     # Generate unique plan ID
     plan_id = f"plan_{uuid.uuid4().hex[:8]}"
 
-    # Get available tools from agent (correct prefixed names)
-    plannable_tools = agent.get_plannable_tools()
+    # Get available tools from context (correct prefixed names)
+    plannable_tools = ctx.get_plannable_tools()
     tool_allowlist = [tool.name for tool in plannable_tools]
     tool_descriptions = {tool.name: tool.description for tool in plannable_tools}
     tool_instructions = get_tool_instructions(plannable_tools)
@@ -779,7 +735,7 @@ Use the create_execution_plan tool to return the structured plan."""
             goal=plan_data.get("goal", task),
             constraints=Constraints(
                 tool_allowlist=tool_allowlist,
-                max_tool_calls=plan_data.get("max_tool_calls", max_steps * 3),
+                max_llm_turns=plan_data.get("max_llm_turns", max_steps * 3),
             ),
             assumptions=plan_data.get("assumptions", []),
             steps=[
@@ -809,12 +765,8 @@ Use the create_execution_plan tool to return the structured plan."""
             )
         raise
 
-    # Store in agent cache with internal metadata for observability
-    agent.plan_cache[plan_id] = {
-        "plan": plan,
-        "progress": {},  # Will store {step_id: {status, evidence, confidence, timestamp}}
-        "internal": internal_data,  # tool_used, template_id (for monitoring/validation)
-    }
+    # Store in context with internal metadata for observability
+    ctx.set_plan(plan_id, plan, internal_data)
 
     logger.info(
         f"Created plan {plan_id} (v{plan.version}) with {len(plan.steps)} steps"
@@ -823,7 +775,7 @@ Use the create_execution_plan tool to return the structured plan."""
 
 
 def revise_plan(
-    agent: "AgentRunner",
+    ctx: PlanningContext,
     plan_id: str,
     completed_steps: List[str],
     current_step: str,
@@ -913,11 +865,11 @@ def revise_plan(
         - Only regenerates steps from current_step onward (completed steps preserved)
         - The revised plan may have more, fewer, or different remaining steps
     """
-    # Retrieve original plan from agent cache
-    if plan_id not in agent.plan_cache:
-        raise ValueError(f"Plan {plan_id} not found in agent cache")
+    # Retrieve original plan from context
+    cached_entry = ctx.get_plan(plan_id)
+    if cached_entry is None:
+        raise ValueError(f"Plan {plan_id} not found in plan cache")
 
-    cached_entry = agent.plan_cache[plan_id]
     original_plan = cached_entry["plan"]
 
     logger.info(
@@ -927,7 +879,7 @@ def revise_plan(
 
     # Get tool descriptions and instructions for replanning (correct prefixed names)
     # Include FULL descriptions (same as create_plan)
-    plannable_tools = agent.get_plannable_tools()
+    plannable_tools = ctx.get_plannable_tools()
     tool_descriptions = {tool.name: tool.description for tool in plannable_tools}
     tool_instructions = get_tool_instructions(plannable_tools)
     tools_summary = "\n\n".join(
@@ -1018,12 +970,11 @@ Use the create_execution_plan tool to return the revised plan structure with:
         logger.error(f"Failed to revise plan {plan_id}: {e}")
         raise
 
-    # Update agent cache (preserve internal metadata, update with revision info)
-    agent.plan_cache[plan_id]["plan"] = revised_plan
-    if "internal" not in agent.plan_cache[plan_id]:
-        agent.plan_cache[plan_id]["internal"] = {}
-    agent.plan_cache[plan_id]["internal"].update(internal_data)
-    agent.plan_cache[plan_id]["internal"]["revised"] = True
+    # Update context (preserve internal metadata, update with revision info)
+    existing_internal = cached_entry.get("internal", {})
+    existing_internal.update(internal_data)
+    existing_internal["revised"] = True
+    ctx.set_plan(plan_id, revised_plan, existing_internal)
 
     logger.info(
         f"Revised plan {plan_id} to version {revised_plan.version} with {len(revised_plan.steps)} steps"
@@ -1032,7 +983,7 @@ Use the create_execution_plan tool to return the revised plan structure with:
 
 
 def report_step_progress(
-    agent: "AgentRunner",
+    ctx: PlanningContext,
     plan_id: str,
     step_id: str,
     status: Annotated[
@@ -1169,13 +1120,12 @@ def report_step_progress(
         - Multiple reports for the same step are allowed (updates status)
         - Useful for tracking but not required - plans can execute without progress reporting
     """
-    # Retrieve plan from agent cache
-    if plan_id not in agent.plan_cache:
-        raise ValueError(f"Plan {plan_id} not found in agent cache")
+    # Retrieve plan from context
+    cached_entry = ctx.get_plan(plan_id)
+    if cached_entry is None:
+        raise ValueError(f"Plan {plan_id} not found in plan cache")
 
-    cached_entry = agent.plan_cache[plan_id]
     plan = cached_entry["plan"]
-    progress = cached_entry["progress"]
 
     # Validate step_id exists in plan
     step_ids = [step.id for step in plan.steps]
@@ -1184,17 +1134,6 @@ def report_step_progress(
             f"Step {step_id} not found in plan {plan_id}. Valid steps: {step_ids}"
         )
 
-    # Store step report
-    progress[step_id] = {
-        "status": status,
-        "evidence": evidence or {},
-        "confidence": confidence,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-    # Calculate progress
-    completed_count = sum(1 for s in progress.values() if s["status"] == "completed")
-    failed_count = sum(1 for s in progress.values() if s["status"] == "failed")
     total_steps = len(plan.steps)
 
     # Determine next step
@@ -1203,24 +1142,22 @@ def report_step_progress(
         step_ids[current_step_idx + 1] if current_step_idx + 1 < total_steps else None
     )
 
-    # Generate response message
+    # Generate response message (helps LLM verbalize progress, no state mutation)
     if status == "completed" and next_step_id:
         next_step_desc = plan.steps[current_step_idx + 1].description
-        message = f"Step {step_id} completed. Next: {next_step_id} ({next_step_desc}). {completed_count}/{total_steps} complete."
+        message = f"Step {step_id} completed. Next: {next_step_id} ({next_step_desc})."
     elif status == "failed":
-        message = f"WARNING: Step {step_id} failed. Consider calling revise_plan. {completed_count}/{total_steps} complete, {failed_count} failed."
-    elif completed_count == total_steps:
+        message = f"WARNING: Step {step_id} failed. Consider calling revise_plan."
+    elif current_step_idx + 1 == total_steps and status == "completed":
         message = f"Plan complete! All {total_steps} steps finished."
     else:
-        message = f"Step recorded. {completed_count}/{total_steps} complete."
+        message = f"Step {step_id} recorded with status '{status}'."
 
-    logger.info(
-        f"Progress on {plan_id}: {step_id}={status}, {completed_count}/{total_steps} complete"
-    )
+    logger.info(f"Progress on {plan_id}: {step_id}={status}")
     return message
 
 
-def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
+def get_planning_tool_wrappers(ctx: PlanningContext) -> list[ToolWrapper]:
     """
     Get planning tools as ToolWrappers for agent use.
 
@@ -1233,12 +1170,12 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
     The function is kept in case we need to re-enable it later.
 
     Args:
-        agent: The AgentRunner instance to bind to planning tools
+        ctx: The PlanningContext providing plan state access
 
     Returns:
         List of ToolWrapper objects for create_plan and revise_plan
     """
-    # Create wrapper functions that bind the agent parameter
+    # Create wrapper functions that bind the context parameter
     # We can't use functools.partial because FastMCP's tool introspection
     # (using Pydantic) can't handle partial objects properly
 
@@ -1248,7 +1185,7 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
         evidence: dict[str, Any] | None = None,
         max_steps: int = 10,
     ) -> Plan:
-        return create_plan(agent, task, context, evidence, max_steps)
+        return create_plan(ctx, task, context, evidence, max_steps)
 
     def _revise_plan_wrapper(
         plan_id: str,
@@ -1257,9 +1194,7 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
         issue: str,
         evidence: dict | None = None,
     ) -> Plan:
-        return revise_plan(
-            agent, plan_id, completed_steps, current_step, issue, evidence
-        )
+        return revise_plan(ctx, plan_id, completed_steps, current_step, issue, evidence)
 
     def _report_step_progress_wrapper(
         plan_id: str,
@@ -1274,7 +1209,7 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
         confidence: float | None = None,
     ) -> str:
         return report_step_progress(
-            agent,
+            ctx,
             plan_id,
             step_id,
             status,

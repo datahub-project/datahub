@@ -85,7 +85,7 @@ client = DataHubClient.from_env()
 agent = create_data_catalog_explorer_agent(client=client)
 
 # Add message and generate response
-agent.history.add_message(HumanMessage(text="What datasets do we have?"))
+agent.add_message(HumanMessage(text="What datasets do we have?"))
 response = agent.generate_formatted_message()  # Returns NextMessage
 print(response.text)
 ```

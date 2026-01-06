@@ -224,7 +224,7 @@ class ChatSessionManager:
         """Add a user message to the agent's history."""
         from datahub_integrations.chat.chat_history import HumanMessage
 
-        agent.history.add_message(HumanMessage(text=text))
+        agent.add_message(HumanMessage(text=text))
 
     def _generate_with_progress(
         self,

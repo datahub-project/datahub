@@ -116,7 +116,7 @@ async def handle_ask_command_teams(
 
             # If no history or empty history, add the user's question to the chat history
             if history is None or not history.messages:
-                agent.history.add_message(HumanMessage(text=question))
+                agent.add_message(HumanMessage(text=question))
 
             # Use the provided progress callback or create a default one
             session_progress_callback = progress_callback or (

@@ -12,8 +12,8 @@ from slack_sdk import WebClient
 
 from datahub_integrations.app import graph
 from datahub_integrations.chat.agent import (
+    AgentMaxLLMTurnsExceededError,
     AgentMaxTokensExceededError,
-    AgentMaxToolCallsExceededError,
     AgentOutputMaxTokensExceededError,
     AgentRunner,
 )
@@ -249,7 +249,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             logger.exception(
                 f"Failed to send successful response. channel_id={channel_id}, thread_id={event.thread_ts} message_id={event.message_ts}: {e}"
             )
-            if isinstance(e, AgentMaxToolCallsExceededError):
+            if isinstance(e, AgentMaxLLMTurnsExceededError):
                 text = f":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question.\n\n_Reference: message_id={event.message_ts}_"
             elif isinstance(
                 e, (AgentMaxTokensExceededError, AgentOutputMaxTokensExceededError)
@@ -306,7 +306,7 @@ def _generate_mention_response(
         assert isinstance(response, NextMessage)
     finally:
         # Add the intermediate thinking messages to the history store.
-        new_messages = agent.history.messages[original_history_length:]
+        new_messages = list(agent.history.messages[original_history_length:])
         _update_slack_history_cache(event, response_ts, response, new_messages)
 
     return (

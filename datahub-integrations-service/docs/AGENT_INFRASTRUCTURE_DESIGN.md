@@ -84,7 +84,7 @@ class AgentConfig:
 
     # LLM inference settings
     use_prompt_caching: bool = True
-    max_tool_calls: int = 30
+    max_llm_turns: int = 30
     temperature: float = 0.5
     max_tokens: int = 4096
 ```
@@ -246,7 +246,7 @@ def create_schema_comparison_agent(client: DataHubClient) -> AgentRunner:
         public_tools_factory=static_tools([mcp]),  # Simple helper for static tools!
         internal_tools_factory=create_internal_tools,
         temperature=0.3,  # Lower temperature for consistent comparisons
-        max_tool_calls=15,  # Fewer calls needed for focused task
+        max_llm_turns=15,  # Fewer calls needed for focused task
     )
 
     return AgentRunner(config=config, client=client)
@@ -331,7 +331,7 @@ def create_impact_analysis_agent(client: DataHubClient) -> AgentRunner:
         system_prompt_builder=StaticPromptBuilder(IMPACT_ANALYSIS_PROMPT),
         public_tools_factory=create_impact_analysis_tools,  # Conditional logic in factory!
         temperature=0.4,
-        max_tool_calls=40,  # Impact analysis may need many tool calls
+        max_llm_turns=40,  # Impact analysis may need many tool calls
     )
 
     return AgentRunner(config=config, client=client)
@@ -429,7 +429,7 @@ class DataGovernanceAgent:
             public_tools_factory=static_tools([mcp]),  # Simple static tools
             internal_tools_factory=self._create_governance_tools,
             temperature=0.6,  # Slightly higher for conversational feel
-            max_tool_calls=25,
+            max_llm_turns=25,
         )
 
         # Create the underlying agent runner

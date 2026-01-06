@@ -347,7 +347,7 @@ class TestCreateIngestionTroubleshootingAgent:
         "datahub_integrations.chat.examples.ingestion_troubleshooting_agent.AgentRunner"
     )
     @patch("datahub_integrations.chat.examples.ingestion_troubleshooting_agent.mcp")
-    def test_agent_has_higher_max_tool_calls(
+    def test_agent_has_higher_max_llm_turns(
         self, mock_mcp: Mock, mock_agent_runner: Mock
     ) -> None:
         """Test that agent allows more tool calls for proactive investigation."""
@@ -360,7 +360,7 @@ class TestCreateIngestionTroubleshootingAgent:
         call_args = mock_agent_runner.call_args
         config = call_args[1]["config"]
         # Proactive troubleshooting needs more tool calls
-        assert config.max_tool_calls == 20
+        assert config.max_llm_turns == 20
 
     @patch(
         "datahub_integrations.chat.examples.ingestion_troubleshooting_agent.AgentRunner"

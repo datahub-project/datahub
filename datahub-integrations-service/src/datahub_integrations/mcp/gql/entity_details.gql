@@ -130,11 +130,11 @@ fragment nonRecursiveDataFlowFields on DataFlow {
         description
         __typename
     }
-    documentation {
-        #[CLOUD]
-        ...documentationFields #[CLOUD]
-        __typename #[CLOUD]
-    } #[CLOUD]
+    documentation {                                             #[CLOUD]
+                                                                #[CLOUD]
+        ...documentationFields                                  #[CLOUD]
+        __typename                                              #[CLOUD]
+    }                                                           #[CLOUD]
     ownership {
         ...ownershipFields
         __typename
@@ -207,7 +207,7 @@ fragment glossaryTerms on GlossaryTerms {
             urn
             __typename
         }
-        context #[CLOUD]
+        context                                                 #[CLOUD]
         __typename
     }
     __typename
@@ -418,13 +418,13 @@ fragment entityDisplayNameFields on Entity {
         instanceId
         __typename
     }
-    ... on Document {
-        info {
-            title
-            __typename
-        }
-        __typename
-    }
+    ... on Document {                                           #[NEWER_GMS]
+        info {                                                  #[NEWER_GMS]
+            title                                               #[NEWER_GMS]
+            __typename                                          #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+        __typename                                              #[NEWER_GMS]
+    }                                                           #[NEWER_GMS]
     __typename
 }
 
@@ -551,37 +551,33 @@ fragment entityPreview on Entity {
         health {
             ...entityHealth
         }
-        statsSummary {
-            #[CLOUD]
-            queryCountLast30Days #[CLOUD]
-            queryCountPercentileLast30Days #[CLOUD]
-            queryCountRankLast30Days #[CLOUD]
-            uniqueUserCountLast30Days #[CLOUD]
-            uniqueUserPercentileLast30Days #[CLOUD]
-            uniqueUserRankLast30Days #[CLOUD]
-            updateCountLast30Days #[CLOUD]
-            updateCountPercentileLast30Days #[CLOUD]
-            rowCount #[CLOUD]
-            rowCountPercentile #[CLOUD]
-            sizeInBytes #[CLOUD]
-            sizeInBytesPercentile #[CLOUD]
-            topUsersLast30Days {
-                #[CLOUD]
-                urn #[CLOUD]
-                properties {
-                    #[CLOUD]
-                    active #[CLOUD]
-                    displayName #[CLOUD]
-                    email #[CLOUD]
-                    title #[CLOUD]
-                } #[CLOUD]
-                editableProperties {
-                    #[CLOUD]
-                    displayName #[CLOUD]
-                    title #[CLOUD]
-                } #[CLOUD]
-            } #[CLOUD]
-        } #[CLOUD]
+        statsSummary {                                          #[CLOUD]
+            queryCountLast30Days                                #[CLOUD]
+            queryCountPercentileLast30Days                      #[CLOUD]
+            queryCountRankLast30Days                            #[CLOUD]
+            uniqueUserCountLast30Days                           #[CLOUD]
+            uniqueUserPercentileLast30Days                      #[CLOUD]
+            uniqueUserRankLast30Days                            #[CLOUD]
+            updateCountLast30Days                               #[CLOUD]
+            updateCountPercentileLast30Days                     #[CLOUD]
+            rowCount                                            #[CLOUD]
+            rowCountPercentile                                  #[CLOUD]
+            sizeInBytes                                         #[CLOUD]
+            sizeInBytesPercentile                               #[CLOUD]
+            topUsersLast30Days {                                #[CLOUD]
+                urn                                             #[CLOUD]
+                properties {                                    #[CLOUD]
+                    active                                      #[CLOUD]
+                    displayName                                 #[CLOUD]
+                    email                                       #[CLOUD]
+                    title                                       #[CLOUD]
+                }                                               #[CLOUD]
+                editableProperties {                            #[CLOUD]
+                    displayName                                 #[CLOUD]
+                    title                                       #[CLOUD]
+                }                                               #[CLOUD]
+            }                                                   #[CLOUD]
+        }                                                       #[CLOUD]
     }
     ... on CorpUser {
         properties {
@@ -1190,17 +1186,15 @@ fragment entityPreview on Entity {
             time
             actor
         }
-        incidentStatus {
-            #[CLOUD] #[NEWER_GMS]
-            state #[CLOUD] #[NEWER_GMS]
-            stage #[CLOUD] #[NEWER_GMS]
-            message #[CLOUD] #[NEWER_GMS]
-            lastUpdated {
-                #[CLOUD] #[NEWER_GMS]
-                time #[CLOUD] #[NEWER_GMS]
-                actor #[CLOUD] #[NEWER_GMS]
-            } #[CLOUD] #[NEWER_GMS]
-        } #[CLOUD] #[NEWER_GMS]
+        incidentStatus {                                        #[CLOUD] #[NEWER_GMS]
+            state                                               #[CLOUD] #[NEWER_GMS]
+            stage                                               #[CLOUD] #[NEWER_GMS]
+            message                                             #[CLOUD] #[NEWER_GMS]
+            lastUpdated {                                       #[CLOUD] #[NEWER_GMS]
+                time                                            #[CLOUD] #[NEWER_GMS]
+                actor                                           #[CLOUD] #[NEWER_GMS]
+            }                                                   #[CLOUD] #[NEWER_GMS]
+        }                                                       #[CLOUD] #[NEWER_GMS]
         assignees {
             ... on CorpUser {
                 urn
@@ -1289,66 +1283,66 @@ fragment entityPreview on Entity {
             }
         }
     }
-    ... on Document {
-        urn
-        subType
-        platform {
-            ...platformFields
-        }
-        info {
-            title
-            contents {
-                text
-            }
-            source {
-                sourceType
-                externalUrl
-            }
-            created {
-                time
-                actor {
-                    urn
-                }
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                }
-            }
-            relatedAssets {
-                asset {
-                    urn
-                    type
-                }
-            }
-            relatedDocuments {
-                document {
-                    urn
-                }
-            }
-            parentDocument {
-                document {
-                    urn
-                }
-            }
-        }
-        settings {
-            showInGlobalContext
-        }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        domain {
-            ...entityDomain
-        }
-    }
+    ... on Document {                                           #[NEWER_GMS]
+        urn                                                     #[NEWER_GMS]
+        subType                                                 #[NEWER_GMS]
+        platform {                                              #[NEWER_GMS]
+            ...platformFields                                   #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+        info {                                                  #[NEWER_GMS]
+            title                                               #[NEWER_GMS]
+            contents {                                          #[NEWER_GMS]
+                text                                            #[NEWER_GMS]
+            }                                                   #[NEWER_GMS]
+            source {                                            #[NEWER_GMS]
+                sourceType                                      #[NEWER_GMS]
+                externalUrl                                     #[NEWER_GMS]
+            }                                                   #[NEWER_GMS]
+            created {                                           #[NEWER_GMS]
+                time                                            #[NEWER_GMS]
+                actor {                                         #[NEWER_GMS]
+                    urn                                         #[NEWER_GMS]
+                }                                               #[NEWER_GMS]
+            }                                                   #[NEWER_GMS]
+            lastModified {                                      #[NEWER_GMS]
+                time                                            #[NEWER_GMS]
+                actor {                                         #[NEWER_GMS]
+                    urn                                         #[NEWER_GMS]
+                }                                               #[NEWER_GMS]
+            }                                                   #[NEWER_GMS]
+            relatedAssets {                                     #[NEWER_GMS]
+                asset {                                         #[NEWER_GMS]
+                    urn                                         #[NEWER_GMS]
+                    type                                        #[NEWER_GMS]
+                }                                               #[NEWER_GMS]
+            }                                                   #[NEWER_GMS]
+            relatedDocuments {                                  #[NEWER_GMS]
+                document {                                      #[NEWER_GMS]
+                    urn                                         #[NEWER_GMS]
+                }                                               #[NEWER_GMS]
+            }                                                   #[NEWER_GMS]
+            parentDocument {                                    #[NEWER_GMS]
+                document {                                      #[NEWER_GMS]
+                    urn                                         #[NEWER_GMS]
+                }                                               #[NEWER_GMS]
+            }                                                   #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+        settings {                                              #[NEWER_GMS]
+            showInGlobalContext                                 #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+        ownership {                                             #[NEWER_GMS]
+            ...ownershipFields                                  #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+        tags {                                                  #[NEWER_GMS]
+            ...globalTagsFields                                 #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+        glossaryTerms {                                         #[NEWER_GMS]
+            ...glossaryTerms                                    #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+        domain {                                                #[NEWER_GMS]
+            ...entityDomain                                     #[NEWER_GMS]
+        }                                                       #[NEWER_GMS]
+    }                                                           #[NEWER_GMS]
 }
 
 fragment documentationFields on Documentation {

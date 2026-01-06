@@ -1,8 +1,8 @@
 from unittest.mock import Mock, patch
 
 from datahub_integrations.chat.agent import (
+    AgentMaxLLMTurnsExceededError,
     AgentMaxTokensExceededError,
-    AgentMaxToolCallsExceededError,
 )
 from datahub_integrations.slack.command.mention import (
     FeedbackPayload,
@@ -106,7 +106,7 @@ def test_build_progress_message_plan_with_checkmarks() -> None:
     assert "Step 1" not in blocks[0]["text"]["text"]
 
 
-def test_handle_app_mention_chat_max_tool_calls_error() -> None:
+def test_handle_app_mention_chat_max_llm_turns_error() -> None:
     mock_event = SlackMentionEvent(
         channel_id="C123",
         message_ts="1234.5678",
@@ -123,7 +123,7 @@ def test_handle_app_mention_chat_max_tool_calls_error() -> None:
         patch("datahub_integrations.slack.command.mention.fetch_thread_history"),
     ):
         mock_app = Mock()
-        mock_generate.side_effect = AgentMaxToolCallsExceededError(
+        mock_generate.side_effect = AgentMaxLLMTurnsExceededError(
             "The model returned the following errors: input length and `max_tokens` exceed context limit"
         )
         mock_app.client.chat_postMessage.return_value = {"ts": "1234.9999"}

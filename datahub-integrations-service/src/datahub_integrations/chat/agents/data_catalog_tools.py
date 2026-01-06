@@ -123,7 +123,7 @@ def get_data_catalog_internal_tools(agent: "AgentRunner") -> List[ToolWrapper]:
     These tools are NOT exposed on the customer-facing MCP server.
 
     Args:
-        agent: The AgentRunner instance to bind to planning tools
+        agent: The AgentRunner instance (uses agent._planning_context for planning tools)
     """
     tools = [_respond_to_user_tool]
 
@@ -131,7 +131,8 @@ def get_data_catalog_internal_tools(agent: "AgentRunner") -> List[ToolWrapper]:
         # Import inline to avoid circular dependency
         from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
 
-        tools.extend(get_planning_tool_wrappers(agent))
+        # Use agent's planning context for plan state access
+        tools.extend(get_planning_tool_wrappers(agent._planning_context))
 
     return tools
 

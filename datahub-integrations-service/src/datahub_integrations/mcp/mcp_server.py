@@ -405,8 +405,16 @@ def _is_datahub_cloud(graph: DataHubGraph) -> bool:
 
 
 def _is_field_validation_error(error_msg: str) -> bool:
-    """Check if the error is a GraphQL field validation error."""
-    return "FieldUndefined" in error_msg or "ValidationError" in error_msg
+    """Check if the error is a GraphQL field/type validation or syntax error.
+
+    Includes InvalidSyntax because unknown types (like Document on older GMS)
+    cause syntax errors rather than validation errors.
+    """
+    return (
+        "FieldUndefined" in error_msg
+        or "ValidationError" in error_msg
+        or "InvalidSyntax" in error_msg
+    )
 
 
 def execute_graphql(
@@ -452,6 +460,9 @@ def execute_graphql(
     logger.debug(
         f"Executing GraphQL {operation_name or 'query'}: "
         f"is_cloud={is_cloud}, newer_gms_enabled={newer_gms_enabled_for_this_query}"
+    )
+    logger.debug(
+        f"GraphQL query for {operation_name or 'query'}:\n{query}\nVariables: {variables}"
     )
 
     try:

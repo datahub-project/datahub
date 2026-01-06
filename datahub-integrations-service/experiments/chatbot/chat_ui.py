@@ -152,7 +152,8 @@ st_chat_history(
 if prompt := st.chat_input("Type your message here..."):
     # Add user message to agent session
     user_message = HumanMessage(text=prompt)
-    _get_agent()._add_message(user_message)
+    agent = _get_agent()
+    agent.add_message(user_message)
 
     # Generate bot response
     def update_progress(messages):

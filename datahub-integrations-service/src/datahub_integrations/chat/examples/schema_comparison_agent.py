@@ -168,7 +168,7 @@ def create_schema_comparison_agent(
     Example:
         ```python
         agent = create_schema_comparison_agent(client)
-        agent.history.add_message(
+        agent.add_message(
             HumanMessage(text="Compare schemas of prod.users and staging.users")
         )
         response = agent.generate_next_message()
@@ -203,7 +203,7 @@ def create_schema_comparison_agent(
         tools=all_tools,
         plannable_tools=plannable_tools,  # Excludes respond_to_user
         temperature=0.3,  # Lower temperature for consistent analysis
-        max_tool_calls=15,  # Fewer calls needed for focused task
+        max_llm_turns=15,  # Fewer calls needed for focused task
         agent_name="Schema Comparison Agent",
         agent_description="Specialized agent for comparing dataset schemas",
     )
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     agent = create_schema_comparison_agent(client)
 
     # Add user query
-    agent.history.add_message(
+    agent.add_message(
         HumanMessage(
             text="Compare the schemas of urn:li:dataset:(urn:li:dataPlatform:hive,prod.users,PROD) "
             "and urn:li:dataset:(urn:li:dataPlatform:hive,staging.users,PROD)"

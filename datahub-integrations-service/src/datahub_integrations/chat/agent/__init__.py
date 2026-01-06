@@ -26,7 +26,7 @@ Example:
     )
 
     runner = AgentRunner(config=config, client=client)
-    runner.history.add_message(HumanMessage(text="Hello"))
+    runner.add_message(HumanMessage(text="Hello"))
     response = runner.generate_next_message()
     ```
 """
@@ -34,8 +34,8 @@ Example:
 from datahub_integrations.chat.agent.agent_config import AgentConfig
 from datahub_integrations.chat.agent.agent_runner import (
     AgentError,
+    AgentMaxLLMTurnsExceededError,
     AgentMaxTokensExceededError,
-    AgentMaxToolCallsExceededError,
     AgentOutputMaxTokensExceededError,
     AgentRunner,
 )
@@ -43,6 +43,13 @@ from datahub_integrations.chat.agent.conversational_parser import (
     ConversationalParser,
     PlainTextParser,
     XmlReasoningParser,
+)
+from datahub_integrations.chat.agent.history_snapshot import ChatHistorySnapshot
+from datahub_integrations.chat.agent.langgraph_agent import (
+    AgentGraphState,
+    SnapshotHolder,
+    SnapshotUpdater,
+    build_agent_graph,
 )
 from datahub_integrations.chat.agent.progress_tracker import (
     ProgressCallback,
@@ -65,6 +72,12 @@ __all__ = [
     # Core classes
     "AgentRunner",
     "AgentConfig",
+    # LangGraph integration
+    "ChatHistorySnapshot",
+    "AgentGraphState",
+    "SnapshotHolder",
+    "SnapshotUpdater",
+    "build_agent_graph",
     # System prompt builders
     "SystemPromptBuilder",
     "StaticPromptBuilder",
@@ -86,5 +99,5 @@ __all__ = [
     "AgentError",
     "AgentMaxTokensExceededError",
     "AgentOutputMaxTokensExceededError",
-    "AgentMaxToolCallsExceededError",
+    "AgentMaxLLMTurnsExceededError",
 ]

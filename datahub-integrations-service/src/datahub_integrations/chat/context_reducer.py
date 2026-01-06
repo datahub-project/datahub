@@ -121,10 +121,30 @@ class ChatContextReducer(ABC):
     def adjust_remaining_messages(
         self, remaining_messages: List[Message]
     ) -> List[Message]:
-        if len(remaining_messages) > 0 and isinstance(
-            remaining_messages[0], (ToolResult, ToolResultError)
-        ):
-            return [remaining_messages[0].tool_request] + remaining_messages
+        """
+        Adjust remaining messages to ensure tool results have matching tool calls.
+
+        When the remaining messages start with ToolResult(s), we need to prepend
+        the corresponding ToolCallRequest(s) to maintain the tool call/result pairing
+        that Bedrock requires.
+
+        This handles the case where an LLM made multiple tool calls in one turn,
+        and all those results are at the start of remaining_messages.
+        """
+        if not remaining_messages:
+            return remaining_messages
+
+        # Collect all consecutive ToolResult/ToolResultError at the start
+        tool_requests_to_prepend: List[Message] = []
+        for msg in remaining_messages:
+            if isinstance(msg, (ToolResult, ToolResultError)):
+                tool_requests_to_prepend.append(msg.tool_request)
+            else:
+                break
+
+        if tool_requests_to_prepend:
+            return tool_requests_to_prepend + remaining_messages
+
         return remaining_messages
 
     def _estimate_tokens(self, history: Union[ChatHistory, List[Message]]) -> int:

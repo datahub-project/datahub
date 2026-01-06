@@ -6,6 +6,7 @@ from datahub_integrations.chat.agent.conversational_parser import (
     PlainTextParser,
     XmlReasoningParser,
 )
+from datahub_integrations.chat.planner.models import Plan
 
 
 class TestPlainTextParser:
@@ -51,12 +52,12 @@ Line 3"""
 
         assert result == ""
 
-    def test_parse_ignores_agent_parameter(self) -> None:
-        """Test that agent parameter is not required."""
+    def test_parse_ignores_get_plan_parameter(self) -> None:
+        """Test that get_plan parameter is not required."""
         parser = PlainTextParser()
-        mock_agent = Mock()
+        mock_get_plan = Mock(return_value=None)
 
-        result = parser.parse_message("Test message", agent=mock_agent)
+        result = parser.parse_message("Test message", get_plan=mock_get_plan)
 
         assert result == "Test message"
 
@@ -82,14 +83,14 @@ class TestXmlReasoningParser:
             )
             mock_parse.return_value = mock_parsed
 
-            result = parser.parse_message(message, agent=None)
+            result = parser.parse_message(message, get_plan=None)
 
             assert result == "Searching for the dataset"
             mock_parse.assert_called_once_with(message)
-            mock_parsed.to_user_visible_message.assert_called_once_with(session=None)
+            mock_parsed.to_user_visible_message.assert_called_once_with(get_plan=None)
 
-    def test_parse_with_agent_and_plan_cache(self) -> None:
-        """Test parsing with agent that has plan_cache attribute."""
+    def test_parse_with_get_plan_callback(self) -> None:
+        """Test parsing with a plan getter callback."""
         parser = XmlReasoningParser()
         message = """<reasoning>
   <action>Execute step 1</action>
@@ -97,11 +98,9 @@ class TestXmlReasoningParser:
   <plan_step>s0</plan_step>
 </reasoning>"""
 
-        # Create mock agent with plan_cache
-        mock_agent = Mock()
-        mock_agent.plan_cache = {
-            "plan_123": {"steps": [{"id": "s0", "status": "completed"}]}
-        }
+        # Create mock plan getter
+        mock_plan = Mock(spec=Plan)
+        mock_get_plan = Mock(return_value=mock_plan)
 
         with patch(
             "datahub_integrations.chat.utils.parse_reasoning_message"
@@ -112,16 +111,16 @@ class TestXmlReasoningParser:
             )
             mock_parse.return_value = mock_parsed
 
-            result = parser.parse_message(message, agent=mock_agent)
+            result = parser.parse_message(message, get_plan=mock_get_plan)
 
-            # Should pass agent to to_user_visible_message for plan formatting
+            # Should pass get_plan to to_user_visible_message for plan formatting
             mock_parsed.to_user_visible_message.assert_called_once_with(
-                session=mock_agent
+                get_plan=mock_get_plan
             )
             assert "[1/3 ✓]" in result or result == "[1/3 ✓] Executing step 1"
 
-    def test_parse_without_agent(self) -> None:
-        """Test parsing without agent (no plan formatting)."""
+    def test_parse_without_get_plan(self) -> None:
+        """Test parsing without get_plan (no plan formatting)."""
         parser = XmlReasoningParser()
         message = """<reasoning>
   <action>Check entity</action>
@@ -134,34 +133,11 @@ class TestXmlReasoningParser:
             mock_parsed.to_user_visible_message.return_value = "Checking entity"
             mock_parse.return_value = mock_parsed
 
-            result = parser.parse_message(message, agent=None)
+            result = parser.parse_message(message, get_plan=None)
 
-            # Should pass None for session (no plan formatting)
-            mock_parsed.to_user_visible_message.assert_called_once_with(session=None)
+            # Should pass None for get_plan (no plan formatting)
+            mock_parsed.to_user_visible_message.assert_called_once_with(get_plan=None)
             assert result == "Checking entity"
-
-    def test_parse_with_agent_without_plan_cache(self) -> None:
-        """Test parsing with agent that doesn't have plan_cache."""
-        parser = XmlReasoningParser()
-        message = """<reasoning>
-  <action>Search entities</action>
-</reasoning>"""
-
-        # Create agent without plan_cache attribute
-        mock_agent = Mock(spec=[])  # spec=[] means no attributes
-
-        with patch(
-            "datahub_integrations.chat.utils.parse_reasoning_message"
-        ) as mock_parse:
-            mock_parsed = Mock()
-            mock_parsed.to_user_visible_message.return_value = "Searching entities"
-            mock_parse.return_value = mock_parsed
-
-            result = parser.parse_message(message, agent=mock_agent)
-
-            # Should pass None since agent doesn't have plan_cache
-            mock_parsed.to_user_visible_message.assert_called_once_with(session=None)
-            assert result == "Searching entities"
 
     def test_parse_complex_reasoning_with_multiple_fields(self) -> None:
         """Test parsing reasoning message with multiple fields."""
@@ -185,7 +161,7 @@ class TestXmlReasoningParser:
             )
             mock_parse.return_value = mock_parsed
 
-            result = parser.parse_message(message, agent=None)
+            result = parser.parse_message(message, get_plan=None)
 
             assert "Comparing schemas" in result
             mock_parse.assert_called_once_with(message)
@@ -203,7 +179,7 @@ class TestXmlReasoningParser:
             mock_parsed.to_user_visible_message.return_value = "Parsing error"
             mock_parse.return_value = mock_parsed
 
-            result = parser.parse_message(message, agent=None)
+            result = parser.parse_message(message, get_plan=None)
 
             # Should still return something (parse_reasoning_message handles errors)
             assert isinstance(result, str)
@@ -221,7 +197,7 @@ class TestXmlReasoningParser:
             mock_parsed.to_user_visible_message.return_value = ""
             mock_parse.return_value = mock_parsed
 
-            result = parser.parse_message(message, agent=None)
+            result = parser.parse_message(message, get_plan=None)
 
             assert isinstance(result, str)
 
@@ -247,10 +223,10 @@ class TestConversationalParserProtocol:
         xml_parser = XmlReasoningParser()
 
         message = "Test message"
-        mock_agent = Mock()
+        mock_get_plan = Mock(return_value=None)
 
-        # Both should accept message and optional agent parameter
-        plain_result = plain_parser.parse_message(message, agent=mock_agent)
+        # Both should accept message and optional get_plan parameter
+        plain_result = plain_parser.parse_message(message, get_plan=mock_get_plan)
         assert isinstance(plain_result, str)
 
         with patch(
@@ -260,7 +236,7 @@ class TestConversationalParserProtocol:
             mock_parsed.to_user_visible_message.return_value = "Test"
             mock_parse.return_value = mock_parsed
 
-            xml_result = xml_parser.parse_message(message, agent=mock_agent)
+            xml_result = xml_parser.parse_message(message, get_plan=mock_get_plan)
             assert isinstance(xml_result, str)
 
 
@@ -301,7 +277,7 @@ class TestParserEdgeCases:
             mock_parsed.to_user_visible_message.return_value = "Processing entity"
             mock_parse.return_value = mock_parsed
 
-            result = parser.parse_message(message, agent=None)
+            result = parser.parse_message(message, get_plan=None)
 
             assert isinstance(result, str)
             mock_parse.assert_called_once()

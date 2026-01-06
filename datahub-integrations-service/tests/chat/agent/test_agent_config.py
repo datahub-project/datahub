@@ -23,7 +23,7 @@ def test_agent_config_defaults():
 
     assert config.model_id == "test-model"
     assert config.use_prompt_caching is True
-    assert config.max_tool_calls == 30
+    assert config.max_llm_turns == 30
     assert config.temperature == 0.5
     assert config.max_tokens == 4096
     assert config.context_reducers is None
@@ -37,7 +37,7 @@ def test_agent_config_custom_values():
         tools=[],
         plannable_tools=[],
         use_prompt_caching=False,
-        max_tool_calls=10,
+        max_llm_turns=10,
         temperature=0.7,
         max_tokens=2048,
         agent_name="Custom Agent",
@@ -45,7 +45,7 @@ def test_agent_config_custom_values():
 
     assert config.model_id == "custom-model"
     assert config.use_prompt_caching is False
-    assert config.max_tool_calls == 10
+    assert config.max_llm_turns == 10
     assert config.temperature == 0.7
     assert config.max_tokens == 2048
     assert config.agent_name == "Custom Agent"

@@ -678,7 +678,7 @@ def create_ingestion_troubleshooting_agent(
         agent = create_ingestion_troubleshooting_agent(client)
 
         # User reports an issue
-        agent.history.add_message(
+        agent.add_message(
             HumanMessage(text="My table snowflake.prod.sales_orders isn't showing up in DataHub")
         )
 
@@ -826,7 +826,7 @@ def create_ingestion_troubleshooting_agent(
         tools=all_tools,
         plannable_tools=plannable_tools,  # Excludes respond_to_user
         temperature=0.4,  # Balanced between creative investigation and focused diagnosis
-        max_tool_calls=20,  # Proactive agents may need multiple investigation steps
+        max_llm_turns=20,  # Proactive agents may need multiple investigation steps
         agent_name="Ingestion Troubleshooting Agent",
         agent_description="Proactive agent for diagnosing DataHub ingestion issues",
     )
@@ -904,7 +904,7 @@ if __name__ == "__main__":
     print("SCENARIO 1: User reports missing entity")
     print("=" * 80)
 
-    agent.history.add_message(
+    agent.add_message(
         HumanMessage(
             text="My table snowflake.prod.sales_orders isn't showing up in DataHub"
         )

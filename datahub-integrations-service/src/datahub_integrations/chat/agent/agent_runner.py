@@ -14,7 +14,18 @@ import os
 import platform
 import socket
 import uuid
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, cast
+from dataclasses import dataclass
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Union,
+    cast,
+)
 
 import mlflow
 import mlflow.entities
@@ -23,6 +34,12 @@ from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
 
 from datahub_integrations.chat.agent.agent_config import AgentConfig
+from datahub_integrations.chat.agent.history_snapshot import ChatHistorySnapshot
+from datahub_integrations.chat.agent.langgraph_agent import (
+    AgentGraphState,
+    SnapshotUpdater,
+    build_agent_graph,
+)
 from datahub_integrations.chat.agent.progress_tracker import (
     ProgressCallback,
     ProgressTracker,
@@ -30,14 +47,14 @@ from datahub_integrations.chat.agent.progress_tracker import (
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     ChatHistory,
-    HumanMessage,
+    ImmutableChatHistory,
     Message,
     ReasoningMessage,
-    SummaryMessage,
     ToolCallRequest,
     ToolResult,
     ToolResultError,
 )
+from datahub_integrations.chat.planner.planning_context import PlanningContext
 from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.mcp.mcp_server import with_datahub_client
@@ -60,6 +77,8 @@ if TYPE_CHECKING:
         TokenUsageTypeDef,
     )
 
+    from datahub_integrations.chat.planner.models import Plan
+
 
 class AgentError(Exception):
     """Base exception for agent errors."""
@@ -79,10 +98,69 @@ class AgentOutputMaxTokensExceededError(AgentError):
     pass
 
 
-class AgentMaxToolCallsExceededError(AgentError):
+class AgentMaxLLMTurnsExceededError(AgentError):
     """Raised when agent exceeds maximum allowed tool calls."""
 
     pass
+
+
+@dataclass(frozen=True)
+class LLMCallResult:
+    """
+    Structured output from calling LLM (immutable).
+
+    This dataclass captures all relevant information from an LLM call,
+    separating the LLM response from tool execution. This separation
+    enables HITL (human-in-the-loop) approval in future phases.
+
+    Immutable because:
+    - It's a return value that should not be modified after creation
+    - Prevents accidental mutation bugs
+    - Thread-safe for concurrent session handling (Phase 2)
+
+    Attributes:
+        new_messages: Messages added to history during this LLM call
+            (reasoning, assistant message, or tool call requests)
+        pending_tool_calls: Tool calls requested by the LLM that need execution.
+            These are NOT executed yet - caller decides when to execute.
+        is_complete: True if this is a final response (end_turn with no tools)
+        stop_reason: The LLM's stop reason for debugging/logging
+        token_usage: Token usage statistics from the LLM response
+        output_truncated: True if stopReason was "max_tokens".
+            Note: If True, an exception is raised before returning,
+            so this will always be False in a successfully returned result.
+            Kept for potential future use with graceful truncation handling.
+    """
+
+    new_messages: tuple  # Use tuple for immutability (contains Message objects)
+    pending_tool_calls: tuple  # Use tuple for immutability (contains ToolCallRequest)
+    is_complete: bool
+    stop_reason: str
+    token_usage: "TokenUsageTypeDef"  # Token usage statistics from the LLM response
+    output_truncated: bool
+
+
+@dataclass(frozen=True)
+class ToolExecutionResult:
+    """
+    Structured output from executing a tool (immutable).
+
+    This dataclass captures the result of a single tool execution,
+    providing structured data for telemetry and caller inspection.
+
+    Immutable because:
+    - It's a return value that should not be modified after creation
+    - Prevents accidental mutation bugs
+
+    Attributes:
+        message: The ToolResult or ToolResultError added to history
+        duration_seconds: How long the tool took to execute
+        tool_name: Name of the tool that was executed
+    """
+
+    message: Union["ToolResult", "ToolResultError"]
+    duration_seconds: float
+    tool_name: str
 
 
 def _strip_reasoning_tag(text: str) -> str:
@@ -122,15 +200,21 @@ def log_tokens_usage(response: "TokenUsageTypeDef") -> None:
 def enrich_event_with_agent_data(
     event_data: ChatbotInteractionEvent, agent: Optional["AgentRunner"]
 ) -> None:
+    """
+    Enrich telemetry event with agent data.
+
+    Uses agent.history property which accesses the current snapshot's history.
+    """
     if agent:
         event_data.chat_session_id = agent.session_id
-        if agent.history:
-            event_data.num_tool_calls = agent.history.num_tool_calls
-            event_data.num_tool_call_errors = agent.history.num_tool_call_errors
-            event_data.num_history_messages = len(agent.history.messages)
-            event_data.full_history = agent.history.json(indent=None)
-            event_data.reduction_sequence = agent.history.reduction_sequence_json
-            event_data.num_reducers_applied = agent.history.num_reducers_applied
+        history = agent.history
+        if history:
+            event_data.num_tool_calls = history.num_tool_calls
+            event_data.num_tool_call_errors = history.num_tool_call_errors
+            event_data.num_history_messages = len(history.messages)
+            event_data.full_history = history.json(indent=None)
+            event_data.reduction_sequence = history.reduction_sequence_json
+            event_data.num_reducers_applied = history.num_reducers_applied
 
 
 class AgentRunner:
@@ -154,7 +238,7 @@ class AgentRunner:
             tools=[mcp],
         )
         runner = AgentRunner(config=config, client=client)
-        runner.history.add_message(HumanMessage(text="Hello"))
+        runner.add_message(HumanMessage(text="Hello"))
         response = runner.generate_next_message()
         ```
     """
@@ -176,15 +260,26 @@ class AgentRunner:
         self.config = config
         self.client = client
         self.session_id = str(uuid.uuid4())
-        self.history: ChatHistory = history or ChatHistory()
 
         # Use tools from config (already prepared)
         self.tools: List[ToolWrapper] = config.tools
         self.plannable_tools: List[ToolWrapper] = config.plannable_tools
 
-        # Planning support (infrastructure-level)
-        # Agents can use create_plan/revise_plan tools if they include them
-        self.plan_cache: Dict[str, Dict[str, Any]] = {}
+        # Create initial snapshot from provided history (or empty)
+        # This is the single source of truth for all agent state
+        initial_history = history or ChatHistory()
+        initial_snapshot = ChatHistorySnapshot.from_history(
+            history=initial_history,
+            plan_cache={},
+        )
+        self._state = AgentGraphState(initial_snapshot)
+
+        # Create planning context with reference to state holder
+        # Planning tools use this for plan state access
+        self._planning_context = PlanningContext(
+            plannable_tools=self.plannable_tools,
+            holder=self._state,
+        )
 
         # Set up context reducers
         if config.context_reducers is not None:
@@ -233,16 +328,18 @@ class AgentRunner:
                 SlidingWindowReducer(estimator, reducer_config, max_messages=10),
             ]
 
-        # Create progress tracker with conversational parser
+        # Create progress tracker with conversational parser (push-based)
         self._progress_tracker = ProgressTracker(
-            history=self.history,
             progress_callback=None,
-            agent=self,
+            get_plan=self._get_plan,
             conversational_parser=config.conversational_parser,
         )
 
         # Create bound logger with session_id for consistent logging
         self._logger = logger.bind(session_id=self.session_id)
+
+        # Build the LangGraph for agent orchestration
+        self._graph = build_agent_graph(self)
 
         self._logger.info(
             f"Initialized {config.agent_name} (session={self.session_id}) with {len(self.tools)} tools"
@@ -253,27 +350,71 @@ class AgentRunner:
         """Get mapping of tool names to tool instances."""
         return {tool.name: tool for tool in self.tools}
 
-    def get_plannable_tools(self) -> List[ToolWrapper]:
+    @property
+    def history(self) -> ImmutableChatHistory:
         """
-        Get tools that can be used in execution plans.
+        Get read-only view of current chat history.
 
-        Returns the plannable_tools configured at initialization,
-        which typically excludes internal/control-flow tools.
+        Returns an ImmutableChatHistory to prevent accidental mutations.
+        The type system will flag attempts to call add_message() or other
+        mutating methods on the returned object.
+
+        To add messages, use agent.add_message().
+        For complex history modifications, use agent._state.with_history().
 
         Returns:
-            List of ToolWrapper objects suitable for planning
+            ImmutableChatHistory - read-only view of the current history
         """
-        return self.plannable_tools
+        return self._state.snapshot.to_history()
+
+    def _get_plan(self, plan_id: str) -> Optional["Plan"]:
+        """
+        Retrieve a plan by ID from the agent's state.
+
+        This method conforms to the PlanGetter protocol and is used by
+        ProgressTracker and ConversationalParser for plan progress formatting.
+
+        Args:
+            plan_id: The unique identifier of the plan
+
+        Returns:
+            The Plan object if found, None otherwise
+        """
+        plan_entry = self._state.get_plan(plan_id)
+        return plan_entry.get("plan") if plan_entry else None
+
+    def add_message(self, message: Message) -> None:
+        """
+        Add a message to the chat history.
+
+        This method provides a convenient way to add messages without
+        using the lower-level with_history() callback. It also notifies
+        the progress tracker for user-facing progress updates.
+
+        Args:
+            message: The message to add to history
+        """
+
+        def add_msg(history: ChatHistory, m: SnapshotUpdater) -> None:
+            self._add_message(history, message)
+
+        self._state.with_history(add_msg)
 
     def _get_system_messages(self) -> List[Any]:
         """Get system messages from the configured prompt builder."""
         return self.config.system_prompt_builder.build_system_messages(self.client)
 
-    def _add_message(self, message: Message) -> None:
+    def _add_message(self, history: ChatHistory, message: Message) -> None:
         """
-        Add a message to history and notify progress tracker.
+        Add a message to history with logging and progress notification.
+
+        This helper method handles:
+        - Debug logging of the message being added
+        - Mutating the passed history instance
+        - Notifying the progress tracker of the update
 
         Args:
+            history: The ChatHistory to mutate. Caller owns this instance.
             message: Message to add to history
         """
         # Log messages for debugging
@@ -290,8 +431,8 @@ class AgentRunner:
                 f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400, show_length=True)}"
             )
 
-        self.history.add_message(message)
-        self._progress_tracker.handle_history_updated()
+        history.add_message(message)
+        self._progress_tracker.on_message(message)
 
     @contextlib.contextmanager
     def set_progress_callback(
@@ -318,10 +459,8 @@ class AgentRunner:
         """
         prev_tracker = self._progress_tracker
         self._progress_tracker = ProgressTracker(
-            history=self.history,
             progress_callback=progress_callback,
-            agent=self,
-            start_offset=len(self.history.messages),
+            get_plan=self._get_plan,
             conversational_parser=self.config.conversational_parser,
         )
         try:
@@ -329,57 +468,159 @@ class AgentRunner:
         finally:
             self._progress_tracker = prev_tracker
 
-    def _prepare_messages(self) -> List[dict]:
+    def _prepare_messages(self, history: ChatHistory) -> List[dict]:
         """
         Prepare messages for LLM with context reduction and prompt caching.
+
+        Args:
+            history: The ChatHistory to prepare messages from.
+                Context reducers will mutate this history if reduction is needed.
 
         Returns:
             List of formatted message dictionaries ready for LLM API
         """
         # Apply context reduction if configured
         for reducer in self.context_reducers:
-            reducer.reduce(self.history)
+            reducer.reduce(history)
 
-        formatted_messages = [
-            message.to_obj() for message in self.history.context_messages
-        ]
+        raw_messages = [message.to_obj() for message in history.context_messages]
+
+        # Transform internal history format to LLM API format.
+        # This handles:
+        # 1. Filtering out internal messages (e.g., ApprovalRequest/Response for HITL)
+        # 2. Consolidating consecutive same-role messages (required by Bedrock)
+        formatted_messages = self._transform_history_to_api_format(raw_messages)
 
         # Add prompt caching markers if enabled
         if self.config.use_prompt_caching:
-            # Mark potential cache points (after user/assistant/tool result messages)
-            potential_cache_point_indexes = [
-                i
-                for i, message in enumerate(self.history.context_messages)
-                if isinstance(
-                    message,
-                    (
-                        HumanMessage,
-                        AssistantMessage,
-                        SummaryMessage,
-                        ToolResult,
-                        ToolResultError,
-                    ),
-                )
-            ]
-            # Use at most 2 cache points for optimal performance
-            if len(potential_cache_point_indexes) > 2:
-                potential_cache_point_indexes = potential_cache_point_indexes[-2:]
-            for index in potential_cache_point_indexes:
-                formatted_messages[index]["content"].append(
+            # Mark potential cache points on the consolidated messages.
+            # We add cache points after user or assistant messages (not in the middle
+            # of tool call sequences). Use at most 2 cache points for optimal performance.
+            # Note: After consolidation, each message contains all content blocks for that
+            # turn, so we simply pick the last 2 messages as cache points.
+            if len(formatted_messages) >= 2:
+                # Add cache points to the last 2 messages
+                for index in range(
+                    max(0, len(formatted_messages) - 2), len(formatted_messages)
+                ):
+                    formatted_messages[index]["content"].append(
+                        {"cachePoint": {"type": "default"}}
+                    )
+            elif len(formatted_messages) == 1:
+                # Only one message - add cache point to it
+                formatted_messages[0]["content"].append(
                     {"cachePoint": {"type": "default"}}
                 )
 
         return formatted_messages
 
-    def _generate_tool_call(self) -> None:
+    def _transform_history_to_api_format(self, messages: List[dict]) -> List[dict]:
         """
-        Generate a single tool call cycle (reasoning -> tool use).
+        Transform internal history representation to LLM API format.
+
+        The internal history stores each logical event as a separate message for:
+        - Complete audit trail and debugging
+        - Progress tracking on individual messages
+        - Clean checkpointing/serialization
+
+        The LLM API (Bedrock) requires a different format:
+        - No internal messages (ApprovalRequest/Response for HITL)
+        - Consecutive same-role messages consolidated into one
+        - Strict alternating user/assistant pattern
+
+        This method bridges the two representations by:
+        1. Filtering out internal message types
+        2. Consolidating consecutive same-role messages
+
+        Args:
+            messages: List of message dicts from internal history
+
+        Returns:
+            Transformed list ready for LLM API
+        """
+        if not messages:
+            return messages
+
+        # Step 1: Filter out internal messages
+        # (Currently none, but ApprovalRequest/Response will be added for HITL in Phase 3)
+        filtered = self._filter_internal_messages(messages)
+
+        # Step 2: Consolidate consecutive same-role messages
+        return self._consolidate_consecutive_roles(filtered)
+
+    def _filter_internal_messages(self, messages: List[dict]) -> List[dict]:
+        """
+        Filter out internal message types that shouldn't be sent to the LLM.
+
+        Internal messages are used for state tracking (e.g., HITL approvals)
+        but should not be part of the LLM conversation.
+
+        Args:
+            messages: List of message dicts
+
+        Returns:
+            Filtered list with internal messages removed
+        """
+        # TODO: Filter ApprovalRequest/ApprovalResponse when HITL is implemented (Phase 3)
+        # For now, pass through all messages
+        return messages
+
+    def _consolidate_consecutive_roles(self, messages: List[dict]) -> List[dict]:
+        """
+        Consolidate consecutive messages of the same role into single messages.
+
+        Bedrock's Converse API requires that:
+        - Multiple tool calls from one LLM response be in ONE assistant message
+        - Multiple tool results be in ONE user message
+
+        Without consolidation, sending separate messages causes validation errors like:
+        "Expected toolResult blocks for Ids: X, but found: Y"
+
+        Args:
+            messages: List of message dicts with 'role' and 'content' keys
+
+        Returns:
+            Consolidated list where consecutive same-role messages are merged
+        """
+        if not messages:
+            return messages
+
+        consolidated: List[dict] = []
+
+        for msg in messages:
+            if consolidated and consolidated[-1]["role"] == msg["role"]:
+                # Same role as previous - merge content blocks
+                consolidated[-1]["content"].extend(msg["content"])
+            else:
+                # Different role - start new message
+                # Make a copy to avoid mutating the original
+                consolidated.append(
+                    {"role": msg["role"], "content": list(msg["content"])}
+                )
+
+        return consolidated
+
+    def _call_llm(self, history: ChatHistory) -> LLMCallResult:
+        """
+        Call the LLM and process the response, but do NOT execute tools.
 
         This method:
         1. Prepares messages with context reduction
         2. Calls the LLM with tools
         3. Processes the response (reasoning, tool calls, or final message)
         4. Adds appropriate messages to history
+        5. Returns structured result with pending tool calls for caller to execute
+
+        The separation of LLM calling from tool execution enables:
+        - HITL (human-in-the-loop) approval before tool execution
+        - Better testing of LLM responses
+        - Clearer control flow in the agent loop
+
+        Args:
+            history: The ChatHistory to use and mutate. Caller owns this instance.
+
+        Returns:
+            LLMCallResult with new messages and pending tool calls
 
         Raises:
             AgentMaxTokensExceededError: If input exceeds context window
@@ -388,7 +629,7 @@ class AgentRunner:
         """
         llm_client = get_llm_client(self.config.model_id)
 
-        messages = self._prepare_messages()
+        messages = self._prepare_messages(history)
 
         # Prepare tools with optional caching
         tools = [tool.to_bedrock_spec() for tool in self.tools]
@@ -461,17 +702,16 @@ class AgentRunner:
             )
 
         # Process stop reason
-        is_end_turn = False
         output = response["output"]
         stop_reason = response["stopReason"]
+        output_truncated = stop_reason == "max_tokens"
 
-        if stop_reason == "max_tokens":
+        # Fail fast if output was truncated
+        if output_truncated:
             raise AgentOutputMaxTokensExceededError(str(response))
-        elif stop_reason == "tool_use":
-            pass  # Expected
-        elif stop_reason == "end_turn":
-            is_end_turn = True
-        else:
+
+        is_end_turn = stop_reason == "end_turn"
+        if stop_reason not in ("tool_use", "end_turn"):
             raise AgentError(f"Unknown stop reason {stop_reason}: {response}")
 
         message = output.get("message")
@@ -485,30 +725,54 @@ class AgentRunner:
         if len(tool_use_blocks) > 1:
             self._logger.info(
                 f"LLM returned {len(tool_use_blocks)} tool calls in a single response. "
-                f"Executing sequentially. Tools: {[block['toolUse']['name'] for block in tool_use_blocks]}"
+                f"Will execute sequentially. Tools: {[block['toolUse']['name'] for block in tool_use_blocks]}"
             )
 
-        # Process each content block.
-        # When the LLM returns multiple tool calls in a single response, we execute them
-        # sequentially. This is correct behavior - all tool results will be added to history
-        # before the next LLM call.
-        # TODO: Consider executing independent tool calls in parallel for better latency.
-        # This would require checking for tool dependencies and batching the execution.
+        # Process each content block and collect results
+        new_messages: List[Message] = []
+        pending_tool_calls: List[ToolCallRequest] = []
+
         for i, content_block in enumerate(response_content):
             is_last_block = i == len(response_content) - 1
+
             if "text" in content_block:
-                self._handle_text_content(content_block, is_end_turn, is_last_block)
+                # Handle text content (reasoning or final response)
+                msg = self._handle_text_content(
+                    history, content_block, is_end_turn, is_last_block
+                )
+                new_messages.append(msg)
+
             elif "toolUse" in content_block:
-                self._handle_tool_call_request(content_block)
+                # Create tool call request but do NOT execute - caller will execute
+                tool_use = content_block["toolUse"]
+                tool_request = ToolCallRequest(
+                    tool_use_id=tool_use["toolUseId"],
+                    tool_name=tool_use["name"],
+                    tool_input=tool_use["input"],
+                )
+                self._add_message(history, tool_request)
+                new_messages.append(tool_request)
+                pending_tool_calls.append(tool_request)
+
             else:
                 raise AgentError(f"Unknown content block type {content_block}")
 
+        return LLMCallResult(
+            new_messages=tuple[Message, ...](new_messages),
+            pending_tool_calls=tuple[ToolCallRequest, ...](pending_tool_calls),
+            is_complete=is_end_turn and not pending_tool_calls,
+            stop_reason=stop_reason,
+            token_usage=cast("TokenUsageTypeDef", response["usage"]),
+            output_truncated=False,  # Always False here since we raise if truncated
+        )
+
     def _handle_text_content(
         self,
+        history: ChatHistory,
         content_block: "ContentBlockOutputTypeDef",
         is_end_turn: bool,
         is_last_block: bool,
-    ) -> None:
+    ) -> Message:
         """
         Handle text content from LLM response.
 
@@ -517,9 +781,13 @@ class AgentRunner:
         - Final assistant message (when no tools are used)
 
         Args:
+            history: The ChatHistory to mutate. Caller owns this instance.
             content_block: Content block from LLM response
             is_end_turn: Whether this is the final block in a turn
             is_last_block: Whether this is the last block in the response
+
+        Returns:
+            The message that was created and added to history
         """
         is_final_response = is_last_block and is_end_turn
 
@@ -528,17 +796,18 @@ class AgentRunner:
             response_text = content_block["text"]
             response_text = _strip_reasoning_tag(response_text)
             self._logger.info(f"Adding AssistantMessage: {response_text}")
-            self._add_message(AssistantMessage(text=response_text))
+            msg: Message = AssistantMessage(text=response_text)
+            self._add_message(history, msg)
 
             # Log to MLflow
             attributes = {
                 "response_length": len(response_text),
-                "message_index": len(self.history.messages),
+                "message_index": len(history.messages),
                 "is_unexpected_direct_response": True,
             }
 
             with mlflow.start_span(
-                f"assistant_message_{len(self.history.messages)}",
+                f"assistant_message_{len(history.messages)}",
                 span_type=mlflow.entities.SpanType.LLM,
                 attributes=attributes,
             ) as span:
@@ -546,46 +815,49 @@ class AgentRunner:
                     {"context": "Direct LLM response (bypassed internal tools)"}
                 )
                 span.set_outputs({"response": response_text})
+
+            return msg
         else:
             # Reasoning message (internal thoughts)
             reasoning_text = content_block["text"]
-            self._add_message(ReasoningMessage(text=reasoning_text))
+            msg = ReasoningMessage(text=reasoning_text)
+            self._add_message(history, msg)
 
             # Log to MLflow
             attributes = {
                 "reasoning_length": len(reasoning_text),
-                "message_index": len(self.history.messages),
+                "message_index": len(history.messages),
             }
 
             with mlflow.start_span(
-                f"reasoning_step_{len(self.history.messages)}",
+                f"reasoning_step_{len(history.messages)}",
                 span_type=mlflow.entities.SpanType.LLM,
                 attributes=attributes,
             ) as span:
                 span.set_inputs({"context": "LLM internal thinking"})
                 span.set_outputs({"reasoning": reasoning_text})
 
-    def _handle_tool_call_request(
-        self, content_block: "ContentBlockOutputTypeDef"
-    ) -> None:
-        """
-        Handle tool call request from LLM.
+            return msg
 
-        Executes the requested tool and adds the result to history.
+    def _execute_tool(
+        self, history: ChatHistory, tool_request: ToolCallRequest
+    ) -> ToolExecutionResult:
+        """
+        Execute a single tool and add the result to history.
+
+        This method executes the tool specified in the tool_request and adds
+        the result (success or error) to the history. Telemetry is tracked
+        within this method to keep it co-located with execution.
 
         Args:
-            content_block: Content block containing tool use information
+            history: The ChatHistory to mutate. Caller owns this instance.
+            tool_request: The tool call request to execute (already added to history
+                by _call_llm).
+
+        Returns:
+            ToolExecutionResult with the result message and execution metadata
         """
-        tool_use = content_block["toolUse"]
-        tool_name = tool_use["name"]
-
-        tool_request = ToolCallRequest(
-            tool_use_id=tool_use["toolUseId"],
-            tool_name=tool_name,
-            tool_input=tool_use["input"],
-        )
-        self._add_message(tool_request)
-
+        tool_name = tool_request.tool_name
         result = None
         error = None
         timer = PerfTimer()
@@ -600,48 +872,63 @@ class AgentRunner:
                 f"Tool execution failed for {tool_name} in session {self.session_id}"
             )
             error = f"{type(e).__name__}: {e}"
-            self._add_message(
-                ToolResultError(
-                    tool_request=tool_request,
-                    error=error,
-                )
+            msg: Union[ToolResult, ToolResultError] = ToolResultError(
+                tool_request=tool_request,
+                error=error,
             )
-            # Track failed tool call (Tier 3)
+            self._add_message(history, msg)
             tracker = get_cost_tracker()
             tracker.record_tool_call(
                 ai_module=self.config.ai_module, tool=tool_name, success=False
             )
         else:
-            self._add_message(ToolResult(tool_request=tool_request, result=result))
+            msg = ToolResult(tool_request=tool_request, result=result)
+            self._add_message(history, msg)
             # Track successful tool call (Tier 3)
             tracker = get_cost_tracker()
             tracker.record_tool_call(
                 ai_module=self.config.ai_module, tool=tool_name, success=True
             )
+        tool_result = ToolExecutionResult(
+            message=msg,
+            duration_seconds=timer.elapsed_seconds(),
+            tool_name=tool_name,
+        )
 
-        # Track telemetry
+        # Track telemetry (co-located with execution for LangGraph compatibility)
         track_saas_event(
             ChatbotToolCallEvent(
                 chat_session_id=self.session_id,
-                tool_name=tool_name,
+                tool_name=tool_result.tool_name,
                 tool_input=tool_request.tool_input,
-                tool_execution_duration_sec=timer.elapsed_seconds(),
-                tool_result_length=len(str(result)) if result else None,
-                tool_result_is_error=error is not None,
-                tool_error=error,
+                tool_execution_duration_sec=tool_result.duration_seconds,
+                tool_result_length=(
+                    len(str(tool_result.message.result))
+                    if isinstance(tool_result.message, ToolResult)
+                    else None
+                ),
+                tool_result_is_error=isinstance(tool_result.message, ToolResultError),
+                tool_error=(
+                    tool_result.message.error
+                    if isinstance(tool_result.message, ToolResultError)
+                    else None
+                ),
             )
         )
+
+        return tool_result
 
     @mlflow.trace
     def generate_next_message(
         self, completion_check: Optional[Callable[[Message], bool]] = None
     ) -> Message:
         """
-        Generate the next message via agentic loop.
+        Generate the next message via LangGraph-based agentic loop.
 
-        This is the main method that orchestrates the agent's behavior:
-        1. Generate reasoning and tool calls
-        2. Execute tools
+        This is the main method that orchestrates the agent's behavior using
+        a LangGraph StateGraph:
+        1. Generate reasoning and tool calls (call_llm node)
+        2. Execute tools (execute_tools node)
         3. Repeat until completion condition is met
 
         The agent loop continues until the completion_check returns True. Each iteration
@@ -672,7 +959,7 @@ class AgentRunner:
             on the completion_check logic.
 
         Raises:
-            AgentMaxToolCallsExceededError: If max_tool_calls is exceeded
+            AgentMaxLLMTurnsExceededError: If max_llm_turns is exceeded
             AgentMaxTokensExceededError: If input exceeds context window
             AgentOutputMaxTokensExceededError: If output is truncated
         """
@@ -694,7 +981,7 @@ class AgentRunner:
 
         logger.info(
             f"Generating next message for {self.config.agent_name} (session={self.session_id}), "
-            f"currently have {len(self.history.messages)} messages in history"
+            f"currently have {len(self._state.snapshot.messages_json)} messages in history"
         )
 
         # Default completion check: Stop when agent generates a direct text response (AssistantMessage)
@@ -705,25 +992,45 @@ class AgentRunner:
             def completion_check(msg: Message) -> bool:
                 return isinstance(msg, AssistantMessage)
 
-        for i in range(self.config.max_tool_calls):
-            logger.info(
-                f"Generating tool call {i} for {self.config.agent_name} (session={self.session_id})"
-            )
-            self._generate_tool_call()
+        # No explicit state reset needed - execution state is computed from messages:
+        # - pending_tool_calls: computed from unmatched ToolCallRequest messages
+        # - is_complete: computed from last message being AssistantMessage
+        # - tool_calls_used: computed from LLM response sequences since last HumanMessage
 
-            if not self.history.messages:
-                raise AgentError("No messages in chat history")
+        # LangGraph config - state lives in self._state, graph nodes access it directly
+        # completion_check is passed via config because functions can't be serialized
+        # Cast to Any to satisfy mypy since RunnableConfig accepts dict-like structures
+        graph_config = {
+            "configurable": {
+                "thread_id": self.session_id,
+                "completion_check": completion_check,
+            }
+        }
 
-            last_message = self.history.messages[-1]
-            if completion_check(last_message):
-                logger.info(
-                    f"Agent completed for {self.config.agent_name} (session={self.session_id})"
+        # Run graph (nodes update self._state directly via with_history)
+        # The empty initial_state is just for LangGraph mechanics
+        self._graph.invoke({}, cast(Any, graph_config))
+
+        # State is now in self._state (updated by graph nodes)
+        snapshot = self._state.snapshot
+
+        # Check for max tool calls error (computed from message sequences)
+        if snapshot.get_llm_turns_used() >= self.config.max_llm_turns:
+            if not snapshot.is_complete():
+                raise AgentMaxLLMTurnsExceededError(
+                    f"Failed to generate next message after {self.config.max_llm_turns} tool calls"
                 )
-                return last_message
 
-        raise AgentMaxToolCallsExceededError(
-            f"Failed to generate next message after {self.config.max_tool_calls} tool calls"
+        # Return the last message
+        final_history = snapshot.to_history()
+        if not final_history.messages:
+            raise AgentError("No messages in chat history")
+
+        last_message = final_history.messages[-1]
+        logger.info(
+            f"Agent completed for {self.config.agent_name} (session={self.session_id})"
         )
+        return last_message
 
     def generate_formatted_message(
         self, completion_check: Optional[Callable[[Message], bool]] = None
@@ -752,7 +1059,7 @@ class AgentRunner:
             ```python
             # Agent configured with response_formatter that returns NextMessage
             runner = AgentRunner(config=config, client=client)
-            runner.history.add_message(HumanMessage(text="Hello"))
+            runner.add_message(HumanMessage(text="Hello"))
 
             # Returns NextMessage (formatted) - uses config's completion_check
             response = runner.generate_formatted_message()

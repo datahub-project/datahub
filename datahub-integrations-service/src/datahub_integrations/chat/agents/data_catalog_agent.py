@@ -191,7 +191,7 @@ def create_data_catalog_explorer_agent(
 
         client = DataHubClient.from_env()
         agent = create_data_catalog_explorer_agent(client)
-        agent.history.add_message(HumanMessage(text="What datasets do we have?"))
+        agent.add_message(HumanMessage(text="What datasets do we have?"))
         response = agent.generate_formatted_message()  # Returns NextMessage
         print(response.text)
         ```
@@ -250,7 +250,7 @@ def create_data_catalog_explorer_agent(
         context_reducers=None,  # Will use defaults
         conversational_parser=XmlReasoningParser(),  # DataHub's XML reasoning format
         use_prompt_caching=True,
-        max_tool_calls=MAX_TOOL_CALLS,
+        max_llm_turns=MAX_TOOL_CALLS,
         temperature=0.5,
         max_tokens=4096,
         agent_name="DataCatalog Explorer",

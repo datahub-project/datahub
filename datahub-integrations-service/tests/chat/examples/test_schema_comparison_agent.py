@@ -327,7 +327,7 @@ class TestCreateSchemaComparisonAgent:
 
     @patch("datahub_integrations.chat.examples.schema_comparison_agent.AgentRunner")
     @patch("datahub_integrations.chat.examples.schema_comparison_agent.mcp")
-    def test_agent_has_reasonable_max_tool_calls(
+    def test_agent_has_reasonable_max_llm_turns(
         self, mock_mcp: Mock, mock_agent_runner: Mock
     ) -> None:
         """Test that agent has appropriate max tool calls limit."""
@@ -340,7 +340,7 @@ class TestCreateSchemaComparisonAgent:
         call_args = mock_agent_runner.call_args
         config = call_args[1]["config"]
         # Schema comparison is focused, should have reasonable limit
-        assert config.max_tool_calls == 15
+        assert config.max_llm_turns == 15
 
     @patch("datahub_integrations.chat.examples.schema_comparison_agent.AgentRunner")
     @patch("datahub_integrations.chat.examples.schema_comparison_agent.mcp")

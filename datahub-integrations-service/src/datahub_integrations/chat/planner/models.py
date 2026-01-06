@@ -174,7 +174,7 @@ class Constraints(BaseModel):
         default_factory=list,
         description="Tools available for execution (populated by planner)",
     )
-    max_tool_calls: Optional[int] = Field(
+    max_llm_turns: Optional[int] = Field(
         None, description="Maximum tool calls allowed (optional)"
     )
 

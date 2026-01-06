@@ -12,8 +12,10 @@ from datahub_integrations.chat.chat_history import (
     SummaryMessage,
     ToolCallRequest,
     ToolResult,
+    ToolResultError,
 )
 from datahub_integrations.chat.context_reducer import (
+    ChatContextReducer,
     ContextReducerConfig,
     TokenCountEstimator,
 )
@@ -640,3 +642,193 @@ class TestSlidingWindowReducer:
 
         assert history.reduced_history is None
         assert history.context_messages == messages
+
+
+class TestAdjustRemainingMessages:
+    """Tests for ChatContextReducer.adjust_remaining_messages method."""
+
+    @pytest.fixture
+    def token_estimator(self) -> Mock:
+        estimator = Mock(spec=TokenCountEstimator)
+        estimator.estimate_tokens = Mock(side_effect=lambda text: len(text) // 2)
+        return estimator
+
+    @pytest.fixture
+    def config(self) -> ContextReducerConfig:
+        return ContextReducerConfig(
+            llm_token_limit=500,
+            safety_buffer=100,
+            system_message_tokens=50,
+            tool_config_tokens=25,
+        )
+
+    @pytest.fixture
+    def reducer(
+        self, token_estimator: Mock, config: ContextReducerConfig
+    ) -> SlidingWindowReducer:
+        """Use SlidingWindowReducer to test base class method."""
+        return SlidingWindowReducer(
+            token_estimator=token_estimator,
+            config=config,
+            max_messages=5,
+        )
+
+    def test_adjust_empty_messages(self, reducer: ChatContextReducer) -> None:
+        """Test that empty list is returned unchanged."""
+        result = reducer.adjust_remaining_messages([])
+        assert result == []
+
+    def test_adjust_no_tool_results_at_start(self, reducer: ChatContextReducer) -> None:
+        """Test that messages not starting with ToolResult are returned unchanged."""
+        messages: List[Message] = [
+            HumanMessage(text="Hello"),
+            AssistantMessage(text="Hi there!"),
+        ]
+        result = reducer.adjust_remaining_messages(messages)
+        assert result == messages
+
+    def test_adjust_single_tool_result_at_start(
+        self, reducer: ChatContextReducer
+    ) -> None:
+        """Test that a single ToolResult at start gets its ToolCallRequest prepended."""
+        tool_request = ToolCallRequest(
+            tool_name="search",
+            tool_use_id="search_1",
+            tool_input={"query": "test"},
+        )
+        tool_result = ToolResult(tool_request=tool_request, result="Search results")
+
+        messages: List[Message] = [tool_result, HumanMessage(text="Thanks!")]
+
+        result = reducer.adjust_remaining_messages(messages)
+
+        assert len(result) == 3
+        assert result[0] == tool_request
+        assert result[1] == tool_result
+        assert result[2] == messages[1]
+
+    def test_adjust_multiple_consecutive_tool_results_at_start(
+        self, reducer: ChatContextReducer
+    ) -> None:
+        """
+        Test that multiple consecutive ToolResults at start all get their
+        ToolCallRequests prepended.
+
+        This is the bug fix scenario: When an LLM makes multiple tool calls
+        in one turn, and summarization cuts right before those tool results,
+        we need ALL matching ToolCallRequests to be prepended.
+        """
+        tool_request1 = ToolCallRequest(
+            tool_name="search",
+            tool_use_id="search_1",
+            tool_input={"query": "first query"},
+        )
+        tool_result1 = ToolResult(tool_request=tool_request1, result="First results")
+
+        tool_request2 = ToolCallRequest(
+            tool_name="get_entity",
+            tool_use_id="get_entity_1",
+            tool_input={"urn": "urn:li:dataset:test"},
+        )
+        tool_result2 = ToolResult(tool_request=tool_request2, result="Entity details")
+
+        tool_request3 = ToolCallRequest(
+            tool_name="get_lineage",
+            tool_use_id="get_lineage_1",
+            tool_input={"urn": "urn:li:dataset:test"},
+        )
+        tool_result3 = ToolResult(tool_request=tool_request3, result="Lineage data")
+
+        messages: List[Message] = [
+            tool_result1,
+            tool_result2,
+            tool_result3,
+            HumanMessage(text="Thanks for the info!"),
+        ]
+
+        result = reducer.adjust_remaining_messages(messages)
+
+        # Should have 3 ToolCallRequests prepended + original 4 messages = 7
+        assert len(result) == 7
+        assert result[0] == tool_request1
+        assert result[1] == tool_request2
+        assert result[2] == tool_request3
+        assert result[3] == tool_result1
+        assert result[4] == tool_result2
+        assert result[5] == tool_result3
+        assert result[6] == messages[3]
+
+    def test_adjust_tool_result_error_at_start(
+        self, reducer: ChatContextReducer
+    ) -> None:
+        """Test that ToolResultError at start also gets its ToolCallRequest prepended."""
+        tool_request = ToolCallRequest(
+            tool_name="search",
+            tool_use_id="search_1",
+            tool_input={"query": "test"},
+        )
+        tool_error = ToolResultError(tool_request=tool_request, error="Tool failed")
+
+        messages: List[Message] = [tool_error, HumanMessage(text="Oh no!")]
+
+        result = reducer.adjust_remaining_messages(messages)
+
+        assert len(result) == 3
+        assert result[0] == tool_request
+        assert result[1] == tool_error
+        assert result[2] == messages[1]
+
+    def test_adjust_mixed_tool_results_and_errors_at_start(
+        self, reducer: ChatContextReducer
+    ) -> None:
+        """Test that mixed ToolResult and ToolResultError are all handled."""
+        tool_request1 = ToolCallRequest(
+            tool_name="search",
+            tool_use_id="search_1",
+            tool_input={"query": "test"},
+        )
+        tool_result = ToolResult(tool_request=tool_request1, result="Results")
+
+        tool_request2 = ToolCallRequest(
+            tool_name="get_entity",
+            tool_use_id="get_entity_1",
+            tool_input={"urn": "urn:li:dataset:test"},
+        )
+        tool_error = ToolResultError(tool_request=tool_request2, error="Not found")
+
+        messages: List[Message] = [
+            tool_result,
+            tool_error,
+            AssistantMessage(text="I found some issues."),
+        ]
+
+        result = reducer.adjust_remaining_messages(messages)
+
+        assert len(result) == 5
+        assert result[0] == tool_request1
+        assert result[1] == tool_request2
+        assert result[2] == tool_result
+        assert result[3] == tool_error
+        assert result[4] == messages[2]
+
+    def test_adjust_tool_results_not_at_start(
+        self, reducer: ChatContextReducer
+    ) -> None:
+        """Test that ToolResults not at the start don't trigger adjustment."""
+        tool_request = ToolCallRequest(
+            tool_name="search",
+            tool_use_id="search_1",
+            tool_input={"query": "test"},
+        )
+        tool_result = ToolResult(tool_request=tool_request, result="Results")
+
+        messages: List[Message] = [
+            HumanMessage(text="Hello"),
+            tool_request,
+            tool_result,
+        ]
+
+        result = reducer.adjust_remaining_messages(messages)
+
+        # No adjustment needed - ToolResult is not at start
+        assert result == messages

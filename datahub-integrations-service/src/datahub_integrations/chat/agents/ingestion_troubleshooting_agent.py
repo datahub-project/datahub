@@ -196,7 +196,7 @@ def create_ingestion_troubleshooting_agent(
         context_reducers=None,  # Will use defaults
         conversational_parser=XmlReasoningParser(),  # DataHub's XML reasoning format
         use_prompt_caching=True,
-        max_tool_calls=MAX_TOOL_CALLS,
+        max_llm_turns=MAX_TOOL_CALLS,
         temperature=0.5,
         max_tokens=4096,
         agent_name="Ingestion Troubleshooting",

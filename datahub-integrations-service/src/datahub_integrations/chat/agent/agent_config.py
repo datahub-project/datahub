@@ -170,8 +170,8 @@ class AgentConfig:
     use_prompt_caching: bool = True
     """Whether to use prompt caching for faster responses and lower costs"""
 
-    max_tool_calls: int = 30
-    """Maximum number of tool calls before stopping generation"""
+    max_llm_turns: int = 30
+    """Maximum number of LLM turns per user message before stopping generation"""
 
     temperature: float = 0.5
     """LLM temperature (0.0-1.0, lower is more deterministic)"""

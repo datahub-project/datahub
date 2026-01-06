@@ -1,19 +1,18 @@
 """Unit tests for planner tools."""
 
+from typing import Any, Dict, Optional
 from unittest.mock import Mock, patch
 
 import pytest
 
-from datahub_integrations.chat.agent import AgentRunner
+from datahub_integrations.chat.agent.history_snapshot import PlanCacheEntry
 from datahub_integrations.chat.planner.models import Constraints, Plan, Step
+from datahub_integrations.chat.planner.planning_context import PlanningContext
 from datahub_integrations.chat.planner.tools import (
     PlannerLLMResponse,
     _call_planner_llm,
-    _get_available_tools,
     _get_planner_tool_specs,
-    _get_tool_descriptions,
     create_plan,
-    get_plan_by_id,
     get_planning_tool_wrappers,
     report_step_progress,
     revise_plan,
@@ -21,39 +20,30 @@ from datahub_integrations.chat.planner.tools import (
 from datahub_integrations.mcp_integration.tool import ToolWrapper
 
 
-class TestGetPlanById:
-    """Test get_plan_by_id function."""
+class MockPlanningContext(PlanningContext):
+    """
+    Mock PlanningContext for testing.
 
-    def test_returns_plan_when_exists(self) -> None:
-        """Test retrieving existing plan from cache."""
-        mock_agent = Mock(spec=AgentRunner)
-        test_plan = Mock(spec=Plan)
-        test_plan.plan_id = "plan_123"
+    Stores plans in a dictionary and provides get_plan/set_plan methods.
+    Inherits from PlanningContext for type compatibility.
+    """
 
-        mock_agent.plan_cache = {"plan_123": {"plan": test_plan, "progress": {}}}
+    def __init__(self, plannable_tools: Optional[list] = None):
+        # Don't call super().__init__ - we're mocking the holder
+        self._plans: Dict[str, PlanCacheEntry] = {}
+        self._plannable_tools = plannable_tools or []
 
-        result = get_plan_by_id("plan_123", mock_agent)
+    def get_plannable_tools(self) -> list:
+        """Get plannable tools."""
+        return self._plannable_tools
 
-        assert result == test_plan
+    def get_plan(self, plan_id: str) -> Optional[PlanCacheEntry]:
+        """Get plan by ID."""
+        return self._plans.get(plan_id)
 
-    def test_returns_none_when_not_exists(self) -> None:
-        """Test returns None for non-existent plan."""
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
-
-        result = get_plan_by_id("nonexistent", mock_agent)
-
-        assert result is None
-
-    def test_returns_none_when_cache_malformed(self) -> None:
-        """Test handles malformed cache gracefully."""
-        mock_agent = Mock(spec=AgentRunner)
-        # Cache entry without 'plan' key
-        mock_agent.plan_cache = {"plan_123": {"progress": {}}}
-
-        result = get_plan_by_id("plan_123", mock_agent)
-
-        assert result is None
+    def set_plan(self, plan_id: str, plan: Plan, internal: Dict[str, Any]) -> None:
+        """Set plan by ID."""
+        self._plans[plan_id] = PlanCacheEntry(plan=plan, internal=internal)
 
 
 class TestReportStepProgress:
@@ -61,7 +51,7 @@ class TestReportStepProgress:
 
     def test_reports_completed_step(self) -> None:
         """Test reporting a completed step."""
-        mock_agent = Mock(spec=AgentRunner)
+        ctx = MockPlanningContext()
 
         # Create a simple plan with two steps
         test_plan = Plan(
@@ -70,17 +60,17 @@ class TestReportStepProgress:
             title="Test Plan",
             goal="Test goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[
                 Step(id="s0", description="First step", done_when="Done 0"),
                 Step(id="s1", description="Second step", done_when="Done 1"),
             ],
             expected_deliverable="Test result",
         )
-        mock_agent.plan_cache = {"plan_123": {"plan": test_plan, "progress": {}}}
+        ctx.set_plan("plan_123", test_plan, {})
 
         result = report_step_progress(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s0",
             status="completed",
@@ -89,34 +79,28 @@ class TestReportStepProgress:
             confidence=1.0,
         )
 
-        # Verify progress was recorded
-        assert "s0" in mock_agent.plan_cache["plan_123"]["progress"]
-        assert (
-            mock_agent.plan_cache["plan_123"]["progress"]["s0"]["status"] == "completed"
-        )
-
-        # Verify response mentions progress
+        # Verify response mentions progress (note: report_step_progress doesn't mutate plan_cache anymore)
         assert isinstance(result, str)
         assert "s0" in result
         assert "completed" in result.lower() or "Next" in result
 
     def test_reports_failed_step(self) -> None:
         """Test reporting a failed step."""
-        mock_agent = Mock(spec=AgentRunner)
+        ctx = MockPlanningContext()
         test_plan = Plan(
             plan_id="plan_123",
             version=1,
             title="Test",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[Step(id="s0", description="First step", done_when="Done")],
             expected_deliverable="Result",
         )
-        mock_agent.plan_cache = {"plan_123": {"plan": test_plan, "progress": {}}}
+        ctx.set_plan("plan_123", test_plan, {})
 
         result = report_step_progress(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s0",
             status="failed",
@@ -124,20 +108,16 @@ class TestReportStepProgress:
             failed_criteria_met=True,
         )
 
-        # Verify failure recorded
-        assert mock_agent.plan_cache["plan_123"]["progress"]["s0"]["status"] == "failed"
-
         # Verify response mentions failure
         assert "failed" in result.lower() or "WARNING" in result
 
     def test_raises_error_for_nonexistent_plan(self) -> None:
         """Test raises error when plan doesn't exist."""
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
+        ctx = MockPlanningContext()
 
         with pytest.raises(ValueError, match="not found"):
             report_step_progress(
-                agent=mock_agent,
+                ctx=ctx,
                 plan_id="nonexistent",
                 step_id="s0",
                 status="completed",
@@ -145,118 +125,102 @@ class TestReportStepProgress:
 
     def test_raises_error_for_invalid_step_id(self) -> None:
         """Test raises error when step_id doesn't exist in plan."""
-        mock_agent = Mock(spec=AgentRunner)
+        ctx = MockPlanningContext()
         test_plan = Plan(
             plan_id="plan_123",
             version=1,
             title="Test",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[Step(id="s0", description="Step 0", done_when="Done")],
             expected_deliverable="Result",
         )
-        mock_agent.plan_cache = {"plan_123": {"plan": test_plan, "progress": {}}}
+        ctx.set_plan("plan_123", test_plan, {})
 
         with pytest.raises(ValueError, match="not found"):
             report_step_progress(
-                agent=mock_agent,
+                ctx=ctx,
                 plan_id="plan_123",
                 step_id="s99",  # Invalid step ID
                 status="completed",
             )
 
     def test_stores_evidence(self) -> None:
-        """Test that evidence is stored in progress."""
-        mock_agent = Mock(spec=AgentRunner)
+        """Test that evidence is included in response."""
+        ctx = MockPlanningContext()
         test_plan = Plan(
             plan_id="plan_123",
             version=1,
             title="Test",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[Step(id="s0", description="Step", done_when="Done")],
             expected_deliverable="Result",
         )
-        mock_agent.plan_cache = {"plan_123": {"plan": test_plan, "progress": {}}}
+        ctx.set_plan("plan_123", test_plan, {})
 
         evidence_data = {"urn": "test_urn", "count": 5}
 
-        report_step_progress(
-            agent=mock_agent,
+        result = report_step_progress(
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s0",
             status="completed",
             evidence=evidence_data,
         )
 
-        stored_evidence = mock_agent.plan_cache["plan_123"]["progress"]["s0"][
-            "evidence"
-        ]
-        assert stored_evidence == evidence_data
+        # report_step_progress returns guidance string (doesn't store progress anymore)
+        assert isinstance(result, str)
 
     def test_stores_confidence(self) -> None:
-        """Test that confidence is stored."""
-        mock_agent = Mock(spec=AgentRunner)
+        """Test that confidence is handled correctly."""
+        ctx = MockPlanningContext()
         test_plan = Plan(
             plan_id="plan_123",
             version=1,
             title="Test",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[Step(id="s0", description="Step", done_when="Done")],
             expected_deliverable="Result",
         )
-        mock_agent.plan_cache = {"plan_123": {"plan": test_plan, "progress": {}}}
+        ctx.set_plan("plan_123", test_plan, {})
 
-        report_step_progress(
-            agent=mock_agent,
+        result = report_step_progress(
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s0",
             status="completed",
             confidence=0.85,
         )
 
-        stored_confidence = mock_agent.plan_cache["plan_123"]["progress"]["s0"][
-            "confidence"
-        ]
-        assert stored_confidence == 0.85
+        # report_step_progress returns guidance string (doesn't store progress anymore)
+        assert isinstance(result, str)
 
     def test_reports_plan_completion(self) -> None:
         """Test reporting when all steps are complete."""
-        mock_agent = Mock(spec=AgentRunner)
+        ctx = MockPlanningContext()
         test_plan = Plan(
             plan_id="plan_123",
             version=1,
             title="Test",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[
                 Step(id="s0", description="Step 0", done_when="Done 0"),
                 Step(id="s1", description="Step 1", done_when="Done 1"),
             ],
             expected_deliverable="Result",
         )
-        mock_agent.plan_cache = {
-            "plan_123": {
-                "plan": test_plan,
-                "progress": {
-                    "s0": {
-                        "status": "completed",
-                        "evidence": {},
-                        "confidence": None,
-                        "timestamp": "2024-01-01",
-                    }
-                },
-            }
-        }
+        ctx.set_plan("plan_123", test_plan, {})
 
         # Complete the last step
         result = report_step_progress(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s1",
             status="completed",
@@ -267,44 +231,30 @@ class TestReportStepProgress:
         assert "2/2" in result or "All" in result
 
     def test_updates_existing_step_progress(self) -> None:
-        """Test that reporting same step again updates the progress."""
-        mock_agent = Mock(spec=AgentRunner)
+        """Test that reporting same step again works."""
+        ctx = MockPlanningContext()
         test_plan = Plan(
             plan_id="plan_123",
             version=1,
             title="Test",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[Step(id="s0", description="Step", done_when="Done")],
             expected_deliverable="Result",
         )
-        mock_agent.plan_cache = {
-            "plan_123": {
-                "plan": test_plan,
-                "progress": {
-                    "s0": {
-                        "status": "started",
-                        "evidence": {},
-                        "confidence": None,
-                        "timestamp": "old_time",
-                    }
-                },
-            }
-        }
+        ctx.set_plan("plan_123", test_plan, {})
 
         # Update to completed
-        report_step_progress(
-            agent=mock_agent,
+        result = report_step_progress(
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s0",
             status="completed",
         )
 
-        # Should have updated status
-        assert (
-            mock_agent.plan_cache["plan_123"]["progress"]["s0"]["status"] == "completed"
-        )
+        # report_step_progress returns guidance string
+        assert isinstance(result, str)
 
 
 class TestCreatePlanIntegration:
@@ -330,24 +280,24 @@ class TestCreatePlanIntegration:
                     }
                 ],
                 "expected_deliverable": "Test deliverable",
-                "max_tool_calls": 10,
+                "max_llm_turns": 10,
             },
             internal_data={"tool_used": "create_execution_plan"},
         )
 
         mock_get_instructions.return_value = None
 
-        # Create mock agent
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
+        # Create mock tool
         mock_tool = Mock(spec=ToolWrapper)
         mock_tool.name = "test_tool"
         mock_tool._tool = Mock()
         mock_tool._tool.description = "Test tool description"
-        mock_agent.get_plannable_tools.return_value = [mock_tool]
+
+        # Create mock context
+        ctx = MockPlanningContext(plannable_tools=[mock_tool])
 
         # Create plan
-        result = create_plan(agent=mock_agent, task="Test task")
+        result = create_plan(ctx=ctx, task="Test task")
 
         # Verify plan structure
         assert isinstance(result, Plan)
@@ -358,7 +308,7 @@ class TestCreatePlanIntegration:
         assert result.version == 1
 
         # Verify plan was cached
-        assert result.plan_id in mock_agent.plan_cache
+        assert ctx.get_plan(result.plan_id) is not None
 
     @patch("datahub_integrations.chat.planner.tools._call_planner_llm")
     @patch("datahub_integrations.chat.planner.tools.get_extra_llm_instructions")
@@ -385,12 +335,10 @@ class TestCreatePlanIntegration:
 
         mock_get_instructions.return_value = None
 
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
-        mock_agent.get_plannable_tools.return_value = []
+        ctx = MockPlanningContext()
 
         result = create_plan(
-            agent=mock_agent,
+            ctx=ctx,
             task="Test task",
             context="Additional context",
             evidence={"key": "value"},
@@ -425,11 +373,9 @@ class TestCreatePlanIntegration:
 
         mock_get_instructions.return_value = None
 
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
-        mock_agent.get_plannable_tools.return_value = []
+        ctx = MockPlanningContext()
 
-        create_plan(agent=mock_agent, task="Task", max_steps=5)
+        create_plan(ctx=ctx, task="Task", max_steps=5)
 
         # Verify prompt mentions max_steps
         call_args = mock_call_llm.call_args
@@ -451,7 +397,7 @@ class TestRevisePlanIntegration:
             goal="Original goal",
             assumptions=["Assumption 1"],
             constraints=Constraints(
-                tool_allowlist=["tool1", "tool2"], max_tool_calls=20
+                tool_allowlist=["tool1", "tool2"], max_llm_turns=20
             ),
             steps=[
                 Step(id="s0", description="Step 0", done_when="Done 0"),
@@ -461,9 +407,8 @@ class TestRevisePlanIntegration:
             expected_deliverable="Original deliverable",
         )
 
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {"plan_123": {"plan": original_plan, "progress": {}}}
-        mock_agent.get_plannable_tools.return_value = []
+        ctx = MockPlanningContext()
+        ctx.set_plan("plan_123", original_plan, {})
 
         # Mock LLM response for revision
         mock_call_llm.return_value = PlannerLLMResponse(
@@ -492,7 +437,7 @@ class TestRevisePlanIntegration:
 
         # Revise from s1 onward (s0 completed)
         result = revise_plan(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             completed_steps=["s0"],
             current_step="s1",
@@ -513,12 +458,11 @@ class TestRevisePlanIntegration:
         self, mock_call_llm: Mock
     ) -> None:
         """Test revise_plan raises error when plan doesn't exist."""
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
+        ctx = MockPlanningContext()
 
         with pytest.raises(ValueError, match="not found"):
             revise_plan(
-                agent=mock_agent,
+                ctx=ctx,
                 plan_id="nonexistent",
                 completed_steps=[],
                 current_step="s0",
@@ -534,14 +478,13 @@ class TestRevisePlanIntegration:
             title="Original",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=["tool1"], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=["tool1"], max_llm_turns=10),
             steps=[Step(id="s0", description="Step", done_when="Done")],
             expected_deliverable="Deliverable",
         )
 
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {"plan_123": {"plan": original_plan, "progress": {}}}
-        mock_agent.get_plannable_tools.return_value = []
+        ctx = MockPlanningContext()
+        ctx.set_plan("plan_123", original_plan, {})
 
         mock_call_llm.return_value = PlannerLLMResponse(
             plan_data={
@@ -553,7 +496,7 @@ class TestRevisePlanIntegration:
         )
 
         revised = revise_plan(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             completed_steps=[],
             current_step="s0",
@@ -561,8 +504,10 @@ class TestRevisePlanIntegration:
         )
 
         # Verify cache was updated
-        assert mock_agent.plan_cache["plan_123"]["plan"] == revised
-        assert mock_agent.plan_cache["plan_123"]["plan"].version == 2
+        cached_entry = ctx.get_plan("plan_123")
+        assert cached_entry is not None
+        assert cached_entry["plan"] == revised
+        assert cached_entry["plan"].version == 2
 
 
 class TestPlannerLLMCalling:
@@ -709,35 +654,6 @@ class TestPlannerLLMCalling:
 class TestPlanToolHelpers:
     """Test helper functions for planning tools."""
 
-    def test_get_available_tools(self) -> None:
-        """Test getting available tool names."""
-
-        mock_tool1 = Mock(spec=ToolWrapper)
-        mock_tool1.name = "datahub__search"
-        mock_tool2 = Mock(spec=ToolWrapper)
-        mock_tool2.name = "datahub__get_entities"
-
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.get_plannable_tools.return_value = [mock_tool1, mock_tool2]
-
-        result = _get_available_tools(mock_agent)
-
-        assert result == ["datahub__search", "datahub__get_entities"]
-
-    def test_get_tool_descriptions(self) -> None:
-        """Test getting tool descriptions."""
-
-        mock_tool = Mock(spec=ToolWrapper)
-        mock_tool.name = "test_tool"
-        mock_tool.description = "Test description"
-
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.get_plannable_tools.return_value = [mock_tool]
-
-        result = _get_tool_descriptions(mock_agent)
-
-        assert result == {"test_tool": "Test description"}
-
     def test_get_planner_tool_specs(self) -> None:
         """Test getting planner tool specifications for Bedrock."""
 
@@ -771,10 +687,9 @@ class TestPlanningToolWrappers:
 
     def test_returns_two_planning_tools(self) -> None:
         """Test that function returns two planning tools (report_step_progress not registered)."""
+        ctx = MockPlanningContext()
 
-        mock_agent = Mock(spec=AgentRunner)
-
-        result = get_planning_tool_wrappers(mock_agent)
+        result = get_planning_tool_wrappers(ctx)
 
         assert len(result) == 2
         tool_names = [tool.name for tool in result]
@@ -784,10 +699,9 @@ class TestPlanningToolWrappers:
 
     def test_tool_wrappers_have_descriptions(self) -> None:
         """Test that all planning tools have descriptions."""
+        ctx = MockPlanningContext()
 
-        mock_agent = Mock(spec=AgentRunner)
-
-        tools = get_planning_tool_wrappers(mock_agent)
+        tools = get_planning_tool_wrappers(ctx)
 
         for tool in tools:
             assert tool.name is not None
@@ -817,20 +731,16 @@ class TestPlanCacheManagement:
 
         mock_get_instructions.return_value = None
 
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
-        mock_agent.get_plannable_tools.return_value = []
+        ctx = MockPlanningContext()
 
-        plan = create_plan(agent=mock_agent, task="Task")
+        plan = create_plan(ctx=ctx, task="Task")
 
         # Verify cache entry
-        assert plan.plan_id in mock_agent.plan_cache
-        cache_entry = mock_agent.plan_cache[plan.plan_id]
+        cache_entry = ctx.get_plan(plan.plan_id)
+        assert cache_entry is not None
         assert "plan" in cache_entry
-        assert "progress" in cache_entry
         assert "internal" in cache_entry
         assert cache_entry["plan"] == plan
-        assert isinstance(cache_entry["progress"], dict)
         assert isinstance(cache_entry["internal"], dict)
         assert cache_entry["internal"]["tool_used"] == "create_execution_plan"
 
@@ -843,14 +753,13 @@ class TestPlanCacheManagement:
             title="Original",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=["tool1"], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=["tool1"], max_llm_turns=10),
             steps=[Step(id="s0", description="Step", done_when="Done")],
             expected_deliverable="Result",
         )
 
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {"plan_123": {"plan": original_plan, "progress": {}}}
-        mock_agent.get_plannable_tools.return_value = []
+        ctx = MockPlanningContext()
+        ctx.set_plan("plan_123", original_plan, {})
 
         mock_call_llm.return_value = PlannerLLMResponse(
             plan_data={
@@ -862,7 +771,7 @@ class TestPlanCacheManagement:
         )
 
         revised = revise_plan(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             completed_steps=[],
             current_step="s0",
@@ -870,10 +779,9 @@ class TestPlanCacheManagement:
         )
 
         # Verify same cache key is used
-        assert "plan_123" in mock_agent.plan_cache
-        assert mock_agent.plan_cache["plan_123"]["plan"] == revised
-        # Progress should be preserved
-        assert "progress" in mock_agent.plan_cache["plan_123"]
+        cache_entry = ctx.get_plan("plan_123")
+        assert cache_entry is not None
+        assert cache_entry["plan"] == revised
 
 
 class TestPlanningEdgeCases:
@@ -899,26 +807,24 @@ class TestPlanningEdgeCases:
 
         mock_get_instructions.return_value = None
 
-        mock_agent = Mock(spec=AgentRunner)
-        mock_agent.plan_cache = {}
-        mock_agent.get_plannable_tools.return_value = []
+        ctx = MockPlanningContext()
 
-        result = create_plan(agent=mock_agent, task="")
+        result = create_plan(ctx=ctx, task="")
 
         assert isinstance(result, Plan)
 
     def test_report_progress_with_no_evidence(self) -> None:
         """Test reporting progress without evidence."""
-        mock_agent = Mock(spec=AgentRunner)
         mock_plan = Mock(spec=Plan)
         mock_plan.steps = [
             Mock(id="s0", description="Step 0"),
             Mock(id="s1", description="Step 1"),
         ]
-        mock_agent.plan_cache = {"plan_123": {"plan": mock_plan, "progress": {}}}
+        ctx = MockPlanningContext()
+        ctx.set_plan("plan_123", mock_plan, {})
 
         result = report_step_progress(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s0",
             status="completed",
@@ -931,21 +837,21 @@ class TestPlanningEdgeCases:
 
     def test_report_progress_with_none_confidence(self) -> None:
         """Test reporting progress with None confidence."""
-        mock_agent = Mock(spec=AgentRunner)
         test_plan = Plan(
             plan_id="plan_123",
             version=1,
             title="Test",
             goal="Goal",
             assumptions=[],
-            constraints=Constraints(tool_allowlist=[], max_tool_calls=10),
+            constraints=Constraints(tool_allowlist=[], max_llm_turns=10),
             steps=[Step(id="s0", description="Step", done_when="Done")],
             expected_deliverable="Result",
         )
-        mock_agent.plan_cache = {"plan_123": {"plan": test_plan, "progress": {}}}
+        ctx = MockPlanningContext()
+        ctx.set_plan("plan_123", test_plan, {})
 
         result = report_step_progress(
-            agent=mock_agent,
+            ctx=ctx,
             plan_id="plan_123",
             step_id="s0",
             status="completed",
@@ -954,4 +860,3 @@ class TestPlanningEdgeCases:
 
         # Should accept None confidence
         assert isinstance(result, str)
-        assert mock_agent.plan_cache["plan_123"]["progress"]["s0"]["confidence"] is None

@@ -9,6 +9,7 @@ from datahub_integrations.chat.agent import (
     AgentRunner,
     StaticPromptBuilder,
 )
+from datahub_integrations.chat.planner.planning_context import PlanningContext
 from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
 
 
@@ -29,11 +30,16 @@ class TestPlanningToolSpecs:
         agent.session_id = "test_agent_123"
         return agent
 
+    @pytest.fixture
+    def planning_context(self, mock_agent: AgentRunner) -> PlanningContext:
+        """Get PlanningContext from agent for testing."""
+        return mock_agent._planning_context
+
     def test_create_plan_spec_hides_agent_parameter(
-        self, mock_agent: AgentRunner
+        self, planning_context: PlanningContext
     ) -> None:
         """Test that create_plan tool spec does not expose agent parameter to LLM."""
-        wrappers = get_planning_tool_wrappers(mock_agent)
+        wrappers = get_planning_tool_wrappers(planning_context)
 
         # Find create_plan wrapper
         create_plan_wrapper = next(
@@ -62,10 +68,10 @@ class TestPlanningToolSpecs:
         assert "max_steps" in parameters, "max_steps parameter should be present"
 
     def test_revise_plan_spec_hides_session_parameter(
-        self, mock_agent: AgentRunner
+        self, planning_context: PlanningContext
     ) -> None:
         """Test that revise_plan tool spec does not expose session parameter to LLM."""
-        wrappers = get_planning_tool_wrappers(mock_agent)
+        wrappers = get_planning_tool_wrappers(planning_context)
 
         # Find revise_plan wrapper
         revise_plan_wrapper = next(
@@ -90,9 +96,11 @@ class TestPlanningToolSpecs:
         assert "issue" in parameters
         assert "evidence" in parameters
 
-    def test_report_step_progress_not_registered(self, mock_agent: AgentRunner) -> None:
+    def test_report_step_progress_not_registered(
+        self, planning_context: PlanningContext
+    ) -> None:
         """Test that report_step_progress is intentionally not registered (latency optimization)."""
-        wrappers = get_planning_tool_wrappers(mock_agent)
+        wrappers = get_planning_tool_wrappers(planning_context)
 
         # Verify report_step_progress is NOT in the registered tools
         tool_names = {w.name for w in wrappers}
@@ -101,10 +109,10 @@ class TestPlanningToolSpecs:
         )
 
     def test_all_planning_tools_have_descriptions(
-        self, mock_agent: AgentRunner
+        self, planning_context: PlanningContext
     ) -> None:
         """Test that all planning tools have descriptions."""
-        wrappers = get_planning_tool_wrappers(mock_agent)
+        wrappers = get_planning_tool_wrappers(planning_context)
 
         assert len(wrappers) == 2, "Should have exactly 2 planning tools"
 
@@ -117,9 +125,11 @@ class TestPlanningToolSpecs:
                 f"Tool {wrapper.name} description should be substantial"
             )
 
-    def test_planning_tools_have_correct_names(self, mock_agent: AgentRunner) -> None:
+    def test_planning_tools_have_correct_names(
+        self, planning_context: PlanningContext
+    ) -> None:
         """Test that planning tools have the expected names."""
-        wrappers = get_planning_tool_wrappers(mock_agent)
+        wrappers = get_planning_tool_wrappers(planning_context)
 
         tool_names = {w.name for w in wrappers}
         expected_names = {"create_plan", "revise_plan"}
@@ -128,9 +138,9 @@ class TestPlanningToolSpecs:
             f"Expected tools {expected_names}, got {tool_names}"
         )
 
-    def test_parameter_types_preserved(self, mock_agent: AgentRunner) -> None:
+    def test_parameter_types_preserved(self, planning_context: PlanningContext) -> None:
         """Test that parameter type hints are correctly preserved after partial binding."""
-        wrappers = get_planning_tool_wrappers(mock_agent)
+        wrappers = get_planning_tool_wrappers(planning_context)
 
         create_plan_wrapper = next(
             (w for w in wrappers if w.name == "create_plan"), None

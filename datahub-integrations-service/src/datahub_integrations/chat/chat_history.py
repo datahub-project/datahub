@@ -4,8 +4,12 @@ from typing import (
     Annotated,
     Any,
     Literal,
+    Mapping,
     Optional,
+    Protocol,
+    Sequence,
     Union,
+    runtime_checkable,
 )
 
 from pydantic import BaseModel, Field
@@ -175,7 +179,98 @@ Message = Annotated[
 ]
 
 
+@runtime_checkable
+class ImmutableChatHistory(Protocol):
+    """
+    Read-only view of chat history.
+
+    This protocol exposes only read-only access to chat history data.
+    Use this type when you want to prevent mutations to the history.
+
+    ChatHistory implements this protocol, so you can pass a ChatHistory
+    anywhere an ImmutableChatHistory is expected. The type checker will
+    prevent calling mutating methods like add_message() on the result.
+
+    Example:
+        ```python
+        def process_history(history: ImmutableChatHistory) -> str:
+            # Can read messages
+            for msg in history.messages:
+                print(msg)
+            # Cannot call history.add_message() - type error!
+            return history.json()
+        ```
+    """
+
+    @property
+    def messages(self) -> Sequence["Message"]:
+        """All messages in the history."""
+        ...
+
+    @property
+    def reduced_history(self) -> Sequence["Message"] | None:
+        """Reduced/summarized history if available."""
+        ...
+
+    @property
+    def extra_properties(self) -> Mapping[str, Any]:
+        """Additional metadata properties."""
+        ...
+
+    @property
+    def context_messages(self) -> Sequence["Message"]:
+        """Messages to use for LLM context (reduced or full)."""
+        ...
+
+    @property
+    def num_tool_calls(self) -> int:
+        """Number of tool calls since last user message."""
+        ...
+
+    @property
+    def num_tool_results(self) -> int:
+        """Number of tool results since last user message."""
+        ...
+
+    @property
+    def num_tool_call_errors(self) -> int:
+        """Number of tool errors since last user message."""
+        ...
+
+    @property
+    def reduction_sequence_json(self) -> str | None:
+        """JSON representation of applied reducers."""
+        ...
+
+    @property
+    def num_reducers_applied(self) -> int:
+        """Count of reducers that have been applied."""
+        ...
+
+    @property
+    def is_followup_datahub_ask_question(self) -> bool | None:
+        """Whether this is a follow-up question."""
+        ...
+
+    def json(self, **kwargs: Any) -> str:
+        """Serialize history to JSON string."""
+        ...
+
+
 class ChatHistory(BaseModel):
+    """
+    Mutable chat history that structurally implements ImmutableChatHistory.
+
+    This class stores conversation messages and provides both read-only access
+    (via ImmutableChatHistory protocol) and mutation methods like add_message().
+
+    When passed as ImmutableChatHistory, only read-only operations are available
+    to the type checker, preventing accidental mutations.
+
+    Note: Cannot explicitly inherit from ImmutableChatHistory due to metaclass
+    conflict with Pydantic's BaseModel. Uses structural subtyping instead.
+    """
+
     messages: list[Message] = []  # store for all original messages
     extra_properties: dict = {}
 
