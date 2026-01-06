@@ -202,11 +202,13 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
     // Sync input with draft when switching conversations to avoid leaking previous text.
     // IMPORTANT: Do not include inputValue in deps - that would cause every keystroke to
     // reset the input to empty (since draft is undefined in AskDataHubTab).
+    // Sync input with draft when switching conversations to avoid leaking previous text.
+    // IMPORTANT: Do not include inputValue in deps - that would cause every keystroke to
+    // reset the input to empty (since draft is undefined in AskDataHubTab).
     useEffect(() => {
         const nextValue = draft ?? '';
         setInputValue(nextValue);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [conversationUrn, draft]);
+    }, [conversationUrn, draft, setInputValue]);
 
     // Fetch conversation data
     const { data, loading, refetch } = useGetDataHubAiConversationQuery({
