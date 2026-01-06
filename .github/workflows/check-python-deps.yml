@@ -70,7 +70,7 @@ jobs:
           while IFS= read -r project; do
             if [ -n "$project" ]; then
               # Sanitize project name for filename
-              safe_name=$(echo "$project" | sed 's/[\/.]/-/g' | sed 's/^-//' | sed 's/-$//')
+              safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
               echo "  Analyzing: $project -> /tmp/pr-${safe_name}.json"
 
               python .github/scripts/dep-analyzer.py --exec --json "$project" > "/tmp/pr-${safe_name}.json" 2>&1 || {
@@ -93,7 +93,7 @@ jobs:
           while IFS= read -r project; do
             if [ -n "$project" ]; then
               # Sanitize project name for filename
-              safe_name=$(echo "$project" | sed 's/[\/.]/-/g' | sed 's/^-//' | sed 's/-$//')
+              safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
               echo "  Analyzing: $project -> /tmp/master-${safe_name}.json"
 
               python .github/scripts/dep-analyzer.py --exec --json "$project" > "/tmp/master-${safe_name}.json" 2>&1 || {
@@ -118,7 +118,7 @@ jobs:
 
           while IFS= read -r project; do
             if [ -n "$project" ]; then
-              safe_name=$(echo "$project" | sed 's/[\/.]/-/g' | sed 's/^-//' | sed 's/-$//')
+              safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
 
               echo "  Comparing: $project"
               # Disable exit-on-error to capture exit code without failing
@@ -172,7 +172,7 @@ jobs:
 
           while IFS= read -r project; do
             if [ -n "$project" ]; then
-              safe_name=$(echo "$project" | sed 's/[\/.]/-/g' | sed 's/^-//' | sed 's/-$//')
+              safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
               result_file="/tmp/comparison-results/${safe_name}.json"
 
               if [ -f "$result_file" ]; then
@@ -198,7 +198,7 @@ jobs:
               echo "| Type | Dependency | Old Pinning | New Pinning | Source |" >> $GITHUB_STEP_SUMMARY
               echo "|------|------------|-------------|-------------|--------|" >> $GITHUB_STEP_SUMMARY
 
-              safe_name=$(echo "$project" | sed 's/[\/.]/-/g' | sed 's/^-//' | sed 's/-$//')
+              safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
               result_file="/tmp/comparison-results/${safe_name}.json"
 
               jq -r '.violations[] |
