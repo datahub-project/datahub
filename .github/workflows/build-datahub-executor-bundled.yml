@@ -37,6 +37,7 @@ env:
   IMAGE_NAME: datahub-executor
   DOCKER_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
   # Cloudsmith config
   CLOUDSMITH_ORG: "datahub"
   CLOUDSMITH_REPO: "re"
@@ -138,7 +139,11 @@ jobs:
 
       - name: Login to ECR
         if: ${{ inputs.push_ecr }}
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
       - name: Login to Cloudsmith
         if: ${{ inputs.push_cloudsmith }}
@@ -150,7 +155,6 @@ jobs:
 
       - name: Build with Depot
         env:
-          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           PUSH_ECR: ${{ inputs.push_ecr }}
           PUSH_CLOUDSMITH: ${{ inputs.push_cloudsmith }}
         run: |
@@ -162,13 +166,13 @@ jobs:
           echo "  Plugins: $PLUGINS"
           echo "  Variant: $VARIANT"
 
-          # Build tag arguments
-          TAGS="--tag $DOCKER_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
-          if [ "$PUSH_ECR" = "true" ] && [ -n "$ECR_REGISTRY" ]; then
-            TAGS="$TAGS --tag $ECR_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+          # Build tag arguments - DOCKER_REGISTRY is the ECR registry
+          TAGS=""
+          if [ "$PUSH_ECR" = "true" ]; then
+            TAGS="--tag ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}${TAG_SUFFIX}"
           fi
           if [ "$PUSH_CLOUDSMITH" = "true" ]; then
-            TAGS="$TAGS --tag docker.cloudsmith.io/$CLOUDSMITH_ORG/$CLOUDSMITH_REPO/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+            TAGS="${TAGS} --tag docker.cloudsmith.io/${CLOUDSMITH_ORG}/${CLOUDSMITH_REPO}/${IMAGE_NAME}:${TAG}${TAG_SUFFIX}"
           fi
 
           # Determine output mode
@@ -197,11 +201,10 @@ jobs:
             $OUTPUT_MODE \
             .
 
-          echo "Built multi-platform image: $DOCKER_REGISTRY/$IMAGE_NAME:$TAG$TAG_SUFFIX"
+          echo "Built multi-platform image"
 
       - name: Summary
         env:
-          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           PUSH_ECR: ${{ inputs.push_ecr }}
           PUSH_CLOUDSMITH: ${{ inputs.push_cloudsmith }}
         run: |
@@ -221,10 +224,10 @@ jobs:
           EOF
 
           if [ "$PUSH_ECR" = "true" ]; then
-            echo "- ECR: \`${ECR_REGISTRY}/$IMAGE_NAME:$TAG$TAG_SUFFIX\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ECR: \`${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}${TAG_SUFFIX}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$PUSH_CLOUDSMITH" = "true" ]; then
-            echo "- Cloudsmith: \`docker.cloudsmith.io/$CLOUDSMITH_ORG/$CLOUDSMITH_REPO/$IMAGE_NAME:$TAG$TAG_SUFFIX\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Cloudsmith: \`docker.cloudsmith.io/${CLOUDSMITH_ORG}/${CLOUDSMITH_REPO}/${IMAGE_NAME}:${TAG}${TAG_SUFFIX}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$PUSH_ECR" != "true" ] && [ "$PUSH_CLOUDSMITH" != "true" ]; then
             echo "_No registries selected for push_" >> "$GITHUB_STEP_SUMMARY"
