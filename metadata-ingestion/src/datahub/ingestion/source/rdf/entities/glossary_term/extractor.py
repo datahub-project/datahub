@@ -72,16 +72,9 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
             if rdf_type in excluded_types:
                 return False
 
-        # Check for glossary term types
-        term_types = {SKOS.Concept, OWL.Class, OWL.NamedIndividual}
-
-        for rdf_type in graph.objects(uri, RDF.type):
-            if rdf_type in term_types:
-                # Also check for valid label
-                name = self._extract_name(graph, uri)
-                return name is not None and len(name) >= 3
-
-        return False
+        # Dialect is always provided by RDF source
+        # Let dialect decide - it knows what types it supports (SKOS.Concept, OWL.Class, etc.)
+        return self.dialect.looks_like_glossary_term(graph, uri)
 
     def extract(
         self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
@@ -165,10 +158,19 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
             RDFS.Class,
         }
 
-        # Find all potential glossary term types
-        term_type_predicates = [SKOS.Concept, OWL.Class, OWL.NamedIndividual]
+        # Get dialect to use its filtering logic
+        # Dialect is always provided by RDF source via context
+        dialect = self._get_dialect(context)
 
-        for term_type in term_type_predicates:
+        # Use dialect to decide what's a glossary term
+        # Each dialect knows what types it supports:
+        # - FIBO: only OWL.Class
+        # - Default: only SKOS.Concept
+        # - Generic: SKOS.Concept and OWL.Class
+        # Check all potential types and let dialect filter
+        potential_types = [SKOS.Concept, OWL.Class, OWL.NamedIndividual]
+
+        for term_type in potential_types:
             for subject in graph.subjects(RDF.type, term_type):
                 if isinstance(subject, URIRef) and str(subject) not in seen_uris:
                     # Check for excluded types
@@ -179,10 +181,12 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
                             break
 
                     if not is_excluded:
-                        term = self.extract(graph, subject, context)
-                        if term:
-                            terms.append(term)
-                            seen_uris.add(str(subject))
+                        # Let dialect decide if this is a glossary term
+                        if dialect.looks_like_glossary_term(graph, subject):
+                            term = self.extract(graph, subject, context)
+                            if term:
+                                terms.append(term)
+                                seen_uris.add(str(subject))
 
         logger.info(f"Extracted {len(terms)} glossary terms")
         return terms
@@ -236,45 +240,30 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
 
         return None
 
+    def _get_dialect(self, context: Optional[Dict[str, Any]] = None):
+        """
+        Get the dialect instance from context or self.dialect.
+
+        Dialect is always provided by RDF source, so this should never return None.
+
+        Returns:
+            Dialect instance (always non-null)
+        """
+        # Dialect comes from context (preferred) or self.dialect (fallback)
+        # RDF source always provides dialect in context
+        dialect = (
+            context.get("dialect") if context and isinstance(context, dict) else None
+        ) or self.dialect
+        return dialect
+
     def _extract_custom_properties(
         self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Extract custom properties, including dialect-specific ones."""
-        properties = {}
-
-        # Check for FIBO dialect
-        dialect = context.get("dialect") if context else self.dialect
-        is_fibo = (
-            dialect
-            and hasattr(dialect, "dialect_type")
-            and str(dialect.dialect_type) == "RDFDialect.FIBO"
-        )
-
-        if is_fibo:
-            properties.update(self._extract_fibo_properties(graph, uri))
-
-        return properties
-
-    def _extract_fibo_properties(self, graph: Graph, uri: URIRef) -> Dict[str, Any]:
-        """Extract FIBO-specific properties."""
-        properties = {}
-
-        # FIBO namespaces
-        CMNS_AV = "https://www.omg.org/spec/Commons/AnnotationVocabulary/"
-
-        fibo_predicates = {
-            f"{CMNS_AV}adaptedFrom": "fibo:adaptedFrom",
-            f"{CMNS_AV}explanatoryNote": "fibo:explanatoryNote",
-            str(OWL.versionInfo): "version",
-        }
-
-        for predicate_uri, prop_name in fibo_predicates.items():
-            predicate = URIRef(predicate_uri)
-            for obj in graph.objects(uri, predicate):
-                if obj:
-                    properties[prop_name] = str(obj)
-
-        return properties
+        # Dialect is always provided by RDF source
+        dialect = self._get_dialect(context)
+        # Let dialect extract its own custom properties
+        return dialect.extract_custom_properties(graph, uri)
 
     def _extract_shacl_constraints_description(  # noqa: C901
         self, graph: Graph, term_uri: URIRef

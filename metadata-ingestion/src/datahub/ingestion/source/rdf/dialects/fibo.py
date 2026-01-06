@@ -138,6 +138,90 @@ class FIBODialect(RDFDialectInterface):
 
         return False
 
+    def extract_custom_properties(self, graph: Graph, uri: URIRef) -> dict:
+        """
+        Extract FIBO-specific custom properties from a URI.
+
+        Extracts properties commonly used in FIBO ontologies:
+        - cmns-av:adaptedFrom, cmns-av:explanatoryNote, cmns-av:synonym
+        - rdfs:isDefinedBy (ontology URI - parent domain only)
+        - dcterms:source (source references)
+        - skos:example, skos:changeNote
+        - owl:versionInfo
+        - fibo:termIRI (full term IRI - critical for reverse export)
+
+        Note: rdfs:isDefinedBy only provides the ontology URI, not the full term IRI.
+        The full term IRI is stored as fibo:termIRI for reverse export purposes.
+
+        Args:
+            graph: RDFLib Graph containing the URI
+            uri: URIRef to extract properties from (full term IRI)
+
+        Returns:
+            Dictionary of FIBO-specific custom properties
+        """
+        from rdflib import Literal, URIRef as URIRefType
+        from rdflib.namespace import DCTERMS, OWL, RDFS, SKOS
+
+        properties = {}
+
+        # FIBO namespaces
+        CMNS_AV = "https://www.omg.org/spec/Commons/AnnotationVocabulary/"
+
+        # Single-value properties
+        single_value_predicates = {
+            f"{CMNS_AV}adaptedFrom": "fibo:adaptedFrom",
+            str(OWL.versionInfo): "fibo:version",
+        }
+
+        for predicate_uri, prop_name in single_value_predicates.items():
+            predicate = URIRefType(predicate_uri)
+            for obj in graph.objects(uri, predicate):
+                if obj:
+                    properties[prop_name] = str(obj)
+                    break  # Take first value only
+
+        # Multi-value properties (join with semicolon)
+        multi_value_predicates = {
+            f"{CMNS_AV}explanatoryNote": "fibo:explanatoryNote",
+            f"{CMNS_AV}synonym": "fibo:synonym",
+            str(DCTERMS.source): "fibo:source",
+            str(SKOS.example): "fibo:example",
+            str(SKOS.changeNote): "fibo:changeNote",
+        }
+
+        for predicate_uri, prop_name in multi_value_predicates.items():
+            predicate = URIRefType(predicate_uri)
+            values = []
+            for obj in graph.objects(uri, predicate):
+                if obj:
+                    # Handle both literals and URIs
+                    if isinstance(obj, Literal):
+                        values.append(str(obj))
+                    else:
+                        values.append(str(obj))
+            if values:
+                # Join multiple values with semicolon for readability
+                properties[prop_name] = "; ".join(values)
+
+        # rdfs:isDefinedBy - ontology URI (useful for sourceUrl mapping)
+        is_defined_by_values = []
+        for obj in graph.objects(uri, RDFS.isDefinedBy):
+            if obj:
+                is_defined_by_values.append(str(obj))
+        if is_defined_by_values:
+            # If multiple, use the first one (typically there's only one)
+            properties["fibo:isDefinedBy"] = is_defined_by_values[0]
+            # If multiple, also store all as a list
+            if len(is_defined_by_values) > 1:
+                properties["fibo:isDefinedByAll"] = "; ".join(is_defined_by_values)
+
+        # Full term IRI - critical for reverse export
+        # rdfs:isDefinedBy only gives the ontology URI, not the full term IRI
+        properties["fibo:termIRI"] = str(uri)
+
+        return properties
+
     def _has_label(self, graph: Graph, uri: URIRef) -> bool:
         """Check if a URI has a label."""
         # Check for RDFS labels (FIBO uses rdfs:label)
