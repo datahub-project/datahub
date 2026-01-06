@@ -20,6 +20,9 @@ from acryl_datahub_cloud.sdk.assertion.assertion_base import (
 from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
     ColumnMetricAssertion,
 )
+from acryl_datahub_cloud.sdk.assertion.column_value_assertion import (
+    ColumnValueAssertion,
+)
 from acryl_datahub_cloud.sdk.assertion.freshness_assertion import FreshnessAssertion
 from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
     SmartColumnMetricAssertion,
@@ -41,6 +44,7 @@ __all__ = [
     "_HasSchedule",
     "_HasSmartFunctionality",
     "ColumnMetricAssertion",
+    "ColumnValueAssertion",
     "FreshnessAssertion",
     "SmartColumnMetricAssertion",
     "SmartFreshnessAssertion",

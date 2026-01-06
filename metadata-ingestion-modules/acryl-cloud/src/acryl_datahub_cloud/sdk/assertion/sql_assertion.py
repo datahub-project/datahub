@@ -10,8 +10,8 @@ from acryl_datahub_cloud.sdk.assertion.assertion_base import (
     _HasSchedule,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+    DEFAULT_DAILY_SCHEDULE,
     DEFAULT_DETECTION_MECHANISM,
-    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     AssertionIncidentBehavior,
     _DetectionMechanismTypes,
 )
@@ -263,9 +263,7 @@ class SqlAssertion(_AssertionPublic, _HasSchedule):
             mode=cls._get_mode(monitor),
             statement=cls._get_statement(assertion),
             criteria=cls._get_criteria(assertion),
-            schedule=cls._get_schedule(
-                monitor, default=DEFAULT_EVERY_SIX_HOURS_SCHEDULE
-            ),
+            schedule=cls._get_schedule(monitor, default=DEFAULT_DAILY_SCHEDULE),
             tags=cls._get_tags(assertion),
             incident_behavior=cls._get_incident_behavior(assertion),
             created_by=cls._get_created_by(assertion),

@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -6,7 +5,7 @@ if TYPE_CHECKING:
     pass
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
+    DEFAULT_DAILY_SCHEDULE,
     HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
     NO_PARAMETER_OPERATORS,
     RANGE_OPERATORS,
@@ -21,6 +20,17 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _ChangedRowsQuery,
     _DatasetProfile,
     _try_parse_and_validate_schema_classes_enum,
+    get_gms_type_if_criteria_unchanged,
+    get_gms_types_if_criteria_unchanged,
+)
+from acryl_datahub_cloud.sdk.assertion_input.column_assertion_utils import (
+    _is_no_parameter_operator,
+    _is_range_required_for_operator,
+    _is_value_required_for_operator,
+    _try_parse_and_validate_range,
+    _try_parse_and_validate_range_type,
+    _try_parse_and_validate_value,
+    _try_parse_and_validate_value_type,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     ALLOWED_COLUMN_TYPES_FOR_COLUMN_METRIC_ASSERTION,
@@ -30,7 +40,6 @@ from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     OperatorInputType,
     RangeInputType,
     RangeTypeInputType,
-    RangeTypeParsedType,
     ValueInputType,
     ValueType,
     ValueTypeInputType,
@@ -40,7 +49,6 @@ from acryl_datahub_cloud.sdk.errors import (
     SDKNotYetSupportedError,
     SDKUsageError,
 )
-from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk.entity_client import EntityClient
@@ -224,7 +232,7 @@ class _ColumnMetricAssertionInput(_AssertionInput):
         # Process criteria parameters with GMS type information if available
         if gms_criteria_type_info is not None:
             self._process_criteria_parameters_with_gms_type(
-                criteria_parameters, gms_criteria_type_info[1]
+                criteria_parameters, gms_criteria_type_info
             )
         else:
             self._process_criteria_parameters(criteria_parameters)
@@ -288,24 +296,30 @@ class _ColumnMetricAssertionInput(_AssertionInput):
     def _process_criteria_parameters_with_gms_type(
         self,
         criteria_parameters: Optional[ColumnMetricAssertionParameters],
-        gms_type_info: Optional[Union[models.AssertionStdParameterTypeClass, tuple]],
+        gms_type_info: Optional[tuple],
     ) -> None:
-        """Process criteria_parameters using explicit type information from GMS."""
+        """Process criteria_parameters, using GMS type only if criteria is unchanged."""
         if criteria_parameters is None:
             self._process_none_parameters()
         elif isinstance(criteria_parameters, tuple):
-            # Range parameters with GMS types
-            if gms_type_info and isinstance(gms_type_info, tuple):
+            # Only use GMS types if the user hasn't changed the criteria values
+            explicit_types = get_gms_types_if_criteria_unchanged(
+                criteria_parameters, gms_type_info
+            )
+            if explicit_types:
                 self._process_range_parameters_with_types(
-                    criteria_parameters, gms_type_info
+                    criteria_parameters, explicit_types
                 )
             else:
                 self._process_range_parameters(criteria_parameters)
         else:
-            # Single value with GMS type
-            if gms_type_info and not isinstance(gms_type_info, tuple):
+            # Only use GMS type if the user hasn't changed the criteria value
+            explicit_type = get_gms_type_if_criteria_unchanged(
+                criteria_parameters, gms_type_info
+            )
+            if explicit_type:
                 self._process_single_value_parameters_with_type(
-                    criteria_parameters, gms_type_info
+                    criteria_parameters, explicit_type
                 )
             else:
                 self._process_single_value_parameters(criteria_parameters)
@@ -528,7 +542,7 @@ class _ColumnMetricAssertionInput(_AssertionInput):
             A CronScheduleClass with appropriate schedule settings.
         """
         if self.schedule is None:
-            return DEFAULT_EVERY_SIX_HOURS_SCHEDULE
+            return DEFAULT_DAILY_SCHEDULE
 
         return models.CronScheduleClass(
             cron=self.schedule.cron,
@@ -743,223 +757,3 @@ class _ColumnMetricAssertionInput(_AssertionInput):
             raise SDKUsageError(
                 f"Metric type {metric_type} is not allowed for field type {field_type}. Allowed metric types: {', '.join(str(mt) for mt in allowed_metric_types)}"
             )
-
-
-def _try_parse_and_validate_value_type(
-    value_type: Optional[ValueTypeInputType],
-) -> models.AssertionStdParameterTypeClass:
-    if value_type is None:
-        raise SDKUsageError("Value type is required")
-
-    return _try_parse_and_validate_schema_classes_enum(
-        value_type, models.AssertionStdParameterTypeClass
-    )
-
-
-def _deserialize_json_value(value: ValueInputType) -> ValueInputType:
-    """
-    Deserialize a value that might be a JSON string.
-
-    Args:
-        value: The value to deserialize, potentially a JSON string.
-
-    Returns:
-        The deserialized value or the original value if not JSON.
-    """
-    if isinstance(value, str):
-        try:
-            return json.loads(value)
-        except json.JSONDecodeError:
-            return value
-    return value
-
-
-def _convert_string_to_number(value: str) -> Union[int, float]:
-    """
-    Convert a string to a number (int or float).
-
-    Args:
-        value: The string value to convert.
-
-    Returns:
-        The converted number.
-
-    Raises:
-        ValueError: If the string cannot be converted to a number.
-    """
-    if "." in value:
-        return float(value)
-    return int(value)
-
-
-def _validate_number_type(
-    value: ValueInputType, original_value: ValueInputType
-) -> ValueInputType:
-    """
-    Validate and convert a value to a number type.
-
-    Args:
-        value: The deserialized value to validate.
-        original_value: The original input value for error messages.
-
-    Returns:
-        The validated number value.
-
-    Raises:
-        SDKUsageError: If the value cannot be converted to a number.
-    """
-    if isinstance(value, (int, float)):
-        return value
-
-    if isinstance(value, str):
-        try:
-            return _convert_string_to_number(value)
-        except ValueError as e:
-            raise SDKUsageError(
-                f"Invalid value: {original_value}, must be a number"
-            ) from e
-
-    raise SDKUsageError(f"Invalid value: {original_value}, must be a number")
-
-
-def _validate_string_type(
-    value: ValueInputType, original_value: ValueInputType
-) -> ValueInputType:
-    """
-    Validate that a value is a string type.
-
-    Args:
-        value: The deserialized value to validate.
-        original_value: The original input value for error messages.
-
-    Returns:
-        The validated string value.
-
-    Raises:
-        SDKUsageError: If the value is not a string.
-    """
-    if not isinstance(value, str):
-        raise SDKUsageError(f"Invalid value: {original_value}, must be a string")
-    return value
-
-
-def _validate_unsupported_types(value_type: ValueTypeInputType) -> None:
-    """
-    Check for unsupported value types and raise appropriate errors.
-
-    Args:
-        value_type: The value type to check.
-
-    Raises:
-        SDKNotYetSupportedError: If the value type is LIST or SET.
-        SDKUsageError: If the value type is invalid.
-    """
-    if value_type in (
-        models.AssertionStdParameterTypeClass.LIST,
-        models.AssertionStdParameterTypeClass.SET,
-    ):
-        raise SDKNotYetSupportedError(
-            "List and set value types are not supported for column metric assertions"
-        )
-
-    valid_types = {
-        models.AssertionStdParameterTypeClass.NUMBER,
-        models.AssertionStdParameterTypeClass.STRING,
-        models.AssertionStdParameterTypeClass.UNKNOWN,
-    }
-
-    if value_type not in valid_types:
-        raise SDKUsageError(
-            f"Invalid value type: {value_type}, valid options are {get_enum_options(models.AssertionStdParameterTypeClass)}"
-        )
-
-
-def _try_parse_and_validate_value(
-    value: Optional[ValueInputType],
-    value_type: ValueTypeInputType,
-) -> ValueInputType:
-    """
-    Parse and validate a value according to its expected type.
-
-    Args:
-        value: The value to parse and validate.
-        value_type: The expected type of the value.
-
-    Returns:
-        The validated and potentially converted value.
-
-    Raises:
-        SDKUsageError: If the value is None, invalid, or cannot be converted.
-        SDKNotYetSupportedError: If the value type is not supported.
-    """
-    if value is None:
-        raise SDKUsageError("Value parameter is required for the chosen operator")
-
-    # Deserialize JSON strings if applicable
-    deserialized_value = _deserialize_json_value(value)
-
-    # Validate based on expected type
-    if value_type == models.AssertionStdParameterTypeClass.NUMBER:
-        return _validate_number_type(deserialized_value, value)
-    elif value_type == models.AssertionStdParameterTypeClass.STRING:
-        return _validate_string_type(deserialized_value, value)
-    elif value_type == models.AssertionStdParameterTypeClass.UNKNOWN:
-        return deserialized_value  # Accept any type for unknown
-    else:
-        _validate_unsupported_types(value_type)
-        return deserialized_value
-
-
-def _is_range_required_for_operator(operator: models.AssertionStdOperatorClass) -> bool:
-    return operator in RANGE_OPERATORS
-
-
-def _is_value_required_for_operator(operator: models.AssertionStdOperatorClass) -> bool:
-    return operator in SINGLE_VALUE_OPERATORS
-
-
-def _is_no_parameter_operator(operator: models.AssertionStdOperatorClass) -> bool:
-    return operator in NO_PARAMETER_OPERATORS
-
-
-def _try_parse_and_validate_range_type(
-    range_type: Optional[RangeTypeInputType] = None,
-) -> RangeTypeParsedType:
-    if range_type is None:
-        return (
-            models.AssertionStdParameterTypeClass.UNKNOWN,
-            models.AssertionStdParameterTypeClass.UNKNOWN,
-        )
-    if isinstance(range_type, tuple):
-        return (
-            _try_parse_and_validate_schema_classes_enum(
-                range_type[0], models.AssertionStdParameterTypeClass
-            ),
-            _try_parse_and_validate_schema_classes_enum(
-                range_type[1], models.AssertionStdParameterTypeClass
-            ),
-        )
-    # Single value, we assume the same type for start and end:
-    parsed_range_type = _try_parse_and_validate_schema_classes_enum(
-        range_type, models.AssertionStdParameterTypeClass
-    )
-    return parsed_range_type, parsed_range_type
-
-
-def _try_parse_and_validate_range(
-    range: Optional[RangeInputType],
-    range_type: RangeTypeParsedType,
-    operator: models.AssertionStdOperatorClass,
-) -> RangeInputType:
-    if (range is None or range_type is None) and _is_range_required_for_operator(
-        operator
-    ):
-        raise SDKUsageError(f"Range is required for operator {operator}")
-
-    if range is None:
-        raise SDKUsageError(f"Range is required for operator {operator}")
-
-    range_start = _try_parse_and_validate_value(range[0], range_type[0])
-    range_end = _try_parse_and_validate_value(range[1], range_type[1])
-
-    return (range_start, range_end)

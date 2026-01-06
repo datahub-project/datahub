@@ -5,7 +5,7 @@ from typing import Any, Optional, Tuple, Union
 from pydantic import BaseModel, Extra
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
+    DEFAULT_DAILY_SCHEDULE,
     AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
     FieldSpecType,
@@ -594,7 +594,7 @@ class _VolumeAssertionInput(_AssertionInput):
             A CronScheduleClass with appropriate schedule settings.
         """
         if self.schedule is None:
-            return DEFAULT_EVERY_SIX_HOURS_SCHEDULE
+            return DEFAULT_DAILY_SCHEDULE
 
         return models.CronScheduleClass(
             cron=self.schedule.cron,

@@ -715,6 +715,9 @@ if TYPE_CHECKING:
     from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
         ColumnMetricAssertion,
     )
+    from acryl_datahub_cloud.sdk.assertion.column_value_assertion import (
+        ColumnValueAssertion,
+    )
     from acryl_datahub_cloud.sdk.assertion.freshness_assertion import FreshnessAssertion
     from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
         SmartColumnMetricAssertion,
@@ -759,6 +762,12 @@ def __getattr__(name: str) -> type:
         from acryl_datahub_cloud.sdk.assertion.sql_assertion import SqlAssertion
 
         return SqlAssertion
+    elif name == "ColumnValueAssertion":
+        from acryl_datahub_cloud.sdk.assertion.column_value_assertion import (
+            ColumnValueAssertion,
+        )
+
+        return ColumnValueAssertion
     elif name == "SmartSqlAssertion":
         from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import (
             SmartSqlAssertion,
@@ -788,6 +797,7 @@ __all__ = [
     "_HasSmartFunctionality",
     "_HasColumnMetricFunctionality",
     "_AssertionPublic",
+    "ColumnValueAssertion",
     "SmartFreshnessAssertion",
     "SmartSqlAssertion",
     "SmartVolumeAssertion",

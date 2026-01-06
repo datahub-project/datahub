@@ -15,12 +15,18 @@ from acryl_datahub_cloud.sdk.assertion.assertion_base import (
 from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
     ColumnMetricAssertion,
 )
+from acryl_datahub_cloud.sdk.assertion.column_value_assertion import (
+    ColumnValueAssertion,
+)
 from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
     SmartColumnMetricAssertion,
 )
 from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import SmartSqlAssertion
 from acryl_datahub_cloud.sdk.assertion_client.column_metric import (
     ColumnMetricAssertionClient,
+)
+from acryl_datahub_cloud.sdk.assertion_client.column_value import (
+    ColumnValueAssertionClient,
 )
 from acryl_datahub_cloud.sdk.assertion_client.freshness import (
     FreshnessAssertionClient,
@@ -60,6 +66,11 @@ from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     MetricInputType,
     OperatorInputType,
 )
+from acryl_datahub_cloud.sdk.assertion_input.column_value_assertion_input import (
+    ColumnValueAssertionParameters,
+    FailThresholdInputType,
+    FieldTransformInputType,
+)
 from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
     FreshnessAssertionScheduleCheckType,
 )
@@ -96,6 +107,7 @@ class AssertionsClient:
         self._smart_sql_client = SmartSqlAssertionClient(client)
         self._smart_column_metric_client = SmartColumnMetricAssertionClient(client)
         self._column_metric_client = ColumnMetricAssertionClient(client)
+        self._column_value_client = ColumnValueAssertionClient(client)
         # Create a cached version of the existence check with TTL using time bucketing
         # The time_bucket parameter is used only as a cache key to invalidate entries
         # every 60 seconds - it's not used in the function body itself
@@ -386,6 +398,140 @@ class AssertionsClient:
             metric_type=metric_type,
             operator=operator,
             criteria_parameters=criteria_parameters,
+            urn=urn,
+            display_name=display_name,
+            enabled=enabled,
+            detection_mechanism=detection_mechanism,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            updated_by=updated_by,
+            schedule=schedule,
+        )
+
+    def sync_column_value_assertion(
+        self,
+        *,
+        dataset_urn: Union[str, DatasetUrn],
+        column_name: Optional[str] = None,
+        operator: Optional[OperatorInputType] = None,
+        criteria_parameters: Optional[ColumnValueAssertionParameters] = None,
+        transform: Optional[FieldTransformInputType] = None,
+        fail_threshold_type: Optional[FailThresholdInputType] = None,
+        fail_threshold_value: Optional[int] = None,
+        exclude_nulls: Optional[bool] = None,
+        urn: Optional[Union[str, AssertionUrn]] = None,
+        display_name: Optional[str] = None,
+        enabled: Optional[bool] = None,
+        detection_mechanism: DetectionMechanismInputTypes = None,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
+        tags: Optional[TagsInputType] = None,
+        updated_by: Optional[Union[str, CorpUserUrn]] = None,
+        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        skip_dataset_exists_check: bool = False,
+    ) -> ColumnValueAssertion:
+        """Upsert and merge a column value assertion.
+
+        Note:
+            Keyword arguments are required.
+
+        Upsert and merge is a combination of create and update. If the assertion does not exist,
+        it will be created. If it does exist, it will be updated.
+
+        Existing assertion fields will be updated if the input value is not None. If the input value is None, the existing value
+        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
+        empty string), it will be unset.
+
+        Column value assertions validate individual row values in a column against
+        semantic constraints (e.g., "all values must match pattern X" or "no NULL values allowed").
+        This differs from column metric assertions which validate aggregated metrics.
+
+        Schedule behavior:
+            - Create case: Uses default schedule of every 6 hours or provided schedule
+            - Update case: Uses existing schedule or provided schedule.
+
+        Examples:
+            # Simple email regex validation
+            client.assertions.sync_column_value_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="email",
+                operator="regex_match",
+                criteria_parameters=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+            )
+
+            # Validate quantity is positive with 5% failure tolerance
+            client.assertions.sync_column_value_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="quantity",
+                operator="greater_than",
+                criteria_parameters=0,
+                fail_threshold_type="percentage",
+                fail_threshold_value=5,
+                exclude_nulls=True
+            )
+
+            # Range validation with transform
+            client.assertions.sync_column_value_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="description",
+                operator="between",
+                criteria_parameters=(10, 500),
+                transform="length",  # Only for STRING columns
+                schedule="0 */6 * * *"
+            )
+
+        Args:
+            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
+            column_name (Optional[str]): The name of the column to validate. Required for creation, optional for updates.
+            operator (Optional[OperatorInputType]): The operator to use for validation. Required for creation, optional for updates. Valid values are:
+                - Using OperatorType enum: OperatorType.NOT_NULL, OperatorType.EQUAL_TO, OperatorType.GREATER_THAN,
+                  OperatorType.LESS_THAN, OperatorType.BETWEEN, OperatorType.IN, OperatorType.REGEX_MATCH, etc.
+                - Using case-insensitive strings: "not_null", "equal_to", "greater_than", "less_than", "between",
+                  "in", "regex_match", etc.
+                - Using models enum: models.AssertionStdOperatorClass.NOT_NULL, etc.
+            criteria_parameters (Optional[ColumnValueAssertionParameters]): The criteria parameters for the operator.
+                - Single value operators (EQUAL_TO, GREATER_THAN, LESS_THAN, REGEX_MATCH, etc.): pass a single number or string
+                - Range operators (BETWEEN): pass a tuple of two values (min_value, max_value)
+                - List operators (IN, NOT_IN): pass a list of values
+                - No parameter operators (NOT_NULL, NULL): pass None or omit this parameter
+            transform (Optional[FieldTransformInputType]): Optional transform to apply to field values before evaluation.
+                Currently only "length" or "LENGTH" is supported, and only for STRING columns.
+            fail_threshold_type (Optional[FailThresholdInputType]): The type of failure threshold. Valid values are:
+                - "count" or "COUNT": Absolute number of failing rows
+                - "percentage" or "PERCENTAGE": Percentage of failing rows
+                If not provided, defaults to "count" for new assertions.
+            fail_threshold_value (Optional[int]): The failure threshold value. For COUNT type, this is the maximum
+                number of rows allowed to fail. For PERCENTAGE type, this is the maximum percentage (0-100) allowed to fail.
+                Defaults to 0 (no failures allowed) if not provided for new assertions.
+            exclude_nulls (Optional[bool]): Whether to exclude null values when evaluating the assertion.
+                Defaults to True if not provided for new assertions.
+            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
+            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
+            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, defaults to True for new assertions.
+            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Valid values are (additional_filter is optional):
+                - "all_rows_query_datahub_dataset_profile" or DetectionMechanism.ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE
+                - "all_rows_query" or DetectionMechanism.ALL_ROWS_QUERY(), or with additional_filter: {"type": "all_rows_query", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.ALL_ROWS_QUERY(additional_filter='last_modified > 2021-01-01')
+                - {"type": "changed_rows_query", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.CHANGED_ROWS_QUERY(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
+            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
+            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
+            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
+
+        Returns:
+            ColumnValueAssertion: The created or updated assertion.
+        """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
+        return self._column_value_client.sync_column_value_assertion(
+            dataset_urn=dataset_urn,
+            column_name=column_name,
+            operator=operator,
+            criteria_parameters=criteria_parameters,
+            transform=transform,
+            fail_threshold_type=fail_threshold_type,
+            fail_threshold_value=fail_threshold_value,
+            exclude_nulls=exclude_nulls,
             urn=urn,
             display_name=display_name,
             enabled=enabled,

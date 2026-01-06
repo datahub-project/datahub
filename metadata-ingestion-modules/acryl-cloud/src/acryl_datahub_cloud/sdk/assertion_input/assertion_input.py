@@ -806,6 +806,82 @@ def _try_parse_and_validate_schema_classes_enum(
     return getattr(enum_class, value.upper())
 
 
+def get_gms_type_if_criteria_unchanged(
+    criteria_parameters: Union[str, int, float],
+    gms_type_info: Optional[Union[models.AssertionStdParameterTypeClass, tuple]],
+) -> Optional[models.AssertionStdParameterTypeClass]:
+    """
+    Get the GMS type for criteria, but only if the user hasn't changed the value.
+
+    When updating an assertion, we want to preserve the stored type metadata only
+    if the criteria value wasn't changed. If the user provided a new value, we
+    should infer the type from their input instead.
+
+    Args:
+        criteria_parameters: The criteria value (user-provided or extracted from GMS).
+        gms_type_info: Type info from GMS in format (value, type).
+
+    Returns:
+        The GMS type if criteria is unchanged, None if user provided new criteria.
+    """
+    if gms_type_info is None:
+        return None
+
+    # Validate format: (value, type) where neither is a tuple
+    if not (
+        isinstance(gms_type_info, tuple)
+        and len(gms_type_info) >= 2
+        and not isinstance(gms_type_info[0], tuple)
+        and not isinstance(gms_type_info[1], tuple)
+    ):
+        return None
+
+    gms_value, gms_type = gms_type_info[0], gms_type_info[1]
+
+    # If values match, criteria was extracted (not user-provided) - use GMS type
+    if criteria_parameters == gms_value:
+        return gms_type
+
+    # Values differ - user provided new criteria, caller should infer type
+    return None
+
+
+def get_gms_types_if_criteria_unchanged(
+    criteria_parameters: tuple,
+    gms_type_info: Optional[Union[models.AssertionStdParameterTypeClass, tuple]],
+) -> Optional[tuple]:
+    """
+    Get the GMS types for range criteria, but only if the user hasn't changed the values.
+
+    Args:
+        criteria_parameters: The range values (min, max).
+        gms_type_info: Type info from GMS in format ((min_val, max_val), (min_type, max_type)).
+
+    Returns:
+        The GMS types if criteria is unchanged, None if user provided new criteria.
+    """
+    if gms_type_info is None:
+        return None
+
+    # Validate format: ((min_val, max_val), (min_type, max_type))
+    if not (
+        isinstance(gms_type_info, tuple)
+        and len(gms_type_info) == 2
+        and isinstance(gms_type_info[0], tuple)
+        and isinstance(gms_type_info[1], tuple)
+    ):
+        return None
+
+    gms_values, gms_types = gms_type_info[0], gms_type_info[1]
+
+    # If values match, criteria was extracted (not user-provided) - use GMS types
+    if criteria_parameters == gms_values:
+        return gms_types
+
+    # Values differ - user provided new criteria, caller should infer types
+    return None
+
+
 @dataclass(frozen=True)
 class DatasetSourceType:
     """

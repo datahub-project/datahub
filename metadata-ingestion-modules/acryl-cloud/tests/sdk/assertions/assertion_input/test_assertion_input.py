@@ -3167,3 +3167,186 @@ def test_sql_assertion_get_condition_from_model_assertion_info(
         # Only assert the result if we expect success (no exception)
         if expected_condition is not None:
             assert result == expected_condition
+
+
+# Tests for get_gms_type_if_criteria_unchanged and get_gms_types_if_criteria_unchanged
+
+
+class TestGetGmsTypeIfCriteriaUnchanged:
+    """Tests for the get_gms_type_if_criteria_unchanged helper function."""
+
+    def test_single_value_criteria_unchanged_returns_gms_type(self) -> None:
+        """When criteria value matches GMS value, should return GMS type."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_type_if_criteria_unchanged,
+        )
+
+        result = get_gms_type_if_criteria_unchanged(
+            "5", ("5", models.AssertionStdParameterTypeClass.NUMBER)
+        )
+        assert result == models.AssertionStdParameterTypeClass.NUMBER
+
+    def test_single_value_user_provides_different_int_returns_none(self) -> None:
+        """When user provides different int value, should return None to trigger inference."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_type_if_criteria_unchanged,
+        )
+
+        result = get_gms_type_if_criteria_unchanged(
+            42, ("5", models.AssertionStdParameterTypeClass.NUMBER)
+        )
+        assert result is None
+
+    def test_single_value_user_provides_different_string_returns_none(self) -> None:
+        """When user provides different string value, should return None."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_type_if_criteria_unchanged,
+        )
+
+        result = get_gms_type_if_criteria_unchanged(
+            "pattern", ("5", models.AssertionStdParameterTypeClass.NUMBER)
+        )
+        assert result is None
+
+    def test_single_value_gms_type_info_none_returns_none(self) -> None:
+        """When gms_type_info is None, should return None."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_type_if_criteria_unchanged,
+        )
+
+        result = get_gms_type_if_criteria_unchanged(42, None)
+        assert result is None
+
+    def test_single_value_malformed_gms_type_info_returns_none(self) -> None:
+        """When gms_type_info has wrong format, should return None."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_type_if_criteria_unchanged,
+        )
+
+        # Only one element
+        result = get_gms_type_if_criteria_unchanged(42, ("only_one",))
+        assert result is None
+
+    def test_single_value_gms_type_info_is_range_format_returns_none(self) -> None:
+        """When gms_type_info is in range format, should return None for single value."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_type_if_criteria_unchanged,
+        )
+
+        # Range format: ((min, max), (min_type, max_type))
+        result = get_gms_type_if_criteria_unchanged(
+            42,
+            (
+                ("0", "100"),
+                (
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                ),
+            ),
+        )
+        assert result is None
+
+    def test_single_value_int_vs_string_representation_returns_none(self) -> None:
+        """User provides int 5, GMS has string '5' - values differ, should infer."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_type_if_criteria_unchanged,
+        )
+
+        result = get_gms_type_if_criteria_unchanged(
+            5, ("5", models.AssertionStdParameterTypeClass.NUMBER)
+        )
+        # 5 != "5" so values differ, should return None
+        assert result is None
+
+
+class TestGetGmsTypesIfCriteriaUnchanged:
+    """Tests for the get_gms_types_if_criteria_unchanged helper function."""
+
+    def test_range_criteria_unchanged_returns_gms_types(self) -> None:
+        """When range values match GMS values, should return GMS types."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_types_if_criteria_unchanged,
+        )
+
+        result = get_gms_types_if_criteria_unchanged(
+            ("0", "100"),
+            (
+                ("0", "100"),
+                (
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                ),
+            ),
+        )
+        assert result == (
+            models.AssertionStdParameterTypeClass.NUMBER,
+            models.AssertionStdParameterTypeClass.NUMBER,
+        )
+
+    def test_range_user_provides_different_values_returns_none(self) -> None:
+        """When user provides different range values, should return None."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_types_if_criteria_unchanged,
+        )
+
+        result = get_gms_types_if_criteria_unchanged(
+            (1, 50),
+            (
+                ("0", "100"),
+                (
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                ),
+            ),
+        )
+        assert result is None
+
+    def test_range_gms_type_info_none_returns_none(self) -> None:
+        """When gms_type_info is None, should return None."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_types_if_criteria_unchanged,
+        )
+
+        result = get_gms_types_if_criteria_unchanged((1, 100), None)
+        assert result is None
+
+    def test_range_gms_type_info_is_single_value_format_returns_none(self) -> None:
+        """When gms_type_info is in single value format, should return None for range."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_types_if_criteria_unchanged,
+        )
+
+        # Single value format: (value, type)
+        result = get_gms_types_if_criteria_unchanged(
+            (1, 100), ("5", models.AssertionStdParameterTypeClass.NUMBER)
+        )
+        assert result is None
+
+    def test_range_malformed_gms_type_info_returns_none(self) -> None:
+        """When gms_type_info has wrong structure, should return None."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_types_if_criteria_unchanged,
+        )
+
+        # Missing types tuple
+        result = get_gms_types_if_criteria_unchanged((1, 100), (("0", "100"),))
+        assert result is None
+
+    def test_range_int_vs_string_representation_returns_none(self) -> None:
+        """User provides ints (1, 100), GMS has strings ('1', '100') - values differ."""
+        from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
+            get_gms_types_if_criteria_unchanged,
+        )
+
+        result = get_gms_types_if_criteria_unchanged(
+            (1, 100),
+            (
+                ("1", "100"),
+                (
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                    models.AssertionStdParameterTypeClass.NUMBER,
+                ),
+            ),
+        )
+        # (1, 100) != ("1", "100") so values differ, should return None
+        assert result is None

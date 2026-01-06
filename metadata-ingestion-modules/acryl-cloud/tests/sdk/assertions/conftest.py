@@ -243,8 +243,13 @@ class StubEntityClient(EntityClient):
     ) -> None:
         self.monitor_entity = monitor_entity
         self.assertion_entity = assertion_entity
+        self.upserted_entities: list = []
         # Initialize with a dummy client since we're just stubbing the behavior
         super().__init__(client=DummyDataHubClient())  # type: ignore[arg-type]  # DummyDataHubClient is a stub
+
+    def upsert(self, entity, *, emit_mode=None):  # type: ignore[override]  # Stubbed
+        """Stub upsert method that just stores the entity."""
+        self.upserted_entities.append(entity)
 
     def get(  # type: ignore[override]  # Stubbed
         self, urn: Union[DatasetUrn, AssertionUrn, MonitorUrn]
@@ -299,6 +304,13 @@ class StubEntityClient(EntityClient):
                             type=models.DateTypeClass()
                         ),
                         nativeDataType="DATE",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="string_column",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR",
                     ),
                 ],
             )
@@ -810,6 +822,163 @@ def native_column_metric_stub_datahub_client(
 def stub_entity_client() -> StubEntityClient:
     """A generic stub entity client that can be used for all types of assertions."""
     return StubEntityClient()
+
+
+# Column Value Assertion fixtures
+
+
+@pytest.fixture
+def column_value_assertion_entity_with_all_fields(
+    any_assertion_urn: AssertionUrn,
+) -> Assertion:
+    """A column value assertion entity for testing."""
+    return Assertion(
+        id=any_assertion_urn,
+        info=models.FieldAssertionInfoClass(
+            type=models.FieldAssertionTypeClass.FIELD_VALUES,
+            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+            fieldValuesAssertion=models.FieldValuesAssertionClass(
+                field=models.SchemaFieldSpecClass(
+                    path="string_column", type="STRING", nativeType="VARCHAR"
+                ),
+                operator=models.AssertionStdOperatorClass.GREATER_THAN,
+                parameters=models.AssertionStdParametersClass(
+                    value=models.AssertionStdParameterClass(
+                        value="5",
+                        type=models.AssertionStdParameterTypeClass.NUMBER,
+                    ),
+                ),
+                transform=models.FieldTransformClass(
+                    type=models.FieldTransformTypeClass.LENGTH,
+                ),
+                failThreshold=models.FieldValuesFailThresholdClass(
+                    type=models.FieldValuesFailThresholdTypeClass.PERCENTAGE,
+                    value=5,
+                ),
+                excludeNulls=True,
+            ),
+        ),
+        description="Column Value Assertion",
+        source=models.AssertionSourceClass(
+            type=models.AssertionSourceTypeClass.NATIVE,
+            created=models.AuditStampClass(
+                actor="urn:li:corpuser:acryl-cloud-user-created",
+                time=1609459200000,  # 2021-01-01 00:00:00 UTC
+            ),
+        ),
+        last_updated=models.AuditStampClass(
+            actor="urn:li:corpuser:acryl-cloud-user-updated",
+            time=1609545600000,  # 2021-01-02 00:00:00 UTC
+        ),
+        tags=[
+            models.TagAssociationClass(
+                tag="urn:li:tag:column_value_assertion_tag",
+            )
+        ],
+        on_failure=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RAISE_INCIDENT,
+            )
+        ],
+        on_success=[
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RESOLVE_INCIDENT,
+            )
+        ],
+    )
+
+
+@pytest.fixture
+def column_value_assertion_entity_minimal(
+    any_assertion_urn: AssertionUrn,
+) -> Assertion:
+    """A column value assertion entity with minimal fields for testing."""
+    return Assertion(
+        id=any_assertion_urn,
+        info=models.FieldAssertionInfoClass(
+            type=models.FieldAssertionTypeClass.FIELD_VALUES,
+            entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+            fieldValuesAssertion=models.FieldValuesAssertionClass(
+                field=models.SchemaFieldSpecClass(
+                    path="number_column", type="NUMBER", nativeType="NUMBER"
+                ),
+                operator=models.AssertionStdOperatorClass.NOT_NULL,
+                failThreshold=models.FieldValuesFailThresholdClass(
+                    type=models.FieldValuesFailThresholdTypeClass.COUNT,
+                    value=0,
+                ),
+                excludeNulls=True,
+            ),
+        ),
+        description="Minimal Column Value Assertion",
+        source=models.AssertionSourceClass(
+            type=models.AssertionSourceTypeClass.NATIVE,
+            created=models.AuditStampClass(
+                actor="urn:li:corpuser:acryl-cloud-user-created",
+                time=1609459200000,
+            ),
+        ),
+        last_updated=models.AuditStampClass(
+            actor="urn:li:corpuser:acryl-cloud-user-updated",
+            time=1609545600000,
+        ),
+    )
+
+
+@pytest.fixture
+def column_value_monitor_with_all_fields(
+    any_monitor_urn: MonitorUrn, any_assertion_urn: AssertionUrn
+) -> Monitor:
+    """A monitor with all fields set for column value assertions."""
+    return Monitor(
+        id=any_monitor_urn,
+        info=models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=models.MonitorStatusClass(
+                mode=models.MonitorModeClass.ACTIVE,
+            ),
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(any_assertion_urn),
+                        schedule=models.CronScheduleClass(
+                            cron="0 0 * * *",
+                            timezone="UTC",
+                        ),
+                        parameters=models.AssertionEvaluationParametersClass(
+                            type=models.AssertionEvaluationParametersTypeClass.DATASET_FIELD,
+                            datasetFieldParameters=models.DatasetFieldAssertionParametersClass(
+                                sourceType=models.DatasetFieldAssertionSourceTypeClass.ALL_ROWS_QUERY,
+                            ),
+                        ),
+                    )
+                ],
+            ),
+        ),
+    )
+
+
+@pytest.fixture
+def column_value_stub_entity_client(
+    column_value_monitor_with_all_fields: Monitor,
+    column_value_assertion_entity_with_all_fields: Assertion,
+) -> StubEntityClient:
+    return StubEntityClient(
+        monitor_entity=column_value_monitor_with_all_fields,
+        assertion_entity=column_value_assertion_entity_with_all_fields,
+    )
+
+
+@pytest.fixture
+def column_value_stub_datahub_client(
+    column_value_stub_entity_client: StubEntityClient,
+) -> StubDataHubClient:
+    return StubDataHubClient(
+        entity_client=column_value_stub_entity_client,
+    )
+
+
+# Smart SQL Assertion fixtures
 
 
 @pytest.fixture
