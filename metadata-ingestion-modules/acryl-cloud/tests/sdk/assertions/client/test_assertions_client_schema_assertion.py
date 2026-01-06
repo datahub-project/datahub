@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional, Union
+from typing import Any, Optional, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -53,7 +53,7 @@ class SchemaAssertionCreateParams:
     """Parameters for creating a schema assertion."""
 
     dataset_urn: Union[str, DatasetUrn]
-    fields: list[dict]
+    fields: list[Union[SchemaAssertionField, dict[Any, Any]]]
     compatibility: Optional[Union[str, SchemaAssertionCompatibility]] = None
     display_name: Optional[str] = None
     incident_behavior: Optional[list[AssertionIncidentBehavior]] = None

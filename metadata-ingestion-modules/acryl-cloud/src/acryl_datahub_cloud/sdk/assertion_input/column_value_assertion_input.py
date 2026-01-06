@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    DEFAULT_DAILY_SCHEDULE,
+    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     NO_PARAMETER_OPERATORS,
     RANGE_OPERATORS,
     SINGLE_VALUE_OPERATORS,
@@ -29,11 +29,15 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _ChangedRowsQuery,
     _DatasetProfile,
     _try_parse_and_validate_schema_classes_enum,
-    get_gms_type_if_criteria_unchanged,
-    get_gms_types_if_criteria_unchanged,
 )
-from acryl_datahub_cloud.sdk.assertion_input.column_assertion_constants import (
-    ALLOWED_COLUMN_TYPES_FOR_COLUMN_ASSERTION,
+from acryl_datahub_cloud.sdk.assertion_input.column_metric_assertion_input import (
+    _try_parse_and_validate_range,
+    _try_parse_and_validate_range_type,
+    _try_parse_and_validate_value,
+    _try_parse_and_validate_value_type,
+)
+from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
+    ALLOWED_COLUMN_TYPES_FOR_COLUMN_METRIC_ASSERTION,
     FIELD_VALUES_OPERATOR_CONFIG,
     OperatorInputType,
     RangeInputType,
@@ -42,12 +46,6 @@ from acryl_datahub_cloud.sdk.assertion_input.column_assertion_constants import (
     ValueInputType,
     ValueType,
     ValueTypeInputType,
-)
-from acryl_datahub_cloud.sdk.assertion_input.column_assertion_utils import (
-    _try_parse_and_validate_range,
-    _try_parse_and_validate_range_type,
-    _try_parse_and_validate_value,
-    _try_parse_and_validate_value_type,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import TagsInputType
 from acryl_datahub_cloud.sdk.errors import (
@@ -413,20 +411,35 @@ class _ColumnValueAssertionInput(_AssertionInput):
         criteria_parameters: Optional[ColumnValueAssertionParameters],
         gms_type_info: Optional[Union[models.AssertionStdParameterTypeClass, tuple]],
     ) -> None:
-        """Process criteria_parameters, using GMS type only if criteria is unchanged."""
+        """Process criteria_parameters using explicit type information from GMS."""
         if criteria_parameters is None:
             self._process_none_parameters()
         elif isinstance(criteria_parameters, tuple):
-            # Only use GMS types if the user hasn't changed the criteria values
-            explicit_types = get_gms_types_if_criteria_unchanged(
-                criteria_parameters, gms_type_info
-            )
+            # For range parameters, pass explicit types if available
+            # gms_type_info format: ((min_val, max_val), (min_type, max_type))
+            explicit_types = None
+            if (
+                isinstance(gms_type_info, tuple)
+                and len(gms_type_info) == 2
+                and isinstance(gms_type_info[0], tuple)
+            ):
+                # Extract types from second element (should be tuple of types)
+                explicit_types = (
+                    gms_type_info[1] if isinstance(gms_type_info[1], tuple) else None
+                )
             self._process_range_parameters(criteria_parameters, explicit_types)
         else:
-            # Only use GMS type if the user hasn't changed the criteria value
-            explicit_type = get_gms_type_if_criteria_unchanged(
-                criteria_parameters, gms_type_info
-            )
+            # For single value parameters, pass explicit type if available
+            # gms_type_info format: (value, type)
+            explicit_type = None
+            if (
+                isinstance(gms_type_info, tuple)
+                and len(gms_type_info) >= 2
+                and not isinstance(gms_type_info[0], tuple)
+                and not isinstance(gms_type_info[1], tuple)
+            ):
+                # Single value format: extract type from second element
+                explicit_type = gms_type_info[1]
             self._process_single_value_parameters(criteria_parameters, explicit_type)
 
     def _process_criteria_parameters(
@@ -634,7 +647,7 @@ class _ColumnValueAssertionInput(_AssertionInput):
     def _convert_schedule(self) -> models.CronScheduleClass:
         """Create a schedule for a column value assertion."""
         if self.schedule is None:
-            return DEFAULT_DAILY_SCHEDULE
+            return DEFAULT_EVERY_SIX_HOURS_SCHEDULE
 
         return models.CronScheduleClass(
             cron=self.schedule.cron,
@@ -759,7 +772,7 @@ class _ColumnValueAssertionInput(_AssertionInput):
         column_name: str,
         allowed_column_types: list[
             models.DictWrapper
-        ] = ALLOWED_COLUMN_TYPES_FOR_COLUMN_ASSERTION,
+        ] = ALLOWED_COLUMN_TYPES_FOR_COLUMN_METRIC_ASSERTION,
     ) -> str:
         """Parse and validate a column name and its type."""
         field_spec = self._get_schema_field_spec(column_name)

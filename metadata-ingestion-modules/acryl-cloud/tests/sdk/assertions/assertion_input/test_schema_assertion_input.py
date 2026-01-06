@@ -146,7 +146,7 @@ class TestParseSchemaAssertionFields:
 
     def test_parse_list_of_dicts(self) -> None:
         """Test parsing a list of dictionaries."""
-        fields = [
+        fields: list[Union[SchemaAssertionField, dict[Any, Any]]] = [
             {"path": "id", "type": "STRING"},
             {"path": "count", "type": "NUMBER"},
         ]
@@ -160,7 +160,7 @@ class TestParseSchemaAssertionFields:
 
     def test_parse_list_of_field_objects(self) -> None:
         """Test parsing a list of SchemaAssertionField objects."""
-        fields = [
+        fields: list[Union[SchemaAssertionField, dict[Any, Any]]] = [
             SchemaAssertionField(path="id", type=SchemaFieldDataType.STRING),
             SchemaAssertionField(path="count", type=SchemaFieldDataType.NUMBER),
         ]
@@ -214,7 +214,7 @@ class SchemaAssertionInputTestParams:
     """Test parameters for schema assertion input validation."""
 
     compatibility: Optional[str]
-    fields: Optional[list[dict[str, str]]]
+    fields: Optional[list[Union[SchemaAssertionField, dict[Any, Any]]]]
     expected_error: Optional[str] = None
     should_succeed: bool = True
 

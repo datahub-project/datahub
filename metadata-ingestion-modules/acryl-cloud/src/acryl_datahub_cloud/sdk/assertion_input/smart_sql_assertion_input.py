@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    DEFAULT_DAILY_SCHEDULE,
+    DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
     AssertionIncidentBehaviorInputTypes,
     ExclusionWindowInputTypes,
     FieldSpecType,
@@ -118,7 +118,7 @@ class _SmartSqlAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
             A CronScheduleClass with appropriate schedule settings.
         """
         if self.schedule is None:
-            return DEFAULT_DAILY_SCHEDULE
+            return DEFAULT_EVERY_SIX_HOURS_SCHEDULE
 
         return models.CronScheduleClass(
             cron=self.schedule.cron,

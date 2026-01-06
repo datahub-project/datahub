@@ -483,12 +483,115 @@ range_sql_assertion = client.assertions.sync_sql_assertion(
 )
 
 print(f"Created range SQL assertion: {range_sql_assertion.urn}")
+
+# Create smart SQL assertion (AI-powered anomaly detection)
+smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Smart Revenue Monitor",
+    statement="SELECT SUM(revenue) FROM database.schema.table WHERE date >= CURRENT_DATE - INTERVAL '1 day'",
+    # Smart sensitivity setting - AI will infer appropriate thresholds
+    sensitivity="medium",  # options: "low", "medium", "high"
+    # Schedule
+    schedule="0 */6 * * *",  # Every 6 hours
+    # Tags
+    tags=["automated", "revenue", "smart_sql"],
+    enabled=True
+)
+
+print(f"Created smart SQL assertion: {smart_sql_assertion.urn}")
 ```
 
 </TabItem>
 </Tabs>
 
 For more details, see the [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md) guide.
+
+### Smart SQL Assertions
+
+Smart SQL assertions use machine learning to automatically infer appropriate thresholds for your SQL query results,
+instead of requiring you to manually specify fixed threshold values.
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+To create a new smart SQL assertion, use the `upsertDatasetSqlAssertionMonitor` GraphQL Mutation with `inferWithAI: true`.
+
+```graphql
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC
+      description: "<description of the smart SQL assertion>"
+      statement: "<SQL query to be evaluated>"
+      inferWithAI: true
+      inferenceSettings: { sensitivity: { level: 5 } }
+      # Placeholder operator and parameters (AI will infer actual thresholds)
+      operator: GREATER_THAN_OR_EQUAL_TO
+      parameters: { value: { value: "0", type: NUMBER } }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+# Initialize the client
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# Create smart SQL assertion (AI-powered anomaly detection)
+dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+
+smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Smart Revenue Monitor",
+    # The SQL statement to evaluate - should return a single numeric value
+    statement="SELECT SUM(revenue) FROM database.schema.table WHERE date >= CURRENT_DATE - INTERVAL '1 day'",
+    # AI sensitivity setting
+    sensitivity="medium",  # options: "low", "medium", "high"
+    # Evaluation schedule
+    schedule="0 */6 * * *",  # Every 6 hours
+    # Optional: training data lookback
+    training_data_lookback_days=60,
+    # Tags
+    tags=["automated", "revenue", "smart_sql"],
+    enabled=True
+)
+
+print(f"Created smart SQL assertion: {smart_sql_assertion.urn}")
+
+# Example with exclusion windows (e.g., exclude holiday periods)
+smart_sql_with_exclusions = client.assertions.sync_smart_sql_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Smart Active Users Monitor",
+    statement="SELECT COUNT(DISTINCT user_id) FROM database.schema.events WHERE date = CURRENT_DATE",
+    sensitivity="high",
+    exclusion_windows=[
+        {"start": "2025-12-24T00:00:00", "end": "2025-12-26T00:00:00"},  # Christmas
+        {"start": "2025-01-01T00:00:00", "end": "2025-01-02T00:00:00"},  # New Year
+    ],
+    schedule="0 8 * * *",  # Daily at 8 AM
+    tags=["automated", "users", "smart_sql"],
+    enabled=True
+)
+
+print(f"Created smart SQL assertion with exclusions: {smart_sql_with_exclusions.urn}")
+```
+
+</TabItem>
+</Tabs>
 
 ### Schema Assertions
 

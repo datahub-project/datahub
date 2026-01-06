@@ -67,7 +67,7 @@ task cypressLintFix(type: YarnTask, dependsOn: yarnInstall) {
   args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format', '--write']
 }
 
-task installDev(type: Exec) {
+task installDev(type: Exec, dependsOn: ':metadata-ingestion-modules:acryl-cloud:codegen') {
     inputs.file file('pyproject.toml')
     inputs.file file('requirements.txt')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
@@ -77,6 +77,8 @@ task installDev(type: Exec) {
         "${venv_name}/bin/python -m pip install --upgrade uv && " +
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "uv pip install -r requirements.txt && " +
+        // Install acryl-datahub-cloud with --no-deps to avoid version conflict with local acryl-datahub
+        "uv pip install --no-deps -e ../metadata-ingestion-modules/acryl-cloud && " +
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 

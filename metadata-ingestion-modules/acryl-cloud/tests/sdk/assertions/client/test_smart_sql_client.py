@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from freezegun import freeze_time
 
+from acryl_datahub_cloud.sdk.assertion.assertion_base import AssertionMode
 from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import SmartSqlAssertion
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
@@ -137,6 +138,27 @@ def test_sync_smart_sql_assertion_with_exclusion_windows(
 
 
 @freeze_time(FROZEN_TIME)
+def test_sync_smart_sql_assertion_with_tags(
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that tags are applied correctly."""
+    stub_client = StubDataHubClient(existing_urns=DEFAULT_EXISTING_DATASET_URNS)
+    client = AssertionsClient(stub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    stub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    result = client.sync_smart_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        statement="SELECT COUNT(*) FROM test_table",
+        tags=["automated", "smart_sql"],
+    )
+
+    tag_strs = [str(tag) for tag in result.tags]
+    assert "urn:li:tag:automated" in tag_strs
+    assert "urn:li:tag:smart_sql" in tag_strs
+
+
+@freeze_time(FROZEN_TIME)
 def test_sync_smart_sql_assertion_update_existing_assertion(
     smart_sql_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
@@ -198,6 +220,25 @@ def test_sync_smart_sql_assertion_raises_error_on_dataset_urn_mismatch(
 
 
 @freeze_time(FROZEN_TIME)
+def test_sync_smart_sql_assertion_with_training_data_lookback_days(
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that training data lookback days is applied correctly."""
+    stub_client = StubDataHubClient(existing_urns=DEFAULT_EXISTING_DATASET_URNS)
+    client = AssertionsClient(stub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    stub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    result = client.sync_smart_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        statement="SELECT COUNT(*) FROM test_table",
+        training_data_lookback_days=90,
+    )
+
+    assert result.training_data_lookback_days == 90
+
+
+@freeze_time(FROZEN_TIME)
 def test_sync_smart_sql_assertion_with_incident_behavior(
     any_dataset_urn: DatasetUrn,
 ) -> None:
@@ -215,6 +256,43 @@ def test_sync_smart_sql_assertion_with_incident_behavior(
 
     assert AssertionIncidentBehavior.RAISE_ON_FAIL in result.incident_behavior
     assert AssertionIncidentBehavior.RESOLVE_ON_PASS in result.incident_behavior
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_sql_assertion_disabled(
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that enabled=False creates an inactive assertion."""
+    stub_client = StubDataHubClient(existing_urns=DEFAULT_EXISTING_DATASET_URNS)
+    client = AssertionsClient(stub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    stub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    result = client.sync_smart_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        statement="SELECT COUNT(*) FROM test_table",
+        enabled=False,
+    )
+
+    assert result.mode == AssertionMode.INACTIVE
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_sql_assertion_defaults_to_enabled(
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that assertion is enabled by default."""
+    stub_client = StubDataHubClient(existing_urns=DEFAULT_EXISTING_DATASET_URNS)
+    client = AssertionsClient(stub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    stub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    result = client.sync_smart_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        statement="SELECT COUNT(*) FROM test_table",
+    )
+
+    assert result.mode == AssertionMode.ACTIVE
 
 
 @freeze_time(FROZEN_TIME)
