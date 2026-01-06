@@ -1,4 +1,5 @@
 import { Column, Table } from '@components';
+import { SorterResult } from 'antd/lib/table/interface';
 import * as QueryString from 'query-string';
 import React from 'react';
 import { useHistory } from 'react-router';
@@ -35,13 +36,13 @@ interface Props {
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
+    onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
     isLastPage?: boolean;
     sourcesToRefetch: Set<string>;
     executedUrns: Set<string>;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
-    onChangeSort: any;
 }
 
 function IngestionSourceTable({
@@ -52,13 +53,13 @@ function IngestionSourceTable({
     onEdit,
     onView,
     onDelete,
+    onChangeSort,
     isLoading,
     shouldPreserveParams,
     isLastPage,
     sourcesToRefetch,
     executedUrns,
     setSelectedTab,
-    onChangeSort,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -104,8 +105,8 @@ function IngestionSourceTable({
             render: (record) => {
                 return <NameColumn type={record.type} record={record} onNameClick={() => onEdit(record.urn)} />;
             },
-            sorter: true,
             width: '25%',
+            sorter: true,
             onCellClick: (record) => onEdit(record.urn),
         },
         {
@@ -171,6 +172,7 @@ function IngestionSourceTable({
             columns={tableColumns}
             data={tableData}
             isScrollable
+            handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
             footer={
                 isLastPage ? (
@@ -180,7 +182,6 @@ function IngestionSourceTable({
                     />
                 ) : null
             }
-            handleSortColumnChange={handleSortColumnChange}
             rowDataTestId={(row) => `row-${row.name}`}
         />
     );
