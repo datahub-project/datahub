@@ -5671,6 +5671,11 @@
     "@visx/event" "3.0.1"
     prop-types "^15.6.2"
 
+"@vitejs/plugin-basic-ssl@^2.1.0":
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/@vitejs/plugin-basic-ssl/-/plugin-basic-ssl-2.1.0.tgz#c70d2a922bc437f154089d7ef0505db4b383eb7b"
+  integrity sha512-dOxxrhgyDIEUADhb/8OlV9JIqYLgos03YorAueTIeOUskLJSEsfwCByjbu98ctXitUN3znXKp0bYD/WHSudCeA==
+
 "@vitejs/plugin-react-swc@^3.10.1":
   version "3.10.1"
   resolved "https://registry.yarnpkg.com/@vitejs/plugin-react-swc/-/plugin-react-swc-3.10.1.tgz#260de78382296d7c1142d2a093e6c786cd17b55c"
