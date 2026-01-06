@@ -46,16 +46,88 @@ For detailed instructions, see [Azure custom roles](https://learn.microsoft.com/
 
 ### Which Activities Produce Lineage?
 
-The connector extracts **table-level lineage** from these ADF activity types:
+The connector extracts both **table-level** and **column-level** lineage from Azure Data Factory activities. Table-level lineage shows which datasets connect to which datasets, while column-level lineage (available for Copy Activities) shows how individual columns map between source and destination.
 
-| Activity Type       | Lineage Behavior                                           |
-| ------------------- | ---------------------------------------------------------- |
-| **Copy Activity**   | Creates lineage from input dataset(s) to output dataset    |
-| **Data Flow**       | Extracts sources, sinks, and transformation script         |
-| **Lookup Activity** | Creates input lineage from the lookup dataset              |
-| **ExecutePipeline** | Creates pipeline-to-pipeline lineage to the child pipeline |
+| Activity Type       | Lineage Behavior                                           | Table-Level Lineage | Column-Level Lineage             |
+| ------------------- | ---------------------------------------------------------- | ------------------- | -------------------------------- |
+| **Copy Activity**   | Creates lineage from input dataset(s) to output dataset    | ✅ Yes              | ✅ Yes (when mappings available) |
+| **Data Flow**       | Extracts sources, sinks, and transformation script         | ✅ Yes              | ❌ No (table-level only)         |
+| **Lookup Activity** | Creates input lineage from the lookup dataset              | ✅ Yes              | ❌ No (table-level only)         |
+| **ExecutePipeline** | Creates pipeline-to-pipeline lineage to the child pipeline | ✅ Yes              | ❌ No (table-level only)         |
 
-Lineage is enabled by default (`include_lineage: true`).
+### Column-Level Lineage
+
+The connector extracts **column-level lineage** from Copy Activity column mappings, enabling fine-grained visibility into how individual columns flow through your data pipelines.
+
+#### Supported Copy Activity Mappings
+
+Column lineage is extracted from three mapping formats:
+
+**1. Dictionary Format (Legacy)**
+
+```json
+{
+  "translator": {
+    "type": "TabularTranslator",
+    "columnMappings": {
+      "source_column": "destination_column",
+      "customer_id": "id",
+      "customer_name": "name"
+    }
+  }
+}
+```
+
+**2. List Format (Current, Recommended)**
+
+```json
+{
+  "translator": {
+    "type": "TabularTranslator",
+    "mappings": [
+      {
+        "source": { "name": "order_id", "type": "Int32" },
+        "sink": { "name": "id", "type": "Int32" }
+      },
+      {
+        "source": { "name": "order_date", "type": "DateTime" },
+        "sink": { "name": "date", "type": "DateTime" }
+      }
+    ]
+  }
+}
+```
+
+**3. Auto-Mapping Inference**
+
+When a Copy Activity uses `TabularTranslator` without explicit column mappings, the connector infers 1:1 column mappings from the source dataset schema. This works when:
+
+- The source dataset has schema information available
+- The translator type is `TabularTranslator`
+- No explicit `columnMappings` or `mappings` are defined
+
+Auto-mapping assumes columns map by name (e.g., `customer_id` → `customer_id`).
+
+#### Limitations
+
+- **Copy Activity Only**: Column lineage is currently only extracted from Copy Activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
+- **Schema Availability**: Auto-mapping inference requires source dataset schema information. If schema is unavailable, only explicit mappings are extracted.
+- **Single Source/Sink**: The connector uses the first input and first output dataset for column lineage. Activities with multiple inputs/outputs may not capture all column mappings.
+
+#### Troubleshooting
+
+**No column lineage appearing?**
+
+- Verify `include_lineage: true` and `include_column_lineage: true` in your recipe
+- Check that your Copy Activity has a `translator` property with `type: "TabularTranslator"`
+- For auto-mapping, ensure the source dataset has schema information
+- Review ingestion logs for column lineage extraction messages
+
+**Missing some column mappings?**
+
+- Verify column mappings are defined in the Copy Activity's translator
+- Check that source and sink dataset URNs are correctly resolved (see [Platform Instance Mapping](#step-2-platform-instance-mapping-for-cross-recipe-lineage))
+- Review the activity's `typeProperties` or flattened `translator` field in Azure SDK responses
 
 ### How Lineage Resolution Works
 
