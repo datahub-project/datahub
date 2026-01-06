@@ -1,426 +1,546 @@
 [
   {
+    "filePath": "actions/proposalsV2/proposals_asset_page.js",
+    "duration": "198.565s"
+  },
+  {
     "filePath": "mutations/dataset_ownership.js",
-    "duration": "157.635s"
+    "duration": "165.437s"
+  },
+  {
+    "filePath": "mutationsV2/v2_dataset_ownership.js",
+    "duration": "158.226s"
   },
   {
     "filePath": "structured_properties/structured_properties.js",
-    "duration": "135.167s"
+    "duration": "147.796s"
+  },
+  {
+    "filePath": "mutations/schemaProposals.js",
+    "duration": "139.568s"
   },
   {
     "filePath": "domains/nested_domains.js",
-    "duration": "100.927s"
+    "duration": "104.726s"
+  },
+  {
+    "filePath": "metadata_tests/tests.js",
+    "duration": "100.819s"
   },
   {
     "filePath": "ingestionV2/sources.js",
-    "duration": "96.784s"
+    "duration": "100.522s"
   },
   {
     "filePath": "mutationsV2/v2_edit_documentation.js",
-    "duration": "91.994s"
+    "duration": "93.823s"
+  },
+  {
+    "filePath": "actions/proposalsV2/proposals_filters.js",
+    "duration": "86.437s"
   },
   {
     "filePath": "ingestionV2/run_history.js",
-    "duration": "77.246s"
+    "duration": "86.387s"
   },
   {
-    "filePath": "glossaryV2/v2_glossary_navigation.js",
-    "duration": "61.556s"
-  },
-  {
-    "filePath": "settingsV2/v2_managing_groups.js",
-    "duration": "56.122s"
-  },
-  {
-    "filePath": "lineageV2/v2_impact_analysis.js",
-    "duration": "54.443s"
-  },
-  {
-    "filePath": "schema_blame/schema_blame.js",
-    "duration": "51.195s"
-  },
-  {
-    "filePath": "statsTabV2/charts.js",
-    "duration": "51.181s"
+    "filePath": "actions/action_workflows.js",
+    "duration": "79.981s"
   },
   {
     "filePath": "settings/manage_policies.js",
-    "duration": "51.040s"
+    "duration": "71.839s"
+  },
+  {
+    "filePath": "glossaryV2/v2_glossary_navigation.js",
+    "duration": "66.286s"
   },
   {
     "filePath": "settingsV2/v2_manage_policies.js",
-    "duration": "50.776s"
+    "duration": "62.927s"
   },
   {
-    "filePath": "documents/document_management.js",
-    "duration": "48.003s"
+    "filePath": "settingsV2/v2_managing_groups.js",
+    "duration": "61.041s"
   },
   {
-    "filePath": "incidentsV2/v2_incidents.js",
-    "duration": "47.845s"
+    "filePath": "lineageV2/v2_impact_analysis.js",
+    "duration": "59.599s"
   },
   {
     "filePath": "settings/homePagePost.js",
-    "duration": "46.007s"
+    "duration": "58.754s"
   },
   {
-    "filePath": "lineage/impact_analysis.js",
-    "duration": "45.959s"
+    "filePath": "actions/proposalsV2/proposals_page.js",
+    "duration": "58.736s"
   },
   {
-    "filePath": "mutationsV2/v2_managing_secrets.js",
-    "duration": "40.322s"
+    "filePath": "actions/proposalsV2/schema_field_proposals.js",
+    "duration": "57.698s"
+  },
+  {
+    "filePath": "homeV3/modules.acryl.js",
+    "duration": "57.131s"
+  },
+  {
+    "filePath": "incidentsV2/v2_incidents.js",
+    "duration": "53.178s"
   },
   {
     "filePath": "settingsV2/v2_homePagePost.js",
-    "duration": "40.202s"
-  },
-  {
-    "filePath": "search/search.js",
-    "duration": "40.197s"
-  },
-  {
-    "filePath": "mutations/managing_secrets.js",
-    "duration": "40.196s"
-  },
-  {
-    "filePath": "statsTabV2/operationsChart.js",
-    "duration": "39.585s"
-  },
-  {
-    "filePath": "lineage/download_lineage_results.js",
-    "duration": "37.082s"
-  },
-  {
-    "filePath": "glossaryV2/v2_glossaryTerm.js",
-    "duration": "36.687s"
-  },
-  {
-    "filePath": "lineageV2/v2_download_lineage_results.js",
-    "duration": "35.686s"
-  },
-  {
-    "filePath": "mutations/edit_documentation.js",
-    "duration": "35.329s"
-  },
-  {
-    "filePath": "glossaryV2/v2_glossary.js",
-    "duration": "31.185s"
-  },
-  {
-    "filePath": "mutations/manage_ingestion_secret_privilege.js",
-    "duration": "30.949s"
-  },
-  {
-    "filePath": "mutations/domains.js",
-    "duration": "29.869s"
-  },
-  {
-    "filePath": "siblings/siblings.js",
-    "duration": "28.418s"
-  },
-  {
-    "filePath": "glossary/glossaryTerm.js",
-    "duration": "28.285s"
-  },
-  {
-    "filePath": "lineageV2/v2_lineage_graph.js",
-    "duration": "28.235s"
-  },
-  {
-    "filePath": "application/applications.js",
-    "duration": "26.796s"
-  },
-  {
-    "filePath": "query/query_tab.js",
-    "duration": "26.756s"
-  },
-  {
-    "filePath": "statsTabV2/statsTab.js",
-    "duration": "26.447s"
-  },
-  {
-    "filePath": "browse/browseV2.js",
-    "duration": "26.109s"
-  },
-  {
-    "filePath": "search/query_and_filter_search.js",
-    "duration": "25.357s"
+    "duration": "53.044s"
   },
   {
     "filePath": "glossary/glossary.js",
-    "duration": "24.830s"
+    "duration": "52.496s"
   },
   {
-    "filePath": "mutations/add_users.js",
-    "duration": "23.952s"
+    "filePath": "statsTabV2/charts.js",
+    "duration": "51.543s"
   },
   {
-    "filePath": "domainsV2/v2_nested_domains.js",
-    "duration": "23.097s"
+    "filePath": "schema_blame/schema_blame.js",
+    "duration": "51.461s"
   },
   {
-    "filePath": "manage_tagsV2/assign_unassign_tags.js",
-    "duration": "22.519s"
+    "filePath": "documents/document_management.js",
+    "duration": "50.194s"
   },
   {
-    "filePath": "lineageV2/v2_lineage_column_path.js",
-    "duration": "20.556s"
+    "filePath": "actions/proposalsV2/proposals_table.js",
+    "duration": "49.662s"
+  },
+  {
+    "filePath": "lineage/impact_analysis.js",
+    "duration": "49.659s"
+  },
+  {
+    "filePath": "mutationsV2/v2_managing_secrets.js",
+    "duration": "45.777s"
+  },
+  {
+    "filePath": "settings/platform_ai_settings.js",
+    "duration": "44.774s"
+  },
+  {
+    "filePath": "mutations/managing_secrets.js",
+    "duration": "44.405s"
+  },
+  {
+    "filePath": "search/search.js",
+    "duration": "43.159s"
+  },
+  {
+    "filePath": "assertions/volume_assertions.js",
+    "duration": "41.459s"
+  },
+  {
+    "filePath": "statsTabV2/operationsChart.js",
+    "duration": "41.164s"
   },
   {
     "filePath": "mutations/ingestion_source.js",
-    "duration": "20.047s"
+    "duration": "40.720s"
   },
   {
-    "filePath": "mutationsV2/v2_ingestion_source.js",
-    "duration": "19.619s"
+    "filePath": "queryV2/v2_query_tab.js",
+    "duration": "38.615s"
+  },
+  {
+    "filePath": "mutations/edit_documentation.js",
+    "duration": "38.344s"
+  },
+  {
+    "filePath": "lineage/download_lineage_results.js",
+    "duration": "37.076s"
+  },
+  {
+    "filePath": "assertions/freshness_assertion.js",
+    "duration": "36.549s"
+  },
+  {
+    "filePath": "mutations/domains.js",
+    "duration": "35.956s"
+  },
+  {
+    "filePath": "lineageV2/v2_download_lineage_results.js",
+    "duration": "35.806s"
+  },
+  {
+    "filePath": "glossaryV2/v2_glossaryTerm.js",
+    "duration": "35.438s"
+  },
+  {
+    "filePath": "mutations/manage_ingestion_secret_privilege.js",
+    "duration": "35.389s"
+  },
+  {
+    "filePath": "metadata_testsV2/v2_tests.js",
+    "duration": "34.629s"
+  },
+  {
+    "filePath": "glossaryV2/v2_glossary.js",
+    "duration": "34.450s"
+  },
+  {
+    "filePath": "homeV3/templates.acryl.js",
+    "duration": "32.312s"
+  },
+  {
+    "filePath": "mutations/add_users.js",
+    "duration": "32.059s"
+  },
+  {
+    "filePath": "lineageV2/v2_lineage_graph.js",
+    "duration": "30.755s"
+  },
+  {
+    "filePath": "siblings/siblings.js",
+    "duration": "30.607s"
+  },
+  {
+    "filePath": "glossary/glossaryTerm.js",
+    "duration": "30.437s"
+  },
+  {
+    "filePath": "assertionsV2/v2_volume_assertions.js",
+    "duration": "30.406s"
+  },
+  {
+    "filePath": "queryV2/popular_queries.js",
+    "duration": "29.993s"
+  },
+  {
+    "filePath": "query/query_tab.js",
+    "duration": "28.726s"
+  },
+  {
+    "filePath": "search/query_and_filter_search.js",
+    "duration": "28.503s"
+  },
+  {
+    "filePath": "assertionsV2/v2_freshness_assertion.js",
+    "duration": "28.091s"
+  },
+  {
+    "filePath": "application/applications.js",
+    "duration": "27.401s"
+  },
+  {
+    "filePath": "statsTabV2/statsTab.js",
+    "duration": "27.165s"
+  },
+  {
+    "filePath": "manage_tagsV2/assign_unassign_tags.js",
+    "duration": "26.959s"
+  },
+  {
+    "filePath": "browse/browseV2.js",
+    "duration": "26.317s"
+  },
+  {
+    "filePath": "domainsV2/v2_nested_domains.js",
+    "duration": "25.089s"
+  },
+  {
+    "filePath": "settingsV2/v2_teams_integration_visibility.js",
+    "duration": "23.687s"
   },
   {
     "filePath": "auto_complete/auto_complete.js",
-    "duration": "18.222s"
+    "duration": "21.723s"
   },
   {
-    "filePath": "lineage/lineage_column_path.js",
-    "duration": "17.735s"
+    "filePath": "mutationsV2/v2_ingestion_source.js",
+    "duration": "20.909s"
   },
   {
-    "filePath": "searchV2/filterApplication.js",
-    "duration": "17.414s"
+    "filePath": "lineageV2/v2_lineage_column_path.js",
+    "duration": "20.832s"
   },
   {
     "filePath": "mfeframework/valid_config_mfe.js",
-    "duration": "16.887s"
+    "duration": "18.765s"
+  },
+  {
+    "filePath": "lineage/lineage_column_path.js",
+    "duration": "18.592s"
+  },
+  {
+    "filePath": "searchV2/filterApplication.js",
+    "duration": "17.613s"
+  },
+  {
+    "filePath": "manage_forms/manage_forms.js",
+    "duration": "16.670s"
   },
   {
     "filePath": "lineage/lineage_graph.js",
-    "duration": "15.946s"
+    "duration": "16.461s"
   },
   {
     "filePath": "ownershipV2/v2_manage_ownership.js",
-    "duration": "15.119s"
-  },
-  {
-    "filePath": "ownership/manage_ownership.js",
-    "duration": "14.710s"
+    "duration": "15.774s"
   },
   {
     "filePath": "mutationsV2/v2_managed_ingestion.js",
-    "duration": "14.670s"
+    "duration": "15.617s"
   },
   {
     "filePath": "viewV2/v2_view_select.js",
-    "duration": "14.007s"
-  },
-  {
-    "filePath": "application/manage_applications.js",
-    "duration": "13.756s"
+    "duration": "15.587s"
   },
   {
     "filePath": "ml/feature_table.js",
-    "duration": "13.715s"
-  },
-  {
-    "filePath": "searchV2/urlInitialization.js",
-    "duration": "12.095s"
-  },
-  {
-    "filePath": "searchV2/basicSearch.js",
-    "duration": "11.703s"
-  },
-  {
-    "filePath": "settingsV2/v2_manage_access_tokens.js",
-    "duration": "11.459s"
-  },
-  {
-    "filePath": "settings/manage_access_tokens.js",
-    "duration": "11.292s"
+    "duration": "15.056s"
   },
   {
     "filePath": "uploadFiles/uploadFiles.js",
-    "duration": "11.111s"
+    "duration": "14.998s"
   },
   {
-    "filePath": "views/view_select.js",
-    "duration": "10.874s"
+    "filePath": "ownership/manage_ownership.js",
+    "duration": "14.831s"
+  },
+  {
+    "filePath": "mlV2/v2_feature_table.js",
+    "duration": "13.993s"
+  },
+  {
+    "filePath": "application/manage_applications.js",
+    "duration": "13.829s"
+  },
+  {
+    "filePath": "searchV2/urlInitialization.js",
+    "duration": "12.510s"
+  },
+  {
+    "filePath": "searchV2/basicSearch.js",
+    "duration": "12.021s"
+  },
+  {
+    "filePath": "settingsV2/v2_manage_access_tokens.js",
+    "duration": "11.920s"
   },
   {
     "filePath": "ml/experiment.js",
-    "duration": "10.610s"
+    "duration": "11.898s"
   },
   {
-    "filePath": "statsTabV2/columnStats.js",
-    "duration": "10.272s"
+    "filePath": "settings/manage_access_tokens.js",
+    "duration": "11.530s"
   },
   {
     "filePath": "task_runV2/v2_task_runs.js",
-    "duration": "10.091s"
+    "duration": "11.263s"
   },
   {
     "filePath": "auto_completeV2/v2_auto_complete.js",
-    "duration": "9.998s"
+    "duration": "11.218s"
   },
   {
-    "filePath": "manage_tagsV2/create_edit_remove_tags.js",
-    "duration": "9.911s"
-  },
-  {
-    "filePath": "businessAttribute/businessAttribute.js",
-    "duration": "9.690s"
-  },
-  {
-    "filePath": "statsTabV2/highlights.js",
-    "duration": "9.610s"
+    "filePath": "views/view_select.js",
+    "duration": "11.105s"
   },
   {
     "filePath": "ml/model_mlflow.js",
-    "duration": "9.561s"
+    "duration": "10.826s"
   },
   {
-    "filePath": "ml/model_sagemaker.js",
-    "duration": "8.747s"
+    "filePath": "manage_tagsV2/create_edit_remove_tags.js",
+    "duration": "10.488s"
+  },
+  {
+    "filePath": "statsTabV2/columnStats.js",
+    "duration": "10.468s"
+  },
+  {
+    "filePath": "statsTabV2/highlights.js",
+    "duration": "10.061s"
   },
   {
     "filePath": "task_runs/task_runs.js",
-    "duration": "8.420s"
+    "duration": "10.013s"
   },
   {
-    "filePath": "mutations/deprecations.js",
-    "duration": "8.383s"
+    "filePath": "ml/model_sagemaker.js",
+    "duration": "9.829s"
   },
   {
-    "filePath": "search/searchFilters.js",
-    "duration": "8.197s"
+    "filePath": "businessAttribute/businessAttribute.js",
+    "duration": "9.325s"
+  },
+  {
+    "filePath": "mlV2/v2_model.js",
+    "duration": "9.092s"
   },
   {
     "filePath": "summaryTab/aboutSection.js",
-    "duration": "8.037s"
+    "duration": "8.958s"
   },
   {
-    "filePath": "searchV2/entityInteraction.js",
-    "duration": "7.944s"
+    "filePath": "mutations/deprecations.js",
+    "duration": "8.894s"
   },
   {
-    "filePath": "searchV2/filterFunctionality.js",
-    "duration": "7.911s"
+    "filePath": "observability/assertion_results.js",
+    "duration": "8.509s"
+  },
+  {
+    "filePath": "mutations/proposals.js",
+    "duration": "8.404s"
+  },
+  {
+    "filePath": "columnsV2/columnsV2.js",
+    "duration": "8.290s"
   },
   {
     "filePath": "onboarding/welcome-to-datahub-modal.cy.js",
-    "duration": "7.758s"
+    "duration": "8.221s"
+  },
+  {
+    "filePath": "searchV2/entityInteraction.js",
+    "duration": "8.115s"
+  },
+  {
+    "filePath": "searchV2/filterFunctionality.js",
+    "duration": "7.867s"
   },
   {
     "filePath": "manage_tags/manage_tags.js",
-    "duration": "7.336s"
-  },
-  {
-    "filePath": "analytics/analytics.js",
-    "duration": "7.200s"
+    "duration": "7.820s"
   },
   {
     "filePath": "schema_blameV2/v2_schema_blame.js",
-    "duration": "6.501s"
+    "duration": "7.414s"
   },
   {
-    "filePath": "searchV2/keyboardInteraction.js",
-    "duration": "6.383s"
-  },
-  {
-    "filePath": "lineageV2/v2_lineage_column_level.js",
-    "duration": "6.077s"
+    "filePath": "introduce/introduce.js",
+    "duration": "7.369s"
   },
   {
     "filePath": "siblingsV2/v2_siblings.js",
-    "duration": "6.015s"
+    "duration": "6.557s"
+  },
+  {
+    "filePath": "lineageV2/v2_lineage_column_level.js",
+    "duration": "6.177s"
   },
   {
     "filePath": "viewV2/v2_manage_views.js",
-    "duration": "5.821s"
+    "duration": "6.038s"
   },
   {
     "filePath": "searchV2/matchedFields.js",
-    "duration": "5.460s"
+    "duration": "5.788s"
   },
   {
     "filePath": "mutations/dataset_health.js",
-    "duration": "5.428s"
+    "duration": "5.616s"
   },
   {
-    "filePath": "containers/containers.js",
-    "duration": "4.686s"
+    "filePath": "incidents/incidents.js",
+    "duration": "5.579s"
   },
   {
-    "filePath": "views/manage_views.js",
-    "duration": "4.640s"
-  },
-  {
-    "filePath": "domains/domains.js",
-    "duration": "4.351s"
-  },
-  {
-    "filePath": "domainsV2/v2_domains.js",
-    "duration": "4.240s"
-  },
-  {
-    "filePath": "lineage/lineage_column_level.js",
-    "duration": "4.219s"
-  },
-  {
-    "filePath": "loginV2/v2_login.js",
-    "duration": "4.178s"
+    "filePath": "searchV2/keyboardInteraction.js",
+    "duration": "5.195s"
   },
   {
     "filePath": "containersV2/v2_containers.js",
-    "duration": "4.171s"
+    "duration": "5.070s"
   },
   {
-    "filePath": "login/login.js",
-    "duration": "3.880s"
+    "filePath": "settingsV2/v2_manage_subscriptions.js",
+    "duration": "4.862s"
   },
   {
-    "filePath": "actions/docPropagation.js",
-    "duration": "3.865s"
+    "filePath": "views/manage_views.js",
+    "duration": "4.856s"
   },
   {
-    "filePath": "summaryTab/domainSummary.js",
-    "duration": "3.688s"
+    "filePath": "domainsV2/v2_domains.js",
+    "duration": "4.708s"
   },
   {
-    "filePath": "manage_tagsV2/search_not_exists.js",
-    "duration": "3.615s"
+    "filePath": "loginV2/v2_login.js",
+    "duration": "4.634s"
   },
   {
-    "filePath": "businessAttribute/attribute_mutations.js",
-    "duration": "3.523s"
-  },
-  {
-    "filePath": "summaryTab/glossaryTermSummary.js",
-    "duration": "3.353s"
-  },
-  {
-    "filePath": "summaryTab/glossaryNodeSummary.js",
-    "duration": "3.337s"
-  },
-  {
-    "filePath": "homeV2/v2_home.js",
-    "duration": "3.167s"
-  },
-  {
-    "filePath": "manage_tagsV2/title_search_results.js",
-    "duration": "2.988s"
-  },
-  {
-    "filePath": "summaryTab/dataProductSummary.js",
-    "duration": "2.942s"
+    "filePath": "search/searchFilters.js",
+    "duration": "4.591s"
   },
   {
     "filePath": "operations/operations.js",
-    "duration": "2.556s"
+    "duration": "4.431s"
+  },
+  {
+    "filePath": "settingsV2/v2_manage_group_notifications.js",
+    "duration": "4.191s"
+  },
+  {
+    "filePath": "settingsV2/v2_manage_personal_notifications.js",
+    "duration": "4.147s"
+  },
+  {
+    "filePath": "actions/docPropagation.js",
+    "duration": "4.046s"
+  },
+  {
+    "filePath": "login/login.js",
+    "duration": "4.045s"
+  },
+  {
+    "filePath": "lineage/lineage_column_level.js",
+    "duration": "3.960s"
+  },
+  {
+    "filePath": "summaryTab/domainSummary.js",
+    "duration": "3.938s"
+  },
+  {
+    "filePath": "businessAttribute/attribute_mutations.js",
+    "duration": "3.923s"
+  },
+  {
+    "filePath": "summaryTab/glossaryTermSummary.js",
+    "duration": "3.853s"
+  },
+  {
+    "filePath": "containers/containers.js",
+    "duration": "3.836s"
+  },
+  {
+    "filePath": "manage_tagsV2/search_not_exists.js",
+    "duration": "3.807s"
+  },
+  {
+    "filePath": "summaryTab/glossaryNodeSummary.js",
+    "duration": "3.516s"
+  },
+  {
+    "filePath": "domains/domains.js",
+    "duration": "3.464s"
+  },
+  {
+    "filePath": "summaryTab/dataProductSummary.js",
+    "duration": "3.448s"
+  },
+  {
+    "filePath": "manage_tagsV2/title_search_results.js",
+    "duration": "3.338s"
+  },
+  {
+    "filePath": "homeV2/v2_home.js",
+    "duration": "3.026s"
   },
   {
     "filePath": "home/home.js",
-    "duration": "2.530s"
+    "duration": "2.788s"
   },
   {
     "filePath": "manage_tagsV2/search_bar_placeholder.js",
-    "duration": "2.376s"
+    "duration": "2.585s"
   }
 ]
