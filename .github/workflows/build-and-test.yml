@@ -39,32 +39,47 @@ jobs:
       mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
       postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
+      build_matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+      - name: Set build matrix
+        id: set-matrix
+        run: |
+          matrix='{"include":[]}'
+
+          # Add backend builds if backend changed
+          if [[ "${{ steps.ci-optimize.outputs.backend-change }}" == "true" || "${{ github.event_name }}" != "pull_request" ]]; then
+            matrix=$(echo "$matrix" | jq '.include += [
+              {"command": "except_metadata_ingestion", "timezone": "UTC"},
+              {"command": "integrations-service", "timezone": "UTC"},
+              {"command": "executor", "timezone": "UTC"}
+            ]')
+          fi
+
+          # Add frontend builds if frontend changed
+          if [[ "${{ steps.ci-optimize.outputs.frontend-change }}" == "true" || "${{ github.event_name }}" != "pull_request" ]]; then
+            matrix=$(echo "$matrix" | jq '.include += [
+              {"command": "frontend", "timezone": "UTC"},
+              {"command": "frontend", "timezone": "America/New_York"}
+            ]')
+          fi
+
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+          echo "Generated matrix: $matrix"
 
   build:
     strategy:
       fail-fast: false
-      matrix:
-        command: [
-            # metadata-ingestion and airflow-plugin each have dedicated build jobs
-            "except_metadata_ingestion",
-            "frontend",
-            "integrations-service",
-            "executor",
-          ]
-        timezone: ["UTC"]
-        include:
-          # We only need the timezone variation for frontend tests.
-          - command: "frontend"
-            timezone: "America/New_York"
+      matrix: ${{ fromJSON(needs.setup.outputs.build_matrix) }}
     # runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
     runs-on: "depot-ubuntu-latest-8" # Saas Only
     timeout-minutes: 60
     needs: setup
+    # Skip entire job when no builds are needed (empty matrix)
+    if: needs.setup.outputs.build_matrix != '{"include":[]}'
     steps:
       - name: Free up disk space
         run: |
@@ -109,7 +124,7 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
       - name: Gradle build (and test) for NOT metadata ingestion
-        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        if: ${{ matrix.command == 'except_metadata_ingestion' }}
         # Acryl-only changes for acryl-cloud, integrations-service, executor
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
         run: |
@@ -140,18 +155,18 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle build (and test) for frontend
-        if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
+        if: ${{ matrix.command == 'frontend' }}
         run: |
           ./gradlew -PwithCoverage :datahub-frontend:build :datahub-web-react:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Gradle build (and test) for integrations-service
-        if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
+        if: ${{ matrix.command == 'integrations-service' }}
         run: |
           ./gradlew :datahub-integrations-service:build --parallel
       - name: Gradle build (and test) for executor
-        if: ${{  matrix.command == 'executor' && needs.setup.outputs.backend_change == 'true' }}
+        if: ${{ matrix.command == 'executor' }}
         run: |
           ./gradlew :datahub-executor:build --parallel
       - name: Gather coverage files
