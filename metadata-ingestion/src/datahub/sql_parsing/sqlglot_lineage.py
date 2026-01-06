@@ -163,10 +163,14 @@ def _table_name_from_sqlglot_table(
     else:
         table_name = _restore_mssql_temp_table_prefix(table, dialect)
 
+    # Extract parts tuple for multi-part table names (for schema resolver compatibility)
+    parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
+
     return _TableName(
         database=table.catalog or default_db,
         db_schema=table.db or default_schema,
         table=table_name,
+        parts=parts_tuple,
     )
 
 
