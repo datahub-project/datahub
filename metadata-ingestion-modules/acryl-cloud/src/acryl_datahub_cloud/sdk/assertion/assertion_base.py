@@ -719,6 +719,7 @@ if TYPE_CHECKING:
         ColumnValueAssertion,
     )
     from acryl_datahub_cloud.sdk.assertion.freshness_assertion import FreshnessAssertion
+    from acryl_datahub_cloud.sdk.assertion.schema_assertion import SchemaAssertion
     from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
         SmartColumnMetricAssertion,
     )
@@ -736,58 +737,26 @@ if TYPE_CHECKING:
 # For runtime access, we'll use dynamic imports to avoid circular dependencies
 def __getattr__(name: str) -> type:
     """Dynamic import for assertion classes to avoid circular dependencies."""
-    if name == "SmartFreshnessAssertion":
-        from acryl_datahub_cloud.sdk.assertion.smart_freshness_assertion import (
-            SmartFreshnessAssertion,
-        )
+    # Mapping of class names to their import paths
+    assertion_imports = {
+        "SmartFreshnessAssertion": "acryl_datahub_cloud.sdk.assertion.smart_freshness_assertion",
+        "SmartVolumeAssertion": "acryl_datahub_cloud.sdk.assertion.smart_volume_assertion",
+        "VolumeAssertion": "acryl_datahub_cloud.sdk.assertion.volume_assertion",
+        "FreshnessAssertion": "acryl_datahub_cloud.sdk.assertion.freshness_assertion",
+        "SqlAssertion": "acryl_datahub_cloud.sdk.assertion.sql_assertion",
+        "ColumnValueAssertion": "acryl_datahub_cloud.sdk.assertion.column_value_assertion",
+        "SmartSqlAssertion": "acryl_datahub_cloud.sdk.assertion.smart_sql_assertion",
+        "ColumnMetricAssertion": "acryl_datahub_cloud.sdk.assertion.column_metric_assertion",
+        "SmartColumnMetricAssertion": "acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion",
+        "SchemaAssertion": "acryl_datahub_cloud.sdk.assertion.schema_assertion",
+    }
 
-        return SmartFreshnessAssertion
-    elif name == "SmartVolumeAssertion":
-        from acryl_datahub_cloud.sdk.assertion.smart_volume_assertion import (
-            SmartVolumeAssertion,
-        )
+    if name in assertion_imports:
+        module_path = assertion_imports[name]
+        module = __import__(module_path, fromlist=[name])
+        return getattr(module, name)
 
-        return SmartVolumeAssertion
-    elif name == "VolumeAssertion":
-        from acryl_datahub_cloud.sdk.assertion.volume_assertion import VolumeAssertion
-
-        return VolumeAssertion
-    elif name == "FreshnessAssertion":
-        from acryl_datahub_cloud.sdk.assertion.freshness_assertion import (
-            FreshnessAssertion,
-        )
-
-        return FreshnessAssertion
-    elif name == "SqlAssertion":
-        from acryl_datahub_cloud.sdk.assertion.sql_assertion import SqlAssertion
-
-        return SqlAssertion
-    elif name == "ColumnValueAssertion":
-        from acryl_datahub_cloud.sdk.assertion.column_value_assertion import (
-            ColumnValueAssertion,
-        )
-
-        return ColumnValueAssertion
-    elif name == "SmartSqlAssertion":
-        from acryl_datahub_cloud.sdk.assertion.smart_sql_assertion import (
-            SmartSqlAssertion,
-        )
-
-        return SmartSqlAssertion
-    elif name == "ColumnMetricAssertion":
-        from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
-            ColumnMetricAssertion,
-        )
-
-        return ColumnMetricAssertion
-    elif name == "SmartColumnMetricAssertion":
-        from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
-            SmartColumnMetricAssertion,
-        )
-
-        return SmartColumnMetricAssertion
-    else:
-        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
 # Export all classes for backward compatibility
@@ -806,4 +775,5 @@ __all__ = [
     "FreshnessAssertion",
     "SqlAssertion",
     "ColumnMetricAssertion",
+    "SchemaAssertion",
 ]

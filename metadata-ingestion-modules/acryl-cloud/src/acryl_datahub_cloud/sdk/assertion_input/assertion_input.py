@@ -151,6 +151,10 @@ class _DatasetProfile(AbstractDetectionMechanism):
     type: Literal["dataset_profile"] = "dataset_profile"
 
 
+class _SchemaMetadata(AbstractDetectionMechanism):
+    type: Literal["schema_metadata"] = "schema_metadata"
+
+
 # Operators that require a single value numeric parameter
 SINGLE_VALUE_NUMERIC_OPERATORS = [
     models.AssertionStdOperatorClass.EQUAL_TO,
@@ -197,6 +201,7 @@ _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _AllRowsQuery,
     _ChangedRowsQuery,
     _AllRowsQueryDataHubDatasetProfile,
+    _SchemaMetadata,
 )
 _DetectionMechanismTypes = Union[
     _InformationSchema,
@@ -209,6 +214,7 @@ _DetectionMechanismTypes = Union[
     _AllRowsQuery,
     _ChangedRowsQuery,
     _AllRowsQueryDataHubDatasetProfile,
+    _SchemaMetadata,
 ]
 
 _DETECTION_MECHANISM_TYPES_WITH_ADDITIONAL_FILTER = (

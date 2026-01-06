@@ -533,6 +533,75 @@ This API will return a unique identifier (URN) for the new assertion if you were
 ```
 
 </TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+# Initialize the client
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# Create schema assertion with exact match compatibility
+dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+
+schema_assertion = client.assertions.sync_schema_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Expected Schema Check",
+    # Compatibility mode - how strictly to match the schema
+    compatibility="EXACT_MATCH",  # options: "EXACT_MATCH", "SUPERSET", "SUBSET"
+    # Expected schema fields
+    fields=[
+        {"path": "id", "type": "STRING"},
+        {"path": "count", "type": "NUMBER"},
+        {"path": "created_at", "type": "TIME"},
+        {"path": "is_active", "type": "BOOLEAN"},
+    ],
+    # Tags for grouping
+    tags=["automated", "schema", "data_quality"],
+    # Enable the assertion
+    enabled=True
+)
+
+print(f"Created schema assertion: {schema_assertion.urn}")
+
+# Create schema assertion with superset compatibility
+# (actual schema must contain at least these fields, but can have more)
+superset_assertion = client.assertions.sync_schema_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Required Fields Check",
+    compatibility="SUPERSET",
+    fields=[
+        {"path": "id", "type": "STRING"},
+        {"path": "name", "type": "STRING"},
+    ],
+    # Evaluation schedule
+    schedule="0 */6 * * *",  # Every 6 hours
+    tags=["automated", "schema", "required_fields"],
+    enabled=True
+)
+
+print(f"Created superset schema assertion: {superset_assertion.urn}")
+
+# Create schema assertion with native type specification
+detailed_schema_assertion = client.assertions.sync_schema_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Detailed Schema Validation",
+    compatibility="EXACT_MATCH",
+    fields=[
+        {"path": "id", "type": "STRING", "native_type": "VARCHAR(255)"},
+        {"path": "amount", "type": "NUMBER", "native_type": "DECIMAL(10,2)"},
+        {"path": "metadata", "type": "STRUCT"},
+        {"path": "metadata.key", "type": "STRING"},
+        {"path": "tags", "type": "ARRAY"},
+    ],
+    enabled=True
+)
+
+print(f"Created detailed schema assertion: {detailed_schema_assertion.urn}")
+```
+
+</TabItem>
 </Tabs>
 
 For more details, see the [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md) guide.

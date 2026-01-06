@@ -35,7 +35,7 @@ AssertionInfoInputType: TypeAlias = Union[
     models.VolumeAssertionInfoClass,
     models.SqlAssertionInfoClass,
     models.FieldAssertionInfoClass,
-    # TODO: models.SchemaAssertionInfoClass,
+    models.SchemaAssertionInfoClass,
     # TODO: models.CustomAssertionInfoClass,
 ]
 AssertionSourceInputType: TypeAlias = Union[
@@ -192,6 +192,9 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         elif isinstance(assertion, models.FieldAssertionInfoClass):
             info.fieldAssertion = assertion
             info.type = models.AssertionTypeClass.FIELD
+        elif isinstance(assertion, models.SchemaAssertionInfoClass):
+            info.schemaAssertion = assertion
+            info.type = models.AssertionTypeClass.DATA_SCHEMA
         else:
             assert_never(assertion)
 
@@ -409,6 +412,7 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         models.VolumeAssertionInfoClass,
         models.SqlAssertionInfoClass,
         models.FieldAssertionInfoClass,
+        models.SchemaAssertionInfoClass,
     ]:
         if assertion_info.type not in get_enum_options(models.AssertionTypeClass):
             raise SDKNotYetSupportedError(f"Assertion type: {assertion_info.type}")
@@ -428,5 +432,8 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         elif assertion_info.type == models.AssertionTypeClass.FIELD:
             assert assertion_info.fieldAssertion is not None
             return assertion_info.fieldAssertion
+        elif assertion_info.type == models.AssertionTypeClass.DATA_SCHEMA:
+            assert assertion_info.schemaAssertion is not None
+            return assertion_info.schemaAssertion
         else:
             raise AssertionError("Unreachable code, all cases should be handled above")
