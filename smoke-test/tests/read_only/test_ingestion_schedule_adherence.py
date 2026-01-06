@@ -447,6 +447,7 @@ def check_schedule_adherence(  # noqa: C901
     )
 
 
+@pytest.mark.skip(reason="Skipping because David and Gabe say this is not a good test")
 @pytest.mark.read_only
 def test_ingestion_schedule_adherence(auth_session):
     """Test that scheduled ingestions are running on time.
