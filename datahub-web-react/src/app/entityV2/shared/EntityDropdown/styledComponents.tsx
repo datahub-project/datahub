@@ -2,6 +2,7 @@ import { Button } from 'antd';
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { colors } from '@components';
 
 const MenuItem = styled.div`
     font-size: 12px;
@@ -22,10 +23,10 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     border: none;
     background-color: 'white';
     border: 1px solid #eee;
-    color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
+    color: ${colors.gray[1700]};
     box-shadow: none;
     &&:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${colors.gray[100]};
         color: ${(props) => props.theme.styles['primary-color']};
         border-color: ${(props) => props.theme.styles['primary-color']};
     }
