@@ -1,10 +1,12 @@
 #!/bin/bash
+set -euo pipefail
 
 : ${MYSQL_PORT:=3306}
 : ${MYSQL_ARGS:=--ssl=0}
 : ${CDC_MCL_PROCESSING_ENABLED:=false}
 : ${CDC_USER:=datahub_cdc}
 : ${CDC_PASSWORD:=datahub_cdc}
+: ${CREATE_USER:=false}
 
 # Process main init script
 sed -e "s/DATAHUB_DB_NAME/${DATAHUB_DB_NAME}/g" /init.sql | tee -a /tmp/init-final.sql

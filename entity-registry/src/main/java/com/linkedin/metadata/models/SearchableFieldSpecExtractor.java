@@ -218,7 +218,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.getSearchLabel(),
                 annotation.getSearchIndexed(),
                 annotation.getEntityFieldName(),
-                annotation.getEagerGlobalOrdinals());
+                annotation.getEagerGlobalOrdinals(),
+                annotation.isSanitizeRichText());
       }
     }
     log.debug("Searchable annotation for field: {} : {}", schemaPathSpec, annotation);
