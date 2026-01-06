@@ -869,12 +869,8 @@ RUN jq -n \
     --arg release_version "$RELEASE_VERSION" \
     --arg github_run_id "$GITHUB_RUN_ID" \
     --arg bundled_plugins "$BUNDLED_VENV_PLUGINS" \
-    '{
-        docker_version: $docker_version,
-        release_version: $release_version,
-        github_run_id: $github_run_id,
-        bundled_plugins: (if $bundled_plugins != "" then ($bundled_plugins | split(",")) else [] end)
-    }' > /build_info.json
+    '{docker_version: $docker_version, release_version: $release_version, github_run_id: $github_run_id, bundled_plugins: (if $bundled_plugins != "" then ($bundled_plugins | split(",")) else [] end)}' \
+    > /build_info.json
 
 # Install all dependencies with constraints to ensure version compatibility
 # (e.g., cmdstanpy==1.2.5 is required for prophet==1.1.5)
@@ -949,12 +945,8 @@ RUN jq -n \
     --arg cli_version "$BUNDLED_CLI_VERSION" \
     --arg slim_mode "$BUNDLED_VENV_SLIM_MODE" \
     --arg github_run_id "$GITHUB_RUN_ID" \
-    '{
-        bundled_plugins: ($plugins | split(",")),
-        cli_version: $cli_version,
-        slim_mode: ($slim_mode == "true"),
-        github_run_id: $github_run_id
-    }' > ${DATAHUB_BUNDLED_VENV_PATH}/metadata.json
+    '{bundled_plugins: ($plugins | split(",")), cli_version: $cli_version, slim_mode: ($slim_mode == "true"), github_run_id: $github_run_id}' \
+    > ${DATAHUB_BUNDLED_VENV_PATH}/metadata.json
 
 USER datahub
 
