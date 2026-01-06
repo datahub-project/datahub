@@ -67,7 +67,7 @@ jobs:
             ]')
           fi
 
-          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+          echo "matrix=$(echo "$matrix" | jq -c .)" >> $GITHUB_OUTPUT
           echo "Generated matrix: $matrix"
 
   build:
