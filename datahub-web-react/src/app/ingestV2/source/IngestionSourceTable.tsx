@@ -41,6 +41,7 @@ interface Props {
     sourcesToRefetch: Set<string>;
     executedUrns: Set<string>;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    onChangeSort: any;
 }
 
 function IngestionSourceTable({
@@ -57,6 +58,7 @@ function IngestionSourceTable({
     sourcesToRefetch,
     executedUrns,
     setSelectedTab,
+    onChangeSort,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -102,6 +104,7 @@ function IngestionSourceTable({
             render: (record) => {
                 return <NameColumn type={record.type} record={record} onNameClick={() => onEdit(record.urn)} />;
             },
+            sorter: true,
             width: '25%',
             onCellClick: (record) => onEdit(record.urn),
         },
@@ -159,6 +162,10 @@ function IngestionSourceTable({
         },
     ];
 
+    const handleSortColumnChange = ({ sortColumn, sortOrder }) => {
+        onChangeSort(sortColumn, sortOrder);
+    };
+
     return (
         <StyledTable
             columns={tableColumns}
@@ -173,6 +180,7 @@ function IngestionSourceTable({
                     />
                 ) : null
             }
+            handleSortColumnChange={handleSortColumnChange}
             rowDataTestId={(row) => `row-${row.name}`}
         />
     );
