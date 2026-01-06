@@ -490,7 +490,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "db2": {"ibm_db_sa>=0.4.3", "pyodbc"} | sql_common,
+    "db2": {"ibm_db_sa==0.4.3", "pyodbc"} | sql_common,
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
     "dremio": {"requests"} | sql_common,
