@@ -16,6 +16,16 @@ from datahub.ingestion.source.rdf.dialects.base import RDFDialect, RDFDialectInt
 class FIBODialect(RDFDialectInterface):
     """FIBO dialect for OWL-based formal ontologies."""
 
+    def __init__(self, include_provisional: bool = False):
+        """
+        Initialize FIBO dialect.
+
+        Args:
+            include_provisional: If True, include terms with provisional/work-in-progress status.
+                                If False (default), exclude terms that haven't been fully approved.
+        """
+        self.include_provisional = include_provisional
+
     @property
     def dialect_type(self) -> RDFDialect:
         """Return the dialect type."""
@@ -95,6 +105,11 @@ class FIBODialect(RDFDialectInterface):
         )
         if has_ontology_type:
             return False
+
+        # Filter by workflow status if include_provisional is False
+        if not self.include_provisional:
+            if self._has_provisional_maturity_level(graph, uri):
+                return False
 
         return True
 
@@ -232,6 +247,35 @@ class FIBODialect(RDFDialectInterface):
         skos_labels = [SKOS.prefLabel, SKOS.altLabel, SKOS.hiddenLabel]
         for label_predicate in skos_labels:
             if (uri, label_predicate, None) in graph:
+                return True
+
+        return False
+
+    def _has_provisional_maturity_level(self, graph: Graph, uri: URIRef) -> bool:
+        """
+        Check if a URI has provisional/work-in-progress status.
+
+        For FIBO ontologies, this checks for 'Provisional' maturity level.
+        Other ontologies may use similar workflow status properties.
+
+        Args:
+            graph: RDFLib Graph containing the URI
+            uri: URIRef to check
+
+        Returns:
+            True if the URI has a provisional status (e.g., fibo-fnd-utl-av:hasMaturityLevel
+            with value fibo-fnd-utl-av:Provisional)
+        """
+        from rdflib import URIRef as URIRefType
+
+        # FIBO maturity level namespace
+        FIBO_UTL_AV = "https://www.omg.org/spec/Commons/AnnotationVocabulary/"
+        maturity_level_predicate = URIRefType(f"{FIBO_UTL_AV}hasMaturityLevel")
+        provisional_value = URIRefType(f"{FIBO_UTL_AV}Provisional")
+
+        # Check if this URI has the maturity level property set to Provisional
+        for obj in graph.objects(uri, maturity_level_predicate):
+            if obj == provisional_value:
                 return True
 
         return False

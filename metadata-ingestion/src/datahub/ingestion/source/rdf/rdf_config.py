@@ -131,6 +131,16 @@ class RDFSourceConfig(
         default=None,
         description="Force a specific RDF dialect (default: auto-detect). Options: default, fibo, generic",
     )
+    include_provisional: bool = Field(
+        default=False,
+        description=(
+            "Include terms with provisional/work-in-progress status (default: False). "
+            "When False, only terms that have been fully approved/released are included. "
+            "Many ontologies use workflow status properties (e.g., maturity level) to mark "
+            "terms that are in the pipeline but not yet fully approved. Setting this to False "
+            "helps reduce noise from unapproved or draft terms."
+        ),
+    )
 
     # Selective Export Options
     export_only: Optional[List[str]] = Field(
