@@ -30,8 +30,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     const base = {
         // Backgrounds
         bgColor: color500,
-        hoverBgColor: getColor(color, 800, theme),
-        activeBgColor: getColor(color, 900, theme),
+        hoverBgColor: color500,
+        activeBgColor: getColor(color, 700, theme),
         disabledBgColor: getColor('gray', 100, theme),
 
         // Borders
@@ -56,8 +56,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
         base.bgColor = getColor('gray', 100, theme);
         base.borderColor = getColor('gray', 100, theme);
 
-        base.hoverBgColor = getColor('gray', 200, theme);
-        base.activeBgColor = getColor('gray', 300, theme);
+        base.hoverBgColor = getColor('gray', 100, theme);
+        base.activeBgColor = getColor('gray', 200, theme);
     }
 
     // Override styles for outline variant
@@ -69,7 +69,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
             textColor: color500,
 
             hoverBgColor: getColor(color, 100, theme),
-            activeBgColor: getColor(color, 200, theme),
+            activeBgColor: isViolet ? getColor(color, 100, theme) : getColor(color, 200, theme),
 
             disabledBgColor: 'transparent',
         };
@@ -83,8 +83,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
 
             bgColor: colors.transparent,
             borderColor: colors.transparent,
-            hoverBgColor: getColor(color, 100, theme),
-            activeBgColor: getColor(color, 200, theme),
+            hoverBgColor: colors.gray[1500],
+            activeBgColor: colors.transparent,
             disabledBgColor: colors.transparent,
             disabledBorderColor: colors.transparent,
         };
