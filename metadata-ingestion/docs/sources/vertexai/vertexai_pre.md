@@ -14,26 +14,27 @@ Please read the section to understand how to set up application default Credenti
 
 Default GCP Role which contains these permissions [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
 
-| Permission                          | Description                                                          |
-| ----------------------------------- | -------------------------------------------------------------------- |
-| `aiplatform.models.list`            | Allows a user to view and list all ML models in a project            |
-| `aiplatform.models.get`             | Allows a user to view details of a specific ML model                 |
-| `aiplatform.endpoints.list`         | Allows a user to view and list all prediction endpoints in a project |
-| `aiplatform.endpoints.get`          | Allows a user to view details of a specific prediction endpoint      |
-| `aiplatform.trainingPipelines.list` | Allows a user to view and list all training pipelines in a project   |
-| `aiplatform.trainingPipelines.get`  | Allows a user to view details of a specific training pipeline        |
-| `aiplatform.customJobs.list`        | Allows a user to view and list all custom jobs in a project          |
-| `aiplatform.customJobs.get`         | Allows a user to view details of a specific custom job               |
-| `aiplatform.experiments.list`       | Allows a user to view and list all experiments in a project          |
-| `laiplatform.experiments.get`       | Allows a user to view details of a specific experiment in a project  |
-| `aiplatform.metadataStores.list`    | allows a user to view and list all metadata store in a project       |
-| `aiplatform.metadataStores.get`     | allows a user to view details of a specific metadata store           |
-| `aiplatform.executions.list`        | allows a user to view and list all executions in a project           |
-| `aiplatform.executions.get`         | allows a user to view details of a specific execution                |
-| `aiplatform.datasets.list`          | allows a user to view and list all datasets in a project             |
-| `aiplatform.datasets.get`           | allows a user to view details of a specific dataset                  |
-| `aiplatform.pipelineJobs.get`       | allows a user to view and list all pipeline jobs in a project        |
-| `aiplatform.pipelineJobs.list`      | allows a user to view details of a specific pipeline job             |
+| Permission                          | Description                                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `resourcemanager.projects.list`     | Required only when using auto-discovery or `project_labels`. Not needed if `project_ids` is specified explicitly. |
+| `aiplatform.models.list`            | Allows a user to view and list all ML models in a project                                                         |
+| `aiplatform.models.get`             | Allows a user to view details of a specific ML model                                                              |
+| `aiplatform.endpoints.list`         | Allows a user to view and list all prediction endpoints in a project                                              |
+| `aiplatform.endpoints.get`          | Allows a user to view details of a specific prediction endpoint                                                   |
+| `aiplatform.trainingPipelines.list` | Allows a user to view and list all training pipelines in a project                                                |
+| `aiplatform.trainingPipelines.get`  | Allows a user to view details of a specific training pipeline                                                     |
+| `aiplatform.customJobs.list`        | Allows a user to view and list all custom jobs in a project                                                       |
+| `aiplatform.customJobs.get`         | Allows a user to view details of a specific custom job                                                            |
+| `aiplatform.experiments.list`       | Allows a user to view and list all experiments in a project                                                       |
+| `aiplatform.experiments.get`        | Allows a user to view details of a specific experiment in a project                                               |
+| `aiplatform.metadataStores.list`    | allows a user to view and list all metadata store in a project                                                    |
+| `aiplatform.metadataStores.get`     | allows a user to view details of a specific metadata store                                                        |
+| `aiplatform.executions.list`        | allows a user to view and list all executions in a project                                                        |
+| `aiplatform.executions.get`         | allows a user to view details of a specific execution                                                             |
+| `aiplatform.datasets.list`          | allows a user to view and list all datasets in a project                                                          |
+| `aiplatform.datasets.get`           | allows a user to view details of a specific dataset                                                               |
+| `aiplatform.pipelineJobs.get`       | allows a user to view and list all pipeline jobs in a project                                                     |
+| `aiplatform.pipelineJobs.list`      | allows a user to view details of a specific pipeline job                                                          |
 
 #### Create a service account and assign roles
 
@@ -76,6 +77,141 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
     client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
     client_id: "123456678890"
   ```
+
+### Multi-Project Support
+
+The Vertex AI source supports ingesting metadata from multiple GCP projects in a single run.
+
+#### Project Selection Priority
+
+Projects are selected using the following priority:
+
+1. **`project_ids`** (highest priority) - Explicit list of project IDs
+2. **`project_labels`** - Discover projects by GCP labels
+3. **Auto-discovery** - Find all accessible projects
+
+The `project_id_pattern` filter is always applied after project selection.
+
+#### Option 1: Explicit Project List
+
+Specify multiple projects directly in your configuration:
+
+```yaml
+source:
+  type: vertexai
+  config:
+    project_ids:
+      - project-alpha
+      - project-beta
+      - project-gamma
+    region: us-central1
+```
+
+#### Option 2: Filter by GCP Labels
+
+Discover projects using GCP labels (useful for environment-based filtering):
+
+```yaml
+source:
+  type: vertexai
+  config:
+    project_labels:
+      - "env:production"
+      - "team:ml-platform"
+    region: us-central1
+```
+
+Label format: `key:value` for exact match, or `key` to match any value.
+
+#### Option 3: Auto-Discovery Mode
+
+Leave both `project_ids` and `project_labels` empty to automatically discover all accessible projects:
+
+```yaml
+source:
+  type: vertexai
+  config:
+    # No project_ids or project_labels = auto-discover all accessible projects
+    region: us-central1
+```
+
+> **⚠️ Important: Auto-Discovery Permissions**
+>
+> Auto-discovery and label-based discovery require the `resourcemanager.projects.list` permission.
+> This permission is included in:
+>
+> - `roles/browser` (organization/folder level)
+> - `roles/viewer` (organization/folder level)
+>
+> If your service account only has project-level permissions, use the explicit `project_ids` list instead.
+
+#### Pattern Filtering
+
+Filter projects using regex patterns with `project_id_pattern`:
+
+```yaml
+source:
+  type: vertexai
+  config:
+    project_ids:
+      - prod-ml-east
+      - prod-ml-west
+      - dev-ml-sandbox
+      - test-ml-ci
+    project_id_pattern:
+      allow:
+        - "prod-.*" # Only production projects
+      deny:
+        - ".*-sandbox$" # Exclude sandboxes
+    region: us-central1
+```
+
+> **Note:** When using auto-discovery (no `project_ids` or `project_labels`), pattern filtering is applied at runtime after projects are discovered. Invalid patterns that filter out all projects will cause the ingestion to fail at runtime, not at configuration validation time.
+
+#### Backward Compatibility & Migration
+
+The legacy `project_id` config is automatically converted to `project_ids`. No immediate changes are required.
+
+**Migration Steps:**
+
+1. **Single project** - Replace `project_id` with `project_ids`:
+
+   ```yaml
+   # Before
+   project_id: my-project
+
+   # After
+   project_ids:
+     - my-project
+   ```
+
+2. **Multiple projects** - Simply add more entries:
+
+   ```yaml
+   project_ids:
+     - project-alpha
+     - project-beta
+   ```
+
+3. **With filtering** - Add `project_id_pattern` for regex-based filtering:
+   ```yaml
+   project_ids:
+     - prod-ml-east
+     - prod-ml-west
+     - dev-sandbox
+   project_id_pattern:
+     allow:
+       - "prod-.*"
+   ```
+
+> **Note:** If both `project_id` and `project_ids` are specified, `project_id` is ignored with a warning.
+
+#### Error Handling
+
+- **Partial failures**: If some projects fail (e.g., permission denied), ingestion continues with remaining projects and logs warnings
+- **Total failure**: If ALL projects fail, the ingestion run fails with an error
+- **Discovery failure**: If auto-discovery fails, the run fails immediately
+- **Rate limits**: API quota errors are automatically retried with exponential backoff
 
 ### Integration Details
 

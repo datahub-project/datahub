@@ -50,10 +50,52 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- (Ingestion) The Vertex AI source config `project_id` is deprecated in favor of `project_ids` (plural) to support multi-project ingestion. **Existing configs will continue to work** - the value is automatically converted and a warning is logged. No action required immediately, but we recommend updating your config.
+
+  **Migration Examples:**
+
+  ```yaml
+  # Before (deprecated - single project)
+  source:
+    type: vertexai
+    config:
+      project_id: my-project
+      region: us-central1
+
+  # After - Single project
+  source:
+    type: vertexai
+    config:
+      project_ids:
+        - my-project
+      region: us-central1
+
+  # After - Multiple projects (new capability!)
+  source:
+    type: vertexai
+    config:
+      project_ids:
+        - ml-project-prod
+        - ml-project-staging
+      region: us-central1
+
+  # After - Auto-discover projects by label
+  source:
+    type: vertexai
+    config:
+      project_labels:
+        - env:prod
+        - team:ml
+      region: us-central1
+  ```
+
+  **What happens if you don't migrate:** Your existing config continues to work. The system auto-converts `project_id: X` to `project_ids: [X]` and logs a deprecation warning. Update at your convenience.
+
 ### Other Notable Changes
 
-- #15714: Kafka topic partition counts are now automatically increased during upgrades if configured values exceed existing partitions. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=false` to disable this behavior while still allowing DataHub to create new topics.
+- #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
+- #14968: Added an ingestion source for IBM Db2 databases.
 
 ## 1.3.0
 
