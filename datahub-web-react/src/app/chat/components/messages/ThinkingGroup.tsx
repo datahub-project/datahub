@@ -72,6 +72,9 @@ const TextWrapper = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    min-width: 0; /* Allow flex item to shrink below content size for text wrapping */
+    max-width: 100%;
+    overflow: hidden;
 `;
 
 const ThinkingBubble = styled.div`
@@ -80,7 +83,10 @@ const ThinkingBubble = styled.div`
     padding: 8px 0;
     max-height: 300px;
     overflow-y: auto;
+    overflow-x: hidden;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     gap: 12px;
 
     /* Custom scrollbar */
@@ -106,12 +112,19 @@ const ThinkingMessageBlock = styled.div`
     font-size: 12px;
     line-height: 1.5;
     color: ${colors.gray[600]};
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 `;
 
 const MarkdownContent = styled.div`
     color: ${colors.gray[600]} !important;
     font-size: 12px !important;
     line-height: 1.5;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+    max-width: 100%;
 
     & * {
         color: ${colors.gray[600]} !important;
@@ -121,6 +134,9 @@ const MarkdownContent = styled.div`
     & p {
         margin: 0 0 8px 0;
         color: ${colors.gray[600]} !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: normal;
     }
 
     & p:last-child {
@@ -136,6 +152,10 @@ const MarkdownContent = styled.div`
     & .wmde-markdown * {
         color: ${colors.gray[600]} !important;
         font-size: 12px !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+        max-width: 100% !important;
     }
 
     & code {
