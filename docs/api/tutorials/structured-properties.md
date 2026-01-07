@@ -1569,7 +1569,7 @@ Breaking schema changes require setting a `version` string in the Structured Pro
 
 Making a breaking schema change will **invalidate existing values** for this Structured Property in search.
 
-- Existing values will still be retrievable via GraphQL and the API
+- Existing values will still be viewable in the UI and retrievable via GraphQL and the API
 - Existing values will **not** appear in search results, filters, or aggregations
 - The old values will be cleaned up asynchronously (future work)
 
