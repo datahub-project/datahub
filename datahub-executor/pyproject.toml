@@ -77,6 +77,9 @@ dev = [
 
 [tool.uv.pip]
 python-version = "3.11"
+# Allow finding packages from multiple indexes when using UV_EXTRA_INDEX_URL
+# This is needed when the same package exists on both PyPI and Cloudsmith
+index-strategy = "unsafe-best-match"
 
 [tool.ruff]
 target-version = "py311"

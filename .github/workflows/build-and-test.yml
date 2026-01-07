@@ -154,6 +154,8 @@ jobs:
             -x :metadata-integration:java:datahub-schematron:cli:test
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          # Support both username/password and API key authentication for Cloudsmith PyPI (needed for Docker builds)
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
       - name: Gradle build (and test) for frontend
         if: ${{ matrix.command == 'frontend' }}
         run: |
@@ -165,10 +167,16 @@ jobs:
         if: ${{ matrix.command == 'integrations-service' }}
         run: |
           ./gradlew :datahub-integrations-service:build --parallel
+        env:
+          # Support both username/password and API key authentication for Cloudsmith PyPI
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
       - name: Gradle build (and test) for executor
         if: ${{ matrix.command == 'executor' }}
         run: |
           ./gradlew :datahub-executor:build --parallel
+        env:
+          # Support both username/password and API key authentication for Cloudsmith PyPI
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
       - name: Gather coverage files
         run: |
           {

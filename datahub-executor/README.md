@@ -52,6 +52,50 @@ For the remote task worker(s)
 - DATAHUB_EXECUTOR_MODE: worker
 - EXECUTOR_ID: remoteExecutor1 or remoteExecutor2, etc...
 
+## Private PyPI Configuration (Cloudsmith)
+
+Some dependencies may be hosted on a private Cloudsmith PyPI repository. To install these packages during local development:
+
+### Setup (Local Development with Okta SSO)
+
+Since developers authenticate to Cloudsmith via Okta SSO, you'll need to generate an API key for CLI access:
+
+1. Log in to [Cloudsmith](https://cloudsmith.io) using Okta SSO
+2. Navigate to **User Settings** → **API Keys**
+3. Generate a new API key (or use an existing one)
+4. Add the following to your shell profile (e.g., `~/.bashrc`, `~/.zshrc`):
+
+```sh
+export CLOUDSMITH_API_KEY="your-api-key-here"
+export UV_EXTRA_INDEX_URL="https://token:${CLOUDSMITH_API_KEY}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/"
+```
+
+> **Note:** The username/password authentication method is used by CI service accounts only. Local developers should use API keys as shown above.
+
+### When is this needed?
+
+| Operation                                | Cloudsmith Required?               |
+| ---------------------------------------- | ---------------------------------- |
+| `./gradlew :datahub-executor:installDev` | Yes                                |
+| `./gradlew :datahub-executor:build`      | Yes                                |
+| `./gradlew :datahub-executor:docker`     | Yes (local image build)            |
+| `./gradlew quickstartDebug`              | Yes (when building images locally) |
+| Production runtime                       | No (packages baked into image)     |
+
+### Fallback Behavior
+
+If `UV_EXTRA_INDEX_URL` is not set:
+
+- Public PyPI packages will install normally
+- Private packages from Cloudsmith will fail to install
+- This allows OSS contributors to work on non-private-dependent code
+
+### Index Strategy
+
+The `pyproject.toml` includes `index-strategy = "unsafe-best-match"` in `[tool.uv.pip]` to allow
+uv to find the best matching package version from either PyPI or Cloudsmith when the same package
+name exists on both indexes.
+
 ## Dependency management
 
 Note that this section is copied from the integrations-service README.md. Both use the same setup for dependencies.

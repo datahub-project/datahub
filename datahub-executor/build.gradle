@@ -212,11 +212,26 @@ docker {
             dockerBuildArgs.PIP_MIRROR_URL = url
         }
     }
-    if (project.hasProperty('pipExtraIndexUrl')) {
-        def url = project.getProperty('pipExtraIndexUrl')
-        if (validateUrl(url, 'pipExtraIndexUrl')) {
-            dockerBuildArgs.PIP_EXTRA_INDEX_URL = url
+    // Support both gradle property and environment variables for extra index URL
+    // Priority: gradle property (if non-empty) > UV_EXTRA_INDEX_URL > PIP_EXTRA_INDEX_URL
+    // All sources are validated to prevent injection of malicious values
+    def pipExtraIndexUrlProp = project.hasProperty('pipExtraIndexUrl') ? project.getProperty('pipExtraIndexUrl')?.trim() : null
+    def extraIndexUrl = null
+    if (pipExtraIndexUrlProp && validateUrl(pipExtraIndexUrlProp, 'pipExtraIndexUrl')) {
+        extraIndexUrl = pipExtraIndexUrlProp
+    } else if (System.getenv('UV_EXTRA_INDEX_URL')?.trim()) {
+        def envUrl = System.getenv('UV_EXTRA_INDEX_URL').trim()
+        if (validateUrl(envUrl, 'UV_EXTRA_INDEX_URL')) {
+            extraIndexUrl = envUrl
         }
+    } else if (System.getenv('PIP_EXTRA_INDEX_URL')?.trim()) {
+        def envUrl = System.getenv('PIP_EXTRA_INDEX_URL').trim()
+        if (validateUrl(envUrl, 'PIP_EXTRA_INDEX_URL')) {
+            extraIndexUrl = envUrl
+        }
+    }
+    if (extraIndexUrl) {
+        dockerBuildArgs.PIP_EXTRA_INDEX_URL = extraIndexUrl
     }
     if (project.hasProperty('debianAptRepositoryUrl')) {
         def url = project.getProperty('debianAptRepositoryUrl')

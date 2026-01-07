@@ -9,9 +9,9 @@ fi
 
 echo 'Installing dependencies based on lockfile.'
 if [[ "$NO_DEV" == false ]]; then
-    uv pip sync requirements.txt requirements-dev.txt
+    uv pip sync --index-strategy unsafe-best-match requirements.txt requirements-dev.txt
 else
-    uv pip sync requirements.txt
+    uv pip sync --index-strategy unsafe-best-match requirements.txt
 fi
 
 # DUCKDB INSTALL START

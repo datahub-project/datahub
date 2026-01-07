@@ -88,6 +88,9 @@ ARG PIP_EXTRA_INDEX_URL=""
 ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
 ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
+# Allow uv to find best version from any index (needed when packages exist on both PyPI and Cloudsmith)
+ENV UV_INDEX_STRATEGY=unsafe-best-match
 # Also configure pip globally inside the image so tools without env still use the mirror
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
@@ -621,6 +624,9 @@ RUN apk --no-cache add \
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
+# Allow uv to find best version from any index (needed when packages exist on both PyPI and Cloudsmith)
+ENV UV_INDEX_STRATEGY=unsafe-best-match
 ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
 ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 
@@ -824,6 +830,9 @@ RUN apk update && apk add --no-cache \
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uv pip config set global.index-url ${PIP_MIRROR_URL} || true ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uv pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} || true ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
+# Allow uv to find best version from any index (needed when packages exist on both PyPI and Cloudsmith)
+ENV UV_INDEX_STRATEGY=unsafe-best-match
 ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
 ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 

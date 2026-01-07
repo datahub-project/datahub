@@ -493,6 +493,13 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.acrylio_publish != 'true' && needs.setup.outputs.cloudsmith_publish != 'true'}}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
         # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
+        env:
+          CLOUDSMITH_USERNAME: ${{ secrets.CLOUDSMITH_USERNAME }}
+          CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+          # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
+          # Support both username/password and API key authentication
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
@@ -523,6 +530,13 @@ jobs:
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
         # for pr-publish, publish images without waiting for tests to pass.
+        env:
+          CLOUDSMITH_USERNAME: ${{ secrets.CLOUDSMITH_USERNAME }}
+          CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+          # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
+          # Support both username/password and API key authentication
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeWolfiVariants=${{ env.INCLUDE_WOLFI_VARIANTS }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}"
           if [ -n "${{ needs.setup.outputs.pypi_index_url }}" ]; then
@@ -566,6 +580,13 @@ jobs:
 
       - name: Build Saas Images (Publish - ACRYLIO)
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        env:
+          CLOUDSMITH_USERNAME: ${{ secrets.CLOUDSMITH_USERNAME }}
+          CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+          # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
+          # Support both username/password and API key authentication
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true"
           if [ -n "${{ needs.setup.outputs.pypi_index_url }}" ]; then
@@ -576,6 +597,13 @@ jobs:
 
       - name: Build Saas Images (Publish - Cloudsmith)
         if: ${{ needs.setup.outputs.cloudsmith_publish == 'true' }}
+        env:
+          CLOUDSMITH_USERNAME: ${{ secrets.CLOUDSMITH_USERNAME }}
+          CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+          # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
+          # Support both username/password and API key authentication
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           GRADLE_ARGS="-PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true"
           if [ -n "${{ needs.setup.outputs.pypi_index_url }}" ]; then
@@ -990,6 +1018,12 @@ jobs:
           docker images
         env:
           DOCKER_CACHE: GITHUB
+          CLOUDSMITH_USERNAME: ${{ secrets.CLOUDSMITH_USERNAME }}
+          CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+          # Set Cloudsmith pip URL for datahub-cloud package (needed by datahub-executor)
+          # Support both username/password and API key authentication
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
 
       - name: pull images from depot
         if: |
