@@ -130,41 +130,6 @@ jobs:
         run: |
           echo "${{ steps.collect-images.outputs.datahub_images }}"
 
-  smoke_test_lint:
-    name: Lint on smoke tests
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
-    needs: setup
-    steps:
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
-
-      - uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - name: Run lint on smoke test
-        run: |
-          python ./.github/scripts/check_python_package.py
-          ./gradlew :smoke-test:pythonLint
-          ./gradlew :smoke-test:cypressLint
-
   smoke_test:
     name: Run Smoke Tests (${{ matrix.profile }}, ${{ matrix.test_strategy }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
