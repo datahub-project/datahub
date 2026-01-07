@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 import pydantic
 from databricks.sdk import WorkspaceClient
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 
 from datahub._version import nice_version_name
 from datahub.configuration.common import ConfigModel
@@ -30,6 +30,12 @@ class UnityCatalogConnectionConfig(ConfigModel):
     )
     azure_auth: Optional[AzureAuthConfig] = Field(
         default=None, description="Azure configuration"
+    )
+    client_id: Optional[str] = pydantic.Field(
+        default=None, description="Databricks service principal client ID"
+    )
+    client_secret: Optional[SecretStr] = pydantic.Field(
+        default=None, description="Databricks service principal client secret"
     )
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
@@ -71,6 +77,19 @@ class UnityCatalogConnectionConfig(ConfigModel):
     def get_options(self) -> dict:
         return self.extra_client_options
 
+    @model_validator(mode="before")
+    def at_most_one_auth_method_provided(cls, values: dict) -> dict:
+        token = bool(values.get("token"))
+        azure_auth = bool(values.get("azure_auth"))
+        client_oauth = bool(values.get("client_id") or values.get("client_secret"))
+        # Check if at most one of the authentication methods is provided
+        if sum([token, azure_auth, client_oauth]) > 1:
+            raise ValueError(
+                "More than one of 'token', 'azure_auth', and 'client_id'/'client_secret' provided."
+                " Please provide only one authentication method."
+            )
+        return values
+
 
 def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceClient:
     workspace_client = WorkspaceClient(
@@ -85,6 +104,10 @@ def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceCl
             if config.azure_auth
             else None
         ),
+        client_id=config.client_id,
+        client_secret=config.client_secret.get_secret_value()
+        if config.client_secret
+        else None,
     )
     if config.warehouse_id:
         # workspace_client.config.warehouse_id isn't populated by the WorkspaceClient
