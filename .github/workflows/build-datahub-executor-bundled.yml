@@ -32,6 +32,21 @@ on:
         description: "Push to Cloudsmith"
         type: boolean
         default: false
+      cli_version_override:
+        description: "Override CLI version (leave empty to use gradle/versioning/cliVersion.gradle)"
+        type: string
+        required: false
+        default: ""
+      pip_index_url:
+        description: "PyPI index URL (for custom registries or pre-release packages)"
+        type: string
+        required: false
+        default: "https://pypi.python.org/simple"
+      pip_extra_index_url:
+        description: "Extra PyPI index URL (for additional package sources)"
+        type: string
+        required: false
+        default: ""
 
 env:
   IMAGE_NAME: datahub-executor
@@ -78,10 +93,17 @@ jobs:
 
       - name: Resolve CLI version
         id: resolve-cli-version
+        env:
+          CLI_VERSION_OVERRIDE: ${{ inputs.cli_version_override }}
         run: |
-          CLI_VERSION=$(sed -n 's/.*cliVersion *= *"\([^"]*\)".*/\1/p' gradle/versioning/cliVersion.gradle)
+          if [ -n "$CLI_VERSION_OVERRIDE" ]; then
+            CLI_VERSION="$CLI_VERSION_OVERRIDE"
+            echo "Using CLI version override: $CLI_VERSION"
+          else
+            CLI_VERSION=$(sed -n 's/.*cliVersion *= *"\([^"]*\)".*/\1/p' gradle/versioning/cliVersion.gradle)
+            echo "Using CLI version from gradle: $CLI_VERSION"
+          fi
           echo "cli_version=$CLI_VERSION" >> "$GITHUB_OUTPUT"
-          echo "CLI version: $CLI_VERSION"
 
       - name: Set build matrix
         id: set-matrix
@@ -125,6 +147,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Generate codegen files
+        run: ./gradlew :metadata-ingestion-modules:acryl-cloud:codegen --no-daemon
+
       - name: Set up Depot
         uses: depot/setup-action@v1
 
@@ -157,6 +188,8 @@ jobs:
         env:
           PUSH_ECR: ${{ inputs.push_ecr }}
           PUSH_CLOUDSMITH: ${{ inputs.push_cloudsmith }}
+          PIP_MIRROR_URL: ${{ inputs.pip_index_url }}
+          PIP_EXTRA_INDEX_URL: ${{ inputs.pip_extra_index_url }}
         run: |
           echo "Building $VARIANT_NAME variant (multi-platform)"
           # shellcheck disable=SC2153 # TAG is set via job-level env
@@ -165,6 +198,8 @@ jobs:
           echo "  CLI Version: $CLI_VERSION"
           echo "  Plugins: $PLUGINS"
           echo "  Variant: $VARIANT"
+          echo "  PIP Index: $PIP_MIRROR_URL"
+          [ -n "$PIP_EXTRA_INDEX_URL" ] && echo "  PIP Extra Index: $PIP_EXTRA_INDEX_URL"
 
           # Build tag arguments - DOCKER_REGISTRY is the ECR registry
           TAGS=""
@@ -181,10 +216,10 @@ jobs:
             OUTPUT_MODE="--push"
           fi
 
-          # Validate ECR configuration if push is requested
-          if [ "$PUSH_ECR" = "true" ] && [ -z "$ECR_REGISTRY" ]; then
-            echo "::error::ECR push requested but ECR_REGISTRY secret is not set"
-            exit 1
+          # Build PIP index args
+          PIP_ARGS="--build-arg PIP_MIRROR_URL=$PIP_MIRROR_URL"
+          if [ -n "$PIP_EXTRA_INDEX_URL" ]; then
+            PIP_ARGS="$PIP_ARGS --build-arg PIP_EXTRA_INDEX_URL=$PIP_EXTRA_INDEX_URL"
           fi
 
           # shellcheck disable=SC2086
@@ -197,6 +232,7 @@ jobs:
             --build-arg BUNDLED_CLI_VERSION="$CLI_VERSION" \
             --build-arg BUNDLED_VENV_PLUGINS="$PLUGINS" \
             --build-arg GITHUB_RUN_ID="${{ github.run_id }}" \
+            $PIP_ARGS \
             $TAGS \
             $OUTPUT_MODE \
             .
@@ -207,6 +243,8 @@ jobs:
         env:
           PUSH_ECR: ${{ inputs.push_ecr }}
           PUSH_CLOUDSMITH: ${{ inputs.push_cloudsmith }}
+          PIP_MIRROR_URL: ${{ inputs.pip_index_url }}
+          PIP_EXTRA_INDEX_URL: ${{ inputs.pip_extra_index_url }}
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" << EOF
 
@@ -219,6 +257,14 @@ jobs:
           | **CLI Version** | \`$CLI_VERSION\` |
           | **Plugins** | \`$PLUGINS\` |
           | **Platforms** | \`linux/amd64, linux/arm64\` |
+          | **PIP Index** | \`$PIP_MIRROR_URL\` |
+          EOF
+
+          if [ -n "$PIP_EXTRA_INDEX_URL" ]; then
+            echo "| **PIP Extra Index** | \`$PIP_EXTRA_INDEX_URL\` |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
 
           ### Registry Pushes
           EOF
