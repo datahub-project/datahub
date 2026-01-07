@@ -9,8 +9,55 @@ API Documentation: https://learn.microsoft.com/en-us/rest/api/datafactory/
 from datetime import datetime
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import TypedDict
+
+# =============================================================================
+# Azure API Response Normalization Helpers
+# =============================================================================
+# Observed Azure API behavior: Optional list fields may be returned as empty
+# dicts `{}` instead of `null` or empty arrays `[]`. This behavior is not
+# documented in the official REST API reference but occurs in practice when
+# using the Azure SDK's .as_dict() method. It causes Pydantic validation errors.
+#
+# Official docs define these fields as type `object` with description
+# "Type: array (or Expression with resultType array)" but don't specify
+# serialization of empty/unset values.
+#
+# Example validation error when Azure returns {} for a list field:
+#   properties.schema
+#     Input should be a valid list [type=list_type, input_value={}, input_type=dict]
+#     For further information visit https://errors.pydantic.dev/2.12/v/list_type
+#
+# Observed affected fields from production:
+#   - Dataset.properties.schema: {} instead of null or []
+#   - Dataset.properties.structure: {} instead of null or []
+#
+# API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/datasets/get
+# =============================================================================
+
+
+def _normalize_empty_dict_to_list(v: Any) -> Any:
+    """Normalize Azure API empty dict to empty list.
+
+    Azure API sometimes returns {} instead of [] for empty array fields.
+    This causes Pydantic validation: 'Input should be a valid list'.
+    """
+    if v == {}:
+        return []
+    return v
+
+
+def _normalize_empty_dict_to_none(v: Any) -> Any:
+    """Normalize Azure API empty dict to None.
+
+    Azure API sometimes returns {} instead of null for unset optional fields.
+    This causes Pydantic validation failures for Optional[list[T]] fields.
+    """
+    if v == {}:
+        return None
+    return v
+
 
 # Type aliases for common JSON value types in ADF API responses
 # Azure API parameters and variables can contain primitive types
@@ -230,6 +277,14 @@ class Activity(BaseModel):
         description="User-defined properties",
     )
 
+    @field_validator(
+        "depends_on", "inputs", "outputs", "user_properties", mode="before"
+    )
+    @classmethod
+    def _normalize_list_fields(cls, v: Any) -> Any:
+        """Handle Azure API returning {} for empty list fields."""
+        return _normalize_empty_dict_to_list(v)
+
 
 class PipelineProperties(BaseModel):
     """Properties of an ADF pipeline."""
@@ -255,6 +310,12 @@ class PipelineProperties(BaseModel):
     folder: Optional[FolderInfo] = Field(
         default=None, description="Folder path for organization"
     )
+
+    @field_validator("activities", "annotations", mode="before")
+    @classmethod
+    def _normalize_list_fields(cls, v: Any) -> Any:
+        """Handle Azure API returning {} for empty list fields."""
+        return _normalize_empty_dict_to_list(v)
 
 
 class Pipeline(AdfResource):
@@ -349,6 +410,12 @@ class DatasetProperties(BaseModel):
         default=None, description="Dataset structure (legacy)"
     )
 
+    @field_validator("schema_definition", "structure", mode="before")
+    @classmethod
+    def _normalize_schema_fields(cls, v: Any) -> Any:
+        """Handle Azure API returning {} for empty schema definitions."""
+        return _normalize_empty_dict_to_none(v)
+
 
 class Dataset(AdfResource):
     """Azure Data Factory dataset.
@@ -381,6 +448,12 @@ class LinkedServiceProperties(BaseModel):
     connect_via: Optional[IntegrationRuntimeReference] = Field(
         default=None, alias="connectVia", description="Integration runtime reference"
     )
+
+    @field_validator("annotations", mode="before")
+    @classmethod
+    def _normalize_list_fields(cls, v: Any) -> Any:
+        """Handle Azure API returning {} for empty list fields."""
+        return _normalize_empty_dict_to_list(v)
 
 
 class LinkedService(AdfResource):
@@ -472,6 +545,19 @@ class DataFlowProperties(BaseModel):
         description="Data flow script lines (DSL)",
     )
 
+    @field_validator(
+        "sources",
+        "sinks",
+        "transformations",
+        "script_lines",
+        "annotations",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_list_fields(cls, v: Any) -> Any:
+        """Handle Azure API returning {} for empty list fields."""
+        return _normalize_empty_dict_to_list(v)
+
     def get_script(self) -> Optional[str]:
         """Get the complete Data Flow script as a single string."""
         if self.script_lines:
@@ -520,6 +606,12 @@ class TriggerProperties(BaseModel):
     pipelines: list[TriggerPipelineReference] = Field(
         default_factory=list, description="Pipelines triggered"
     )
+
+    @field_validator("annotations", "pipelines", mode="before")
+    @classmethod
+    def _normalize_list_fields(cls, v: Any) -> Any:
+        """Handle Azure API returning {} for empty list fields."""
+        return _normalize_empty_dict_to_list(v)
 
 
 class Trigger(AdfResource):
