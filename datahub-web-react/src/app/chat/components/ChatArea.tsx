@@ -350,7 +350,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                         onQuestionSelect={handleQuestionSelect}
                                         questions={suggestedQuestions}
                                     />
-                                    <FreeTrialAIChatPopover variant="welcome" />
+                                    {variant === ChatVariant.Full && <FreeTrialAIChatPopover variant="welcome" />}
                                 </EmptyStateInputWrapper>
                             </EmptyStateContainer>
                         ) : (
@@ -387,7 +387,9 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                     </InputContainer>
                 )}
             </ContentWrapper>
-            {messages.length > 1 && !isStreaming && <FreeTrialAIChatPopover variant="completion" />}
+            {messages.length > 1 && !isStreaming && variant === ChatVariant.Full && (
+                <FreeTrialAIChatPopover variant="completion" />
+            )}
         </Container>
     );
 };
