@@ -34,7 +34,7 @@ const PLACEHOLDER_URN = 'placeholder-urn';
 
 const STEPS: IngestionSourceFormStep[] = [
     {
-        label: 'Select Source',
+        label: 'Choose a Data Source',
         subTitle: <SelectSourceSubtitle />,
         key: 'selectSource',
         content: <SelectSourceStep />,
