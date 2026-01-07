@@ -60,6 +60,12 @@ class FilterBuilder:
             return ""
 
     def _clean_filter_string(self) -> str:
+        # TODO: Future enhancement - replace string manipulation with SQLAlchemy expressions
+        # or a custom solution similar to the Python SDK's filter compilation approach
+        # (see metadata-ingestion/src/datahub/sdk/search_filters.py).
+        # This would be more robust than regex-based string manipulation.
+        # Reference: https://github.com/acryldata/datahub-fork/pull/7505#discussion_r1905879364
+
         # Remove "where" keyword if included in filter
         cleaned_str, num_where_subs = re.subn(
             pattern=r"^\s*(WHERE)+\s+",
