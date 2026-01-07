@@ -6,6 +6,9 @@ on:
       - "Docker Build, Scan, Test"
       - "build & test"
       - "metadata-io"
+      - "Metadata Ingestion"
+      - "Nightly Docker Test"
+      - "Quickstart Test"
     types: [completed]
 
 permissions:
@@ -60,6 +63,7 @@ jobs:
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
           if [ -z "$POSTHOG_API_KEY" ]; then
             echo "⚠️ POSTHOG_API_KEY not configured, skipping metrics"
@@ -73,6 +77,7 @@ jobs:
 
           echo "Sending workflow metrics to PostHog..."
           echo "  Duration: ${DURATION}s"
+          echo "  Run Attempt: ${RUN_ATTEMPT}"
 
           # Use POSTHOG_HOST if set, otherwise default to PostHog cloud
           POSTHOG_ENDPOINT="${POSTHOG_HOST:-https://app.posthog.com}/capture/"
@@ -89,7 +94,8 @@ jobs:
                 \"created_at\": \"$CREATED_AT\",
                 \"duration\": $DURATION,
                 \"conclusion\": \"$CONCLUSION\",
-                \"run_id\": \"$RUN_ID\"
+                \"run_id\": \"$RUN_ID\",
+                \"run_attempt\": $RUN_ATTEMPT
               },
               \"distinct_id\": \"github-actions-$REPOSITORY\"
             }")

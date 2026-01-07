@@ -48,6 +48,11 @@ out/
 # Mac OS
 **/.DS_Store
 
+# Mise
+**/mise.local.toml
+**/.mise.local.toml
+.mise/**
+
 #spark-lineage
 **/spark-lineage/metastore_db/
 **/spark-lineage/**/derby.log

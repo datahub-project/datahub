@@ -11,7 +11,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
-import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
@@ -19,15 +18,12 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
-import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -66,42 +62,6 @@ public class UpdateIndicesService implements SearchIndicesService {
           ChangeType.UPSERT,
           ChangeType.RESTATE,
           ChangeType.PATCH);
-
-  public UpdateIndicesService(
-      UpdateGraphIndicesService updateGraphIndicesService,
-      ElasticSearchService elasticSearchService,
-      TimeseriesAspectService timeseriesAspectService,
-      SystemMetadataService systemMetadataService,
-      SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull String idHashAlgo) {
-    this(
-        updateGraphIndicesService,
-        elasticSearchService,
-        systemMetadataService,
-        createDefaultV2Strategy(
-            elasticSearchService, searchDocumentTransformer, timeseriesAspectService, idHashAlgo),
-        true, // searchDiffMode
-        true, // structuredPropertiesHookEnabled
-        true); // structuredPropertiesWriteEnabled
-  }
-
-  /** Creates a default V2 strategy for backward compatibility. */
-  private static Collection<UpdateIndicesStrategy> createDefaultV2Strategy(
-      ElasticSearchService elasticSearchService,
-      SearchDocumentTransformer searchDocumentTransformer,
-      TimeseriesAspectService timeseriesAspectService,
-      String idHashAlgo) {
-    EntityIndexVersionConfiguration v2Config =
-        EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build();
-    UpdateIndicesV2Strategy v2Strategy =
-        new UpdateIndicesV2Strategy(
-            v2Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            idHashAlgo);
-    return Arrays.asList(v2Strategy);
-  }
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,

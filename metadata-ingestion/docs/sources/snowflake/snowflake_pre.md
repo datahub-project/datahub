@@ -25,8 +25,9 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
+-- Note: Semantic views are covered by the above view grants
 
-// Grant monitor privileges for dynamic tables (Enterprise Edition feature)
+-- Grant monitor privileges for dynamic tables
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
@@ -187,10 +188,47 @@ The older approach that will be deprecated in future versions:
 
 Both strategies access the same Snowflake system tables (`account_usage.query_history`, `account_usage.access_history`), but the new strategy provides significant performance improvements and additional functionality.
 
+### Semantic Views
+
+DataHub supports ingestion of Snowflake Semantic Views, which are business-defined views that define metrics, dimensions, and relationships for consistent data modeling and AI-powered analytics.
+
+#### Configuration
+
+Semantic view ingestion is disabled by default (requires Snowflake Enterprise Edition or above). You can enable it using the following configuration options:
+
+```yaml
+# Enable semantic view ingestion (requires Enterprise Edition)
+semantic_views:
+  enabled: true # Default: false
+  column_lineage: true # Default: false - enable column-level lineage
+
+# Filter semantic views using regex patterns
+semantic_view_pattern:
+  allow:
+    - "ANALYTICS_DB.PUBLIC.*"
+    - "SALES_DB.*"
+  deny:
+    - ".*_INTERNAL"
+```
+
+#### Features
+
+- **Metadata Extraction**: Extracts semantic view definitions (YAML), columns, comments, and timestamps
+- **Lineage Support**: Semantic views participate in lineage extraction like regular views
+- **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
+- **External URLs**: Direct links to Snowflake Snowsight UI for semantic views
+
+#### Requirements
+
+- Semantic views require appropriate Snowflake edition and privileges
+- Requires `REFERENCES` or `SELECT` privileges on semantic views (they are treated as views in Snowflake's permission model)
+- The semantic view definition (SQL DDL) is extracted when available through the `GET_DDL` function
+
 ### Caveats
 
-- Some of the features are only available in the Snowflake Enterprise Edition. This includes dynamic tables, advanced lineage features, and tags. This doc has notes mentioning where this applies.
+- Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, semantic views, advanced lineage features, and tags.
 - Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
+- Semantic views require `REFERENCES` or `SELECT` privileges for metadata extraction. Without these privileges, semantic views will not be visible to DataHub.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [ongoing Snowflake incident](https://status.snowflake.com/), we will not be able to get the metadata until that incident is resolved.
 - Lineage extraction, when got directly from Snowflake access history, has some limitations, as documented [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes), [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-column-lineage), and [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-object-modified-by-ddl-column).

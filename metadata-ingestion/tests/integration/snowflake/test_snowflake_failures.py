@@ -346,13 +346,13 @@ def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_inf
         pipeline.run()
 
         pipeline.raise_from_status(raise_warnings=True)
-        assert pipeline.source.get_report().infos.as_obj() == [
-            {
-                "title": "Secure view definition not found",
-                "message": "Lineage will be missing for the view.",
-                "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
-            }
-        ]
+        infos = pipeline.source.get_report().infos.as_obj()
+        # Check that the expected info is present (other infos like semantic views may also exist)
+        assert {
+            "title": "Secure view definition not found",
+            "message": "Lineage will be missing for the view.",
+            "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
+        } in infos
 
 
 @freeze_time(FROZEN_TIME)

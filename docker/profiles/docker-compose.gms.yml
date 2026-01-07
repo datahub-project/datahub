@@ -90,6 +90,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     USE_CONFLUENT_SCHEMA_REGISTRY: false
     DATAHUB_SQL_SETUP_ENABLED: ${DATAHUB_SQL_SETUP_ENABLED:-true}
+    PARTITIONS: ${DATAHUB_PARTITIONS:-3}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   labels:
@@ -174,6 +175,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
     - ${HOME}/.datahub/search:/etc/datahub/search
+    - ${HOME}/.aws:/home/datahub/.aws:ro
 
 
 #################################
