@@ -2,7 +2,7 @@ import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import backgroundVideo from '@images/signup-animation.mp4';
+import backgroundVideo from '@images/login-signup-animation.mp4';
 
 export const VideoWrapper = styled.div`
     position: relative;
