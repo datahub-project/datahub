@@ -111,7 +111,7 @@ jobs:
           df -hl
           docker image ls
           docker system df
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Test Results (metadata ingestion ${{ matrix.python-version }} ${{ matrix.command }})
           path: |
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Event File
           path: ${{ github.event_path }}
