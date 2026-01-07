@@ -13,5 +13,9 @@ record AnomalySourceProperties {
    */
   assertionMetric: optional AssertionMetric
 
+  /**
+   * The operation range associated with the anomaly, if generated from an assertion monitor (the norm).
+   * This is specific to freshness assertions.
+   */
   operationRange: optional OperationRange
 }
