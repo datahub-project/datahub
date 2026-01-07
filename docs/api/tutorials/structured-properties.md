@@ -1563,7 +1563,7 @@ ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true
 
 This section demonstrates how to make backwards incompatible schema changes to a Structured Property definition.
 
-Breaking schema changes require setting a `version` string in the Structured Property definition. 
+Breaking schema changes require setting a `version` string in the Structured Property definition.
 
 The format `yyyyMMddhhmmss` (for example, `20240614080000`) is a recommended convention, but not a strict requirement. Semantic versioning or other formats also work. Note that only the most recently created version is active.
 
