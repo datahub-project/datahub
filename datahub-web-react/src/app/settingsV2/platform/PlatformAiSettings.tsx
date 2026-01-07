@@ -42,8 +42,6 @@ const InfoIcon = styled(InfoCircleFilled)`
 
 const DocsLink = styled.a`
     color: ${colors.violet['600']};
-    margin-top: 4px;
-    width: fit-content;
     &:hover {
         color: ${colors.violet['800']};
     }
@@ -54,10 +52,22 @@ const StyledCard = styled.div`
     border-radius: 12px;
     box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
     padding: 16px;
+    margin-bottom: 16px;
+`;
+
+const CardHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+`;
+
+const InstructionsLabel = styled.div`
+    font-family: Mulish, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: ${colors.gray[1700]};
+    margin-top: 16px;
+    margin-bottom: 4px;
 `;
 
 const TextContainer = styled.div`
@@ -79,29 +89,8 @@ const DescriptionText = styled.div`
     line-height: 1.5;
 `;
 
-const SectionTitle = styled.h2`
-    font-size: 20px;
-    font-weight: 600;
-    color: ${colors.gray[600]};
-    margin: 32px 0 16px 0;
-    &:first-of-type {
-        margin-top: 24px;
-    }
-`;
-
-const SubSection = styled.div`
-    margin-bottom: 32px;
-`;
-
-const SubSectionTitle = styled.h3`
-    font-size: 16px;
-    font-weight: 600;
-    color: ${colors.gray[1700]};
-    margin: 24px 0 8px 2px;
-`;
-
 const InstructionsContainer = styled.div`
-    margin-top: 0px;
+    margin-top: 0;
 `;
 
 const CharacterCount = styled.div`
@@ -109,6 +98,12 @@ const CharacterCount = styled.div`
     color: ${colors.gray[500]};
     text-align: right;
     margin-top: 4px;
+`;
+
+const SlackToggleSection = styled.div`
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid ${colors.gray[100]};
 `;
 
 export const PlatformAiSettings = () => {
@@ -254,22 +249,89 @@ export const PlatformAiSettings = () => {
     } else {
         content = (
             <>
-                {/* AI Documentation Section */}
-                <SectionTitle data-testid="ai-documentation-section-title">AI Documentation</SectionTitle>
-                <SubSection>
-                    <StyledCard>
+                {/* Ask DataHub Section */}
+                <StyledCard>
+                    <SettingText data-testid="ai-assistant-section-title">Ask DataHub</SettingText>
+                    <DescriptionText>
+                        Customize how Ask DataHub responds to questions. These instructions apply to all conversations,
+                        including across DataHub, Slack, & Microsoft Teams.
+                    </DescriptionText>
+                    <InstructionsLabel data-testid="ai-assistant-instructions-section">
+                        Chat Instructions
+                    </InstructionsLabel>
+                    <InstructionsContainer>
+                        <TextArea
+                            label=""
+                            placeholder="Add custom instructions to guide how Ask DataHub answers questions. Hint: provide specific details about concepts, processes, and anything else unique to your organization. Example: 'Our data warehouse uses Snowflake. The finance team owns all tables in the reporting schema.'"
+                            value={aiAssistantInstructionsValue}
+                            onChange={(e) => setAiAssistantInstructionsValue(e.target.value)}
+                            onBlur={handleAiAssistantInstructionsUpdate}
+                            maxLength={10000}
+                            rows={5}
+                            isDisabled={updatingAiAssistant}
+                            data-testid="ai-assistant-instructions-textarea"
+                        />
+                        {aiAssistantInstructionsValue.length >= 8000 && (
+                            <CharacterCount data-testid="ai-assistant-character-count">
+                                {aiAssistantInstructionsValue.length} / 10,000 characters
+                            </CharacterCount>
+                        )}
+                    </InstructionsContainer>
+
+                    {/* Enable Ask DataHub in Slack - nested inside Ask DataHub card */}
+                    <SlackToggleSection>
+                        <CardHeader>
+                            <TextContainer>
+                                <SettingText>Enable Ask DataHub in Slack</SettingText>
+                                <DescriptionText>
+                                    When enabled, users can mention @DataHub in Slack to ask questions about your
+                                    metadata. The{' '}
+                                    <Link to="/settings/integrations/slack" style={{ color: colors.violet['600'] }}>
+                                        Slack integration
+                                    </Link>{' '}
+                                    must be configured first.{' '}
+                                    <DocsLink
+                                        href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-app"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Learn more about DataHub in Slack.
+                                    </DocsLink>
+                                </DescriptionText>
+                            </TextContainer>
+                            <Switch
+                                label=""
+                                isChecked={slackBotSwitchValue}
+                                isDisabled={!isSlackEnabled || updatingSlack}
+                                onChange={(e) => handleSlackBotToggle(e.target.checked)}
+                                data-testid="slack-bot-toggle"
+                                disabledHoverText={
+                                    !isSlackEnabled
+                                        ? 'Configure Slack integration first to enable @DataHub AI'
+                                        : undefined
+                                }
+                            />
+                        </CardHeader>
+                    </SlackToggleSection>
+                </StyledCard>
+
+                {/* Enable AI Documentation Card */}
+                <StyledCard>
+                    <CardHeader>
                         <TextContainer>
-                            <SettingText>Enable AI Documentation Generation</SettingText>
+                            <SettingText data-testid="ai-documentation-section-title">
+                                AI Documentation Generation
+                            </SettingText>
                             <DescriptionText>
-                                When enabled, DataHub can generate documentation using AI for supported entities.
+                                When enabled, DataHub can generate documentation using AI for supported entities.{' '}
+                                <DocsLink
+                                    href="https://docs.datahub.com/docs/automations/ai-docs"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Learn more about AI-powered documentation.
+                                </DocsLink>
                             </DescriptionText>
-                            <DocsLink
-                                href="https://docs.datahub.com/docs/automations/ai-docs"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Learn more about AI-powered documentation.
-                            </DocsLink>
                         </TextContainer>
                         <Switch
                             label=""
@@ -278,81 +340,31 @@ export const PlatformAiSettings = () => {
                             onChange={(e) => handleDocsAiToggle(e.target.checked)}
                             data-testid="ai-docs-toggle"
                         />
-                    </StyledCard>
-                </SubSection>
-                <SubSection>
-                    <SubSectionTitle data-testid="docs-ai-instructions-section">Instructions</SubSectionTitle>
-                    <InstructionsContainer>
-                        <TextArea
-                            label=""
-                            placeholder="Add custom instructions to help guide the model output. Hint: provide specific details about concepts, processes, and anything else unique to your organization."
-                            value={docAiInstructionsValue}
-                            onChange={(e) => setDocAiInstructionsValue(e.target.value)}
-                            onBlur={handleDocsAiInstructionsUpdate}
-                            maxLength={10000}
-                            rows={6}
-                            isDisabled={updatingDocsAi}
-                            data-testid="docs-ai-instructions-textarea"
-                        />
-                        <CharacterCount data-testid="docs-ai-character-count">
-                            {docAiInstructionsValue.length} / 10,000 characters
-                        </CharacterCount>
-                    </InstructionsContainer>
-                </SubSection>
-
-                {/* Ask DataHub (AI Assistant) Section */}
-                <SectionTitle data-testid="ai-assistant-section-title">Ask DataHub (AI Assistant)</SectionTitle>
-                <SubSection>
-                    <StyledCard>
-                        <TextContainer>
-                            <SettingText>Enable Ask DataHub in Slack</SettingText>
-                            <DescriptionText>
-                                When enabled, users can mention @DataHub in Slack to ask questions about your metadata.
-                                The{' '}
-                                <Link to="/settings/integrations/slack" style={{ color: colors.violet['600'] }}>
-                                    Slack integration
-                                </Link>{' '}
-                                must be configured first.
-                            </DescriptionText>
-                            <DocsLink
-                                href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-app"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Learn more about DataHub in Slack.
-                            </DocsLink>
-                        </TextContainer>
-                        <Switch
-                            label=""
-                            isChecked={slackBotSwitchValue}
-                            isDisabled={!isSlackEnabled || updatingSlack}
-                            onChange={(e) => handleSlackBotToggle(e.target.checked)}
-                            data-testid="slack-bot-toggle"
-                            disabledHoverText={
-                                !isSlackEnabled ? 'Configure Slack integration first to enable @DataHub AI' : undefined
-                            }
-                        />
-                    </StyledCard>
-                </SubSection>
-                <SubSection>
-                    <SubSectionTitle data-testid="ai-assistant-instructions-section">Instructions</SubSectionTitle>
-                    <InstructionsContainer>
-                        <TextArea
-                            label=""
-                            placeholder="Add custom instructions to help guide the model output. Hint: provide specific details about concepts, processes, and anything else unique to your organization."
-                            value={aiAssistantInstructionsValue}
-                            onChange={(e) => setAiAssistantInstructionsValue(e.target.value)}
-                            onBlur={handleAiAssistantInstructionsUpdate}
-                            maxLength={10000}
-                            rows={6}
-                            isDisabled={updatingAiAssistant}
-                            data-testid="ai-assistant-instructions-textarea"
-                        />
-                        <CharacterCount data-testid="ai-assistant-character-count">
-                            {aiAssistantInstructionsValue.length} / 10,000 characters
-                        </CharacterCount>
-                    </InstructionsContainer>
-                </SubSection>
+                    </CardHeader>
+                    {docAiSwitchValue && (
+                        <InstructionsContainer>
+                            <InstructionsLabel data-testid="docs-ai-instructions-section">
+                                Documentation Instructions
+                            </InstructionsLabel>
+                            <TextArea
+                                label=""
+                                placeholder="Add custom instructions to guide how AI generates table and column descriptions. Hint: provide specific details about concepts, processes, and anything else unique to your organization. Example: 'Always mention the data source and refresh frequency. Use business-friendly language.'"
+                                value={docAiInstructionsValue}
+                                onChange={(e) => setDocAiInstructionsValue(e.target.value)}
+                                onBlur={handleDocsAiInstructionsUpdate}
+                                maxLength={10000}
+                                rows={5}
+                                isDisabled={updatingDocsAi}
+                                data-testid="docs-ai-instructions-textarea"
+                            />
+                            {docAiInstructionsValue.length >= 8000 && (
+                                <CharacterCount data-testid="docs-ai-character-count">
+                                    {docAiInstructionsValue.length} / 10,000 characters
+                                </CharacterCount>
+                            )}
+                        </InstructionsContainer>
+                    )}
+                </StyledCard>
             </>
         );
     }

@@ -43,37 +43,41 @@ describe("Platform AI Settings", () => {
     cy.waitTextVisible("Configure AI-powered features");
 
     // Verify main sections are visible
-    cy.get('[data-testid="ai-documentation-section-title"]')
-      .should("be.visible")
-      .contains("AI Documentation");
     cy.get('[data-testid="ai-assistant-section-title"]')
       .should("be.visible")
-      .contains("Ask DataHub (AI Assistant)");
+      .contains("Ask DataHub");
+    cy.get('[data-testid="ai-documentation-section-title"]')
+      .should("be.visible")
+      .contains("AI Documentation Generation");
 
     // Verify AI Documentation toggle exists
     cy.get('[data-testid="ai-docs-toggle"]').should("be.visible");
 
-    // Verify instruction sections exist
-    cy.get('[data-testid="docs-ai-instructions-section"]').should("be.visible");
+    // Verify Ask DataHub instruction section exists (always visible)
     cy.get('[data-testid="ai-assistant-instructions-section"]').should(
-      "be.visible",
-    );
-
-    // Verify textareas exist
-    cy.get('[data-testid="docs-ai-instructions-textarea"]').should(
       "be.visible",
     );
     cy.get('[data-testid="ai-assistant-instructions-textarea"]').should(
       "be.visible",
     );
 
-    // Verify character counters
-    cy.get('[data-testid="docs-ai-character-count"]')
-      .should("be.visible")
-      .contains("0 / 10,000 characters");
-    cy.get('[data-testid="ai-assistant-character-count"]')
-      .should("be.visible")
-      .contains("0 / 10,000 characters");
+    // Enable AI Documentation to see its instructions
+    cy.get('[data-testid="ai-docs-toggle"]').then(($toggle) => {
+      const isChecked = $toggle.attr("aria-checked") === "true";
+      if (!isChecked) {
+        cy.get('[data-testid="ai-docs-toggle"]').click();
+        cy.waitTextVisible("AI documentation generation enabled");
+      }
+    });
+
+    // Verify docs instruction sections exist (visible when toggle is ON)
+    cy.get('[data-testid="docs-ai-instructions-section"]').should("be.visible");
+    cy.get('[data-testid="docs-ai-instructions-textarea"]').should(
+      "be.visible",
+    );
+
+    // Character counters only appear when content is >= 8000 characters
+    // So we don't check for them when empty
   });
 
   it("should toggle AI documentation and save instructions successfully", () => {
@@ -102,16 +106,14 @@ describe("Platform AI Settings", () => {
     cy.get('[data-testid="docs-ai-instructions-textarea"]').blur();
     cy.waitTextVisible("Saved instructions!");
 
-    // Verify character count updated
-    const expectedCount = DOC_AI_INSTRUCTIONS.length;
-    cy.get('[data-testid="docs-ai-character-count"]').should(
-      "contain",
-      `${expectedCount} / 10,000 characters`,
-    );
+    // Character count only shows when >= 8000 characters
+    // DOC_AI_INSTRUCTIONS is short, so counter won't be visible
 
     // Reload page and verify instructions persisted
     cy.reload();
     cy.waitTextVisible("Configure AI-powered features");
+
+    // Toggle state should be persisted, but verify instructions textarea is visible
     cy.get('[data-testid="docs-ai-instructions-textarea"]').should(
       "have.value",
       DOC_AI_INSTRUCTIONS,
@@ -135,12 +137,8 @@ describe("Platform AI Settings", () => {
     cy.get('[data-testid="ai-assistant-instructions-textarea"]').blur();
     cy.waitTextVisible("Saved instructions!");
 
-    // Verify character count updated
-    const expectedCount = AI_ASSISTANT_INSTRUCTIONS.length;
-    cy.get('[data-testid="ai-assistant-character-count"]').should(
-      "contain",
-      `${expectedCount} / 10,000 characters`,
-    );
+    // Character count only shows when >= 8000 characters
+    // AI_ASSISTANT_INSTRUCTIONS is short, so counter won't be visible
 
     // Reload page and verify instructions persisted
     cy.reload();
@@ -157,6 +155,15 @@ describe("Platform AI Settings", () => {
     cy.skipIntroducePage();
     cy.visit("/settings/ai");
     cy.waitTextVisible("Configure AI-powered features");
+
+    // Enable AI Documentation to see instructions
+    cy.get('[data-testid="ai-docs-toggle"]').then(($toggle) => {
+      const isChecked = $toggle.attr("aria-checked") === "true";
+      if (!isChecked) {
+        cy.get('[data-testid="ai-docs-toggle"]').click();
+        cy.waitTextVisible("AI documentation generation enabled");
+      }
+    });
 
     const multiLineInstructions = `Line 1
 
@@ -178,6 +185,16 @@ Line 3 with gap above
     // Reload and verify formatting preserved
     cy.reload();
     cy.waitTextVisible("Configure AI-powered features");
+
+    // Re-enable toggle after reload to see instructions
+    cy.get('[data-testid="ai-docs-toggle"]').then(($toggle) => {
+      const isChecked = $toggle.attr("aria-checked") === "true";
+      if (!isChecked) {
+        cy.get('[data-testid="ai-docs-toggle"]').click();
+        cy.waitTextVisible("AI documentation generation enabled");
+      }
+    });
+
     cy.get('[data-testid="docs-ai-instructions-textarea"]').should(
       "have.value",
       multiLineInstructions,
@@ -190,6 +207,15 @@ Line 3 with gap above
     cy.skipIntroducePage();
     cy.visit("/settings/ai");
     cy.waitTextVisible("Configure AI-powered features");
+
+    // Enable AI Documentation to see instructions
+    cy.get('[data-testid="ai-docs-toggle"]').then(($toggle) => {
+      const isChecked = $toggle.attr("aria-checked") === "true";
+      if (!isChecked) {
+        cy.get('[data-testid="ai-docs-toggle"]').click();
+        cy.waitTextVisible("AI documentation generation enabled");
+      }
+    });
 
     // First add some instructions
     cy.get('[data-testid="docs-ai-instructions-textarea"]').clear();
@@ -205,15 +231,22 @@ Line 3 with gap above
     cy.get('[data-testid="docs-ai-instructions-textarea"]').blur();
     cy.waitTextVisible("Saved instructions!");
 
-    // Verify character count is 0
-    cy.get('[data-testid="docs-ai-character-count"]').should(
-      "contain",
-      "0 / 10,000 characters",
-    );
+    // Character count is hidden when empty (only shows at >= 8000 characters)
+    cy.get('[data-testid="docs-ai-character-count"]').should("not.exist");
 
     // Reload and verify empty state persisted
     cy.reload();
     cy.waitTextVisible("Configure AI-powered features");
+
+    // Re-enable toggle after reload to see instructions
+    cy.get('[data-testid="ai-docs-toggle"]').then(($toggle) => {
+      const isChecked = $toggle.attr("aria-checked") === "true";
+      if (!isChecked) {
+        cy.get('[data-testid="ai-docs-toggle"]').click();
+        cy.waitTextVisible("AI documentation generation enabled");
+      }
+    });
+
     cy.get('[data-testid="docs-ai-instructions-textarea"]').should(
       "have.value",
       "",
