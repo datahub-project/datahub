@@ -20,7 +20,7 @@ const BackgroundVideo = styled.video`
     height: 100vh;
     transform: translate(-50%, -50%);
     z-index: 1;
-    object-fit: contain;
+    object-fit: cover;
 `;
 
 export const Content = styled.div`
