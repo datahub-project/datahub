@@ -6,9 +6,10 @@ REST API. It handles authentication, pagination, and error handling.
 API Documentation: https://learn.microsoft.com/en-us/rest/api/datafactory/
 """
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional, Type, TypeVar
 
 from azure.core.credentials import TokenCredential
 from azure.core.exceptions import HttpResponseError
@@ -18,6 +19,7 @@ from azure.mgmt.datafactory.models import (
     PipelineRunsQueryResponse,
     RunFilterParameters,
 )
+from pydantic import BaseModel, ValidationError
 
 from datahub.ingestion.source.azure_data_factory.adf_models import (
     ActivityRun,
@@ -31,6 +33,45 @@ from datahub.ingestion.source.azure_data_factory.adf_models import (
 )
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
+
+
+def _validate_with_debug(
+    model_class: Type[T],
+    data: dict[str, Any],
+    resource_type: str,
+    resource_name: Optional[str] = None,
+) -> T:
+    """Validate data against a Pydantic model with debug logging on failure.
+
+    When validation fails, logs the raw API response to help diagnose
+    Azure API quirks (e.g., empty dicts instead of null, JSON Schema objects
+    instead of arrays).
+
+    Args:
+        model_class: The Pydantic model class to validate against
+        data: Raw dict from Azure SDK's .as_dict() method
+        resource_type: Type of resource (e.g., "Dataset", "Pipeline") for logging
+        resource_name: Optional name of the resource for logging context
+
+    Returns:
+        Validated model instance
+
+    Raises:
+        ValidationError: Re-raised after logging debug information
+    """
+    try:
+        return model_class.model_validate(data)
+    except ValidationError:
+        # Log the raw API response to help debug validation failures
+        name_context = f" '{resource_name}'" if resource_name else ""
+        logger.debug(
+            f"Pydantic validation failed for {resource_type}{name_context}. "
+            f"Raw API response:\n{json.dumps(data, indent=2, default=str)}"
+        )
+        raise
+
 
 # Maximum retention period for activity run queries (Azure limit)
 MAX_ACTIVITY_RUN_RETENTION_DAYS = 90
@@ -91,7 +132,10 @@ class AzureDataFactoryClient:
                 factories_response = self._client.factories.list()
 
             for factory in factories_response:
-                yield Factory.model_validate(factory.as_dict())
+                factory_dict = factory.as_dict()
+                yield _validate_with_debug(
+                    Factory, factory_dict, "Factory", factory_dict.get("name")
+                )
 
         except HttpResponseError as e:
             logger.error(f"Failed to list factories: {e.message}")
@@ -121,7 +165,7 @@ class AzureDataFactoryClient:
         )
         if factory is None:
             raise ValueError(f"Factory not found: {factory_name}")
-        return Factory.model_validate(factory.as_dict())
+        return _validate_with_debug(Factory, factory.as_dict(), "Factory", factory_name)
 
     def get_pipelines(
         self,
@@ -148,7 +192,10 @@ class AzureDataFactoryClient:
             )
 
             for pipeline in pipelines_response:
-                yield Pipeline.model_validate(pipeline.as_dict())
+                pipeline_dict = pipeline.as_dict()
+                yield _validate_with_debug(
+                    Pipeline, pipeline_dict, "Pipeline", pipeline_dict.get("name")
+                )
 
         except HttpResponseError as e:
             logger.error(
@@ -183,7 +230,9 @@ class AzureDataFactoryClient:
         )
         if pipeline is None:
             raise ValueError(f"Pipeline not found: {pipeline_name}")
-        return Pipeline.model_validate(pipeline.as_dict())
+        return _validate_with_debug(
+            Pipeline, pipeline.as_dict(), "Pipeline", pipeline_name
+        )
 
     def get_datasets(
         self,
@@ -210,7 +259,10 @@ class AzureDataFactoryClient:
             )
 
             for dataset in datasets_response:
-                yield Dataset.model_validate(dataset.as_dict())
+                dataset_dict = dataset.as_dict()
+                yield _validate_with_debug(
+                    Dataset, dataset_dict, "Dataset", dataset_dict.get("name")
+                )
 
         except HttpResponseError as e:
             logger.error(
@@ -243,7 +295,10 @@ class AzureDataFactoryClient:
             )
 
             for linked_service in linked_services_response:
-                yield LinkedService.model_validate(linked_service.as_dict())
+                ls_dict = linked_service.as_dict()
+                yield _validate_with_debug(
+                    LinkedService, ls_dict, "LinkedService", ls_dict.get("name")
+                )
 
         except HttpResponseError as e:
             logger.error(
@@ -276,7 +331,10 @@ class AzureDataFactoryClient:
             )
 
             for data_flow in data_flows_response:
-                yield DataFlow.model_validate(data_flow.as_dict())
+                df_dict = data_flow.as_dict()
+                yield _validate_with_debug(
+                    DataFlow, df_dict, "DataFlow", df_dict.get("name")
+                )
 
         except HttpResponseError as e:
             logger.error(
@@ -309,7 +367,10 @@ class AzureDataFactoryClient:
             )
 
             for trigger in triggers_response:
-                yield Trigger.model_validate(trigger.as_dict())
+                trigger_dict = trigger.as_dict()
+                yield _validate_with_debug(
+                    Trigger, trigger_dict, "Trigger", trigger_dict.get("name")
+                )
 
         except HttpResponseError as e:
             logger.error(
@@ -355,7 +416,10 @@ class AzureDataFactoryClient:
             )
 
             for run in response.value or []:
-                yield PipelineRun.model_validate(run.as_dict())
+                run_dict = run.as_dict()
+                yield _validate_with_debug(
+                    PipelineRun, run_dict, "PipelineRun", run_dict.get("run_id")
+                )
 
             # Handle pagination via continuation token
             while response.continuation_token:
@@ -366,7 +430,10 @@ class AzureDataFactoryClient:
                     filter_parameters=filter_params,
                 )
                 for run in response.value or []:
-                    yield PipelineRun.model_validate(run.as_dict())
+                    run_dict = run.as_dict()
+                    yield _validate_with_debug(
+                        PipelineRun, run_dict, "PipelineRun", run_dict.get("run_id")
+                    )
 
         except HttpResponseError as e:
             logger.error(
@@ -413,7 +480,13 @@ class AzureDataFactoryClient:
             )
 
             for run in response.value or []:
-                yield ActivityRun.model_validate(run.as_dict())
+                run_dict = run.as_dict()
+                yield _validate_with_debug(
+                    ActivityRun,
+                    run_dict,
+                    "ActivityRun",
+                    run_dict.get("activity_run_id"),
+                )
 
             # Handle pagination via continuation token
             while response.continuation_token:
@@ -425,7 +498,13 @@ class AzureDataFactoryClient:
                     filter_parameters=filter_params,
                 )
                 for run in response.value or []:
-                    yield ActivityRun.model_validate(run.as_dict())
+                    run_dict = run.as_dict()
+                    yield _validate_with_debug(
+                        ActivityRun,
+                        run_dict,
+                        "ActivityRun",
+                        run_dict.get("activity_run_id"),
+                    )
 
         except HttpResponseError as e:
             logger.error(

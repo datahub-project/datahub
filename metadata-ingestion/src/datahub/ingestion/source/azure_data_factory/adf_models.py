@@ -16,22 +16,18 @@ from typing_extensions import TypedDict
 # Azure API Response Normalization Helpers
 # =============================================================================
 # Observed Azure API behavior: Optional list fields may be returned as empty
-# dicts `{}` instead of `null` or empty arrays `[]`. This behavior is not
-# documented in the official REST API reference but occurs in practice when
-# using the Azure SDK's .as_dict() method. It causes Pydantic validation errors.
+# dicts `{}`, JSON Schema objects, or Expression objects instead of `null` or
+# empty arrays `[]`. This behavior is not documented in the official REST API
+# reference but occurs in practice when using the Azure SDK's .as_dict() method.
+# It causes Pydantic validation errors like:
 #
-# Official docs define these fields as type `object` with description
-# "Type: array (or Expression with resultType array)" but don't specify
-# serialization of empty/unset values.
-#
-# Example validation error when Azure returns {} for a list field:
 #   properties.schema
 #     Input should be a valid list [type=list_type, input_value={}, input_type=dict]
-#     For further information visit https://errors.pydantic.dev/2.12/v/list_type
 #
-# Observed affected fields from production:
-#   - Dataset.properties.schema: {} instead of null or []
-#   - Dataset.properties.structure: {} instead of null or []
+# Observed formats from production:
+#   - Empty dict: {} (Azure quirk for unset values)
+#   - JSON Schema: {"type": "object", "properties": {"col1": {"type": "string"}}}
+#   - Expression: {"type": "Expression", "value": "@dataset().schema"}
 #
 # API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/datasets/get
 # =============================================================================
@@ -41,20 +37,30 @@ def _normalize_empty_dict_to_list(v: Any) -> Any:
     """Normalize Azure API empty dict to empty list.
 
     Azure API sometimes returns {} instead of [] for empty array fields.
-    This causes Pydantic validation: 'Input should be a valid list'.
     """
     if v == {}:
         return []
     return v
 
 
-def _normalize_empty_dict_to_none(v: Any) -> Any:
-    """Normalize Azure API empty dict to None.
+def _normalize_schema_field(v: Any) -> Any:
+    """Normalize Azure API schema field which can have multiple formats.
 
-    Azure API sometimes returns {} instead of null for unset optional fields.
-    This causes Pydantic validation failures for Optional[list[T]] fields.
+    The Azure API schema field can be:
+    - Array of column definitions: [{"name": "col1", "type": "string"}, ...]
+    - Expression: {"type": "Expression", "value": "@dataset().schema"}
+    - Empty dict: {} (Azure quirk for unset values)
+    - JSON Schema object: {"type": "object", "properties": {...}}
+    - null
+
+    Only array format can be parsed as list[SchemaColumn]; all dict formats
+    are normalized to None.
     """
-    if v == {}:
+    if v is None:
+        return None
+    if isinstance(v, list):
+        return v
+    if isinstance(v, dict):
         return None
     return v
 
@@ -413,8 +419,16 @@ class DatasetProperties(BaseModel):
     @field_validator("schema_definition", "structure", mode="before")
     @classmethod
     def _normalize_schema_fields(cls, v: Any) -> Any:
-        """Handle Azure API returning {} for empty schema definitions."""
-        return _normalize_empty_dict_to_none(v)
+        """Handle Azure API returning various formats for schema fields.
+
+        Azure can return:
+        - Array of columns (valid)
+        - Empty dict {} (Azure quirk)
+        - JSON Schema object {"type": "object", ...}
+        - Expression {"type": "Expression", ...}
+        All non-array formats are normalized to None.
+        """
+        return _normalize_schema_field(v)
 
 
 class Dataset(AdfResource):

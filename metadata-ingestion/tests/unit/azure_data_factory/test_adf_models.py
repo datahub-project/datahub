@@ -12,7 +12,7 @@ from datahub.ingestion.source.azure_data_factory.adf_models import (
     PipelineProperties,
     TriggerProperties,
     _normalize_empty_dict_to_list,
-    _normalize_empty_dict_to_none,
+    _normalize_schema_field,
 )
 
 
@@ -37,18 +37,34 @@ class TestAzureApiNormalizationHelpers:
         non_empty = {"key": "value"}
         assert _normalize_empty_dict_to_list(non_empty) == non_empty
 
-    def test_normalize_empty_dict_to_none_with_empty_dict(self) -> None:
+    def test_normalize_schema_field_with_empty_dict(self) -> None:
         """Empty dict {} should be converted to None."""
-        assert _normalize_empty_dict_to_none({}) is None
+        assert _normalize_schema_field({}) is None
 
-    def test_normalize_empty_dict_to_none_with_actual_list(self) -> None:
-        """Actual lists should pass through unchanged."""
-        test_list = [{"name": "col1"}]
-        assert _normalize_empty_dict_to_none(test_list) == test_list
+    def test_normalize_schema_field_with_list(self) -> None:
+        """Actual lists (column definitions) should pass through."""
+        test_list = [{"name": "col1", "type": "string"}]
+        assert _normalize_schema_field(test_list) == test_list
 
-    def test_normalize_empty_dict_to_none_with_none(self) -> None:
+    def test_normalize_schema_field_with_none(self) -> None:
         """None should pass through unchanged."""
-        assert _normalize_empty_dict_to_none(None) is None
+        assert _normalize_schema_field(None) is None
+
+    def test_normalize_schema_field_with_json_schema(self) -> None:
+        """JSON Schema objects should be converted to None."""
+        json_schema = {
+            "type": "object",
+            "properties": {
+                "id": {"type": "integer"},
+                "name": {"type": "string"},
+            },
+        }
+        assert _normalize_schema_field(json_schema) is None
+
+    def test_normalize_schema_field_with_expression(self) -> None:
+        """Expression objects should be converted to None."""
+        expression = {"type": "Expression", "value": "@dataset().schema"}
+        assert _normalize_schema_field(expression) is None
 
 
 class TestDatasetPropertiesEmptyDictHandling:
@@ -118,6 +134,50 @@ class TestDatasetPropertiesEmptyDictHandling:
             }
         )
         assert props.structure is None
+
+    def test_schema_definition_accepts_json_schema_object(self) -> None:
+        """JSON Schema object for schema should be normalized to None.
+
+        Azure API can return schema as a JSON Schema descriptor instead of
+        column array. This is the production case from Brookfield.
+        """
+        json_schema = {
+            "type": "object",
+            "properties": {
+                "id": {"type": "integer"},
+                "name": {"type": "string"},
+                "data": {
+                    "type": "object",
+                    "properties": {"nested": {"type": "string"}},
+                },
+            },
+        }
+        props = DatasetProperties.model_validate(
+            {
+                "linkedServiceName": {
+                    "referenceName": "test-ls",
+                    "type": "LinkedServiceReference",
+                },
+                "type": "AzureBlobDataset",
+                "schema": json_schema,  # JSON Schema format, not column array
+            }
+        )
+        assert props.schema_definition is None
+
+    def test_schema_definition_accepts_expression(self) -> None:
+        """Expression object for schema should be normalized to None."""
+        expression = {"type": "Expression", "value": "@dataset().schema"}
+        props = DatasetProperties.model_validate(
+            {
+                "linkedServiceName": {
+                    "referenceName": "test-ls",
+                    "type": "LinkedServiceReference",
+                },
+                "type": "AzureBlobDataset",
+                "schema": expression,  # Expression format
+            }
+        )
+        assert props.schema_definition is None
 
 
 class TestActivityEmptyDictHandling:
