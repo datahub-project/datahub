@@ -317,10 +317,10 @@ public class DataHubAiConversationControllerTest {
                   String text = (String) contextMap.get("text");
                   @SuppressWarnings("unchecked")
                   List<String> entityUrns = (List<String>) contextMap.get("entity_urns");
-                  return "Current step: Configure Recipe".equals(text)
+                  return ("Current step: Configure Recipe".equals(text)
                       && entityUrns != null
                       && entityUrns.size() == 1
-                      && "urn:li:dataSource:123".equals(entityUrns.get(0));
+                      && "urn:li:dataSource:123".equals(entityUrns.get(0)));
                 }),
             any(Authentication.class),
             any(Consumer.class)))
@@ -402,8 +402,8 @@ public class DataHubAiConversationControllerTest {
                 (Map<String, Object> contextMap) -> {
                   if (contextMap == null) return false;
                   String text = (String) contextMap.get("text");
-                  return "Current step: Test Connection".equals(text)
-                      && !contextMap.containsKey("entity_urns");
+                  return ("Current step: Test Connection".equals(text)
+                      && !contextMap.containsKey("entity_urns"));
                 }),
             any(Authentication.class),
             any(Consumer.class)))
@@ -664,8 +664,8 @@ public class DataHubAiConversationControllerTest {
                   if (properties == null) return false;
                   String conversationId = (String) properties.get("conversation_id");
                   String userId = (String) properties.get("user_id");
-                  return TEST_CONVERSATION_URN.toString().equals(conversationId)
-                      && TEST_USER_URN.toString().equals(userId);
+                  return (TEST_CONVERSATION_URN.toString().equals(conversationId)
+                      && TEST_USER_URN.toString().equals(userId));
                 }));
   }
 
@@ -754,5 +754,143 @@ public class DataHubAiConversationControllerTest {
 
     // Verify: reportUsage was NOT called because streaming failed
     verify(mockBillingHandler, times(0)).reportUsage(anyString(), anyString(), anyInt(), anyMap());
+  }
+
+  @Test
+  public void testStreamChatWithSSEComments() throws Exception {
+    // Verify that SSE comments (keepalives) are properly handled
+    when(mockStreamingClient.sendStreamingMessage(
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(),
+            any(Authentication.class),
+            any(Consumer.class)))
+        .thenAnswer(
+            invocation -> {
+              Consumer<SseEvent> callback = invocation.getArgument(5);
+              if (callback != null) {
+                // Simulate Python service returning messages with keepalive comments
+                callback.accept(new SseEvent("message", "{\"text\":\"First message\"}"));
+                callback.accept(new SseEvent("__comment__", "keepalive"));
+                callback.accept(new SseEvent("message", "{\"text\":\"Second message\"}"));
+                callback.accept(new SseEvent("__comment__", "keepalive"));
+              }
+              return CompletableFuture.completedFuture(null);
+            });
+
+    DataHubAiConversationController.ChatRequest request =
+        new DataHubAiConversationController.ChatRequest();
+    request.setConversationUrn(TEST_CONVERSATION_URN.toString());
+    request.setText(TEST_MESSAGE_TEXT);
+
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
+    assertNotNull(emitter);
+
+    // Give the async thread time to complete
+    Thread.sleep(500);
+
+    // The emitter should handle both messages and comments without errors
+    // Comments should be sent as SSE comments, not as data events
+    // Verify streaming client was called
+    verify(mockStreamingClient, times(1))
+        .sendStreamingMessage(
+            eq(TEST_CONVERSATION_URN.toString()),
+            eq(TEST_MESSAGE_TEXT),
+            any(),
+            any(),
+            any(Authentication.class),
+            any(Consumer.class));
+  }
+
+  @Test
+  public void testStreamChatOnlyComments() throws Exception {
+    // Test case where only comments are sent (e.g., long operation with only keepalives)
+    when(mockStreamingClient.sendStreamingMessage(
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(),
+            any(Authentication.class),
+            any(Consumer.class)))
+        .thenAnswer(
+            invocation -> {
+              Consumer<SseEvent> callback = invocation.getArgument(5);
+              if (callback != null) {
+                // Send only comments
+                callback.accept(new SseEvent("__comment__", "keepalive"));
+                callback.accept(new SseEvent("__comment__", "keepalive"));
+                callback.accept(new SseEvent("__comment__", "keepalive"));
+              }
+              return CompletableFuture.completedFuture(null);
+            });
+
+    DataHubAiConversationController.ChatRequest request =
+        new DataHubAiConversationController.ChatRequest();
+    request.setConversationUrn(TEST_CONVERSATION_URN.toString());
+    request.setText(TEST_MESSAGE_TEXT);
+
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
+    assertNotNull(emitter);
+
+    // Give the async thread time to complete
+    Thread.sleep(500);
+
+    // Should complete successfully even with only comments
+  }
+
+  @Test
+  public void testStreamChatCommentsInterleavedWithThinking() throws Exception {
+    // Test realistic scenario: thinking messages with keepalives in between
+    when(mockStreamingClient.sendStreamingMessage(
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(),
+            any(Authentication.class),
+            any(Consumer.class)))
+        .thenAnswer(
+            invocation -> {
+              Consumer<SseEvent> callback = invocation.getArgument(5);
+              if (callback != null) {
+                // Simulate long-running operation with thinking and keepalives
+                callback.accept(
+                    new SseEvent(
+                        "message",
+                        "{\"message_type\":\"THINKING\",\"text\":\"Analyzing data...\"}"));
+                callback.accept(new SseEvent("__comment__", "keepalive"));
+                callback.accept(
+                    new SseEvent(
+                        "message",
+                        "{\"message_type\":\"THINKING\",\"text\":\"Querying database...\"}"));
+                callback.accept(new SseEvent("__comment__", "keepalive"));
+                callback.accept(
+                    new SseEvent(
+                        "message",
+                        "{\"message_type\":\"TEXT\",\"text\":\"Here are the results\"}"));
+              }
+              return CompletableFuture.completedFuture(null);
+            });
+
+    DataHubAiConversationController.ChatRequest request =
+        new DataHubAiConversationController.ChatRequest();
+    request.setConversationUrn(TEST_CONVERSATION_URN.toString());
+    request.setText(TEST_MESSAGE_TEXT);
+
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
+    assertNotNull(emitter);
+
+    // Give the async thread time to complete
+    Thread.sleep(500);
+
+    // Verify all events (both messages and comments) were processed
+    verify(mockStreamingClient, times(1))
+        .sendStreamingMessage(
+            eq(TEST_CONVERSATION_URN.toString()),
+            eq(TEST_MESSAGE_TEXT),
+            any(), // agentName can be null
+            any(), // messageContext can be null
+            any(Authentication.class),
+            any(Consumer.class));
   }
 }

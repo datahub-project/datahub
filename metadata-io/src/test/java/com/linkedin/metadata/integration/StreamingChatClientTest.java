@@ -195,4 +195,65 @@ public class StreamingChatClientTest {
     assertEquals(forwardedEvents.get(0).getEventName(), "message");
     assertTrue(forwardedEvents.get(0).getData().contains("line1\nline2\nline3"));
   }
+
+  @Test
+  public void testSSECommentHandling() throws Exception {
+    // Test that SSE comments (keepalives) are properly forwarded
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    StatusLine mockStatusLine = mock(StatusLine.class);
+    HttpEntity mockEntity = mock(HttpEntity.class);
+
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockResponse.getEntity()).thenReturn(mockEntity);
+
+    // SSE stream with comments (keepalives)
+    String sseStream =
+        "event: message\n"
+            + "data: {\"type\":\"TEXT\",\"text\":\"First message\"}\n"
+            + "\n"
+            + ": keepalive\n"
+            + "\n"
+            + "event: message\n"
+            + "data: {\"type\":\"TEXT\",\"text\":\"Second message\"}\n"
+            + "\n"
+            + ": keepalive\n"
+            + "\n"
+            + "event: complete\n"
+            + "data: \n"
+            + "\n";
+
+    InputStream inputStream = new ByteArrayInputStream(sseStream.getBytes(StandardCharsets.UTF_8));
+    when(mockEntity.getContent()).thenReturn(inputStream);
+
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    List<StreamingChatClient.SseEvent> forwardedEvents = new ArrayList<>();
+    Consumer<StreamingChatClient.SseEvent> callback = forwardedEvents::add;
+
+    CompletableFuture<Void> future =
+        streamingChatClient.sendStreamingMessage(
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, null, testAuthentication, callback);
+
+    future.get();
+
+    // Should forward both messages and both keepalive comments
+    assertEquals(forwardedEvents.size(), 4);
+
+    // First message
+    assertEquals(forwardedEvents.get(0).getEventName(), "message");
+    assertTrue(forwardedEvents.get(0).getData().contains("First message"));
+
+    // First keepalive comment
+    assertEquals(forwardedEvents.get(1).getEventName(), "__comment__");
+    assertEquals(forwardedEvents.get(1).getData(), "keepalive");
+
+    // Second message
+    assertEquals(forwardedEvents.get(2).getEventName(), "message");
+    assertTrue(forwardedEvents.get(2).getData().contains("Second message"));
+
+    // Second keepalive comment
+    assertEquals(forwardedEvents.get(3).getEventName(), "__comment__");
+    assertEquals(forwardedEvents.get(3).getData(), "keepalive");
+  }
 }

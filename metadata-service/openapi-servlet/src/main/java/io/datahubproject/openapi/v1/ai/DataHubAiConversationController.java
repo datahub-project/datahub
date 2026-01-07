@@ -47,6 +47,7 @@ public class DataHubAiConversationController {
   private static final String MESSAGE_EVENT_NAME = "message";
   private static final String COMPLETE_EVENT_NAME = "complete";
   private static final String ERROR_EVENT_NAME = "error";
+  private static final String COMMENT_EVENT_NAME = "__comment__";
   private static final String CONVERSATION_URN_REQUIRED_ERROR =
       "conversationUrn and text are required";
 
@@ -54,7 +55,9 @@ public class DataHubAiConversationController {
   private final DataHubAiConversationService conversationService;
   private final OperationContext systemOperationContext;
   private final AuthorizerChain authorizerChain;
+
   @Nullable private final BillingHandler billingHandler;
+
   @Nullable private final ConfigurationProvider configProvider;
 
   @Autowired
@@ -76,6 +79,7 @@ public class DataHubAiConversationController {
 
   @Data
   public static class ChatRequest {
+
     private String conversationUrn;
     private String text;
     private String agentName;
@@ -84,6 +88,7 @@ public class DataHubAiConversationController {
 
   @Data
   public static class ChatContext {
+
     private String text;
     private List<String> entityUrns;
   }
@@ -181,19 +186,29 @@ public class DataHubAiConversationController {
                         request.getAgentName(),
                         contextMap,
                         authentication, // Forward user's authentication to integrations service
-                        (sseEvent) -> {
+                        sseEvent -> {
                           try {
-                            // Forward SSE event with proper event name from Python service
-                            // Python sends: event: message/error/complete\ndata: {...}
-                            // We preserve the event name to maintain error/completion semantics
-                            log.debug(
-                                "Forwarding SSE event: name={}, conversation={}",
-                                sseEvent.getEventName(),
-                                request.getConversationUrn());
-                            emitter.send(
-                                SseEmitter.event()
-                                    .name(sseEvent.getEventName())
-                                    .data(sseEvent.getData()));
+                            // Handle SSE comments (keepalives) separately
+                            if (COMMENT_EVENT_NAME.equals(sseEvent.getEventName())) {
+                              // Forward as SSE comment to keep connection alive
+                              log.debug(
+                                  "Forwarding SSE comment: {}, conversation={}",
+                                  sseEvent.getData(),
+                                  request.getConversationUrn());
+                              emitter.send(SseEmitter.event().comment(sseEvent.getData()));
+                            } else {
+                              // Forward SSE event with proper event name from Python service
+                              // Python sends: event: message/error/complete\ndata: {...}
+                              // We preserve the event name to maintain error/completion semantics
+                              log.debug(
+                                  "Forwarding SSE event: name={}, conversation={}",
+                                  sseEvent.getEventName(),
+                                  request.getConversationUrn());
+                              emitter.send(
+                                  SseEmitter.event()
+                                      .name(sseEvent.getEventName())
+                                      .data(sseEvent.getData()));
+                            }
                           } catch (IOException e) {
                             log.error("Failed to forward SSE event", e);
                             emitter.completeWithError(e);
@@ -211,6 +226,8 @@ public class DataHubAiConversationController {
                 // Report usage after successful completion
                 reportUsage(request.getConversationUrn(), authenticatedUserUrn);
 
+                log.debug(
+                    "Chat stream completed for conversation: {}", request.getConversationUrn());
               } catch (Exception e) {
                 log.error(
                     "Failed to stream chat for conversation: {}", request.getConversationUrn(), e);

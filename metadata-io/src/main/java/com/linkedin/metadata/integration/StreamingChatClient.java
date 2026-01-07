@@ -39,6 +39,7 @@ public class StreamingChatClient {
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String DATA_PREFIX = "data: ";
   private static final String EVENT_PREFIX = "event: ";
+  private static final String COMMENT_PREFIX = ":";
   private static final String COMPLETE_EVENT_TYPE = "complete";
   private static final String ERROR_EVENT_TYPE = "error";
 
@@ -57,6 +58,7 @@ public class StreamingChatClient {
 
   /** Simple event holder for SSE events with event name and data. */
   public static class SseEvent {
+
     private final String eventName;
     private final String data;
 
@@ -100,7 +102,6 @@ public class StreamingChatClient {
       @Nullable final Map<String, Object> messageContext,
       @Nonnull final Authentication authentication,
       @Nullable final Consumer<SseEvent> progressCallback) {
-
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -154,7 +155,6 @@ public class StreamingChatClient {
             }
 
             return null;
-
           } catch (Exception e) {
             log.error("Failed to send streaming chat message", e);
             throw new RuntimeException("Failed to send streaming chat message", e);
@@ -173,7 +173,6 @@ public class StreamingChatClient {
       @Nonnull final CloseableHttpResponse response,
       @Nullable final Consumer<SseEvent> progressCallback)
       throws IOException {
-
     final HttpEntity entity = response.getEntity();
     if (entity == null) {
       throw new RuntimeException("No response entity from chat service");
@@ -181,7 +180,6 @@ public class StreamingChatClient {
 
     try (BufferedReader reader =
         new BufferedReader(new InputStreamReader(entity.getContent(), StandardCharsets.UTF_8))) {
-
       String line;
       String currentEventName = "message"; // Default event name if not specified
       StringBuilder dataBuffer = new StringBuilder();
@@ -213,7 +211,17 @@ public class StreamingChatClient {
           continue;
         }
 
-        if (line.startsWith(EVENT_PREFIX)) {
+        if (line.startsWith(COMMENT_PREFIX)) {
+          // SSE comment line (e.g., ": keepalive")
+          // Forward immediately to keep connection alive
+          if (progressCallback != null) {
+            // Extract comment text (everything after the colon)
+            String comment = line.substring(COMMENT_PREFIX.length()).trim();
+            log.debug("Forwarding SSE comment: {}", comment);
+            // Use special event to signal this is a comment, not a data event
+            progressCallback.accept(new SseEvent("__comment__", comment));
+          }
+        } else if (line.startsWith(EVENT_PREFIX)) {
           currentEventName = line.substring(EVENT_PREFIX.length()).trim();
           log.debug("SSE event type: {}", currentEventName);
         } else if (line.startsWith(DATA_PREFIX)) {
