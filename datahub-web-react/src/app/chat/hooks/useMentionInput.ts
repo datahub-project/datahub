@@ -47,10 +47,66 @@ export function useMentionInput({ value, onChange, onEntitySelect }: UseMentionI
     // Keep a live Range for the active mention; avoids HTML/markdown index mismatch
     const mentionRangeRef = useRef<Range | null>(null);
 
+    // Keep the caret region visible when the content overflows.
+    const scrollToBottom = useCallback(() => {
+        const el = contentEditableRef.current;
+        if (!el) return;
+        el.scrollTop = el.scrollHeight;
+    }, []);
+
+    // After a DOM rewrite, ensure the caret is attached to the live nodes (Safari can show a ghost caret otherwise)
+    const syncCaretToEnd = useCallback(() => {
+        requestAnimationFrame(() => {
+            const el = contentEditableRef.current;
+            if (!el) return;
+            const sel = document.getSelection();
+            if (!sel) return;
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            el.focus();
+            scrollToBottom();
+        });
+    }, [scrollToBottom]);
+
+    // Keep markdown/state and caret in sync after programmatic edits (e.g., Shift+Enter)
+    const syncAfterLineBreak = useCallback(() => {
+        const el = contentEditableRef.current;
+        if (!el) return;
+        const updatedMarkdown = htmlToMarkdown(el.innerHTML);
+        onChange(updatedMarkdown);
+        syncCaretToEnd();
+    }, [onChange, syncCaretToEnd]);
+
+    // Insert a plain line break that works across browsers (Safari included)
+    const insertLineBreak = useCallback(() => {
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0) return false;
+
+        // Try the native command first (still works in WebKit)
+        const execWorked = typeof document.execCommand === 'function' && document.execCommand('insertLineBreak');
+        if (execWorked) return true;
+
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const br = document.createElement('br');
+        range.insertNode(br);
+
+        // Place caret after the break
+        range.setStartAfter(br);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return true;
+    }, []);
+
     // Handle input changes - detect mentions in the CURRENT text node only
     const handleInput = useCallback(() => {
         const root = contentEditableRef.current;
         if (!root) return;
+        scrollToBottom();
 
         const selection = document.getSelection();
         if (!selection || selection.rangeCount === 0) {
@@ -122,7 +178,7 @@ export function useMentionInput({ value, onChange, onEntitySelect }: UseMentionI
         });
         // Emit latest markdown on every input to keep external state up-to-date
         onChange(htmlToMarkdown(root.innerHTML));
-    }, [mentionState.isActive, updateDropdownPosition, onChange]);
+    }, [mentionState.isActive, updateDropdownPosition, onChange, scrollToBottom]);
 
     // Handle entity selection from dropdown - replace DOM range, then emit markdown
     const handleEntitySelect = useCallback(
@@ -189,8 +245,17 @@ export function useMentionInput({ value, onChange, onEntitySelect }: UseMentionI
                     e.preventDefault();
                 }
             }
+
+            // Insert a line break (Safari-safe) instead of letting the browser inject unexpected markup
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                insertLineBreak();
+
+                // Safari can skip firing an input event for programmatic inserts
+                syncAfterLineBreak();
+            }
         },
-        [mentionState.isActive],
+        [mentionState.isActive, insertLineBreak, syncAfterLineBreak],
     );
 
     // Handle when user finishes typing (like on blur or submit)

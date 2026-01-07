@@ -249,7 +249,7 @@ describe('useMentionInput', () => {
             result.current.handleKeyDown(mockEvent);
         });
 
-        expect(mockEvent.preventDefault).not.toHaveBeenCalled();
+        expect(mockEvent.preventDefault).toHaveBeenCalled();
     });
 
     it('should handle deactivating mention state when no active mention found', () => {
