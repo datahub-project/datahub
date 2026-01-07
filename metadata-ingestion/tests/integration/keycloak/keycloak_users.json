@@ -1,0 +1,16 @@
+[
+    {
+        "id": "a1b2c3d4-e5f6-7890-1234-56789abcdef0",
+        "username": "jdoe",
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john.doe@example.com",
+        "emailVerified": true,
+        "enabled": true,
+        "createdTimestamp": 1600000000000,
+        "totp": false,
+        "disableableCredentialTypes": [],
+        "requiredActions": [],
+        "notBefore": 0
+    }
+]

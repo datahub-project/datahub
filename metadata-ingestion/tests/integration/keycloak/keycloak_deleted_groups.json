@@ -1,0 +1,17 @@
+[
+    {
+        "id": "b2c3d4e5-f678-9012-3456-789abcdef012",
+        "name": "random_group_1",
+        "description": "First random group",
+        "path": "/random_group_1",
+        "subGroupCount": 0,
+        "subGroups": [],
+        "access": {
+            "view": true,
+            "viewMembers": true,
+            "manageMembers": true,
+            "manage": true,
+            "manageMembership": true
+        }
+    }
+]

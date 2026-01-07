@@ -1,0 +1,180 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:random_group_1",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": "random_group_1",
+                        "admins": [],
+                        "members": [],
+                        "groups": [],
+                        "description": "/random_group_1"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:random_group_1",
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "json": {
+            "type": "EXTERNAL",
+            "externalType": "KEYCLOAK"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:random_group_1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:random_group_2",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": "random_group_2",
+                        "admins": [],
+                        "members": [],
+                        "groups": [],
+                        "description": "/random_group_2"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:random_group_2",
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "json": {
+            "type": "EXTERNAL",
+            "externalType": "KEYCLOAK"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:random_group_2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:john.doe@example.com",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
+                        "active": true,
+                        "displayName": "John Doe",
+                        "email": "john.doe@example.com",
+                        "firstName": "John",
+                        "lastName": "Doe",
+                        "fullName": "John Doe",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:random_group_1"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@example.com",
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "json": {
+            "type": "EXTERNAL",
+            "externalType": "KEYCLOAK"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@example.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-keycloak-ingestion",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

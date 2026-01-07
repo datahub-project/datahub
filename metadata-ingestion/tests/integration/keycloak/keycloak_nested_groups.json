@@ -1,0 +1,25 @@
+[
+    {
+        "id": "group1-id",
+        "name": "group_1",
+        "path": "/Group 1",
+        "subGroups": [],
+        "subGroupCount": 0
+    },
+    {
+        "id": "group2-id",
+        "name": "group_2",
+        "path": "/Group 2",
+        "subGroups": [
+            {
+                "id": "group3-id",
+                "name": "subgroup_group_3",
+                "path": "/Group 2/Group 3",
+                "parentId": "group2-id",
+                "subGroups": [],
+                "subGroupCount": 0
+            }
+        ],
+        "subGroupCount": 1
+    }
+]

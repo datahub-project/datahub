@@ -23,6 +23,7 @@ import hexLogo from '@images/hex.png';
 import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
+import keycloakLogo from '@images/keycloaklogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
@@ -181,6 +182,8 @@ export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const KEYCLOAK = 'keycloak';
+export const KEYCLOAK_URN = `urn:li:dataPlatform:${KEYCLOAK}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [AIRFLOW_URN]: airflowLogo,
@@ -239,6 +242,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogicLogo,
+    [KEYCLOAK_URN]: keycloakLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
