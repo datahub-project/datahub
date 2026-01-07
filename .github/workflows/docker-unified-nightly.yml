@@ -112,7 +112,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
           gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
@@ -131,8 +131,8 @@ jobs:
           echo "${{ steps.collect-images.outputs.datahub_images }}"
 
   smoke_test:
-    name: Run Smoke Tests (${{ matrix.profile }}, ${{ matrix.test_strategy }})
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    name: Run Smoke Tests (${{ matrix.profile }}, ${{ matrix.test_strategy }}, ${{ matrix.architecture }})
+    runs-on: ${{ contains(needs.setup.outputs.test_runner_type, 'depot') && format('depot-ubuntu-24.04{0}-4', matrix.architecture == 'arm' && '-arm' || '') || needs.setup.outputs.test_runner_type }}
     needs: [setup]
     strategy:
       fail-fast: false
@@ -145,6 +145,7 @@ jobs:
             quickstart-postgres-cdc,
           ]
         test_strategy: [pytests, cypress]
+        architecture: [x64, arm]
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
@@ -176,6 +177,22 @@ jobs:
         uses: acryldata/sane-checkout-action@v4
         with:
           checkout-head-only: false
+
+      - name: Install Cypress dependencies on ARM
+        if: ${{ matrix.architecture == 'arm' && matrix.test_strategy == 'cypress' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk2.0-0 \
+            libgtk-3-0 \
+            libgbm-dev \
+            libnotify-dev \
+            libnss3 \
+            libxss1 \
+            libasound2t64 \
+            libxtst6 \
+            xauth \
+            xvfb
 
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
@@ -215,7 +232,7 @@ jobs:
           mkdir -p "${{ github.workspace }}/previous-test-results"
 
           # Get artifact ID for this profile and test strategy's test results
-          ARTIFACT_NAME="Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }}"
+          ARTIFACT_NAME="Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }} ${{ matrix.architecture }}"
           echo "Looking for artifact: ${ARTIFACT_NAME}"
 
           # Query artifacts for this workflow run
@@ -223,7 +240,7 @@ jobs:
             --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
 
           if [[ -z "$ARTIFACT_ID" ]]; then
-            echo "No artifact found for ${{ matrix.profile }} ${{ matrix.test_strategy }}"
+            echo "No artifact found for ${{ matrix.profile }} ${{ matrix.test_strategy }} ${{ matrix.architecture }}"
             echo "download_success=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -341,7 +358,7 @@ jobs:
           steps.parse-cypress-failures.outputs.parse_result == 'all_passed' ||
           steps.parse-pytest-failures.outputs.parse_result == 'all_passed'
         run: |
-          echo "✓ All tests passed in previous attempt for ${{ matrix.test_strategy }} on ${{ matrix.profile }}"
+          echo "✓ All tests passed in previous attempt for ${{ matrix.test_strategy }} on ${{ matrix.profile }} (${{ matrix.architecture }})"
           echo "Skipping this run to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
 
@@ -359,7 +376,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
           gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
@@ -460,7 +477,7 @@ jobs:
           BATCH_COUNT: "1" # since this workflow runs only on schedule trigger, batching isn't really needed.
           BATCH_NUMBER: "0"
           FILTERED_TESTS: ${{ steps.parse-cypress-failures.outputs.filtered_tests_file || steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
-          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ github.sha }}-${{ matrix.test_strategy }}"
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ github.sha }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}"
           PROFILE_NAME: ${{ matrix.profile }}
         run: |
           if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
@@ -495,19 +512,19 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: docker-logs-${{ matrix.profile }}-${{ matrix.test_strategy }}
+          name: docker-logs-${{ matrix.profile }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: cypress-snapshots-${{ matrix.profile }}-${{ matrix.test_strategy }}
+          name: cypress-snapshots-${{ matrix.profile }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}
           path: smoke-test/tests/cypress/cypress/screenshots/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }}
+          name: Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }} ${{ matrix.architecture }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
@@ -542,7 +559,7 @@ jobs:
             --branch "${{ github.head_ref || github.ref_name }}" \
             --run-id "${{ github.run_id }}" \
             --run-attempt "${{ github.run_attempt }}" \
-            --batch "${{ matrix.profile }}" \
+            --batch "${{ matrix.profile }}-${{ matrix.architecture }}" \
             --batch-count "${{ strategy.job-total }}" \
             --test-strategy "${{ matrix.test_strategy }}"
 
@@ -555,14 +572,14 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' }}
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' }}
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
         with:
           path: |
             ~/.cache/yarn
@@ -621,7 +638,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
           gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
