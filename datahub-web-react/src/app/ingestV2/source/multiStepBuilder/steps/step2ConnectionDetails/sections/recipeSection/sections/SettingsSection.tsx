@@ -29,18 +29,23 @@ interface Props {
     updateFormValue: (field, value) => void;
 }
 
-export function SettingsSection({ settingsFields: filterFields, updateFormValue }: Props) {
-    if (!filterFields || filterFields.length === 0) return null;
+export function SettingsSection({ settingsFields, updateFormValue }: Props) {
+    if (!settingsFields || settingsFields.length === 0) return null;
 
     return (
         <SettingsContainer>
-            <SectionName name="Settings" />
+            <SectionName
+                name="Settings"
+                description="Configure which metadata types to extract. Defaults represent best practices."
+            />
             <FieldsContainer>
-                {filterFields.map((field) => (
-                    <FieldWrapper key={field.name}>
-                        <FormField field={field} updateFormValue={updateFormValue} />
-                    </FieldWrapper>
-                ))}
+                {settingsFields
+                    .filter((field) => !field.hidden)
+                    .map((field) => (
+                        <FieldWrapper key={field.name}>
+                            <FormField field={field} updateFormValue={updateFormValue} />
+                        </FieldWrapper>
+                    ))}
             </FieldsContainer>
         </SettingsContainer>
     );

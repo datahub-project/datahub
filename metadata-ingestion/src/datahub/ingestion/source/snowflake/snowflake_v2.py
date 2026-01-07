@@ -556,6 +556,14 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table_name in schema.views
         ]
+        discovered_semantic_views: List[str] = [
+            self.identifiers.get_dataset_identifier(
+                semantic_view_name, schema.name, db.name
+            )
+            for db in databases
+            for schema in db.schemas
+            for semantic_view_name in schema.semantic_views
+        ]
         discovered_streams: List[str] = [
             self.identifiers.get_dataset_identifier(stream_name, schema.name, db.name)
             for db in databases
@@ -566,6 +574,7 @@ class SnowflakeV2Source(
         if (
             len(discovered_tables) == 0
             and len(discovered_views) == 0
+            and len(discovered_semantic_views) == 0
             and len(discovered_streams) == 0
         ):
             if self.config.warn_no_datasets:
@@ -579,7 +588,10 @@ class SnowflakeV2Source(
                 )
 
         self.discovered_datasets = (
-            discovered_tables + discovered_views + discovered_streams
+            discovered_tables
+            + discovered_views
+            + discovered_semantic_views
+            + discovered_streams
         )
 
         if self.config.use_queries_v2:

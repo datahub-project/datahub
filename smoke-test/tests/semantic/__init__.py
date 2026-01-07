@@ -1,0 +1,2 @@
+# Semantic search smoke tests
+

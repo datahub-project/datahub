@@ -1,11 +1,11 @@
-import { Button, Input, SimpleSelect, spacing } from '@components';
+import { Button, Icon, Input, Popover, SimpleSelect, spacing } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { FilterRecipeField, FilterRule } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { FieldWrapper } from '@app/ingestV2/source/multiStepBuilder/components/FieldWrapper';
+import { FilterRecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
 import { RemoveIcon } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/RemoveIcon';
+import RegexTooltipContent from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/RegexTooltipContent';
 import { Filter } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/types';
 import {
     convertFiltersToFieldValues,
@@ -15,6 +15,7 @@ import {
     getOptionsForTypeSelect,
     getSubtypeOptions,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/utils';
+import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const FilterRow = styled.div`
     display: flex;
@@ -34,6 +35,22 @@ const FilterFieldsWrapper = styled.div`
     align-items: start;
 `;
 
+const SelectLabelWrapper = styled.div`
+    min-width: 175px;
+    width: 25%;
+`;
+
+const SelectLabelWrapperFullWidth = styled.div`
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+`;
+
+const Spacer = styled.div`
+    width: 16px;
+`;
+
 const SelectWrapper = styled.div`
     width: 25%;
 `;
@@ -50,11 +67,8 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
     // FYI: assuming that each filter has both allow and deny version
     const subtypeSelectOptions = useMemo(() => getSubtypeOptions(supportedFields), [supportedFields]);
     const defaultRule = useMemo(() => {
-        if (ruleSelectOptions.length > 0) {
-            return ruleSelectOptions[0].value;
-        }
-        return undefined;
-    }, [ruleSelectOptions]);
+        return 'exclude';
+    }, []);
 
     const defaultSubtype = useMemo(() => {
         if (subtypeSelectOptions.length > 0) {
@@ -62,6 +76,13 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
         }
         return undefined;
     }, [subtypeSelectOptions]);
+
+    const defaultSubtypeSelectValues = useMemo(() => {
+        if (defaultSubtype) {
+            return [defaultSubtype];
+        }
+        return [];
+    }, [defaultSubtype]);
 
     const defaultsForEmptyFilter = useMemo(
         () => ({
@@ -145,55 +166,66 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
         [updateFilters],
     );
 
+    if (fields.length === 0) return null;
+
     return (
         <>
             <SectionName
-                name="Filters"
+                name="Asset Filters"
+                description="Optional. Leave blank to ingest all accessible assets. Create include rules to allow specific assets, exclude rules to block them, or both."
                 topRowRightItems={
                     <Button size="sm" onClick={onAddFilterClick}>
                         Add Filter
                     </Button>
                 }
             />
+            <FilterRow>
+                <FilterFieldsWrapper>
+                    <SelectLabelWrapper>
+                        <FieldLabel label="Filter Type" />
+                    </SelectLabelWrapper>
+                    <SelectLabelWrapper>
+                        <FieldLabel label="Asset Type" />
+                    </SelectLabelWrapper>
+                    <SelectLabelWrapperFullWidth>
+                        <FieldLabel label="Name or Pattern" />
+                        <Popover content={<RegexTooltipContent />}>
+                            <Icon icon="Info" source="phosphor" color="gray" size="lg" />
+                        </Popover>
+                    </SelectLabelWrapperFullWidth>
+                </FilterFieldsWrapper>
+                <Spacer />
+            </FilterRow>
             {filters.map((filter) => (
                 <FilterRow>
                     <FilterFieldsWrapper>
                         <SelectWrapper>
-                            <FieldWrapper label="Rule" help="Include or exclude matching entities">
-                                <SimpleSelect
-                                    options={ruleSelectOptions}
-                                    values={filter.rule ? [filter.rule] : [FilterRule.INCLUDE]}
-                                    onUpdate={(values) => updateFilterRule(filter.key, values?.[0])}
-                                    showClear={false}
-                                    width="full"
-                                    placeholder="Rule"
-                                    size="lg"
-                                />
-                            </FieldWrapper>
+                            <SimpleSelect
+                                options={ruleSelectOptions}
+                                values={filter.rule ? [filter.rule] : [defaultRule]}
+                                onUpdate={(values) => updateFilterRule(filter.key, values?.[0])}
+                                showClear={false}
+                                width="full"
+                                placeholder="Rule"
+                                size="lg"
+                            />
                         </SelectWrapper>
                         <SelectWrapper>
-                            <FieldWrapper label="Subtype" required help="Type of entity to filter">
-                                <SimpleSelect
-                                    options={subtypeSelectOptions}
-                                    values={filter.subtype ? [filter.subtype] : [subtypeSelectOptions?.[0].value]}
-                                    onUpdate={(values) => updateFilterSubtype(filter.key, values?.[0])}
-                                    showClear={false}
-                                    width="full"
-                                    placeholder="[Table]"
-                                    size="lg"
-                                />
-                            </FieldWrapper>
-                        </SelectWrapper>
-                        <FieldWrapper
-                            label="Regex Entry"
-                            help="Regular expressions (regex) for pattern matching within strings"
-                        >
-                            <Input
-                                value={filter.value}
-                                setValue={(value) => updateFilterValue(filter.key, value)}
-                                placeholder='apple: Matches the literal string "apple"'
+                            <SimpleSelect
+                                options={subtypeSelectOptions}
+                                values={filter.subtype ? [filter.subtype] : defaultSubtypeSelectValues}
+                                onUpdate={(values) => updateFilterSubtype(filter.key, values?.[0])}
+                                showClear={false}
+                                width="full"
+                                placeholder={filter.subtype ? `[${filter.subtype}]` : '[Table]'}
+                                size="lg"
                             />
-                        </FieldWrapper>
+                        </SelectWrapper>
+                        <Input
+                            value={filter.value}
+                            setValue={(value) => updateFilterValue(filter.key, value)}
+                            placeholder="^my_db$"
+                        />
                     </FilterFieldsWrapper>
                     <RemoveIcon onClick={() => removeFilter(filter.key)} />
                 </FilterRow>

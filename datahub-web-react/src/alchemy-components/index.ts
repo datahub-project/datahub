@@ -23,6 +23,7 @@ export * from './components/Heading';
 export * from './components/Icon';
 export * from './components/Input';
 export * from './components/LineChart';
+export * from './components/Link';
 export * from './components/LoadedImage';
 export * from './components/LoadedVideo';
 export * from './components/Loader';

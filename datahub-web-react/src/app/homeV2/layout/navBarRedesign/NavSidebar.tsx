@@ -108,7 +108,7 @@ const ScrollableContent = styled.div`
 `;
 
 const Footer = styled.div`
-    padding: 8px 8px 17px 8px;
+    padding: 8px 8px 17px 16px;
     border-top: 1px solid ${colors.gray[100]};
 `;
 
@@ -308,6 +308,14 @@ export const NavSidebar = () => {
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
                         link: ingestionLink,
+                        onClick: () => {
+                            if (ingestionLink === PageRoutes.INGESTION_CREATE) {
+                                analytics.event({
+                                    type: EventType.EnterIngestionFlowEvent,
+                                    entryPoint: 'nav_menu',
+                                });
+                            }
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
