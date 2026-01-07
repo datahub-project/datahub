@@ -1,3 +1,4 @@
+from typing import Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -25,6 +26,27 @@ def mssql_source():
         source.report = MagicMock()
         source.ctx = MagicMock()
         return source
+
+
+@pytest.fixture
+def mock_pipeline_context():
+    """Factory fixture for creating mock PipelineContext with configurable source type."""
+
+    def _create_context(source_type: Optional[str] = None) -> MagicMock:
+        mock_ctx = MagicMock(spec=PipelineContext)
+
+        if source_type is None:
+            mock_ctx.pipeline_config = None
+        else:
+            mock_source_config = MagicMock()
+            mock_source_config.type = source_type
+            mock_pipeline_config = MagicMock(spec=PipelineConfig)
+            mock_pipeline_config.source = mock_source_config
+            mock_ctx.pipeline_config = mock_pipeline_config
+
+        return mock_ctx
+
+    return _create_context
 
 
 def test_is_temp_table(mssql_source):
@@ -388,108 +410,45 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
     assert direct_step["database_name"] == "test_db"
 
 
-def test_mssql_odbc_type_auto_enables_use_odbc():
-    """Test that use_odbc is automatically set to True when source type is mssql-odbc"""
-    # Create a mock pipeline config with mssql-odbc source type
-    mock_source_config = MagicMock()
-    mock_source_config.type = "mssql-odbc"
-
-    mock_pipeline_config = MagicMock(spec=PipelineConfig)
-    mock_pipeline_config.source = mock_source_config
-
-    mock_ctx = MagicMock(spec=PipelineContext)
-    mock_ctx.pipeline_config = mock_pipeline_config
-
-    config_dict = {
-        "host_port": "localhost:1433",
-        "username": "test",
-        "password": "test",
-        "database": "test_db",
-        "uri_args": {"driver": "ODBC Driver 17 for SQL Server"},
-        "include_descriptions": False,
-    }
-
-    # Mock the parent class's __init__ to avoid DB connections
-    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
-        source = SQLServerSource.create(config_dict, mock_ctx)
-
-    # Verify use_odbc was automatically set to True
-    assert source.config.use_odbc is True
-
-
-def test_mssql_type_does_not_auto_enable_use_odbc():
-    """Test that use_odbc remains False when source type is mssql (not mssql-odbc)"""
-    # Create a mock pipeline config with mssql source type
-    mock_source_config = MagicMock()
-    mock_source_config.type = "mssql"
-
-    mock_pipeline_config = MagicMock(spec=PipelineConfig)
-    mock_pipeline_config.source = mock_source_config
-
-    mock_ctx = MagicMock(spec=PipelineContext)
-    mock_ctx.pipeline_config = mock_pipeline_config
+@pytest.mark.parametrize(
+    "source_type,explicit_use_odbc,expected_use_odbc",
+    [
+        # mssql-odbc auto-enables use_odbc when not explicitly set
+        ("mssql-odbc", None, True),
+        # mssql does not auto-enable use_odbc
+        ("mssql", None, False),
+        # Explicit use_odbc: false is respected even with mssql-odbc
+        ("mssql-odbc", False, False),
+        # Explicit use_odbc: true is preserved with mssql-odbc
+        ("mssql-odbc", True, True),
+        # No pipeline_config doesn't crash, defaults to False
+        (None, None, False),
+    ],
+)
+def test_use_odbc_auto_detection(
+    mock_pipeline_context, source_type, explicit_use_odbc, expected_use_odbc
+):
+    """Test use_odbc auto-detection based on source type."""
+    mock_ctx = mock_pipeline_context(source_type)
 
     config_dict = {
         "host_port": "localhost:1433",
         "username": "test",
         "password": "test",
         "database": "test_db",
+        # Disable description loading to avoid DB connections
         "include_descriptions": False,
     }
 
-    # Mock the parent class's __init__ to avoid DB connections
+    # Add use_odbc only if explicitly provided
+    if explicit_use_odbc is not None:
+        config_dict["use_odbc"] = explicit_use_odbc
+
+    # Add uri_args when use_odbc is expected to be True
+    if expected_use_odbc:
+        config_dict["uri_args"] = {"driver": "ODBC Driver 17 for SQL Server"}
+
     with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
         source = SQLServerSource.create(config_dict, mock_ctx)
 
-    # Verify use_odbc remains False (default)
-    assert source.config.use_odbc is False
-
-
-def test_mssql_odbc_explicit_use_odbc_false_not_overridden():
-    """Test that explicit use_odbc: false is not overridden even with mssql-odbc type"""
-    # Create a mock pipeline config with mssql-odbc source type
-    mock_source_config = MagicMock()
-    mock_source_config.type = "mssql-odbc"
-
-    mock_pipeline_config = MagicMock(spec=PipelineConfig)
-    mock_pipeline_config.source = mock_source_config
-
-    mock_ctx = MagicMock(spec=PipelineContext)
-    mock_ctx.pipeline_config = mock_pipeline_config
-
-    config_dict = {
-        "host_port": "localhost:1433",
-        "username": "test",
-        "password": "test",
-        "database": "test_db",
-        "use_odbc": False,  # Explicitly set to False
-        "include_descriptions": False,
-    }
-
-    # Mock the parent class's __init__ to avoid DB connections
-    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
-        source = SQLServerSource.create(config_dict, mock_ctx)
-
-    # Verify use_odbc respects explicit False value
-    assert source.config.use_odbc is False
-
-
-def test_mssql_odbc_no_pipeline_config_does_not_crash():
-    """Test that source creation works when pipeline_config is None"""
-    mock_ctx = MagicMock(spec=PipelineContext)
-    mock_ctx.pipeline_config = None
-
-    config_dict = {
-        "host_port": "localhost:1433",
-        "username": "test",
-        "password": "test",
-        "database": "test_db",
-        "include_descriptions": False,
-    }
-
-    # Mock the parent class's __init__ to avoid DB connections
-    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
-        source = SQLServerSource.create(config_dict, mock_ctx)
-
-    # Verify use_odbc remains False (default) and no crash
-    assert source.config.use_odbc is False
+    assert source.config.use_odbc is expected_use_odbc
