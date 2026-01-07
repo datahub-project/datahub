@@ -221,6 +221,165 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      - name: Detect workflow retry
+        id: retry-detection
+        run: |
+          RUN_ATTEMPT="${{ github.run_attempt }}"
+          if [[ "$RUN_ATTEMPT" -gt 1 ]]; then
+            echo "This is retry attempt $RUN_ATTEMPT"
+            echo "is_retry=true" >> "$GITHUB_OUTPUT"
+            PREVIOUS_ATTEMPT=$((RUN_ATTEMPT - 1))
+            echo "previous_attempt=${PREVIOUS_ATTEMPT}" >> "$GITHUB_OUTPUT"
+          else
+            echo "This is the first attempt"
+            echo "is_retry=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download previous test results
+        if: steps.retry-detection.outputs.is_retry == 'true'
+        id: download-artifacts
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+
+          echo "Downloading artifacts from run ${{ github.run_id }}, attempt ${{ steps.retry-detection.outputs.previous_attempt }}"
+
+          # Create directory for previous results
+          mkdir -p "${{ github.workspace }}/previous-test-results"
+
+          # Get artifact ID for this profile and test strategy's test results
+          ARTIFACT_NAME="Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }}"
+          echo "Looking for artifact: ${ARTIFACT_NAME}"
+
+          # Query artifacts for this workflow run
+          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
+
+          if [[ -z "$ARTIFACT_ID" ]]; then
+            echo "No artifact found for ${{ matrix.profile }} ${{ matrix.test_strategy }}"
+            echo "download_success=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found artifact ID: ${ARTIFACT_ID}"
+
+          # Download and extract artifact
+          cd "${{ github.workspace }}/previous-test-results"
+          gh api "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" > artifact.zip
+          unzip -q artifact.zip
+
+          # Verify we got XML files
+          if [[ "${{ matrix.test_strategy }}" == "cypress" ]]; then
+            # Cypress XMLs are in smoke-test/tests/cypress/build/smoke-test-results/
+            if find . -path "*/smoke-test-results/cypress-test-*.xml" -print -quit | grep -q .; then
+              echo "Successfully downloaded cypress test results"
+              echo "download_success=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No cypress test XML files found in artifact"
+              echo "download_success=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Pytest XMLs are in smoke-test/junit.*.xml
+            if find . -path "*/junit*.xml" -print -quit | grep -q .; then
+              echo "Successfully downloaded pytest test results"
+              echo "download_success=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No pytest XML files found in artifact"
+              echo "download_success=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Parse failed Cypress tests
+        if: |
+          steps.retry-detection.outputs.is_retry == 'true' &&
+          matrix.test_strategy == 'cypress' &&
+          steps.download-artifacts.outputs.download_success == 'true'
+        id: parse-cypress-failures
+        run: |
+          set +e
+
+          OUTPUT_FILE="${{ github.workspace }}/failed-tests-${{ matrix.profile }}-${{ matrix.test_strategy }}.txt"
+
+          python3 .github/scripts/parse_failed_cypress_tests.py \
+            --input-dir "${{ github.workspace }}/previous-test-results" \
+            --output "${OUTPUT_FILE}"
+
+          EXIT_CODE=$?
+
+          case $EXIT_CODE in
+            0)
+              echo "parse_result=has_failures" >> "$GITHUB_OUTPUT"
+              echo "filtered_tests_file=${OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
+              echo "Will retry $(wc -l < ${OUTPUT_FILE}) failed test(s)"
+              ;;
+            2)
+              echo "parse_result=all_passed" >> "$GITHUB_OUTPUT"
+              echo "All tests passed in previous attempt - will skip"
+              ;;
+            3)
+              echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+              echo "No test results found - will run all tests"
+              ;;
+            *)
+              echo "parse_result=error" >> "$GITHUB_OUTPUT"
+              echo "Error parsing test results - will run all tests"
+              ;;
+          esac
+
+      - name: Parse failed pytest modules
+        if: |
+          steps.retry-detection.outputs.is_retry == 'true' &&
+          matrix.test_strategy == 'pytests' &&
+          steps.download-artifacts.outputs.download_success == 'true'
+        id: parse-pytest-failures
+        run: |
+          set +e
+
+          OUTPUT_FILE="${{ github.workspace }}/failed-modules-${{ matrix.profile }}-${{ matrix.test_strategy }}.txt"
+
+          python3 .github/scripts/parse_failed_pytest_tests.py \
+            --input-dir "${{ github.workspace }}/previous-test-results" \
+            --output "${OUTPUT_FILE}"
+
+          EXIT_CODE=$?
+
+          case $EXIT_CODE in
+            0)
+              echo "parse_result=has_failures" >> "$GITHUB_OUTPUT"
+              echo "filtered_tests_file=${OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
+              echo "Will retry $(wc -l < ${OUTPUT_FILE}) failed module(s)"
+              ;;
+            2)
+              echo "parse_result=all_passed" >> "$GITHUB_OUTPUT"
+              echo "All tests passed in previous attempt - will skip"
+              ;;
+            3)
+              echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+              echo "No test results found - will run all tests"
+              ;;
+            *)
+              echo "parse_result=error" >> "$GITHUB_OUTPUT"
+              echo "Error parsing test results - will run all tests"
+              ;;
+          esac
+
+      - name: Clean up downloaded artifacts
+        if: steps.retry-detection.outputs.is_retry == 'true'
+        run: |
+          # Cleaning up downloaded test results to prevent contamination of current run
+          rm -rf "${{ github.workspace }}/previous-test-results"
+
+      - name: Skip if all tests passed
+        if: |
+          steps.parse-cypress-failures.outputs.parse_result == 'all_passed' ||
+          steps.parse-pytest-failures.outputs.parse_result == 'all_passed'
+        run: |
+          echo "✓ All tests passed in previous attempt for ${{ matrix.test_strategy }} on ${{ matrix.profile }}"
+          echo "Skipping this run to optimize CI time (Docker images, quickstart, and tests)"
+          exit 0
+
       - uses: gradle/actions/setup-gradle@v4
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
@@ -254,6 +413,9 @@ jobs:
           echo "${{ steps.collect-images.outputs.datahub_images }}"
 
       - name: Pull head images from registry
+        if: |
+          steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
+          steps.parse-pytest-failures.outputs.parse_result != 'all_passed'
         run: |
           echo collected images "${{ steps.collect-images.outputs.datahub_images }}"
           # Pull the latest head/master images from registry
@@ -281,6 +443,9 @@ jobs:
           docker images
 
       - name: run quickstart
+        if: |
+          steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
+          steps.parse-pytest-failures.outputs.parse_result != 'all_passed'
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
@@ -295,6 +460,9 @@ jobs:
         run: df -h . && docker images
 
       - name: Disable ES Disk Threshold
+        if: |
+          steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
+          steps.parse-pytest-failures.outputs.parse_result != 'all_passed'
         run: |
           curl -XPUT "http://localhost:9200/_cluster/settings" \
           -H 'Content-Type: application/json' -d'{
@@ -315,6 +483,9 @@ jobs:
           ./gradlew :metadata-ingestion:install
 
       - name: Smoke test
+        if: |
+          steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
+          steps.parse-pytest-failures.outputs.parse_result != 'all_passed'
         env:
           RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
@@ -323,8 +494,25 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
           BATCH_COUNT: "1" # since this workflow runs only on schedule trigger, batching isn't really needed.
           BATCH_NUMBER: "0"
+          FILTERED_TESTS: ${{ steps.parse-cypress-failures.outputs.filtered_tests_file || steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ github.sha }}-${{ matrix.test_strategy }}"
           PROFILE_NAME: ${{ matrix.profile }}
         run: |
+          if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
+            echo "=========================================="
+            if [[ "${{ matrix.test_strategy }}" == "cypress" ]]; then
+              echo "RETRY MODE: Running only failed Cypress tests"
+            else
+              echo "RETRY MODE: Running only failed pytest modules"
+            fi
+            echo "=========================================="
+            echo "Failed items to retry:"
+            cat "$FILTERED_TESTS"
+            echo "=========================================="
+          elif [[ "${{ steps.retry-detection.outputs.is_retry }}" == "true" ]]; then
+            echo "RETRY MODE: Running all tests (fallback)"
+          fi
+
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
           ./smoke-test/smoke.sh
@@ -361,6 +549,39 @@ jobs:
             **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
+          retention-days: 5
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "*.xml" -path "*/build/test-results/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          find . -name "cypress-test-*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          find . -name "junit.*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${{ github.head_ref || github.ref_name }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --batch "${{ matrix.profile }}" \
+            --batch-count "${{ strategy.job-total }}" \
+            --test-strategy "${{ matrix.test_strategy }}"
+
+          rm -rf "$TEMP_DIR"
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
