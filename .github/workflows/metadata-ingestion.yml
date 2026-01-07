@@ -193,13 +193,20 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
-        run: ./gradlew :metadata-ingestion:installPackageOnly
+        run: ./gradlew :metadata-ingestion:installDev
       - name: Get plugin list
         id: get-plugins
         if: steps.check-changes.outputs.should_run == 'true'
         run: |
           cd metadata-ingestion
           # Use venv's python directly to ensure we're using the installed package
+          # Debug: Check if venv exists and datahub is available
+          echo "Checking venv..."
+          ls -la venv/bin/python || echo "venv/bin/python not found"
+          venv/bin/python -m datahub --version || echo "datahub command failed"
+          # Get raw output for debugging (first 20 lines)
+          echo "Raw output (first 20 lines):"
+          venv/bin/python -m datahub check plugins 2>&1 | head -20 || echo "Command failed"
           # Only capture stdout, filter for valid plugin names (alphanumeric, hyphens, underscores)
           PLUGINS=$(venv/bin/python -m datahub check plugins 2>/dev/null | awk '/^Sinks:/ { exit } /^Sources:/ { next } /^[a-zA-Z0-9_-]+$/ { print $1 }' | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "plugins=$PLUGINS" >> $GITHUB_OUTPUT
