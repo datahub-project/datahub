@@ -99,8 +99,9 @@ export function extractReferencesFromMarkdown(markdown: string): ExtractedRefere
             const allUrns = decodedUrl.match(URN_PATTERN_BALANCED);
 
             if (allUrns && allUrns.length > 0) {
-                // Return the first (most complete) URN found
-                return { text, urn: allUrns[0] };
+                // Return the first (most complete) URN found, stripping any trailing slash
+                // (URLs often have trailing slashes that aren't part of the URN)
+                return { text, urn: allUrns[0].replace(/\/$/, '') };
             }
             return null;
         })
