@@ -29,7 +29,6 @@ import {
     TaskList,
 } from '@app/homeV3/freeTrial/FreeTrialContent.styles';
 import { TaskItemComponent } from '@app/homeV3/freeTrial/TaskItemComponent';
-import { useGetIngestionLink } from '@app/homeV3/freeTrial/useGetIngestionLink';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import {
     FREE_TRIAL,
@@ -40,6 +39,7 @@ import {
 } from '@app/onboarding/configV2/FreeTrialConfig';
 import { getStepPropertyByKey } from '@app/onboarding/utils';
 import PageBanner from '@app/sharedV2/PageBanner';
+import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 
 import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
