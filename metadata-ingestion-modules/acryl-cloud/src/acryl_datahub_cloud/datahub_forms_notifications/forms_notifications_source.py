@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from dataclasses import dataclass
@@ -18,6 +17,7 @@ from acryl_datahub_cloud.datahub_forms_notifications.query import (
     GRAPHQL_SCROLL_FORMS_FOR_NOTIFICATIONS,
     GRAPHQL_SEND_FORM_NOTIFICATION_REQUEST,
 )
+from acryl_datahub_cloud.graphql_utils import parse_extra_properties_for_model
 from acryl_datahub_cloud.notifications.notification_recipient_builder import (
     NotificationRecipientBuilder,
 )
@@ -399,9 +399,9 @@ class DataHubFormsNotificationsSource(Source):
         )
         for result in results:
             extra_properties = result["extraProperties"]
-            extra_properties_map = {
-                x["name"]: json.loads(x["value"]) for x in extra_properties
-            }
+            extra_properties_map = parse_extra_properties_for_model(
+                extra_properties, DataHubDatasetSearchRow
+            )
             search_row = DataHubDatasetSearchRow(**extra_properties_map)
             for owner in search_row.owners:
                 if owner.startswith(USER_URN_PREFIX):

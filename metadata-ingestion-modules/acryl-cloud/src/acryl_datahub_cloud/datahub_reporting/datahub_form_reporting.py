@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -8,6 +7,7 @@ import pandas as pd
 from pydantic import BaseModel, field_validator
 
 from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
+from acryl_datahub_cloud.graphql_utils import parse_extra_properties_for_model
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilter
@@ -336,10 +336,9 @@ class DataHubFormReportingData(FormData):
             if row_index % 100 == 0:
                 logger.info(f"Scanned {row_index} assets")
             extra_properties = row["extraProperties"]
-
-            extra_properties_map = {
-                x["name"]: json.loads(x["value"]) for x in extra_properties
-            }
+            extra_properties_map = parse_extra_properties_for_model(
+                extra_properties, self.DataHubDatasetSearchRow
+            )
             search_row = self.DataHubDatasetSearchRow(**extra_properties_map)
             if on_asset_scanned:
                 on_asset_scanned(search_row.urn)
