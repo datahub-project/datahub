@@ -33,7 +33,7 @@ framework_common = {
     "PyYAML<7.0.0",
     "toml>=0.10.0,<=0.10.2",
     # In Python 3.10+, importlib_metadata is included in the standard library.
-    "importlib_metadata>=4.0.0; python_version < '3.10'",
+    "importlib_metadata>=4.0.0,<9.0.0; python_version < '3.10'",
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "avro-gen3==0.7.16",
