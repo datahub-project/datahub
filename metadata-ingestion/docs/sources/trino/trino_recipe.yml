@@ -11,9 +11,10 @@ source:
 
     # HTTP scheme for connecting to Trino. Default is 'http'.
     # For production Trino clusters with TLS/SSL enabled, set http_scheme to 'https'.
-    options:
-      connect_args:
-        http_scheme: https
+    # If you see 'BadStatusLine' errors, your Trino server likely requires HTTPS.
+    # options:
+    #   connect_args:
+    #     http_scheme: https
     
     # Optional -- A mapping of trino catalog to its connector details like connector database, env and platform instance.
     # This configuration is used to ingest lineage of datasets to connectors. Use catalog name as key.
