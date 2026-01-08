@@ -415,8 +415,6 @@ If these conditions are not met, warnings will appear in the ingestion report:
 | Empty CLL results       | `Semantic View CLL Empty`               |
 | Parsing failure         | `Semantic View CLL Parsing Failed`      |
 
-:::note Limitations
-
-Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
-
-:::
+> **Note: Limitations**
+>
+> Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
