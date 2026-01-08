@@ -234,7 +234,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                         />
                     )}
                     {!hideCreate && (
-                        <Tooltip title="New context document" placement="bottom" showArrow={false}>
+                        <Tooltip title="New document" placement="bottom" showArrow={false}>
                             <ActionButton
                                 icon={{ icon: 'Plus', source: 'phosphor' }}
                                 variant="text"

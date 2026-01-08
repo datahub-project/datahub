@@ -10,6 +10,7 @@ import { Automations } from '@app/automations/Automations';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
 import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
 import { ChatPage } from '@app/chat/ChatPage';
+import ContextRoutes from '@app/context/ContextRoutes';
 import { useUserContext } from '@app/context/useUserContext';
 import DomainRoutes from '@app/domain/DomainRoutes';
 import { ManageDomainsPage } from '@app/domain/ManageDomainsPage';
@@ -46,12 +47,15 @@ import {
     useBusinessAttributesFlag,
     useIsAiChatEnabled,
     useIsAppConfigContextLoaded,
+    useIsContextDocumentsEnabled,
     useIsDocumentationFormsEnabled,
     useIsNestedDomainsEnabled,
 } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { PageRoutes } from '@conf/Global';
+
+import { EntityType } from '@types';
 
 /**
  * Container for all searchable page routes
@@ -61,9 +65,15 @@ export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
-    const entities = isNestedDomainsEnabled
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
+
+    // Get entities, filtering out Document when context documents is enabled (handled by ContextRoutes)
+    const allEntities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
+    const entities = isContextDocumentsEnabled
+        ? allEntities.filter((entity) => entity.type !== EntityType.Document)
+        : allEntities;
     const { config, loaded } = useAppConfig();
     const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
@@ -100,6 +110,13 @@ export const SearchRoutes = (): JSX.Element => {
         <FinalSearchablePage>
             <ErrorBoundary resetKeys={[location.pathname]}>
                 <Switch>
+                    {/* Context Documents routes - must be before entity routes */}
+                    {isContextDocumentsEnabled && (
+                        <Route path={`${PageRoutes.DOCUMENT}/:urn`} render={() => <ContextRoutes />} />
+                    )}
+                    {isContextDocumentsEnabled && (
+                        <Route path={`${PageRoutes.CONTEXT}*`} render={() => <ContextRoutes />} />
+                    )}
                     {entities.map((entity) => (
                         <Route
                             key={entity.getPathName()}

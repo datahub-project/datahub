@@ -13,8 +13,8 @@ module.exports = defineConfig({
   },
   video: false,
   env: {
-    ADMIN_USERNAME: "datahub",
-    ADMIN_PASSWORD: "datahub",
+    ADMIN_USERNAME: "admin",
+    ADMIN_PASSWORD: "mypass",
   },
   e2e: {
     // We've imported your old cypress plugins here.
@@ -23,7 +23,7 @@ module.exports = defineConfig({
       // eslint-disable-next-line global-require
       return require("./cypress/plugins/index")(on, config);
     },
-    baseUrl: "http://localhost:9002/",
+    baseUrl: "http://localhost:3000/",
     // Couldn't get specifying non-e2e directory to work with --spec CLI argument
     specPattern:
       process.env.CYPRESS_SPEC_PATTERN || "cypress/e2e/**/*.{js,jsx,ts,tsx}",

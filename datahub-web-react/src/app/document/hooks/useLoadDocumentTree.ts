@@ -27,7 +27,7 @@ export function useLoadDocumentTree() {
         rootOnly: true,
         start: 0,
         count: 100,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
         sourceTypes: [DocumentSourceType.Native],
     });
 
@@ -91,7 +91,9 @@ export function useLoadDocumentTree() {
                             count: 100,
                         },
                     },
-                    fetchPolicy: 'cache-first', // Can use cache for children
+                    // Use network-only to ensure we always get fresh data (avoids stale cache issues)
+                    // Note: cache-and-network is not supported by apolloClient.query()
+                    fetchPolicy: 'network-only',
                 });
 
                 const documents = result.data?.searchDocuments?.documents || [];

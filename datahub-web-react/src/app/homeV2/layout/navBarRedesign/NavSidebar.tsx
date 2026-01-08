@@ -3,6 +3,7 @@ import {
     BookBookmark,
     ChatTeardropText,
     FileLock,
+    FileText,
     Gear,
     Globe,
     HardDrives,
@@ -38,7 +39,6 @@ import {
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
-import { useContextMenuItems } from '@app/homeV2/layout/sidebar/documents/useContextMenuItems';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
@@ -49,7 +49,12 @@ import { SidebarWidthProvider } from '@app/shared/hooks/useSidebarWidth';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
 import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
-import { useAppConfig, useBusinessAttributesFlag, useIsAiChatEnabled } from '@app/useAppConfig';
+import {
+    useAppConfig,
+    useBusinessAttributesFlag,
+    useIsAiChatEnabled,
+    useIsContextDocumentsEnabled,
+} from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -153,7 +158,7 @@ export const NavSidebar = () => {
     const isHomePage = useIsHomePage();
     const location = useLocation();
     const showHomepageRedesign = useShowHomePageRedesign();
-    const contextMenuItems = useContextMenuItems();
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
@@ -291,6 +296,23 @@ export const NavSidebar = () => {
                 key: 'chat',
                 link: PageRoutes.AI_CHAT,
                 isHidden: !isChatEnabled,
+            },
+            {
+                type: NavBarMenuItemTypes.Group,
+                key: 'context',
+                title: 'Context',
+                isHidden: !isContextDocumentsEnabled,
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Documents',
+                        key: 'contextDocuments',
+                        icon: <FileText />,
+                        selectedIcon: <FileText weight="fill" />,
+                        link: PageRoutes.CONTEXT_DOCUMENTS,
+                        additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Document)}/:urn`],
+                    },
+                ],
             },
             {
                 type: NavBarMenuItemTypes.Group,
@@ -432,7 +454,6 @@ export const NavSidebar = () => {
                     },
                 ],
             },
-            ...(contextMenuItems ? [contextMenuItems] : []),
         ],
     };
 

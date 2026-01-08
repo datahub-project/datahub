@@ -17,7 +17,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Document, EntityType } from '@types';
 
 const SummaryWrapper = styled.div`
-    padding: 40px 20%;
+    padding: 40px 10%;
     display: flex;
     flex-direction: column;
     gap: 16px;

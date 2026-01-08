@@ -457,7 +457,7 @@ describe('useLoadDocumentTree', () => {
                     count: 100,
                 },
             },
-            fetchPolicy: 'cache-first',
+            fetchPolicy: 'network-only',
         });
     });
 

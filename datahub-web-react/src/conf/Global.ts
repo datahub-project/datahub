@@ -53,6 +53,8 @@ export enum PageRoutes {
     MANAGE_TAGS = '/tags',
     MANAGE_APPLICATIONS = '/applications',
     AI_CHAT = '/ai-chat',
+    CONTEXT = '/context',
+    CONTEXT_DOCUMENTS = '/context/documents',
 }
 
 export enum HelpLinkRoutes {
