@@ -70,6 +70,7 @@ from datahub.metadata.schema_classes import (
     QueryStatementClass,
     QuerySubjectClass,
     QuerySubjectsClass,
+    StatusClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -804,6 +805,13 @@ class DagsterGenerator:
         )
         for mcp in dataset.generate_mcp():
             graph.emit_mcp(mcp)
+
+        # Emit status aspect to reinstate soft-deleted entities
+        status_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn.urn(),
+            aspect=StatusClass(removed=False),
+        )
+        graph.emit_mcp(status_mcp)
 
         if schema:
             mcp = self.convert_table_schema_to_schema_metadata(
