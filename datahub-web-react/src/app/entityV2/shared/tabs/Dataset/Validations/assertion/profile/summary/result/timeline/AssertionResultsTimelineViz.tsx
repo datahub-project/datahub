@@ -11,8 +11,8 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
 import { getBestChartTypeForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { getAssertionResultChartData } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/transformers';
-import { TuneFreshnessAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneFreshnessAssertionModal';
 import { TuneSmartAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneSmartAssertionModal';
+import { TuneSmartFreshnessAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneSmartFreshnessAssertionModal';
 import { useIsFreshnessAssertionTuningEnabled } from '@app/useAppConfig';
 
 import { Assertion, AssertionRunEventsResult, AssertionRunStatus, Maybe, Monitor } from '@types';
@@ -123,7 +123,7 @@ export const AssertionResultsTimelineViz = ({
             {isTunePredictionsModalOpen &&
                 monitor &&
                 (showFreshnessAssertionTuningModal ? (
-                    <TuneFreshnessAssertionModal
+                    <TuneSmartFreshnessAssertionModal
                         onClose={() => setIsTunePredictionsModalOpen(false)}
                         assertion={assertion}
                         monitor={monitor}

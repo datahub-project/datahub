@@ -152,7 +152,7 @@ const extractFreshnessPrediction = (
     };
 };
 
-export const TuneFreshnessAssertionModal = ({ onClose, assertion, monitor: originalMonitor }: Props) => {
+export const TuneSmartFreshnessAssertionModal = ({ onClose, assertion, monitor: originalMonitor }: Props) => {
     // -------- Fetch monitor data -------- //
     const {
         data: assertionData,
