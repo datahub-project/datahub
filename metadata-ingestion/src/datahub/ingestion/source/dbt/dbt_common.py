@@ -1555,6 +1555,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             message=f"Failed to parse column-level lineage: {str(e)}",
                             context=node.dbt_name,
                         )
+                        logger.debug(
+                            f"Semantic view CLL parsing traceback for {node.dbt_name}",
+                            exc_info=True,
+                        )
                 else:
                     self.report.warning(
                         title="Semantic View Missing compiled_code",

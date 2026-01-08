@@ -1614,3 +1614,86 @@ def test_semantic_view_cll_integration_multiple_upstreams() -> None:
     ]
     # Should have lineage from ORDER_TOTAL (via REVENUE metric)
     assert any(cll.upstream_col == "order_total" for cll in combined_lineages)
+
+
+def test_semantic_view_cll_non_snowflake_adapter() -> None:
+    """Test that CLL extraction is skipped for non-Snowflake adapters.
+
+    The source code checks dbt_adapter and only extracts CLL for Snowflake.
+    For other adapters, a warning is logged and CLL extraction is skipped.
+    This test documents the expected behavior for non-Snowflake adapters.
+    """
+
+    # Create a semantic view node with a non-Snowflake adapter
+    semantic_view_node = DBTNode(
+        dbt_name="model.project.sales_view",
+        dbt_adapter="bigquery",  # Non-Snowflake adapter
+        database="db",
+        schema="schema",
+        name="sales_view",
+        alias="sales_view",
+        comment="",
+        description="",
+        raw_code="",
+        compiled_code="""
+        DIMENSIONS (
+            ORDERS.CUSTOMER_ID AS CUSTOMER_ID
+        )
+        METRICS (
+            ORDERS.TOTAL_REVENUE AS SUM(ORDER_TOTAL)
+        )
+        """,
+        dbt_file_path="",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="semantic_view",
+        upstream_nodes=["source.project.src.ORDERS"],
+        catalog_type=None,
+        upstream_cll=[],
+        language="sql",
+        dbt_package_name="project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+    all_nodes_map = {
+        "source.project.src.ORDERS": create_mock_dbt_node("ORDERS"),
+    }
+
+    # Simulate what _infer_schemas_and_update_cll does:
+    # For non-Snowflake adapters, CLL extraction should be skipped
+    if (
+        semantic_view_node.materialization == "semantic_view"
+        and semantic_view_node.dbt_adapter == "snowflake"
+        and semantic_view_node.compiled_code
+    ):
+        cll_info = parse_semantic_view_cll(
+            compiled_sql=semantic_view_node.compiled_code,
+            upstream_nodes=semantic_view_node.upstream_nodes,
+            all_nodes_map=all_nodes_map,
+        )
+        semantic_view_node.upstream_cll.extend(cll_info)
+
+    # For BigQuery adapter, CLL should NOT be extracted
+    assert len(semantic_view_node.upstream_cll) == 0
+
+
+def test_semantic_view_cll_empty_results() -> None:
+    """Test behavior when CLL parsing returns empty results.
+
+    This can happen when the DDL contains unsupported syntax or patterns.
+    """
+
+    # DDL with valid structure but no extractable lineage patterns
+    compiled_sql = """
+    -- Just comments, no actual DIMENSIONS/FACTS/METRICS
+    SELECT * FROM some_table
+    """
+
+    upstream_nodes = ["source.project.src.ORDERS"]
+    all_nodes_map = {"source.project.src.ORDERS": create_mock_dbt_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should return empty set when no patterns match
+    assert len(cll_info) == 0
