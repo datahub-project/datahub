@@ -74,7 +74,7 @@ export function IngestionSourceUpdatePage() {
             const shouldRun = options?.shouldRun;
             try {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
-                const input = getIngestionSourceMutationInput(data);
+                const input = getIngestionSourceMutationInput(data, source);
                 await updateIngestionSource(urn, input, data.owners, source?.ownership?.owners || []);
 
                 if (ingestionSourcesListQueryInputs) {

@@ -69,7 +69,7 @@ const TOUR_STEPS: TourStep[] = [
         expandColumns: true,
         content: (
             <BulletList>
-                <li>Track PII for things like GDPR compliance</li>
+                <li>See impact of potential breaking changes</li>
                 <li>Debug data quality issues to the exact column</li>
                 <li>See which source fields feed your critical reports</li>
             </BulletList>

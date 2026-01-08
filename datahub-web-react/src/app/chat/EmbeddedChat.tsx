@@ -30,7 +30,7 @@ const MessagesContainer = styled.div`
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 32px;
 `;
 
 const InputContainer = styled.div`
