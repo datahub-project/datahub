@@ -1,14 +1,7 @@
 from typing import Any, Dict, List
-from unittest import mock
 
 from datahub.ingestion.source.dbt.dbt_common import parse_semantic_view_cll
-
-
-def _create_mock_node(table_name: str) -> mock.Mock:
-    """Helper to create a mock DBTNode with a name attribute."""
-    node = mock.Mock()
-    node.name = table_name
-    return node
+from tests.unit.dbt.conftest import create_mock_dbt_node
 
 
 def test_parse_semantic_view_cll_with_sql_comments_after_columns() -> None:
@@ -44,8 +37,8 @@ def test_parse_semantic_view_cll_with_sql_comments_after_columns() -> None:
         "source.project.shop.TRANSACTIONS",
     ]
     all_nodes_map: Dict[str, Any] = {
-        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+        "source.project.shop.ORDERS": create_mock_dbt_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": create_mock_dbt_node("TRANSACTIONS"),
     }
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
@@ -76,7 +69,7 @@ def test_parse_semantic_view_cll_with_various_functions() -> None:
 
     upstream_nodes: List[str] = ["source.project.shop.ORDERS"]
     all_nodes_map: Dict[str, Any] = {
-        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.shop.ORDERS": create_mock_dbt_node("ORDERS"),
     }
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)

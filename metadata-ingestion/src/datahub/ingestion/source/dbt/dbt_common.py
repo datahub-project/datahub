@@ -619,6 +619,12 @@ def _build_table_mapping(
         if upstream_dbt_name in all_nodes_map:
             upstream_node = all_nodes_map[upstream_dbt_name]
             table_name = upstream_node.name.upper()
+            if table_name in table_to_dbt_name:
+                logger.warning(
+                    f"Semantic view table name collision: '{table_name}' maps to both "
+                    f"'{table_to_dbt_name[table_name]}' and '{upstream_dbt_name}'. "
+                    f"Using '{upstream_dbt_name}'."
+                )
             table_to_dbt_name[table_name] = upstream_dbt_name
 
     # Parse TABLES section to extract alias mappings

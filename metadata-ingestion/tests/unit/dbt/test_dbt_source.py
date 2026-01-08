@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.testing.doctest import assert_doctest
+from tests.unit.dbt.conftest import create_mock_dbt_node
 
 
 def create_owners_list_from_urn_list(
@@ -863,13 +864,6 @@ def test_dbt_semantic_view_subtype() -> None:
     assert DatasetSubTypes.SEMANTIC_VIEW in aspect.typeNames
 
 
-def _create_mock_node(table_name: str) -> mock.Mock:
-    """Helper to create a mock DBTNode with a name attribute."""
-    node = mock.Mock()
-    node.name = table_name
-    return node
-
-
 def test_parse_semantic_view_cll_derived_metrics() -> None:
     """
     Test parsing derived metrics computed from other metrics.
@@ -890,8 +884,8 @@ def test_parse_semantic_view_cll_derived_metrics() -> None:
     ]
 
     all_nodes_map = {
-        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+        "source.project.shop.ORDERS": create_mock_dbt_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": create_mock_dbt_node("TRANSACTIONS"),
     }
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
@@ -934,8 +928,8 @@ def test_parse_semantic_view_cll_multiple_tables_same_column() -> None:
     ]
 
     all_nodes_map = {
-        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+        "source.project.shop.ORDERS": create_mock_dbt_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": create_mock_dbt_node("TRANSACTIONS"),
     }
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
@@ -975,8 +969,8 @@ def test_parse_semantic_view_cll_case_handling() -> None:
     ]
 
     all_nodes_map = {
-        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+        "source.project.shop.ORDERS": create_mock_dbt_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": create_mock_dbt_node("TRANSACTIONS"),
     }
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
@@ -1019,7 +1013,7 @@ def test_parse_semantic_view_cll_missing_upstream_node() -> None:
 
     # Only include ORDERS in the map
     all_nodes_map = {
-        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.shop.ORDERS": create_mock_dbt_node("ORDERS"),
     }
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
@@ -1043,7 +1037,7 @@ def test_parse_semantic_view_cll_table_not_in_mapping() -> None:
     """
 
     upstream_nodes = ["source.project.shop.ORDERS"]
-    all_nodes_map = {"source.project.shop.ORDERS": _create_mock_node("ORDERS")}
+    all_nodes_map = {"source.project.shop.ORDERS": create_mock_dbt_node("ORDERS")}
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
 
@@ -1065,7 +1059,7 @@ def test_parse_semantic_view_cll_derived_metric_missing_reference() -> None:
     """
 
     upstream_nodes = ["source.project.shop.ORDERS"]
-    all_nodes_map = {"source.project.shop.ORDERS": _create_mock_node("ORDERS")}
+    all_nodes_map = {"source.project.shop.ORDERS": create_mock_dbt_node("ORDERS")}
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
 
@@ -1092,7 +1086,7 @@ def test_parse_semantic_view_cll_malformed_sql() -> None:
     )
     """
     upstream_nodes = ["source.project.src.ORDERS"]
-    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
+    all_nodes_map = {"source.project.src.ORDERS": create_mock_dbt_node("ORDERS")}
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
 
@@ -1113,7 +1107,7 @@ def test_parse_semantic_view_cll_multiple_aggregations() -> None:
     )
     """
     upstream_nodes = ["source.project.src.ORDERS"]
-    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
+    all_nodes_map = {"source.project.src.ORDERS": create_mock_dbt_node("ORDERS")}
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
 
@@ -1150,8 +1144,8 @@ def test_parse_semantic_view_cll_chained_derived_metrics() -> None:
         "source.project.src.TRANSACTIONS",
     ]
     all_nodes_map = {
-        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.src.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+        "source.project.src.ORDERS": create_mock_dbt_node("ORDERS"),
+        "source.project.src.TRANSACTIONS": create_mock_dbt_node("TRANSACTIONS"),
     }
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
@@ -1210,7 +1204,7 @@ def test_semantic_view_cll_integration_with_node() -> None:
 
     # Create upstream nodes map
     all_nodes_map = {
-        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.src.ORDERS": create_mock_dbt_node("ORDERS"),
     }
 
     # Simulate what _infer_schemas_and_update_cll does
@@ -1238,7 +1232,7 @@ def test_semantic_view_cll_integration_missing_code() -> None:
     """Test that semantic view CLL extraction handles missing/empty compiled_code gracefully."""
 
     all_nodes_map = {
-        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.src.ORDERS": create_mock_dbt_node("ORDERS"),
     }
 
     # Test Case 1: compiled_code is None
@@ -1354,7 +1348,7 @@ def test_semantic_view_cll_integration_by_materialization() -> None:
     )
 
     all_nodes_map = {
-        "source.project.src.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+        "source.project.src.TRANSACTIONS": create_mock_dbt_node("TRANSACTIONS"),
     }
 
     # Check condition matches what's in _infer_schemas_and_update_cll
@@ -1390,7 +1384,7 @@ def test_parse_semantic_view_cll_circular_metric_reference() -> None:
     )
     """
     upstream_nodes = ["source.project.src.ORDERS"]
-    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
+    all_nodes_map = {"source.project.src.ORDERS": create_mock_dbt_node("ORDERS")}
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
 
@@ -1444,10 +1438,10 @@ def test_parse_semantic_view_cll_production_pattern() -> None:
     ]
 
     all_nodes_map = {
-        "source.my_analytics_project.coffee_shop_source.ORDERS": _create_mock_node(
+        "source.my_analytics_project.coffee_shop_source.ORDERS": create_mock_dbt_node(
             "ORDERS"
         ),
-        "source.my_analytics_project.coffee_shop_source.TRANSACTIONS": _create_mock_node(
+        "source.my_analytics_project.coffee_shop_source.TRANSACTIONS": create_mock_dbt_node(
             "TRANSACTIONS"
         ),
     }
@@ -1507,10 +1501,10 @@ def test_parse_semantic_view_cll_with_table_aliases() -> None:
     ]
 
     all_nodes_map = {
-        "model.dbt_cs_analytics.r_support_case_analysis": _create_mock_node(
+        "model.dbt_cs_analytics.r_support_case_analysis": create_mock_dbt_node(
             "r_support_case_analysis"
         ),
-        "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy": _create_mock_node(
+        "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy": create_mock_dbt_node(
             "r_cs_all_level_success_factor_hierarchy"
         ),
     }
@@ -1589,8 +1583,8 @@ def test_semantic_view_cll_integration_multiple_upstreams() -> None:
     )
 
     all_nodes_map = {
-        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
-        "source.project.src.CUSTOMERS": _create_mock_node("CUSTOMERS"),
+        "source.project.src.ORDERS": create_mock_dbt_node("ORDERS"),
+        "source.project.src.CUSTOMERS": create_mock_dbt_node("CUSTOMERS"),
     }
 
     # Simulate CLL extraction
