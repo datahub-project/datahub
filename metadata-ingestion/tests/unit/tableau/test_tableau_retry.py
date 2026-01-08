@@ -1,3 +1,4 @@
+from typing import List
 from unittest import mock
 
 import pytest
@@ -133,7 +134,7 @@ def test_internal_server_error_backoff_calculation():
     mock_server = create_mock_server([ise_503, ise_503, ise_503, SUCCESS_RESPONSE])
     tableau_source = create_tableau_source(mock_config, mock_server)
 
-    sleep_times = []
+    sleep_times: List[int] = []
     with mock.patch("time.sleep", side_effect=sleep_times.append):
         result = tableau_source.get_connection_object_page(
             query="workbooksConnection { nodes { id } }",
@@ -170,7 +171,7 @@ def test_internal_server_error_raises_after_max_retries():
 
     mock_server.metadata.query.side_effect = track_query_calls
 
-    sleep_times = []
+    sleep_times: List[int] = []
     with mock.patch("time.sleep", side_effect=sleep_times.append):
         with pytest.raises(InternalServerError) as exc_info:
             tableau_source.get_connection_object_page(
