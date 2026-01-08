@@ -34,6 +34,7 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
         _platform_alchemy_uri_tester_gen("snowflake"),
         _platform_alchemy_uri_tester_gen("sqlite"),
+        _platform_alchemy_uri_tester_gen("starrocks"),
         _platform_alchemy_uri_tester_gen("trino"),
         _platform_alchemy_uri_tester_gen("vertica"),
     ]
