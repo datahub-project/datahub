@@ -15,6 +15,7 @@ import {
     FieldMetricAssertionBuilderOperatorOptions,
     FreshnessAssertionBuilderScheduleType,
     FreshnessAssertionScheduleBuilderTypeOptions,
+    SqlAssertionBuilderOperatorOptions,
     VolumeAssertionBuilderTypeOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { BIGQUERY_URN, DATABRICKS_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '@app/ingest/source/builder/constants';
@@ -583,10 +584,7 @@ export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState
 };
 
 const isSqlAssertionAiInferred = (builderState: AssertionMonitorBuilderState): boolean => {
-    const hasParameters =
-        builderState.assertion?.sqlAssertion?.parameters &&
-        Object.keys(builderState.assertion?.sqlAssertion?.parameters).length > 0;
-    return !hasParameters && builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between;
+    return builderState.assertion?.sqlAssertion?.operator === SqlAssertionBuilderOperatorOptions.AiInferred;
 };
 
 const getSqlAssertionParameters = (builderState: AssertionMonitorBuilderState, inferWithAI: boolean) => {
@@ -633,7 +631,9 @@ export const builderStateToSharedSqlAssertionVariables = (builderState: Assertio
         description: builderState.assertion?.description,
         statement: builderState.assertion?.sqlAssertion?.statement,
         changeType: builderState.assertion?.sqlAssertion?.changeType as AssertionValueChangeType,
-        operator: builderState.assertion?.sqlAssertion?.operator as AssertionStdOperator,
+        operator: inferWithAI
+            ? AssertionStdOperator.Between
+            : (builderState.assertion?.sqlAssertion?.operator as AssertionStdOperator),
         parameters,
         actions: builderState.assertion?.actions
             ? {
@@ -945,7 +945,9 @@ const convertAssertionToBuilderState = (rawAssertion: Assertion): AssertionMonit
             type: assertion.info?.sqlAssertion?.type,
             statement: assertion.info?.sqlAssertion?.statement,
             changeType: assertion.info?.sqlAssertion?.changeType,
-            operator: assertion.info?.sqlAssertion?.operator,
+            operator: isInferred
+                ? SqlAssertionBuilderOperatorOptions.AiInferred
+                : assertion.info?.sqlAssertion?.operator,
             parameters: assertion.info?.sqlAssertion?.parameters,
         },
         fieldAssertion: {

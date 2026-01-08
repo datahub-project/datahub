@@ -2,13 +2,17 @@ import {
     SECTION_LABELS,
     groupOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/groupedOptions';
+import {
+    SqlAssertionBuilderOperator,
+    SqlAssertionBuilderOperatorOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 
-import { AssertionStdOperator, AssertionStdParameters, AssertionValueChangeType, SqlAssertionType } from '@types';
+import { AssertionStdParameters, AssertionValueChangeType, SqlAssertionType } from '@types';
 
 export type SqlOperationOption = {
     label: string;
     type: SqlAssertionType;
-    operator: AssertionStdOperator;
+    operator: SqlAssertionBuilderOperator;
     changeType?: AssertionValueChangeType;
     parameters?: AssertionStdParameters;
     disabled?: boolean;
@@ -30,49 +34,49 @@ export const SQL_OPERATION_OPTIONS: Record<SqlOperationOptionEnum, SqlOperationO
     [SqlOperationOptionEnum.AI_INFERRED]: {
         label: 'Detect with AI',
         type: SqlAssertionType.Metric,
-        operator: AssertionStdOperator.Between,
+        operator: SqlAssertionBuilderOperatorOptions.AiInferred,
     },
     [SqlOperationOptionEnum.IS_EQUAL_TO]: {
         label: 'Is equal to',
         type: SqlAssertionType.Metric,
-        operator: AssertionStdOperator.EqualTo,
+        operator: SqlAssertionBuilderOperatorOptions.EqualTo,
     },
     [SqlOperationOptionEnum.IS_NOT_EQUAL_TO]: {
         label: 'Is not equal to',
         type: SqlAssertionType.Metric,
-        operator: AssertionStdOperator.NotEqualTo,
+        operator: SqlAssertionBuilderOperatorOptions.NotEqualTo,
     },
     [SqlOperationOptionEnum.IS_GREATER_THAN]: {
         label: 'Is greater than',
         type: SqlAssertionType.Metric,
-        operator: AssertionStdOperator.GreaterThan,
+        operator: SqlAssertionBuilderOperatorOptions.GreaterThan,
     },
     [SqlOperationOptionEnum.IS_LESS_THAN]: {
         label: 'Is less than',
         type: SqlAssertionType.Metric,
-        operator: AssertionStdOperator.LessThan,
+        operator: SqlAssertionBuilderOperatorOptions.LessThan,
     },
     [SqlOperationOptionEnum.IS_BETWEEN]: {
         label: 'Is within a range',
         type: SqlAssertionType.Metric,
-        operator: AssertionStdOperator.Between,
+        operator: SqlAssertionBuilderOperatorOptions.Between,
     },
     [SqlOperationOptionEnum.GROWS_LESS_THAN]: {
         label: 'Grows at most',
         type: SqlAssertionType.MetricChange,
-        operator: AssertionStdOperator.LessThanOrEqualTo,
+        operator: SqlAssertionBuilderOperatorOptions.LessThanOrEqualTo,
         changeType: AssertionValueChangeType.Absolute,
     },
     [SqlOperationOptionEnum.GROWS_MORE_THAN]: {
         label: 'Grows at least',
         type: SqlAssertionType.MetricChange,
-        operator: AssertionStdOperator.GreaterThanOrEqualTo,
+        operator: SqlAssertionBuilderOperatorOptions.GreaterThanOrEqualTo,
         changeType: AssertionValueChangeType.Absolute,
     },
     [SqlOperationOptionEnum.GROWS_WITHIN_RANGE]: {
         label: 'Grows within a range',
         type: SqlAssertionType.MetricChange,
-        operator: AssertionStdOperator.Between,
+        operator: SqlAssertionBuilderOperatorOptions.Between,
         changeType: AssertionValueChangeType.Absolute,
     },
 };
@@ -108,7 +112,7 @@ export const getSqlOperationOptionGroups = () => {
     ]);
 };
 
-export const getOperationOption = (type?: SqlAssertionType | null, operator?: AssertionStdOperator | null) => {
+export const getOperationOption = (type?: SqlAssertionType | null, operator?: SqlAssertionBuilderOperator | null) => {
     if (!type || !operator) return undefined;
     const currentOption = Object.entries(SQL_OPERATION_OPTIONS).find(
         ([_, option]) => option.type === type && option.operator === operator,
