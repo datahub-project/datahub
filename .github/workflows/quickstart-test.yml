@@ -145,7 +145,7 @@ jobs:
     strategy:
       matrix:
         # TODO: once more supported versions are added, this should become list last n versions
-        datahub_version: ["v1.1.0", "v1.2.0", "head"]
+        datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "head"]
       fail-fast: false
     steps:
       - name: Free up disk space
@@ -257,4 +257,172 @@ jobs:
           datahub docker quickstart
           echo "Running restore"
           echo "y" | datahub docker quickstart --restore
+          datahub docker check
+
+  test-docker-compose-version-compatibility:
+    name: Docker Compose Version Compatibility
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Test v1.x standalone - should FAIL (unsupported)
+          - compose_version: "1.29.2"
+            compose_type: "standalone"
+            should_fail: true
+          # Test v2.x plugin - should SUCCEED
+          - compose_version: "v2.20.0"
+            compose_type: "plugin"
+            should_fail: false
+          - compose_version: "v2.24.0"
+            compose_type: "plugin"
+            should_fail: false
+          # Test v2.x standalone (backward compatibility mode) - should SUCCEED
+          - compose_version: "v2.24.0"
+            compose_type: "standalone"
+            should_fail: false
+          # Test v5.x plugin - should SUCCEED (forward compatibility)
+          - compose_version: "v5.0.1"
+            compose_type: "plugin"
+            should_fail: false
+      fail-fast: false
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Docker Compose (standalone mode)
+        if: matrix.compose_type == 'standalone'
+        run: |
+          # Find and remove ALL docker compose plugins
+          echo "Searching for docker compose plugin installations..."
+          find / -name "docker-compose" -type f 2>/dev/null | grep -E "(cli-plugins|docker/cli)" || true
+
+          # Remove known plugin locations
+          rm -rf ~/.docker/cli-plugins/docker-compose
+          sudo rm -rf /usr/local/lib/docker/cli-plugins/docker-compose
+          sudo rm -rf /usr/lib/docker/cli-plugins/docker-compose
+          sudo rm -rf /usr/libexec/docker/cli-plugins/docker-compose
+          sudo rm -rf /usr/local/libexec/docker/cli-plugins/docker-compose
+
+          # Also remove the entire cli-plugins directory to be thorough
+          rm -rf ~/.docker/cli-plugins
+          sudo rm -rf /usr/local/lib/docker/cli-plugins
+          sudo rm -rf /usr/lib/docker/cli-plugins
+          sudo rm -rf /usr/libexec/docker/cli-plugins
+          sudo rm -rf /usr/local/libexec/docker/cli-plugins
+
+          # Install standalone docker-compose (works for v1.x and v2.x)
+          sudo curl -L "https://github.com/docker/compose/releases/download/${{ matrix.compose_version }}/docker-compose-$(uname -s)-$(uname -m)" \
+            -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
+          # Verify installation
+          docker-compose --version
+
+          # Verify plugin is NOT available (ensures we're testing standalone mode only)
+          if docker compose version 2>/dev/null; then
+            echo "ERROR: docker compose plugin still available after removal!"
+            echo "Plugin location:"
+            which docker || echo "docker binary not found"
+            find / -name "docker-compose" -type f 2>/dev/null | grep -E "(cli-plugins|docker/cli)" || true
+            docker compose version
+            exit 1
+          fi
+
+          echo "SUCCESS: Only standalone docker-compose is available"
+
+      - name: Install Docker Compose v2+ (plugin)
+        if: matrix.compose_type == 'plugin'
+        run: |
+          # Remove existing docker-compose standalone if present
+          sudo rm -f /usr/local/bin/docker-compose
+
+          # Install specific version of docker compose plugin
+          DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
+          mkdir -p $DOCKER_CONFIG/cli-plugins
+          curl -SL "https://github.com/docker/compose/releases/download/${{ matrix.compose_version }}/docker-compose-linux-x86_64" \
+            -o $DOCKER_CONFIG/cli-plugins/docker-compose
+          chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+
+          # Verify installation
+          docker compose version
+
+      - name: Verify Docker Compose installation
+        run: |
+          echo "=== Docker Compose Version Information ==="
+          if command -v docker-compose &> /dev/null; then
+            echo "Standalone docker-compose found:"
+            docker-compose --version
+          fi
+          if docker compose version &> /dev/null; then
+            echo "Docker compose plugin found:"
+            docker compose version
+            docker compose version --short
+          fi
+          echo "========================================"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          ./gradlew :metadata-ingestion:install
+
+      - name: Test quickstart (expecting failure for v1.x)
+        if: matrix.should_fail
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+
+          # Run quickstart and capture output (don't fail on error)
+          set +e
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml 2>&1 | tee output.log
+          set -e
+
+          # Check if the version error message is present in the output
+          if grep -q "require Docker Compose v2 or later" output.log; then
+            echo "SUCCESS: Error message correctly indicates v2 or later required"
+            echo "Output contained the expected v1.x rejection message"
+            exit 0
+          else
+            echo "ERROR: Expected v1.x rejection message not found in output"
+            echo "This means either:"
+            echo "  1. Docker Compose v1.x was not properly isolated (v2 plugin still present)"
+            echo "  2. The version check is not working correctly"
+            echo ""
+            echo "Full output:"
+            cat output.log
+            exit 1
+          fi
+
+      - name: Test quickstart (expecting success for v2+ and v5)
+        if: "!matrix.should_fail"
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+
+      - name: Run quickstart check
+        if: "!matrix.should_fail"
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          datahub docker check
+
+      - name: Test nuke and restart
+        if: "!matrix.should_fail"
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          echo "Running nuke"
+          datahub docker nuke
+          echo "Running quickstart again"
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
           datahub docker check
