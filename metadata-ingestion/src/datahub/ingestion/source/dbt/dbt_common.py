@@ -179,23 +179,19 @@ _SV_TABLE_METRIC_REF_RE = re.compile(
 
 
 def _add_cll_entry(
-    cll_info: List["DBTColumnLineageInfo"],
-    seen_cll: Set[Tuple[str, str, str]],
+    cll_info: Set["DBTColumnLineageInfo"],
     upstream_dbt_name: str,
     upstream_col: str,
     downstream_col: str,
 ) -> None:
-    """Add a CLL entry if not already seen (deduplication helper)."""
-    key = (upstream_dbt_name, upstream_col, downstream_col)
-    if key not in seen_cll:
-        seen_cll.add(key)
-        cll_info.append(
-            DBTColumnLineageInfo(
-                upstream_dbt_name=upstream_dbt_name,
-                upstream_col=upstream_col,
-                downstream_col=downstream_col,
-            )
+    """Add a CLL entry to the set (automatically deduplicated)."""
+    cll_info.add(
+        DBTColumnLineageInfo(
+            upstream_dbt_name=upstream_dbt_name,
+            upstream_col=upstream_col,
+            downstream_col=downstream_col,
         )
+    )
 
 
 @dataclass
@@ -600,10 +596,14 @@ class DBTColumn:
     datahub_data_type: Optional[SchemaFieldDataType] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class DBTColumnLineageInfo:
-    upstream_dbt_name: str
+    """Column-level lineage info. Frozen to allow use in sets for deduplication.
 
+    CLL from semantic views is identified by the dataset's subtype (Semantic View).
+    """
+
+    upstream_dbt_name: str
     upstream_col: str
     downstream_col: str
 
@@ -637,8 +637,7 @@ def _build_table_mapping(
 
 def _parse_derived_metrics(
     compiled_sql: str,
-    cll_info: List["DBTColumnLineageInfo"],
-    seen_cll: Set[Tuple[str, str, str]],
+    cll_info: Set["DBTColumnLineageInfo"],
 ) -> None:
     """Parse derived metrics computed from other metrics."""
     metric_to_sources: Dict[str, List[Tuple[str, str]]] = {}
@@ -661,7 +660,7 @@ def _parse_derived_metrics(
                     metric_name_lower
                 ]:
                     _add_cll_entry(
-                        cll_info, seen_cll, upstream_dbt_name, source_col, output_metric
+                        cll_info, upstream_dbt_name, source_col, output_metric
                     )
 
 
@@ -679,8 +678,7 @@ def parse_semantic_view_cll(
     if not compiled_sql:
         return []
 
-    cll_info: List[DBTColumnLineageInfo] = []
-    seen_cll: Set[Tuple[str, str, str]] = set()
+    cll_info: Set[DBTColumnLineageInfo] = set()
 
     table_to_dbt_name = _build_table_mapping(
         compiled_sql, upstream_nodes, all_nodes_map
@@ -697,7 +695,6 @@ def parse_semantic_view_cll(
         if table_ref in table_to_dbt_name:
             _add_cll_entry(
                 cll_info,
-                seen_cll,
                 table_to_dbt_name[table_ref],
                 source_column,
                 output_column,
@@ -712,15 +709,14 @@ def parse_semantic_view_cll(
         if table_ref in table_to_dbt_name:
             _add_cll_entry(
                 cll_info,
-                seen_cll,
                 table_to_dbt_name[table_ref],
                 source_column,
                 output_column,
             )
 
-    _parse_derived_metrics(compiled_sql, cll_info, seen_cll)
+    _parse_derived_metrics(compiled_sql, cll_info)
 
-    return cll_info
+    return list(cll_info)
 
 
 @dataclass
@@ -1526,9 +1522,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if node.materialization == "semantic_view":
                 # CLL parsing uses custom regex (only Snowflake semantic views supported)
                 if node.dbt_adapter != "snowflake":
-                    logger.debug(
-                        f"Skipping CLL parsing for semantic view {node.dbt_name}: "
-                        f"adapter '{node.dbt_adapter}' not supported (only snowflake)"
+                    self.report.warning(
+                        title="Semantic View CLL Unsupported Adapter",
+                        message=f"Column-level lineage for semantic views is only supported for Snowflake. "
+                        f"Adapter '{node.dbt_adapter}' is not supported.",
+                        context=node.dbt_name,
                     )
                 elif node.compiled_code:
                     try:

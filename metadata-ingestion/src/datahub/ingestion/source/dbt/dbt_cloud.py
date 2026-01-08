@@ -675,16 +675,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     title="Schema information may be incomplete",
                     message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
                     context=key,
-                    log=False,
                 )
 
             raw_code = node["rawCode"] or node["rawSql"]
             compiled_code = node["compiledCode"] or node["compiledSql"]
 
             if not compiled_code:
-                logger.warning(
-                    f"Model {key}: compiled_code is missing (materialization={materialization}). "
-                    "Column-level lineage will not be available for this model."
+                self.report.warning(
+                    title="Missing compiled_code",
+                    message=f"compiled_code is missing (materialization={materialization}). "
+                    "Column-level lineage will not be available for this model.",
+                    context=key,
                 )
             return raw_code, compiled_code
 
@@ -745,7 +746,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name = node["alias"]
 
         comment = node.get("comment", "")
-        description = node["description"] or node.get("sourceDescription", "")
+        # description is table-level (more specific), sourceDescription is schema-level
+        table_level_desc = node.get("description")
+        schema_level_desc = node.get("sourceDescription")
+        description = table_level_desc or schema_level_desc or ""
 
         if resource_type == "model":
             materialization = node["materializedType"]
@@ -767,6 +771,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         catalog_type = node.get("type")
         meta = node["meta"]
+        # Note: node["owner"] contains the database user, not the meta property.
+        # We use meta.owner to match dbt_core.py behavior.
         owner = meta.get("owner")
         tags = [self.config.tag_prefix + tag for tag in node["tags"]]
 

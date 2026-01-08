@@ -363,7 +363,7 @@ DataHub can ingest dbt models that have been materialized as `semantic_view` obj
 
 #### What are Materialized Semantic Views?
 
-A materialized semantic view is a dbt model (a `.sql` file) that uses the `materialized='semantic_view'` configuration. This creates a `SEMANTIC VIEW` object in Snowflake, containing a rich set of metadata including dimensions and metrics.
+A materialized [semantic view](https://docs.snowflake.com/en/user-guide/views-semantic/overview) is a dbt model (a `.sql` file) that uses the `materialized='semantic_view'` configuration via the [dbt_semantic_view package](https://github.com/Snowflake-Labs/dbt_semantic_view). This creates a `SEMANTIC VIEW` object in Snowflake, containing a rich set of metadata including dimensions and metrics.
 
 When you define a dbt model as a semantic view:
 
@@ -406,7 +406,17 @@ For dbt models materialized as semantic views in Snowflake, DataHub can extract 
 1. Using Snowflake as the `target_platform`.
 2. Having the `compiled_code` for the model available in the dbt manifest or dbt Cloud API.
 
+If these conditions are not met, warnings will appear in the ingestion report:
+
+| Condition               | Warning                                 |
+| ----------------------- | --------------------------------------- |
+| Non-Snowflake adapter   | `Semantic View CLL Unsupported Adapter` |
+| Missing `compiled_code` | `Semantic View Missing compiled_code`   |
+| Empty CLL results       | `Semantic View CLL Empty`               |
+| Parsing failure         | `Semantic View CLL Parsing Failed`      |
+
 :::note Limitations
 
-- **Column-level lineage**: This feature is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
-  :::
+Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
+
+:::
