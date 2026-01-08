@@ -221,6 +221,40 @@ docker run --rm \
   customer-org/datahub-executor:with-plugins
 ```
 
+## Runtime package installation (optional)
+
+You can optionally install additional Python packages at container startup using environment variables. This is useful for adding packages without rebuilding the image.
+
+| Variable                                 | Description                                                                          | Default |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ | ------- |
+| `DATAHUB_EXECUTOR_EXTRA_PACKAGES`        | Space-separated list of packages to install at startup                               | (empty) |
+| `DATAHUB_EXECUTOR_EXTRA_PACKAGES_STRICT` | If `true`, fail startup on install error; if `false`/unset, log warning and continue | `false` |
+
+**Examples:**
+
+```bash
+# Install packages, warn on failure (default behavior)
+docker run --rm \
+  -e DATAHUB_GMS_HOST=gms.yourdomain \
+  -e DATAHUB_GMS_PORT=8080 \
+  -e DATAHUB_EXECUTOR_EXTRA_PACKAGES="observe-models==1.0.0" \
+  datahub-executor:latest
+
+# Install packages, fail on error (strict mode)
+docker run --rm \
+  -e DATAHUB_GMS_HOST=gms.yourdomain \
+  -e DATAHUB_GMS_PORT=8080 \
+  -e DATAHUB_EXECUTOR_EXTRA_PACKAGES="observe-models==1.0.0 custom-plugin>=2.0" \
+  -e DATAHUB_EXECUTOR_EXTRA_PACKAGES_STRICT=true \
+  datahub-executor:latest
+```
+
+**Notes:**
+
+- Runtime installs use whatever `UV_EXTRA_INDEX_URL` / `PIP_EXTRA_INDEX_URL` is baked into the image at build time (including Cloudsmith if configured).
+- This feature is **not available** on `locked` variants (`locked-wolfi`, `locked-alpine`) since they block network access to PyPI for security.
+- For production deployments, prefer building custom images with bundled venvs over runtime installation for faster startup and reproducibility.
+
 ## Notes and tips
 
 - Plugins list is a comma‑separated list matching `acryl-datahub` extras (e.g., `snowflake`, `bigquery`, `redshift`, `s3`, `kafka`, `oracle`, `tableau`, etc.).

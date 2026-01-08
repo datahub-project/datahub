@@ -2,6 +2,21 @@
 
 mkdir -p /tmp/datahub/logs
 
+# Optional: Install extra packages at boot time
+if [ -n "$DATAHUB_EXECUTOR_EXTRA_PACKAGES" ]; then
+    echo "Installing extra packages: $DATAHUB_EXECUTOR_EXTRA_PACKAGES"
+    if uv pip install $DATAHUB_EXECUTOR_EXTRA_PACKAGES; then
+        echo "Successfully installed extra packages"
+    else
+        if [ "$DATAHUB_EXECUTOR_EXTRA_PACKAGES_STRICT" = "true" ]; then
+            echo "ERROR: Failed to install extra packages (strict mode enabled)"
+            exit 1
+        else
+            echo "WARNING: Failed to install extra packages, continuing anyway"
+        fi
+    fi
+fi
+
 if [ "$DATAHUB_EXECUTOR_MODE" = "coordinator" ] || [ -z "$DATAHUB_EXECUTOR_MODE" ]; then
     echo "Starting datahub executor coordinator"
     exec uvicorn datahub_executor.coordinator.server:app --limit-concurrency ${UVICORN_CONCURRENCY:-10} --host 0.0.0.0 --port 9004 ${EXTRA_UVICORN_ARGS:-}
