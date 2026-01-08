@@ -1,7 +1,9 @@
 from typing import Any, Dict, List
 
 from datahub.ingestion.source.dbt.dbt_common import parse_semantic_view_cll
-from tests.unit.dbt.conftest import create_mock_dbt_node
+from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
+    create_mock_dbt_node,
+)
 
 
 def test_parse_semantic_view_cll_with_sql_comments_after_columns() -> None:

@@ -31,7 +31,9 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.testing.doctest import assert_doctest
-from tests.unit.dbt.conftest import create_mock_dbt_node
+from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
+    create_mock_dbt_node,
+)
 
 
 def create_owners_list_from_urn_list(
