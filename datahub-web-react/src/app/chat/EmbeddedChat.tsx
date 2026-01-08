@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { ChatLocationType } from '@app/analytics';
 import { AskDataHubIcon } from '@app/chat/components/AskDataHubIcon';
 import { MessageList } from '@app/chat/components/MessageList';
+import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
 import { MessageContext } from '@app/chat/hooks/useChatStream';
@@ -57,6 +58,7 @@ interface EmbeddedChatProps {
     contentPlaceholder?: string;
     getMessageContext?: () => MessageContext;
     chatLocation: ChatLocationType;
+    suggestedQuestions?: string[];
 }
 
 /**
@@ -74,6 +76,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
     contentPlaceholder,
     getMessageContext,
     chatLocation,
+    suggestedQuestions,
 }) => {
     const userUrn = useGetAuthenticatedUserUrn();
     const [conversationUrn, setConversationUrn] = useState<string | null>(null);
@@ -92,14 +95,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
             chatLocation,
         });
 
-    const handleSend = async () => {
-        if (!inputValue.trim()) {
-            return;
-        }
-
-        const messageText = inputValue;
-        setInputValue('');
-
+    const sendMessage = async (messageText: string) => {
         // Get message context if callback provided
         const messageContext = getMessageContext ? getMessageContext() : undefined;
 
@@ -138,6 +134,20 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
         }
     };
 
+    const handleSend = async () => {
+        if (!inputValue.trim()) {
+            return;
+        }
+
+        const messageText = inputValue;
+        setInputValue('');
+        await sendMessage(messageText);
+    };
+
+    const handleQuestionSelect = async (question: string) => {
+        await sendMessage(question);
+    };
+
     return (
         <Container>
             <MessagesContainer>
@@ -150,6 +160,12 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
                                 </div>
                                 <div>{contentPlaceholder}</div>
                             </EmptyState>
+                        )}
+                        {suggestedQuestions && suggestedQuestions.length > 0 && (
+                            <SuggestedQuestions
+                                onQuestionSelect={handleQuestionSelect}
+                                questions={suggestedQuestions}
+                            />
                         )}
                     </>
                 ) : (
