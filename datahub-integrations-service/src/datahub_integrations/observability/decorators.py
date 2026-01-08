@@ -8,7 +8,7 @@ import functools
 import inspect
 import time
 from collections.abc import Callable
-from typing import Any, ParamSpec, TypeVar, cast
+from typing import Any, Concatenate, ParamSpec, Protocol, TypeVar, cast
 
 from loguru import logger
 from opentelemetry import metrics, trace
@@ -17,6 +17,35 @@ from opentelemetry.trace import Status, StatusCode, Tracer
 
 P = ParamSpec("P")
 T = TypeVar("T")
+
+
+class HasProviderAndModelInfo(Protocol):
+    """Protocol for classes that provide LLM provider and model information.
+
+    This protocol is used to enforce at type-check time (mypy) that the
+    @otel_llm_call decorator is only applied to methods of classes that
+    have the required attributes for metrics tracking.
+
+    LLMWrapper explicitly implements this protocol, ensuring all LLM wrappers
+    can have their methods decorated with @otel_llm_call.
+
+    Both properties are read-only to prevent accidental modification after
+    initialization.
+    """
+
+    @property
+    def provider_name(self) -> str:
+        """Provider name for metrics (e.g., 'bedrock', 'openai', 'gemini')."""
+        ...
+
+    @property
+    def model_name(self) -> str:
+        """Model identifier for metrics."""
+        ...
+
+
+# TypeVar bound to the protocol for use in the decorator
+SelfT = TypeVar("SelfT", bound=HasProviderAndModelInfo)
 
 
 # Import here to avoid circular dependency
@@ -389,19 +418,25 @@ def otel_instrument(
 
 
 def otel_llm_call(
-    ai_module: str = "chat",
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    ai_module_param: str = "ai_module",
+) -> Callable[
+    [Callable[Concatenate[SelfT, P], T]],
+    Callable[Concatenate[SelfT, P], T],
+]:
     """Decorator to instrument LLM API calls with OpenTelemetry latency tracking.
 
     This decorator automatically records LLM call latency metrics by extracting
     provider and model information from the LLMWrapper instance (self).
 
-    The decorator expects to be used on methods of classes that have:
-    - self.provider_name (str): Provider name (e.g., "anthropic", "openai", "bedrock")
-    - self.model_name (str): Model identifier
+    The decorator is typed to only accept methods of classes implementing
+    LLMWrapperProtocol (i.e., having provider_name and model_name properties).
+    Mypy will report an error if you try to apply this decorator to a method
+    of a class that doesn't satisfy the protocol.
 
     Args:
-        ai_module: AI module name (default: "chat"). Use AIModule enum values.
+        ai_module_param: Name of the parameter that contains the AIModule value.
+            This is validated at decoration time (import time) - if the parameter
+            doesn't exist, a TypeError is raised immediately.
 
     Returns:
         Decorator function.
@@ -411,38 +446,53 @@ def otel_llm_call(
         class BedrockLLMWrapper(LLMWrapper):
             provider_name = "bedrock"
 
-            @otel_llm_call(ai_module="chat")
-            def converse(self, system, messages, ...):
-                # LLM call here
+            @otel_llm_call(ai_module_param="ai_module")
+            def converse(self, *, system, messages, ai_module: AIModule, ...):
+                # ai_module is automatically extracted for metrics
                 ...
         ```
 
     Note: This uses lazy imports to avoid circular dependencies.
     """
 
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(
+        func: Callable[Concatenate[SelfT, P], T],
+    ) -> Callable[Concatenate[SelfT, P], T]:
+        # Validate at decoration time that the parameter exists
+        sig = inspect.signature(func)
+        if ai_module_param not in sig.parameters:
+            raise TypeError(
+                f"@otel_llm_call: function '{func.__name__}' has no parameter "
+                f"'{ai_module_param}'. Available parameters: {list(sig.parameters.keys())}"
+            )
+
         @functools.wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            # Extract self (first argument should be the instance)
-            if not args:
-                # No self, just call the function
-                return func(*args, **kwargs)
-
-            self_obj = args[0]
-
-            # Get provider and model from instance
-            provider = getattr(self_obj, "provider_name", "unknown")
-            model = getattr(self_obj, "model_name", "unknown")
+        def wrapper(self_obj: SelfT, *args: P.args, **kwargs: P.kwargs) -> T:
+            # Get provider and model from instance (type-safe via protocol)
+            provider = self_obj.provider_name
+            model = self_obj.model_name
 
             # Get tracker (lazy import to avoid circular dependency)
             tracker = _lazy_import_cost_tracker()
             AIModule = _lazy_import_ai_module()
 
-            # Resolve ai_module string to enum
-            try:
-                ai_module_enum = AIModule(ai_module)
-            except (ValueError, KeyError):
-                logger.warning(f"Unknown AI module: {ai_module}, using CHAT")
+            # Extract ai_module from kwargs using the configured parameter name
+            ai_module_value = kwargs.get(ai_module_param)
+            if ai_module_value is not None:
+                # Already an AIModule enum instance
+                if hasattr(ai_module_value, "value"):
+                    ai_module_enum = ai_module_value
+                else:
+                    # String value, convert to enum
+                    try:
+                        ai_module_enum = AIModule(ai_module_value)
+                    except (ValueError, KeyError):
+                        logger.warning(
+                            f"Unknown AI module: {ai_module_value}, using CHAT"
+                        )
+                        ai_module_enum = AIModule.CHAT
+            else:
+                # Default to CHAT if not specified
                 ai_module_enum = AIModule.CHAT
 
             # Time the call
@@ -450,7 +500,7 @@ def otel_llm_call(
             success = False
 
             try:
-                result = func(*args, **kwargs)
+                result = func(self_obj, *args, **kwargs)
                 success = True
                 return result
             except Exception:
@@ -466,6 +516,6 @@ def otel_llm_call(
                     success=success,
                 )
 
-        return cast(Callable[P, T], wrapper)
+        return cast(Callable[Concatenate[SelfT, P], T], wrapper)
 
     return decorator

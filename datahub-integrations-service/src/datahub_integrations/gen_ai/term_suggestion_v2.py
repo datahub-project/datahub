@@ -20,6 +20,7 @@ from datahub_integrations.gen_ai.description_context import (
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.gen_ai.term_suggestion_v2_context import GlossaryInfo
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -229,6 +230,7 @@ async def get_term_recommendations_for_column_splits(
                 "temperature": TEMPERATURE,
                 "maxTokens": 4096,
             },
+            ai_module=AIModule.TERMS_SUGGESTION,
         )
         return response["output"]["message"]["content"][0]["text"]
 

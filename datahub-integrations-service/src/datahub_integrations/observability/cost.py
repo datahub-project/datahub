@@ -17,7 +17,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from loguru import logger
 from opentelemetry import metrics
@@ -572,6 +572,74 @@ class CostCalculator:
         )
 
 
+class CostTrackerProtocol(Protocol):
+    """Protocol defining the cost tracker interface for dependency injection.
+
+    This protocol enables custom tracker implementations (e.g., for local
+    accumulation in UI tools) while maintaining type safety.
+    """
+
+    def record_llm_call(
+        self,
+        provider: str,
+        model: str,
+        usage: TokenUsage,
+        ai_module: AIModule,
+        success: bool = True,
+    ) -> CostEstimate | None:
+        """Record token usage and cost for an LLM call."""
+        ...
+
+    def record_user_request(
+        self,
+        ai_module: AIModule,
+        success: bool = True,
+        platform: "BotPlatform | None" = None,
+    ) -> None:
+        """Record a user request (Tier 1)."""
+        ...
+
+    def record_tool_call(
+        self,
+        ai_module: AIModule,
+        tool: str,
+        success: bool = True,
+    ) -> None:
+        """Record a tool invocation by the LLM (Tier 3)."""
+        ...
+
+    def record_user_request_latency(
+        self,
+        duration_seconds: float,
+        ai_module: AIModule,
+        success: bool = True,
+        platform: "BotPlatform | None" = None,
+    ) -> None:
+        """Record latency for a user request (Tier 1)."""
+        ...
+
+    def record_llm_call_latency(
+        self,
+        duration_seconds: float,
+        provider: str,
+        model: str,
+        ai_module: AIModule,
+        success: bool = True,
+    ) -> None:
+        """Record latency for an LLM API call (Tier 2)."""
+        ...
+
+    def record_tool_call_latency(
+        self,
+        duration_seconds: float,
+        ai_module: AIModule,
+        tool: str,
+        success: bool = True,
+    ) -> None:
+        """Record latency for a tool invocation (Tier 3)."""
+        ...
+
+
 class CostTracker:
     """Tracks and records LLM costs as OpenTelemetry metrics."""
 
@@ -833,8 +901,13 @@ class CostTracker:
 _global_tracker: CostTracker | None = None
 
 
-def get_cost_tracker() -> CostTracker:
-    """Get the global CostTracker instance."""
+def get_cost_tracker() -> CostTrackerProtocol:
+    """Get the global CostTracker instance.
+
+    Returns the global tracker which implements CostTrackerProtocol.
+    Custom implementations can be injected by setting _global_tracker
+    before this function is first called.
+    """
     global _global_tracker
     if _global_tracker is None:
         _global_tracker = CostTracker()

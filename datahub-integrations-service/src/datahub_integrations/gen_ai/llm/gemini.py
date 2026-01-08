@@ -16,6 +16,8 @@ from datahub_integrations.gen_ai.llm.exceptions import (
     LlmValidationException,
 )
 from datahub_integrations.gen_ai.llm.types import ConverseResponse
+from datahub_integrations.observability.decorators import otel_llm_call
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -39,6 +41,8 @@ _GEMINI_THINKING_CONFIG: Dict[str, Dict[str, Any]] = {
 
 class GeminiLLMWrapper(LLMWrapper):
     """Google Gemini/Vertex AI LLM wrapper using langchain."""
+
+    provider_name = "gemini"
 
     def _get_thinking_config(self) -> Dict[str, Any]:
         name = self.model_name.lower().strip()
@@ -171,10 +175,13 @@ class GeminiLLMWrapper(LLMWrapper):
         except ImportError:
             return Exception
 
+    @otel_llm_call(ai_module_param="ai_module")
     def converse(
         self,
+        *,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
+        ai_module: AIModule,
         toolConfig: Optional[Dict[str, Any]] = None,
         inferenceConfig: Optional[Dict[str, Any]] = None,
     ) -> ConverseResponse:
@@ -242,6 +249,9 @@ class GeminiLLMWrapper(LLMWrapper):
                     "total_tokens": total_tokens,
                 },
             )
+
+            # Track cost for observability (shared helper from base class)
+            self._record_langchain_usage(response, ai_module)
 
         except Exception as e:
             # Translate Gemini/Vertex AI-specific exceptions to standardized LLM exceptions

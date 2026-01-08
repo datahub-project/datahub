@@ -16,6 +16,7 @@ from datahub_integrations.chat.context_reducer import (
 )
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.mcp._token_estimator import TokenCountEstimator
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import MessageUnionTypeDef
@@ -214,6 +215,7 @@ class ConversationSummarizer(ChatContextReducer):
             system=[{"text": _CREATE_SUMMARY_SYSTEM_PROMPT}],
             messages=bedrock_messages,
             inferenceConfig={"temperature": 0.3, "maxTokens": 1024},
+            ai_module=AIModule.CHAT,
         )
         return response["output"]["message"]["content"][0]["text"]
 
@@ -234,5 +236,6 @@ class ConversationSummarizer(ChatContextReducer):
             system=[{"text": _UPDATE_SUMMARY_SYSTEM_PROMPT}],
             messages=bedrock_messages,
             inferenceConfig={"temperature": 0.3, "maxTokens": 2048},
+            ai_module=AIModule.CHAT,
         )
         return response["output"]["message"]["content"][0]["text"]

@@ -47,6 +47,7 @@ from datahub_integrations.chat.sql_generator.models import (
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.observability.metrics_constants import AIModule
 
 # Suppress noisy sqlglot logs
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
@@ -561,6 +562,7 @@ class SemanticModelBuilder:
                 ],
                 toolConfig={"tools": [_pk_inference_tool.to_bedrock_spec()]},
                 inferenceConfig={"temperature": 0.3, "maxTokens": 1024},
+                ai_module=AIModule.CHAT,
             )
 
             result = _extract_tool_response(response)  # type: ignore[arg-type]
@@ -645,6 +647,7 @@ class SemanticModelBuilder:
                 ],
                 toolConfig={"tools": [_relationship_inference_tool.to_bedrock_spec()]},
                 inferenceConfig={"temperature": 0.3, "maxTokens": 2048},
+                ai_module=AIModule.CHAT,
             )
 
             result = _extract_tool_response(response)  # type: ignore[arg-type]

@@ -31,10 +31,8 @@ from datahub_integrations.gen_ai.linkify import auto_fix_entity_mention_links
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.observability import (
-    detect_provider_and_normalize_model,
     get_cost_tracker,
 )
-from datahub_integrations.observability.cost import TokenUsage as ObsTokenUsage
 from datahub_integrations.observability.metrics_constants import AIModule
 
 # Initialize MLflow for @mlflow.trace decorators in this module
@@ -188,27 +186,10 @@ def call_llm_with_prompt_messages(
             "temperature": temperature,
             "maxTokens": max_tokens,
         },
+        ai_module=AIModule.DESCRIPTION_GENERATION,
     )
 
-    # Track cost
-    usage = response.get("usage", {})
-    if usage:
-        tracker = get_cost_tracker()
-        provider, model_name = detect_provider_and_normalize_model(model)
-
-        tracker.record_llm_call(
-            provider=provider,
-            model=model_name,
-            usage=ObsTokenUsage(
-                prompt_tokens=usage.get("inputTokens", 0),
-                completion_tokens=usage.get("outputTokens", 0),
-                total_tokens=usage.get("inputTokens", 0) + usage.get("outputTokens", 0),
-                cache_read_tokens=usage.get("cacheReadInputTokens", 0),
-                cache_write_tokens=usage.get("cacheWriteInputTokens", 0),
-            ),
-            ai_module=AIModule.DESCRIPTION_GENERATION,
-            success=True,
-        )
+    # Note: Cost tracking is now handled inside llm_client.converse()
 
     return response["output"]["message"]["content"][0]["text"]
 

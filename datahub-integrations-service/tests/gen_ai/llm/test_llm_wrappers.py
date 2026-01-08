@@ -33,6 +33,7 @@ from datahub_integrations.gen_ai.llm.exceptions import (
 )
 from datahub_integrations.gen_ai.llm.openai import OpenAILLMWrapper
 from datahub_integrations.gen_ai.llm.utils import parse_model_id
+from datahub_integrations.observability.metrics_constants import AIModule
 
 
 class TestBedrockLLMWrapper:
@@ -94,6 +95,7 @@ class TestBedrockLLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.5, "maxTokens": 4096},
+            ai_module=AIModule.CHAT,
         )
 
         # Verify converse_stream was called with correct parameters
@@ -179,6 +181,7 @@ class TestBedrockLLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Search for datasets"}]}],
             toolConfig=tool_config,
+            ai_module=AIModule.CHAT,
         )
 
         # Verify toolConfig was passed through
@@ -223,6 +226,7 @@ class TestBedrockLLMWrapper:
             wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "x" * 100000}]}],
+                ai_module=AIModule.CHAT,
             )
 
         assert "Input is too long" in str(exc_info.value)
@@ -251,6 +255,7 @@ class TestBedrockLLMWrapper:
             wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                ai_module=AIModule.CHAT,
             )
 
         assert "Invalid model ID" in str(exc_info.value)
@@ -279,6 +284,7 @@ class TestBedrockLLMWrapper:
             wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                ai_module=AIModule.CHAT,
             )
 
         assert "Rate limit exceeded" in str(exc_info.value)
@@ -307,6 +313,7 @@ class TestBedrockLLMWrapper:
             wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                ai_module=AIModule.CHAT,
             )
 
         assert "Access denied" in str(exc_info.value)
@@ -348,6 +355,7 @@ class TestBedrockLLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"maxTokens": 200},
+            ai_module=AIModule.CHAT,
         )
 
         # Verify it's returned as a valid response
@@ -420,6 +428,7 @@ class TestOpenAILLMWrapper:
             system=[{"text": "You are a helpful assistant"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.7, "maxTokens": 2048},
+            ai_module=AIModule.CHAT,
         )
 
         # Verify response was transformed to Bedrock format
@@ -464,6 +473,7 @@ class TestOpenAILLMWrapper:
                 {"text": "Always be concise"},
             ],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+            ai_module=AIModule.CHAT,
         )
 
         # Verify system messages were converted
@@ -533,6 +543,7 @@ class TestOpenAILLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Find datasets"}]}],
             toolConfig=tool_config,
+            ai_module=AIModule.CHAT,
         )
 
         # Verify tools were bound
@@ -575,6 +586,7 @@ class TestOpenAILLMWrapper:
                 wrapper.converse(
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                    ai_module=AIModule.CHAT,
                 )
 
             assert "Invalid API key" in str(exc_info.value)
@@ -598,6 +610,7 @@ class TestOpenAILLMWrapper:
                 wrapper.converse(
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                    ai_module=AIModule.CHAT,
                 )
 
             assert "Rate limit exceeded" in str(exc_info.value)
@@ -623,6 +636,7 @@ class TestOpenAILLMWrapper:
                 wrapper.converse(
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "x" * 100000}]}],
+                    ai_module=AIModule.CHAT,
                 )
 
             assert "maximum context length" in str(exc_info.value)
@@ -654,6 +668,7 @@ class TestOpenAILLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.9, "maxTokens": 1024},
+            ai_module=AIModule.CHAT,
         )
 
         # Verify stream was called with the config as kwargs (not client mutation)
@@ -710,6 +725,7 @@ class TestOpenAILLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             toolConfig=tool_config,
+            ai_module=AIModule.CHAT,
         )
 
         # Verify only actual tools were bound (cachePoint filtered out)
@@ -808,6 +824,7 @@ class TestGeminiLLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.7, "maxTokens": 2048},
+            ai_module=AIModule.CHAT,
         )
 
         # Verify stream was called with correct parameters
@@ -853,6 +870,7 @@ class TestGeminiLLMWrapper:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.9, "maxTokens": 1024},
+            ai_module=AIModule.CHAT,
         )
 
         # Verify stream was called with the config as kwargs (not client mutation)
@@ -1220,6 +1238,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             system=[{"text": "You are a helpful assistant"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             inferenceConfig={"temperature": 0.7, "maxTokens": 2048},
+            ai_module=AIModule.CHAT,
         )
 
         # Verify response was transformed to Bedrock format
@@ -1617,6 +1636,7 @@ class TestLLMFactory:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Find datasets"}]}],
             toolConfig=tool_config,
+            ai_module=AIModule.CHAT,
         )
 
         # Verify tools were bound
@@ -1695,6 +1715,7 @@ class TestLLMFactory:
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello"}]}],
             toolConfig=tool_config,
+            ai_module=AIModule.CHAT,
         )
 
         # Verify only actual tools were bound (cachePoint filtered out)
@@ -1734,6 +1755,7 @@ class TestLLMFactory:
                 wrapper.converse(
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                    ai_module=AIModule.CHAT,
                 )
 
             assert "Invalid API key" in str(exc_info.value)
@@ -1768,6 +1790,7 @@ class TestLLMFactory:
                 wrapper.converse(
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                    ai_module=AIModule.CHAT,
                 )
 
             assert "Rate limit exceeded" in str(exc_info.value)
@@ -1804,6 +1827,7 @@ class TestLLMFactory:
                 wrapper.converse(
                     system=[{"text": "You are helpful"}],
                     messages=[{"role": "user", "content": [{"text": "x" * 100000}]}],
+                    ai_module=AIModule.CHAT,
                 )
 
             assert "maximum context length" in str(exc_info.value)
@@ -1908,6 +1932,7 @@ class TestLLMFactory:
         wrapper.converse(
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello 1"}]}],
+            ai_module=AIModule.CHAT,
         )
 
         # Verify client was reinitialized
@@ -1918,6 +1943,7 @@ class TestLLMFactory:
         wrapper.converse(
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello 2"}]}],
+            ai_module=AIModule.CHAT,
         )
 
         # Verify client was reinitialized again
@@ -1970,6 +1996,7 @@ class TestLLMFactory:
         wrapper.converse(
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello 1"}]}],
+            ai_module=AIModule.CHAT,
         )
 
         # Verify client was NOT reinitialized
@@ -1980,6 +2007,7 @@ class TestLLMFactory:
         wrapper.converse(
             system=[{"text": "You are helpful"}],
             messages=[{"role": "user", "content": [{"text": "Hello 2"}]}],
+            ai_module=AIModule.CHAT,
         )
 
         # Verify client was still NOT reinitialized

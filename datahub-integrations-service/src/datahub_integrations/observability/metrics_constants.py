@@ -14,7 +14,7 @@ class AIModule(str, Enum):
     Use this enum for the ai_module label in metrics to ensure consistency.
     """
 
-    # Conversational AI interface
+    # Conversational AI interface (includes planner, SQL generation, reranking, summarization)
     CHAT = "chat"
 
     # Auto-generating entity and column descriptions

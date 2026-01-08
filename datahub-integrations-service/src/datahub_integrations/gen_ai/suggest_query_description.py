@@ -8,6 +8,7 @@ from datahub_integrations.gen_ai.description_v3 import (
 )
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
+from datahub_integrations.observability.metrics_constants import AIModule
 
 
 @dataclasses.dataclass
@@ -97,6 +98,7 @@ Additional Requirements:
             "temperature": 0.3,
             "maxTokens": 500,
         },
+        ai_module=AIModule.QUERY_DESCRIPTION,
     )
 
     return response["output"]["message"]["content"][0]["text"]

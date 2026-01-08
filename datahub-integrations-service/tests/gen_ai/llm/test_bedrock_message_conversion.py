@@ -14,10 +14,13 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from datahub_integrations.gen_ai.llm.base import LLMWrapper
+from datahub_integrations.observability.metrics_constants import AIModule
 
 
 class MockLLMWrapper(LLMWrapper):
     """Mock LLM wrapper for testing base class methods."""
+
+    provider_name = "mock"
 
     def _initialize_client(self):
         return None
@@ -26,7 +29,9 @@ class MockLLMWrapper(LLMWrapper):
     def exceptions(self):
         return Exception
 
-    def converse(self, system, messages, toolConfig=None, inferenceConfig=None):
+    def converse(
+        self, *, system, messages, ai_module, toolConfig=None, inferenceConfig=None
+    ):
         raise NotImplementedError
 
 
@@ -318,6 +323,7 @@ class TestBedrockCacheTokens:
             response = wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                ai_module=AIModule.CHAT,
             )
 
             # Verify cache read tokens are captured
@@ -367,6 +373,7 @@ class TestBedrockCacheTokens:
             response = wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                ai_module=AIModule.CHAT,
             )
 
             # Verify cache write tokens are captured
@@ -417,6 +424,7 @@ class TestBedrockCacheTokens:
             response = wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                ai_module=AIModule.CHAT,
             )
 
             # Verify both cache tokens are captured
@@ -467,6 +475,7 @@ class TestBedrockCacheTokens:
             response = wrapper.converse(
                 system=[{"text": "You are helpful"}],
                 messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+                ai_module=AIModule.CHAT,
             )
 
             # Verify cache token fields are NOT present when not provided

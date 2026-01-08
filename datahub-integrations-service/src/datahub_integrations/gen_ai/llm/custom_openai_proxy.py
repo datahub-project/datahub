@@ -29,6 +29,8 @@ from datahub_integrations.gen_ai.llm.exceptions import (
     LlmValidationException,
 )
 from datahub_integrations.gen_ai.llm.types import ConverseResponse
+from datahub_integrations.observability.decorators import otel_llm_call
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -39,6 +41,8 @@ if TYPE_CHECKING:
 
 class CustomOpenAIProxyLLMWrapper(LLMWrapper):
     """Custom OpenAI Proxy LLM wrapper using langchain."""
+
+    provider_name = "custom_openai_proxy"
 
     def _initialize_client(self) -> Any:
         """Initialize Custom OpenAI Proxy client via langchain."""
@@ -191,10 +195,13 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
                 f"Got exception in watch loop when trying to re-initialize certs: {e}"
             )
 
+    @otel_llm_call(ai_module_param="ai_module")
     def converse(
         self,
+        *,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
+        ai_module: AIModule,
         toolConfig: Optional[Dict[str, Any]] = None,
         inferenceConfig: Optional[Dict[str, Any]] = None,
     ) -> ConverseResponse:
@@ -264,9 +271,9 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
 
             # Log after API call with structured fields
             logger.info(
-                "OpenAI LLM call completed (streaming)",
+                "Custom OpenAI Proxy LLM call completed (streaming)",
                 extra={
-                    "provider": "openai",
+                    "provider": self.provider_name,
                     "model": self.model_name,
                     "duration_seconds": round(timer.elapsed_seconds(), 3),
                     "input_tokens": input_tokens,
@@ -277,6 +284,9 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
                     "finish_reason": response_metadata.get("finish_reason", "N/A"),
                 },
             )
+
+            # Track cost for observability (shared helper from base class)
+            self._record_langchain_usage(response, ai_module)
 
         except Exception as e:
             # Translate provider-specific exceptions to standardized LLM exceptions

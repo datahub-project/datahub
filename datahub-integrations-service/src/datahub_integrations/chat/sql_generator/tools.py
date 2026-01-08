@@ -25,6 +25,7 @@ from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp.mcp_server import get_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.observability.metrics_constants import AIModule
 
 # Supported SQL platforms
 _SUPPORTED_SQL_PLATFORMS: Set[str] = {
@@ -481,6 +482,7 @@ def _generate_sql_from_context(
             ],
             toolConfig={"tools": [_sql_generation_tool.to_bedrock_spec()]},
             inferenceConfig={"temperature": 0.3, "maxTokens": 4096},
+            ai_module=AIModule.CHAT,
         )
 
         result = _extract_tool_response(response)  # type: ignore[arg-type]

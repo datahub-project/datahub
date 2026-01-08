@@ -17,7 +17,9 @@ from datahub_integrations.gen_ai.llm.exceptions import (
     LlmValidationException,
 )
 from datahub_integrations.gen_ai.llm.types import ConverseResponse
+from datahub_integrations.observability.cost import TokenUsage, get_cost_tracker
 from datahub_integrations.observability.decorators import otel_llm_call
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -42,11 +44,13 @@ class BedrockLLMWrapper(LLMWrapper):
         """Get Bedrock-specific exception classes."""
         return self._client.exceptions
 
-    @otel_llm_call(ai_module="chat")
+    @otel_llm_call(ai_module_param="ai_module")
     def converse(
         self,
+        *,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
+        ai_module: AIModule,
         toolConfig: Optional[Dict[str, Any]] = None,
         inferenceConfig: Optional[Dict[str, Any]] = None,
     ) -> ConverseResponse:
@@ -135,6 +139,26 @@ class BedrockLLMWrapper(LLMWrapper):
                     "total_tokens": total_tokens,
                     "stop_reason": stop_reason,
                 },
+            )
+
+            # Track cost for observability
+            cache_read_tokens = usage.get("cacheReadInputTokens", 0)
+            cache_write_tokens = usage.get("cacheWriteInputTokens", 0)
+            get_cost_tracker().record_llm_call(
+                provider="bedrock",
+                model=self.model_name,
+                usage=TokenUsage(
+                    prompt_tokens=input_tokens,
+                    completion_tokens=output_tokens,
+                    total_tokens=input_tokens
+                    + output_tokens
+                    + cache_read_tokens
+                    + cache_write_tokens,
+                    cache_read_tokens=cache_read_tokens,
+                    cache_write_tokens=cache_write_tokens,
+                ),
+                ai_module=ai_module,
+                success=True,
             )
 
             # Note: stopReason == "max_tokens" is a valid response, not an error

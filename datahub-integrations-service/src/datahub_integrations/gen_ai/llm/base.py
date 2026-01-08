@@ -51,6 +51,12 @@ from loguru import logger
 
 from datahub_integrations.gen_ai.llm.types import ConverseResponse, TokenUsage
 from datahub_integrations.gen_ai.model_config import CustomModelProvider
+from datahub_integrations.observability.cost import (
+    TokenUsage as ObsTokenUsage,
+    get_cost_tracker,
+)
+from datahub_integrations.observability.decorators import HasProviderAndModelInfo
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -86,12 +92,15 @@ def _get_tool_call_error_message(
     return None
 
 
-class LLMWrapper(ABC):
+class LLMWrapper(ABC, HasProviderAndModelInfo):
     """
     Abstract base class for LLM provider wrappers.
 
     Each provider (Bedrock, OpenAI, Gemini) has its own concrete implementation
     that handles provider-specific details while exposing a unified interface.
+
+    Implements HasProviderAndModelInfo protocol to ensure compatibility with
+    the @otel_llm_call decorator for metrics tracking.
     """
 
     def __init__(
@@ -112,12 +121,17 @@ class LLMWrapper(ABC):
             max_attempts: Maximum retry attempts
             custom_model_provider: Custom proxy model configuration
         """
-        self.model_name = model_name
+        self._model_name = model_name
         self.read_timeout = read_timeout
         self.connect_timeout = connect_timeout
         self.max_attempts = max_attempts
         self.custom_model_provider = custom_model_provider
         self._client = self._initialize_client()
+
+    @property
+    def model_name(self) -> str:
+        """Model name (read-only after initialization)."""
+        return self._model_name
 
     @abstractmethod
     def _initialize_client(self) -> Any:
@@ -128,6 +142,10 @@ class LLMWrapper(ABC):
             Provider-specific client instance
         """
         pass
+
+    # provider_name is defined by HasProviderAndModelInfo protocol.
+    # Concrete implementations must define it as a class attribute.
+    # e.g.: provider_name = "bedrock"
 
     @property
     @abstractmethod
@@ -143,8 +161,10 @@ class LLMWrapper(ABC):
     @abstractmethod
     def converse(
         self,
+        *,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
+        ai_module: AIModule,
         toolConfig: Optional[Dict[str, Any]] = None,
         inferenceConfig: Optional[Dict[str, Any]] = None,
     ) -> ConverseResponse:
@@ -156,6 +176,7 @@ class LLMWrapper(ABC):
             messages: Conversation messages
             toolConfig: Tool configuration with tools list
             inferenceConfig: Inference parameters (temperature, maxTokens)
+            ai_module: AI module making the call (for cost tracking/metrics)
 
         Returns:
             ConverseResponse with typed structure
@@ -557,16 +578,20 @@ class LLMWrapper(ABC):
                 stop_reason = "end_turn"
 
         # Extract token usage information
-        # Langchain: response.usage_metadata = {"input_tokens": 100, "output_tokens": 50}
+        # Langchain: response.usage_metadata = {"input_tokens": 100, "output_tokens": 50, "input_token_details": {...}}
         # Bedrock: {"inputTokens": 100, "outputTokens": 50, "cacheReadInputTokens": 0, ...}
-        usage_metadata = getattr(response, "usage_metadata", None)
+        usage_metadata = getattr(response, "usage_metadata", None) or {}
         if usage_metadata:
             token_usage: TokenUsage = {
                 "inputTokens": usage_metadata.get("input_tokens", 0),
                 "outputTokens": usage_metadata.get("output_tokens", 0),
             }
-            # Note: OpenAI doesn't provide cache read/write tokens in the same way
-            # Could add them here if OpenAI starts reporting cache usage
+            # Extract cache tokens from input_token_details (OpenAI, etc.)
+            input_details = usage_metadata.get("input_token_details", {}) or {}
+            if "cache_read" in input_details:
+                token_usage["cacheReadInputTokens"] = input_details["cache_read"]
+            if "cache_creation" in input_details:
+                token_usage["cacheWriteInputTokens"] = input_details["cache_creation"]
         else:
             # Fallback if usage metadata not available (shouldn't happen with OpenAI)
             token_usage = {
@@ -676,3 +701,45 @@ class LLMWrapper(ABC):
 
         # Return the combined message (or empty message if stream was empty)
         return full_message if full_message is not None else AIMessage(content="")
+
+    def _record_langchain_usage(
+        self,
+        response: AIMessage,
+        ai_module: AIModule,
+    ) -> None:
+        """
+        Record token usage from a LangChain response to the cost tracker.
+
+        This is a shared helper for LangChain-based providers (OpenAI, Gemini, etc.)
+        to report token usage to the observability system.
+
+        Args:
+            response: The LangChain AIMessage response containing usage_metadata.
+            ai_module: The AI module making the call (for metrics categorization).
+        """
+        usage_metadata = getattr(response, "usage_metadata", None)
+        if not usage_metadata:
+            return
+
+        input_tokens = usage_metadata.get("input_tokens", 0)
+        output_tokens = usage_metadata.get("output_tokens", 0)
+        total_tokens = usage_metadata.get("total_tokens", input_tokens + output_tokens)
+
+        # Extract cache tokens from input_token_details (OpenAI, etc.)
+        input_details = usage_metadata.get("input_token_details", {}) or {}
+        cache_read_tokens = input_details.get("cache_read", 0)
+        cache_write_tokens = input_details.get("cache_creation", 0)
+
+        get_cost_tracker().record_llm_call(
+            provider=self.provider_name,
+            model=self.model_name,
+            usage=ObsTokenUsage(
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=total_tokens,
+                cache_read_tokens=cache_read_tokens,
+                cache_write_tokens=cache_write_tokens,
+            ),
+            ai_module=ai_module,
+            success=True,
+        )

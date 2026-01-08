@@ -645,6 +645,7 @@ class AgentRunner:
                     "temperature": self.config.temperature,
                     "maxTokens": self.config.max_tokens,
                 },
+                ai_module=self.config.ai_module,
             )
         except LlmInputTooLongException as e:
             raise AgentMaxTokensExceededError(str(e)) from e
@@ -668,38 +669,7 @@ class AgentRunner:
 
         log_tokens_usage(response["usage"])  # type: ignore[arg-type]
 
-        # Track cost for observability
-        usage = response.get("usage", {})
-        if usage:
-            tracker = get_cost_tracker()
-            provider, model_name = detect_provider_and_normalize_model(
-                self.config.model_id
-            )
-
-            # Extract token counts, including cache tokens if present
-            prompt_tokens = cast(int, usage.get("inputTokens", 0))
-            completion_tokens = cast(int, usage.get("outputTokens", 0))
-            total_tokens = cast(
-                int, usage.get("totalTokens", prompt_tokens + completion_tokens)
-            )
-
-            # Bedrock cache token fields (if using prompt caching)
-            cache_read_tokens = cast(int, usage.get("cacheReadInputTokens", 0))
-            cache_write_tokens = cast(int, usage.get("cacheCreationInputTokens", 0))
-
-            tracker.record_llm_call(
-                provider=provider,
-                model=model_name,
-                usage=ObsTokenUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=total_tokens,
-                    cache_read_tokens=cache_read_tokens,
-                    cache_write_tokens=cache_write_tokens,
-                ),
-                ai_module=self.config.ai_module,
-                success=True,
-            )
+        # Note: Cost tracking is now handled inside llm_client.converse()
 
         # Process stop reason
         output = response["output"]

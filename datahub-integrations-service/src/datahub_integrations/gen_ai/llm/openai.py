@@ -17,6 +17,8 @@ from datahub_integrations.gen_ai.llm.exceptions import (
     LlmValidationException,
 )
 from datahub_integrations.gen_ai.llm.types import ConverseResponse
+from datahub_integrations.observability.decorators import otel_llm_call
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
 
 class OpenAILLMWrapper(LLMWrapper):
     """OpenAI LLM wrapper using langchain."""
+
+    provider_name = "openai"
 
     def _initialize_client(self) -> Any:
         """Initialize OpenAI client via langchain."""
@@ -61,10 +65,13 @@ class OpenAILLMWrapper(LLMWrapper):
         except ImportError:
             return Exception
 
+    @otel_llm_call(ai_module_param="ai_module")
     def converse(
         self,
+        *,
         system: List["SystemContentBlockTypeDef"],
         messages: List["MessageUnionTypeDef"],
+        ai_module: AIModule,
         toolConfig: Optional[Dict[str, Any]] = None,
         inferenceConfig: Optional[Dict[str, Any]] = None,
     ) -> ConverseResponse:
@@ -138,6 +145,9 @@ class OpenAILLMWrapper(LLMWrapper):
                     "finish_reason": response_metadata.get("finish_reason", "N/A"),
                 },
             )
+
+            # Track cost for observability (shared helper from base class)
+            self._record_langchain_usage(response, ai_module)
 
         except Exception as e:
             # Translate provider-specific exceptions to standardized LLM exceptions

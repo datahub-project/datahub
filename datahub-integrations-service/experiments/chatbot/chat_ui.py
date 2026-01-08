@@ -38,6 +38,25 @@ logger.add(
 )
 logger.info(f"Chat UI logging initialized - session log: {_LOG_FILE.name}")
 
+# =============================================================================
+# Local Cost Tracker - MUST BE INJECTED BEFORE OTHER IMPORTS
+# =============================================================================
+# We need to inject our tracker before any imports that might call get_cost_tracker().
+# This includes agent imports, MCP server imports, etc.
+
+from datahub_integrations.observability import cost
+
+from local_cost_tracker import LocalCostTracker
+
+# Inject BEFORE any other imports that might trigger get_cost_tracker()
+_local_tracker = LocalCostTracker()
+cost._global_tracker = _local_tracker  # type: ignore[assignment]
+logger.info("LocalCostTracker injected as global cost tracker")
+
+# =============================================================================
+# Now safe to import modules that may use cost tracking
+# =============================================================================
+
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
 import streamlit as st
@@ -132,6 +151,11 @@ with col1:
 with col2:  # Add a clear chat button
     if st.button("Clear Chat", disabled=not _has_history):
         st.session_state.chat_session = _make_empty_agent()
+        # Clear token/cost tracking
+        st.session_state.last_turn_usage = None
+        st.session_state.turn_totals = None
+        st.session_state.session_totals = None
+        _local_tracker.reset_all()
         st.rerun()
 with col3:  # Add a download history button
     st.download_button(
@@ -144,12 +168,40 @@ with col3:  # Add a download history button
 
 st.divider()
 
+# Display token usage if available
+if "last_turn_usage" in st.session_state and st.session_state.last_turn_usage:
+    turn_models = st.session_state.last_turn_usage
+    session_totals = st.session_state.get("session_totals", {})
+
+    # Show per-model breakdown for last turn
+    for model_key, stats in turn_models.items():
+        # "new" = prompt + cache_write (full price input)
+        # "cached" = cache_read (discounted input, 10x cheaper)
+        new_tokens = stats.get("prompt", 0) + stats.get("cache_write", 0)
+        cached_tokens = stats.get("cache_read", 0)
+
+        st.caption(
+            f"📊 **{model_key}:** {new_tokens:,} new + {cached_tokens:,} cached / "
+            f"{stats.get('completion', 0):,} out (${stats.get('cost', 0):.4f})"
+        )
+
+    # Show session totals
+    session_new = session_totals.get("prompt", 0) + session_totals.get("cache_write", 0)
+    session_cached = session_totals.get("cache_read", 0)
+    st.caption(
+        f"💰 **Session total:** {session_new:,} new + {session_cached:,} cached / "
+        f"{session_totals.get('completion', 0):,} out • ${session_totals.get('cost', 0):.4f}"
+    )
+
 # Chat UI.
 st_chat_history(
     _get_agent().history,
     show_thinking=show_thinking,
 )
 if prompt := st.chat_input("Type your message here..."):
+    # Reset turn counters before processing new message
+    _local_tracker.reset_turn()
+
     # Add user message to agent session
     user_message = HumanMessage(text=prompt)
     agent = _get_agent()
@@ -163,13 +215,34 @@ if prompt := st.chat_input("Type your message here..."):
             status.update(label=f"💭 Thinking... ({len(messages)} steps)", state="running")
             # Append the latest message (messages accumulate naturally in the status widget)
             status.write(f"{len(messages)}. {messages[-1].text}")
-    
+
     with (
         st.status("Generating response...", expanded=True) as status,
         _get_agent().set_progress_callback(update_progress),
     ):
         try:
             response = _get_agent().generate_formatted_message()
+
+            # Store per-model usage in session state for persistent display after rerun
+            st.session_state.last_turn_usage = {
+                f"{key.provider}/{key.model}": {
+                    "prompt": stats.prompt_tokens,
+                    "completion": stats.completion_tokens,
+                    "cache_read": stats.cache_read_tokens,
+                    "cache_write": stats.cache_write_tokens,
+                    "cost": stats.total_cost,
+                }
+                for key, stats in _local_tracker.turn_usage.items()
+            }
+            # Session totals - aggregate across all models
+            st.session_state.session_totals = {
+                "prompt": sum(s.prompt_tokens for s in _local_tracker.total_usage.values()),
+                "completion": sum(s.completion_tokens for s in _local_tracker.total_usage.values()),
+                "cache_read": sum(s.cache_read_tokens for s in _local_tracker.total_usage.values()),
+                "cache_write": sum(s.cache_write_tokens for s in _local_tracker.total_usage.values()),
+                "cost": _local_tracker.total_total_cost,
+            }
+
             st.rerun()
 
         except Exception as e:

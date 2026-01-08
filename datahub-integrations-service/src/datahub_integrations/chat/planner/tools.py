@@ -48,6 +48,7 @@ from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp.mcp_server import get_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper, async_background
+from datahub_integrations.observability.metrics_constants import AIModule
 
 if TYPE_CHECKING:
     from datahub_integrations.mcp_integration.external_mcp_manager import (
@@ -518,6 +519,7 @@ def _call_planner_llm(
             "temperature": PLANNER_TEMPERATURE,
             "maxTokens": 4096,
         },
+        ai_module=AIModule.CHAT,
     )
 
     # Extract tool use response

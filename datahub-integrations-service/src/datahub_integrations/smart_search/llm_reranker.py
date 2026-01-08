@@ -12,6 +12,7 @@ from loguru import logger
 
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import BedrockModel
+from datahub_integrations.observability.metrics_constants import AIModule
 from datahub_integrations.smart_search.entity_normalizer import (
     EntityNormalizer,
 )
@@ -156,6 +157,7 @@ Use the rank_entities tool to return the scored results."""
                     "temperature": 0.0,
                     "maxTokens": 8192,
                 },  # Increased for 66 entities
+                ai_module=AIModule.CHAT,
             )
 
             # Extract tool use response

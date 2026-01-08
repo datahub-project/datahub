@@ -15,6 +15,7 @@ from datahub_integrations.observability.cost import (
     CostCalculator,
     CostEstimate,
     CostTracker,
+    CostTrackerProtocol,
     TokenUsage,
     get_cost_tracker,
 )
@@ -22,9 +23,11 @@ from datahub_integrations.observability.cost_utils import (
     detect_provider_and_normalize_model,
 )
 from datahub_integrations.observability.decorators import (
+    HasProviderAndModelInfo,
     otel_counter,
     otel_duration,
     otel_instrument,
+    otel_llm_call,
     otel_span,
 )
 from datahub_integrations.observability.metrics_registry import (
@@ -47,6 +50,8 @@ __all__ = [
     "otel_counter",
     "otel_span",
     "otel_instrument",
+    "otel_llm_call",
+    "HasProviderAndModelInfo",
     # Metric registry
     "BucketProfile",
     "DurationMetricDefinition",
@@ -58,6 +63,7 @@ __all__ = [
     "CostEstimate",
     "CostCalculator",
     "CostTracker",
+    "CostTrackerProtocol",
     "get_cost_tracker",
     "detect_provider_and_normalize_model",
     # Bot metrics

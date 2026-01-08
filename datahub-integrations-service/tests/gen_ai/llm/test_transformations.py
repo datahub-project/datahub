@@ -28,6 +28,8 @@ class MockLLMWrapper(LLMWrapper):
     needing to instantiate a real provider.
     """
 
+    provider_name = "mock"
+
     def _initialize_client(self) -> Any:
         """Dummy client for testing."""
         return None
@@ -39,8 +41,10 @@ class MockLLMWrapper(LLMWrapper):
 
     def converse(
         self,
+        *,
         system: List[Any],
         messages: List[Any],
+        ai_module: Any,
         toolConfig: Any = None,
         inferenceConfig: Any = None,
     ) -> Any:
