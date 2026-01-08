@@ -58,7 +58,7 @@ public class DataHubViewType
                   .collect(Collectors.toSet()),
               ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
+      final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : viewUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
