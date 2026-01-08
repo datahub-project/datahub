@@ -97,6 +97,11 @@ query getDataFlow($urn: String!) {
             ...proposalsFragment
         }
         ...notes
+        runs(start: 0, count: 20) {
+            count
+            start
+            total
+        }
     }
 }
 
