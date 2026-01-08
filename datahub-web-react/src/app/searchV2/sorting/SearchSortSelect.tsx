@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DEFAULT_SORT_OPTION } from '@app/searchV2/context/constants';
 import useGetSortOptions from '@app/searchV2/sorting/useGetSortOptions';
+import { colors } from '@src/alchemy-components';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
@@ -48,7 +49,7 @@ export default function SearchSortSelect({ selectedSortOption, setSelectedSortOp
                     onChange={(option) => setSelectedSortOption(option)}
                     dropdownStyle={{ minWidth: 'max-content' }}
                     placement="bottomRight"
-                    suffixIcon={<CaretDownFilled />}
+                    suffixIcon={<CaretDownFilled color={colors.gray[600]} />}
                 />
             </SelectWrapper>
         </Tooltip>

@@ -5,6 +5,7 @@ import { getColor } from '@components/theme/utils';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { colors } from '@src/alchemy-components';
 
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;
@@ -48,6 +49,7 @@ export const TextButton = styled(Button)<{ marginTop?: number; height?: number }
 
     &:hover {
         background-color: white;
+        color: ${colors.primary[800]};
     }
 `;
 

@@ -30,10 +30,7 @@ export default function OwnershipTypesSelect({ selectedOwnerTypeUrn, ownershipTy
                 return (
                     <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
                         <Typography.Text>{ownershipTypeName}</Typography.Text>
-                        <Typography.Paragraph
-                            style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
-                            type="secondary"
-                        >
+                        <Typography.Paragraph style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}>
                             {ownershipTypeDescription}
                         </Typography.Paragraph>
                     </Select.Option>
