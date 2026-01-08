@@ -417,8 +417,8 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
         ("mssql-odbc", None, True),
         # mssql does not auto-enable use_odbc
         ("mssql", None, False),
-        # Explicit use_odbc: false is respected even with mssql-odbc
-        ("mssql-odbc", False, False),
+        # mssql-odbc overrides explicit use_odbc: false (with warning) since ODBC is required
+        ("mssql-odbc", False, True),
         # Explicit use_odbc: true is preserved with mssql-odbc
         ("mssql-odbc", True, True),
         # No pipeline_config doesn't crash, defaults to False
@@ -452,3 +452,31 @@ def test_use_odbc_auto_detection(
         source = SQLServerSource.create(config_dict, mock_ctx)
 
     assert source.config.use_odbc is expected_use_odbc
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.logger")
+def test_mssql_odbc_with_explicit_false_warns(mock_logger, mock_pipeline_context):
+    """Test that mssql-odbc with explicit use_odbc: false logs a warning and overrides."""
+    mock_ctx = mock_pipeline_context("mssql-odbc")
+
+    config_dict = {
+        "host_port": "localhost:1433",
+        "username": "test",
+        "password": "test",
+        "database": "test_db",
+        "use_odbc": False,  # Explicitly set to False - should be overridden
+        "uri_args": {"driver": "ODBC Driver 17 for SQL Server"},
+        "include_descriptions": False,
+    }
+
+    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+        source = SQLServerSource.create(config_dict, mock_ctx)
+
+    # Should override to True
+    assert source.config.use_odbc is True
+
+    # Should log a warning
+    mock_logger.warning.assert_called_once()
+    warning_msg = mock_logger.warning.call_args[0][0]
+    assert "mssql-odbc" in warning_msg
+    assert "use_odbc" in warning_msg

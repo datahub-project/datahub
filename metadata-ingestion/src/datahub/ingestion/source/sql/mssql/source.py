@@ -334,12 +334,19 @@ class SQLServerSource(SQLAlchemySource):
         # Auto-enable use_odbc when source type is 'mssql-odbc'.
         # The source type name 'mssql-odbc' already implies ODBC should be used,
         # so we infer use_odbc=True to avoid requiring redundant configuration.
-        # This only applies when use_odbc is not explicitly set in the config.
         source_type = getattr(
             getattr(ctx.pipeline_config, "source", None), "type", None
         )
-        if source_type == "mssql-odbc" and "use_odbc" not in config_dict:
-            config_dict = {**config_dict, "use_odbc": True}
+        if source_type == "mssql-odbc":
+            if "use_odbc" not in config_dict:
+                config_dict = {**config_dict, "use_odbc": True}
+            elif config_dict.get("use_odbc") is False:
+                # mssql-odbc source type requires ODBC - warn and override
+                logger.warning(
+                    "Source type 'mssql-odbc' requires ODBC, but use_odbc is explicitly set to False. "
+                    "Overriding to use_odbc=True. To use non-ODBC connection, use source type 'mssql' instead."
+                )
+                config_dict = {**config_dict, "use_odbc": True}
 
         config = SQLServerConfig.model_validate(config_dict)
         return cls(config, ctx)
