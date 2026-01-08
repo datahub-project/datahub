@@ -141,6 +141,68 @@ export const MarkdownContent = styled.div<{ isUser: boolean; $variant?: ChatVari
         padding-left: 24px;
     }
 
+    /* Rounded markdown tables */
+    & table,
+    & .wmde-markdown table {
+        display: inline-block; /* hug intrinsic width when small */
+        overflow-x: auto; /* enable horizontal scroll on the table only */
+        overflow-y: hidden;
+        max-width: 100%; /* do not exceed container */
+        width: max-content; /* allow width to expand to content */
+        border-radius: 12px;
+        border-collapse: separate; /* preserve corner radii */
+        border-spacing: 0; /* no gaps between cells */
+        border: 1px solid ${colors.gray[100]}; /* align with CodeBlock border color */
+        box-shadow: 0px 4px 8px rgba(33, 23, 95, 0.04); /* match CodeBlock shadow */
+        background: ${colors.white};
+    }
+
+    /* Apply corner radius to first/last header and cell so inner borders stay rounded */
+    & table thead tr:first-child th:first-child,
+    & .wmde-markdown table thead tr:first-child th:first-child {
+        border-top-left-radius: 12px;
+    }
+
+    & table thead tr:first-child th:last-child,
+    & .wmde-markdown table thead tr:first-child th:last-child {
+        border-top-right-radius: 12px;
+    }
+
+    & table tbody tr:last-child td:first-child,
+    & .wmde-markdown table tbody tr:last-child td:first-child {
+        border-bottom-left-radius: 12px;
+    }
+
+    & table tbody tr:last-child td:last-child,
+    & .wmde-markdown table tbody tr:last-child td:last-child {
+        border-bottom-right-radius: 12px;
+    }
+
+    /* Header styling to mirror CodeBlock header */
+    & table thead th,
+    & .wmde-markdown table thead th {
+        background: ${colors.gray[1500]};
+        color: ${colors.gray[600]};
+        font-weight: 700;
+        font-size: 12px; /* match CodeBlock header */
+        padding: 0 16px;
+        border: none;
+        height: 40px; /* match CodeBlock header height */
+        line-height: 40px; /* vertically center text without flex shifting layout */
+        white-space: nowrap; /* prevent wrapping so table can scroll horizontally */
+        text-align: left;
+    }
+
+    /* Body cells with clean separators (no grid) */
+    & table td,
+    & .wmde-markdown table td {
+        padding: 16px;
+        border: none;
+        border-top: 1px solid ${colors.gray[100]};
+        font-size: 14px;
+        white-space: nowrap; /* keep cells on one line to trigger horizontal scroll when needed */
+    }
+
     & li,
     & .wmde-markdown li {
         margin: 4px 0;
@@ -197,31 +259,6 @@ export const MarkdownContent = styled.div<{ isUser: boolean; $variant?: ChatVari
 
     & h3 {
         font-size: 16px;
-    }
-
-    /* Handle wide content like tables */
-    & table {
-        width: 100%;
-        max-width: 100%;
-        border-collapse: collapse;
-        overflow-x: auto;
-        display: block;
-        white-space: nowrap;
-    }
-
-    & table thead,
-    & table tbody,
-    & table tr {
-        display: table;
-        width: 100%;
-        table-layout: fixed;
-    }
-
-    & table td,
-    & table th {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: 0;
     }
 
     /* Handle other wide elements */
