@@ -721,20 +721,39 @@ class LLMWrapper(ABC, HasProviderAndModelInfo):
         if not usage_metadata:
             return
 
+        # LangChain's input_tokens is the TOTAL input (includes cache for OpenAI)
         input_tokens = usage_metadata.get("input_tokens", 0)
         output_tokens = usage_metadata.get("output_tokens", 0)
         total_tokens = usage_metadata.get("total_tokens", input_tokens + output_tokens)
 
         # Extract cache tokens from input_token_details (OpenAI, etc.)
+        # For OpenAI: these are subsets of input_tokens (total includes cache)
         input_details = usage_metadata.get("input_token_details", {}) or {}
         cache_read_tokens = input_details.get("cache_read", 0)
         cache_write_tokens = input_details.get("cache_creation", 0)
+
+        # For OpenAI/LangChain: input_tokens is TOTAL (includes cache)
+        # prompt_tokens = non-cached input tokens (charged at full prompt rate)
+        prompt_tokens = input_tokens - cache_read_tokens - cache_write_tokens
+
+        # Debug: Log raw usage values to verify token counting
+        logger.debug(
+            "LangChain raw usage",
+            extra={
+                "provider": self.provider_name,
+                "raw_input_tokens": input_tokens,
+                "raw_output_tokens": output_tokens,
+                "raw_cache_read": cache_read_tokens,
+                "raw_cache_write": cache_write_tokens,
+                "computed_prompt_tokens": prompt_tokens,
+            },
+        )
 
         get_cost_tracker().record_llm_call(
             provider=self.provider_name,
             model=self.model_name,
             usage=ObsTokenUsage(
-                prompt_tokens=input_tokens,
+                prompt_tokens=prompt_tokens,
                 completion_tokens=output_tokens,
                 total_tokens=total_tokens,
                 cache_read_tokens=cache_read_tokens,

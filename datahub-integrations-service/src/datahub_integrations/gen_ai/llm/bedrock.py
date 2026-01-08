@@ -142,13 +142,27 @@ class BedrockLLMWrapper(LLMWrapper):
             )
 
             # Track cost for observability
+            # Bedrock returns ALL THREE as SEPARATE, non-overlapping values:
+            # - inputTokens: non-cached input tokens (charged at prompt rate)
+            # - cacheReadInputTokens: tokens served from cache (charged at ~10% rate)
+            # - cacheWriteInputTokens: tokens written to cache (charged at ~125% rate)
+            # Total input = inputTokens + cacheReadInputTokens + cacheWriteInputTokens
             cache_read_tokens = usage.get("cacheReadInputTokens", 0)
             cache_write_tokens = usage.get("cacheWriteInputTokens", 0)
+            # prompt_tokens = inputTokens (these are the non-cached, non-cache-write tokens)
+            prompt_tokens = input_tokens
+
+            # Debug: Log raw usage values from Bedrock to verify token counting
+            logger.debug(
+                f"Bedrock raw usage: inputTokens={input_tokens}, outputTokens={output_tokens}, "
+                f"cacheRead={cache_read_tokens}, cacheWrite={cache_write_tokens}"
+            )
+
             get_cost_tracker().record_llm_call(
                 provider="bedrock",
                 model=self.model_name,
                 usage=TokenUsage(
-                    prompt_tokens=input_tokens,
+                    prompt_tokens=prompt_tokens,
                     completion_tokens=output_tokens,
                     total_tokens=input_tokens
                     + output_tokens

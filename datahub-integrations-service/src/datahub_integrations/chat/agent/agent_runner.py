@@ -636,17 +636,20 @@ class AgentRunner:
         if self.config.use_prompt_caching:
             tools.append({"cachePoint": {"type": "default"}})
 
+        # Time the LLM call
+        llm_timer = PerfTimer()
         try:
-            response = llm_client.converse(
-                system=self._get_system_messages(),
-                messages=messages,  # type: ignore
-                toolConfig={"tools": tools},  # type: ignore
-                inferenceConfig={
-                    "temperature": self.config.temperature,
-                    "maxTokens": self.config.max_tokens,
-                },
-                ai_module=self.config.ai_module,
-            )
+            with llm_timer:
+                response = llm_client.converse(
+                    system=self._get_system_messages(),
+                    messages=messages,  # type: ignore
+                    toolConfig={"tools": tools},  # type: ignore
+                    inferenceConfig={
+                        "temperature": self.config.temperature,
+                        "maxTokens": self.config.max_tokens,
+                    },
+                    ai_module=self.config.ai_module,
+                )
         except LlmInputTooLongException as e:
             raise AgentMaxTokensExceededError(str(e)) from e
         except Exception:
@@ -702,14 +705,26 @@ class AgentRunner:
         new_messages: List[Message] = []
         pending_tool_calls: List[ToolCallRequest] = []
 
+        # LLM call duration - assign to first text message only
+        llm_duration = llm_timer.elapsed_seconds()
+        duration_assigned = False
+
         for i, content_block in enumerate(response_content):
             is_last_block = i == len(response_content) - 1
 
             if "text" in content_block:
                 # Handle text content (reasoning or final response)
+                # Assign LLM duration to the first text message only
+                duration_for_msg = llm_duration if not duration_assigned else None
                 msg = self._handle_text_content(
-                    history, content_block, is_end_turn, is_last_block
+                    history,
+                    content_block,
+                    is_end_turn,
+                    is_last_block,
+                    duration_seconds=duration_for_msg,
                 )
+                if duration_for_msg is not None:
+                    duration_assigned = True
                 new_messages.append(msg)
 
             elif "toolUse" in content_block:
@@ -742,6 +757,7 @@ class AgentRunner:
         content_block: "ContentBlockOutputTypeDef",
         is_end_turn: bool,
         is_last_block: bool,
+        duration_seconds: Optional[float] = None,
     ) -> Message:
         """
         Handle text content from LLM response.
@@ -755,6 +771,7 @@ class AgentRunner:
             content_block: Content block from LLM response
             is_end_turn: Whether this is the final block in a turn
             is_last_block: Whether this is the last block in the response
+            duration_seconds: Optional LLM call duration to attach to ReasoningMessage
 
         Returns:
             The message that was created and added to history
@@ -790,7 +807,9 @@ class AgentRunner:
         else:
             # Reasoning message (internal thoughts)
             reasoning_text = content_block["text"]
-            msg = ReasoningMessage(text=reasoning_text)
+            msg = ReasoningMessage(
+                text=reasoning_text, duration_seconds=duration_seconds
+            )
             self._add_message(history, msg)
 
             # Log to MLflow
@@ -842,9 +861,16 @@ class AgentRunner:
                 f"Tool execution failed for {tool_name} in session {self.session_id}"
             )
             error = f"{type(e).__name__}: {e}"
+
+        # Calculate duration after execution (timer context has exited)
+        duration_seconds = timer.elapsed_seconds()
+
+        # Create message with timing information
+        if error is not None:
             msg: Union[ToolResult, ToolResultError] = ToolResultError(
                 tool_request=tool_request,
                 error=error,
+                duration_seconds=duration_seconds,
             )
             self._add_message(history, msg)
             tracker = get_cost_tracker()
@@ -852,16 +878,24 @@ class AgentRunner:
                 ai_module=self.config.ai_module, tool=tool_name, success=False
             )
         else:
-            msg = ToolResult(tool_request=tool_request, result=result)
+            # result is guaranteed non-None here: tool.run() returns str|dict,
+            # and any exception would set error (handled above)
+            assert result is not None
+            msg = ToolResult(
+                tool_request=tool_request,
+                result=result,
+                duration_seconds=duration_seconds,
+            )
             self._add_message(history, msg)
             # Track successful tool call (Tier 3)
             tracker = get_cost_tracker()
             tracker.record_tool_call(
                 ai_module=self.config.ai_module, tool=tool_name, success=True
             )
+
         tool_result = ToolExecutionResult(
             message=msg,
-            duration_seconds=timer.elapsed_seconds(),
+            duration_seconds=duration_seconds,
             tool_name=tool_name,
         )
 
