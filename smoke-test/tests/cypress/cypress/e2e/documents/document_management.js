@@ -22,8 +22,18 @@ describe("Document Management End-to-End Test", () => {
   Cypress.on("uncaught:exception", (err) => {
     if (err.message.includes("ResizeObserver loop")) return false;
     if (err.message.includes("Failed to to get quick filters")) return false;
-    if (err.message.includes("usePageTemplateContext must be used within a PageTemplateProvider")) return false;
-    if (err.message.includes("Cannot access 'DataProcessInstanceEntity' before initialization")) return false;
+    if (
+      err.message.includes(
+        "usePageTemplateContext must be used within a PageTemplateProvider",
+      )
+    )
+      return false;
+    if (
+      err.message.includes(
+        "Cannot access 'DataProcessInstanceEntity' before initialization",
+      )
+    )
+      return false;
     return true;
   });
 
@@ -113,9 +123,7 @@ describe("Document Management End-to-End Test", () => {
       cy.getWithTestId("context-documents-sidebar").should("be.visible");
 
       // Click the create button in the sidebar header
-      cy.getWithTestId("create-document-button")
-        .should("be.visible")
-        .click();
+      cy.getWithTestId("create-document-button").should("be.visible").click();
 
       // Wait for navigation to new document page
       cy.url().should("not.include", testDocument1Urn, { timeout: 10000 });
@@ -166,7 +174,10 @@ describe("Document Management End-to-End Test", () => {
       cy.visit(`/document/${encodeURIComponent(testDocument1Urn)}`);
       cy.wait(1000);
 
-      cy.getWithTestId("document-title-input").should("have.value", doc1UpdatedTitle);
+      cy.getWithTestId("document-title-input").should(
+        "have.value",
+        doc1UpdatedTitle,
+      );
     });
 
     it("should update document content", () => {
@@ -188,7 +199,9 @@ describe("Document Management End-to-End Test", () => {
         .clear({ force: true });
       cy.wait(200);
 
-      cy.get('.remirror-editor[contenteditable="true"]').type(testContent, { delay: 100 });
+      cy.get('.remirror-editor[contenteditable="true"]').type(testContent, {
+        delay: 100,
+      });
 
       // Trigger save
       cy.get("body").click(0, 0);
@@ -206,7 +219,9 @@ describe("Document Management End-to-End Test", () => {
       cy.wait(1000);
 
       // Wait for status selector to load
-      cy.getWithTestId("document-status-select", { timeout: 10000 }).should("exist");
+      cy.getWithTestId("document-status-select", { timeout: 10000 }).should(
+        "exist",
+      );
       cy.wait(1000);
 
       // Change to Published
@@ -222,12 +237,18 @@ describe("Document Management End-to-End Test", () => {
       cy.wait(1500);
 
       // Verify status updated
-      cy.getWithTestId("document-status-select").should("contain.text", "Published");
+      cy.getWithTestId("document-status-select").should(
+        "contain.text",
+        "Published",
+      );
 
       // Verify persistence
       cy.reload();
       cy.wait(1000);
-      cy.getWithTestId("document-status-select").should("contain.text", "Published");
+      cy.getWithTestId("document-status-select").should(
+        "contain.text",
+        "Published",
+      );
     });
 
     it("should update document type", () => {
@@ -247,12 +268,18 @@ describe("Document Management End-to-End Test", () => {
       cy.wait(1500);
 
       // Verify type updated
-      cy.getWithTestId("document-type-select").should("contain.text", "Runbook");
+      cy.getWithTestId("document-type-select").should(
+        "contain.text",
+        "Runbook",
+      );
 
       // Verify persistence
       cy.reload();
       cy.wait(1000);
-      cy.getWithTestId("document-type-select").should("contain.text", "Runbook");
+      cy.getWithTestId("document-type-select").should(
+        "contain.text",
+        "Runbook",
+      );
     });
   });
 
@@ -269,7 +296,10 @@ describe("Document Management End-to-End Test", () => {
       cy.getWithTestId("context-sidebar-collapse-button").should("be.visible");
 
       // Title should be visible when expanded
-      cy.getWithTestId("context-documents-sidebar").should("contain.text", "Documents");
+      cy.getWithTestId("context-documents-sidebar").should(
+        "contain.text",
+        "Documents",
+      );
 
       // Click collapse button
       cy.getWithTestId("context-sidebar-collapse-button").click();
@@ -284,7 +314,10 @@ describe("Document Management End-to-End Test", () => {
       cy.wait(500);
 
       // After expanding, the title should be visible again
-      cy.getWithTestId("context-documents-sidebar").should("contain.text", "Documents");
+      cy.getWithTestId("context-documents-sidebar").should(
+        "contain.text",
+        "Documents",
+      );
       cy.getWithTestId("create-document-button").should("be.visible");
     });
 
@@ -323,7 +356,9 @@ describe("Document Management End-to-End Test", () => {
       cy.wait(1500); // Wait for debounce
 
       // Search results should appear
-      cy.getWithTestId("context-sidebar-search-results", { timeout: 10000 }).should("be.visible");
+      cy.getWithTestId("context-sidebar-search-results", {
+        timeout: 10000,
+      }).should("be.visible");
 
       // Clear search by clicking outside
       cy.get("body").click(0, 0);
@@ -420,7 +455,9 @@ describe("Document Management End-to-End Test", () => {
 
           // Click the search result
           cy.get('[data-testid="move-document-popover"]').within(() => {
-            cy.get('[data-testid="move-popover-search-result-title"]', { timeout: 10000 })
+            cy.get('[data-testid="move-popover-search-result-title"]', {
+              timeout: 10000,
+            })
               .contains(doc1Title)
               .should("be.visible")
               .parent()
@@ -435,7 +472,10 @@ describe("Document Management End-to-End Test", () => {
             .click();
 
           cy.wait(1500);
-          cy.contains("moved successfully", { matchCase: false, timeout: 5000 });
+          cy.contains("moved successfully", {
+            matchCase: false,
+            timeout: 5000,
+          });
 
           // Verify nesting by checking breadcrumb
           cy.get("@childUrn").then((childUrnInner) => {
@@ -496,4 +536,3 @@ describe("Document Management End-to-End Test", () => {
     });
   });
 });
-
