@@ -1,12 +1,9 @@
 import { aliasQuery, hasOperationName } from "../utils";
+import { clickElement, closeDrawer } from "./utils";
 
 const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
-
-const clickElement = (locator) => {
-  cy.get(locator).click();
-};
 
 const setAssertionMonitorsFlag = (isOn) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
@@ -99,7 +96,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("12:00 am");
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Schedule details");
-    clickElement("body");
+    closeDrawer();
     cy.waitTextVisible("12:00 am");
     cy.get(".ant-table-cell").find("button").first().click();
     cy.waitTextVisible("Stopped!");
@@ -122,7 +119,7 @@ describe("create and manage freshness assertion", () => {
     clickElement(".anticon-save");
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
-    clickElement("body");
+    closeDrawer();
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
@@ -131,7 +128,7 @@ describe("create and manage freshness assertion", () => {
     clickElement(".anticon-save");
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
-    clickElement("body");
+    closeDrawer();
     cy.waitTextVisible("12:00 am");
     cy.get(".ant-table-cell").find("button").last().click();
     cy.waitTextVisible("Confirm Assertion Removal");

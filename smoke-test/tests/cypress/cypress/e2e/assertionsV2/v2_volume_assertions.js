@@ -1,4 +1,5 @@
 import { aliasQuery, hasOperationName } from "../utils";
+import { clickElement, closeDrawer } from "./utils";
 
 const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
@@ -6,10 +7,6 @@ const datasetName = "daily_temperature";
 
 const enableButtonWithId = (id) => {
   cy.get(id).should("be.enabled");
-};
-
-const clickElement = (locator) => {
-  cy.get(locator).click();
 };
 
 // Helper to clean up any existing assertions on the dataset before the test runs.
@@ -102,8 +99,7 @@ describe("create and manage volume assertion", () => {
     cy.waitTextVisible("12:00 AM");
 
     // stop the monitor, verify that assertion stopped successfully
-    clickElement("body");
-    cy.wait(2000);
+    closeDrawer();
     cy.get(".acryl-assertions-table-row").find("button").first().click();
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
@@ -132,7 +128,7 @@ describe("create and manage volume assertion", () => {
     clickElement('[data-testid="save-assertion-button"]');
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
-    clickElement("body");
+    closeDrawer();
     cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Row count over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
@@ -143,7 +139,7 @@ describe("create and manage volume assertion", () => {
     cy.ensureTextNotPresent("Updated!");
 
     // remove assertion
-    clickElement("body");
+    closeDrawer();
     cy.waitTextVisible("Table has at most 1,000 rows");
     cy.get(".acryl-assertions-table-row").find("button").last().click();
     cy.get(".ant-dropdown-menu-item")

@@ -8,6 +8,7 @@ from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    DateTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
@@ -15,39 +16,95 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StatusClass,
     StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.sdk.main_client import DataHubClient
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urn
 
-TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo_sdk_assertions")
 
-# Schema fields for column metric assertion tests
+def get_test_dataset_urn(module_name: str) -> str:
+    """Generate a unique dataset URN for each test module.
+
+    This enables parallel test execution by ensuring each test file
+    uses its own isolated dataset.
+
+    Args:
+        module_name: Short name like "column_metric", "freshness", etc.
+
+    Returns:
+        A unique dataset URN for that module.
+    """
+    return make_dataset_urn(platform="postgres", name=f"sdk_assertions_{module_name}")
+
+
+# Schema fields for assertion tests - includes various types for comprehensive testing
 TEST_SCHEMA_FIELDS = [
+    # String columns
     SchemaFieldClass(
         fieldPath="user_id",
         type=SchemaFieldDataTypeClass(type=StringTypeClass()),
         nativeDataType="VARCHAR",
     ),
     SchemaFieldClass(
+        fieldPath="name",
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        nativeDataType="VARCHAR",
+    ),
+    SchemaFieldClass(
+        fieldPath="email",
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        nativeDataType="VARCHAR",
+        description="Email address field for regex validation testing",
+    ),
+    # Numeric columns
+    SchemaFieldClass(
         fieldPath="price",
         type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
         nativeDataType="DECIMAL",
     ),
     SchemaFieldClass(
-        fieldPath="name",
-        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-        nativeDataType="VARCHAR",
+        fieldPath="quantity",
+        type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        nativeDataType="INTEGER",
+    ),
+    # Date/Time columns for freshness testing
+    SchemaFieldClass(
+        fieldPath="created_at",
+        type=SchemaFieldDataTypeClass(type=DateTypeClass()),
+        nativeDataType="DATE",
+    ),
+    SchemaFieldClass(
+        fieldPath="updated_at",
+        type=SchemaFieldDataTypeClass(type=TimeTypeClass()),
+        nativeDataType="TIMESTAMP",
+        description="Last modified timestamp for freshness assertion testing",
     ),
 ]
 
 
+# Module scope balances performance (dataset created once per test file) with isolation
+# (each file gets its own dataset). Function scope would be too slow; session scope
+# would risk test interference across files.
 @pytest.fixture(scope="module")
-def test_data(graph_client: DataHubGraph) -> Any:
-    """Create test dataset for assertions with schema for column metric tests."""
+def test_data(graph_client: DataHubGraph, request: Any) -> Any:
+    """Create test dataset for assertions with schema for column metric tests.
+
+    Each test module gets its own unique dataset URN, enabling parallel execution.
+    The URN is derived from the module name and yielded for tests to use.
+    """
+    # Derive module name: test_column_metric_assertion -> column_metric
+    full_module_name = request.module.__name__
+    # Extract the assertion type from module name like "tests.assertions.sdk.test_column_metric_assertion"
+    module_suffix = full_module_name.split(".")[-1]  # "test_column_metric_assertion"
+    module_name = module_suffix.replace("test_", "").replace(
+        "_assertion", ""
+    )  # "column_metric"
+    dataset_urn = get_test_dataset_urn(module_name)
+
     # Emit status
     mcpw = MetadataChangeProposalWrapper(
-        entityUrn=TEST_DATASET_URN, aspect=StatusClass(removed=False)
+        entityUrn=dataset_urn, aspect=StatusClass(removed=False)
     )
     graph_client.emit(mcpw)
 
@@ -60,14 +117,12 @@ def test_data(graph_client: DataHubGraph) -> Any:
         platformSchema=OtherSchemaClass(rawSchema=""),
         fields=TEST_SCHEMA_FIELDS,
     )
-    schema_mcpw = MetadataChangeProposalWrapper(
-        entityUrn=TEST_DATASET_URN, aspect=schema
-    )
+    schema_mcpw = MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=schema)
     graph_client.emit(schema_mcpw)
 
     wait_for_writes_to_sync()
-    yield
-    delete_urn(graph_client, TEST_DATASET_URN)
+    yield dataset_urn  # Return the URN so tests can use it
+    delete_urn(graph_client, dataset_urn)
 
 
 @pytest.fixture(scope="module")

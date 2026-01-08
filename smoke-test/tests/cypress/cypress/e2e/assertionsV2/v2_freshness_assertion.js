@@ -1,12 +1,9 @@
 import { aliasQuery, hasOperationName } from "../utils";
+import { clickElement, closeDrawer } from "./utils";
 
 const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
-
-const clickElement = (locator) => {
-  cy.get(locator).click();
-};
 
 // Helper to clean up any existing assertions on the dataset before the test runs.
 // This ensures tests are resilient to leftover state from previous failed runs.
@@ -92,7 +89,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Freshness check results over time");
     cy.waitTextVisible("12:00 AM");
     // stop the monitor, verify that assertion stopped successfully
-    clickElement("body");
+    closeDrawer();
     cy.waitTextVisible("12:00 am");
     clickElement('[data-testid="assertion-start-stop-action"]');
     cy.waitTextVisible("Stopped!");
@@ -118,7 +115,7 @@ describe("create and manage freshness assertion", () => {
     clickElement('[data-testid="save-assertion-button"]');
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
-    clickElement("body");
+    closeDrawer();
     cy.get(".acryl-assertions-table-row").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
@@ -129,7 +126,7 @@ describe("create and manage freshness assertion", () => {
     cy.ensureTextNotPresent("Updated!");
 
     // remove assertion
-    clickElement("body");
+    closeDrawer();
     cy.waitTextVisible("12:00 am");
     cy.get(".acryl-assertions-table-row").find("button").last().click();
     cy.get(".ant-dropdown-menu-item")
