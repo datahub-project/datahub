@@ -97,7 +97,7 @@ const SearchIcon = styled(SearchOutlined)`
     cursor: pointer;
 
     &:hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER};
+        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
 `;
 
