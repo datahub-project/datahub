@@ -297,3 +297,152 @@ def test_custom_model_provider_config() -> None:
         assert new_model_config.custom_model_provider.api_key == "1234"
         assert new_model_config.custom_model_provider.cert_file == "/path/to/cert.crt"
         assert new_model_config.custom_model_provider.key_file == "/path/to/key.crt"
+
+
+def test_custom_headers_parsing() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": "Authorization:Bearer token123,X-Custom-ID:abc-def,X-Region:us-west-2",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is not None
+        assert new_model_config.custom_model_provider.custom_headers == {
+            "Authorization": "Bearer token123",
+            "X-Custom-ID": "abc-def",
+            "X-Region": "us-west-2",
+        }
+
+
+def test_custom_headers_parsing_with_whitespace() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": "Authorization: Bearer token123 , X-Custom-ID : abc-def ",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is not None
+        assert new_model_config.custom_model_provider.custom_headers == {
+            "Authorization": "Bearer token123",
+            "X-Custom-ID": "abc-def",
+        }
+
+
+def test_custom_headers_parsing_with_colon_in_value() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": "Authorization:Bearer token:with:colons,X-Time:12:34:56",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is not None
+        assert new_model_config.custom_model_provider.custom_headers == {
+            "Authorization": "Bearer token:with:colons",
+            "X-Time": "12:34:56",
+        }
+
+
+def test_custom_headers_not_set() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is None
+
+
+def test_custom_headers_empty_string() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": "",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is None
+
+
+def test_custom_headers_with_empty_header_name() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": ":value1,X-Custom-ID:abc-def",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is not None
+        # Empty header name should be skipped
+        assert new_model_config.custom_model_provider.custom_headers == {
+            "X-Custom-ID": "abc-def",
+        }
+
+
+def test_custom_headers_with_empty_header_value() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": "Authorization:,X-Custom-ID:abc-def",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is not None
+        # Empty header value should be skipped
+        assert new_model_config.custom_model_provider.custom_headers == {
+            "X-Custom-ID": "abc-def",
+        }
+
+
+def test_custom_headers_all_empty_becomes_none() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": ":,:value,:,  :  ",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        # All empty headers should result in an empty dict, which is falsy
+        assert new_model_config.custom_model_provider.custom_headers == {}

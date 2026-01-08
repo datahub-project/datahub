@@ -1,7 +1,7 @@
 import enum
 import functools
 import os
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -101,8 +101,18 @@ class CustomModelProvider(BaseModel):
         description="mTLS key file for custom Open AI model Proxy provider"
     )
 
+    custom_headers: Optional[Dict[str, str]] = Field(
+        description="Custom HTTP headers for OpenAI model Proxy provider"
+    )
+
     def __hash__(self):
-        return hash((self.base_url, self.api_key, self.cert_file, self.key_file))
+        # Convert custom_headers dict to a frozenset of items for hashing
+        headers_hash = (
+            frozenset(self.custom_headers.items()) if self.custom_headers else None
+        )
+        return hash(
+            (self.base_url, self.api_key, self.cert_file, self.key_file, headers_hash)
+        )
 
 
 def get_model_env_variable(
@@ -290,11 +300,28 @@ def get_custom_model_provider_config() -> CustomModelProvider | None:
         api_key = os.getenv("MODEL_CUSTOM_API_KEY")
         cert_file = os.getenv("MODEL_CUSTOM_CERT_FILE")
         key_file = os.getenv("MODEL_CUSTOM_KEY_FILE")
+
+        custom_headers = None
+        custom_headers_str = os.getenv("MODEL_CUSTOM_HEADERS")
+        if custom_headers_str:
+            # Parse "HEADER_NAME1:HEADER_VALUE1,HEADER_NAME2:HEADER_VALUE2" format
+            custom_headers = {}
+            for header_pair in custom_headers_str.split(","):
+                header_pair = header_pair.strip()
+                if ":" in header_pair:
+                    name, value = header_pair.split(":", 1)
+                    name = name.strip()
+                    value = value.strip()
+                    # Skip empty header names or values
+                    if name and value:
+                        custom_headers[name] = value
+
         custom_model_provider = CustomModelProvider(
             base_url=custom_base_url,
             api_key=api_key,
             cert_file=cert_file,
             key_file=key_file,
+            custom_headers=custom_headers,
         )
 
         return custom_model_provider

@@ -62,6 +62,11 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
             "FORCE_CUSTOM_AI_CLIENT_REINITIALIZE"
         )
 
+        # Prepare custom headers if provided
+        custom_headers = None
+        if self.custom_model_provider.custom_headers:
+            custom_headers = self.custom_model_provider.custom_headers
+
         # create a custom http client if cert file and key file exist
         if self.custom_model_provider.cert_file and self.custom_model_provider.key_file:
             # Only set watches once (use instance variable to avoid cross-test pollution)
@@ -87,14 +92,20 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
                 cert=(
                     self.custom_model_provider.cert_file,
                     self.custom_model_provider.key_file,
-                )
+                ),
+                headers=custom_headers,
             )
             custom_async_client = httpx.AsyncClient(
                 cert=(
                     self.custom_model_provider.cert_file,
                     self.custom_model_provider.key_file,
-                )
+                ),
+                headers=custom_headers,
             )
+        elif custom_headers:
+            # Create custom http clients with just headers (no mTLS)
+            custom_client = httpx.Client(headers=custom_headers)
+            custom_async_client = httpx.AsyncClient(headers=custom_headers)
 
         # Intentionally creating has_custom_openai_api_key to avoid accidentally logging the api key
         has_custom_openai_api_key = False
@@ -121,6 +132,7 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
             has_custom_http_client={custom_client is not None}, \
             cert_file={self.custom_model_provider.cert_file}, \
             key_file={self.custom_model_provider.key_file}, \
+            has_custom_headers={custom_headers is not None}, \
             force_reinitialize={force_reinitialize}"
         )
 

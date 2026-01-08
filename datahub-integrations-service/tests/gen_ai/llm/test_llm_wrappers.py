@@ -900,6 +900,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             api_key="test-custom-key",
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         wrapper = CustomOpenAIProxyLLMWrapper(
@@ -953,6 +954,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             api_key=None,
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         CustomOpenAIProxyLLMWrapper(
@@ -995,6 +997,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             api_key=None,
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         with pytest.raises(ValueError) as exc_info:
@@ -1039,6 +1042,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             api_key="test-key",
             cert_file="/path/to/cert.pem",
             key_file="/path/to/key.pem",
+            custom_headers=None,
         )
 
         CustomOpenAIProxyLLMWrapper(
@@ -1048,12 +1052,126 @@ class TestCustomOpenAIProxyLLMWrapper:
 
         # Verify httpx Client was created with cert files
         mock_httpx_client.assert_called_once_with(
-            cert=("/path/to/cert.pem", "/path/to/key.pem")
+            cert=("/path/to/cert.pem", "/path/to/key.pem"), headers=None
         )
 
         # Verify ChatOpenAI was initialized with custom http_client
         call_kwargs = mock_chat_openai.call_args.kwargs
         assert call_kwargs["http_client"] == mock_http_client
+
+        # Verify that a thread was created for watching cert changes
+        mock_thread.assert_called_once()
+        mock_thread_instance.start.assert_called_once()
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
+    def test_initialization_with_custom_headers(
+        self,
+        mock_async_httpx_client: Mock,
+        mock_httpx_client: Mock,
+        mock_chat_openai: Mock,
+    ) -> None:
+        """Test that custom_headers create httpx client with headers."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_http_client = MagicMock()
+        mock_httpx_client.return_value = mock_http_client
+        mock_async_http_client = MagicMock()
+        mock_async_httpx_client.return_value = mock_async_http_client
+
+        custom_headers = {
+            "Authorization": "Bearer token123",
+            "X-Custom-ID": "abc-def",
+        }
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file=None,
+            key_file=None,
+            custom_headers=custom_headers,
+        )
+
+        CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify httpx Client was created with custom headers
+        mock_httpx_client.assert_called_once_with(headers=custom_headers)
+        mock_async_httpx_client.assert_called_once_with(headers=custom_headers)
+
+        # Verify ChatOpenAI was initialized with custom http_client
+        call_kwargs = mock_chat_openai.call_args.kwargs
+        assert call_kwargs["http_client"] == mock_http_client
+        assert call_kwargs["http_async_client"] == mock_async_http_client
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.threading.Thread")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
+    def test_initialization_with_cert_files_and_custom_headers(
+        self,
+        mock_async_httpx_client: Mock,
+        mock_httpx_client: Mock,
+        mock_chat_openai: Mock,
+        mock_thread: Mock,
+    ) -> None:
+        """Test that cert_file, key_file, and custom_headers create httpx client with both."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_http_client = MagicMock()
+        mock_httpx_client.return_value = mock_http_client
+        mock_async_http_client = MagicMock()
+        mock_async_httpx_client.return_value = mock_async_http_client
+
+        # Mock threading.Thread to avoid actually starting background threads
+        mock_thread_instance = MagicMock()
+        mock_thread.return_value = mock_thread_instance
+
+        custom_headers = {
+            "Authorization": "Bearer token123",
+            "X-Custom-ID": "abc-def",
+        }
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file="/path/to/cert.pem",
+            key_file="/path/to/key.pem",
+            custom_headers=custom_headers,
+        )
+
+        CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify httpx Client was created with cert files and headers
+        mock_httpx_client.assert_called_once_with(
+            cert=("/path/to/cert.pem", "/path/to/key.pem"), headers=custom_headers
+        )
+        mock_async_httpx_client.assert_called_once_with(
+            cert=("/path/to/cert.pem", "/path/to/key.pem"), headers=custom_headers
+        )
+
+        # Verify ChatOpenAI was initialized with custom http_client
+        call_kwargs = mock_chat_openai.call_args.kwargs
+        assert call_kwargs["http_client"] == mock_http_client
+        assert call_kwargs["http_async_client"] == mock_async_http_client
 
         # Verify that a thread was created for watching cert changes
         mock_thread.assert_called_once()
@@ -1093,6 +1211,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             api_key="test-key",
             cert_file="/path/to/certs/cert.pem",
             key_file="/different/path/keys/key.pem",
+            custom_headers=None,
         )
 
         wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1174,6 +1293,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             api_key="test-key",
             cert_file="/nonexistent/path/cert.pem",
             key_file="/nonexistent/path/key.pem",
+            custom_headers=None,
         )
 
         # Patch inotify module
@@ -1227,6 +1347,7 @@ class TestCustomOpenAIProxyLLMWrapper:
             api_key="test-key",
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1317,6 +1438,7 @@ class TestCustomOpenAIProxyLLMWrapper:
                 api_key="test-key",
                 cert_file=cert_file,
                 key_file=key_file,
+                custom_headers=None,
             )
 
             # Mock threading.Thread to capture the target function and run it synchronously
@@ -1556,6 +1678,7 @@ class TestLLMFactory:
             api_key="test-key",
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         client = get_llm_client(
@@ -1605,6 +1728,7 @@ class TestLLMFactory:
             api_key="test-key",
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1686,6 +1810,7 @@ class TestLLMFactory:
             api_key="test-key",
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1745,6 +1870,7 @@ class TestLLMFactory:
                 api_key="test-key",
                 cert_file=None,
                 key_file=None,
+                custom_headers=None,
             )
 
             wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1780,6 +1906,7 @@ class TestLLMFactory:
                 api_key="test-key",
                 cert_file=None,
                 key_file=None,
+                custom_headers=None,
             )
 
             wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1817,6 +1944,7 @@ class TestLLMFactory:
                 api_key="test-key",
                 cert_file=None,
                 key_file=None,
+                custom_headers=None,
             )
 
             wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1865,6 +1993,7 @@ class TestLLMFactory:
             api_key="test-key",
             cert_file="/path/to/cert.pem",
             key_file="/path/to/key.pem",
+            custom_headers=None,
         )
 
         CustomOpenAIProxyLLMWrapper(
@@ -1917,6 +2046,7 @@ class TestLLMFactory:
             api_key="test-key",
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         wrapper = CustomOpenAIProxyLLMWrapper(
@@ -1981,6 +2111,7 @@ class TestLLMFactory:
             api_key="test-key",
             cert_file=None,
             key_file=None,
+            custom_headers=None,
         )
 
         wrapper = CustomOpenAIProxyLLMWrapper(
