@@ -225,10 +225,60 @@ def create_mock_activity_run(
 
 
 class MockAzureResource:
-    """Mock class to simulate Azure SDK resource objects."""
+    """Mock class to simulate Azure SDK resource objects.
+
+    Exposes dictionary data as attributes (like Azure SDK models) and supports
+    nested attribute access for properties like `linked_service_name.reference_name`.
+
+    The Azure SDK models expose properties at the top level (not nested under
+    a 'properties' dict), so this mock looks in both the top level AND the
+    'properties' dict for backwards compatibility with test data.
+    """
 
     def __init__(self, data: Dict[str, Any]):
         self._data = data
+        # Extract properties to top level for SDK-like access
+        self._properties = data.get("properties", {})
+
+    def __getattr__(self, name: str) -> Any:
+        # Convert snake_case to camelCase for Azure API compatibility
+        # e.g., linked_service_name -> linkedServiceName
+        camel_name = "".join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(name.split("_"))
+        )
+
+        value = None
+        found = False
+
+        # Try top-level first (snake_case then camelCase)
+        if name in self._data:
+            value = self._data[name]
+            found = True
+        elif camel_name in self._data:
+            value = self._data[camel_name]
+            found = True
+        # Then try properties dict (SDK models expose these at top level)
+        elif name in self._properties:
+            value = self._properties[name]
+            found = True
+        elif camel_name in self._properties:
+            value = self._properties[camel_name]
+            found = True
+
+        if not found:
+            # Return None for missing attributes (like SDK does for optional fields)
+            return None
+
+        # Recursively wrap nested dicts as MockAzureResource
+        if isinstance(value, dict):
+            return MockAzureResource(value)
+        if isinstance(value, list):
+            return [
+                MockAzureResource(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        return value
 
     def as_dict(self) -> Dict[str, Any]:
         return self._data
