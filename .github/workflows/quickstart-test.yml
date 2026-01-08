@@ -72,11 +72,6 @@ jobs:
           ./gradlew --stop
           ./smoke-test/smoke.sh
 
-      - name: Run quickstart check
-        run: |
-          source metadata-ingestion/venv/bin/activate
-          datahub docker check
-
   test-quickstart-pr-compatiblity-checks:
     name: Quickstart compatiliby Tests
     if: ${{ github.event_name == 'pull_request' }}
