@@ -6,72 +6,28 @@ REST API. It handles authentication, pagination, and error handling.
 API Documentation: https://learn.microsoft.com/en-us/rest/api/datafactory/
 """
 
-import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Iterator, Optional, Type, TypeVar
+from typing import Iterator, Optional
 
 from azure.core.credentials import TokenCredential
 from azure.core.exceptions import HttpResponseError
 from azure.mgmt.datafactory import DataFactoryManagementClient
 from azure.mgmt.datafactory.models import (
+    ActivityRun,
     ActivityRunsQueryResponse,
+    DataFlowResource,
+    DatasetResource,
+    Factory,
+    LinkedServiceResource,
+    PipelineResource,
+    PipelineRun,
     PipelineRunsQueryResponse,
     RunFilterParameters,
-)
-from pydantic import BaseModel, ValidationError
-
-from datahub.ingestion.source.azure_data_factory.adf_models import (
-    ActivityRun,
-    DataFlow,
-    Dataset,
-    Factory,
-    LinkedService,
-    Pipeline,
-    PipelineRun,
-    Trigger,
+    TriggerResource,
 )
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T", bound=BaseModel)
-
-
-def _validate_with_debug(
-    model_class: Type[T],
-    data: dict[str, Any],
-    resource_type: str,
-    resource_name: Optional[str] = None,
-) -> T:
-    """Validate data against a Pydantic model with debug logging on failure.
-
-    When validation fails, logs the raw API response to help diagnose
-    Azure API quirks (e.g., empty dicts instead of null, JSON Schema objects
-    instead of arrays).
-
-    Args:
-        model_class: The Pydantic model class to validate against
-        data: Raw dict from Azure SDK's .as_dict() method
-        resource_type: Type of resource (e.g., "Dataset", "Pipeline") for logging
-        resource_name: Optional name of the resource for logging context
-
-    Returns:
-        Validated model instance
-
-    Raises:
-        ValidationError: Re-raised after logging debug information
-    """
-    try:
-        return model_class.model_validate(data)
-    except ValidationError:
-        # Log the raw API response to help debug validation failures
-        name_context = f" '{resource_name}'" if resource_name else ""
-        logger.debug(
-            f"Pydantic validation failed for {resource_type}{name_context}. "
-            f"Raw API response:\n{json.dumps(data, indent=2, default=str)}"
-        )
-        raise
-
 
 # Maximum retention period for activity run queries (Azure limit)
 MAX_ACTIVITY_RUN_RETENTION_DAYS = 90
@@ -80,8 +36,8 @@ MAX_ACTIVITY_RUN_RETENTION_DAYS = 90
 class AzureDataFactoryClient:
     """Client for Azure Data Factory REST API.
 
-    Uses the Azure SDK (azure-mgmt-datafactory) for type safety and
-    automatic pagination handling.
+    Uses the Azure SDK (azure-mgmt-datafactory) directly for type safety and
+    automatic pagination handling. Returns SDK model objects.
 
     API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/
     """
@@ -117,25 +73,17 @@ class AzureDataFactoryClient:
             resource_group: Optional resource group name to filter factories
 
         Yields:
-            Factory objects
+            Factory objects (SDK model)
         """
         try:
             if resource_group:
-                # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories
-                # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/factories/list-by-resource-group
                 factories_response = self._client.factories.list_by_resource_group(
                     resource_group_name=resource_group
                 )
             else:
-                # GET /subscriptions/{sub}/providers/Microsoft.DataFactory/factories
-                # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/factories/list
                 factories_response = self._client.factories.list()
 
-            for factory in factories_response:
-                factory_dict = factory.as_dict()
-                yield _validate_with_debug(
-                    Factory, factory_dict, "Factory", factory_dict.get("name")
-                )
+            yield from factories_response
 
         except HttpResponseError as e:
             logger.error(f"Failed to list factories: {e.message}")
@@ -155,23 +103,21 @@ class AzureDataFactoryClient:
             factory_name: Data Factory name
 
         Returns:
-            Factory object
+            Factory object (SDK model)
         """
-        # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}
-        # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/factories/get
         factory = self._client.factories.get(
             resource_group_name=resource_group,
             factory_name=factory_name,
         )
         if factory is None:
             raise ValueError(f"Factory not found: {factory_name}")
-        return _validate_with_debug(Factory, factory.as_dict(), "Factory", factory_name)
+        return factory
 
     def get_pipelines(
         self,
         resource_group: str,
         factory_name: str,
-    ) -> Iterator[Pipeline]:
+    ) -> Iterator[PipelineResource]:
         """List all pipelines in a Data Factory.
 
         API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/pipelines/list-by-factory
@@ -181,21 +127,14 @@ class AzureDataFactoryClient:
             factory_name: Data Factory name
 
         Yields:
-            Pipeline objects with activities
+            PipelineResource objects (SDK model)
         """
         try:
-            # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/pipelines
-            # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/pipelines/list-by-factory
             pipelines_response = self._client.pipelines.list_by_factory(
                 resource_group_name=resource_group,
                 factory_name=factory_name,
             )
-
-            for pipeline in pipelines_response:
-                pipeline_dict = pipeline.as_dict()
-                yield _validate_with_debug(
-                    Pipeline, pipeline_dict, "Pipeline", pipeline_dict.get("name")
-                )
+            yield from pipelines_response
 
         except HttpResponseError as e:
             logger.error(
@@ -208,7 +147,7 @@ class AzureDataFactoryClient:
         resource_group: str,
         factory_name: str,
         pipeline_name: str,
-    ) -> Pipeline:
+    ) -> PipelineResource:
         """Get a specific pipeline.
 
         API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/pipelines/get
@@ -219,10 +158,8 @@ class AzureDataFactoryClient:
             pipeline_name: Pipeline name
 
         Returns:
-            Pipeline object with activities
+            PipelineResource object (SDK model)
         """
-        # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/pipelines/{pipelineName}
-        # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/pipelines/get
         pipeline = self._client.pipelines.get(
             resource_group_name=resource_group,
             factory_name=factory_name,
@@ -230,15 +167,13 @@ class AzureDataFactoryClient:
         )
         if pipeline is None:
             raise ValueError(f"Pipeline not found: {pipeline_name}")
-        return _validate_with_debug(
-            Pipeline, pipeline.as_dict(), "Pipeline", pipeline_name
-        )
+        return pipeline
 
     def get_datasets(
         self,
         resource_group: str,
         factory_name: str,
-    ) -> Iterator[Dataset]:
+    ) -> Iterator[DatasetResource]:
         """List all datasets in a Data Factory.
 
         API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/datasets/list-by-factory
@@ -248,21 +183,14 @@ class AzureDataFactoryClient:
             factory_name: Data Factory name
 
         Yields:
-            Dataset objects
+            DatasetResource objects (SDK model)
         """
         try:
-            # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/datasets
-            # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/datasets/list-by-factory
             datasets_response = self._client.datasets.list_by_factory(
                 resource_group_name=resource_group,
                 factory_name=factory_name,
             )
-
-            for dataset in datasets_response:
-                dataset_dict = dataset.as_dict()
-                yield _validate_with_debug(
-                    Dataset, dataset_dict, "Dataset", dataset_dict.get("name")
-                )
+            yield from datasets_response
 
         except HttpResponseError as e:
             logger.error(
@@ -274,7 +202,7 @@ class AzureDataFactoryClient:
         self,
         resource_group: str,
         factory_name: str,
-    ) -> Iterator[LinkedService]:
+    ) -> Iterator[LinkedServiceResource]:
         """List all linked services in a Data Factory.
 
         API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/linked-services/list-by-factory
@@ -284,21 +212,14 @@ class AzureDataFactoryClient:
             factory_name: Data Factory name
 
         Yields:
-            LinkedService objects
+            LinkedServiceResource objects (SDK model)
         """
         try:
-            # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/linkedservices
-            # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/linked-services/list-by-factory
             linked_services_response = self._client.linked_services.list_by_factory(
                 resource_group_name=resource_group,
                 factory_name=factory_name,
             )
-
-            for linked_service in linked_services_response:
-                ls_dict = linked_service.as_dict()
-                yield _validate_with_debug(
-                    LinkedService, ls_dict, "LinkedService", ls_dict.get("name")
-                )
+            yield from linked_services_response
 
         except HttpResponseError as e:
             logger.error(
@@ -310,7 +231,7 @@ class AzureDataFactoryClient:
         self,
         resource_group: str,
         factory_name: str,
-    ) -> Iterator[DataFlow]:
+    ) -> Iterator[DataFlowResource]:
         """List all data flows in a Data Factory.
 
         API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/data-flows/list-by-factory
@@ -320,21 +241,14 @@ class AzureDataFactoryClient:
             factory_name: Data Factory name
 
         Yields:
-            DataFlow objects
+            DataFlowResource objects (SDK model)
         """
         try:
-            # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/dataflows
-            # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/data-flows/list-by-factory
             data_flows_response = self._client.data_flows.list_by_factory(
                 resource_group_name=resource_group,
                 factory_name=factory_name,
             )
-
-            for data_flow in data_flows_response:
-                df_dict = data_flow.as_dict()
-                yield _validate_with_debug(
-                    DataFlow, df_dict, "DataFlow", df_dict.get("name")
-                )
+            yield from data_flows_response
 
         except HttpResponseError as e:
             logger.error(
@@ -346,7 +260,7 @@ class AzureDataFactoryClient:
         self,
         resource_group: str,
         factory_name: str,
-    ) -> Iterator[Trigger]:
+    ) -> Iterator[TriggerResource]:
         """List all triggers in a Data Factory.
 
         API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/triggers/list-by-factory
@@ -356,21 +270,14 @@ class AzureDataFactoryClient:
             factory_name: Data Factory name
 
         Yields:
-            Trigger objects
+            TriggerResource objects (SDK model)
         """
         try:
-            # GET /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/triggers
-            # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/triggers/list-by-factory
             triggers_response = self._client.triggers.list_by_factory(
                 resource_group_name=resource_group,
                 factory_name=factory_name,
             )
-
-            for trigger in triggers_response:
-                trigger_dict = trigger.as_dict()
-                yield _validate_with_debug(
-                    Trigger, trigger_dict, "Trigger", trigger_dict.get("name")
-                )
+            yield from triggers_response
 
         except HttpResponseError as e:
             logger.error(
@@ -394,14 +301,12 @@ class AzureDataFactoryClient:
             days: Number of days of history to fetch
 
         Yields:
-            PipelineRun objects
+            PipelineRun objects (SDK model)
         """
         try:
             end_time = datetime.now(timezone.utc)
             start_time = end_time - timedelta(days=days)
 
-            # POST /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/queryPipelineRuns
-            # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/pipeline-runs/query-by-factory
             filter_params = RunFilterParameters(
                 last_updated_after=start_time,
                 last_updated_before=end_time,
@@ -415,11 +320,7 @@ class AzureDataFactoryClient:
                 )
             )
 
-            for run in response.value or []:
-                run_dict = run.as_dict()
-                yield _validate_with_debug(
-                    PipelineRun, run_dict, "PipelineRun", run_dict.get("run_id")
-                )
+            yield from response.value or []
 
             # Handle pagination via continuation token
             while response.continuation_token:
@@ -429,11 +330,7 @@ class AzureDataFactoryClient:
                     factory_name=factory_name,
                     filter_parameters=filter_params,
                 )
-                for run in response.value or []:
-                    run_dict = run.as_dict()
-                    yield _validate_with_debug(
-                        PipelineRun, run_dict, "PipelineRun", run_dict.get("run_id")
-                    )
+                yield from response.value or []
 
         except HttpResponseError as e:
             logger.error(
@@ -457,14 +354,12 @@ class AzureDataFactoryClient:
             run_id: Pipeline run ID
 
         Yields:
-            ActivityRun objects
+            ActivityRun objects (SDK model)
         """
         try:
             end_time = datetime.now(timezone.utc)
             start_time = end_time - timedelta(days=MAX_ACTIVITY_RUN_RETENTION_DAYS)
 
-            # POST /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/pipelineruns/{runId}/queryActivityruns
-            # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/activity-runs/query-by-pipeline-run
             filter_params = RunFilterParameters(
                 last_updated_after=start_time,
                 last_updated_before=end_time,
@@ -479,14 +374,7 @@ class AzureDataFactoryClient:
                 )
             )
 
-            for run in response.value or []:
-                run_dict = run.as_dict()
-                yield _validate_with_debug(
-                    ActivityRun,
-                    run_dict,
-                    "ActivityRun",
-                    run_dict.get("activity_run_id"),
-                )
+            yield from response.value or []
 
             # Handle pagination via continuation token
             while response.continuation_token:
@@ -497,14 +385,7 @@ class AzureDataFactoryClient:
                     run_id=run_id,
                     filter_parameters=filter_params,
                 )
-                for run in response.value or []:
-                    run_dict = run.as_dict()
-                    yield _validate_with_debug(
-                        ActivityRun,
-                        run_dict,
-                        "ActivityRun",
-                        run_dict.get("activity_run_id"),
-                    )
+                yield from response.value or []
 
         except HttpResponseError as e:
             logger.error(
