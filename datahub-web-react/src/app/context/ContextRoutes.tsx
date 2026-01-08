@@ -3,8 +3,10 @@ import { Route, Switch, matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import ContextDocumentsPage from '@app/context/ContextDocumentsPage';
-import ContextSidebar from '@app/context/ContextSidebar';
+import { ContextLayoutProvider } from '@app/context/ContextLayoutContext';
+import ContextSidebar, { SIDEBAR_COLLAPSED_WIDTH } from '@app/context/ContextSidebar';
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
@@ -40,6 +42,7 @@ export default function ContextRoutes() {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const location = useLocation();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const expandedSidebarWidth = useSidebarWidth(0.2);
 
     // Check if we're on an entity profile page (document/:urn)
     const documentPath = `/${entityRegistry.getPathName(EntityType.Document)}/:urn`;
@@ -53,20 +56,25 @@ export default function ContextRoutes() {
         setIsCollapsed(false);
     }, []);
 
+    // Calculate the sidebar width for the layout context
+    const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED_WIDTH : expandedSidebarWidth;
+
     return (
-        <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
-            <ContextSidebar
-                isEntityProfile={isEntityProfile}
-                isCollapsed={isCollapsed}
-                onToggleCollapsed={toggleCollapsed}
-                onExpandSidebar={expandSidebar}
-            />
-            <MainContent>
-                <Switch>
-                    <Route path={documentPath} render={() => <EntityPageV2 entityType={EntityType.Document} />} />
-                    <Route path={PageRoutes.CONTEXT_DOCUMENTS} render={() => <ContextDocumentsPage />} />
-                </Switch>
-            </MainContent>
-        </ContentWrapper>
+        <ContextLayoutProvider sidebarWidth={sidebarWidth}>
+            <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
+                <ContextSidebar
+                    isEntityProfile={isEntityProfile}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapsed={toggleCollapsed}
+                    onExpandSidebar={expandSidebar}
+                />
+                <MainContent>
+                    <Switch>
+                        <Route path={documentPath} render={() => <EntityPageV2 entityType={EntityType.Document} />} />
+                        <Route path={PageRoutes.CONTEXT_DOCUMENTS} render={() => <ContextDocumentsPage />} />
+                    </Switch>
+                </MainContent>
+            </ContentWrapper>
+        </ContextLayoutProvider>
     );
 }

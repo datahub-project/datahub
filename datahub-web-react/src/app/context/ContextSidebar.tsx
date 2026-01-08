@@ -19,7 +19,7 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { DocumentSourceType, DocumentState, EntityType } from '@types';
 
 const SIDEBAR_TRANSITION_MS = 300;
-const COLLAPSED_WIDTH = 63;
+export const SIDEBAR_COLLAPSED_WIDTH = 63;
 
 const SidebarContainer = styled.div<{
     $width: number;
@@ -29,7 +29,7 @@ const SidebarContainer = styled.div<{
 }>`
     flex-shrink: 0;
     max-height: 100%;
-    width: ${(props) => (props.$isCollapsed ? `${COLLAPSED_WIDTH}px` : `${props.$width}px`)};
+    width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
     transition: width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
     background-color: #ffffff;
     border-radius: ${(props) =>

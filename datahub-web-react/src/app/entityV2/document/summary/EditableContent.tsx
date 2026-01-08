@@ -1,7 +1,8 @@
 import { Editor } from '@components';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useContextLayout } from '@app/context/ContextLayoutContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
@@ -96,6 +97,21 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     const refetch = useRefetch();
     // Extract mentions from content (currently unused, but hook needs to run)
     useExtractMentions(content);
+
+    // Get layout context for toolbar positioning (only available in Context Documents layout)
+    const contextLayout = useContextLayout();
+
+    // Calculate toolbar styles to center on content area when sidebar is present
+    const toolbarStyles = useMemo((): React.CSSProperties | undefined => {
+        if (!contextLayout) return undefined;
+
+        // Offset the toolbar center by half the sidebar width
+        const offset = contextLayout.sidebarWidth / 2;
+        return {
+            left: `calc(50% + ${offset}px)`,
+            transform: `translateX(-40%)`,
+        };
+    }, [contextLayout]);
 
     const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
         scenario: UploadDownloadScenario.AssetDocumentation,
@@ -307,6 +323,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         doNotFocus
                         $hideToolbar={!isEditorFocused}
                         fixedBottomToolbar={isEditorFocused}
+                        toolbarStyles={toolbarStyles}
                         uploadFileProps={{
                             onFileUpload: uploadFile,
                             ...uploadFileAnalyticsCallbacks,
