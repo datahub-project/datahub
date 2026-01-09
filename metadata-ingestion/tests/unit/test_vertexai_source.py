@@ -1009,15 +1009,12 @@ class TestMultiProjectExecution:
 
 class TestErrorHandling:
     @pytest.mark.parametrize(
-        "exception,error_match",
-        [
-            (NotFound("Not found"), "not found.*explicitly configured"),
-            (PermissionDenied("Access denied"), "Permission denied"),
-        ],
+        "exception",
+        [NotFound("Not found"), PermissionDenied("Access denied")],
     )
     @patch("google.cloud.aiplatform.init")
-    def test_explicit_project_error_fails_fast(
-        self, mock_init: MagicMock, exception: Exception, error_match: str
+    def test_single_project_error_reports_failure(
+        self, mock_init: MagicMock, exception: Exception
     ) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
@@ -1031,16 +1028,19 @@ class TestErrorHandling:
 
         with (
             patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match=error_match),
+            pytest.raises(RuntimeError, match="All .* projects failed"),
         ):
             list(source.get_workunits_internal())
+
+        assert len(source.report.failures) == 1
+        assert "test-project" in str(source.report.failures)
 
     @pytest.mark.parametrize(
         "exception",
         [InvalidArgument("Invalid region"), FailedPrecondition("API not enabled")],
     )
     @patch("google.cloud.aiplatform.init")
-    def test_config_error_fails_fast(
+    def test_config_error_reports_failure(
         self, mock_init: MagicMock, exception: Exception
     ) -> None:
         source = VertexAISource(
@@ -1055,9 +1055,11 @@ class TestErrorHandling:
 
         with (
             patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="Configuration error"),
+            pytest.raises(RuntimeError, match="All .* projects failed"),
         ):
             list(source.get_workunits_internal())
+
+        assert len(source.report.failures) == 1
 
 
 class TestCredentialManagement:
