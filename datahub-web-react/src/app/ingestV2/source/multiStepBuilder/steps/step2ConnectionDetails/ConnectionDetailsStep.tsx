@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -40,6 +40,8 @@ export function ConnectionDetailsStep() {
     const [isRecipeValid, setIsRecipeValid] = useState<boolean>(isEditing || !!state.isConnectionDetailsValid);
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
+
+    const analyticsRef = useRef(false);
 
     const updateRecipe = useCallback(
         (recipe: string, shouldSetIsRecipeValid?: boolean, hideYamlWarnings = false) => {
@@ -99,7 +101,9 @@ export function ConnectionDetailsStep() {
     }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     useEffect(() => {
+        if (analyticsRef.current) return;
         if (state) {
+            analyticsRef.current = true;
             analytics.event({
                 type: EventType.IngestionEnterConfigurationEvent,
                 sourceType: state.type || '',
