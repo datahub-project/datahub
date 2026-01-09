@@ -32,7 +32,7 @@ import {
 import { isVersionMatch } from '@app/shared/product/update/versionUtils';
 import { convertToPascalCase } from '@app/shared/stringUtils';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsFreeTrialInstance } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 export default function ProductUpdates() {
@@ -41,6 +41,7 @@ export default function ProductUpdates() {
     const latestUpdate = useGetLatestProductAnnouncementData();
     const appConfig = useAppConfig();
     const isOnHomePage = useIsHomePage();
+    const isFreeTrialInstance = useIsFreeTrialInstance();
 
     const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
     const dismiss = useDismissProductAnnouncement(latestUpdate?.id, refetch);
@@ -124,7 +125,8 @@ export default function ProductUpdates() {
         !latestUpdate ||
         !latestUpdate.enabled ||
         !versionMatches ||
-        !isOnHomePage
+        !isOnHomePage ||
+        isFreeTrialInstance
     ) {
         return null;
     }
