@@ -225,8 +225,8 @@ jobs:
             # Create a fresh venv for this plugin
             uv venv "$PLUGIN_VENV"
             
-            # Install the plugin in its venv
-            if "$PLUGIN_VENV/bin/python" -m uv pip install -e ".[${plugin}]"; then
+            # Install the plugin in its venv using system uv command
+            if uv pip install -e ".[${plugin}]" --python "$PLUGIN_VENV/bin/python"; then
               echo "✅ Plugin '$plugin' installed successfully with all dependencies"
               SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             else
