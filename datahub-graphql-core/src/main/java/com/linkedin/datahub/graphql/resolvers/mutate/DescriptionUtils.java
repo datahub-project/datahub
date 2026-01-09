@@ -664,7 +664,6 @@ public class DescriptionUtils {
     // Add the new UI-authored documentation
     associations.add(newDocAssociation);
     documentation.setDocumentations(associations);
-    documentation.setLastModified(new AuditStamp().setTime(currentTime).setActor(actor));
 
     persistAspect(
         opContext,
