@@ -192,3 +192,24 @@ class TestEdgeCases:
         assert len(projects) == 1
         assert projects[0].id == "valid-project"
         assert "GCP returned project without project_id" in caplog.text
+
+    def test_empty_explicit_list_returns_empty(self) -> None:
+        projects = get_projects_from_explicit_list([])
+        assert projects == []
+
+    def test_explicit_list_all_filtered_returns_empty(self) -> None:
+        projects = get_projects_from_explicit_list(
+            ["dev-1", "dev-2"],
+            AllowDenyPattern(allow=["prod-.*"]),
+        )
+        assert projects == []
+
+    def test_project_uses_id_as_name_fallback(self) -> None:
+        mock_client = MagicMock()
+        mock_project = MagicMock()
+        mock_project.project_id = "my-project"
+        mock_project.display_name = None
+        mock_client.search_projects.return_value = iter([mock_project])
+
+        projects = list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
+        assert projects[0].name == "my-project"
