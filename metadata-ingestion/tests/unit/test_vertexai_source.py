@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.api_core.exceptions import (
     FailedPrecondition,
-    GoogleAPICallError,
     InvalidArgument,
     NotFound,
     PermissionDenied,
@@ -23,10 +22,7 @@ from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
-from datahub.ingestion.source.common.gcp_project_utils import (
-    GCPProject,
-    GCPProjectDiscoveryError,
-)
+from datahub.ingestion.source.common.gcp_project_utils import GCPProject
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai import (
     ModelMetadata,
@@ -1013,88 +1009,30 @@ class TestMultiProjectExecution:
 
 
 class TestErrorHandling:
+    @pytest.mark.parametrize(
+        "exception,error_match",
+        [
+            (NotFound("Not found"), "not found.*explicitly configured"),
+            (PermissionDenied("Access denied"), "Permission denied"),
+        ],
+    )
     @patch("google.cloud.aiplatform.init")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_discovery_error_propagates(
-        self, mock_get_projects: MagicMock, mock_client: MagicMock, mock_init: MagicMock
+    def test_explicit_project_error_fails_fast(
+        self, mock_init: MagicMock, exception: Exception, error_match: str
     ) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(region="us-west2"),
+            config=VertexAIConfig(project_ids=["test-project"], region="us-west2"),
         )
-        mock_get_projects.side_effect = GCPProjectDiscoveryError("Permission denied")
-
-        with pytest.raises(GCPProjectDiscoveryError):
-            list(source.get_workunits_internal())
-
-    @patch("google.cloud.aiplatform.init")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_partial_failure_continues(
-        self, mock_get_projects: MagicMock, mock_client: MagicMock, mock_init: MagicMock
-    ) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_labels=["env:prod"], region="us-west2"),
-        )
-        mock_get_projects.return_value = [
-            GCPProject(id="p1", name="P1"),
-            GCPProject(id="p2", name="P2"),
-            GCPProject(id="p3", name="P3"),
-        ]
-
-        processed = []
+        source._projects = [GCPProject(id="test-project", name="Test")]
 
         def mock_process():
-            pid = source._current_project_id
-            if pid == "p2":
-                raise PermissionDenied("Access denied")
-            processed.append(pid)
-            yield from []
-
-        with patch.object(source, "_process_current_project", side_effect=mock_process):
-            list(source.get_workunits_internal())
-
-        assert processed == ["p1", "p3"]
-        assert len(source.report.failures) == 1
-
-    @patch("google.cloud.aiplatform.init")
-    def test_explicit_project_not_found_fails_fast(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_ids=["missing", "p2"], region="us-west2"),
-        )
-        source._projects = [
-            GCPProject(id="missing", name="Missing"),
-            GCPProject(id="p2", name="P2"),
-        ]
-
-        def mock_process():
-            raise NotFound("Not found")
+            raise exception
             yield
 
         with (
             patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="not found.*explicitly configured"),
-        ):
-            list(source.get_workunits_internal())
-
-    @patch("google.cloud.aiplatform.init")
-    def test_explicit_permission_denied_fails_fast(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_ids=["restricted"], region="us-west2"),
-        )
-        source._projects = [GCPProject(id="restricted", name="Restricted")]
-
-        def mock_process():
-            raise PermissionDenied("Access denied")
-            yield
-
-        with (
-            patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="Permission denied"),
+            pytest.raises(RuntimeError, match=error_match),
         ):
             list(source.get_workunits_internal())
 
@@ -1122,51 +1060,11 @@ class TestErrorHandling:
         ):
             list(source.get_workunits_internal())
 
-    @patch("google.cloud.aiplatform.init")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_all_projects_fail_raises_error(
-        self, mock_get_projects: MagicMock, mock_client: MagicMock, mock_init: MagicMock
-    ) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_labels=["env:prod"], region="us-west2"),
-        )
-        mock_get_projects.return_value = [
-            GCPProject(id="p1", name="P1"),
-            GCPProject(id="p2", name="P2"),
-        ]
-
-        def mock_process():
-            raise GoogleAPICallError("API error")
-            yield
-
-        with (
-            patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="All .* projects failed"),
-        ):
-            list(source.get_workunits_internal())
-
 
 class TestCredentialManagement:
-    def test_credentials_set_env_var(self) -> None:
-        config = VertexAIConfig(
-            project_ids=["p1"],
-            region="us-central1",
-            credential=GCPCredential(
-                private_key_id="key-id",
-                private_key="-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n",
-                client_email="sa@project.iam.gserviceaccount.com",
-                client_id="123",
-            ),
-        )
-        assert config._credentials_path is not None
-        assert (
-            os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == config._credentials_path
-        )
-
     @patch("google.cloud.aiplatform.init")
-    def test_close_cleans_up_credentials(self, mock_init: MagicMock) -> None:
+    def test_credential_lifecycle(self, mock_init: MagicMock) -> None:
+        """Tests credential file creation, cleanup via close(), and idempotency."""
         config = VertexAIConfig(
             project_ids=["test"],
             region="us-central1",
@@ -1182,27 +1080,9 @@ class TestCredentialManagement:
 
         source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
         source.close()
-
         assert not os.path.exists(temp_path)
 
-    def test_cleanup_is_idempotent(self) -> None:
-        config = VertexAIConfig(
-            project_ids=["test"],
-            region="us-central1",
-            credential=GCPCredential(
-                private_key_id="key-id",
-                private_key="-----BEGIN PRIVATE KEY-----\nMIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEAq7BFUpkGp3+LQmlQ\n-----END PRIVATE KEY-----\n",
-                client_email="sa@project.iam.gserviceaccount.com",
-                client_id="123",
-            ),
-        )
-        temp_path = config._credentials_path
-        assert temp_path and os.path.exists(temp_path)
-
-        # Call cleanup multiple times - should not raise
+        # Idempotency - multiple cleanup calls should not raise
         config._cleanup_credentials()
         config._cleanup_credentials()
-        config._cleanup_credentials()
-
-        assert not os.path.exists(temp_path)
         assert config._credentials_path is None

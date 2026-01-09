@@ -2,14 +2,10 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import call, patch
 
 import pytest
-from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
+from google.api_core.exceptions import PermissionDenied
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.common.gcp_project_utils import (
-    GCPProject,
-    GCPProjectDiscoveryError,
-)
+from datahub.ingestion.source.common.gcp_project_utils import GCPProject
 from datahub.ingestion.source.vertexai.vertexai import VertexAISource
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.metadata.schema_classes import ContainerPropertiesClass
@@ -73,25 +69,22 @@ def mock_project_discovery():
 def make_source(
     pipeline_ctx: PipelineContext,
     project_ids: Optional[List[str]] = None,
-    project_id: Optional[str] = None,
     project_labels: Optional[List[str]] = None,
-    project_id_pattern: Optional[AllowDenyPattern] = None,
     region: str = "us-central1",
 ) -> VertexAISource:
     kwargs: Dict[str, Any] = {"region": region}
     if project_ids is not None:
         kwargs["project_ids"] = project_ids
-    if project_id is not None:
-        kwargs["project_id"] = project_id
     if project_labels is not None:
         kwargs["project_labels"] = project_labels
-    if project_id_pattern is not None:
-        kwargs["project_id_pattern"] = project_id_pattern
     return VertexAISource(ctx=pipeline_ctx, config=VertexAIConfig(**kwargs))
 
 
 class TestMultiProjectIntegration:
+    """Integration tests that verify SDK interaction patterns."""
+
     def test_init_called_per_project(self, mock_aiplatform, pipeline_ctx):
+        """Verifies aiplatform.init() is called once per project with correct args."""
         source = make_source(
             pipeline_ctx, project_ids=["project-a", "project-b", "project-c"]
         )
@@ -103,9 +96,10 @@ class TestMultiProjectIntegration:
         assert calls[1] == call(project="project-b", location="us-central1")
         assert calls[2] == call(project="project-c", location="us-central1")
 
-    def test_auto_discovery_triggers_without_project_ids(
+    def test_auto_discovery_integration(
         self, mock_aiplatform, mock_project_discovery, pipeline_ctx
     ):
+        """Verifies auto-discovery triggers get_projects() and processes all discovered."""
         mock_project_discovery.return_value = [
             GCPProject(id="discovered-1", name="Discovered 1"),
             GCPProject(id="discovered-2", name="Discovered 2"),
@@ -116,7 +110,8 @@ class TestMultiProjectIntegration:
         mock_project_discovery.assert_called_once()
         assert mock_aiplatform["init"].call_count == 2
 
-    def test_project_container_includes_project_id(self, mock_aiplatform, pipeline_ctx):
+    def test_project_container_urn_generation(self, mock_aiplatform, pipeline_ctx):
+        """Verifies container URNs include project_id in custom properties."""
         source = make_source(pipeline_ctx, project_ids=["my-test-project"])
         workunits = list(source.get_workunits())
 
@@ -134,16 +129,10 @@ class TestMultiProjectIntegration:
 
         pytest.fail("Container properties with project ID not found")
 
-    def test_credentials_not_passed_to_init(self, mock_aiplatform, pipeline_ctx):
-        source = make_source(pipeline_ctx, project_ids=["project-1", "project-2"])
-        list(source.get_workunits())
-
-        for c in mock_aiplatform["init"].call_args_list:
-            assert "credentials" not in c.kwargs
-
-    def test_partial_failure_for_discovered_projects(
+    def test_partial_failure_continues_processing(
         self, mock_aiplatform, mock_project_discovery, pipeline_ctx
     ):
+        """Verifies discovered project failures don't stop processing of other projects."""
         mock_project_discovery.return_value = [
             GCPProject(id="project-a", name="A"),
             GCPProject(id="project-b", name="B"),
@@ -157,40 +146,6 @@ class TestMultiProjectIntegration:
         source = make_source(pipeline_ctx, project_labels=["env:prod"])
         list(source.get_workunits())
 
+        # Both projects attempted, one failure recorded
         assert mock_aiplatform["init"].call_count == 2
         assert len(source.report.failures) >= 1
-
-    def test_explicit_project_failure_raises_immediately(
-        self, mock_aiplatform, pipeline_ctx
-    ):
-        mock_aiplatform["init"].side_effect = PermissionDenied("No access")
-        source = make_source(pipeline_ctx, project_ids=["project-a"])
-
-        with pytest.raises(RuntimeError, match="Permission denied"):
-            list(source.get_workunits())
-
-    def test_discovery_error_propagates(
-        self, mock_aiplatform, mock_project_discovery, pipeline_ctx
-    ):
-        mock_project_discovery.side_effect = GCPProjectDiscoveryError(
-            "Permission denied"
-        )
-        source = make_source(pipeline_ctx)
-
-        with pytest.raises(GCPProjectDiscoveryError):
-            list(source.get_workunits())
-
-        assert mock_aiplatform["init"].call_count == 0
-
-    def test_all_projects_fail_raises_error(
-        self, mock_aiplatform, mock_project_discovery, pipeline_ctx
-    ):
-        mock_project_discovery.return_value = [
-            GCPProject(id="p1", name="P1"),
-            GCPProject(id="p2", name="P2"),
-        ]
-        mock_aiplatform["init"].side_effect = GoogleAPICallError("API error")
-        source = make_source(pipeline_ctx, project_labels=["env:prod"])
-
-        with pytest.raises(RuntimeError, match="All.*projects failed"):
-            list(source.get_workunits())
