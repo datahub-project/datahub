@@ -110,6 +110,7 @@ smart_assertion_context = AssertionEvaluationContext(
 def test_assertion_tranformer_no_change() -> None:
     graph = MagicMock(spec=DataHubGraph)
     transformer = EmbeddedAssertionsTransformer(graph)
+    assert assertion_spec.parameters is not None
     new_assertion, parameters, context = transformer.transform(
         assertion_spec.assertion, assertion_spec.parameters, assertion_context
     )
@@ -124,6 +125,7 @@ def test_assertion_transformer_assertion_updated() -> None:
     graph = MagicMock(spec=DataHubGraph)
     transformer = EmbeddedAssertionsTransformer(graph)
 
+    assert smart_assertion_spec.parameters is not None
     new_assertion, parameters, context = transformer.transform(
         smart_assertion_spec.assertion,
         smart_assertion_spec.parameters,

@@ -1307,8 +1307,8 @@ class AssertionEvaluationSpec(PermissiveBaseModel):
     # The schedule on which to evaluate the assertions
     schedule: CronSchedule
 
-    # The parameters required to evaluate an assertion
-    parameters: AssertionEvaluationParameters
+    # The parameters required to evaluate an assertion (optional - may be None for some assertion types)
+    parameters: Optional[AssertionEvaluationParameters] = None
 
     # Additional context about assertion being evaluated.
     context: Optional[AssertionEvaluationSpecContext] = None
@@ -1426,7 +1426,7 @@ class Monitor(PermissiveBaseModel):
                 "exists": exists,
             }
 
-        if "info" in values:
+        if "info" in values and values["info"] is not None:
             if "type" in values["info"]:
                 values["type"] = values["info"]["type"]
             if "executorId" in values["info"]:

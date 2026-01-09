@@ -39,7 +39,6 @@ dependencies = [
   "jinja2==3.1.4",
   "pandas>=1.2.0",
   "numpy==1.26.4",
-  "prophet==1.1.5",
   "scikit-learn>=1.2.2",
   "joblib >= 1.3.2",
   "h11 >= 0.16", # Older versions h11 vulnerable to CVE-2025-43859.
@@ -48,12 +47,23 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+observe = [
+  # Smart assertions / ML-based monitoring dependencies
+  # These are heavy (~300MB+) and excluded from slim builds
+  "prophet==1.1.5",
+  "observe-models>=0.1.0.dev21,<1.0.0",  # Private package from Cloudsmith (CPU-only by default)
+]
 dev = [
   # Dev/debugging tools
   "debugpy",  # Enables remote debugging
   "streamlit",
   "streamlit-ext",
   "plotly",
+  "duckdb>=0.9.0",  # Efficient parquet querying for time series explorer
+  "boto3>=1.28.0",  # S3 access for time series explorer
+  # Include observe dependencies for dev (prophet + observe-models with all extras)
+  "prophet==1.1.5",
+  "observe-models[all]>=0.1.0.dev21,<1.0.0",  # Full observe-models extras for dev
   # Lint/test dependencies
   "ruff==0.9.6",
   "pytest",
@@ -114,5 +124,30 @@ extend-ignore = [
   'B904', # TODO There are warnings in executor code. These need cleanup. Then this can be removed
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Allow relative imports from parent modules in the streamlit_explorer app
+"scripts/streamlit_explorer/**/*.py" = ["TID252"]
+
 [tool.pyright]
 extraPaths = ['tests']
+
+[tool.coverage.run]
+# Exclude non-operational code from coverage
+omit = [
+    "scripts/streamlit_explorer/*",
+    "scripts/streamlit_explorer/**/*",
+    "scripts/assertions_ui.py",
+]
+
+[tool.coverage.report]
+# Exclude non-operational code from coverage reports
+omit = [
+    "scripts/streamlit_explorer/*",
+    "scripts/streamlit_explorer/**/*",
+    "scripts/assertions_ui.py",
+]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
