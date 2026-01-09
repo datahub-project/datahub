@@ -1,3 +1,36 @@
+## User and Ownership Handling
+
+PowerBI Source supports two modes for handling user ownership:
+
+### Soft References Mode (Recommended - Default)
+
+When `ownership.create_corp_user: false` (default), PowerBI will:
+
+- Extract ownership information as URN references only
+- NOT create user entities in DataHub
+- User profiles must come from your identity provider (LDAP/SCIM/Okta)
+
+This is the recommended approach as it prevents PowerBI from overwriting user profiles from your identity provider.
+
+```yaml
+ownership:
+  create_corp_user: false # Default - soft references only
+```
+
+### Full User Creation Mode (Opt-in)
+
+When `ownership.create_corp_user: true`, PowerBI will:
+
+- Create user entities with `displayName` and `email` from PowerBI
+- This may overwrite existing user profiles from LDAP/Okta/SCIM
+
+**Warning**: Only use this if PowerBI is your authoritative source for user information.
+
+```yaml
+ownership:
+  create_corp_user: true # Opt-in - creates user entities
+```
+
 ## Configuration Notes
 
 1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.

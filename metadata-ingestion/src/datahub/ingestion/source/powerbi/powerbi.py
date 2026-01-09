@@ -72,6 +72,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
+    CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
@@ -682,7 +683,14 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+
+        # Get user URNs based on mode
+        if self.__config.ownership.create_corp_user:
+            # Opt-in mode: Extract URNs from created user MCPs
+            user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        else:
+            # Default mode: Get URNs directly (soft references, no entity creation)
+            user_urn_list = self.to_datahub_user_urns(dashboard.users)
 
         def chart_custom_properties(dashboard: powerbi_data_classes.Dashboard) -> dict:
             return {
@@ -854,7 +862,9 @@ class Mapper:
         self, user: powerbi_data_classes.User
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi user to datahub user
+        Create user entity with FULL info (CorpUserKeyClass + CorpUserInfoClass).
+        Only called when create_corp_user=True (opt-in).
+        User accepts conflict risk - PowerBI data may overwrite existing profiles.
         """
 
         logger.debug(f"Mapping user {user.displayName}(id={user.id}) to datahub's user")
@@ -865,18 +875,34 @@ class Mapper:
             remove_email_suffix=self.__config.ownership.remove_email_suffix,
         )
         user_urn = builder.make_user_urn(user_id)
+
+        # Emit BOTH Key AND Info (not just Key!)
         user_key = CorpUserKeyClass(username=user.id)
 
-        user_key_mcp = self.new_mcp(
-            entity_urn=user_urn,
-            aspect=user_key,
+        user_info = CorpUserInfoClass(
+            displayName=user.displayName or user_id,  # Fallback to user_id if null
+            email=user.emailAddress,
+            active=True,
         )
 
-        return [user_key_mcp]
+        return [
+            self.new_mcp(entity_urn=user_urn, aspect=user_key),
+            self.new_mcp(entity_urn=user_urn, aspect=user_info),
+        ]
 
     def to_datahub_users(
         self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Return user MCPs if create_corp_user=True, empty list otherwise.
+        When True: Emits full user entities (Key + Info).
+        When False: Returns empty (ownership uses URNs only via to_datahub_user_urns).
+        """
+        # Check flag FIRST, return empty if False (soft reference mode)
+        if not self.__config.ownership.create_corp_user:
+            return []
+
+        # Opt-in mode: Create full user entities
         user_mcps = []
 
         for user in users:
@@ -896,10 +922,38 @@ class Mapper:
                     > 0
                 ) or self.__config.ownership.owner_criteria is None:
                     user_mcps.extend(self.to_datahub_user(user))
-                else:
-                    continue
 
         return user_mcps
+
+    def to_datahub_user_urns(self, users: List[powerbi_data_classes.User]) -> List[str]:
+        """
+        Return user URNs for ownership references (soft references).
+        Used when create_corp_user=False (default mode).
+        No entity creation - follows Tableau/Looker pattern.
+        """
+        user_urns = []
+        for user in users:
+            if user:
+                user_rights = [
+                    user.datasetUserAccessRight,
+                    user.reportUserAccessRight,
+                    user.dashboardUserAccessRight,
+                    user.groupUserAccessRight,
+                ]
+                if (
+                    user.principalType == "User"
+                    and self.__config.ownership.owner_criteria
+                    and len(
+                        set(user_rights) & set(self.__config.ownership.owner_criteria)
+                    )
+                    > 0
+                ) or self.__config.ownership.owner_criteria is None:
+                    user_id = user.get_urn_part(
+                        use_email=self.__config.ownership.use_powerbi_email,
+                        remove_email_suffix=self.__config.ownership.remove_email_suffix,
+                    )
+                    user_urns.append(builder.make_user_urn(user_id))
+        return user_urns
 
     def to_datahub_chart(
         self,
@@ -1092,7 +1146,14 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+
+        # Get user URNs based on mode
+        if self.__config.ownership.create_corp_user:
+            # Opt-in mode: Extract URNs from created user MCPs
+            user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        else:
+            # Default mode: Get URNs directly (soft references, no entity creation)
+            user_urn_list = self.to_datahub_user_urns(report.users)
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
@@ -1293,6 +1354,15 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         self.mapper = Mapper(
             ctx, config, self.reporter, self.dataplatform_instance_resolver
         )
+
+        # Warn if user has opted-in to user creation (may overwrite LDAP/Okta users)
+        if self.source_config.ownership.create_corp_user:
+            logger.warning(
+                "PowerBI user creation is ENABLED (create_corp_user=True). "
+                "PowerBI will create user entities with displayName and email from PowerBI. "
+                "WARNING: This may overwrite existing user profiles from LDAP/Okta/SCIM. "
+                "If you have another user source, set create_corp_user=False (recommended)."
+            )
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(

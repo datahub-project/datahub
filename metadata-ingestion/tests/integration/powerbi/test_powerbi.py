@@ -132,6 +132,11 @@ def default_source_config():
         "env": "DEV",
         "extract_workspaces_to_containers": False,
         "enable_advance_lineage_sql_construct": False,
+        # Explicitly set to True to maintain backward compatibility with golden files
+        # The new default is False, but tests rely on existing golden files
+        "ownership": {
+            "create_corp_user": True,
+        },
     }
 
 
