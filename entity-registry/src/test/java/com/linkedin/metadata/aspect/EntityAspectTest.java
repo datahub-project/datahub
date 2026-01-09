@@ -304,7 +304,8 @@ public class EntityAspectTest {
             null,
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
             null,
-            Collections.emptyList());
+            Collections.emptyList(),
+            null);
 
     // Should create default system metadata
     SystemMetadata nullEntityDefaultMetadata = nullEntityAspect.getSystemMetadata();
@@ -334,7 +335,8 @@ public class EntityAspectTest {
             null, // No auditStamp
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(TEST_ASPECT),
-            Collections.emptyList());
+            Collections.emptyList(),
+            null); // No operationContext
 
     // This should trigger the condition we're testing:
     // "if (entityAspect != null && entityAspect.getSystemMetadata() != null)"

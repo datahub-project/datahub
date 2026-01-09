@@ -102,6 +102,8 @@ public class EntityAspect {
 
     @Nullable private List<AspectPayloadValidator> payloadValidators;
 
+    @Nullable private Object operationContext;
+
     @Nonnull
     public String getUrnRaw() {
       return urn.toString();
@@ -180,7 +182,7 @@ public class EntityAspect {
     @Nullable
     @Override
     public Object getOperationContext() {
-      return null; // Not applicable for this implementation
+      return operationContext;
     }
 
     public static class EntitySystemAspectBuilder {
@@ -194,7 +196,8 @@ public class EntityAspect {
             this.auditStamp,
             this.entitySpec,
             this.aspectSpec,
-            this.payloadValidators);
+            this.payloadValidators,
+            this.operationContext);
       }
 
       public EntityAspect.EntitySystemAspect forInsert(

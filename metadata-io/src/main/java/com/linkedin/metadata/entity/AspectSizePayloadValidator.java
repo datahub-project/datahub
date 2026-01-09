@@ -99,14 +99,15 @@ public class AspectSizePayloadValidator implements AspectPayloadValidator {
         if (opContextObj instanceof io.datahubproject.metadata.context.OperationContext) {
           io.datahubproject.metadata.context.OperationContext opContext =
               (io.datahubproject.metadata.context.OperationContext) opContextObj;
-          opContext.addPendingDeletion(
+          AspectDeletionRequest request =
               AspectDeletionRequest.builder()
                   .urn(systemAspect.getUrn())
                   .aspectName(systemAspect.getAspectSpec().getName())
                   .validationPoint("POST_DB_PATCH")
                   .aspectSize(actualSize)
                   .threshold(threshold)
-                  .build());
+                  .build();
+          opContext.addPendingDeletion(request);
         }
       }
 

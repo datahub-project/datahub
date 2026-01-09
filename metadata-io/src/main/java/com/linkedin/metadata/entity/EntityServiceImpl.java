@@ -271,7 +271,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       ChangeMCP changeMCP,
       SystemAspect latestAspect,
       @Nonnull List<com.linkedin.metadata.aspect.AspectPayloadValidator> payloadValidators,
-      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfig validationConfig) {
+      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfig validationConfig,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
 
     try {
       // This is the proposed version for this MCP, it can never be 0 (even if stored with row
@@ -342,6 +343,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         return EbeanSystemAspect.builder()
             .payloadValidators(payloadValidators)
             .validationConfig(validationConfig)
+            .operationContext(opContext)
             .forInsert(
                 changeMCP.getUrn(),
                 changeMCP.getAspectName(),
@@ -1111,7 +1113,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                           changeMCP,
                                           systemAspect,
                                           aspectDao.getPayloadValidators(),
-                                          aspectDao.getValidationConfig()));
+                                          aspectDao.getValidationConfig(),
+                                          opContext));
 
                           // Fetch additional information if needed
                           final List<ChangeMCP> changeMCPs;
@@ -1158,7 +1161,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                         mcp,
                                                         sysAspect,
                                                         aspectDao.getPayloadValidators(),
-                                                        aspectDao.getValidationConfig()));
+                                                        aspectDao.getValidationConfig(),
+                                                        opContext));
                                           }
                                         })
                                     .collect(Collectors.toList());
@@ -3221,7 +3225,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             writeItem,
             latestAspect,
             aspectDao.getPayloadValidators(),
-            aspectDao.getValidationConfig());
+            aspectDao.getValidationConfig(),
+            opContext);
 
     // save to database
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
