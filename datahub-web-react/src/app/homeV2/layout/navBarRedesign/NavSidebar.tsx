@@ -54,6 +54,7 @@ import {
     useBusinessAttributesFlag,
     useIsAiChatEnabled,
     useIsContextDocumentsEnabled,
+    useIsFreeTrialInstance,
 } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -194,6 +195,7 @@ export const NavSidebar = () => {
         (showFormAnalytics || formCreationEnabled);
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const { viewIngestionSourcePrivilegesEnabled } = config.featureFlags;
+    const isFreeTrialInstance = useIsFreeTrialInstance();
     /* End SaaS Only */
 
     const showDataSources =
@@ -223,6 +225,8 @@ export const NavSidebar = () => {
     })) as NavBarMenuDropdownItemElement[];
 
     const versionLink = generateReleaseNotesLink(config?.appVersion);
+
+    const SUPPORT_PORTAL_LINK = 'https://support.datahub.com/hc/en-us';
 
     // --- MFE YAML CONFIG ---
     const mfeConfig: any = useMFEConfigFromBackend();
@@ -531,6 +535,15 @@ export const NavSidebar = () => {
                         link: PageRoutes.SETTINGS_HELP_LINK,
                         key: 'helpAddCustomHelpLink',
                         isHidden: !showAddHelpLink,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.DropdownElement,
+                        title: 'Support Portal',
+                        description: 'Visit to get helpful resources',
+                        link: SUPPORT_PORTAL_LINK,
+                        isExternalLink: true,
+                        key: 'supportPortal',
+                        isHidden: !isFreeTrialInstance,
                     },
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
