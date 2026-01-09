@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 /** Unit tests for BillingFactory. */
 @TestPropertySource(
     properties = {
-      "baseUrl=http://localhost:9002",
+      "baseUrl=https://test-customer.trials.acryl.io",
       "datahub.billing.enabled=true",
       "datahub.billing.provider=metronome",
       "datahub.billing.metronome.apiKey=test-api-key",
