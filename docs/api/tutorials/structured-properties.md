@@ -1561,17 +1561,27 @@ ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true
 
 ## Update Structured Property With Breaking Schema Changes
 
-This section will demonstrate how to make backwards incompatible schema changes. Making backwards incompatible
-schema changes will remove previously written data.
+This section demonstrates how to make backwards incompatible schema changes to a Structured Property definition.
 
-Breaking schema changes are implemented by setting a version string within the Structured Property definition. This
-version must be in the following format: `yyyyMMddhhmmss`, i.e. `20240614080000`
+Breaking schema changes require setting a `version` string in the Structured Property definition.
 
-:::note IMPORTANT NOTES
-Old values will not be retrieve-able after the new Structured Property definition is applied.
+The format `yyyyMMddhhmmss` (for example, `20240614080000`) is a recommended convention, but not a strict requirement. Semantic versioning or other formats also work. Note that only the most recently created version is active.
 
-The old values will be subject to deletion asynchronously (future work).
+:::caution IMPORTANT
+
+Making a breaking schema change will **invalidate existing values** for this Structured Property in search.
+
+- Existing values will still be viewable in the UI and retrievable via GraphQL and the API
+- Existing values will **not** appear in search results, filters, or aggregations
+- The old values will be cleaned up asynchronously (future work)
+
+If you need existing values to remain searchable, consider creating a new Structured Property with a different name instead of modifying the existing one.
+
 :::
+
+### When would you use this?
+
+The most common scenario is changing cardinality from `MULTIPLE` to `SINGLE`. If assets already have multiple values stored, those values don't fit the new schema and get invalidated in the search index.
 
 In the following example, we'll revisit the `retentionTime` structured property and apply a breaking change
 by changing the cardinality from `MULTIPLE` to `SINGLE`. Normally this change would be rejected as a

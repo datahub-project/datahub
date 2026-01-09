@@ -168,7 +168,9 @@ public enum DataHubUsageEventType {
   ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent"),
   INGESTION_SELECT_SOURCE_EVENT("IngestionSelectSourceEvent"),
   INGESTION_ENTER_CONFIGURATION_EVENT("IngestionEnterConfigurationEvent"),
-  INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent");
+  INGESTION_ENTER_SYNC_SCHEDULE_EVENT("IngestionEnterSyncScheduleEvent"),
+  INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
+  CLOSE_CREATE_SOURCE_EDUCATION_MODAL_EVENT("CloseCreateSourceEducationModalEvent");
 
   private final String type;
 

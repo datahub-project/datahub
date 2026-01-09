@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.view;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -13,7 +14,6 @@ import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -53,7 +53,9 @@ public class DataHubViewType
           _entityClient.batchGetV2(
               context.getOperationContext(),
               DATAHUB_VIEW_ENTITY_NAME,
-              new HashSet<>(viewUrns),
+              viewUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
