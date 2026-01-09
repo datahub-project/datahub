@@ -447,3 +447,323 @@ class TestActivityRunToDataJobUrnMapping:
         # Each URN should contain its activity name
         for activity, urn in zip(activities, job_urns):
             assert activity in str(urn)
+
+
+class TestCopyActivityColumnLineageExtractor:
+    """Tests for column-level lineage extraction from Copy Activity.
+
+    This is critical business logic - validates parsing of both
+    dictionary and list formats for translator.columnMappings.
+    """
+
+    def test_supports_copy_activity_only(self) -> None:
+        """Extractor should only handle Copy activity type."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+
+        extractor = CopyActivityColumnLineageExtractor()
+        assert extractor.supports_activity("Copy") is True
+        assert extractor.supports_activity("ExecuteDataFlow") is False
+        assert extractor.supports_activity("Lookup") is False
+        assert extractor.supports_activity("SqlServerStoredProcedure") is False
+
+    def test_extract_dict_format_column_mappings(self) -> None:
+        """Parse dictionary format: {"SourceCol": "SinkCol"}."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        # Create activity with dict format column mappings
+        activity = Activity(
+            name="CopyData",
+            type="Copy",
+            type_properties={
+                "source": {"type": "AzureSqlSource"},
+                "sink": {"type": "AzureBlobSink"},
+                "translator": {
+                    "type": "TabularTranslator",
+                    "columnMappings": {
+                        "id": "customer_id",
+                        "name": "customer_name",
+                        "email": "contact_email",
+                    },
+                },
+            },
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.source_table,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:abs,container/dest.csv,PROD)"
+
+        mappings = extractor.extract_column_lineage(activity, source_urn, sink_urn)
+
+        assert len(mappings) == 3
+        # Verify each mapping
+        mapping_dict = {m.source_column: m.sink_column for m in mappings}
+        assert mapping_dict["id"] == "customer_id"
+        assert mapping_dict["name"] == "customer_name"
+        assert mapping_dict["email"] == "contact_email"
+
+        # Verify URNs are set correctly
+        for mapping in mappings:
+            assert mapping.source_dataset_urn == source_urn
+            assert mapping.sink_dataset_urn == sink_urn
+
+    def test_extract_list_format_column_mappings(self) -> None:
+        """Parse list format: [{"source": {"name": "col"}, "sink": {"name": "dest"}}]."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        # Create activity with list format column mappings (newer format)
+        activity = Activity(
+            name="CopyData",
+            type="Copy",
+            type_properties={
+                "source": {"type": "AzureSqlSource"},
+                "sink": {"type": "ParquetSink"},
+                "translator": {
+                    "type": "TabularTranslator",
+                    "mappings": [
+                        {
+                            "source": {"name": "order_id", "type": "Int32"},
+                            "sink": {"name": "id", "type": "Int32"},
+                        },
+                        {
+                            "source": {"name": "order_date", "type": "DateTime"},
+                            "sink": {"name": "date", "type": "DateTime"},
+                        },
+                    ],
+                },
+            },
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.orders,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:abs,lake/orders.parquet,PROD)"
+
+        mappings = extractor.extract_column_lineage(activity, source_urn, sink_urn)
+
+        assert len(mappings) == 2
+        mapping_dict = {m.source_column: m.sink_column for m in mappings}
+        assert mapping_dict["order_id"] == "id"
+        assert mapping_dict["order_date"] == "date"
+
+    def test_empty_when_no_translator(self) -> None:
+        """Return empty list when Copy activity has no translator property."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        # Activity without translator (uses auto-mapping)
+        activity = Activity(
+            name="SimpleCopy",
+            type="Copy",
+            type_properties={
+                "source": {"type": "AzureSqlSource"},
+                "sink": {"type": "AzureBlobSink"},
+            },
+        )
+
+        mappings = extractor.extract_column_lineage(
+            activity,
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:abs,container/file.csv,PROD)",
+        )
+
+        assert mappings == []
+
+    def test_empty_when_missing_dataset_urns(self) -> None:
+        """Return empty list when source or sink URN is missing."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        activity = Activity(
+            name="CopyData",
+            type="Copy",
+            type_properties={
+                "translator": {
+                    "type": "TabularTranslator",
+                    "columnMappings": {"src": "dest"},
+                },
+            },
+        )
+
+        # Missing source URN
+        mappings = extractor.extract_column_lineage(
+            activity,
+            None,  # No source
+            "urn:li:dataset:(urn:li:dataPlatform:abs,container/file.csv,PROD)",
+        )
+        assert mappings == []
+
+        # Missing sink URN
+        mappings = extractor.extract_column_lineage(
+            activity,
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.table,PROD)",
+            None,  # No sink
+        )
+        assert mappings == []
+
+    def test_handles_empty_column_names_gracefully(self) -> None:
+        """Skip mappings with empty or None column names."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        activity = Activity(
+            name="CopyData",
+            type="Copy",
+            type_properties={
+                "translator": {
+                    "type": "TabularTranslator",
+                    "columnMappings": {
+                        "valid_col": "valid_dest",
+                        "": "empty_source",  # Invalid - empty source
+                        "empty_dest": "",  # Invalid - empty dest
+                    },
+                },
+            },
+        )
+
+        mappings = extractor.extract_column_lineage(
+            activity,
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:abs,container/file.csv,PROD)",
+        )
+
+        # Only the valid mapping should be extracted
+        assert len(mappings) == 1
+        assert mappings[0].source_column == "valid_col"
+        assert mappings[0].sink_column == "valid_dest"
+
+    def test_extract_from_sdk_flattened_translator(self) -> None:
+        """Parse translator when Azure SDK flattens it to activity level (not typeProperties)."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        # Azure SDK returns Copy activities with translator at activity level
+        # instead of nested in typeProperties
+        activity = Activity(
+            name="SDKCopyActivity",
+            type="Copy",
+            # translator is a direct field on Activity, not in type_properties
+            translator={
+                "type": "TabularTranslator",
+                "columnMappings": {
+                    "source_col": "dest_col",
+                    "another_src": "another_dest",
+                },
+            },
+            # type_properties may be None or not contain translator
+            type_properties=None,
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.table,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:abs,container/file.csv,PROD)"
+
+        mappings = extractor.extract_column_lineage(activity, source_urn, sink_urn)
+
+        assert len(mappings) == 2
+        mapping_dict = {m.source_column: m.sink_column for m in mappings}
+        assert mapping_dict["source_col"] == "dest_col"
+        assert mapping_dict["another_src"] == "another_dest"
+
+    def test_infer_auto_mapped_columns_from_source_schema(self) -> None:
+        """Infer 1:1 column mappings when translator has no explicit mappings but source schema is available."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+            DatasetSchemaInfo,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        # Activity with TabularTranslator but no explicit column mappings
+        # (typeConversion only - auto-mapping mode)
+        activity = Activity(
+            name="AutoMappedCopy",
+            type="Copy",
+            translator={
+                "type": "TabularTranslator",
+                "typeConversion": True,
+                "typeConversionSettings": {
+                    "allowDataTruncation": True,
+                    "treatBooleanAsNumber": False,
+                },
+            },
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:parquet,source.parquet,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.dest_table,PROD)"
+
+        # Provide source schema for inference
+        source_schema = DatasetSchemaInfo(
+            columns=["VendorID", "pickup_datetime", "fare_amount", "total_amount"]
+        )
+
+        mappings = extractor.extract_column_lineage(
+            activity, source_urn, sink_urn, source_schema
+        )
+
+        # Should infer 1:1 mappings from source schema
+        assert len(mappings) == 4
+        mapping_dict = {m.source_column: m.sink_column for m in mappings}
+        # Auto-mapping: same column name for source and sink
+        assert mapping_dict["VendorID"] == "VendorID"
+        assert mapping_dict["pickup_datetime"] == "pickup_datetime"
+        assert mapping_dict["fare_amount"] == "fare_amount"
+        assert mapping_dict["total_amount"] == "total_amount"
+
+        # Verify URNs are set correctly
+        for mapping in mappings:
+            assert mapping.source_dataset_urn == source_urn
+            assert mapping.sink_dataset_urn == sink_urn
+
+    def test_no_inference_without_source_schema(self) -> None:
+        """No column lineage when no explicit mappings and no source schema."""
+        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+            CopyActivityColumnLineageExtractor,
+        )
+        from datahub.ingestion.source.azure_data_factory.adf_models import Activity
+
+        extractor = CopyActivityColumnLineageExtractor()
+
+        activity = Activity(
+            name="NoSchemaCopy",
+            type="Copy",
+            translator={
+                "type": "TabularTranslator",
+                "typeConversion": True,
+            },
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:parquet,source.parquet,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.dest_table,PROD)"
+
+        # No source schema provided
+        mappings = extractor.extract_column_lineage(
+            activity, source_urn, sink_urn, source_schema=None
+        )
+
+        # Should return empty - no inference possible without schema
+        assert len(mappings) == 0

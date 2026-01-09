@@ -230,6 +230,21 @@ class Activity(BaseModel):
         description="User-defined properties",
     )
 
+    # Copy activity specific fields (flattened by Azure SDK)
+    # The Azure SDK returns these at activity level, not inside typeProperties
+    translator: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Column mapping translator for Copy activities",
+    )
+    source: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Source configuration for Copy activities",
+    )
+    sink: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Sink configuration for Copy activities",
+    )
+
 
 class PipelineProperties(BaseModel):
     """Properties of an ADF pipeline."""
