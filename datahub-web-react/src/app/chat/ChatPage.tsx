@@ -12,9 +12,11 @@ import {
     mapToConversationListItem,
     sortConversationsByMostRecent,
 } from '@app/chat/utils/conversationUtils';
+import { DEFAULT_FREE_TRIAL_INSTANCE_QUESTIONS, DEFAULT_QUESTIONS } from '@app/chat/utils/suggestedQuestionsUtils';
 import CompactContext from '@app/shared/CompactContext';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { useIsFreeTrialInstance } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 import { PageRoutes } from '@conf/Global';
@@ -108,6 +110,9 @@ export const ChatPage = () => {
     const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
     const [draftsByUrn, setDraftsByUrn] = useState<Record<string, string>>({});
+
+    const isFreeTrialInstance = useIsFreeTrialInstance();
+    const suggestedQuestions = isFreeTrialInstance ? DEFAULT_FREE_TRIAL_INSTANCE_QUESTIONS : DEFAULT_QUESTIONS;
 
     // Fetch conversations list - TODO: Add pagination / infinite scroll
     // Filter to only show conversations created in the main DataHub UI
@@ -353,6 +358,7 @@ export const ChatPage = () => {
                             onEntitySelect={handleEntitySelect}
                             initialMessage={initialMessageRef.current}
                             chatLocation="ask_datahub_ui"
+                            suggestedQuestions={suggestedQuestions}
                         />
                     )}
                 </MainContent>

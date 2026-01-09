@@ -5,12 +5,8 @@ import { useLocation, useParams } from 'react-router';
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
 import { EmbeddedChat } from '@app/chat/EmbeddedChat';
-import {
-    EXECUTION_REQUEST_STATUS_FAILURE,
-    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
-    EXECUTION_REQUEST_STATUS_SUCCESS,
-} from '@app/ingestV2/executions/constants';
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
+import { getSuggestedQuestions } from '@app/ingestV2/runDetails/utils';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
@@ -76,33 +72,7 @@ export default function IngestionRunDetailsPage() {
         name ? `The ingestion source name is "${name}". ` : ''
     } This is a troubleshooting context where the user may ask questions about ingestion failures, logs, or execution details.`;
 
-    let suggestedQuestions;
-
-    if (data?.executionRequest?.result?.status === EXECUTION_REQUEST_STATUS_SUCCESS) {
-        suggestedQuestions = [
-            'Summarize what was ingested from this run',
-            'How can I improve performance for this source?',
-            'What source should I connect next?',
-        ];
-    } else if (data?.executionRequest?.result?.status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS) {
-        suggestedQuestions = [
-            'Summarize what happened',
-            'What is the impact?',
-            'What should I resolve before the next run?',
-        ];
-    } else if (data?.executionRequest?.result?.status === EXECUTION_REQUEST_STATUS_FAILURE) {
-        suggestedQuestions = [
-            'What’s the main error?',
-            'What should I check in my configuration?',
-            'Walk me through fixing this step-by-step',
-        ];
-    } else {
-        suggestedQuestions = [
-            'What’s the current status of this source?',
-            'Should I change any settings for best results?',
-            'What should I do next?',
-        ];
-    }
+    const suggestedQuestions = getSuggestedQuestions(data?.executionRequest?.result?.status || '');
 
     return (
         <PageLayout

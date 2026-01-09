@@ -2,8 +2,6 @@ import { Pill } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useIsFreeTrialInstance } from '@app/useAppConfig';
-
 const SuggestionsContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -26,34 +24,15 @@ interface SuggestedQuestionsProps {
     questions?: string[];
 }
 
-const DEFAULT_QUESTIONS = [
-    'Show the most highly used tables',
-    'Find reports related to sales',
-    'Help me build a new dashboard',
-];
-
-const DEFAULT_FREE_TRIAL_INSTANCE_QUESTIONS = [
-    'How are orders with promotions calculated?',
-    'How can I see trends in orders?',
-    'What would be impacted if I redefined product_categories in postgres?',
-];
-
 export const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({ onQuestionSelect, questions }) => {
-    const isFreeTrialInstance = useIsFreeTrialInstance();
-
-    let questionsToRender;
-
-    if (questions && questions.length > 0) questionsToRender = questions;
-    else if (isFreeTrialInstance) {
-        questionsToRender = DEFAULT_FREE_TRIAL_INSTANCE_QUESTIONS;
-    } else {
-        questionsToRender = DEFAULT_QUESTIONS;
+    if (!questions || !questions.length) {
+        return null;
     }
 
     return (
         <SuggestionsContainer>
             <PillsWrapper>
-                {questionsToRender.map((question) => (
+                {questions.map((question) => (
                     <Pill
                         key={question}
                         label={question}
