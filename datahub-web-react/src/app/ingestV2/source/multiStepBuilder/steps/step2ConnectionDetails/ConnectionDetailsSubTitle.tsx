@@ -12,5 +12,5 @@ export function ConnectionDetailsSubTitle() {
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const sourceDisplayName = sourceConfigs?.displayName;
 
-    return <>To import from {sourceDisplayName}, we&#39;ll need more information to connect to your instance.</>;
+    return <>Provide credentials and define what metadata to collect from {sourceDisplayName}.</>;
 }

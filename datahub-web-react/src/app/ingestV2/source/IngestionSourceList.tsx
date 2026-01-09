@@ -27,6 +27,7 @@ import {
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
 import {
+    DEFAULT_SOURCE_SORT_CRITERION,
     buildOwnerEntities,
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
@@ -243,7 +244,7 @@ export const IngestionSourceList = ({
             count: pageSize,
             query: query?.length ? query : undefined,
             filters: filters.length ? filters : undefined,
-            sort,
+            sort: !query && !sort ? DEFAULT_SOURCE_SORT_CRITERION : sort,
         }),
         [start, pageSize, query, filters, sort],
     );
