@@ -611,8 +611,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for allowed_space in allowed_spaces:
             yield from self._gen_space_workunit(allowed_space)
             for item in self.qlik_api.get_items(
-                    'personal' if allowed_space.id == Constant.PERSONAL_SPACE_ID
-            else allowed_space.id
+                "personal"
+                if allowed_space.id == Constant.PERSONAL_SPACE_ID
+                else allowed_space.id
             ):
                 if isinstance(item, App):
                     yield from self._gen_app_workunit(item)
