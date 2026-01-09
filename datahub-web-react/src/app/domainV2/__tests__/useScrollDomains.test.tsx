@@ -7,7 +7,7 @@ import useScrollDomains from '@app/domainV2/useScrollDomains';
 
 // Simple mock implementations
 const mockUseInView = vi.fn();
-const mockUseScrollAcrossEntitiesQuery = vi.fn();
+const mockUseScrollAcrossDomainsQuery = vi.fn();
 const mockUseManageDomains = vi.fn();
 
 // Mock modules with simple return values
@@ -15,8 +15,8 @@ vi.mock('react-intersection-observer', () => ({
     useInView: () => mockUseInView(),
 }));
 
-vi.mock('@graphql/search.generated', () => ({
-    useScrollAcrossEntitiesQuery: () => mockUseScrollAcrossEntitiesQuery(),
+vi.mock('@graphql/domain.generated', () => ({
+    useScrollAcrossDomainsQuery: () => mockUseScrollAcrossDomainsQuery(),
 }));
 
 vi.mock('@app/domainV2/useManageDomains', () => ({
@@ -48,7 +48,7 @@ describe('useScrollDomains - Simplified Tests', () => {
 
         // Set up default mock returns
         mockUseInView.mockReturnValue([vi.fn(), false]);
-        mockUseScrollAcrossEntitiesQuery.mockReturnValue({
+        mockUseScrollAcrossDomainsQuery.mockReturnValue({
             data: null,
             loading: false,
             error: null,
@@ -78,7 +78,7 @@ describe('useScrollDomains - Simplified Tests', () => {
     });
 
     it('should handle loading state', () => {
-        mockUseScrollAcrossEntitiesQuery.mockReturnValue({
+        mockUseScrollAcrossDomainsQuery.mockReturnValue({
             data: null,
             loading: true,
             error: null,
@@ -94,7 +94,7 @@ describe('useScrollDomains - Simplified Tests', () => {
 
     it('should handle error state', () => {
         const mockError = new Error('Test error');
-        mockUseScrollAcrossEntitiesQuery.mockReturnValue({
+        mockUseScrollAcrossDomainsQuery.mockReturnValue({
             data: null,
             loading: false,
             error: mockError,

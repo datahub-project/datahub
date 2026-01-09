@@ -12545,6 +12545,11 @@ type Domain implements Entity {
   ownership: Ownership
 
   """
+  Status of the domain (soft-deleted, etc.)
+  """
+  status: Status
+
+  """
   References to internal resources related to the dataset
   """
   institutionalMemory: InstitutionalMemory

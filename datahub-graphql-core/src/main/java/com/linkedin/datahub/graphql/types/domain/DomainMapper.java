@@ -9,6 +9,7 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Share;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.util.EntityResponseUtils;
@@ -73,6 +75,11 @@ public class DomainMapper {
       result.setOwnership(
           OwnershipMapper.map(
               context, new Ownership(envelopedOwnership.getValue().data()), entityUrn));
+    }
+
+    final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
+    if (envelopedStatus != null) {
+      result.setStatus(StatusMapper.map(context, new Status(envelopedStatus.getValue().data())));
     }
 
     final EnvelopedAspect envelopedInstitutionalMemory =

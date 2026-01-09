@@ -7,7 +7,7 @@ import useScrollDomains from '@app/domainV2/useScrollDomains';
 
 // Simple mock implementations
 const mockUseInView = vi.fn();
-const mockUseScrollAcrossEntitiesQuery = vi.fn();
+const mockUseScrollAcrossDomainsQuery = vi.fn();
 const mockUseManageDomains = vi.fn();
 
 // Mock modules with simple return values
@@ -15,9 +15,13 @@ vi.mock('react-intersection-observer', () => ({
     useInView: () => mockUseInView(),
 }));
 
-vi.mock('@graphql/search.generated', () => ({
-    useScrollAcrossEntitiesQuery: () => mockUseScrollAcrossEntitiesQuery(),
-}));
+vi.mock('@graphql/domain.generated', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@graphql/domain.generated')>();
+    return {
+        ...actual,
+        useScrollAcrossDomainsQuery: () => mockUseScrollAcrossDomainsQuery(),
+    };
+});
 
 vi.mock('@app/domainV2/useManageDomains', () => ({
     default: () => mockUseManageDomains(),
@@ -48,7 +52,7 @@ describe('Domains Integration Tests - Simple', () => {
 
         // Set up default mock returns
         mockUseInView.mockReturnValue([vi.fn(), false]);
-        mockUseScrollAcrossEntitiesQuery.mockReturnValue({
+        mockUseScrollAcrossDomainsQuery.mockReturnValue({
             data: null,
             loading: false,
             error: null,
@@ -79,7 +83,7 @@ describe('Domains Integration Tests - Simple', () => {
         });
 
         it('should handle loading state', () => {
-            mockUseScrollAcrossEntitiesQuery.mockReturnValue({
+            mockUseScrollAcrossDomainsQuery.mockReturnValue({
                 data: null,
                 loading: true,
                 error: null,
@@ -95,7 +99,7 @@ describe('Domains Integration Tests - Simple', () => {
 
         it('should handle error state', () => {
             const mockError = new Error('Test error');
-            mockUseScrollAcrossEntitiesQuery.mockReturnValue({
+            mockUseScrollAcrossDomainsQuery.mockReturnValue({
                 data: null,
                 loading: false,
                 error: mockError,
@@ -117,12 +121,12 @@ describe('Domains Integration Tests - Simple', () => {
             expect(mockUseManageDomains).toHaveBeenCalled();
         });
 
-        it('should call useScrollAcrossEntitiesQuery', () => {
+        it('should call useScrollAcrossDomainsQuery', () => {
             renderHook(() => useScrollDomains({}), {
                 wrapper: createWrapper,
             });
 
-            expect(mockUseScrollAcrossEntitiesQuery).toHaveBeenCalled();
+            expect(mockUseScrollAcrossDomainsQuery).toHaveBeenCalled();
         });
 
         it('should call useInView', () => {
@@ -150,7 +154,7 @@ describe('Domains Integration Tests - Simple', () => {
         });
 
         it('should work with skip parameter', () => {
-            mockUseScrollAcrossEntitiesQuery.mockReturnValue({
+            mockUseScrollAcrossDomainsQuery.mockReturnValue({
                 data: null,
                 loading: false,
                 error: null,
@@ -162,7 +166,7 @@ describe('Domains Integration Tests - Simple', () => {
             });
 
             expect(result.current.domains).toEqual([]);
-            expect(mockUseScrollAcrossEntitiesQuery).toHaveBeenCalled();
+            expect(mockUseScrollAcrossDomainsQuery).toHaveBeenCalled();
         });
     });
 });

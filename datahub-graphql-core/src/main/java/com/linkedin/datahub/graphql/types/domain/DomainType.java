@@ -39,6 +39,7 @@ public class DomainType
           Constants.DOMAIN_KEY_ASPECT_NAME,
           Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
           Constants.OWNERSHIP_ASPECT_NAME,
+          Constants.STATUS_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.DISPLAY_PROPERTIES_ASPECT_NAME,

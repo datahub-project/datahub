@@ -4,8 +4,7 @@ import { useInView } from 'react-intersection-observer';
 import useManageDomains from '@app/domainV2/useManageDomains';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 
-import { ListDomainFragment } from '@graphql/domain.generated';
-import { useScrollAcrossEntitiesQuery } from '@graphql/search.generated';
+import { ListDomainFragment, useScrollAcrossDomainsQuery } from '@graphql/domain.generated';
 import { EntityType, FilterOperator, SortOrder } from '@types';
 
 export const DOMAIN_COUNT = 25;
@@ -43,7 +42,7 @@ export default function useScrollDomains({ parentDomain, skip }: Props) {
         loading,
         error,
         refetch,
-    } = useScrollAcrossEntitiesQuery({
+    } = useScrollAcrossDomainsQuery({
         variables: {
             ...getDomainsScrollInput(parentDomain || null, scrollId),
         },
@@ -58,10 +57,9 @@ export default function useScrollDomains({ parentDomain, skip }: Props) {
     // Handle initial data and updates from scroll
     useEffect(() => {
         if (scrollData?.scrollAcrossEntities?.searchResults) {
-            const newResults = (scrollData.scrollAcrossEntities.searchResults
-                .filter((r) => !dataUrnsSet.has(r.entity.urn))
+            const newResults = scrollData.scrollAcrossEntities.searchResults
                 .map((r) => r.entity)
-                .filter((e) => e.type === EntityType.Domain) || []) as ListDomainFragment[];
+                .filter((e): e is ListDomainFragment => e.__typename === 'Domain' && !dataUrnsSet.has(e.urn));
 
             if (newResults.length > 0) {
                 setData((currData) => [...currData, ...newResults]);

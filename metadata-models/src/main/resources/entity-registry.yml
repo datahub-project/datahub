@@ -316,6 +316,7 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - status
       - structuredProperties
       - forms
       - testResults

@@ -27,7 +27,7 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
         <>
             {!data && loading && <Message type="loading" content="Loading domains..." />}
             {error && <Message type="error" content="Failed to load domains. An unexpected error occurred." />}
-            {!loading && (!data || !data?.listDomains?.domains?.length) && (
+            {!loading && (!sortedDomains || !sortedDomains?.length) && (
                 <EmptyDomainsSection
                     icon={<ReadOutlined />}
                     title="Organize your data"
