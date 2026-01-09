@@ -108,8 +108,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    # Internal field to track ODBC mode - set by create() based on source type
-    is_odbc_mode: HiddenFromDocs[bool] = Field(default=False)
     # Soft deprecation: use_odbc is removed, source type determines ODBC mode
     _use_odbc_removed = pydantic_removed_field("use_odbc")
     uri_args: Dict[str, str] = Field(
@@ -156,7 +154,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     def validate_uri_args(
         cls, v: Dict[str, Any], info: ValidationInfo, **kwargs: Any
     ) -> Dict[str, Any]:
-        is_odbc = info.data.get("is_odbc_mode", False)
+        # Use Pydantic validation context to get is_odbc flag
+        is_odbc = info.context.get("is_odbc", False) if info.context else False
         if is_odbc and not info.data["sqlalchemy_uri"] and "driver" not in v:
             raise ValueError(
                 "uri_args must contain a 'driver' option when using mssql-odbc source type"
@@ -171,28 +170,30 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
         current_db: Optional[str] = None,
+        is_odbc: bool = False,
     ) -> str:
         current_db = current_db or self.database
 
-        if self.is_odbc_mode:
+        scheme = self.scheme
+        if is_odbc:
             # Ensure that the import is available.
             import pyodbc  # noqa: F401
 
-            self.scheme = "mssql+pyodbc"
+            scheme = "mssql+pyodbc"
 
             # ODBC requires a database name, otherwise it will interpret host_port
             # as a pre-defined ODBC connection name.
             current_db = current_db or "master"
 
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,  # type: ignore
+            scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
             self.host_port,  # type: ignore
             current_db,
             uri_opts=uri_opts,
         )
-        if self.is_odbc_mode:
+        if is_odbc:
             final_uri_args = self.uri_args.copy()
             if final_uri_args and current_db:
                 final_uri_args.update({"database": current_db})
@@ -248,10 +249,13 @@ class SQLServerSource(SQLAlchemySource):
 
     report: SQLSourceReport
 
-    def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: SQLServerConfig, ctx: PipelineContext, is_odbc: bool = False
+    ):
         super().__init__(config, ctx, "mssql")
         # Cache the table and column descriptions
         self.config: SQLServerConfig = config
+        self._is_odbc = is_odbc
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
@@ -268,7 +272,7 @@ class SQLServerSource(SQLAlchemySource):
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
                 with inspector.engine.connect() as conn:
-                    if self.config.is_odbc_mode:
+                    if self._is_odbc:
                         self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)
@@ -343,10 +347,12 @@ class SQLServerSource(SQLAlchemySource):
             getattr(ctx.pipeline_config, "source", None), "type", None
         )
         is_odbc = source_type == "mssql-odbc"
-        config_dict = {**config_dict, "is_odbc_mode": is_odbc}
 
-        config = SQLServerConfig.model_validate(config_dict)
-        return cls(config, ctx)
+        # Pass is_odbc via Pydantic validation context for use in validators
+        config = SQLServerConfig.model_validate(
+            config_dict, context={"is_odbc": is_odbc}
+        )
+        return cls(config, ctx, is_odbc=is_odbc)
 
     # override to get table descriptions
     def get_table_properties(
@@ -1002,7 +1008,7 @@ class SQLServerSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
-        url = self.config.get_sql_alchemy_url()
+        url = self.config.get_sql_alchemy_url(is_odbc=self._is_odbc)
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
@@ -1023,7 +1029,9 @@ class SQLServerSource(SQLAlchemySource):
 
             for db in databases:
                 if self.config.database_pattern.allowed(db["name"]):
-                    url = self.config.get_sql_alchemy_url(current_db=db["name"])
+                    url = self.config.get_sql_alchemy_url(
+                        current_db=db["name"], is_odbc=self._is_odbc
+                    )
                     engine = create_engine(url, **self.config.options)
                     inspector = inspect(engine)
                     self.current_database = db["name"]
