@@ -1004,11 +1004,14 @@ class AgentRunner:
         # LangGraph config - state lives in self._state, graph nodes access it directly
         # completion_check is passed via config because functions can't be serialized
         # Cast to Any to satisfy mypy since RunnableConfig accepts dict-like structures
+        # recursion_limit is set high (100) so our own max_llm_turns check triggers first
+        # (LangGraph's default of 25 counts node executions, not LLM turns)
         graph_config = {
             "configurable": {
                 "thread_id": self.session_id,
                 "completion_check": completion_check,
-            }
+            },
+            "recursion_limit": 100,
         }
 
         # Run graph (nodes update self._state directly via with_history)
