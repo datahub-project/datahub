@@ -3,6 +3,8 @@
 Tests the fix for CUS-7063: PowerBI ingestion overwrites existing user profiles.
 """
 
+from typing import List, Optional
+
 from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserKeyClass
 
 
@@ -16,8 +18,8 @@ class MockUser:
     def __init__(
         self,
         user_id: str,
-        displayName: str = None,
-        emailAddress: str = None,
+        displayName: Optional[str] = None,
+        emailAddress: Optional[str] = None,
         principalType: str = "User",
     ):
         self.id = user_id
@@ -261,9 +263,9 @@ class TestEdgeCases:
 
     def test_empty_users_list(self) -> None:
         """Empty users list should return empty URNs."""
-        users = []
+        users: List[MockUser] = []
 
-        urns = []
+        urns: List[str] = []
         for user in users:
             if user and user.principalType == "User":
                 urns.append(f"urn:li:corpuser:{user.id}")
