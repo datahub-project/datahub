@@ -2909,3 +2909,46 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **a8bd2e5463** - feat(docker) Raise failed init job of database if execution failed (#15768)
   *by nhuantho <91556274+nhuantho@users.noreply.github.com> on 2026-01-03*
+
+## Upstream Merge Session - 2026-01-08 07:58:01
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: 2026-01-08 07:58:01
+
+### Commits Included in This Merge
+
+- **54a7efc21c** - feat(ci): track ci metrics for additional workflows (#15795)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-05*
+
+- **150aae8972** - fix(ingestion): tactical fix for confluent_kafka 2.13 breaking changes (#15797)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-05*
+
+- **ee72686bc6** - fix(ui): add dbt source config for docs link (#15798)
+  *by Pedro Silva <pedro@acryl.io> on 2026-01-05*
+
+- **f921056f8c** - fix(quickstart): support docker compose 5.x in quickstart (#15799)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-06*
+
+- **17b74d6f0a** - feat(graphql,ui): Add Runs tab for DataFlow entities (#15775)
+  *by Anush Kumar <anush.kumar@datahub.com> on 2026-01-05*
+
+- **57398bb360** - build(react): Support https localhost proxy for Safari (#15801)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-01-05*
+
+- **3aef2950a9** - feat(kafka):migrate kafka source to API v2 (#15719)
+  *by Alok Ranjan <alok.ranjan@datahub.com> on 2026-01-06*
+
+- **9e74f07aaa** - fix(docker): Redundant volume mount fails on Mac Docker Desktop (#15805)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-01-06*
+
+- **a5ab12546a** - feat(ci): block unpinned or lower bound only python dependencies (#15791)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-06*
+
+- **27ebfa55f0** - refactor(kafka): rename field variables to idiomatic Java naming (#15792)
+  *by rob-1019 <rob.caskey@datahub.com> on 2026-01-06*

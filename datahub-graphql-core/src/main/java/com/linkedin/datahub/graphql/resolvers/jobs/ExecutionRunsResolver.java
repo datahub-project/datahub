@@ -36,17 +36,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** GraphQL Resolver used for fetching a list of Task Runs associated with a Data Job */
-public class DataJobRunsResolver
+public class ExecutionRunsResolver
     implements DataFetcher<CompletableFuture<DataProcessInstanceResult>> {
 
   private static final String PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME = "parentTemplate";
   private static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
   private static final String HAS_RUN_EVENTS_FIELD_NAME = "hasRunEvents";
-  private static final Logger log = LoggerFactory.getLogger(DataJobRunsResolver.class);
+  private static final Logger log = LoggerFactory.getLogger(ExecutionRunsResolver.class);
 
   private final EntityClient _entityClient;
 
-  public DataJobRunsResolver(final EntityClient entityClient) {
+  public ExecutionRunsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 

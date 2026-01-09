@@ -30,7 +30,7 @@ x-datahub-frontend-service-dev: &datahub-frontend-service-dev
     AUTH_SUPPORT_LOGIN_REQUIRE_TICKET: ${AUTH_SUPPORT_LOGIN_REQUIRE_TICKET:-true}
   volumes:
     - ../../datahub-frontend/build/stage/main:/datahub-frontend
-    # Removed nested mount - causes virtiofs mountpoint error in Docker Desktop 4.54.0
+    # Removed nested mount - causes virtiofs mountpoint error in Docker Desktop >= 4.42.0
     # The file is already in the Docker image, so this mount isn't needed.
     # If you need to override it for development, copy it to the build directory instead.
     # - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
