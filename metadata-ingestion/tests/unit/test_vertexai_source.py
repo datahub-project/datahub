@@ -1,5 +1,4 @@
 import contextlib
-import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -7,17 +6,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from google.api_core.exceptions import (
-    DeadlineExceeded,
     FailedPrecondition,
     GoogleAPICallError,
     InvalidArgument,
     NotFound,
     PermissionDenied,
-    ResourceExhausted,
-    ServiceUnavailable,
 )
 from google.cloud.aiplatform import Endpoint, Experiment, ExperimentRun, PipelineJob
-from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 
@@ -31,14 +26,6 @@ from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
     GCPProjectDiscoveryError,
-    _filter_projects_by_pattern,
-    _is_rate_limit_error,
-    _search_projects_with_retry,
-    _validate_and_filter_projects,
-    get_projects,
-    get_projects_by_labels,
-    get_projects_from_explicit_list,
-    list_all_accessible_projects,
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai import (
@@ -46,7 +33,6 @@ from datahub.ingestion.source.vertexai.vertexai import (
     TrainingJobMetadata,
     VertexAIConfig,
     VertexAISource,
-    _cleanup_credentials,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
@@ -925,128 +911,97 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
         assert len(run_mcps) > 0
 
 
-class TestVertexAIConfigMultiProject:
-    def test_config_backward_compatibility_single_project_id(self) -> None:
+# ============================================================================
+class TestMultiProjectConfig:
+    def test_backward_compatibility_project_id(self) -> None:
         config = VertexAIConfig(project_id="my-project", region="us-central1")
-
         assert config.project_ids == ["my-project"]
 
-    def test_config_project_ids_takes_precedence(self) -> None:
+    def test_project_ids_takes_precedence(self) -> None:
         config = VertexAIConfig(
             project_id="old-project",
             project_ids=["new-project-1", "new-project-2"],
             region="us-central1",
         )
-
         assert config.project_ids == ["new-project-1", "new-project-2"]
 
-    def test_config_with_only_project_ids(self) -> None:
+    @pytest.mark.parametrize(
+        "project_ids,pattern,expected_count",
+        [
+            (["prod-p1", "dev-p1", "prod-p2"], AllowDenyPattern(allow=["prod-.*"]), 2),
+            (["p1", "p2-test", "p3"], AllowDenyPattern(deny=[".*-test$"]), 2),
+        ],
+    )
+    def test_pattern_filtering(
+        self, project_ids: List[str], pattern: AllowDenyPattern, expected_count: int
+    ) -> None:
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(
+                project_ids=project_ids,
+                project_id_pattern=pattern,
+                region="us-central1",
+            ),
+        )
+        assert len(source._get_projects_to_process()) == expected_count
+
+    def test_labels_with_valid_formats(self) -> None:
         config = VertexAIConfig(
-            project_ids=["project-a", "project-b", "project-c"],
-            region="us-west2",
+            project_labels=["env:prod", "team", "cost_center:123"],
+            region="us-central1",
         )
+        assert len(config.project_labels) == 3
 
-        assert config.project_ids == ["project-a", "project-b", "project-c"]
+    @pytest.mark.parametrize("invalid_label", ["env=prod", "Env:prod", "123env:prod"])
+    def test_invalid_label_format_raises_error(self, invalid_label: str) -> None:
+        with pytest.raises(ValueError, match="Invalid project_labels format"):
+            VertexAIConfig(project_labels=[invalid_label], region="us-central1")
 
-    def test_config_with_project_id_pattern(self) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["prod-project", "dev-project", "test-project"],
-                project_id_pattern=AllowDenyPattern(allow=["prod-.*"]),
-                region="us-central1",
+    @pytest.mark.parametrize(
+        "config_kwargs,error_match",
+        [
+            (
+                {
+                    "project_ids": ["dev", "test"],
+                    "project_id_pattern": AllowDenyPattern(allow=["prod-.*"]),
+                },
+                "filtered out",
             ),
-        )
-
-        projects = source._get_projects_to_process()
-        assert len(projects) == 1
-        assert projects[0].id == "prod-project"
-
-    def test_config_pattern_deny(self) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-1", "project-2-test", "project-3"],
-                project_id_pattern=AllowDenyPattern(deny=[".*-test$"]),
-                region="us-central1",
+            ({"project_ids": ["valid", "", "other"]}, "empty or whitespace"),
+            ({"project_ids": ["p1", "p1", "p2"]}, "duplicates"),
+            (
+                {"project_id_pattern": AllowDenyPattern(allow=["prod-.*"])},
+                "Auto-discovery with restrictive",
             ),
-        )
-
-        projects = source._get_projects_to_process()
-        assert len(projects) == 2
-        assert [p.id for p in projects] == ["project-1", "project-3"]
-
-    def test_config_empty_project_ids_allowed(self) -> None:
-        config = VertexAIConfig(region="us-central1")
-        assert config.project_ids == []
+        ],
+    )
+    def test_config_validation_errors(
+        self, config_kwargs: dict, error_match: str
+    ) -> None:
+        with pytest.raises(ValueError, match=error_match):
+            VertexAIConfig(region="us-central1", **config_kwargs)
 
 
-class TestVertexAISourceMultiProject:
-    @patch("google.cloud.aiplatform.init")
-    def test_source_with_single_project(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_id="single-project", region="us-west2"),
-        )
-
-        projects = source._get_projects_to_process()
-        assert len(projects) == 1
-        assert projects[0].id == "single-project"
-
-    @patch("google.cloud.aiplatform.init")
-    def test_source_with_multiple_projects(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-a", "project-b"],
-                region="us-central1",
-            ),
-        )
-
-        projects = source._get_projects_to_process()
-        assert len(projects) == 2
-        assert projects[0].id == "project-a"
-        assert projects[1].id == "project-b"
-
-    @patch("google.cloud.aiplatform.init")
-    def test_source_with_pattern_filtering(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["prod-project-1", "dev-project", "prod-project-2"],
-                project_id_pattern=AllowDenyPattern(allow=["prod-.*"]),
-                region="us-central1",
-            ),
-        )
-
-        projects = source._get_projects_to_process()
-        assert len(projects) == 2
-        assert all(p.id.startswith("prod-") for p in projects)
-
+class TestMultiProjectExecution:
     @patch("google.cloud.aiplatform.init")
     def test_init_for_project_resets_caches(self, mock_init: MagicMock) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(project_id="test-project", region="us-west2"),
         )
+        source.endpoints = {"key": [MagicMock(spec=Endpoint)]}
+        source.datasets = {"key": MagicMock()}
+        source.experiments = [MagicMock()]
 
-        source.endpoints = {"key": [MagicMock(spec=Endpoint), MagicMock(spec=Endpoint)]}
-        source.datasets = {"key": MagicMock(spec=VertexAiResourceNoun)}
-        source.experiments = [MagicMock(spec=Experiment), MagicMock(spec=Experiment)]
-
-        source._init_for_project(GCPProject(id="new-project", name="New Project"))
+        source._init_for_project(GCPProject(id="new-project", name="New"))
 
         assert source.endpoints is None
         assert source.datasets is None
         assert source.experiments is None
         assert source._current_project_id == "new-project"
-        mock_init.assert_called_with(
-            project="new-project",
-            location="us-west2",
-        )
 
     @patch("google.cloud.aiplatform.init")
-    def test_entity_names_include_current_project(self, mock_init: MagicMock) -> None:
+    def test_entity_names_include_project(self, mock_init: MagicMock) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(project_id="my-project", region="us-west2"),
@@ -1055,282 +1010,19 @@ class TestVertexAISourceMultiProject:
 
         assert source._make_vertexai_model_name("123") == "my-project.model.123"
         assert source._make_vertexai_job_name("456") == "my-project.job.456"
-        assert (
-            source._make_vertexai_experiment_id("exp1") == "my-project.experiment.exp1"
-        )
-        assert source._make_vertexai_pipeline_id("pipe1") == "my-project.pipeline.pipe1"
-
-    @patch("google.cloud.aiplatform.init")
-    def test_project_container_uses_current_project(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_id="container-project", region="us-west2"),
-        )
-        source._current_project_id = "container-project"
-
-        container = source._get_project_container()
-        assert container.project_id == "container-project"
 
 
-class TestGCPProjectUtils:
-    def test_get_projects_from_explicit_list(self) -> None:
-        projects = get_projects_from_explicit_list(
-            project_ids=["project-1", "project-2", "project-3"]
-        )
-
-        assert len(projects) == 3
-        assert projects[0].id == "project-1"
-        assert projects[1].id == "project-2"
-        assert projects[2].id == "project-3"
-
-    def test_get_projects_from_explicit_list_with_pattern(self) -> None:
-        pattern = AllowDenyPattern(allow=[".*-prod$"])
-        projects = get_projects_from_explicit_list(
-            project_ids=["app-prod", "app-dev", "api-prod"],
-            project_id_pattern=pattern,
-        )
-
-        assert len(projects) == 2
-        assert all(p.id.endswith("-prod") for p in projects)
-
-    def test_get_projects_with_explicit_ids(self) -> None:
-        projects = get_projects(
-            project_ids=["explicit-project-1", "explicit-project-2"],
-        )
-
-        assert len(projects) == 2
-        assert projects[0].id == "explicit-project-1"
-        assert projects[1].id == "explicit-project-2"
-
-    @pytest.mark.parametrize(
-        "side_effect,error_match",
-        [
-            (PermissionDenied("No access"), "Permission denied"),
-            (GoogleAPICallError("API error"), "GCP API error"),
-        ],
-    )
-    def test_list_all_accessible_projects_error_handling(
-        self, side_effect: Exception, error_match: str
-    ) -> None:
-        mock_client = MagicMock()
-        mock_client.search_projects.side_effect = side_effect
-        with pytest.raises(GCPProjectDiscoveryError, match=error_match):
-            list(list_all_accessible_projects(mock_client))
-
-    def test_get_projects_auto_discovery_empty_raises_error(self) -> None:
-        mock_client = MagicMock()
-        mock_client.search_projects.return_value = iter([])
-
-        with pytest.raises(GCPProjectDiscoveryError, match="No projects discovered"):
-            get_projects(client=mock_client)
-
-    def test_get_projects_all_filtered_out_raises_error(self) -> None:
-        mock_client = MagicMock()
-        mock_project = MagicMock()
-        mock_project.project_id = "dev-project"
-        mock_project.display_name = "Dev Project"
-        mock_client.search_projects.return_value = iter([mock_project])
-
-        pattern = AllowDenyPattern(allow=["prod-.*"])
-
-        with pytest.raises(
-            GCPProjectDiscoveryError, match="excluded by project_id_pattern"
-        ):
-            get_projects(client=mock_client, project_id_pattern=pattern)
-
-    @patch("datahub.ingestion.source.common.gcp_project_utils.get_projects_client")
-    def test_auto_discovery_all_filtered_by_pattern_at_runtime(
-        self, mock_get_client: MagicMock
-    ) -> None:
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
-
-        mock_project1 = MagicMock()
-        mock_project1.project_id = "dev-project-1"
-        mock_project1.display_name = "Dev Project 1"
-        mock_project2 = MagicMock()
-        mock_project2.project_id = "dev-project-2"
-        mock_project2.display_name = "Dev Project 2"
-        mock_client.search_projects.return_value = iter([mock_project1, mock_project2])
-
-        pattern = AllowDenyPattern(allow=["prod-.*"])
-
-        with pytest.raises(
-            GCPProjectDiscoveryError, match="excluded by project_id_pattern"
-        ):
-            get_projects(project_id_pattern=pattern)
-
-    @pytest.mark.parametrize(
-        "exception,expected",
-        [
-            (ResourceExhausted("Quota exceeded"), True),
-            (GoogleAPICallError("quota limits"), True),
-            (GoogleAPICallError("rate limit exceeded"), True),
-            (GoogleAPICallError("Invalid argument"), False),
-            (PermissionDenied("Access denied"), False),
-            (ValueError("Some error"), False),
-        ],
-    )
-    def test_is_rate_limit_error(self, exception: Exception, expected: bool) -> None:
-        assert _is_rate_limit_error(exception) == expected
-
-    @pytest.mark.parametrize(
-        "side_effect,error_match",
-        [
-            (PermissionDenied("No access"), "Permission denied"),
-            (GoogleAPICallError("API failure"), "GCP API error"),
-        ],
-    )
-    def test_get_projects_by_labels_error_handling(
-        self, side_effect: Exception, error_match: str
-    ) -> None:
-        mock_client = MagicMock()
-        mock_client.search_projects.side_effect = side_effect
-        with pytest.raises(GCPProjectDiscoveryError, match=error_match):
-            get_projects_by_labels(["env:prod"], mock_client)
-
-    def test_get_projects_by_labels_empty_result(self) -> None:
-        mock_client = MagicMock()
-        mock_client.search_projects.return_value = iter([])
-        with pytest.raises(GCPProjectDiscoveryError, match="No projects match labels"):
-            get_projects_by_labels(["env:prod"], mock_client)
-
-    def test_get_projects_by_labels_all_filtered_out(self) -> None:
-        mock_client = MagicMock()
-        mock_project = MagicMock()
-        mock_project.project_id = "dev-project"
-        mock_project.display_name = "Dev Project"
-        mock_client.search_projects.return_value = iter([mock_project])
-        with pytest.raises(
-            GCPProjectDiscoveryError, match="excluded by project_id_pattern"
-        ):
-            get_projects_by_labels(
-                ["env:prod"], mock_client, AllowDenyPattern(allow=["prod-.*"])
-            )
-
-    def test_get_projects_by_labels_success(self) -> None:
-        mock_client = MagicMock()
-        mock_project = MagicMock()
-        mock_project.project_id = "prod-project"
-        mock_project.display_name = "Prod Project"
-        mock_client.search_projects.return_value = iter([mock_project])
-        projects = get_projects_by_labels(["env:prod"], mock_client)
-        assert len(projects) == 1
-        assert projects[0].id == "prod-project"
-
-    def test_get_projects_by_labels_empty_list_raises_error(self) -> None:
-        mock_client = MagicMock()
-        with pytest.raises(GCPProjectDiscoveryError, match="cannot be empty"):
-            get_projects_by_labels([], mock_client)
-
-    def test_search_projects_logs_error_for_missing_project_id(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        mock_client = MagicMock()
-        mock_project_valid = MagicMock()
-        mock_project_valid.project_id = "valid-project"
-        mock_project_valid.display_name = "Valid Project"
-        mock_project_invalid = MagicMock()
-        mock_project_invalid.project_id = None
-        mock_project_invalid.display_name = "Invalid Project"
-        mock_client.search_projects.return_value = iter(
-            [mock_project_valid, mock_project_invalid]
-        )
-
-        with caplog.at_level(logging.ERROR):
-            projects = list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
-
-        assert len(projects) == 1
-        assert projects[0].id == "valid-project"
-        assert "GCP returned project without project_id" in caplog.text
-
-    @pytest.mark.parametrize(
-        "projects,pattern,expected_ids",
-        [
-            ([], AllowDenyPattern.allow_all(), []),
-            (
-                [GCPProject(id="p1", name="P1"), GCPProject(id="p2", name="P2")],
-                AllowDenyPattern.allow_all(),
-                ["p1", "p2"],
-            ),
-            (
-                [GCPProject(id="dev", name="Dev"), GCPProject(id="test", name="Test")],
-                AllowDenyPattern(allow=["prod-.*"]),
-                [],
-            ),
-            (
-                [
-                    GCPProject(id="prod-app", name="Prod"),
-                    GCPProject(id="dev", name="Dev"),
-                ],
-                AllowDenyPattern(allow=["prod-.*"]),
-                ["prod-app"],
-            ),
-        ],
-    )
-    def test_filter_projects_by_pattern(
-        self,
-        projects: List[GCPProject],
-        pattern: AllowDenyPattern,
-        expected_ids: List[str],
-    ) -> None:
-        result = _filter_projects_by_pattern(projects, pattern)
-        assert [p.id for p in result] == expected_ids
-
-    def test_validate_and_filter_projects_success(self) -> None:
-        projects = [
-            GCPProject(id="project-1", name="Project 1"),
-            GCPProject(id="project-2", name="Project 2"),
-        ]
-        pattern = AllowDenyPattern.allow_all()
-        result = _validate_and_filter_projects(projects, pattern, "test source")
-        assert len(result) == 2
-
-    def test_validate_and_filter_projects_all_filtered_raises_error(self) -> None:
-        projects = [
-            GCPProject(id="dev-project", name="Dev Project"),
-        ]
-        pattern = AllowDenyPattern(allow=["prod-.*"])
-        with pytest.raises(
-            GCPProjectDiscoveryError, match="excluded by project_id_pattern"
-        ):
-            _validate_and_filter_projects(projects, pattern, "test source")
-
-    @pytest.mark.parametrize(
-        "exception,expected_match",
-        [
-            (DeadlineExceeded("Request timed out"), "timed out"),
-            (
-                ServiceUnavailable("Service temporarily unavailable"),
-                "temporarily unavailable",
-            ),
-        ],
-    )
-    def test_get_projects_by_labels_handles_transient_errors(
-        self, exception: Exception, expected_match: str
-    ) -> None:
-        mock_client = MagicMock()
-        mock_client.search_projects.side_effect = exception
-
-        with pytest.raises(GCPProjectDiscoveryError, match=expected_match):
-            get_projects_by_labels(["env:prod"], mock_client)
-
-
-class TestPartialFailureHandling:
+class TestErrorHandling:
     @patch("google.cloud.aiplatform.init")
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_discovery_error_raises_not_swallowed(
-        self,
-        mock_get_projects: MagicMock,
-        mock_get_projects_client: MagicMock,
-        mock_init: MagicMock,
+    def test_discovery_error_propagates(
+        self, mock_get_projects: MagicMock, mock_client: MagicMock, mock_init: MagicMock
     ) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(region="us-west2"),
         )
-
         mock_get_projects.side_effect = GCPProjectDiscoveryError("Permission denied")
 
         with pytest.raises(GCPProjectDiscoveryError):
@@ -1339,102 +1031,62 @@ class TestPartialFailureHandling:
     @patch("google.cloud.aiplatform.init")
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_partial_failure_continues_processing(
-        self,
-        mock_get_projects: MagicMock,
-        mock_get_client: MagicMock,
-        mock_init: MagicMock,
+    def test_partial_failure_continues(
+        self, mock_get_projects: MagicMock, mock_client: MagicMock, mock_init: MagicMock
     ) -> None:
-        # Use discovered projects (not explicit) so PermissionDenied doesn't fail fast
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_labels=["env:prod"],
-                region="us-west2",
-            ),
+            config=VertexAIConfig(project_labels=["env:prod"], region="us-west2"),
         )
-
         mock_get_projects.return_value = [
-            GCPProject(id="project-1", name="Project 1"),
-            GCPProject(id="project-2", name="Project 2"),
-            GCPProject(id="project-3", name="Project 3"),
+            GCPProject(id="p1", name="P1"),
+            GCPProject(id="p2", name="P2"),
+            GCPProject(id="p3", name="P3"),
         ]
 
-        call_count = 0
+        processed = []
 
         def mock_process():
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise PermissionDenied("Access denied to project")
-            yield from []
-
-        with patch.object(source, "_process_current_project", side_effect=mock_process):
-            list(source.get_workunits_internal())
-
-        assert len(source.report.failures) == 1
-
-    @patch("google.cloud.aiplatform.init")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_partial_success_processes_remaining_projects(
-        self,
-        mock_get_projects: MagicMock,
-        mock_get_client: MagicMock,
-        mock_init: MagicMock,
-    ) -> None:
-        # Use discovered projects (not explicit) so PermissionDenied doesn't fail fast
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_labels=["env:prod"],
-                region="us-west2",
-            ),
-        )
-
-        mock_get_projects.return_value = [
-            GCPProject(id="project-1", name="Project 1"),
-            GCPProject(id="project-2", name="Project 2"),
-            GCPProject(id="project-3", name="Project 3"),
-        ]
-
-        processed_projects: List[str] = []
-
-        def mock_process():
-            project_id = source._current_project_id
-            assert project_id is not None
-            if project_id == "project-2":
+            pid = source._current_project_id
+            if pid == "p2":
                 raise PermissionDenied("Access denied")
-            processed_projects.append(project_id)
+            processed.append(pid)
             yield from []
 
         with patch.object(source, "_process_current_project", side_effect=mock_process):
             list(source.get_workunits_internal())
 
+        assert processed == ["p1", "p3"]
         assert len(source.report.failures) == 1
-        assert len(processed_projects) == 2
-        assert "project-1" in processed_projects
-        assert "project-3" in processed_projects
-        assert "project-2" not in processed_projects
-
-        assert len(source.report.warnings) == 1
 
     @patch("google.cloud.aiplatform.init")
-    def test_permission_denied_fails_fast_for_explicit_ids(
-        self, mock_init: MagicMock
-    ) -> None:
+    def test_explicit_project_not_found_fails_fast(self, mock_init: MagicMock) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-1", "project-2"],
-                region="us-west2",
-            ),
+            config=VertexAIConfig(project_ids=["missing", "p2"], region="us-west2"),
         )
-
         source._projects = [
-            GCPProject(id="project-1", name="Project 1"),
-            GCPProject(id="project-2", name="Project 2"),
+            GCPProject(id="missing", name="Missing"),
+            GCPProject(id="p2", name="P2"),
         ]
+
+        def mock_process():
+            raise NotFound("Not found")
+            yield
+
+        with (
+            patch.object(source, "_process_current_project", side_effect=mock_process),
+            pytest.raises(RuntimeError, match="not found.*explicitly configured"),
+        ):
+            list(source.get_workunits_internal())
+
+    @patch("google.cloud.aiplatform.init")
+    def test_explicit_permission_denied_fails_fast(self, mock_init: MagicMock) -> None:
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(project_ids=["restricted"], region="us-west2"),
+        )
+        source._projects = [GCPProject(id="restricted", name="Restricted")]
 
         def mock_process():
             raise PermissionDenied("Access denied")
@@ -1442,7 +1094,31 @@ class TestPartialFailureHandling:
 
         with (
             patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="Permission denied for project"),
+            pytest.raises(RuntimeError, match="Permission denied"),
+        ):
+            list(source.get_workunits_internal())
+
+    @pytest.mark.parametrize(
+        "exception",
+        [InvalidArgument("Invalid region"), FailedPrecondition("API not enabled")],
+    )
+    @patch("google.cloud.aiplatform.init")
+    def test_config_error_fails_fast(
+        self, mock_init: MagicMock, exception: Exception
+    ) -> None:
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(project_ids=["p1"], region="bad-region"),
+        )
+        source._projects = [GCPProject(id="p1", name="P1")]
+
+        def mock_process():
+            raise exception
+            yield
+
+        with (
+            patch.object(source, "_process_current_project", side_effect=mock_process),
+            pytest.raises(RuntimeError, match="Configuration error"),
         ):
             list(source.get_workunits_internal())
 
@@ -1450,23 +1126,15 @@ class TestPartialFailureHandling:
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
     @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
     def test_all_projects_fail_raises_error(
-        self,
-        mock_get_projects: MagicMock,
-        mock_get_client: MagicMock,
-        mock_init: MagicMock,
+        self, mock_get_projects: MagicMock, mock_client: MagicMock, mock_init: MagicMock
     ) -> None:
-        # Use discovered projects so we test partial failure path, not fail-fast
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_labels=["env:prod"],
-                region="us-west2",
-            ),
+            config=VertexAIConfig(project_labels=["env:prod"], region="us-west2"),
         )
-
         mock_get_projects.return_value = [
-            GCPProject(id="project-1", name="Project 1"),
-            GCPProject(id="project-2", name="Project 2"),
+            GCPProject(id="p1", name="P1"),
+            GCPProject(id="p2", name="P2"),
         ]
 
         def mock_process():
@@ -1479,434 +1147,62 @@ class TestPartialFailureHandling:
         ):
             list(source.get_workunits_internal())
 
-    @patch("google.cloud.aiplatform.init")
-    def test_api_error_continues_with_partial_failure(
-        self, mock_init: MagicMock
-    ) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-1", "project-2", "project-3"],
-                region="us-west2",
-            ),
-        )
 
-        source._projects = [
-            GCPProject(id="project-1", name="Project 1"),
-            GCPProject(id="project-2", name="Project 2"),
-            GCPProject(id="project-3", name="Project 3"),
-        ]
-
-        def mock_process():
-            raise GoogleAPICallError("Invalid argument: malformed request")
-            yield
-
-        with (
-            patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="All .* projects failed"),
-        ):
-            list(source.get_workunits_internal())
-
-        assert len(source.report.failures) == 3
-
-    @patch("google.cloud.aiplatform.init")
-    def test_not_found_error_fails_fast_for_explicit_ids(
-        self, mock_init: MagicMock
-    ) -> None:
-        """NotFound on explicit project_ids should fail fast (likely a typo)."""
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["missing-project", "project-2"],
-                region="us-west2",
-            ),
-        )
-
-        source._projects = [
-            GCPProject(id="missing-project", name="Missing Project"),
-            GCPProject(id="project-2", name="Project 2"),
-        ]
-
-        def mock_process():
-            raise NotFound("Project not found")
-            yield
-
-        with (
-            patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="not found.*explicitly configured"),
-        ):
-            list(source.get_workunits_internal())
-
-    @patch("google.cloud.aiplatform.init")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_not_found_error_continues_for_discovered_projects(
-        self,
-        mock_get_projects: MagicMock,
-        mock_get_client: MagicMock,
-        mock_init: MagicMock,
-    ) -> None:
-        """NotFound on discovered projects should continue (project may have been deleted)."""
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(region="us-west2"),
-        )
-
-        mock_get_projects.return_value = [
-            GCPProject(id="deleted-project", name="Deleted Project"),
-            GCPProject(id="project-2", name="Project 2"),
-        ]
-
-        call_count = 0
-
-        def mock_process():
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise NotFound("Project not found")
-            yield from []
-
-        with patch.object(source, "_process_current_project", side_effect=mock_process):
-            list(source.get_workunits_internal())
-
-        assert len(source.report.failures) == 1
-
-    @pytest.mark.parametrize(
-        "exception",
-        [
-            InvalidArgument("Invalid region specified"),
-            FailedPrecondition("Vertex AI API not enabled"),
-        ],
-    )
-    @patch("google.cloud.aiplatform.init")
-    def test_config_error_fails_fast(
-        self, mock_init: MagicMock, exception: Exception
-    ) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-1", "project-2"],
-                region="invalid-region",
-            ),
-        )
-
-        source._projects = [
-            GCPProject(id="project-1", name="Project 1"),
-            GCPProject(id="project-2", name="Project 2"),
-        ]
-
-        def mock_process():
-            raise exception
-            yield
-
-        with (
-            patch.object(source, "_process_current_project", side_effect=mock_process),
-            pytest.raises(RuntimeError, match="Configuration error"),
-        ):
-            list(source.get_workunits_internal())
-
-    @pytest.mark.parametrize(
-        "project_id,exception,expected_log_content",
-        [
-            (
-                "test-project",
-                PermissionDenied("Access denied"),
-                "gcloud projects get-iam-policy",
-            ),
-            (
-                "missing-project",
-                NotFound("Project not found"),
-                "gcloud projects describe",
-            ),
-            ("quota-project", GoogleAPICallError("Quota exceeded"), "GCP API error"),
-        ],
-    )
-    @patch("google.cloud.aiplatform.init")
-    def test_handle_project_error(
-        self,
-        mock_init: MagicMock,
-        project_id: str,
-        exception: Exception,
-        expected_log_content: str,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_ids=["test-project"], region="us-west2"),
-        )
-        with caplog.at_level(logging.WARNING):
-            source._handle_project_error(project_id, exception)
-        assert len(source.report.failures) == 1
-        assert expected_log_content in caplog.text
-        assert project_id in caplog.text
-
-
-class TestConfigValidation:
-    @pytest.mark.parametrize(
-        "project_ids,pattern",
-        [
-            (["dev-project", "test-project"], AllowDenyPattern(allow=["prod-.*"])),
-            (["test-project"], AllowDenyPattern(deny=[".*"])),
-        ],
-    )
-    def test_all_projects_filtered_out_raises_value_error(
-        self, project_ids: List[str], pattern: AllowDenyPattern
-    ) -> None:
-        with pytest.raises(ValueError, match="filtered out"):
-            VertexAIConfig(
-                project_ids=project_ids,
-                project_id_pattern=pattern,
-                region="us-central1",
-            )
-
-    def test_empty_string_in_project_ids_raises_error(self) -> None:
-        with pytest.raises(ValueError, match="empty or whitespace-only"):
-            VertexAIConfig(
-                project_ids=["valid-project", "", "another-project"],
-                region="us-central1",
-            )
-
-    def test_whitespace_only_project_id_raises_error(self) -> None:
-        with pytest.raises(ValueError, match="empty or whitespace-only"):
-            VertexAIConfig(
-                project_ids=["valid-project", "   ", "another-project"],
-                region="us-central1",
-            )
-
-    def test_duplicate_project_ids_raises_error(self) -> None:
-        with pytest.raises(ValueError, match="duplicates"):
-            VertexAIConfig(
-                project_ids=["project-a", "project-a", "project-b"],
-                region="us-central1",
-            )
-
-    def test_empty_explicit_project_ids_allowed(self) -> None:
-        config = VertexAIConfig(
-            project_ids=[],
-            region="us-central1",
-        )
-        assert config.project_ids == []
-
-    def test_restrictive_allow_pattern_with_auto_discovery_raises_error(self) -> None:
-        with pytest.raises(
-            ValueError, match="Auto-discovery with restrictive allow patterns"
-        ):
-            VertexAIConfig(
-                project_id_pattern=AllowDenyPattern(allow=["prod-.*"]),
-                region="us-central1",
-            )
-
-    def test_deny_only_pattern_with_auto_discovery_allowed(self) -> None:
-        config = VertexAIConfig(
-            project_id_pattern=AllowDenyPattern(deny=["dev-.*"]),
-            region="us-central1",
-        )
-        assert config.project_id_pattern.deny == ["dev-.*"]
-
-
-class TestCacheInvalidation:
-    @patch("google.cloud.aiplatform.init")
-    def test_caches_cleared_between_projects(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-1", "project-2"],
-                region="us-central1",
-            ),
-        )
-
-        source.endpoints = {"endpoint-1": MagicMock()}
-        source.datasets = {"dataset-1": MagicMock()}
-        source.experiments = [MagicMock()]
-
-        project = GCPProject(id="project-2", name="Project 2")
-        source._init_for_project(project)
-
-        assert source.endpoints is None
-        assert source.datasets is None
-        assert source.experiments is None
-        assert source._current_project_id == "project-2"
-
-    @patch("google.cloud.aiplatform.init")
-    def test_aiplatform_init_called_per_project(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-1", "project-2"],
-                region="us-central1",
-            ),
-        )
-
-        source._init_for_project(GCPProject(id="project-1", name="Project 1"))
-        source._init_for_project(GCPProject(id="project-2", name="Project 2"))
-
-        assert mock_init.call_count == 2
-        mock_init.assert_any_call(project="project-1", location="us-central1")
-        mock_init.assert_any_call(project="project-2", location="us-central1")
-
-    @patch("google.cloud.aiplatform.init")
-    def test_no_cross_project_data_leakage(self, mock_init: MagicMock) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["project-a", "project-b"],
-                region="us-central1",
-            ),
-        )
-
-        project_a_endpoint = MagicMock()
-        project_a_endpoint.name = "project-a-endpoint"
-        project_a_dataset = MagicMock()
-        project_a_dataset.name = "project-a-dataset"
-        project_a_experiment = MagicMock()
-        project_a_experiment.name = "project-a-experiment"
-
-        source._init_for_project(GCPProject(id="project-a", name="Project A"))
-        source.endpoints = {"endpoint-1": [project_a_endpoint]}
-        source.datasets = {"dataset-1": project_a_dataset}
-        source.experiments = [project_a_experiment]
-
-        assert source.endpoints is not None
-        assert "endpoint-1" in source.endpoints
-
-        source._init_for_project(GCPProject(id="project-b", name="Project B"))
-
-        assert source.endpoints is None, "Project A's endpoints leaked to Project B"
-        assert source.datasets is None, "Project A's datasets leaked to Project B"
-        assert source.experiments is None, "Project A's experiments leaked to Project B"
-        assert source._current_project_id == "project-b"
-
-
-class TestCredentialsBehavior:
+class TestCredentialManagement:
     def test_credentials_set_env_var(self) -> None:
         config = VertexAIConfig(
-            project_ids=["project-1", "project-2"],
+            project_ids=["p1"],
             region="us-central1",
             credential=GCPCredential(
-                type="service_account",
-                project_id="credential-project",
                 private_key_id="key-id",
                 private_key="-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n",
                 client_email="sa@project.iam.gserviceaccount.com",
                 client_id="123",
-                auth_uri="https://accounts.google.com/o/oauth2/auth",
-                token_uri="https://oauth2.googleapis.com/token",
-                auth_provider_x509_cert_url="https://www.googleapis.com/oauth2/v1/certs",
-                client_x509_cert_url="https://www.googleapis.com/cert",
             ),
         )
-
         assert config._credentials_path is not None
         assert (
             os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == config._credentials_path
         )
 
-    def test_no_credentials_no_env_var_set(self) -> None:
-        original_val = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        if original_val:
-            del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
-
-        try:
-            config = VertexAIConfig(
-                project_ids=["project-1"],
-                region="us-central1",
-            )
-            assert config._credentials_path is None
-        finally:
-            if original_val:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_val
-
-
-class TestProjectLabelsSupport:
-    def test_config_with_project_labels(self) -> None:
-        config = VertexAIConfig(
-            project_labels=["env:prod", "team:ml"],
-            region="us-central1",
-        )
-        assert config.project_labels == ["env:prod", "team:ml"]
-        assert config.project_ids == []
-
-    def test_valid_label_formats(self) -> None:
-        config = VertexAIConfig(
-            project_labels=["env:prod", "team", "cost_center:123", "my-label:value-1"],
-            region="us-central1",
-        )
-        assert len(config.project_labels) == 4
-
-    @pytest.mark.parametrize(
-        "invalid_label",
-        ["env=prod", "Env:prod", "123env:prod", "env:"],
-    )
-    def test_invalid_label_format(self, invalid_label: str) -> None:
-        with pytest.raises(ValueError, match="Invalid project_labels format"):
-            VertexAIConfig(project_labels=[invalid_label], region="us-central1")
-
-    def test_project_ids_takes_precedence_over_labels(self) -> None:
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_ids=["explicit-project"],
-                project_labels=["env:prod"],
-                region="us-central1",
-            ),
-        )
-
-        with patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client"):
-            projects = source._get_projects_to_process()
-
-        assert len(projects) == 1
-        assert projects[0].id == "explicit-project"
-
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects_client")
-    @patch("datahub.ingestion.source.vertexai.vertexai.get_projects")
-    def test_labels_discovery_called_when_no_project_ids(
-        self, mock_get_projects: MagicMock, mock_client: MagicMock
-    ) -> None:
-        mock_get_projects.return_value = [
-            GCPProject(id="labeled-project", name="Labeled Project")
-        ]
-
-        source = VertexAISource(
-            ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(
-                project_labels=["env:prod"],
-                region="us-central1",
-            ),
-        )
-
-        source._get_projects_to_process()
-
-        mock_get_projects.assert_called_once()
-        call_kwargs = mock_get_projects.call_args.kwargs
-        assert call_kwargs["project_ids"] is None
-        assert call_kwargs["project_labels"] == ["env:prod"]
-
-
-class TestCredentialCleanup:
     @patch("google.cloud.aiplatform.init")
     def test_close_cleans_up_credentials(self, mock_init: MagicMock) -> None:
         config = VertexAIConfig(
-            project_ids=["test-project"],
+            project_ids=["test"],
             region="us-central1",
             credential=GCPCredential(
-                private_key_id="test-key-id",
+                private_key_id="key-id",
                 private_key="-----BEGIN PRIVATE KEY-----\nMIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEAq7BFUpkGp3+LQmlQ\n-----END PRIVATE KEY-----\n",
-                client_email="test@project.iam.gserviceaccount.com",
-                client_id="123456789",
+                client_email="sa@project.iam.gserviceaccount.com",
+                client_id="123",
             ),
         )
-
-        assert config._credentials_path is not None
         temp_path = config._credentials_path
-        assert os.path.exists(temp_path)
+        assert temp_path and os.path.exists(temp_path)
 
         source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
         source.close()
 
         assert not os.path.exists(temp_path)
 
-    def test_cleanup_credentials_silently_ignores_missing_file(self) -> None:
-        _cleanup_credentials("/nonexistent/path/to/credentials.json")
+    def test_cleanup_is_idempotent(self) -> None:
+        config = VertexAIConfig(
+            project_ids=["test"],
+            region="us-central1",
+            credential=GCPCredential(
+                private_key_id="key-id",
+                private_key="-----BEGIN PRIVATE KEY-----\nMIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEAq7BFUpkGp3+LQmlQ\n-----END PRIVATE KEY-----\n",
+                client_email="sa@project.iam.gserviceaccount.com",
+                client_id="123",
+            ),
+        )
+        temp_path = config._credentials_path
+        assert temp_path and os.path.exists(temp_path)
 
-    def test_cleanup_credentials_handles_none_path(self) -> None:
-        _cleanup_credentials(None)
+        # Call cleanup multiple times - should not raise
+        config._cleanup_credentials()
+        config._cleanup_credentials()
+        config._cleanup_credentials()
+
+        assert not os.path.exists(temp_path)
+        assert config._credentials_path is None

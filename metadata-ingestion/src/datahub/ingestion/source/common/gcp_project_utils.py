@@ -149,7 +149,6 @@ def _search_projects_with_retry(
     request = resourcemanager_v3.SearchProjectsRequest(query=query)
     for project in search_with_retry(request=request):
         if not project.project_id:
-            # GCP API contract violation - should never happen
             logger.error(
                 "GCP returned project without project_id (display_name=%s). "
                 "This is unexpected - please report this issue.",

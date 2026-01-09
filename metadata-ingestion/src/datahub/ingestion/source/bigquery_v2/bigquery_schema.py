@@ -299,6 +299,23 @@ class BigQuerySchemaApi:
                 )
             return result
 
+    def get_datasets_for_project_id_with_information_schema(
+        self, project_id: str
+    ) -> List[BigqueryDataset]:
+        schemas = self.get_query_result(
+            BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
+        )
+        return [
+            BigqueryDataset(
+                name=s.table_schema,
+                created=s.created,
+                location=s.location,
+                last_altered=s.last_altered,
+                comment=s.comment,
+            )
+            for s in schemas
+        ]
+
     def list_tables(
         self, dataset_name: str, project_id: str
     ) -> Iterator[TableListItem]:

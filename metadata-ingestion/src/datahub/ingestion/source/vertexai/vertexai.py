@@ -1,6 +1,5 @@
 import dataclasses
 import logging
-import os
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
@@ -118,21 +117,6 @@ def _is_config_error(exc: GoogleAPICallError) -> bool:
     return "api" in msg and "not enabled" in msg
 
 
-def _cleanup_credentials(credentials_path: Optional[str]) -> None:
-    if credentials_path is not None:
-        try:
-            os.unlink(credentials_path)
-            logger.debug("Cleaned up temp credentials file: %s", credentials_path)
-        except FileNotFoundError:
-            pass
-        except OSError as e:
-            logger.error(
-                "Failed to cleanup temp credentials file %s: %s. Check filesystem permissions.",
-                credentials_path,
-                e,
-            )
-
-
 @dataclasses.dataclass
 class TrainingJobMetadata:
     job: VertexAiResourceNoun
@@ -201,7 +185,6 @@ class VertexAISource(Source):
         self.experiments: Optional[List[Experiment]] = None
 
     def _get_projects_to_process(self) -> List[GCPProject]:
-        # Cache is safe: source instances are short-lived (one ingestion run)
         if self._projects is not None:
             return self._projects
 
@@ -228,8 +211,6 @@ class VertexAISource(Source):
         )
         self.client = aiplatform
 
-        # Reset caches: each project's data must be fetched fresh to avoid
-        # returning stale data from a previous project in a multi-project run
         self.endpoints = None
         self.datasets = None
         self.experiments = None
@@ -238,7 +219,7 @@ class VertexAISource(Source):
         return self.report
 
     def close(self) -> None:
-        _cleanup_credentials(self.config._credentials_path)
+        self.config._cleanup_credentials()
         super().close()
 
     def _build_no_projects_error(self) -> str:

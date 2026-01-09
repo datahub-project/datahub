@@ -106,6 +106,8 @@ class VertexAIConfig(EnvConfigMixin):
         description="VertexAI Console base URL",
     )
 
+    _cleanup_registered: bool = PrivateAttr(False)
+
     def __init__(self, **data: Any):
         super().__init__(**data)
 
@@ -116,22 +118,20 @@ class VertexAIConfig(EnvConfigMixin):
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
             atexit.register(self._cleanup_credentials)
+            self._cleanup_registered = True
 
     def _cleanup_credentials(self) -> None:
-        if self._credentials_path:
-            try:
-                os.unlink(self._credentials_path)
-                logger.debug(
-                    "Cleaned up temp credentials file: %s", self._credentials_path
-                )
-            except FileNotFoundError:
-                pass
-            except OSError as e:
-                logger.warning(
-                    "Failed to cleanup credentials %s: %s", self._credentials_path, e
-                )
-            finally:
-                self._credentials_path = None
+        if not self._credentials_path:
+            return
+        path_to_delete = self._credentials_path
+        self._credentials_path = None
+        try:
+            os.unlink(path_to_delete)
+            logger.debug("Cleaned up temp credentials file: %s", path_to_delete)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logger.warning("Failed to cleanup credentials %s: %s", path_to_delete, e)
 
     @model_validator(mode="before")
     @classmethod
