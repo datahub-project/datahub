@@ -258,26 +258,18 @@ class VertexAISource(Source):
         )
 
     def _handle_project_error(self, project_id: str, exc: Exception) -> None:
-        error_configs = {
-            NotFound: (
-                "Project not found",
-                f"gcloud projects describe {project_id}",
-                logger.error,
-            ),
-            PermissionDenied: (
-                "Permission denied",
-                f"gcloud projects get-iam-policy {project_id}",
-                logger.warning,
-            ),
-        }
-        label, debug_cmd, log_fn = error_configs.get(
-            type(exc),
-            (
-                "GCP API error",
-                f"gcloud ai models list --project={project_id} --region={self.config.region}",
-                logger.warning,
-            ),
-        )
+        if isinstance(exc, NotFound):
+            label = "Project not found"
+            debug_cmd = f"gcloud projects describe {project_id}"
+            log_fn = logger.error
+        elif isinstance(exc, PermissionDenied):
+            label = "Permission denied"
+            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
+            log_fn = logger.warning
+        else:
+            label = "GCP API error"
+            debug_cmd = f"gcloud ai models list --project={project_id} --region={self.config.region}"
+            log_fn = logger.warning
 
         title = f"{label}: {project_id}"
         message = f"{label} for project {project_id}. Debug: {debug_cmd}"
