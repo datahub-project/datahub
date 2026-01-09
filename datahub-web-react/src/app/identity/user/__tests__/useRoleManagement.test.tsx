@@ -2,13 +2,13 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useRoleManagement } from '@app/identity/user/useRoleManagement';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 
-import { useListRolesQuery } from '@graphql/role.generated';
 import { DataHubRole } from '@types';
 
-// Mock the GraphQL hook
-vi.mock('@graphql/role.generated', () => ({
-    useListRolesQuery: vi.fn(),
+// Mock the useRoleSelector hook
+vi.mock('@app/identity/user/useRoleSelector', () => ({
+    useRoleSelector: vi.fn(),
 }));
 
 const mockRoles: DataHubRole[] = [
@@ -26,7 +26,7 @@ const mockRoles: DataHubRole[] = [
     },
 ] as DataHubRole[];
 
-const mockUseListRolesQuery = vi.mocked(useListRolesQuery);
+const mockUseRoleSelector = vi.mocked(useRoleSelector);
 
 describe('useRoleManagement', () => {
     beforeEach(() => {
@@ -34,11 +34,16 @@ describe('useRoleManagement', () => {
     });
 
     it('initializes with empty state when no roles loaded', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: undefined,
+        mockUseRoleSelector.mockReturnValue({
+            roles: [],
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: 0,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -49,12 +54,17 @@ describe('useRoleManagement', () => {
         expect(result.current.noRoleText).toBe('No Role');
     });
 
-    it('loads roles from GraphQL query', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: { listRoles: { roles: mockRoles } },
+    it('loads roles from useRoleSelector hook', () => {
+        mockUseRoleSelector.mockReturnValue({
+            roles: mockRoles,
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: mockRoles.length,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -62,11 +72,16 @@ describe('useRoleManagement', () => {
     });
 
     it('builds role select options correctly', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: { listRoles: { roles: mockRoles } },
+        mockUseRoleSelector.mockReturnValue({
+            roles: mockRoles,
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: mockRoles.length,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -79,11 +94,16 @@ describe('useRoleManagement', () => {
     });
 
     it('handles role selection', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: { listRoles: { roles: mockRoles } },
+        mockUseRoleSelector.mockReturnValue({
+            roles: mockRoles,
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: mockRoles.length,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -95,11 +115,16 @@ describe('useRoleManagement', () => {
     });
 
     it('handles role selection with empty string (No Role)', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: { listRoles: { roles: mockRoles } },
+        mockUseRoleSelector.mockReturnValue({
+            roles: mockRoles,
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: mockRoles.length,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -111,11 +136,16 @@ describe('useRoleManagement', () => {
     });
 
     it('handles email invite role selection', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: { listRoles: { roles: mockRoles } },
+        mockUseRoleSelector.mockReturnValue({
+            roles: mockRoles,
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: mockRoles.length,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -127,11 +157,16 @@ describe('useRoleManagement', () => {
     });
 
     it('handles invalid role URN selection gracefully', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: { listRoles: { roles: mockRoles } },
+        mockUseRoleSelector.mockReturnValue({
+            roles: mockRoles,
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: mockRoles.length,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -143,11 +178,16 @@ describe('useRoleManagement', () => {
     });
 
     it('resets roles correctly', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: { listRoles: { roles: mockRoles } },
+        mockUseRoleSelector.mockReturnValue({
+            roles: mockRoles,
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: mockRoles.length,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 
@@ -172,11 +212,16 @@ describe('useRoleManagement', () => {
     });
 
     it('provides consistent noRoleText', () => {
-        mockUseListRolesQuery.mockReturnValue({
-            data: undefined,
+        mockUseRoleSelector.mockReturnValue({
+            roles: [],
             loading: false,
-            error: undefined,
-        } as any);
+            hasMore: false,
+            observerRef: vi.fn(),
+            searchQuery: '',
+            setSearchQuery: vi.fn(),
+            total: 0,
+            loadMore: vi.fn(),
+        });
 
         const { result } = renderHook(() => useRoleManagement());
 

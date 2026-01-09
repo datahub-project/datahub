@@ -1,10 +1,13 @@
-import { Icon, SimpleSelect, Tooltip } from '@components';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Icon, SimpleSelect, Text, Tooltip } from '@components';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { mapRoleToPhosphorIcon } from '@app/identity/user/PhosphorRoleUtils';
+import { SelectOption } from '@components/components/Select/types';
 
-import { useListRolesQuery } from '@graphql/role.generated';
+import { mapRoleToPhosphorIcon } from '@app/identity/user/PhosphorRoleUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
+
 import { DataHubRole } from '@types';
 
 const PlaceholderContainer = styled.div`
@@ -12,6 +15,21 @@ const PlaceholderContainer = styled.div`
     align-items: center;
     gap: 8px;
 `;
+
+const LoadMoreContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+`;
+
+const OptionContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const LOAD_MORE_VALUE = '__load_more_sentinel__';
 
 interface Props {
     selectedRole?: DataHubRole;
@@ -38,20 +56,8 @@ export default function SimpleSelectRole({
             {placeholder}
         </PlaceholderContainer>
     );
-    // Fetch roles for the dropdown
-    const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
 
-    const roles: Array<DataHubRole> = useMemo(() => {
-        return rolesData?.listRoles?.roles || [];
-    }, [rolesData?.listRoles?.roles]);
+    const { roles, loading, hasMore, observerRef, setSearchQuery } = useRoleSelector();
 
     const roleSelectOptions = useMemo(() => {
         const roleOptions = roles.map((role) => ({
@@ -78,16 +84,52 @@ export default function SimpleSelectRole({
         });
 
         // Add "No Role" option at the end
-        return [...sortedRoleOptions, { value: '', label: placeholder, icon: mapRoleToPhosphorIcon('') }];
-    }, [roles, placeholder]);
+        const options = [...sortedRoleOptions, { value: '', label: placeholder, icon: mapRoleToPhosphorIcon('') }];
+
+        // Add sentinel option for infinite scroll trigger
+        if (hasMore) {
+            options.push({ value: LOAD_MORE_VALUE, label: 'Loading more...', icon: <LoadingOutlined /> });
+        }
+
+        return options;
+    }, [roles, placeholder, hasMore]);
 
     const handleRoleSelect = (roleUrn: string) => {
+        // Ignore clicks on the sentinel option
+        if (roleUrn === LOAD_MORE_VALUE) return;
+
         if (roleUrn === '') {
             onRoleSelect(undefined);
         } else {
             const selectedRoleFromList = roles.find((role) => role.urn === roleUrn);
             onRoleSelect(selectedRoleFromList);
         }
+    };
+
+    const renderOptionText = (option: SelectOption) => {
+        // Render the sentinel option with the observer div for infinite scroll
+        if (option.value === LOAD_MORE_VALUE) {
+            return (
+                <LoadMoreContainer ref={observerRef}>
+                    <LoadingOutlined />
+                    <Text color="gray" size="sm" style={{ marginLeft: 8 }}>
+                        Loading more roles...
+                    </Text>
+                </LoadMoreContainer>
+            );
+        }
+
+        // Default rendering for role options
+        return (
+            <Tooltip title={option.value || 'No URN'} placement="right">
+                <OptionContainer>
+                    {option.icon}
+                    <Text weight="semiBold" size="md" color="gray">
+                        {option.label}
+                    </Text>
+                </OptionContainer>
+            </Tooltip>
+        );
     };
 
     return (
@@ -103,6 +145,11 @@ export default function SimpleSelectRole({
                     width={width}
                     isDisabled={disabled}
                     showClear={false}
+                    showSearch
+                    onSearchChange={setSearchQuery}
+                    filterResultsByQuery={false}
+                    isLoading={loading && roles.length === 0}
+                    renderCustomOptionText={renderOptionText}
                 />
             </span>
         </Tooltip>
