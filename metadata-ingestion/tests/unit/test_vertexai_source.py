@@ -1010,12 +1010,7 @@ class TestMultiProjectExecution:
 class TestErrorHandling:
     @pytest.mark.parametrize(
         "exception",
-        [
-            NotFound("Not found"),
-            PermissionDenied("Access denied"),
-            InvalidArgument("Vertex AI API not enabled"),
-            FailedPrecondition("Invalid region configuration"),
-        ],
+        [NotFound("Not found"), PermissionDenied("Access denied")],
     )
     @patch("google.cloud.aiplatform.init")
     def test_single_project_error_reports_failure(
@@ -1042,7 +1037,12 @@ class TestErrorHandling:
 
     @pytest.mark.parametrize(
         "exception",
-        [InvalidArgument("Invalid region"), FailedPrecondition("API not enabled")],
+        [
+            InvalidArgument("Invalid region"),
+            InvalidArgument("Vertex AI API not enabled"),
+            FailedPrecondition("API not enabled"),
+            FailedPrecondition("Invalid region configuration"),
+        ],
     )
     @patch("google.cloud.aiplatform.init")
     def test_config_error_reports_warning(
