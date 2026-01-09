@@ -9,6 +9,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.Database;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +44,7 @@ public class EntityAspectDaoFactory {
             server,
             configurationProvider.getEbean(),
             metricUtils,
-            payloadValidators != null ? payloadValidators : List.of(),
+            Objects.requireNonNullElse(payloadValidators, List.of()),
             configurationProvider.getDatahub().getValidation() != null
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()
                 : null);
@@ -62,7 +63,7 @@ public class EntityAspectDaoFactory {
     CassandraAspectDao cassandraAspectDao =
         new CassandraAspectDao(
             session,
-            payloadValidators != null ? payloadValidators : List.of(),
+            Objects.requireNonNullElse(payloadValidators, List.of()),
             configurationProvider.getDatahub().getValidation() != null
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()
                 : null);

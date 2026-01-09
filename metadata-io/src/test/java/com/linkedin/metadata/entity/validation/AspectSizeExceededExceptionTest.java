@@ -12,11 +12,10 @@ public class AspectSizeExceededExceptionTest {
   @Test
   public void testExceptionConstruction() {
     AspectSizeExceededException exception =
-        new AspectSizeExceededException(
-            ValidationPoint.PRE_DB_PATCH, 16000000L, 15728640L, URN, ASPECT_NAME);
+        new AspectSizeExceededException("PRE_DB_PATCH", 16000000L, 15728640L, URN, ASPECT_NAME);
 
     assertNotNull(exception);
-    assertEquals(exception.getValidationPoint(), ValidationPoint.PRE_DB_PATCH);
+    assertEquals(exception.getValidationPoint(), "PRE_DB_PATCH");
     assertEquals(exception.getActualSize(), 16000000L);
     assertEquals(exception.getThreshold(), 15728640L);
     assertEquals(exception.getUrn(), URN);
@@ -26,11 +25,10 @@ public class AspectSizeExceededExceptionTest {
   @Test
   public void testExceptionMessage() {
     AspectSizeExceededException exception =
-        new AspectSizeExceededException(
-            ValidationPoint.POST_DB_PATCH, 20000000L, 15728640L, URN, ASPECT_NAME);
+        new AspectSizeExceededException("POST_DB_PATCH", 20000000L, 15728640L, URN, ASPECT_NAME);
 
     String expectedMessage =
-        "Size validation failed at postPatch: 20000000 bytes exceeds threshold of 15728640 bytes for urn="
+        "Size validation failed at POST_DB_PATCH: 20000000 bytes exceeds threshold of 15728640 bytes for urn="
             + URN
             + ", aspect="
             + ASPECT_NAME;
@@ -43,10 +41,9 @@ public class AspectSizeExceededExceptionTest {
     long threshold = 16000000L;
 
     AspectSizeExceededException exception =
-        new AspectSizeExceededException(
-            ValidationPoint.PRE_DB_PATCH, actualSize, threshold, URN, ASPECT_NAME);
+        new AspectSizeExceededException("PRE_DB_PATCH", actualSize, threshold, URN, ASPECT_NAME);
 
-    assertEquals(exception.getValidationPoint(), ValidationPoint.PRE_DB_PATCH);
+    assertEquals(exception.getValidationPoint(), "PRE_DB_PATCH");
     assertEquals(exception.getActualSize(), actualSize);
     assertEquals(exception.getThreshold(), threshold);
     assertEquals(exception.getUrn(), URN);

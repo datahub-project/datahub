@@ -101,7 +101,14 @@ public class EntityServiceImplTest {
     // Initialize common test objects
     entityService =
         new EntityServiceImpl(
-            mock(AspectDao.class), mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mock(AspectDao.class),
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create test aspects
     oldAspect = new Status().setRemoved(false);
@@ -499,7 +506,8 @@ public class EntityServiceImplTest {
             false, // cdcModeChangeLog set to false
             mock(PreProcessHooks.class),
             0,
-            true);
+            true,
+            null); // metricUtils
 
     RecordTemplate sameAspect = newAspect;
 
@@ -915,7 +923,14 @@ public class EntityServiceImplTest {
     // Create EntityServiceImpl with mocks
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -956,7 +971,14 @@ public class EntityServiceImplTest {
     // Create entity service with mocked components
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create test inputs
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");

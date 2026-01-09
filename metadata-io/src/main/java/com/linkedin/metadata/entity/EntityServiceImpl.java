@@ -70,9 +70,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
-import com.linkedin.metadata.entity.validation.AspectOperationContext;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
-import com.linkedin.metadata.entity.validation.AspectValidationContext;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -180,6 +178,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+  private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
 
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
@@ -197,7 +196,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         false,
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2);
+        enableBrowsePathV2,
+        null);
   }
 
   public EntityServiceImpl(
@@ -214,7 +214,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         cdcModeChangeLog,
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2);
+        enableBrowsePathV2,
+        null);
   }
 
   public EntityServiceImpl(
@@ -231,7 +232,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         false,
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2);
+        enableBrowsePathV2,
+        null);
   }
 
   public EntityServiceImpl(
@@ -241,7 +243,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final boolean cdcModeChangeLog,
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
-      final boolean enableBrowseV2) {
+      final boolean enableBrowseV2,
+      @javax.annotation.Nullable
+          final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
@@ -250,6 +254,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
+    this.metricUtils = metricUtils;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
 
@@ -1048,8 +1053,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         "ingestAspectsToLocalDB",
         () -> {
           try {
-            // Clear ThreadLocal at start of each request to ensure fresh state
-            AspectValidationContext.clearPendingDeletions();
+            // Clear pending deletions at start of each request to ensure fresh state
+            opContext.clearPendingDeletions();
 
             if (inputBatch.containsDuplicateAspects()) {
               log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
@@ -1406,14 +1411,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             // For DELETE remediation, this is where actual deletion happens.
             // Must run in finally block to ensure deletions are processed even when
             // AspectSizeExceededException is thrown during validation.
-            List<AspectDeletionRequest> pendingDeletions =
-                AspectValidationContext.getPendingDeletions();
-            if (!pendingDeletions.isEmpty()) {
-              processPendingDeletions(opContext, pendingDeletions);
+            List<Object> pendingDeletionsRaw = opContext.getPendingDeletions();
+            if (!pendingDeletionsRaw.isEmpty()) {
+              // Cast to AspectDeletionRequest - all objects added by validators should be of this
+              // type
+              List<AspectDeletionRequest> pendingDeletions =
+                  pendingDeletionsRaw.stream()
+                      .filter(obj -> obj instanceof AspectDeletionRequest)
+                      .map(obj -> (AspectDeletionRequest) obj)
+                      .collect(java.util.stream.Collectors.toList());
+              if (!pendingDeletions.isEmpty()) {
+                processPendingDeletions(opContext, pendingDeletions);
+              }
             }
 
-            // Always cleanup ThreadLocal to prevent memory leaks when thread returns to pool
-            AspectValidationContext.clearPendingDeletions();
+            // Always cleanup pending deletions to ensure fresh state for next operation
+            opContext.clearPendingDeletions();
           }
         },
         BATCH_SIZE_ATTR,
@@ -1445,17 +1458,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             deletion.getAspectSize(),
             deletion.getThreshold());
 
-        // Set ThreadLocal flag to skip size validation during remediation deletion
+        // Create new OperationContext with remediation deletion flag set
         // This prevents circular validation when deleting oversized aspects
-        AspectOperationContext.set("isRemediationDeletion", true);
-        try {
-          // Call proper deletion through EntityService
-          // This handles all side effects: ES indices, graph edges, consumer hooks, system metadata
-          this.deleteAspect(
-              opContext, deletion.getUrn().toString(), deletion.getAspectName(), Map.of(), false);
-        } finally {
-          // Always clear ThreadLocal to prevent memory leaks
-          AspectOperationContext.clear();
+        OperationContext remediationContext =
+            opContext.toBuilder()
+                .validationContext(
+                    opContext.getValidationContext().toBuilder()
+                        .isRemediationDeletion(true)
+                        .build())
+                .build(opContext.getSessionActorContext(), false);
+
+        // Call proper deletion through EntityService
+        // This handles all side effects: ES indices, graph edges, consumer hooks, system metadata
+        this.deleteAspect(
+            remediationContext,
+            deletion.getUrn().toString(),
+            deletion.getAspectName(),
+            Map.of(),
+            false);
+
+        // Emit success metric
+        if (metricUtils != null) {
+          metricUtils.incrementMicrometer("aspectSizeValidation.remediationDeletion.success", 1);
         }
 
       } catch (Exception e) {
@@ -1464,6 +1488,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             deletion.getUrn(),
             deletion.getAspectName(),
             e);
+
+        // Emit failure metric
+        if (metricUtils != null) {
+          metricUtils.incrementMicrometer("aspectSizeValidation.remediationDeletion.failure", 1);
+        }
+
         // Don't throw - continue with other deletions
         // The oversized aspect will remain in database and continue to trigger validation
       }

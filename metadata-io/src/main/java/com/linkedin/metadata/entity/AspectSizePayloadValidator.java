@@ -7,9 +7,9 @@ import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
-import com.linkedin.metadata.entity.validation.AspectValidationContext;
-import com.linkedin.metadata.entity.validation.ValidationPoint;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -33,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
  * This validation provides a sanity check to prevent creating aspects that cannot be read later.
  *
  * <p><b>DELETE Remediation:</b> When DELETE remediation is configured, oversized aspects are
- * collected in ThreadLocal storage during validation. After the database transaction commits,
+ * collected in OperationContext during validation. After the database transaction commits,
  * EntityServiceImpl processes these deletions through proper EntityService flow, ensuring all side
  * effects are handled (Elasticsearch, graph, consumer hooks).
  */
@@ -41,9 +41,12 @@ import lombok.extern.slf4j.Slf4j;
 public class AspectSizePayloadValidator implements AspectPayloadValidator {
 
   private final AspectSizeValidationConfig config;
+  private final MetricUtils metricUtils;
 
-  public AspectSizePayloadValidator(@Nonnull AspectSizeValidationConfig config) {
+  public AspectSizePayloadValidator(
+      @Nonnull AspectSizeValidationConfig config, @Nullable MetricUtils metricUtils) {
     this.config = config;
+    this.metricUtils = metricUtils;
   }
 
   @Override
@@ -62,6 +65,12 @@ public class AspectSizePayloadValidator implements AspectPayloadValidator {
     long actualSize = metadata.length();
     long threshold = config.getPostPatch().getMaxSizeBytes();
 
+    // Emit histogram metric for all aspect sizes
+    if (metricUtils != null) {
+      metricUtils.histogram(
+          this.getClass(), "aspectSizeValidation.postPatch.aspectSize", actualSize);
+    }
+
     if (actualSize > threshold) {
       OversizedAspectRemediation remediation = config.getPostPatch().getOversizedRemediation();
 
@@ -73,21 +82,37 @@ public class AspectSizePayloadValidator implements AspectPayloadValidator {
           actualSize,
           threshold);
 
+      // Emit oversized counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.postPatch.oversized",
+            1,
+            "aspectName",
+            systemAspect.getAspectSpec().getName(),
+            "remediation",
+            remediation != null ? remediation.name() : "null");
+      }
+
       // For DELETE remediation, collect deletion request for execution after transaction
       if (remediation == OversizedAspectRemediation.DELETE) {
-        AspectValidationContext.addPendingDeletion(
-            AspectDeletionRequest.builder()
-                .urn(systemAspect.getUrn())
-                .aspectName(systemAspect.getAspectSpec().getName())
-                .validationPoint(ValidationPoint.POST_DB_PATCH)
-                .aspectSize(actualSize)
-                .threshold(threshold)
-                .build());
+        Object opContextObj = systemAspect.getOperationContext();
+        if (opContextObj instanceof io.datahubproject.metadata.context.OperationContext) {
+          io.datahubproject.metadata.context.OperationContext opContext =
+              (io.datahubproject.metadata.context.OperationContext) opContextObj;
+          opContext.addPendingDeletion(
+              AspectDeletionRequest.builder()
+                  .urn(systemAspect.getUrn())
+                  .aspectName(systemAspect.getAspectSpec().getName())
+                  .validationPoint("POST_DB_PATCH")
+                  .aspectSize(actualSize)
+                  .threshold(threshold)
+                  .build());
+        }
       }
 
       // Always throw to prevent this write (for both DELETE and IGNORE)
       throw new AspectSizeExceededException(
-          ValidationPoint.POST_DB_PATCH,
+          "POST_DB_PATCH",
           actualSize,
           threshold,
           systemAspect.getUrn().toString(),
@@ -102,6 +127,15 @@ public class AspectSizePayloadValidator implements AspectPayloadValidator {
           actualSize,
           config.getPostPatch().getWarnSizeBytes(),
           threshold);
+
+      // Emit warning counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.postPatch.warning",
+            1,
+            "aspectName",
+            systemAspect.getAspectSpec().getName());
+      }
       // No throw - write proceeds
     }
   }

@@ -84,4 +84,14 @@ public interface SystemAspect extends ReadItem {
 
   @Nonnull
   SystemAspect setDatabaseAspect(@Nonnull SystemAspect databaseAspect);
+
+  /**
+   * Get the operation context associated with this aspect operation. Used for passing validation
+   * context and pending deletion requests through the call stack.
+   *
+   * @return the operation context (io.datahubproject.metadata.context.OperationContext), or null if
+   *     not available
+   */
+  @Nullable
+  Object getOperationContext();
 }

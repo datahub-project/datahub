@@ -10,7 +10,6 @@ import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
-import com.linkedin.metadata.entity.validation.AspectOperationContext;
 import com.linkedin.metadata.entity.validation.AspectSizeValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -66,6 +65,14 @@ public class EbeanSystemAspect implements SystemAspect {
   @Nullable private List<AspectPayloadValidator> payloadValidators;
 
   @Nullable private AspectSizeValidationConfig validationConfig;
+
+  @Nullable private io.datahubproject.metadata.context.OperationContext operationContext;
+
+  @Nullable
+  @Override
+  public Object getOperationContext() {
+    return operationContext;
+  }
 
   @Nonnull
   @Override
@@ -158,7 +165,8 @@ public class EbeanSystemAspect implements SystemAspect {
           this.systemMetadata,
           this.auditStamp,
           this.payloadValidators,
-          this.validationConfig);
+          this.validationConfig,
+          this.operationContext);
     }
 
     public EbeanSystemAspect forUpdate(
@@ -172,13 +180,14 @@ public class EbeanSystemAspect implements SystemAspect {
       this.aspectName = ebeanAspectV2.getAspect();
 
       // Pre-patch validation: check existing aspect size from DB using utility
-      // Get context from ThreadLocal (may contain isRemediationDeletion flag)
+      // Get context from OperationContext (may contain isRemediationDeletion flag)
       AspectSizeValidator.validatePrePatchSize(
           ebeanAspectV2.getMetadata(),
           urn,
           aspectName,
           validationConfig,
-          AspectOperationContext.get());
+          operationContext,
+          null); // MetricUtils not available in this context
 
       this.recordTemplate =
           Optional.ofNullable(ebeanAspectV2.getMetadata())
@@ -295,7 +304,8 @@ public class EbeanSystemAspect implements SystemAspect {
           systemMetadataCopy,
           auditStampCopy,
           this.payloadValidators,
-          this.validationConfig);
+          this.validationConfig,
+          this.operationContext);
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }

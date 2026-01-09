@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.validation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +16,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <ul>
  *   <li><b>IGNORE:</b> Logs warning, throws exception to skip write
- *   <li><b>DELETE:</b> Logs warning, adds deletion request to ThreadLocal, throws exception to skip
- *       write. Deletion executed through EntityService after transaction commits.
+ *   <li><b>DELETE:</b> Logs warning, adds deletion request to OperationContext, throws exception to
+ *       skip write. Deletion executed through EntityService after transaction commits.
  * </ul>
  *
  * <p><b>Performance:</b> Zero overhead - validates JSON already fetched from database, no
@@ -36,7 +37,8 @@ public class AspectSizeValidator {
    * Validates pre-patch aspect size (existing aspect from database).
    *
    * <p>This is a convenience method that calls {@link #validatePrePatchSize(String, Urn, String,
-   * AspectSizeValidationConfig, java.util.Map)} with null context.
+   * AspectSizeValidationConfig, io.datahubproject.metadata.context.OperationContext, MetricUtils)}
+   * with null context and null metrics.
    *
    * @param rawMetadata serialized aspect JSON from database (may be null for new aspects)
    * @param urn entity URN
@@ -49,7 +51,7 @@ public class AspectSizeValidator {
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       @Nullable AspectSizeValidationConfig config) {
-    validatePrePatchSize(rawMetadata, urn, aspectName, config, null);
+    validatePrePatchSize(rawMetadata, urn, aspectName, config, null, null);
   }
 
   /**
@@ -59,7 +61,7 @@ public class AspectSizeValidator {
    *
    * <ul>
    *   <li>Logs WARNING with URN, aspect name, size, and threshold
-   *   <li>For DELETE remediation: adds deletion request to ThreadLocal for later execution
+   *   <li>For DELETE remediation: adds deletion request to OperationContext for later execution
    *   <li>Throws AspectSizeExceededException to skip the aspect write
    * </ul>
    *
@@ -67,8 +69,9 @@ public class AspectSizeValidator {
    * @param urn entity URN
    * @param aspectName aspect name
    * @param config aspect size validation configuration (may be null if validation disabled)
-   * @param context optional context map (may contain "isRemediationDeletion" flag to skip
+   * @param opContext optional operation context (may contain remediation deletion flag to skip
    *     validation)
+   * @param metricUtils optional metrics utility for emitting validation metrics
    * @throws AspectSizeExceededException if aspect exceeds configured size threshold
    */
   public static void validatePrePatchSize(
@@ -76,10 +79,13 @@ public class AspectSizeValidator {
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       @Nullable AspectSizeValidationConfig config,
-      @Nullable java.util.Map<String, Object> context) {
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext,
+      @Nullable MetricUtils metricUtils) {
 
     // Skip validation if this is a remediation deletion to avoid circular validation
-    if (context != null && Boolean.TRUE.equals(context.get("isRemediationDeletion"))) {
+    if (opContext != null
+        && opContext.getValidationContext() != null
+        && opContext.getValidationContext().isRemediationDeletion()) {
       log.debug(
           "Skipping pre-patch size validation for remediation deletion: urn={}, aspect={}",
           urn,
@@ -100,6 +106,12 @@ public class AspectSizeValidator {
     long actualSize = rawMetadata.length();
     long threshold = config.getPrePatch().getMaxSizeBytes();
 
+    // Emit histogram metric for all aspect sizes
+    if (metricUtils != null) {
+      metricUtils.histogram(
+          AspectSizeValidator.class, "aspectSizeValidation.prePatch.aspectSize", actualSize);
+    }
+
     if (actualSize > threshold) {
       OversizedAspectRemediation remediation = config.getPrePatch().getOversizedRemediation();
 
@@ -111,13 +123,24 @@ public class AspectSizeValidator {
           actualSize,
           threshold);
 
+      // Emit oversized counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.prePatch.oversized",
+            1,
+            "aspectName",
+            aspectName,
+            "remediation",
+            remediation != null ? remediation.name() : "null");
+      }
+
       // For DELETE remediation, collect deletion request for execution after transaction
-      if (remediation == OversizedAspectRemediation.DELETE) {
-        AspectValidationContext.addPendingDeletion(
+      if (remediation == OversizedAspectRemediation.DELETE && opContext != null) {
+        opContext.addPendingDeletion(
             AspectDeletionRequest.builder()
                 .urn(urn)
                 .aspectName(aspectName)
-                .validationPoint(ValidationPoint.PRE_DB_PATCH)
+                .validationPoint("PRE_DB_PATCH")
                 .aspectSize(actualSize)
                 .threshold(threshold)
                 .build());
@@ -125,7 +148,7 @@ public class AspectSizeValidator {
 
       // Always throw to skip the write (for both IGNORE and DELETE)
       throw new AspectSizeExceededException(
-          ValidationPoint.PRE_DB_PATCH, actualSize, threshold, urn.toString(), aspectName);
+          "PRE_DB_PATCH", actualSize, threshold, urn.toString(), aspectName);
     } else if (config.getPrePatch().getWarnSizeBytes() != null
         && actualSize > config.getPrePatch().getWarnSizeBytes()) {
       // Exceeded warning threshold but under max - log without blocking
@@ -136,6 +159,12 @@ public class AspectSizeValidator {
           actualSize,
           config.getPrePatch().getWarnSizeBytes(),
           threshold);
+
+      // Emit warning counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.prePatch.warning", 1, "aspectName", aspectName);
+      }
       // No throw - write proceeds
     }
   }

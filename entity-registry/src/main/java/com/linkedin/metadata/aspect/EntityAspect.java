@@ -177,6 +177,12 @@ public class EntityAspect {
       return systemMetadata;
     }
 
+    @Nullable
+    @Override
+    public Object getOperationContext() {
+      return null; // Not applicable for this implementation
+    }
+
     public static class EntitySystemAspectBuilder {
 
       private EntityAspect.EntitySystemAspect build() {

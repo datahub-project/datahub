@@ -15,8 +15,6 @@ import com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointC
 import com.linkedin.metadata.config.OversizedAspectRemediation;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
-import com.linkedin.metadata.entity.validation.AspectValidationContext;
-import com.linkedin.metadata.entity.validation.ValidationPoint;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -38,27 +36,51 @@ public class AspectSizePayloadValidatorTest {
   private final RecordTemplate recordTemplate = new Status().setRemoved(false);
 
   @Mock private SystemAspect systemAspect;
+  @Mock private OperationContext mockOpContext;
 
   private Urn urn;
   private static final String URN_STRING =
       "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)";
+  private java.util.List<Object> pendingDeletions;
 
   @BeforeMethod
   public void setup() throws Exception {
     MockitoAnnotations.openMocks(this);
     urn = Urn.createFromString(URN_STRING);
 
+    // Create a real mutable list for pending deletions
+    pendingDeletions = new java.util.ArrayList<>();
+
+    // Mock OperationContext to use the mutable list
+    doAnswer(
+            invocation -> {
+              pendingDeletions.add(invocation.getArgument(0));
+              return null;
+            })
+        .when(mockOpContext)
+        .addPendingDeletion(any());
+    when(mockOpContext.getPendingDeletions())
+        .thenAnswer(invocation -> new java.util.ArrayList<>(pendingDeletions));
+    doAnswer(
+            invocation -> {
+              pendingDeletions.clear();
+              return null;
+            })
+        .when(mockOpContext)
+        .clearPendingDeletions();
+
     when(systemAspect.getUrn()).thenReturn(urn);
     when(systemAspect.getAspectSpec()).thenReturn(aspectSpec);
+    when(systemAspect.getOperationContext()).thenReturn(mockOpContext);
 
-    // Clear ThreadLocal before each test
-    AspectValidationContext.clearPendingDeletions();
+    // Clear pending deletions before each test
+    pendingDeletions.clear();
   }
 
   @AfterMethod
   public void cleanup() {
-    // Always cleanup ThreadLocal after each test
-    AspectValidationContext.clearPendingDeletions();
+    // Always cleanup pending deletions after each test
+    pendingDeletions.clear();
   }
 
   @Test
@@ -66,7 +88,7 @@ public class AspectSizePayloadValidatorTest {
     AspectSizeValidationConfig config = new AspectSizeValidationConfig();
     config.setPostPatch(null);
 
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
@@ -75,7 +97,11 @@ public class AspectSizePayloadValidatorTest {
     validator.validatePayload(systemAspect, serializedAspect);
 
     // Should not add any deletion requests
-    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    List<AspectDeletionRequest> deletions =
+        mockOpContext.getPendingDeletions().stream()
+            .filter(obj -> obj instanceof AspectDeletionRequest)
+            .map(obj -> (AspectDeletionRequest) obj)
+            .collect(java.util.stream.Collectors.toList());
     assertEquals(deletions.size(), 0);
   }
 
@@ -86,7 +112,7 @@ public class AspectSizePayloadValidatorTest {
     postPatchConfig.setEnabled(false);
     config.setPostPatch(postPatchConfig);
 
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
@@ -95,7 +121,11 @@ public class AspectSizePayloadValidatorTest {
     validator.validatePayload(systemAspect, serializedAspect);
 
     // Should not add any deletion requests
-    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    List<AspectDeletionRequest> deletions =
+        mockOpContext.getPendingDeletions().stream()
+            .filter(obj -> obj instanceof AspectDeletionRequest)
+            .map(obj -> (AspectDeletionRequest) obj)
+            .collect(java.util.stream.Collectors.toList());
     assertEquals(deletions.size(), 0);
   }
 
@@ -103,7 +133,7 @@ public class AspectSizePayloadValidatorTest {
   public void testValidationWithNullMetadata() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(null);
@@ -112,7 +142,11 @@ public class AspectSizePayloadValidatorTest {
     validator.validatePayload(systemAspect, serializedAspect);
 
     // Should not add any deletion requests
-    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    List<AspectDeletionRequest> deletions =
+        mockOpContext.getPendingDeletions().stream()
+            .filter(obj -> obj instanceof AspectDeletionRequest)
+            .map(obj -> (AspectDeletionRequest) obj)
+            .collect(java.util.stream.Collectors.toList());
     assertEquals(deletions.size(), 0);
   }
 
@@ -120,7 +154,7 @@ public class AspectSizePayloadValidatorTest {
   public void testValidationPassesForSmallAspect() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(1000)); // 1KB
@@ -129,7 +163,11 @@ public class AspectSizePayloadValidatorTest {
     validator.validatePayload(systemAspect, serializedAspect);
 
     // Should not add any deletion requests
-    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    List<AspectDeletionRequest> deletions =
+        mockOpContext.getPendingDeletions().stream()
+            .filter(obj -> obj instanceof AspectDeletionRequest)
+            .map(obj -> (AspectDeletionRequest) obj)
+            .collect(java.util.stream.Collectors.toList());
     assertEquals(deletions.size(), 0);
   }
 
@@ -137,7 +175,7 @@ public class AspectSizePayloadValidatorTest {
   public void testValidationFailsWithDeleteRemediation() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
@@ -146,19 +184,23 @@ public class AspectSizePayloadValidatorTest {
       validator.validatePayload(systemAspect, serializedAspect);
       fail("Expected AspectSizeExceededException");
     } catch (AspectSizeExceededException exception) {
-      assertEquals(exception.getValidationPoint(), ValidationPoint.POST_DB_PATCH);
+      assertEquals(exception.getValidationPoint(), "POST_DB_PATCH");
       assertEquals(exception.getActualSize(), 20000000L);
       assertEquals(exception.getThreshold(), 15728640L);
       assertEquals(exception.getUrn(), URN_STRING);
       assertEquals(exception.getAspectName(), STATUS_ASPECT_NAME);
 
       // Verify deletion request was added to ThreadLocal
-      List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+      List<AspectDeletionRequest> deletions =
+          mockOpContext.getPendingDeletions().stream()
+              .filter(obj -> obj instanceof AspectDeletionRequest)
+              .map(obj -> (AspectDeletionRequest) obj)
+              .collect(java.util.stream.Collectors.toList());
       assertEquals(deletions.size(), 1);
       AspectDeletionRequest deletion = deletions.get(0);
       assertEquals(deletion.getUrn(), urn);
       assertEquals(deletion.getAspectName(), STATUS_ASPECT_NAME);
-      assertEquals(deletion.getValidationPoint(), ValidationPoint.POST_DB_PATCH);
+      assertEquals(deletion.getValidationPoint(), "POST_DB_PATCH");
       assertEquals(deletion.getAspectSize(), 20000000L);
       assertEquals(deletion.getThreshold(), 15728640L);
     }
@@ -168,7 +210,7 @@ public class AspectSizePayloadValidatorTest {
   public void testValidationFailsWithIgnoreRemediation() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.IGNORE);
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(20000000)); // 20MB
@@ -177,10 +219,14 @@ public class AspectSizePayloadValidatorTest {
       validator.validatePayload(systemAspect, serializedAspect);
       fail("Expected AspectSizeExceededException");
     } catch (AspectSizeExceededException exception) {
-      assertEquals(exception.getValidationPoint(), ValidationPoint.POST_DB_PATCH);
+      assertEquals(exception.getValidationPoint(), "POST_DB_PATCH");
 
       // IGNORE remediation should NOT add deletion request
-      List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+      List<AspectDeletionRequest> deletions =
+          mockOpContext.getPendingDeletions().stream()
+              .filter(obj -> obj instanceof AspectDeletionRequest)
+              .map(obj -> (AspectDeletionRequest) obj)
+              .collect(java.util.stream.Collectors.toList());
       assertEquals(deletions.size(), 0);
     }
   }
@@ -190,7 +236,7 @@ public class AspectSizePayloadValidatorTest {
     long threshold = 15728640L;
     AspectSizeValidationConfig config =
         createEnabledConfig(threshold, OversizedAspectRemediation.DELETE);
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata((int) threshold));
@@ -199,7 +245,11 @@ public class AspectSizePayloadValidatorTest {
     validator.validatePayload(systemAspect, serializedAspect);
 
     // Should not add any deletion requests
-    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    List<AspectDeletionRequest> deletions =
+        mockOpContext.getPendingDeletions().stream()
+            .filter(obj -> obj instanceof AspectDeletionRequest)
+            .map(obj -> (AspectDeletionRequest) obj)
+            .collect(java.util.stream.Collectors.toList());
     assertEquals(deletions.size(), 0);
   }
 
@@ -208,7 +258,7 @@ public class AspectSizePayloadValidatorTest {
     long threshold = 15728640L;
     AspectSizeValidationConfig config =
         createEnabledConfig(threshold, OversizedAspectRemediation.DELETE);
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata((int) (threshold + 1)));
@@ -221,7 +271,11 @@ public class AspectSizePayloadValidatorTest {
       assertEquals(exception.getThreshold(), threshold);
 
       // Verify deletion request was added
-      List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+      List<AspectDeletionRequest> deletions =
+          mockOpContext.getPendingDeletions().stream()
+              .filter(obj -> obj instanceof AspectDeletionRequest)
+              .map(obj -> (AspectDeletionRequest) obj)
+              .collect(java.util.stream.Collectors.toList());
       assertEquals(deletions.size(), 1);
     }
   }
@@ -237,7 +291,7 @@ public class AspectSizePayloadValidatorTest {
     postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
     config.setPostPatch(postPatchConfig);
 
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(5000)); // 5KB - above warn, below max
@@ -246,7 +300,11 @@ public class AspectSizePayloadValidatorTest {
     validator.validatePayload(systemAspect, serializedAspect);
 
     // Should not add any deletion requests
-    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    List<AspectDeletionRequest> deletions =
+        mockOpContext.getPendingDeletions().stream()
+            .filter(obj -> obj instanceof AspectDeletionRequest)
+            .map(obj -> (AspectDeletionRequest) obj)
+            .collect(java.util.stream.Collectors.toList());
     assertEquals(deletions.size(), 0);
   }
 
@@ -261,7 +319,7 @@ public class AspectSizePayloadValidatorTest {
     postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
     config.setPostPatch(postPatchConfig);
 
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
     EntityAspect serializedAspect = new EntityAspect();
     serializedAspect.setMetadata(generateLargeMetadata(5000)); // 5KB
@@ -270,7 +328,11 @@ public class AspectSizePayloadValidatorTest {
     validator.validatePayload(systemAspect, serializedAspect);
 
     // Should not add any deletion requests
-    List<AspectDeletionRequest> deletions = AspectValidationContext.getPendingDeletions();
+    List<AspectDeletionRequest> deletions =
+        mockOpContext.getPendingDeletions().stream()
+            .filter(obj -> obj instanceof AspectDeletionRequest)
+            .map(obj -> (AspectDeletionRequest) obj)
+            .collect(java.util.stream.Collectors.toList());
     assertEquals(deletions.size(), 0);
   }
 

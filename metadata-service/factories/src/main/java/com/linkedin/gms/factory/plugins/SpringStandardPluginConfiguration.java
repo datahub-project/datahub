@@ -584,9 +584,10 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public com.linkedin.metadata.aspect.AspectPayloadValidator aspectSizePayloadValidator(
-      ConfigurationProvider configProvider) {
+      ConfigurationProvider configProvider,
+      @Nullable com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
     AspectSizeValidationConfig config = configProvider.getDatahub().getValidation().getAspectSize();
-    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, metricUtils);
     log.info(
         "Initialized AspectSizePayloadValidator with config: prePatch={}, postPatch={}",
         config.getPrePatch(),

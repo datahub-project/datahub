@@ -11,14 +11,14 @@ import lombok.Getter;
  */
 @Getter
 public class AspectSizeExceededException extends RuntimeException {
-  private final ValidationPoint validationPoint;
+  private final String validationPoint;
   private final long actualSize;
   private final long threshold;
   private final String urn;
   private final String aspectName;
 
   public AspectSizeExceededException(
-      @Nonnull ValidationPoint validationPoint,
+      @Nonnull String validationPoint,
       long actualSize,
       long threshold,
       @Nonnull String urn,

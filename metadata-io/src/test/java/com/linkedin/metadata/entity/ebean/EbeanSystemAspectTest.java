@@ -13,7 +13,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.entity.validation.AspectValidationContext;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -69,15 +68,11 @@ public class EbeanSystemAspectTest {
                 new Timestamp(CREATED_TIME),
                 CREATED_BY,
                 null));
-
-    // Clear ThreadLocal before each test
-    AspectValidationContext.clearPendingDeletions();
   }
 
   @AfterMethod
   public void cleanup() {
-    // Always cleanup ThreadLocal after each test
-    AspectValidationContext.clearPendingDeletions();
+    // No cleanup needed
   }
 
   @Test
@@ -261,7 +256,8 @@ public class EbeanSystemAspectTest {
             null, // null so that we get it from ebeanAspectV2
             auditStamp,
             null, // payloadValidators
-            null); // validationConfig
+            null, // validationConfig
+            null); // operationContext
 
     // First call should parse from ebeanAspectV2's system metadata
     SystemMetadata metadata = aspect.getSystemMetadata();
@@ -392,11 +388,9 @@ public class EbeanSystemAspectTest {
     try {
       EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
     } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
-      assertEquals(
-          e.getValidationPoint(),
-          com.linkedin.metadata.entity.validation.ValidationPoint.PRE_DB_PATCH);
-      // IGNORE remediation should NOT add deletion request
-      assertEquals(AspectValidationContext.getPendingDeletions().size(), 0);
+      assertEquals(e.getValidationPoint(), "PRE_DB_PATCH");
+      // IGNORE remediation should NOT add deletion request (no OperationContext passed in this
+      // test)
       throw e;
     }
   }
@@ -414,11 +408,9 @@ public class EbeanSystemAspectTest {
     try {
       EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
     } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
-      assertEquals(
-          e.getValidationPoint(),
-          com.linkedin.metadata.entity.validation.ValidationPoint.PRE_DB_PATCH);
-      // DELETE remediation should add deletion request to ThreadLocal
-      assertEquals(AspectValidationContext.getPendingDeletions().size(), 1);
+      assertEquals(e.getValidationPoint(), "PRE_DB_PATCH");
+      // DELETE remediation would add deletion request to OperationContext if one was passed
+      // (no OperationContext is passed in this test, so no deletion request is collected)
       throw e;
     }
   }

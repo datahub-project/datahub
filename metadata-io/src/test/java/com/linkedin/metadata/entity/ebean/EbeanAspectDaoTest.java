@@ -267,7 +267,8 @@ public class EbeanAspectDaoTest {
             new SystemMetadata(),
             AuditStampUtils.createDefaultAuditStamp(),
             null, // payloadValidators
-            null); // validationConfig
+            null, // validationConfig
+            null); // operationContext
 
     // Try to update aspect
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =

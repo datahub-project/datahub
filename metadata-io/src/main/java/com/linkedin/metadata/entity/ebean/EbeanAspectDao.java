@@ -211,7 +211,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       results = server.find(EbeanAspectV2.class).where().idIn(keys).findList();
     }
 
-    return toUrnAspectMap(opContext.getEntityRegistry(), results);
+    return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
   @Override
@@ -1020,7 +1020,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   private Map<String, SystemAspect> toAspectMap(
-      @Nonnull EntityRegistry entityRegistry, Set<EbeanAspectV2> beans) {
+      @Nonnull EntityRegistry entityRegistry,
+      Set<EbeanAspectV2> beans,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
     return beans.stream()
         .map(bean -> Map.entry(bean.getAspect(), bean))
         .collect(
@@ -1030,16 +1032,19 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     EbeanSystemAspect.builder()
                         .payloadValidators(payloadValidators)
                         .validationConfig(validationConfig)
+                        .operationContext(opContext)
                         .forUpdate(e.getValue(), entityRegistry)));
   }
 
   private Map<String, Map<String, SystemAspect>> toUrnAspectMap(
-      @Nonnull EntityRegistry entityRegistry, Collection<EbeanAspectV2> beans) {
+      @Nonnull EntityRegistry entityRegistry,
+      Collection<EbeanAspectV2> beans,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
     return beans.stream()
         .collect(Collectors.groupingBy(EbeanAspectV2::getUrn, Collectors.toSet()))
         .entrySet()
         .stream()
-        .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue())))
+        .map(e -> Map.entry(e.getKey(), toAspectMap(entityRegistry, e.getValue(), opContext)))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

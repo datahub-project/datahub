@@ -22,8 +22,10 @@ public class AspectDeletionRequest {
   /** Name of the aspect to delete */
   @Nonnull private final String aspectName;
 
-  /** Validation point where oversized aspect was detected */
-  @Nonnull private final ValidationPoint validationPoint;
+  /**
+   * Validation point where oversized aspect was detected (e.g., "PRE_DB_PATCH", "POST_DB_PATCH")
+   */
+  @Nonnull private final String validationPoint;
 
   /** Actual size of the oversized aspect in bytes */
   private final long aspectSize;
