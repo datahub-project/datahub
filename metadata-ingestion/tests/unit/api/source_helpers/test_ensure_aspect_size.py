@@ -42,6 +42,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 
 
@@ -794,3 +795,177 @@ def test_wu_processor_triggered_by_query_properties_aspect(
         )
     )
     ensure_query_properties_size_mock.assert_called_once()
+
+
+def proper_view_properties() -> ViewPropertiesClass:
+    """Create a view properties with reasonably sized SQL (~1KB)."""
+    view_logic = "SELECT col1, col2, col3 FROM source_table WHERE status = 'active';"
+    return ViewPropertiesClass(
+        materialized=False,
+        viewLogic=view_logic,
+        viewLanguage="SQL",
+    )
+
+
+def too_big_view_properties() -> ViewPropertiesClass:
+    """Create a view properties with very large SQL (~20MB) to exceed the 15MB limit.
+
+    This simulates the real-world case where dbt models contain hardcoded IDs:
+    SELECT * FROM (VALUES ('id1'), ('id2'), ...) AS excluded_users(user_id)
+    """
+    # Create a large SQL statement with hardcoded values (similar to real dbt issue)
+    # Each entry is ~22 bytes, so 800000 entries = ~17.6MB
+    large_view_logic = (
+        "SELECT * FROM (VALUES "
+        + ", ".join([f"('user_id_{i:08d}')" for i in range(800000)])
+        + ") AS excluded_users(user_id)"
+    )
+
+    return ViewPropertiesClass(
+        materialized=False,
+        viewLogic=large_view_logic,
+        viewLanguage="SQL",
+    )
+
+
+def too_big_view_properties_with_formatted() -> ViewPropertiesClass:
+    """Create view properties with both viewLogic and formattedViewLogic oversized."""
+    # Each entry is ~22 bytes, so 400000 entries = ~8.8MB per field, ~17.6MB total
+    large_view_logic = (
+        "SELECT * FROM (VALUES "
+        + ", ".join([f"('user_id_{i:08d}')" for i in range(400000)])
+        + ") AS excluded_users(user_id)"
+    )
+
+    large_formatted = "-- Compiled SQL\n" + large_view_logic
+
+    return ViewPropertiesClass(
+        materialized=False,
+        viewLogic=large_view_logic,
+        formattedViewLogic=large_formatted,
+        viewLanguage="SQL",
+    )
+
+
+def test_ensure_size_of_too_big_view_properties(processor):
+    view_properties = too_big_view_properties()
+    original_view_logic_size = len(view_properties.viewLogic)
+
+    # Verify initial size exceeds the payload constraint
+    initial_size = len(json.dumps(view_properties.to_obj()))
+    assert initial_size > INGEST_MAX_PAYLOAD_BYTES, (
+        f"Initial size {initial_size} should exceed payload constraint {INGEST_MAX_PAYLOAD_BYTES}"
+    )
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, dummy_model, PROD)", view_properties
+    )
+
+    # viewLogic should be truncated
+    assert len(view_properties.viewLogic) < original_view_logic_size
+
+    # Should contain truncation message
+    assert (
+        "truncated from" in view_properties.viewLogic
+        or "removed due to size" in view_properties.viewLogic
+    )
+
+    # Final size should be within constraints
+    final_size = len(json.dumps(view_properties.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES, (
+        f"Final size {final_size} should be < {INGEST_MAX_PAYLOAD_BYTES}"
+    )
+
+    # Should have logged a warning
+    assert len(processor.report.warnings) >= 1
+
+
+def test_ensure_size_truncates_formatted_first(processor):
+    """Test that formattedViewLogic is truncated before viewLogic."""
+    view_properties = too_big_view_properties_with_formatted()
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, dummy_model, PROD)", view_properties
+    )
+
+    # Final size should be within constraints
+    final_size = len(json.dumps(view_properties.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES
+
+    # Should have truncation messages
+    assert view_properties.formattedViewLogic is not None
+    assert (
+        "truncated from" in view_properties.formattedViewLogic
+        or "removed due to size" in view_properties.formattedViewLogic
+    )
+
+
+def test_ensure_size_of_view_properties_viewlogic_only(processor):
+    """Test truncation when only viewLogic exists (no formattedViewLogic).
+
+    This is an edge case where the view has raw SQL but no compiled/formatted version.
+    """
+    # Create view properties with only viewLogic (no formattedViewLogic)
+    large_view_logic = (
+        "SELECT * FROM (VALUES "
+        + ", ".join([f"('user_id_{i:08d}')" for i in range(800000)])
+        + ") AS excluded_users(user_id)"
+    )
+    view_properties = ViewPropertiesClass(
+        materialized=False,
+        viewLogic=large_view_logic,
+        viewLanguage="SQL",
+    )
+
+    original_view_logic_size = len(view_properties.viewLogic)
+
+    # Verify initial size exceeds the payload constraint
+    initial_size = len(json.dumps(view_properties.to_obj()))
+    assert initial_size > INGEST_MAX_PAYLOAD_BYTES
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, dummy_model, PROD)", view_properties
+    )
+
+    # viewLogic should be truncated
+    assert len(view_properties.viewLogic) < original_view_logic_size
+    assert (
+        "truncated from" in view_properties.viewLogic
+        or "removed due to size" in view_properties.viewLogic
+    )
+
+    # Final size should be within constraints
+    final_size = len(json.dumps(view_properties.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES
+
+
+@patch(
+    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
+)
+@patch(
+    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_view_properties_size"
+)
+def test_mce_workunit_checks_all_aspects_not_just_first_elif_regression(
+    ensure_view_properties_size_mock, ensure_schema_metadata_size_mock, processor
+):
+    """Regression test: MCE workunits with multiple aspects must have ALL aspects checked.
+
+    Previously, ensure_aspect_size used 'elif' which only checked the first matching
+    aspect type. This caused viewProperties to never be checked for dbt workunits
+    since schemaMetadata was always checked first. The fix changed 'elif' to 'if'.
+    """
+    # Create an MCE workunit with both schemaMetadata and viewProperties
+    # (simulating dbt source behavior)
+    snapshot = DatasetSnapshotClass(
+        urn="urn:li:dataset:(urn:li:dataPlatform:dbt, dummy_model, PROD)",
+        aspects=[proper_schema_metadata(), proper_view_properties()],
+    )
+    mce = MetadataWorkUnit(
+        id="test", mce=MetadataChangeEvent(proposedSnapshot=snapshot)
+    )
+
+    list(processor.ensure_aspect_size([mce]))
+
+    # CRITICAL: Both handlers should be called, not just the first one
+    ensure_schema_metadata_size_mock.assert_called_once()
+    ensure_view_properties_size_mock.assert_called_once()
