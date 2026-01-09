@@ -683,14 +683,9 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-
-        # Get user URNs based on mode
-        if self.__config.ownership.create_corp_user:
-            # Opt-in mode: Extract URNs from created user MCPs
-            user_urn_list: List[str] = self.to_urn_set(user_mcps)
-        else:
-            # Default mode: Get URNs directly (soft references, no entity creation)
-            user_urn_list = self.to_datahub_user_urns(dashboard.users)
+        user_urn_list: List[str] = self._get_user_urns_for_ownership(
+            dashboard.users, user_mcps
+        )
 
         def chart_custom_properties(dashboard: powerbi_data_classes.Dashboard) -> dict:
             return {
@@ -890,6 +885,46 @@ class Mapper:
             self.new_mcp(entity_urn=user_urn, aspect=user_info),
         ]
 
+    def _filter_qualified_users(
+        self, users: List[powerbi_data_classes.User]
+    ) -> List[powerbi_data_classes.User]:
+        """
+        Filter users based on principalType and owner_criteria.
+        Returns users that qualify for ownership assignment.
+
+        Filtering rules:
+        - Must be non-None
+        - principalType must be "User" (not Group, App, etc.)
+        - If owner_criteria is set, user must have at least one matching access right
+        - If owner_criteria is None, all User-type principals qualify
+        """
+        qualified_users = []
+        for user in users:
+            if not user:
+                continue
+
+            user_rights = [
+                user.datasetUserAccessRight,
+                user.reportUserAccessRight,
+                user.dashboardUserAccessRight,
+                user.groupUserAccessRight,
+            ]
+
+            # Check if user qualifies based on criteria
+            if self.__config.ownership.owner_criteria is None:
+                # No criteria - all User-type principals qualify
+                if user.principalType == "User":
+                    qualified_users.append(user)
+            elif (
+                user.principalType == "User"
+                and len(set(user_rights) & set(self.__config.ownership.owner_criteria))
+                > 0
+            ):
+                # Has matching access rights
+                qualified_users.append(user)
+
+        return qualified_users
+
     def to_datahub_users(
         self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
@@ -904,24 +939,8 @@ class Mapper:
 
         # Opt-in mode: Create full user entities
         user_mcps = []
-
-        for user in users:
-            if user:
-                user_rights = [
-                    user.datasetUserAccessRight,
-                    user.reportUserAccessRight,
-                    user.dashboardUserAccessRight,
-                    user.groupUserAccessRight,
-                ]
-                if (
-                    user.principalType == "User"
-                    and self.__config.ownership.owner_criteria
-                    and len(
-                        set(user_rights) & set(self.__config.ownership.owner_criteria)
-                    )
-                    > 0
-                ) or self.__config.ownership.owner_criteria is None:
-                    user_mcps.extend(self.to_datahub_user(user))
+        for user in self._filter_qualified_users(users):
+            user_mcps.extend(self.to_datahub_user(user))
 
         return user_mcps
 
@@ -932,28 +951,29 @@ class Mapper:
         No entity creation - follows Tableau/Looker pattern.
         """
         user_urns = []
-        for user in users:
-            if user:
-                user_rights = [
-                    user.datasetUserAccessRight,
-                    user.reportUserAccessRight,
-                    user.dashboardUserAccessRight,
-                    user.groupUserAccessRight,
-                ]
-                if (
-                    user.principalType == "User"
-                    and self.__config.ownership.owner_criteria
-                    and len(
-                        set(user_rights) & set(self.__config.ownership.owner_criteria)
-                    )
-                    > 0
-                ) or self.__config.ownership.owner_criteria is None:
-                    user_id = user.get_urn_part(
-                        use_email=self.__config.ownership.use_powerbi_email,
-                        remove_email_suffix=self.__config.ownership.remove_email_suffix,
-                    )
-                    user_urns.append(builder.make_user_urn(user_id))
+        for user in self._filter_qualified_users(users):
+            user_id = user.get_urn_part(
+                use_email=self.__config.ownership.use_powerbi_email,
+                remove_email_suffix=self.__config.ownership.remove_email_suffix,
+            )
+            user_urns.append(builder.make_user_urn(user_id))
         return user_urns
+
+    def _get_user_urns_for_ownership(
+        self,
+        users: List[powerbi_data_classes.User],
+        user_mcps: List[MetadataChangeProposalWrapper],
+    ) -> List[str]:
+        """
+        Get user URNs for ownership based on create_corp_user mode.
+
+        When create_corp_user=True (opt-in): Extract URNs from created user MCPs
+        When create_corp_user=False (default): Get URNs directly (soft references)
+        """
+        if self.__config.ownership.create_corp_user:
+            return self.to_urn_set(user_mcps)
+        else:
+            return self.to_datahub_user_urns(users)
 
     def to_datahub_chart(
         self,
@@ -1146,14 +1166,9 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-
-        # Get user URNs based on mode
-        if self.__config.ownership.create_corp_user:
-            # Opt-in mode: Extract URNs from created user MCPs
-            user_urn_list: List[str] = self.to_urn_set(user_mcps)
-        else:
-            # Default mode: Get URNs directly (soft references, no entity creation)
-            user_urn_list = self.to_datahub_user_urns(report.users)
+        user_urn_list: List[str] = self._get_user_urns_for_ownership(
+            report.users, user_mcps
+        )
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(

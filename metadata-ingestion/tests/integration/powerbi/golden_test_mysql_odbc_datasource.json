@@ -415,6 +415,26 @@
     }
 },
 {
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "John Doe",
+            "email": "john.doe@acryldata.io",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5e420b19-ee14-4bba-ab4b-1e1063847f37.ReportSection)",
     "changeType": "UPSERT",
