@@ -1314,28 +1314,6 @@ public class PoliciesConfig {
                               VIEW_ENTITY_PAGE_PRIVILEGE,
                               SEARCH_PRIVILEGE))
                       .build())
-              .put(
-                  Constants.ASSERTION_ENTITY_NAME,
-                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
-                      .put(
-                          ApiOperation.CREATE,
-                          Disjunctive.disjoint(
-                              EDIT_ENTITY_ASSERTIONS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
-                      .put(
-                          ApiOperation.READ,
-                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
-                      .put(
-                          ApiOperation.UPDATE,
-                          Disjunctive.disjoint(
-                              EDIT_ENTITY_ASSERTIONS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
-                      .put(
-                          ApiOperation.DELETE,
-                          Disjunctive.disjoint(
-                              EDIT_ENTITY_ASSERTIONS_PRIVILEGE, DELETE_ENTITY_PRIVILEGE))
-                      .put(
-                          ApiOperation.EXISTS,
-                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
-                      .build())
               .build();
 
   /**
