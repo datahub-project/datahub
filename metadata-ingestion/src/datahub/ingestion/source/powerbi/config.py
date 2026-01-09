@@ -267,7 +267,7 @@ class OwnershipMapping(ConfigModel):
         description=(
             "Whether to create user entities from PowerBI data. "
             "When False (RECOMMENDED): PowerBI emits ownership URNs only (soft references). "
-            "User profiles must come from LDAP/SCIM/Okta."
+            "User profiles must come from LDAP/SCIM/Okta. "
             "When True (OPT-IN): PowerBI creates users with displayName and email from PowerBI. "
             "WARNING: May overwrite existing user profiles from other sources. Use only if "
             "PowerBI is your authoritative user source."

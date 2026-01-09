@@ -857,22 +857,25 @@ class Mapper:
         self, user: powerbi_data_classes.User
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Create user entity with FULL info (CorpUserKeyClass + CorpUserInfoClass).
+        Create user entity with Key and Info aspects.
         Only called when create_corp_user=True (opt-in).
         User accepts conflict risk - PowerBI data may overwrite existing profiles.
         """
+        logger.debug(
+            "Mapping user %s (id=%s) to datahub corpuser",
+            user.displayName,
+            user.id,
+        )
 
-        logger.debug(f"Mapping user {user.displayName}(id={user.id}) to datahub's user")
-
-        # Create an URN for user
+        # Create URN for user (may use email or PowerBI ID based on config)
         user_id = user.get_urn_part(
             use_email=self.__config.ownership.use_powerbi_email,
             remove_email_suffix=self.__config.ownership.remove_email_suffix,
         )
         user_urn = builder.make_user_urn(user_id)
 
-        # Emit BOTH Key AND Info (not just Key!)
-        user_key = CorpUserKeyClass(username=user.id)
+        # Key username MUST match URN username (identity aspect)
+        user_key = CorpUserKeyClass(username=user_id)
 
         user_info = CorpUserInfoClass(
             displayName=user.displayName or user_id,  # Fallback to user_id if null
@@ -896,11 +899,15 @@ class Mapper:
         - Must be non-None
         - principalType must be "User" (not Group, App, etc.)
         - If owner_criteria is set, user must have at least one matching access right
-        - If owner_criteria is None, all User-type principals qualify
+        - If owner_criteria is None or [], all User-type principals qualify
         """
         qualified_users = []
         for user in users:
             if not user:
+                continue
+
+            # Check principalType first
+            if not user.principalType or user.principalType != "User":
                 continue
 
             user_rights = [
@@ -911,14 +918,12 @@ class Mapper:
             ]
 
             # Check if user qualifies based on criteria
-            if self.__config.ownership.owner_criteria is None:
-                # No criteria - all User-type principals qualify
-                if user.principalType == "User":
-                    qualified_users.append(user)
+            # Note: Empty list [] is treated same as None (no criteria = all qualify)
+            if not self.__config.ownership.owner_criteria:
+                # No criteria (None or []) - all User-type principals qualify
+                qualified_users.append(user)
             elif (
-                user.principalType == "User"
-                and len(set(user_rights) & set(self.__config.ownership.owner_criteria))
-                > 0
+                len(set(user_rights) & set(self.__config.ownership.owner_criteria)) > 0
             ):
                 # Has matching access rights
                 qualified_users.append(user)

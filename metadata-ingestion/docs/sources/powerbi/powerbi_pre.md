@@ -31,6 +31,20 @@ ownership:
   create_corp_user: true # Opt-in - creates user entities
 ```
 
+### Filtering Owners by Access Rights
+
+You can limit which users become owners using `owner_criteria`. Only users with at least one of the specified access rights will be assigned as owners:
+
+```yaml
+ownership:
+  owner_criteria:
+    - ReadWriteReshareExplore
+    - Owner
+    - Admin
+```
+
+Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
+
 ## Configuration Notes
 
 1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
