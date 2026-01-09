@@ -255,3 +255,70 @@ def test_mysql_odbc_query_ingest(
         output_path=f"{tmp_path}/powerbi_mysql_odbc_query_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_soft_reference_mode_no_user_entities(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """
+    Test create_corp_user=False (default mode) - soft references only.
+
+    When create_corp_user=False:
+    - Ownership URNs should still be emitted in dashboard/report ownership aspects
+    - NO corpuser entities (corpUserKey, corpUserInfo) should be created
+    - This is the recommended pattern for LDAP/Okta user management
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        pytestconfig=pytestconfig,
+        override_data=read_mock_data(
+            pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/mysql_mock_response.json"
+        ),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    "tenant_id": "0b0c960b-fcdf-4d0f-8c45-2e03bb59ddeb",
+                    "client_id": "a8d655a6-f521-477e-8c22-255018583bf4",
+                    "client_secret": "ababa~cdcdcdcdcdcdcdcdcdcd-abcd.defghijk",
+                    "extract_ownership": True,
+                    "extract_endorsements_to_tags": True,
+                    "extract_app": True,
+                    "extract_column_level_lineage": True,
+                    "workspace_name_pattern": {"allow": ["^Employees$"]},
+                    # Explicitly set to False (or omit - False is default)
+                    "ownership": {"create_corp_user": False},
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_soft_ref_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_soft_reference_mode.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_soft_ref_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
