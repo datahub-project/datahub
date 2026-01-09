@@ -17,8 +17,13 @@ cp requirements-dev.txt ${TMPDIR}/requirements-dev.txt
 # Full build: requirements.txt WITH observe extra
 uv pip compile --universal --python-version 3.11 --index-strategy unsafe-best-match -q -o ${TMPDIR}/requirements.txt --extra observe pyproject.toml requirements-local.in
 
-# Slim build: requirements-slim.txt WITHOUT observe extra
+# Slim build: requirements-slim.txt WITHOUT observe extra AND without PySpark
+# Temporarily modify pyproject.toml to use s3-slim instead of s3 (excludes unity-catalog too)
+# Both s3 and unity-catalog pull in PySpark which we want to exclude from slim builds
+cp pyproject.toml pyproject.toml.bak
+sed 's/\[base,snowflake,bigquery,redshift,s3,unity-catalog\]/[base,snowflake,bigquery,redshift,s3-slim]/g' pyproject.toml.bak > pyproject.toml
 uv pip compile --universal --python-version 3.11 --index-strategy unsafe-best-match -q -o ${TMPDIR}/requirements-slim.txt requirements-local.in
+mv pyproject.toml.bak pyproject.toml
 
 # Dev build: requirements-dev.txt with dev extra
 uv pip compile --universal --python-version 3.11 --index-strategy unsafe-best-match -q -o ${TMPDIR}/requirements-dev.txt --extra dev pyproject.toml requirements-local.in requirements.txt

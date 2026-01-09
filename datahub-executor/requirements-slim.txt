@@ -234,12 +234,8 @@ cymem==2.0.13
     #   preshed
     #   spacy
     #   thinc
-databricks-sdk==0.77.0
-    # via acryl-datahub
 databricks-sql-connector==2.9.6
-    # via
-    #   acryl-datahub
-    #   acryl-datahub-executor
+    # via acryl-datahub-executor
 dataflows-tabulator==1.54.3
     # via tableschema
 db-dtypes==1.5.0
@@ -294,7 +290,6 @@ google-api-core==2.25.2
     #   sqlalchemy-bigquery
 google-auth==2.47.0
     # via
-    #   databricks-sdk
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -588,7 +583,6 @@ numpy==1.26.4
     #   databricks-sql-connector
     #   db-dtypes
     #   pandas
-    #   pydeequ
     #   scikit-learn
     #   scipy
     #   spacy
@@ -632,7 +626,6 @@ pandas==2.1.4
     #   altair
     #   databricks-sql-connector
     #   db-dtypes
-    #   pydeequ
 pandocfilters==1.5.1
     # via nbconvert
 parse==1.20.2
@@ -683,7 +676,6 @@ proto-plus==1.27.0
     #   google-cloud-resource-manager
 protobuf==4.25.8
     # via
-    #   databricks-sdk
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-audit-log
@@ -708,8 +700,6 @@ pure-eval==0.2.3
     # via stack-data
 py-partiql-parser==0.5.0
     # via moto
-py4j==0.10.9.7
-    # via pyspark
 pyarrow==22.0.0
     # via
     #   acryl-datahub
@@ -747,8 +737,6 @@ pydantic-core==2.41.5
     # via
     #   acryl-datahub
     #   pydantic
-pydeequ==1.5.0
-    # via acryl-datahub
 pygments==2.19.2
     # via
     #   ipython
@@ -766,8 +754,6 @@ pyparsing==3.3.1
     # via acryl-great-expectations
 pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
-pyspark==3.5.7
-    # via acryl-datahub
 python-dateutil==2.9.0.post0
     # via
     #   acryl-datahub
@@ -839,7 +825,6 @@ requests==2.32.5
     #   acryl-great-expectations
     #   azure-core
     #   confluent-kafka
-    #   databricks-sdk
     #   databricks-sql-connector
     #   dataflows-tabulator
     #   docker
