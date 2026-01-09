@@ -38,9 +38,9 @@ import javax.annotation.Nonnull;
  * for MCL hooks and ingestion consumers in this codebase.
  *
  * <p><b>Implementation Note:</b> Validators are registered as Spring beans and auto-injected via
- * {@code @Autowired List<AspectPayloadValidator>} in {@code EntityAspectDaoFactory}.
+ * {@code @Autowired List<SystemAspectValidator>} in {@code EntityAspectDaoFactory}.
  */
-public interface AspectPayloadValidator {
+public interface SystemAspectValidator {
   /**
    * Called after aspect serialization but before database write.
    *

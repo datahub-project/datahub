@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.aspect.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -24,7 +24,7 @@ import org.springframework.context.annotation.DependsOn;
 public class EntityAspectDaoFactory {
 
   @Autowired(required = false)
-  private List<AspectPayloadValidator> payloadValidators;
+  private List<SystemAspectValidator> payloadValidators;
 
   @Bean(name = "entityAspectDao")
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
@@ -34,7 +34,7 @@ public class EntityAspectDaoFactory {
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
     log.debug(
-        "Creating EntityAspectDao with {} AspectPayloadValidators: {}",
+        "Creating EntityAspectDao with {} SystemAspectValidators: {}",
         payloadValidators != null ? payloadValidators.size() : 0,
         payloadValidators != null
             ? payloadValidators.stream().map(v -> v.getClass().getSimpleName()).toList()

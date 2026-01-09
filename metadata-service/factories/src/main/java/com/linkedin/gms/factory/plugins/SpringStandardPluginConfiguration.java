@@ -584,7 +584,7 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public com.linkedin.metadata.aspect.AspectPayloadValidator aspectSizePayloadValidator(
+  public com.linkedin.metadata.aspect.SystemAspectValidator aspectSizePayloadValidator(
       ConfigurationProvider configProvider,
       @Nullable com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
     AspectSizeValidationConfig config = configProvider.getDatahub().getValidation().getAspectSize();

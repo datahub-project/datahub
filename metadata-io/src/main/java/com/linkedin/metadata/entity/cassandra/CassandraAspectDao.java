@@ -24,9 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -65,12 +65,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   private final CqlSession _cqlSession;
   private boolean canWrite = true;
   @Setter private boolean connectionValidated = false;
-  @Getter @Nonnull private final List<AspectPayloadValidator> payloadValidators;
+  @Getter @Nonnull private final List<SystemAspectValidator> payloadValidators;
   @Getter @Nullable private final AspectSizeValidationConfig validationConfig;
 
   public CassandraAspectDao(
       @Nonnull final CqlSession cqlSession,
-      @Nonnull List<AspectPayloadValidator> payloadValidators,
+      @Nonnull List<SystemAspectValidator> payloadValidators,
       @Nullable AspectSizeValidationConfig validationConfig) {
     _cqlSession = cqlSession;
     this.payloadValidators = payloadValidators;

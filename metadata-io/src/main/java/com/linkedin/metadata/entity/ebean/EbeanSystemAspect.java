@@ -6,9 +6,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.entity.validation.AspectSizeValidator;
 import com.linkedin.metadata.models.AspectSpec;
@@ -62,7 +62,7 @@ public class EbeanSystemAspect implements SystemAspect {
 
   @Setter @Nullable private AuditStamp auditStamp;
 
-  @Nullable private List<AspectPayloadValidator> payloadValidators;
+  @Nullable private List<SystemAspectValidator> payloadValidators;
 
   @Nullable private AspectSizeValidationConfig validationConfig;
 
@@ -130,12 +130,12 @@ public class EbeanSystemAspect implements SystemAspect {
         entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
     if (payloadValidators != null && !payloadValidators.isEmpty()) {
       log.debug(
-          "Invoking {} AspectPayloadValidators for urn={}, aspect={}, size={} bytes",
+          "Invoking {} SystemAspectValidators for urn={}, aspect={}, size={} bytes",
           payloadValidators.size(),
           getUrn(),
           getAspectName(),
           entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
-      for (AspectPayloadValidator validator : payloadValidators) {
+      for (SystemAspectValidator validator : payloadValidators) {
         validator.validatePayload(this, entityAspect);
       }
     }

@@ -300,7 +300,7 @@ public interface AspectDao {
   }
 
   @Nonnull
-  List<com.linkedin.metadata.aspect.AspectPayloadValidator> getPayloadValidators();
+  List<com.linkedin.metadata.aspect.SystemAspectValidator> getPayloadValidators();
 
   @Nullable
   com.linkedin.metadata.config.AspectSizeValidationConfig getValidationConfig();

@@ -1,8 +1,8 @@
 package com.linkedin.metadata.entity;
 
-import com.linkedin.metadata.aspect.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
@@ -38,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
  * effects are handled (Elasticsearch, graph, consumer hooks).
  */
 @Slf4j
-public class AspectSizePayloadValidator implements AspectPayloadValidator {
+public class AspectSizePayloadValidator implements SystemAspectValidator {
 
   private final AspectSizeValidationConfig config;
   private final MetricUtils metricUtils;

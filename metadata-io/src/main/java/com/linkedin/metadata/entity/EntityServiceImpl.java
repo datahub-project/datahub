@@ -270,7 +270,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   static SystemAspect applyUpsert(
       ChangeMCP changeMCP,
       SystemAspect latestAspect,
-      @Nonnull List<com.linkedin.metadata.aspect.AspectPayloadValidator> payloadValidators,
+      @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> payloadValidators,
       @Nullable com.linkedin.metadata.config.AspectSizeValidationConfig validationConfig,
       @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
 
