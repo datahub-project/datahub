@@ -326,6 +326,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     config=BigQueryQueriesExtractorConfig(
                         window=self.config,
                         user_email_pattern=self.config.usage.user_email_pattern,
+                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
                         include_lineage=self.config.include_table_lineage,
                         include_usage_statistics=self.config.include_usage_statistics,
                         include_operations=self.config.usage.include_operational_stats,

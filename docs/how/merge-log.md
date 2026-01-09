@@ -2952,3 +2952,46 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **27ebfa55f0** - refactor(kafka): rename field variables to idiomatic Java naming (#15792)
   *by rob-1019 <rob.caskey@datahub.com> on 2026-01-06*
+
+## Upstream Merge Session - 2026-01-09 09:23:04
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: 2026-01-09 09:23:04
+
+### Commits Included in This Merge
+
+- **4cb93c6c71** - fix(ui/ingestion): pending pill should not look clickable (#15789)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-01-06*
+
+- **cf0612955c** - docs(sdk): smart sql, column value, and schema assertion sync method guides (#15754)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2026-01-06*
+
+- **24e0b690ff** - fix(structured-properties): fix build indices mapping for structured … (#15810)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-06*
+
+- **3d8d111e8d** - fix(sql-parsing): Restore # prefix for MSSQL temporary tables in lineage extraction (#15703)
+  *by dinesh-verma-datahub <dinesh.verma@datahub.com> on 2026-01-07*
+
+- **1aae6e561e** - docs(local-dev): Added instructions on how to use mise for installing tools (#15806)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-01-07*
+
+- **81edffca68** - feat(bigquery): Add pushdown_deny_usernames and pushdown_allow_usernames for server-side user filtering (#15699)
+  *by dinesh-verma-datahub <dinesh.verma@datahub.com> on 2026-01-07*
+
+- **04e7a40d6c** - docs(dataplex): general improvements to dataplex documentation (#15811)
+  *by Patrick Druley <patrick.druley@datahub.com> on 2026-01-07*
+
+- **136f060808** - fix(docs): correct sql server odbc version (#15822)
+  *by Kevin Karch <kevin.karch@acryl.io> on 2026-01-07*
+
+- **5a22fce707** - feat(ci): add retry logic and PostHog metrics to nightly workflow (#15817)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-07*
+
+- **47b0f2125a** - feat(ci): add ARM architecture support to nightly workflow (#15818)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-07*

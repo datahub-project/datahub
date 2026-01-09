@@ -73,6 +73,107 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 
+
+def _restore_mssql_temp_table_prefix(
+    table: sqlglot.exp.Table,
+    dialect: Optional[sqlglot.Dialect],
+) -> str:
+    """Restore MSSQL temp table prefix (# or ##) stripped by SQLGlot.
+
+    For MSSQL dialect, SQLGlot strips the # or ## prefix from temp tables
+    but sets flags on the identifier. We need to restore the prefix so that
+    downstream temp table detection (which checks for startswith("#")) works.
+
+    - Local temp tables (#name): 'temporary' flag is set
+    - Global temp tables (##name): 'global' flag is set
+
+    The following functions depend on the # prefix for temp table detection:
+      - datahub.ingestion.source.sql.mssql.source.SQLServerSource.is_temp_table()
+      - datahub.ingestion.source.sql_queries.SqlQueriesSource.is_temp_table()
+      - datahub.ingestion.source.bigquery_v2.queries_extractor.BigQueryQueriesExtractor.is_temp_table()
+      - datahub.ingestion.source.snowflake.snowflake_queries.SnowflakeQueriesExtractor.is_temp_table()
+      - datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator.is_temp_table()
+
+    Args:
+        table: The SQLGlot Table expression
+        dialect: The SQL dialect being used
+
+    Returns:
+        The table name with # or ## prefix restored if needed (for MSSQL only)
+    """
+    # Only apply to MSSQL dialect
+    if dialect is None or not is_dialect_instance(dialect, ["mssql"]):
+        return table.name
+
+    identifier = table.this
+    if not hasattr(identifier, "args"):
+        return table.name
+
+    table_name = identifier.name if hasattr(identifier, "name") else table.name
+
+    is_global_temp = identifier.args.get("global", False)
+    is_local_temp = identifier.args.get("temporary", False)
+
+    if is_global_temp and not table_name.startswith("##"):
+        return f"##{table_name}"
+    elif is_local_temp and not table_name.startswith("#"):
+        return f"#{table_name}"
+
+    return table_name
+
+
+def _table_name_from_sqlglot_table(
+    table: sqlglot.exp.Table,
+    dialect: Optional[sqlglot.Dialect],
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
+) -> _TableName:
+    """Create a _TableName from a sqlglot Table, handling MSSQL temp table prefixes.
+
+    This is a dialect-aware wrapper around _TableName.from_sqlglot_table that
+    restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
+
+    Args:
+        table: The SQLGlot Table expression
+        dialect: The SQL dialect being used
+        default_db: Default database if not specified in table
+        default_schema: Default schema if not specified in table
+
+    Returns:
+        A _TableName with the correct table name (including temp prefix for MSSQL)
+    """
+    # Handle Dot expressions (more than 3-part names)
+    if isinstance(table.this, sqlglot.exp.Dot):
+        parts = []
+        exp = table.this
+        while isinstance(exp, sqlglot.exp.Dot):
+            parts.append(exp.this.name)
+            exp = exp.expression
+        # Only restore prefix on the final part (the actual table name)
+        final_part = exp.name
+        if is_dialect_instance(dialect, ["mssql"]) and hasattr(exp, "args"):
+            is_global_temp = exp.args.get("global", False)
+            is_local_temp = exp.args.get("temporary", False)
+            if is_global_temp and not final_part.startswith("##"):
+                final_part = f"##{final_part}"
+            elif is_local_temp and not final_part.startswith("#"):
+                final_part = f"#{final_part}"
+        parts.append(final_part)
+        table_name = ".".join(parts)
+    else:
+        table_name = _restore_mssql_temp_table_prefix(table, dialect)
+
+    # Extract parts tuple for multi-part table names (for schema resolver compatibility)
+    parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
+
+    return _TableName(
+        database=table.catalog or default_db,
+        db_schema=table.db or default_schema,
+        table=table_name,
+        parts=parts_tuple,
+    )
+
+
 Urn = str
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
@@ -272,8 +373,11 @@ class SqlParsingResult(_ParserBaseModel):
 
 def _extract_table_names(
     iterable: Iterable[sqlglot.exp.Table],
+    dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
-    return OrderedSet(_TableName.from_sqlglot_table(table) for table in iterable)
+    return OrderedSet(
+        _table_name_from_sqlglot_table(table, dialect) for table in iterable
+    )
 
 
 def _table_level_lineage(
@@ -282,47 +386,61 @@ def _table_level_lineage(
     # Generate table-level lineage.
     modified = (
         _extract_table_names(
-            expr.this
-            for expr in statement.find_all(
-                sqlglot.exp.Create,
-                sqlglot.exp.Insert,
-                sqlglot.exp.Update,
-                sqlglot.exp.Delete,
-                sqlglot.exp.Merge,
-                sqlglot.exp.Alter,
-            )
-            # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
-            # the `this` on the INSERT part isn't a table.
-            if isinstance(expr.this, sqlglot.exp.Table)
+            (
+                expr.this
+                for expr in statement.find_all(
+                    sqlglot.exp.Create,
+                    sqlglot.exp.Insert,
+                    sqlglot.exp.Update,
+                    sqlglot.exp.Delete,
+                    sqlglot.exp.Merge,
+                    sqlglot.exp.Alter,
+                )
+                # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
+                # the `this` on the INSERT part isn't a table.
+                if isinstance(expr.this, sqlglot.exp.Table)
+            ),
+            dialect,
         )
         | _extract_table_names(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            expr.this.this
-            for expr in statement.find_all(
-                sqlglot.exp.Create,
-                sqlglot.exp.Insert,
-            )
-            if isinstance(expr.this, sqlglot.exp.Schema)
-            and isinstance(expr.this.this, sqlglot.exp.Table)
+            (
+                expr.this.this
+                for expr in statement.find_all(
+                    sqlglot.exp.Create,
+                    sqlglot.exp.Insert,
+                )
+                if isinstance(expr.this, sqlglot.exp.Schema)
+                and isinstance(expr.this.this, sqlglot.exp.Table)
+            ),
+            dialect,
         )
         | _extract_table_names(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
-            expr.this
-            for expr in ([statement] if isinstance(statement, sqlglot.exp.Drop) else [])
-            if isinstance(expr.this, sqlglot.exp.Table)
-            and expr.this.this
-            and expr.this.name
+            (
+                expr.this
+                for expr in (
+                    [statement] if isinstance(statement, sqlglot.exp.Drop) else []
+                )
+                if isinstance(expr.this, sqlglot.exp.Table)
+                and expr.this.this
+                and expr.this.name
+            ),
+            dialect,
         )
     )
 
     tables = (
         _extract_table_names(
-            table
-            for table in statement.find_all(sqlglot.exp.Table)
-            if not isinstance(table.parent, sqlglot.exp.Drop)
+            (
+                table
+                for table in statement.find_all(sqlglot.exp.Table)
+                if not isinstance(table.parent, sqlglot.exp.Drop)
+            ),
+            dialect,
         )
         # ignore references created in this query
         - modified
@@ -768,7 +886,7 @@ def _get_direct_raw_col_upstreams(
             pass
 
         elif isinstance(node.expression, sqlglot.exp.Table):
-            table_ref = _TableName.from_sqlglot_table(node.expression)
+            table_ref = _table_name_from_sqlglot_table(node.expression, dialect)
 
             if node.name == "*":
                 # This will happen if we couldn't expand the * to actual columns e.g. if
@@ -801,10 +919,11 @@ def _get_direct_raw_col_upstreams(
             try:
                 parsed = sqlglot.parse_one(node.name, dialect=dialect)
                 if isinstance(parsed, sqlglot.exp.Column) and parsed.table:
-                    table_ref = _TableName.from_sqlglot_table(
+                    table_ref = _table_name_from_sqlglot_table(
                         sqlglot.parse_one(
                             parsed.table, into=sqlglot.exp.Table, dialect=dialect
-                        )
+                        ),
+                        dialect,
                     )
 
                     # SQLGlot's qualification process doesn't fully qualify placeholder names from lateral joins.
@@ -900,7 +1019,7 @@ def _get_join_side_tables(
         source, sqlglot.exp.Table
     ):
         # If the source is a Scope, we need to do some resolution work.
-        return OrderedSet([_TableName.from_sqlglot_table(source)])
+        return OrderedSet([_table_name_from_sqlglot_table(source, dialect)])
 
     column = sqlglot.exp.Column(
         this=sqlglot.exp.Star(),
@@ -1043,7 +1162,7 @@ def _list_joins(
             qualified_right: OrderedSet[_TableName] = OrderedSet()
             if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
                 qualified_right.update(
-                    _TableName.from_sqlglot_table(t)
+                    _table_name_from_sqlglot_table(t, dialect)
                     for t in lateral.this.find_all(sqlglot.exp.Table)
                 )
             qualified_right.update(qualified_left)
