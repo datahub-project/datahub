@@ -1,8 +1,10 @@
+import warnings
 from typing import Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
@@ -411,24 +413,17 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
 
 
 @pytest.mark.parametrize(
-    "source_type,explicit_use_odbc,expected_use_odbc",
+    "source_type,expected_is_odbc",
     [
-        # mssql-odbc auto-enables use_odbc when not explicitly set
-        ("mssql-odbc", None, True),
-        # mssql does not auto-enable use_odbc
-        ("mssql", None, False),
-        # mssql-odbc overrides explicit use_odbc: false (with warning) since ODBC is required
-        ("mssql-odbc", False, True),
-        # Explicit use_odbc: true is preserved with mssql-odbc
-        ("mssql-odbc", True, True),
-        # No pipeline_config doesn't crash, defaults to False
-        (None, None, False),
+        ("mssql-odbc", True),
+        ("mssql", False),
+        (None, False),
     ],
 )
-def test_use_odbc_auto_detection(
-    mock_pipeline_context, source_type, explicit_use_odbc, expected_use_odbc
+def test_odbc_mode_from_source_type(
+    mock_pipeline_context, source_type, expected_is_odbc
 ):
-    """Test use_odbc auto-detection based on source type."""
+    """Test ODBC mode is determined by source type."""
     mock_ctx = mock_pipeline_context(source_type)
 
     config_dict = {
@@ -436,47 +431,43 @@ def test_use_odbc_auto_detection(
         "username": "test",
         "password": "test",
         "database": "test_db",
-        # Disable description loading to avoid DB connections
         "include_descriptions": False,
     }
 
-    # Add use_odbc only if explicitly provided
-    if explicit_use_odbc is not None:
-        config_dict["use_odbc"] = explicit_use_odbc
-
-    # Add uri_args when use_odbc is expected to be True
-    if expected_use_odbc:
+    if expected_is_odbc:
         config_dict["uri_args"] = {"driver": "ODBC Driver 17 for SQL Server"}
 
     with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
         source = SQLServerSource.create(config_dict, mock_ctx)
 
-    assert source.config.use_odbc is expected_use_odbc
+    assert source.config.is_odbc_mode is expected_is_odbc
 
 
-@patch("datahub.ingestion.source.sql.mssql.source.logger")
-def test_mssql_odbc_with_explicit_false_warns(mock_logger, mock_pipeline_context):
-    """Test that mssql-odbc with explicit use_odbc: false logs a warning and overrides."""
+def test_use_odbc_removed_field_warning(mock_pipeline_context):
+    """Test that using deprecated use_odbc field emits a warning."""
     mock_ctx = mock_pipeline_context("mssql-odbc")
-
     config_dict = {
         "host_port": "localhost:1433",
         "username": "test",
         "password": "test",
         "database": "test_db",
-        "use_odbc": False,  # Explicitly set to False - should be overridden
+        "use_odbc": True,
         "uri_args": {"driver": "ODBC Driver 17 for SQL Server"},
         "include_descriptions": False,
     }
 
-    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
-        source = SQLServerSource.create(config_dict, mock_ctx)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+            source = SQLServerSource.create(config_dict, mock_ctx)
 
-    # Should override to True
-    assert source.config.use_odbc is True
+        config_warnings = [
+            warning
+            for warning in w
+            if issubclass(warning.category, ConfigurationWarning)
+        ]
+        assert len(config_warnings) == 1
+        assert "use_odbc" in str(config_warnings[0].message)
+        assert "removed" in str(config_warnings[0].message)
 
-    # Should log a warning
-    mock_logger.warning.assert_called_once()
-    warning_msg = mock_logger.warning.call_args[0][0]
-    assert "mssql-odbc" in warning_msg
-    assert "use_odbc" in warning_msg
+    assert source.config.is_odbc_mode is True
