@@ -126,7 +126,7 @@ const PlatformIcon = ({ src, alt }: { src: string; alt: string }) => {
     const [errored, setErrored] = React.useState(false);
 
     if (errored) {
-        return <Icon size="4xl" source="phosphor" icon="Placeholder" />;
+        return <Icon size="lg" source="phosphor" icon="Placeholder" />;
     }
 
     return <StyledPlatformIcon src={src} alt={alt} onError={() => setErrored(true)} />;
