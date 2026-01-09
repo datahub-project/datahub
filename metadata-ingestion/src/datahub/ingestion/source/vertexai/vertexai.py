@@ -235,24 +235,35 @@ class VertexAISource(Source):
             f"deny: {self.config.project_id_pattern.deny}. {tips}"
         )
 
-    def _handle_project_exception(
+    def _handle_permission_error(
         self,
         project_id: str,
         exc: Exception,
         failed_projects: List[str],
     ) -> None:
-        """Handle project-level exceptions - report failure and continue."""
         if isinstance(exc, NotFound):
             debug_cmd = f"gcloud projects describe {project_id}"
-        elif isinstance(exc, PermissionDenied):
-            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
         else:
-            debug_cmd = f"gcloud ai models list --project={project_id} --region={self.config.region}"
+            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
 
         self.report.failure(
             title=f"Project failed: {project_id}",
             message=f"Debug: {debug_cmd}",
             exc=exc,
+        )
+        failed_projects.append(project_id)
+
+    def _handle_config_error(
+        self,
+        project_id: str,
+        exc: Exception,
+        failed_projects: List[str],
+    ) -> None:
+        logger.warning("Config error for project %s - skipping: %s", project_id, exc)
+        self.report.warning(
+            title=f"Config error: {project_id}",
+            message=f"Project has configuration issues (API not enabled, invalid region, etc.). "
+            f"Debug: gcloud services list --project={project_id} | grep aiplatform",
         )
         failed_projects.append(project_id)
 
@@ -271,8 +282,10 @@ class VertexAISource(Source):
                 self._init_for_project(project)
                 yield from self._process_current_project()
                 successful_projects += 1
+            except (InvalidArgument, FailedPrecondition) as e:
+                self._handle_config_error(project.id, e, failed_projects)
             except (NotFound, PermissionDenied, GoogleAPICallError) as e:
-                self._handle_project_exception(project.id, e, failed_projects)
+                self._handle_permission_error(project.id, e, failed_projects)
 
         if failed_projects:
             if successful_projects == 0:

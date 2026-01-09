@@ -1040,7 +1040,7 @@ class TestErrorHandling:
         [InvalidArgument("Invalid region"), FailedPrecondition("API not enabled")],
     )
     @patch("google.cloud.aiplatform.init")
-    def test_config_error_reports_failure(
+    def test_config_error_reports_warning(
         self, mock_init: MagicMock, exception: Exception
     ) -> None:
         source = VertexAISource(
@@ -1059,7 +1059,9 @@ class TestErrorHandling:
         ):
             list(source.get_workunits_internal())
 
-        assert len(source.report.failures) == 1
+        # Config errors report warnings, not failures
+        assert len(source.report.warnings) >= 1
+        assert "Config error" in str(source.report.warnings)
 
 
 class TestCredentialManagement:
