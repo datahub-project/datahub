@@ -57,6 +57,7 @@ from datahub_integrations.chat.chat_history import (
 from datahub_integrations.chat.planner.planning_context import PlanningContext
 from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
+from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
 from datahub_integrations.mcp.mcp_server import with_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper
 from datahub_integrations.observability import (
@@ -673,6 +674,9 @@ class AgentRunner:
         log_tokens_usage(response["usage"])  # type: ignore[arg-type]
 
         # Note: Cost tracking is now handled inside llm_client.converse()
+
+        if is_verbose_llm_logging_enabled():
+            self._logger.debug("LLM final response: {response}", response=response)
 
         # Process stop reason
         output = response["output"]

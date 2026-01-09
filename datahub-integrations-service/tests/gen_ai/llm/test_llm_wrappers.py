@@ -733,6 +733,54 @@ class TestOpenAILLMWrapper:
         assert len(bound_tools) == 2
         assert all("function" in tool for tool in bound_tools)
 
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
+    @patch("datahub_integrations.gen_ai.llm.openai.ChatOpenAI")
+    def test_verbose_logging_enabled_doesnt_error(
+        self, mock_chat_openai: Mock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that verbose logging doesn't cause errors when enabled during streaming."""
+        from langchain_core.messages import AIMessageChunk
+
+        monkeypatch.setenv("LLM_VERBOSE_LOGGING", "true")
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        # Mock streaming response with multiple chunks
+        def mock_stream(messages, **kwargs):
+            chunk1 = AIMessageChunk(content="Hello ")
+            chunk1.usage_metadata = {
+                "input_tokens": 10,
+                "output_tokens": 1,
+                "total_tokens": 11,
+            }
+            chunk1.response_metadata = {}
+            yield chunk1
+
+            chunk2 = AIMessageChunk(content="there!")
+            chunk2.usage_metadata = {
+                "input_tokens": 0,
+                "output_tokens": 1,
+                "total_tokens": 1,
+            }
+            chunk2.response_metadata = {"finish_reason": "stop"}
+            yield chunk2
+
+        mock_client.stream.side_effect = mock_stream
+
+        wrapper = OpenAILLMWrapper(model_name="gpt-4o")
+
+        # Should not raise any exceptions even with verbose logging
+        response = wrapper.converse(
+            system=[{"text": "You are helpful"}],
+            messages=[{"role": "user", "content": [{"text": "Hello"}]}],
+            ai_module=AIModule.CHAT,
+        )
+
+        # Verify response was processed correctly
+        assert response["stopReason"] == "end_turn"
+        assert response["output"]["message"]["content"][0]["text"] == "Hello there!"
+
 
 class TestGeminiLLMWrapper:
     """Tests for GeminiLLMWrapper - Langchain-based Vertex AI wrapper."""

@@ -50,6 +50,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from loguru import logger
 
 from datahub_integrations.gen_ai.llm.types import ConverseResponse, TokenUsage
+from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
 from datahub_integrations.gen_ai.model_config import CustomModelProvider
 from datahub_integrations.observability.cost import (
     TokenUsage as ObsTokenUsage,
@@ -674,6 +675,9 @@ class LLMWrapper(ABC, HasProviderAndModelInfo):
         last_finish_message: Optional[str] = None
 
         for chunk in llm.stream(lc_messages, **stream_kwargs):
+            if is_verbose_llm_logging_enabled():
+                logger.debug("LLM chunk received: {chunk}", chunk=chunk)
+
             if full_message is None:
                 full_message = chunk
             else:
