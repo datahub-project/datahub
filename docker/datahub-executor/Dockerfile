@@ -317,6 +317,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 
+# Install external deps in a cacheable layer first (using slim lockfile without observe extras)
+USER datahub
+COPY ./datahub-executor/requirements-slim.txt /datahub-executor/
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim \
+  grep -v "^\-e " /datahub-executor/requirements-slim.txt | uv pip install -r /dev/stdin
+USER 0
+
 # Copy full source code
 COPY --chown=datahub ./datahub-executor /datahub-executor
 COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
@@ -347,18 +354,17 @@ RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE
 # Temporarily symlink acryl cloud package for backward compatibility
 RUN ln -sv /metadata-ingestion-modules/acryl-cloud /acryl-cloud
 
-# Install all dependencies including editable packages
-# Using direct install instead of compile step for reliability
+# Install all dependencies using slim lockfile (excludes observe extras: prophet, observe-models)
 # Use separate cache ID for slim variants to avoid cross-contamination
 USER datahub
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim \
-  uv pip install --reinstall -e /metadata-ingestion-modules/acryl-cloud -e .
+  uv pip install -r requirements-slim.txt
 
 # Reinstall packages with extras to ensure entry points are created
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim \
   uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
 
-# Verify critical binaries and no PySpark
+# Verify critical binaries, no PySpark, and no observe dependencies (prophet/observe-models)
 # Show package list first for debugging, then verify requirements
 RUN echo "=== Installed packages ===" && \
   uv pip list && \
@@ -366,6 +372,8 @@ RUN echo "=== Installed packages ===" && \
   ls -la $VIRTUAL_ENV/bin/ | grep -E "(watchmedo|uvicorn)" || true && \
   echo "=== Verification ===" && \
   python -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  python -c "import prophet" 2>/dev/null && echo "FAIL: prophet found (should be excluded in slim)" && exit 1 || echo "OK: No prophet" && \
+  python -c "import datahub_observe" 2>/dev/null && echo "FAIL: observe-models found (should be excluded in slim)" && exit 1 || echo "OK: No observe-models" && \
   which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
   which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
   python -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
@@ -441,10 +449,12 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-execu
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor-slim-unbundled \
   uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2"
 
-# Verify critical binaries (no PySpark in slim variants)
+# Verify critical binaries, no PySpark, and no observe deps (slim unbundled variant)
 RUN echo "=== Installed packages ===" && uv pip list && \
   echo "=== Verification ===" && \
   python -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  python -c "import prophet" 2>/dev/null && echo "FAIL: prophet found (should be excluded in slim)" && exit 1 || echo "OK: No prophet" && \
+  python -c "import datahub_observe" 2>/dev/null && echo "FAIL: observe-models found (should be excluded in slim)" && exit 1 || echo "OK: No observe-models" && \
   which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
   which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
   python -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \
@@ -655,11 +665,11 @@ WORKDIR /datahub-executor
 
 # Modify pyproject.toml for Alpine compatibility:
 # 1. Use minimal extras (avoids classification_lib/spacy/blis)
-# 2. Remove prophet (requires CmdStan which doesn't build on musl/ARM64)
+# 2. Observe deps (prophet, observe-models) are now in [observe] extra so excluded automatically
+#    but we still remove any stray references for safety
 RUN echo "=== Modifying pyproject.toml for Alpine ===" && \
   sed -i 's/\[base,snowflake,bigquery,redshift,s3,unity-catalog\]/[base,datahub-rest,datahub-kafka,s3-slim]/g' /datahub-executor/pyproject.toml && \
-  sed -i '/"prophet==/d' /datahub-executor/pyproject.toml && \
-  echo "=== After modifications ===" && grep -E "acryl-datahub\[|prophet" /datahub-executor/pyproject.toml || echo "prophet removed"
+  echo "=== After modifications ===" && grep -E "acryl-datahub\[" /datahub-executor/pyproject.toml
 
 ARG DOCKER_VERSION
 ARG RELEASE_VERSION
@@ -679,11 +689,13 @@ RUN uv pip install --reinstall -e /metadata-ingestion-modules/acryl-cloud -e .
 # Also install sqlglot explicitly (needed by executor but not in minimal extras)
 RUN uv pip install "watchdog[watchmedo]==3.0.0" "uvicorn[standard]>=0.23.2" "sqlglot>=23.0.0"
 
-# Verify critical binaries, no PySpark, and sqlglot available
+# Verify critical binaries, no PySpark, no observe deps, and sqlglot available
 RUN echo "=== Installed packages ===" && \
   uv pip list && \
   echo "=== Verification ===" && \
   python3 -c "import pyspark" 2>/dev/null && echo "FAIL: PySpark found" && exit 1 || echo "OK: No PySpark" && \
+  python3 -c "import prophet" 2>/dev/null && echo "FAIL: prophet found (should be excluded)" && exit 1 || echo "OK: No prophet" && \
+  python3 -c "import datahub_observe" 2>/dev/null && echo "FAIL: observe-models found (should be excluded)" && exit 1 || echo "OK: No observe-models" && \
   which watchmedo || (echo "FAIL: watchmedo not found" && exit 1) && \
   which uvicorn || (echo "FAIL: uvicorn not found" && exit 1) && \
   python3 -c "import fastapi" || (echo "FAIL: fastapi not importable" && exit 1) && \

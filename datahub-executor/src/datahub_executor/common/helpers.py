@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache, cached
@@ -49,12 +50,6 @@ from datahub_executor.common.metric.resolver.resolver import (
 from datahub_executor.common.monitor.client.client import (
     MonitorClient,
 )
-from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
-    MetricPredictor,
-)
-from datahub_executor.common.monitor.inference.monitor_training_engine import (
-    MonitorTrainingEngine,
-)
 from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.datahub_monitor_state_provider import (
@@ -67,6 +62,28 @@ from datahub_executor.config import (
     DATAHUB_GMS_TOKEN,
     DATAHUB_GMS_URL,
 )
+
+logger = logging.getLogger(__name__)
+
+# Optional observe dependencies (prophet, observe-models)
+# These are excluded from slim builds to reduce image size
+try:
+    from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
+        MetricPredictor,
+    )
+    from datahub_executor.common.monitor.inference.monitor_training_engine import (
+        MonitorTrainingEngine,
+    )
+
+    OBSERVE_AVAILABLE = True
+except ImportError:
+    MetricPredictor = None  # type: ignore[assignment, misc]
+    MonitorTrainingEngine = None  # type: ignore[assignment, misc]
+    OBSERVE_AVAILABLE = False
+    logger.info(
+        "Observe dependencies (prophet, observe-models) not available. "
+        "Monitor training features will be disabled."
+    )
 
 
 def create_datahub_graph() -> DataHubGraph:
@@ -246,7 +263,23 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
     )
 
 
-def create_monitor_training_engine(graph: DataHubGraph) -> MonitorTrainingEngine:
+def create_monitor_training_engine(
+    graph: DataHubGraph,
+) -> Optional["MonitorTrainingEngine"]:
+    """Create a MonitorTrainingEngine if observe dependencies are available.
+
+    Returns None if prophet/observe-models are not installed (slim builds).
+    """
+    if (
+        not OBSERVE_AVAILABLE
+        or MonitorTrainingEngine is None
+        or MetricPredictor is None
+    ):
+        logger.warning(
+            "Cannot create MonitorTrainingEngine: observe dependencies not available. "
+            "Install with 'pip install acryl-datahub-executor[observe]' to enable."
+        )
+        return None
     return MonitorTrainingEngine(
         graph,
         MetricClient(graph),

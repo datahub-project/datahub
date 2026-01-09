@@ -1197,7 +1197,6 @@ observe-models==0.1.0.dev21
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
-    #   acryl-datahub-executor
 openpyxl==3.1.5
     # via
     #   -r requirements.txt
@@ -1382,7 +1381,6 @@ prophet==1.1.5
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
-    #   acryl-datahub-executor
     #   observe-models
 proto-plus==1.27.0
     # via
