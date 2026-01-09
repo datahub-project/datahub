@@ -117,6 +117,9 @@ class VertexAIConfig(EnvConfigMixin):
                 "Creating temporary credential file at %s", self._credentials_path
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
+            # TODO: atexit won't run on SIGKILL, container force-termination, or OOM kills.
+            # Consider using tempfile with delete_on_close
+            # or a systemd-style cleanup mechanism for containerized environments.
             atexit.register(self._cleanup_credentials)
             self._cleanup_registered = True
 
