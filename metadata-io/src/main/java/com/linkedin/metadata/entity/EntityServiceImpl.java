@@ -70,7 +70,6 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
-import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -1273,18 +1272,41 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                         if (overwrite
                                             || latestAspect == null
                                             || latestAspect.getDatabaseAspect().isEmpty()) {
-                                          return Optional.ofNullable(
-                                                  ingestAspectToLocalDB(
-                                                      opContext,
-                                                      txContext,
-                                                      writeItem,
-                                                      latestAspect))
-                                              .map(
-                                                  optResult ->
-                                                      optResult.toBuilder()
-                                                          .request(writeItem)
-                                                          .build())
-                                              .orElse(null);
+                                          try {
+                                            return Optional.ofNullable(
+                                                    ingestAspectToLocalDB(
+                                                        opContext,
+                                                        txContext,
+                                                        writeItem,
+                                                        latestAspect))
+                                                .map(
+                                                    optResult ->
+                                                        optResult.toBuilder()
+                                                            .request(writeItem)
+                                                            .build())
+                                                .orElse(null);
+                                          } catch (
+                                              com.linkedin.metadata.entity.validation
+                                                      .AspectSizeExceededException
+                                                  e) {
+                                            // Convert to AspectValidationException for uniform
+                                            // batch
+                                            // handling
+                                            // This enables Kafka consumers to continue processing
+                                            // other
+                                            // items
+                                            AspectValidationException validationException =
+                                                AspectValidationException.forItem(
+                                                    writeItem,
+                                                    String.format(
+                                                        "Aspect size validation failed at %s: %d bytes exceeds threshold of %d bytes",
+                                                        e.getValidationPoint(),
+                                                        e.getActualSize(),
+                                                        e.getThreshold()),
+                                                    e);
+                                            exceptions.addException(validationException);
+                                            return null; // Exclude from successful results
+                                          }
                                         }
 
                                         return null;
@@ -1400,21 +1422,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .reduce(IngestAspectsResult.EMPTY, IngestAspectsResult::combine);
 
             return result;
-          } catch (AspectSizeExceededException e) {
-            // Aspect size validation failed during transaction. For DELETE remediation,
-            // we still need to process pending deletions that were collected before the exception.
-            // The exception will be re-thrown after processing deletions to maintain error
-            // propagation.
-            log.warn(
-                "Aspect size validation failed, will process pending deletions and re-throw: {}",
-                e.getMessage());
-            // Fall through to finally block to process deletions, then re-throw
-            throw e;
           } finally {
             // Process pending deletions whether transaction succeeded or failed.
             // For DELETE remediation, this is where actual deletion happens.
             // Must run in finally block to ensure deletions are processed even when
-            // AspectSizeExceededException is thrown during validation.
+            // validation failures occur.
             List<Object> pendingDeletionsRaw = opContext.getPendingDeletions();
             if (!pendingDeletionsRaw.isEmpty()) {
               // Cast to AspectDeletionRequest - all objects added by validators should be of this
