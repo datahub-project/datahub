@@ -39,7 +39,9 @@ class VertexAIConfig(EnvConfigMixin):
         description=(
             "List of GCP project IDs to ingest Vertex AI resources from. "
             "If set, takes precedence over project_labels and auto-discovery. "
-            "The project_id_pattern is still applied to filter this list."
+            "The project_id_pattern is still applied to filter this list. "
+            "Note: Using explicit project_ids does not require org-level "
+            "resourcemanager.projects.list permission."
         ),
     )
 
