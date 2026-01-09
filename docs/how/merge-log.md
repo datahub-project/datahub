@@ -2909,3 +2909,89 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **a8bd2e5463** - feat(docker) Raise failed init job of database if execution failed (#15768)
   *by nhuantho <91556274+nhuantho@users.noreply.github.com> on 2026-01-03*
+
+## Upstream Merge Session - 2026-01-08 07:58:01
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: 2026-01-08 07:58:01
+
+### Commits Included in This Merge
+
+- **54a7efc21c** - feat(ci): track ci metrics for additional workflows (#15795)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-05*
+
+- **150aae8972** - fix(ingestion): tactical fix for confluent_kafka 2.13 breaking changes (#15797)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-05*
+
+- **ee72686bc6** - fix(ui): add dbt source config for docs link (#15798)
+  *by Pedro Silva <pedro@acryl.io> on 2026-01-05*
+
+- **f921056f8c** - fix(quickstart): support docker compose 5.x in quickstart (#15799)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-06*
+
+- **17b74d6f0a** - feat(graphql,ui): Add Runs tab for DataFlow entities (#15775)
+  *by Anush Kumar <anush.kumar@datahub.com> on 2026-01-05*
+
+- **57398bb360** - build(react): Support https localhost proxy for Safari (#15801)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-01-05*
+
+- **3aef2950a9** - feat(kafka):migrate kafka source to API v2 (#15719)
+  *by Alok Ranjan <alok.ranjan@datahub.com> on 2026-01-06*
+
+- **9e74f07aaa** - fix(docker): Redundant volume mount fails on Mac Docker Desktop (#15805)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-01-06*
+
+- **a5ab12546a** - feat(ci): block unpinned or lower bound only python dependencies (#15791)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-06*
+
+- **27ebfa55f0** - refactor(kafka): rename field variables to idiomatic Java naming (#15792)
+  *by rob-1019 <rob.caskey@datahub.com> on 2026-01-06*
+
+## Upstream Merge Session - 2026-01-09 09:23:04
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: 2026-01-09 09:23:04
+
+### Commits Included in This Merge
+
+- **4cb93c6c71** - fix(ui/ingestion): pending pill should not look clickable (#15789)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-01-06*
+
+- **cf0612955c** - docs(sdk): smart sql, column value, and schema assertion sync method guides (#15754)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2026-01-06*
+
+- **24e0b690ff** - fix(structured-properties): fix build indices mapping for structured … (#15810)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-06*
+
+- **3d8d111e8d** - fix(sql-parsing): Restore # prefix for MSSQL temporary tables in lineage extraction (#15703)
+  *by dinesh-verma-datahub <dinesh.verma@datahub.com> on 2026-01-07*
+
+- **1aae6e561e** - docs(local-dev): Added instructions on how to use mise for installing tools (#15806)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-01-07*
+
+- **81edffca68** - feat(bigquery): Add pushdown_deny_usernames and pushdown_allow_usernames for server-side user filtering (#15699)
+  *by dinesh-verma-datahub <dinesh.verma@datahub.com> on 2026-01-07*
+
+- **04e7a40d6c** - docs(dataplex): general improvements to dataplex documentation (#15811)
+  *by Patrick Druley <patrick.druley@datahub.com> on 2026-01-07*
+
+- **136f060808** - fix(docs): correct sql server odbc version (#15822)
+  *by Kevin Karch <kevin.karch@acryl.io> on 2026-01-07*
+
+- **5a22fce707** - feat(ci): add retry logic and PostHog metrics to nightly workflow (#15817)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-07*
+
+- **47b0f2125a** - feat(ci): add ARM architecture support to nightly workflow (#15818)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-07*

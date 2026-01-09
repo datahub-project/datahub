@@ -4,11 +4,11 @@ import { useLocation } from 'react-router-dom';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 import { scrollToTop } from '@app/shared/searchUtils';
 
-import { useListRolesQuery } from '@graphql/role.generated';
 import { ListUsersAndGroupsQuery, useListUsersAndGroupsQuery } from '@graphql/user.generated';
-import { DataHubRole, SortOrder } from '@types';
+import { SortOrder } from '@types';
 
 // Type alias for the user data returned by the GraphQL query
 export type UserListItem = Extract<
@@ -114,24 +114,11 @@ export const useUserListData = (
         fetchPolicy: 'no-cache',
     });
 
-    const {
-        loading: rolesLoading,
-        error: rolesError,
-        data: rolesData,
-    } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
+    const { roles: selectRoleOptions, loading: rolesLoading } = useRoleSelector();
 
     const totalUsers = usersData?.listUsersAndGroups?.total || 0;
     const loading = usersLoading || rolesLoading;
-    const error = usersError || rolesError;
-    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const error = usersError;
 
     const onChangePage = (newPage: number, newPageSize?: number) => {
         scrollToTop();

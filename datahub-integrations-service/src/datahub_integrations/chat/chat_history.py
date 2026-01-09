@@ -58,6 +58,12 @@ class ReasoningMessage(_BaseMessage):
     type: Literal["internal"] = "internal"
     text: str
 
+    # Timing information (populated by agent_runner)
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        description="LLM call duration in seconds",
+    )
+
     # Optional plan coordination fields
     plan_id: Optional[str] = Field(
         default=None,
@@ -111,6 +117,12 @@ class ToolResult(_BaseMessage):
     tool_request: ToolCallRequest
     result: dict | str
 
+    # Timing information (populated by agent_runner)
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Tool execution duration in seconds",
+    )
+
     def to_obj(self) -> dict:
         content: dict[str, Any]
         if isinstance(self.result, dict):
@@ -137,7 +149,12 @@ class ToolResultError(_BaseMessage):
     type: Literal["tool_result_error"] = "tool_result_error"
     tool_request: ToolCallRequest
     error: str
-    # raw_error: Exception = pydantic.Field(exclude=True)
+
+    # Timing information (populated by agent_runner)
+    duration_seconds: Optional[float] = Field(
+        default=None,
+        description="Tool execution duration in seconds (time until error)",
+    )
 
     def to_obj(self) -> dict:
         return {

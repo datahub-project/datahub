@@ -143,11 +143,12 @@ _MODEL_PRICING: dict[str, dict[str, dict[str, float]]] = {
     },
     "bedrock": {
         # AWS Bedrock pricing (varies by region)
+        # Cache write is 25% more expensive than prompt (1.25x)
         "us.anthropic.claude-sonnet-4-5": {
             "prompt": 3.0,
             "completion": 15.0,
             "cache_read": 0.30,
-            "cache_write": 3.0,
+            "cache_write": 3.75,
         },
         "us.anthropic.claude-3-haiku": {
             "prompt": 0.25,

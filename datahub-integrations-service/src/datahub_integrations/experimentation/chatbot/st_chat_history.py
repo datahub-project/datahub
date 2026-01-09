@@ -32,6 +32,13 @@ def _token_count(text: str) -> str:
     return f"{abbreviate_number(count)} tokens"
 
 
+def _format_duration(duration_seconds: float | None) -> str:
+    """Format duration for display, or empty string if None."""
+    if duration_seconds is None:
+        return ""
+    return f" · {duration_seconds:.1f}s"
+
+
 def _display_tool_result(result) -> None:
     """Display tool result, handling both JSON and plain text."""
     # If it's already a dict/list, display as JSON
@@ -62,7 +69,10 @@ def st_chat_history(
         if isinstance(message, ReasoningMessage):
             if show_thinking:
                 with st.chat_message("assistant", avatar="🧠"):
-                    st.caption(f"Reasoning · {_token_count(message.text)}")
+                    duration_str = _format_duration(message.duration_seconds)
+                    st.caption(
+                        f"Reasoning · {_token_count(message.text)}{duration_str}"
+                    )
 
                     # Parse and show user-friendly version
                     parsed = parse_reasoning_message(message.text)
@@ -105,8 +115,10 @@ def st_chat_history(
         elif isinstance(message, ToolResult):
             if show_thinking:
                 with st.chat_message("tool", avatar="🔧"):
+                    duration_str = _format_duration(message.duration_seconds)
                     st.caption(
-                        f"Tool `{message.tool_request.tool_name}` returned · {_token_count(str(message.result))}"
+                        f"Tool `{message.tool_request.tool_name}` returned · "
+                        f"{_token_count(str(message.result))}{duration_str}"
                     )
                     _display_tool_result(message.result)
         elif isinstance(message, ToolCallRequest):
@@ -119,8 +131,10 @@ def st_chat_history(
         elif isinstance(message, ToolResultError):
             if show_thinking:
                 with st.chat_message("tool", avatar="❌"):
+                    duration_str = _format_duration(message.duration_seconds)
                     st.caption(
-                        f"Tool `{message.tool_request.tool_name}` error · {_token_count(str(message.error))}"
+                        f"Tool `{message.tool_request.tool_name}` error · "
+                        f"{_token_count(str(message.error))}{duration_str}"
                     )
                     st.code(str(message.error))
         elif isinstance(message, SummaryMessage):

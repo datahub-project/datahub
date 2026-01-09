@@ -36,6 +36,43 @@ const propagationDocs = {
     },
 };
 
+const uiAuthoredDocs = {
+    documentation: {
+        documentations: [
+            {
+                documentation: 'UI authored description',
+                attribution: {
+                    actor: mockActor,
+                    time: 300,
+                    sourceDetail: [{ key: 'ui', value: 'true' }],
+                },
+            },
+            {
+                documentation: 'propagated',
+                attribution: {
+                    actor: mockActor,
+                    time: 200,
+                    sourceDetail: [{ key: 'propagated', value: 'true' }],
+                },
+            },
+            {
+                documentation: 'inferred',
+                attribution: {
+                    actor: mockActor,
+                    time: 100,
+                    sourceDetail: [{ key: 'inferred', value: 'true' }],
+                },
+            },
+        ],
+    },
+    editableProperties: {
+        description: undefined,
+    },
+    properties: {
+        description: undefined,
+    },
+};
+
 const inferredDocs = {
     documentation: {
         documentations: [
@@ -422,6 +459,97 @@ describe('getAssetDescriptionDetails', () => {
             };
             const result = getAssetDescriptionDetails({ entityProperties });
             expect(result.inferredDescription).toBeUndefined();
+        });
+    });
+
+    describe('UI-authored documentation', () => {
+        it('returns UI-authored documentation over propagated documentation', () => {
+            const entityProperties = {
+                ...JSON.parse(JSON.stringify(uiAuthoredDocs)),
+                editableProperties: { description: undefined },
+                properties: { description: undefined },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties });
+            expect(result.displayedDescription).toBe('UI authored description');
+            expect(result.isUsingDocumentationAspect).toBe(true);
+            expect(result.isUiAuthored).toBe(true);
+            expect(result.isPropagated).toBe(false);
+        });
+
+        it('returns uiAuthoredDescription when UI-authored doc exists', () => {
+            const entityProperties = {
+                ...JSON.parse(JSON.stringify(uiAuthoredDocs)),
+                editableProperties: { description: undefined },
+                properties: { description: undefined },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties });
+            expect(result.uiAuthoredDescription).toBe('UI authored description');
+            expect(result.propagatedDescription).toBe('propagated');
+        });
+
+        it('returns propagated documentation when UI-authored doc is not present', () => {
+            const entityProperties = {
+                documentation: {
+                    documentations: [
+                        {
+                            documentation: 'propagated',
+                            attribution: {
+                                actor: mockActor,
+                                time: 200,
+                                sourceDetail: [{ key: 'propagated', value: 'true' }],
+                            },
+                        },
+                    ],
+                },
+                editableProperties: { description: undefined },
+                properties: { description: undefined },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties });
+            expect(result.displayedDescription).toBe('propagated');
+            expect(result.isUsingDocumentationAspect).toBe(true);
+            expect(result.isPropagated).toBe(true);
+            expect(result.isUiAuthored).toBe(false);
+        });
+
+        it('prioritizes editableProperties.description over UI-authored documentation', () => {
+            const entityProperties = {
+                ...JSON.parse(JSON.stringify(uiAuthoredDocs)),
+                editableProperties: { description: 'Edited in UI via EditableProperties' },
+                properties: { description: undefined },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties });
+            expect(result.displayedDescription).toBe('Edited in UI via EditableProperties');
+            expect(result.isUsingDocumentationAspect).toBe(false);
+        });
+
+        it('returns most recent UI-authored doc when multiple exist', () => {
+            const entityProperties = {
+                documentation: {
+                    documentations: [
+                        {
+                            documentation: 'Old UI doc',
+                            attribution: {
+                                actor: mockActor,
+                                time: 100,
+                                sourceDetail: [{ key: 'ui', value: 'true' }],
+                            },
+                        },
+                        {
+                            documentation: 'New UI doc',
+                            attribution: {
+                                actor: mockActor,
+                                time: 300,
+                                sourceDetail: [{ key: 'ui', value: 'true' }],
+                            },
+                        },
+                    ],
+                },
+                editableProperties: { description: undefined },
+                properties: { description: undefined },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties });
+            expect(result.displayedDescription).toBe('New UI doc');
+            expect(result.isUiAuthored).toBe(true);
         });
     });
 });

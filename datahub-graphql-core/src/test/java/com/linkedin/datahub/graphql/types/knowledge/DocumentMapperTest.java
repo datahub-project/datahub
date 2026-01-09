@@ -5,9 +5,17 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Documentation;
+import com.linkedin.common.DocumentationAssociation;
+import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.InstitutionalMemoryMetadata;
+import com.linkedin.common.InstitutionalMemoryMetadataArray;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -42,6 +50,7 @@ public class DocumentMapperTest {
   private static final String TEST_DOCUMENT_ID = "test-document";
   private static final String TEST_DOCUMENT_TYPE = "tutorial";
   private static final String TEST_DOCUMENT_TITLE = "Test Tutorial";
+  private static final String TEST_DOCUMENT_DESCRIPTION = "Test document description";
   private static final String TEST_CONTENT = "Test content";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:testuser";
   private static final String TEST_PARENT_URN = "urn:li:document:parent-document";
@@ -691,6 +700,104 @@ public class DocumentMapperTest {
       assertNotNull(result.getDataPlatformInstance());
       assertEquals(result.getDataPlatformInstance().getUrn(), TEST_PLATFORM_INSTANCE_URN);
       assertEquals(result.getDataPlatformInstance().getType(), EntityType.DATA_PLATFORM_INSTANCE);
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithDocumentation() throws URISyntaxException {
+    // Setup entity response with documentation aspect
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add document info with title
+    DocumentInfo documentInfo = new DocumentInfo();
+    documentInfo.setTitle(TEST_DOCUMENT_TITLE);
+
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add documentation aspect
+    Documentation documentation = new Documentation();
+    DocumentationAssociationArray docAssociations = new DocumentationAssociationArray();
+    DocumentationAssociation docAssociation = new DocumentationAssociation();
+    docAssociation.setDocumentation(TEST_DOCUMENT_DESCRIPTION);
+    MetadataAttribution attribution = new MetadataAttribution();
+    attribution.setTime(TEST_TIMESTAMP);
+    attribution.setActor(actorUrn);
+    docAssociation.setAttribution(attribution);
+    docAssociations.add(docAssociation);
+    documentation.setDocumentations(docAssociations);
+    documentation.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENTATION_ASPECT_NAME, documentation);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify documentation aspect is mapped
+      assertNotNull(result.getInfo());
+      assertEquals(result.getInfo().getTitle(), TEST_DOCUMENT_TITLE);
+      assertNotNull(result.getDocumentation());
+      assertNotNull(result.getDocumentation().getDocumentations());
+      assertEquals(result.getDocumentation().getDocumentations().size(), 1);
+      assertEquals(
+          result.getDocumentation().getDocumentations().get(0).getDocumentation(),
+          TEST_DOCUMENT_DESCRIPTION);
+    }
+  }
+
+  @Test
+  public void testMapDocumentWithInstitutionalMemory() throws URISyntaxException {
+    // Setup entity response with institutional memory
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add institutional memory aspect
+    InstitutionalMemory institutionalMemory = new InstitutionalMemory();
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    InstitutionalMemoryMetadata element = new InstitutionalMemoryMetadata();
+    element.setUrl(new Url("https://example.com/doc"));
+    element.setDescription("Example documentation");
+    element.setCreateStamp(createdStamp);
+    elements.add(element);
+    institutionalMemory.setElements(elements);
+    addAspectToResponse(entityResponse, INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemory);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify institutional memory is mapped
+      assertNotNull(result.getInstitutionalMemory());
+      assertNotNull(result.getInstitutionalMemory().getElements());
+      assertEquals(result.getInstitutionalMemory().getElements().size(), 1);
+      assertEquals(
+          result.getInstitutionalMemory().getElements().get(0).getUrl(), "https://example.com/doc");
     }
   }
 

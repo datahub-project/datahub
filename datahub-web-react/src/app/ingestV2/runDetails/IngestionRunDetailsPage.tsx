@@ -6,6 +6,7 @@ import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
 import { EmbeddedChat } from '@app/chat/EmbeddedChat';
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
+import { getSuggestedQuestions } from '@app/ingestV2/runDetails/utils';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
@@ -71,6 +72,8 @@ export default function IngestionRunDetailsPage() {
         name ? `The ingestion source name is "${name}". ` : ''
     } This is a troubleshooting context where the user may ask questions about ingestion failures, logs, or execution details.`;
 
+    const suggestedQuestions = getSuggestedQuestions(data?.executionRequest?.result?.status || '');
+
     return (
         <PageLayout
             title="Run Details"
@@ -83,6 +86,7 @@ export default function IngestionRunDetailsPage() {
                     title="Ask DataHub - Run Details"
                     chatLocation="ingestion_view_results"
                     contentPlaceholder="Ask DataHub about your run details"
+                    suggestedQuestions={suggestedQuestions}
                 />
             }
             topBreadcrumb={breadCrumb}

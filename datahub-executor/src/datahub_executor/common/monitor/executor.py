@@ -1,15 +1,14 @@
 import logging
+from typing import TYPE_CHECKING, Optional
 
 from acryl.executor.request.execution_request import ExecutionRequest
 from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_executor.common.constants import RUN_MONITOR_TRAINING_TASK_NAME
 from datahub_executor.common.helpers import (
+    OBSERVE_AVAILABLE,
     create_datahub_graph,
     create_monitor_training_engine,
-)
-from datahub_executor.common.monitor.inference.monitor_training_engine import (
-    MonitorTrainingEngine,
 )
 from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
@@ -18,12 +17,17 @@ from datahub_executor.common.types import (
 )
 from datahub_executor.config import DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS
 
+if TYPE_CHECKING:
+    from datahub_executor.common.monitor.inference.monitor_training_engine import (
+        MonitorTrainingEngine,
+    )
+
 logger = logging.getLogger(__name__)
 
 
 class MonitorExecutor:
     graph: DataHubGraph
-    engine: MonitorTrainingEngine
+    engine: Optional["MonitorTrainingEngine"]
     tp: ThreadPoolExecutorWithQueueSizeLimit
 
     def __init__(self) -> None:
@@ -34,6 +38,11 @@ class MonitorExecutor:
             max_workers=DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,  # Same limit as assertion evaluation, for now.
             name="monitors",
         )
+        if not OBSERVE_AVAILABLE:
+            logger.warning(
+                "MonitorExecutor initialized without observe dependencies. "
+                "Monitor training requests will fail."
+            )
 
     def get_active_thread_count(self) -> int:
         return self.tp.get_active_thread_count()
@@ -63,6 +72,12 @@ class MonitorExecutor:
     @METRIC("WORKER_MONITOR_TRAINING_EXECUTOR_REQUESTS").time()  # type: ignore
     def evaluate_monitor_training(self, execution_request: ExecutionRequest) -> None:
         if execution_request.name == RUN_MONITOR_TRAINING_TASK_NAME:
+            if self.engine is None:
+                raise RuntimeError(
+                    "Monitor training is not available: observe dependencies "
+                    "(prophet, observe-models) are not installed. "
+                    "Install with 'pip install acryl-datahub-executor[observe]' to enable."
+                )
             monitor = Monitor.model_validate(execution_request.args["monitor"])
             self.engine.train(monitor)
         else:

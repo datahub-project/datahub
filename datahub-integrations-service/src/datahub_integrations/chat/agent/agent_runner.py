@@ -57,6 +57,7 @@ from datahub_integrations.chat.chat_history import (
 from datahub_integrations.chat.planner.planning_context import PlanningContext
 from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
+from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
 from datahub_integrations.mcp.mcp_server import with_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper
 from datahub_integrations.observability import (
@@ -636,17 +637,20 @@ class AgentRunner:
         if self.config.use_prompt_caching:
             tools.append({"cachePoint": {"type": "default"}})
 
+        # Time the LLM call
+        llm_timer = PerfTimer()
         try:
-            response = llm_client.converse(
-                system=self._get_system_messages(),
-                messages=messages,  # type: ignore
-                toolConfig={"tools": tools},  # type: ignore
-                inferenceConfig={
-                    "temperature": self.config.temperature,
-                    "maxTokens": self.config.max_tokens,
-                },
-                ai_module=self.config.ai_module,
-            )
+            with llm_timer:
+                response = llm_client.converse(
+                    system=self._get_system_messages(),
+                    messages=messages,  # type: ignore
+                    toolConfig={"tools": tools},  # type: ignore
+                    inferenceConfig={
+                        "temperature": self.config.temperature,
+                        "maxTokens": self.config.max_tokens,
+                    },
+                    ai_module=self.config.ai_module,
+                )
         except LlmInputTooLongException as e:
             raise AgentMaxTokensExceededError(str(e)) from e
         except Exception:
@@ -670,6 +674,9 @@ class AgentRunner:
         log_tokens_usage(response["usage"])  # type: ignore[arg-type]
 
         # Note: Cost tracking is now handled inside llm_client.converse()
+
+        if is_verbose_llm_logging_enabled():
+            self._logger.debug("LLM final response: {response}", response=response)
 
         # Process stop reason
         output = response["output"]
@@ -702,14 +709,26 @@ class AgentRunner:
         new_messages: List[Message] = []
         pending_tool_calls: List[ToolCallRequest] = []
 
+        # LLM call duration - assign to first text message only
+        llm_duration = llm_timer.elapsed_seconds()
+        duration_assigned = False
+
         for i, content_block in enumerate(response_content):
             is_last_block = i == len(response_content) - 1
 
             if "text" in content_block:
                 # Handle text content (reasoning or final response)
+                # Assign LLM duration to the first text message only
+                duration_for_msg = llm_duration if not duration_assigned else None
                 msg = self._handle_text_content(
-                    history, content_block, is_end_turn, is_last_block
+                    history,
+                    content_block,
+                    is_end_turn,
+                    is_last_block,
+                    duration_seconds=duration_for_msg,
                 )
+                if duration_for_msg is not None:
+                    duration_assigned = True
                 new_messages.append(msg)
 
             elif "toolUse" in content_block:
@@ -742,6 +761,7 @@ class AgentRunner:
         content_block: "ContentBlockOutputTypeDef",
         is_end_turn: bool,
         is_last_block: bool,
+        duration_seconds: Optional[float] = None,
     ) -> Message:
         """
         Handle text content from LLM response.
@@ -755,6 +775,7 @@ class AgentRunner:
             content_block: Content block from LLM response
             is_end_turn: Whether this is the final block in a turn
             is_last_block: Whether this is the last block in the response
+            duration_seconds: Optional LLM call duration to attach to ReasoningMessage
 
         Returns:
             The message that was created and added to history
@@ -790,7 +811,9 @@ class AgentRunner:
         else:
             # Reasoning message (internal thoughts)
             reasoning_text = content_block["text"]
-            msg = ReasoningMessage(text=reasoning_text)
+            msg = ReasoningMessage(
+                text=reasoning_text, duration_seconds=duration_seconds
+            )
             self._add_message(history, msg)
 
             # Log to MLflow
@@ -842,9 +865,16 @@ class AgentRunner:
                 f"Tool execution failed for {tool_name} in session {self.session_id}"
             )
             error = f"{type(e).__name__}: {e}"
+
+        # Calculate duration after execution (timer context has exited)
+        duration_seconds = timer.elapsed_seconds()
+
+        # Create message with timing information
+        if error is not None:
             msg: Union[ToolResult, ToolResultError] = ToolResultError(
                 tool_request=tool_request,
                 error=error,
+                duration_seconds=duration_seconds,
             )
             self._add_message(history, msg)
             tracker = get_cost_tracker()
@@ -852,16 +882,24 @@ class AgentRunner:
                 ai_module=self.config.ai_module, tool=tool_name, success=False
             )
         else:
-            msg = ToolResult(tool_request=tool_request, result=result)
+            # result is guaranteed non-None here: tool.run() returns str|dict,
+            # and any exception would set error (handled above)
+            assert result is not None
+            msg = ToolResult(
+                tool_request=tool_request,
+                result=result,
+                duration_seconds=duration_seconds,
+            )
             self._add_message(history, msg)
             # Track successful tool call (Tier 3)
             tracker = get_cost_tracker()
             tracker.record_tool_call(
                 ai_module=self.config.ai_module, tool=tool_name, success=True
             )
+
         tool_result = ToolExecutionResult(
             message=msg,
-            duration_seconds=timer.elapsed_seconds(),
+            duration_seconds=duration_seconds,
             tool_name=tool_name,
         )
 
@@ -970,11 +1008,14 @@ class AgentRunner:
         # LangGraph config - state lives in self._state, graph nodes access it directly
         # completion_check is passed via config because functions can't be serialized
         # Cast to Any to satisfy mypy since RunnableConfig accepts dict-like structures
+        # recursion_limit is set high (100) so our own max_llm_turns check triggers first
+        # (LangGraph's default of 25 counts node executions, not LLM turns)
         graph_config = {
             "configurable": {
                 "thread_id": self.session_id,
                 "completion_check": completion_check,
-            }
+            },
+            "recursion_limit": 100,
         }
 
         # Run graph (nodes update self._state directly via with_history)

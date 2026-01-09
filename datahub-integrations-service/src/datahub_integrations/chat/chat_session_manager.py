@@ -389,6 +389,7 @@ class ChatSessionManager:
 
             # EMIT ERROR EVENT
             event_data = ChatbotInteractionEvent(
+                user_urn=user_urn,
                 chat_id=ui_chat_id(conversation_urn, error_timestamp),
                 message_id=ui_message_id(conversation_urn, error_timestamp),
                 chatbot="datahub_ui",
@@ -439,6 +440,7 @@ class ChatSessionManager:
 
             # EMIT SUCCESS EVENT
             event_data = ChatbotInteractionEvent(
+                user_urn=user_urn,
                 chat_id=ui_chat_id(conversation_urn, timestamp),
                 message_id=ui_message_id(conversation_urn, timestamp),
                 chatbot="datahub_ui",

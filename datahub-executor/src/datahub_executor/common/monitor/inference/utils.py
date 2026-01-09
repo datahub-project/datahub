@@ -162,7 +162,7 @@ def annotate_operations_with_anomalies(
 
         O1 A1 O2 -> O2 will be marked as an anomaly.
         O1 O2 A1 O3 -> O3 will be marked as an anomaly.
-        Q1 A1 Q2 A2 O3 -> O2 and O3 will be marked as anomalies.
+        O1 A1 O2 A2 O3 -> O2 and O3 will be marked as anomalies.
     """
 
     # First, make sure both operations and anomalies are sorted in ASC order (default)

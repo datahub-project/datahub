@@ -2,6 +2,18 @@
 Utility functions for LLM operations.
 """
 
+import os
+
+
+def is_verbose_llm_logging_enabled() -> bool:
+    """
+    Check if verbose LLM logging is enabled via environment variable.
+
+    Returns:
+        True if LLM_VERBOSE_LOGGING is set to 'true', '1', or 'yes' (case-insensitive)
+    """
+    return os.getenv("LLM_VERBOSE_LOGGING", "false").lower() in ("true", "1", "yes")
+
 
 def parse_model_id(model_id: str) -> tuple[str, str]:
     """

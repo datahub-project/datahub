@@ -70,6 +70,23 @@ const LegendItem = styled(Text)<{ $color: string }>`
     }
 `;
 
+const ExceedsMaxLegendItem = styled(Text)`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: ${colors.gray[1700]};
+`;
+
+const ExceedsMaxIcon = styled.div<{ $color: string }>`
+    width: 12px;
+    height: 12px;
+    border-radius: 100%;
+    background-color: ${(props) => props.$color};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
+
 const LegendControlsContainer = styled.div`
     margin-left: auto;
     display: flex;
@@ -86,7 +103,7 @@ const ActionMenuBackdrop = styled.div`
     z-index: 1000;
 `;
 
-const ActionMenu = styled.div<{ x: number; y: number }>`
+const ActionMenu = styled.div<{ x: number; y: number; align: 'left' | 'right' }>`
     position: absolute;
     left: ${(props) => props.x}px;
     top: ${(props) => props.y}px;
@@ -96,7 +113,7 @@ const ActionMenu = styled.div<{ x: number; y: number }>`
     z-index: 1001;
     font-size: 12px;
     overflow: hidden;
-    transform: translateX(-50%); // Center horizontally over selection
+    transform: ${(props) => (props.align === 'left' ? 'translateX(-100%)' : 'none')};
 `;
 
 const ActionButton = styled.button`
@@ -155,6 +172,7 @@ const ChartInteractionContainer = styled.div<{ $isSelecting: boolean }>`
     `}
     /* Ensure tooltips render above other content */
     z-index: 1;
+    user-select: none;
 `;
 
 const SelectionRectangle = styled.div<{
@@ -170,7 +188,7 @@ const SelectionRectangle = styled.div<{
     width: ${(props) => Math.abs(props.$endX - props.$startX)}px;
     height: ${(props) => props.$height - props.$marginTop - props.$marginBottom}px;
     background-color: ${colors.primary[200]};
-    opacity: 0.1;
+    opacity: 0.3;
     border: 1px solid ${BAR_COLOR};
     pointer-events: none;
 `;
@@ -481,6 +499,7 @@ export const DataFreshnessChart = ({
         show: boolean;
         x: number;
         y: number;
+        align: 'left' | 'right';
         startTime: number;
         endTime: number;
     } | null>(null);
@@ -570,23 +589,31 @@ export const DataFreshnessChart = ({
             // Use found entries or fallback to first/last
             if (startData && endData && startData.timestampMillis <= endData.timestampMillis) {
                 // Show action menu instead of immediately zooming
-                const centerX = (minX + maxX) / 2;
                 const menuY = selectionStart.y;
+
+                // Determine alignment: show on right unless near the edge
+                const MENU_WIDTH_ESTIMATE = 150;
+                const showOnRight = width - maxX > MENU_WIDTH_ESTIMATE;
+                const menuX = showOnRight ? maxX : minX;
 
                 setActionMenu({
                     show: true,
-                    x: centerX,
+                    x: menuX,
                     y: menuY,
+                    align: showOnRight ? 'right' : 'left', // 'right' align means menu is to the right of x
                     startTime: startData.timestampMillis,
                     endTime: endData.timestampMillis,
                 });
+                // Keep selection state while action menu is open
+                setIsSelecting(false);
+                return;
             }
         }
 
         setIsSelecting(false);
         setSelectionStart(null);
         setSelectionEnd(null);
-    }, [isSelecting, selectionStart, selectionEnd, xScale, onRangeChange, barData]);
+    }, [isSelecting, selectionStart, selectionEnd, xScale, onRangeChange, barData, width]);
 
     // Action menu handlers
     const handleZoomAction = useCallback(() => {
@@ -667,7 +694,19 @@ export const DataFreshnessChart = ({
             <Legend>
                 <LegendItem $color={BAR_COLOR}>Included in training set</LegendItem>
                 <LegendItem $color={ANOMALY_COLOR}>Marked as anomaly</LegendItem>
-                <LegendItem $color={BAR_EXCEEDS_MAX_COLOR}>Exceeds max cadence</LegendItem>
+                <ExceedsMaxLegendItem>
+                    <ExceedsMaxIcon $color={BAR_EXCEEDS_MAX_COLOR}>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path
+                                d="M1 6L4.66667 2.25L8.33333 4.75L12 1"
+                                stroke="white"
+                                strokeWidth="1.5"
+                                transform="translate(0, 3)"
+                            />
+                        </svg>
+                    </ExceedsMaxIcon>
+                    Exceeds chart scale
+                </ExceedsMaxLegendItem>
                 <LegendControlsContainer>
                     {resetRange && (
                         <ResetZoomButton onClick={resetRange} variant="secondary">
@@ -686,7 +725,7 @@ export const DataFreshnessChart = ({
                 onMouseLeave={handleMouseUp}
                 data-chart-container
             >
-                {isSelecting && selectionStart && selectionEnd && (
+                {(isSelecting || actionMenu?.show) && selectionStart && selectionEnd && (
                     <SelectionRectangle
                         $startX={selectionStart.x}
                         $endX={selectionEnd.x}
@@ -781,10 +820,10 @@ export const DataFreshnessChart = ({
 
                             // Determine bar color: use anomaly color if marked as anomaly, otherwise use normal/exceedsMax logic
                             let barColor = BAR_COLOR;
-                            if (exceedsMax) {
-                                barColor = BAR_EXCEEDS_MAX_COLOR;
-                            } else if (isAnomaly) {
+                            if (isAnomaly) {
                                 barColor = ANOMALY_COLOR;
+                            } else if (exceedsMax) {
+                                barColor = BAR_EXCEEDS_MAX_COLOR;
                             }
 
                             return (
@@ -880,7 +919,7 @@ export const DataFreshnessChart = ({
                     <>
                         {/* Backdrop to close menu when clicking outside */}
                         <ActionMenuBackdrop onClick={handleCloseActionMenu} />
-                        <ActionMenu x={actionMenu.x} y={actionMenu.y}>
+                        <ActionMenu x={actionMenu.x} y={actionMenu.y} align={actionMenu.align}>
                             <ActionButton onClick={handleZoomAction}>
                                 <MagnifyingGlass size={16} weight="bold" />
                                 Zoom

@@ -100,7 +100,8 @@ public class MonitorAnomalyEventUtils {
     anomalySource.setSourceUrn(assertionUrn);
     anomalySource.setSourceEventTimestampMillis(operationTimestampMillis);
     anomalySource.setType(AnomalySourceType.USER_FEEDBACK);
-    // No properties needed - freshness assertions don't have assertion metrics
+    // TODO: capture the operation range in the properties, for this we will also need the previous
+    // operation timestamp to compute the range
 
     // Create anomaly event
     final TimeStamp now = new TimeStamp().setTime(nowMillis);

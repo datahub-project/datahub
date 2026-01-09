@@ -11,6 +11,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from loguru import logger
 
+from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
+
 
 def aggregate_converse_stream(stream: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -48,6 +50,9 @@ def aggregate_converse_stream(stream: Iterable[Dict[str, Any]]) -> Dict[str, Any
     trace: Dict[str, Any] = {}
 
     for event in stream:
+        if is_verbose_llm_logging_enabled():
+            logger.debug("Stream event received: {event}", event=event)
+
         if "messageStart" in event:
             # Capture the role from messageStart event
             message["role"] = event["messageStart"]["role"]
@@ -220,5 +225,8 @@ def aggregate_converse_stream(stream: Iterable[Dict[str, Any]]) -> Dict[str, Any
     # Only include trace if it was present in the stream
     if trace:
         result["trace"] = trace
+
+    if is_verbose_llm_logging_enabled():
+        logger.debug("Aggregated stream result: {result}", result=result)
 
     return result

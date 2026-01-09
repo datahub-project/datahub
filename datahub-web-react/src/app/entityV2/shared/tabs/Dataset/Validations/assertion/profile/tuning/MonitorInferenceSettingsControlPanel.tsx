@@ -277,9 +277,9 @@ export const MonitorInferenceSettingsControlPanel = ({
                             isDisabled={isUpdating}
                             width="full"
                             options={[
-                                { label: 'High (10)', value: '10' },
-                                { label: 'Medium (5)', value: '5' },
-                                { label: 'Low (1)', value: '1' },
+                                { label: 'High (Tighter fit, more false positives)', value: '10' },
+                                { label: 'Medium (Balanced precision and recall)', value: '5' },
+                                { label: 'Low (Loose fit, may miss anomalies)', value: '1' },
                             ]}
                             showClear={false}
                         />

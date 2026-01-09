@@ -36,7 +36,7 @@ _ENABLE_BEDROCK_OPTIMIZED_LATENCY = get_boolean_env_variable(
 )
 
 _ENABLE_BEDROCK_PROMPT_CACHING = get_boolean_env_variable(
-    "ENABLE_BEDROCK_PROMPT_CACHING", False
+    "ENABLE_BEDROCK_PROMPT_CACHING", True
 )
 
 _MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "10"))

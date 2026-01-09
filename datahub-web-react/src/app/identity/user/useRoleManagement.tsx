@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useListRolesQuery } from '@graphql/role.generated';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
+
 import { DataHubRole } from '@types';
 
 function buildRoleSelectOptions(roles: Array<DataHubRole>, noRoleText: string) {
@@ -33,19 +34,11 @@ export function useRoleManagement() {
 
     const noRoleText = 'No Role';
 
-    const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
+    const { roles: fetchedRoles } = useRoleSelector();
 
     const roles: Array<DataHubRole> = useMemo(() => {
-        return rolesData?.listRoles?.roles || [];
-    }, [rolesData?.listRoles?.roles]);
+        return fetchedRoles || [];
+    }, [fetchedRoles]);
 
     const rolesMap: Map<string, DataHubRole> = useMemo(() => {
         const map = new Map();

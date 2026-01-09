@@ -13,9 +13,12 @@ Test coverage includes:
 - Cache token tracking
 - Metrics capture
 - Edge cases (empty streams, malformed JSON, missing events)
+- Verbose logging integration
 """
 
 from typing import Any
+
+import pytest
 
 from datahub_integrations.gen_ai.llm.bedrock_stream_aggregator import (
     aggregate_converse_stream,
@@ -562,3 +565,29 @@ class TestAggregateConverseStream:
         assert len(result["output"]["message"]["content"]) == 2
         assert result["output"]["message"]["content"][0]["text"] == "First"
         assert result["output"]["message"]["content"][1]["text"] == "Second"
+
+    def test_verbose_logging_enabled_doesnt_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that verbose logging doesn't cause errors when enabled."""
+        monkeypatch.setenv("LLM_VERBOSE_LOGGING", "true")
+
+        stream: list[dict[str, Any]] = [
+            {"messageStart": {"role": "assistant"}},
+            {"contentBlockStart": {"start": {}, "contentBlockIndex": 0}},
+            {
+                "contentBlockDelta": {
+                    "delta": {"text": "Test response"},
+                    "contentBlockIndex": 0,
+                }
+            },
+            {"contentBlockStop": {"contentBlockIndex": 0}},
+            {"messageStop": {"stopReason": "end_turn"}},
+            {"metadata": {"usage": {"inputTokens": 10, "outputTokens": 5}}},
+        ]
+
+        # Should not raise any exceptions even with verbose logging
+        result = aggregate_converse_stream(stream)
+
+        assert result["stopReason"] == "end_turn"
+        assert result["output"]["message"]["content"][0]["text"] == "Test response"

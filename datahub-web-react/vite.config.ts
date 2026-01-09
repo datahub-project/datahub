@@ -1,8 +1,9 @@
 import { codecovVitePlugin } from '@codecov/vite-plugin';
 import federation from '@originjs/vite-plugin-federation';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 
@@ -87,7 +88,16 @@ export default defineConfig(async ({ mode }) => {
         '/mfe/config': frontendProxy,
     };
 
-    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
+    const isHttps = process.env.REACT_APP_HTTPS === 'true';
+    const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+    if (isHttps) {
+        devPlugins.push(
+            basicSsl({
+                name: 'datahub-dev-ssl',
+                domains: ['localhost'],
+            }),
+        );
+    }
 
     return {
         appType: 'spa',
@@ -182,6 +192,7 @@ export default defineConfig(async ({ mode }) => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
+            https: isHttps,
         },
         css: {
             preprocessorOptions: {

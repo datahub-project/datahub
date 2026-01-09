@@ -47,10 +47,6 @@ const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
             box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
     `}
-
-    &:hover .tree-item-actions {
-        opacity: 1;
-    }
 `;
 
 const LeftContent = styled.div`
@@ -116,9 +112,8 @@ const Actions = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
-    opacity: 0;
-    transition: opacity 0.15s ease;
     margin-left: 8px;
+    flex-shrink: 0;
 `;
 
 const ActionButton = styled(Button)`
@@ -224,7 +219,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 </Title>
             </LeftContent>
 
-            {!hideActions && (
+            {!hideActions && isHovered && (
                 <Actions className="tree-item-actions">
                     {!hideActionsMenu && (
                         <DocumentActionsMenu
@@ -234,9 +229,9 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                         />
                     )}
                     {!hideCreate && (
-                        <Tooltip title="New context document" placement="bottom" showArrow={false}>
+                        <Tooltip title="New document" placement="bottom" showArrow={false}>
                             <ActionButton
-                                icon={{ icon: 'Plus', source: 'phosphor' }}
+                                icon={{ icon: 'Plus', source: 'phosphor', color: 'gray', colorLevel: 1800 }}
                                 variant="text"
                                 onClick={handleAddChildClick}
                             />

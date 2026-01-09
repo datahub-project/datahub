@@ -1,0 +1,8 @@
+# Codecov configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+# Ignore non-operational code (Streamlit UI and scripts)
+ignore:
+  - "datahub-executor/scripts/streamlit_explorer/**/*"
+
+

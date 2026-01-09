@@ -71,6 +71,11 @@ class AssertionExecutor:
             runtime_parameters=ctx_args.get("runtime_parameters"),
         )
 
+        if assertion_spec.parameters is None:
+            raise ValueError(
+                f"Assertion {assertion_spec.assertion.urn} has no evaluation parameters"
+            )
+
         self.engine.evaluate(
             assertion_spec.assertion, assertion_spec.parameters, context
         )

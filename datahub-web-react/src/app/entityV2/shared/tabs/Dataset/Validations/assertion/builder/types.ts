@@ -76,6 +76,19 @@ export type FieldMetricAssertionBuilderOperator =
     (typeof FieldMetricAssertionBuilderOperatorOptions)[keyof typeof FieldMetricAssertionBuilderOperatorOptions];
 
 /**
+ * Extending the graphql sql assertion operator type to include local options such as 'inferred'
+ */
+enum SqlAssertionBuilderExtraOperators {
+    AiInferred = 'AI_INFERRED',
+}
+export const SqlAssertionBuilderOperatorOptions = {
+    ...SqlAssertionBuilderExtraOperators,
+    ...AssertionStdOperator,
+};
+export type SqlAssertionBuilderOperator =
+    (typeof SqlAssertionBuilderOperatorOptions)[keyof typeof SqlAssertionBuilderOperatorOptions];
+
+/**
  * Exclusion window type for the builder
  */
 export type AssertionMonitorBuilderExclusionWindow = Required<
@@ -213,7 +226,7 @@ export interface AssertionMonitorBuilderState {
             /**
              * The operator you'd like to apply to the result of the SQL query
              */
-            operator?: AssertionStdOperator;
+            operator?: SqlAssertionBuilderOperator;
 
             /**
              * The parameters for the SQL assertion
