@@ -1290,11 +1290,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                       .AspectSizeExceededException
                                                   e) {
                                             // Convert to AspectValidationException for uniform
-                                            // batch
-                                            // handling
-                                            // This enables Kafka consumers to continue processing
-                                            // other
-                                            // items
+                                            // batch handling
                                             AspectValidationException validationException =
                                                 AspectValidationException.forItem(
                                                     writeItem,
@@ -1304,8 +1300,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                         e.getActualSize(),
                                                         e.getThreshold()),
                                                     e);
-                                            exceptions.addException(validationException);
-                                            return null; // Exclude from successful results
+
+                                            // API requests: fail entire batch immediately
+                                            // Kafka consumers: collect exception and continue
+                                            if (opContext.getRequestContext() != null) {
+                                              ValidationExceptionCollection sizeExceptions =
+                                                  ValidationExceptionCollection.newCollection();
+                                              sizeExceptions.addException(validationException);
+                                              throw new ValidationException(sizeExceptions);
+                                            } else {
+                                              exceptions.addException(validationException);
+                                              return null; // Exclude from successful results
+                                            }
                                           }
                                         }
 
