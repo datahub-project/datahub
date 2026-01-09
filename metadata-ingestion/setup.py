@@ -54,7 +54,9 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
-    "ruamel.yaml",
+    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
+    # which is not available as wheel.
+    "ruamel.yaml<0.19.0",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -69,7 +71,8 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    "confluent_kafka[schemaregistry,avro]>=2.10.1",
+    # 2.13.0 introduced some breaking changes that require some development
+    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -491,6 +494,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
+    "db2": {"ibm_db_sa==0.4.3", "pyodbc"} | sql_common,
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
     "dremio": {"requests"} | sql_common,
@@ -811,6 +815,7 @@ full_test_dev_requirements = {
             "azure-data-factory",
             "circuit-breaker",
             "clickhouse",
+            "db2",
             "delta-lake",
             "doris",
             "druid",
@@ -855,6 +860,7 @@ entry_points = {
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
+        "db2 = datahub.ingestion.source.sql.db2:Db2Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",
