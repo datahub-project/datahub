@@ -10,4 +10,7 @@ export interface SearchBarProps {
     clearIcon?: React.ReactNode;
     disabled?: boolean;
     suffix?: React.ReactNode;
+    forceUncontrolled?: boolean;
+    onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
+    onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
 }

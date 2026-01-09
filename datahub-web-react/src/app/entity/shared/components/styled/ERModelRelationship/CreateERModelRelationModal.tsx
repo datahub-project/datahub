@@ -1,7 +1,7 @@
 import '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal.less';
 
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Modal, Table, message } from 'antd';
+import { Button, Form, Input, Modal, Select, Table, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import React, { useState } from 'react';
 
@@ -21,7 +21,7 @@ import {
 } from '@graphql/ermodelrelationship.generated';
 import { useAddOwnerMutation } from '@graphql/mutations.generated';
 import { useGetSearchResultsQuery } from '@graphql/search.generated';
-import { EntityType, ErModelRelationship, OwnerEntityType } from '@types';
+import { EntityType, ErModelRelationship, ErModelRelationshipCardinality, OwnerEntityType } from '@types';
 
 import arrow from '@images/Arrow.svg';
 
@@ -36,6 +36,7 @@ type Props = {
     editERModelRelation?: ErModelRelationship;
     isEditing?: boolean;
     refetch: () => Promise<any>;
+    entityName: any;
 };
 
 type EditableTableProps = Parameters<typeof Table>[0];
@@ -52,6 +53,7 @@ export const CreateERModelRelationModal = ({
     editERModelRelation,
     isEditing,
     refetch,
+    entityName,
 }: Props) => {
     const [form] = Form.useForm();
     const { user } = useUserContext();
@@ -68,6 +70,9 @@ export const CreateERModelRelationModal = ({
             editERModelRelation?.properties?.name ||
             editERModelRelation?.id ||
             '',
+    );
+    const [ermodelrelationCardinality, setERModelRelationCardinality] = useState(
+        editERModelRelation?.properties?.cardinality,
     );
     const [tableData, setTableData] = useState<ERModelRelationDataType[]>(
         editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {
@@ -97,9 +102,10 @@ export const CreateERModelRelationModal = ({
         Modal.confirm({
             title: `Exit`,
             className: 'cancel-modal',
-            content: `Are you sure you want to exit?  The changes made to the erModelRelationship will not be applied.`,
+            content: `Are you sure you want to exit?  The changes made to the ${entityName} will not be applied.`,
             onOk() {
                 setERModelRelationName(editERModelRelation?.properties?.name || '');
+                setERModelRelationCardinality(editERModelRelation?.properties?.cardinality);
                 setDetails(editERModelRelation?.editableProperties?.description || '');
                 setTableData(
                     editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {
@@ -136,6 +142,7 @@ export const CreateERModelRelationModal = ({
                                 destinationField: r.field2Name,
                             };
                         }),
+                        erModelRelationshipCardinality: ermodelrelationCardinality,
                         created: true,
                     },
                     editableProperties: {
@@ -153,7 +160,7 @@ export const CreateERModelRelationModal = ({
                 setTimeout(() => {
                     refetch();
                     message.success({
-                        content: `ERModelRelation created!`,
+                        content: `${entityName} created!`,
                         duration: 2,
                     });
                 }, 2000);
@@ -170,7 +177,7 @@ export const CreateERModelRelationModal = ({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create erModelRelationship: ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to create ${entityName}: ${e.message || ''}`, duration: 3 });
             });
     };
     const originalERModelRelationName = editERModelRelation?.properties?.name;
@@ -183,6 +190,7 @@ export const CreateERModelRelationModal = ({
                         source: table1Dataset?.urn || '',
                         destination: table2Dataset?.urn || '',
                         name: originalERModelRelationName || '',
+                        erModelRelationshipCardinality: ermodelrelationCardinality,
                         createdBy: editERModelRelation?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editERModelRelation?.properties?.createdTime || 0,
                         relationshipFieldmappings: tableData.map((r) => {
@@ -207,14 +215,14 @@ export const CreateERModelRelationModal = ({
                 setTimeout(() => {
                     refetch();
                     message.success({
-                        content: `ERModelRelation updated!`,
+                        content: `${entityName} updated!`,
                         duration: 2,
                     });
                 }, 2000);
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to update erModelRelationship: ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to update ${entityName}: ${e.message || ''}`, duration: 3 });
             });
     };
     const onSubmit = async () => {
@@ -223,6 +231,7 @@ export const CreateERModelRelationModal = ({
             tableData,
             isEditing,
             getSearchResultsERModelRelations,
+            entityName,
         );
         if ((await errors).length > 0) {
             const err = (await errors).join(`, `);
@@ -234,6 +243,7 @@ export const CreateERModelRelationModal = ({
         } else {
             createERModelRelationship();
             setERModelRelationName('');
+            setERModelRelationCardinality(undefined);
             setDetails('');
             setTableData([
                 { key: '0', field1Name: '', field2Name: '' },
@@ -340,7 +350,7 @@ export const CreateERModelRelationModal = ({
         <Modal
             title={
                 <div className="footer-parent-div">
-                    <p className="ermodelrelation-title">ER-Model-Relationship Parameters</p>
+                    <p className="ermodelrelation-title">{entityName} Parameters</p>
                     <div>
                         <Button onClick={onCancelSelect} className="cancel-btn" size="large">
                             Cancel
@@ -368,12 +378,13 @@ export const CreateERModelRelationModal = ({
                 <p className="all-content-heading">Table 2</p>
                 <p className="all-information">{table2NameBusiness}</p>
                 <div className="techNameDisplay">{table2NameTech !== table2NameBusiness && table2NameTech}</div>
-                <p className="all-content-heading">ER-Model-Relationship name</p>
+                <p className="all-content-heading">{entityName} name</p>
                 <Form
                     form={form}
                     layout="vertical"
                     fields={[
                         { name: 'ermodelrelationNameForm', value: ermodelrelationName },
+                        { name: 'ermodelrelationCardinality', value: ermodelrelationCardinality },
                         { name: 'ermodelrelationDetails', value: details },
                     ]}
                     onFinish={onSubmit}
@@ -384,7 +395,7 @@ export const CreateERModelRelationModal = ({
                         rules={[
                             {
                                 required: true,
-                                message: `ER-Model-Relationship name is required.`,
+                                message: `${entityName} name is required.`,
                             },
                             {
                                 validator: (_, value) =>
@@ -393,7 +404,7 @@ export const CreateERModelRelationModal = ({
                                             return result === true && !isEditing
                                                 ? Promise.reject(
                                                       new Error(
-                                                          'This ER-Model-Relationship name already exists. A unique name for each ER-Model-Relationship is required.',
+                                                          `This ${entityName} name already exists. A unique name for each ${entityName} is required.`,
                                                       ),
                                                   )
                                                 : Promise.resolve();
@@ -408,6 +419,15 @@ export const CreateERModelRelationModal = ({
                             onChange={(e) => setERModelRelationName(e.target.value)}
                         />
                     </Form.Item>
+                    <p className="all-content-heading">Cardinality</p>
+                    <Form.Item style={{ margin: 0 }} name="ermodelrelationCardinality">
+                        <Select className="cardinality-select" onChange={(e) => setERModelRelationCardinality(e)}>
+                            <Select.Option value="ONE_ONE">{ErModelRelationshipCardinality.OneOne}</Select.Option>
+                            <Select.Option value="ONE_N">{ErModelRelationshipCardinality.OneN}</Select.Option>
+                            <Select.Option value="N_ONE">{ErModelRelationshipCardinality.NOne}</Select.Option>
+                            <Select.Option value="N_N">{ErModelRelationshipCardinality.NN}</Select.Option>
+                        </Select>
+                    </Form.Item>
                     <p className="all-content-heading">Fields</p>
                     <Table
                         bordered
@@ -420,11 +440,11 @@ export const CreateERModelRelationModal = ({
                     <Button type="link" className="add-btn-link" onClick={handleAdd}>
                         <PlusOutlined /> Add Row
                     </Button>
-                    <p className="all-content-heading">ER-Model-Relationship details</p>
+                    <p className="all-content-heading">{entityName} details</p>
                     <Form.Item style={{ margin: 0 }} name="ermodelrelationDetails">
                         <TextArea
                             className="ermodelrelation-details-ta"
-                            placeholder="Please enter ER-Model-Relationship details here"
+                            placeholder={`Please enter ${entityName} details here`}
                             onChange={(e) => setDetails(e.target.value)}
                         />
                     </Form.Item>

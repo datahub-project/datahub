@@ -3,6 +3,7 @@ import { useHistory } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
+import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
 import useSearchYourAssets from '@app/homeV3/modules/useSearchYourAssets';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 
@@ -17,6 +18,10 @@ vi.mock('@app/context/useUserContext', () => ({
 
 vi.mock('@app/searchV2/utils/navigateToSearchUrl', () => ({
     navigateToSearchUrl: vi.fn(),
+}));
+
+vi.mock('@app/entityV2/user/useGetUserGroupUrns', () => ({
+    default: vi.fn(),
 }));
 
 describe('useSearchYourAssets', () => {
@@ -34,6 +39,7 @@ describe('useSearchYourAssets', () => {
     const mockNavigateToSearchUrl = navigateToSearchUrl as ReturnType<typeof vi.fn>;
     const mockUseHistory = useHistory as ReturnType<typeof vi.fn>;
     const mockUseUserContext = useUserContext as ReturnType<typeof vi.fn>;
+    const mockUseGetUserGroupUrns = useGetUserGroupUrns as ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -42,7 +48,10 @@ describe('useSearchYourAssets', () => {
 
     it('should call navigateToSearchUrl with correct parameters when URN is provided', () => {
         const mockUrn = 'urn:li:corpuser:test-user';
+        const mockGroupUrns = ['urn:li:corpGroup:group1', 'urn:li:corpGroup:group2'];
+
         mockUseUserContext.mockReturnValue({ urn: mockUrn } as any);
+        mockUseGetUserGroupUrns.mockReturnValue({ groupUrns: mockGroupUrns });
 
         const { result } = renderHook(() => useSearchYourAssets());
         result.current();
@@ -50,7 +59,7 @@ describe('useSearchYourAssets', () => {
         expect(mockNavigateToSearchUrl).toHaveBeenCalledWith({
             query: '*',
             history: mockHistory,
-            filters: [{ field: 'owners', values: [mockUrn] }],
+            filters: [{ field: 'owners', values: [mockUrn, ...mockGroupUrns] }],
         });
         expect(mockNavigateToSearchUrl).toHaveBeenCalledTimes(1);
     });
@@ -85,6 +94,7 @@ describe('useSearchYourAssets', () => {
     it('should return a stable callback function', () => {
         const mockUrn = 'urn:li:corpuser:test-user';
         mockUseUserContext.mockReturnValue({ urn: mockUrn } as any);
+        mockUseGetUserGroupUrns.mockReturnValue({ groupUrns: [] });
 
         const { result, rerender } = renderHook(() => useSearchYourAssets());
         const firstCallback = result.current;

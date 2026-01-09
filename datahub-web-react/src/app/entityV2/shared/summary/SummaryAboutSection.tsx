@@ -2,13 +2,12 @@ import { EditOutlined, FileOutlined } from '@ant-design/icons';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import { SectionContainer, SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor } from '@src/alchemy-components';
 
 const UNEXPANDED_HEIGHT = 2000;
 
@@ -48,7 +47,6 @@ const ExpandButton = styled(Button)`
 
 export default function SummaryAboutSection() {
     const { entityData } = useEntityData();
-    const refetch = useRefetch();
     const routeToTab = useRouteToTab();
 
     const [height, setHeight] = useState(0);
@@ -79,7 +77,7 @@ export default function SummaryAboutSection() {
                 )}
                 {!description && (
                     <EmptyTab tab="documentation" hideImage>
-                        <AddLinkModal refetch={refetch} />
+                        <AddLinkModal />
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
@@ -88,7 +86,7 @@ export default function SummaryAboutSection() {
                         </Button>
                     </EmptyTab>
                 )}
-                <LinkList refetch={refetch} />
+                <LinkList />
             </DocumentationWrapper>
         </SectionContainer>
     );

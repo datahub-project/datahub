@@ -3,6 +3,7 @@ import logging
 import time
 from pathlib import Path
 from typing import (
+    Any,
     Dict,
     Iterable,
     List,
@@ -19,18 +20,20 @@ from pydantic import (
     BaseModel,
     Field,
     StrictStr,
-    root_validator,
-    validator,
+    ValidationInfo,
+    field_validator,
+    model_validator,
 )
 from ruamel.yaml import YAML
 from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.structuredproperties.structuredproperties import AllowedTypes
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
+    make_domain_urn,
     make_schema_field_urn,
     make_tag_urn,
     make_term_urn,
@@ -43,6 +46,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
@@ -66,9 +70,6 @@ from datahub.metadata.urns import (
     StructuredPropertyUrn,
     TagUrn,
 )
-from datahub.pydantic.compat import (
-    PYDANTIC_VERSION,
-)
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -77,22 +78,12 @@ logger = logging.getLogger(__name__)
 
 
 class StrictModel(BaseModel):
-    """
-    Base model with strict validation.
-    Compatible with both Pydantic v1 and v2.
-    """
+    """Base model with strict validation."""
 
-    if PYDANTIC_VERSION >= 2:
-        # Pydantic v2 config
-        model_config = {
-            "validate_assignment": True,
-            "extra": "forbid",
-        }
-    else:
-        # Pydantic v1 config
-        class Config:
-            validate_assignment = True
-            extra = "forbid"
+    model_config = {
+        "validate_assignment": True,
+        "extra": "forbid",
+    }
 
 
 # Define type aliases for the complex types
@@ -134,14 +125,13 @@ class StructuredPropertiesHelper:
 
 class SchemaFieldSpecification(StrictModel):
     id: Optional[str] = None
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(None, validate_default=True)
     structured_properties: Optional[StructuredProperties] = None
     type: Optional[str] = None
     nativeDataType: Optional[str] = None
     jsonPath: Union[None, str] = None
     nullable: bool = False
     description: Union[None, str] = None
-    doc: Union[None, str] = None  # doc is an alias for description
     label: Optional[str] = None
     created: Optional[dict] = None
     lastModified: Optional[dict] = None
@@ -212,21 +202,22 @@ class SchemaFieldSpecification(StrictModel):
             ),
         )
 
-    @validator("urn", pre=True, always=True)
-    def either_id_or_urn_must_be_filled_out(cls, v, values):
-        if not v and not values.get("id"):
+    @model_validator(mode="after")
+    def either_id_or_urn_must_be_filled_out(self) -> "SchemaFieldSpecification":
+        if not self.urn and not self.id:
             raise ValueError("Either id or urn must be present")
-        return v
+        return self
 
-    @root_validator(pre=True)
-    def sync_description_and_doc(cls, values: Dict) -> Dict:
-        """Synchronize doc and description fields if one is provided but not the other."""
+    @model_validator(mode="before")
+    @classmethod
+    def sync_doc_into_description(cls, values: Any) -> Any:
+        """Synchronize doc into description field if doc is provided."""
         description = values.get("description")
-        doc = values.get("doc")
+        doc = values.pop("doc", None)
 
-        if description is not None and doc is None:
-            values["doc"] = description
-        elif doc is not None and description is None:
+        if doc is not None:
+            if description is not None:
+                raise ValueError("doc and description cannot both be provided")
             values["description"] = doc
 
         return values
@@ -288,66 +279,24 @@ class SchemaFieldSpecification(StrictModel):
             return "record"
         raise ValueError(f"Type {input_type} is not a valid primitive type")
 
-    if PYDANTIC_VERSION < 2:
+    def model_dump(self, **kwargs):
+        """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
+        exclude = kwargs.pop("exclude", None) or set()
 
-        def dict(self, **kwargs):
-            """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
-            exclude = kwargs.pop("exclude", None) or set()
+        if self.nativeDataType == self.type and self.nativeDataType is not None:
+            exclude.add("nativeDataType")
 
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
+        if self.urn:
+            field_urn = SchemaFieldUrn.from_string(self.urn)
+            if Dataset._simplify_field_path(field_urn.field_path) == self.id:
+                exclude.add("urn")
 
-            # if nativeDataType and type are identical, exclude nativeDataType from the output
-            if self.nativeDataType == self.type and self.nativeDataType is not None:
-                exclude.add("nativeDataType")
-
-            # if the id is the same as the urn's fieldPath, exclude id from the output
-
-            if self.urn:
-                field_urn = SchemaFieldUrn.from_string(self.urn)
-                if Dataset._simplify_field_path(field_urn.field_path) == self.id:
-                    exclude.add("urn")
-
-            kwargs.pop("exclude_defaults", None)
-
-            self.structured_properties = (
-                StructuredPropertiesHelper.simplify_structured_properties_list(
-                    self.structured_properties
-                )
+        self.structured_properties = (
+            StructuredPropertiesHelper.simplify_structured_properties_list(
+                self.structured_properties
             )
-
-            return super().dict(exclude=exclude, exclude_defaults=True, **kwargs)
-
-    else:
-        # For v2, implement model_dump with similar logic as dict
-        def model_dump(self, **kwargs):
-            """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
-            exclude = kwargs.pop("exclude", None) or set()
-
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
-
-            # if nativeDataType and type are identical, exclude nativeDataType from the output
-            if self.nativeDataType == self.type and self.nativeDataType is not None:
-                exclude.add("nativeDataType")
-
-            # if the id is the same as the urn's fieldPath, exclude id from the output
-            if self.urn:
-                field_urn = SchemaFieldUrn.from_string(self.urn)
-                if Dataset._simplify_field_path(field_urn.field_path) == self.id:
-                    exclude.add("urn")
-
-            self.structured_properties = (
-                StructuredPropertiesHelper.simplify_structured_properties_list(
-                    self.structured_properties
-                )
-            )
-            if hasattr(super(), "model_dump"):
-                return super().model_dump(  # type: ignore
-                    exclude=exclude, exclude_defaults=True, **kwargs
-                )
+        )
+        return super().model_dump(exclude=exclude, exclude_defaults=True, **kwargs)
 
 
 class SchemaSpecification(BaseModel):
@@ -355,8 +304,9 @@ class SchemaSpecification(BaseModel):
     fields: Optional[List[SchemaFieldSpecification]] = None
     raw_schema: Optional[str] = None
 
-    @validator("file")
-    def file_must_be_avsc(cls, v):
+    @field_validator("file", mode="after")
+    @classmethod
+    def file_must_be_avsc(cls, v: Optional[str]) -> Optional[str]:
         if v and not v.endswith(".avsc"):
             raise ValueError("file must be a .avsc file")
         return v
@@ -366,7 +316,8 @@ class Ownership(ConfigModel):
     id: str
     type: str
 
-    @validator("type")
+    @field_validator("type", mode="after")
+    @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = validate_ownership_type(v)
         return v
@@ -380,12 +331,12 @@ class Dataset(StrictModel):
     id: Optional[str] = None
     platform: Optional[str] = None
     env: str = "PROD"
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(None, validate_default=True)
     description: Optional[str] = None
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, validate_default=True)
     schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     subtype: Optional[str] = None
     subtypes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -393,6 +344,7 @@ class Dataset(StrictModel):
     owners: Optional[List[Union[str, Ownership]]] = None
     structured_properties: Optional[StructuredProperties] = None
     external_url: Optional[str] = None
+    domains: Optional[List[str]] = None
 
     @property
     def platform_urn(self) -> str:
@@ -403,30 +355,36 @@ class Dataset(StrictModel):
             dataset_urn = DatasetUrn.from_string(self.urn)
             return str(dataset_urn.get_data_platform_urn())
 
-    @validator("urn", pre=True, always=True)
-    def urn_must_be_present(cls, v, values):
+    @field_validator("urn", mode="before")
+    @classmethod
+    def urn_must_be_present(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
+            values = info.data
             assert "id" in values, "id must be present if urn is not"
             assert "platform" in values, "platform must be present if urn is not"
             assert "env" in values, "env must be present if urn is not"
             return make_dataset_urn(values["platform"], values["id"], values["env"])
         return v
 
-    @validator("name", pre=True, always=True)
-    def name_filled_with_id_if_not_present(cls, v, values):
+    @field_validator("name", mode="before")
+    @classmethod
+    def name_filled_with_id_if_not_present(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
+            values = info.data
             assert "id" in values, "id must be present if name is not"
             return values["id"]
         return v
 
-    @validator("platform")
-    def platform_must_not_be_urn(cls, v):
-        if v.startswith("urn:li:dataPlatform:"):
+    @field_validator("platform", mode="after")
+    @classmethod
+    def platform_must_not_be_urn(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.startswith("urn:li:dataPlatform:"):
             return v[len("urn:li:dataPlatform:") :]
         return v
 
-    @validator("structured_properties")
-    def simplify_structured_properties(cls, v):
+    @field_validator("structured_properties", mode="after")
+    @classmethod
+    def simplify_structured_properties(cls, v: Any) -> Any:
         return StructuredPropertiesHelper.simplify_structured_properties_list(v)
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:
@@ -467,7 +425,7 @@ class Dataset(StrictModel):
             if isinstance(datasets, dict):
                 datasets = [datasets]
             for dataset_raw in datasets:
-                dataset = Dataset.parse_obj(dataset_raw)
+                dataset = Dataset.model_validate(dataset_raw)
                 # dataset = Dataset.model_validate(dataset_raw, strict=True)
                 yield dataset
 
@@ -602,7 +560,7 @@ class Dataset(StrictModel):
                         ],
                         platformSchema=OtherSchemaClass(
                             rawSchema=yaml.dump(
-                                self.schema_metadata.dict(
+                                self.schema_metadata.model_dump(
                                     exclude_none=True, exclude_unset=True
                                 )
                             )
@@ -735,7 +693,14 @@ class Dataset(StrictModel):
                     )
                 )
                 yield from patch_builder.build()
-
+        if self.domains:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=DomainsClass(
+                    [make_domain_urn(domain) for domain in self.domains]
+                ),
+            )
+            yield mcp
         logger.info(f"Created dataset {self.urn}")
 
     @staticmethod
@@ -897,6 +862,7 @@ class Dataset(StrictModel):
                     structured_properties_map[sp.propertyUrn].extend(sp.values)  # type: ignore[arg-type,union-attr]
                 else:
                     structured_properties_map[sp.propertyUrn] = sp.values
+        domains: Optional[DomainsClass] = graph.get_aspect(urn, DomainsClass)
 
         if config.include_downstreams:
             related_downstreams = graph.get_related_entities(
@@ -937,83 +903,37 @@ class Dataset(StrictModel):
             structured_properties=(
                 structured_properties_map if structured_properties else None
             ),
+            domains=[domain for domain in domains.domains] if domains else None,
             downstreams=downstreams if config.include_downstreams else None,
         )
 
-    if PYDANTIC_VERSION < 2:
+    def model_dump(self, **kwargs):
+        """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
+        exclude = kwargs.pop("exclude", None) or set()
 
-        def dict(self, **kwargs):
-            """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
-            exclude = kwargs.pop("exclude", set())
+        if self.id == self.name and self.id is not None:
+            exclude.add("name")
 
-            # If id and name are identical, exclude name from the output
-            if self.id == self.name and self.id is not None:
-                exclude.add("name")
+        if self.subtypes and len(self.subtypes) == 1:
+            self.subtype = self.subtypes[0]
+            exclude.add("subtypes")
 
-            # if subtype and subtypes are identical or subtypes is a singleton list, exclude subtypes from the output
-            if self.subtypes and len(self.subtypes) == 1:
-                self.subtype = self.subtypes[0]
-                exclude.add("subtypes")
+        result = super().model_dump(exclude=exclude, **kwargs)
 
-            result = super().dict(exclude=exclude, **kwargs)
+        if self.schema_metadata and "schema" in result:
+            schema_data = result["schema"]
 
-            # Custom handling for schema_metadata/schema
-            if self.schema_metadata and "schema" in result:
-                schema_data = result["schema"]
+            if "fields" in schema_data and isinstance(schema_data["fields"], list):
+                processed_fields = []
+                if self.schema_metadata and self.schema_metadata.fields:
+                    for field in self.schema_metadata.fields:
+                        if field:
+                            processed_field = field.model_dump(**kwargs)
+                            processed_fields.append(processed_field)
 
-                # Handle fields if they exist
-                if "fields" in schema_data and isinstance(schema_data["fields"], list):
-                    # Process each field using its custom dict method
-                    processed_fields = []
-                    if self.schema_metadata and self.schema_metadata.fields:
-                        for field in self.schema_metadata.fields:
-                            if field:
-                                # Use dict method for Pydantic v1
-                                processed_field = field.dict(**kwargs)
-                                processed_fields.append(processed_field)
+                schema_data["fields"] = processed_fields
 
-                    # Replace the fields in the result with the processed ones
-                    schema_data["fields"] = processed_fields
-
-            return result
-    else:
-
-        def model_dump(self, **kwargs):
-            """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
-            exclude = kwargs.pop("exclude", None) or set()
-
-            # If id and name are identical, exclude name from the output
-            if self.id == self.name and self.id is not None:
-                exclude.add("name")
-
-            # if subtype and subtypes are identical or subtypes is a singleton list, exclude subtypes from the output
-            if self.subtypes and len(self.subtypes) == 1:
-                self.subtype = self.subtypes[0]
-                exclude.add("subtypes")
-
-            if hasattr(super(), "model_dump"):
-                result = super().model_dump(exclude=exclude, **kwargs)  # type: ignore
-            else:
-                result = super().dict(exclude=exclude, **kwargs)
-
-            # Custom handling for schema_metadata/schema
-            if self.schema_metadata and "schema" in result:
-                schema_data = result["schema"]
-
-                # Handle fields if they exist
-                if "fields" in schema_data and isinstance(schema_data["fields"], list):
-                    # Process each field using its custom model_dump method
-                    processed_fields = []
-                    if self.schema_metadata and self.schema_metadata.fields:
-                        for field in self.schema_metadata.fields:
-                            if field:
-                                processed_field = field.model_dump(**kwargs)
-                                processed_fields.append(processed_field)
-
-                    # Replace the fields in the result with the processed ones
-                    schema_data["fields"] = processed_fields
-
-            return result
+        return result
 
     def to_yaml(
         self,
@@ -1024,14 +944,7 @@ class Dataset(StrictModel):
         Preserves comments and structure of the existing YAML file.
         Returns True if file was written, False if no changes were detected.
         """
-        # Create new model data
-        # Create new model data - choose dict() or model_dump() based on Pydantic version
-        if PYDANTIC_VERSION >= 2:
-            new_data = self.model_dump(
-                exclude_none=True, exclude_unset=True, by_alias=True
-            )
-        else:
-            new_data = self.dict(exclude_none=True, exclude_unset=True, by_alias=True)
+        new_data = self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
         # Set up ruamel.yaml for preserving comments
         yaml_handler = YAML(typ="rt")  # round-trip mode

@@ -5,7 +5,7 @@ import { ViewOption } from '@app/entityV2/view/select/ViewOption';
 
 import { DataHubView } from '@types';
 
-const selectOptionStyle = { paddingLeft: 0 };
+const selectOptionStyle = { paddingLeft: 0, width: '100%' };
 
 type Args = {
     selectedUrn: string | undefined;
@@ -14,6 +14,7 @@ type Args = {
     hoverViewUrn?: string;
     isOwnedByUser?: boolean;
     scrollToRef?: any;
+    fixedWidth?: boolean;
     setHoverViewUrn: (viewUrn: string) => void;
     onClickEditView: (view: DataHubView) => void;
     onClickPreviewView: (view: DataHubView) => void;
@@ -28,6 +29,7 @@ export const renderViewOptionGroup = ({
     hoverViewUrn,
     isOwnedByUser,
     scrollToRef,
+    fixedWidth,
     setHoverViewUrn,
     onClickEditView,
     onClickPreviewView,
@@ -58,6 +60,7 @@ export const renderViewOptionGroup = ({
                 onClickPreview={() => onClickPreviewView(view)}
                 onClickClear={onClickClear}
                 selectView={() => onSelectView(view.urn)}
+                fixedWidth={fixedWidth}
             />
         </div>
     ));

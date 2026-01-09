@@ -1,0 +1,15 @@
+namespace com.linkedin.operations
+
+/**
+ * Results of a query for operations data.
+ */
+record OperationsQueryResult {
+  /** Raw buckets */
+  buckets: optional array[OperationsAggregation]
+
+  /**
+   * Aggregated metrics. All fields are optional here, since they will be populated
+   * only if the underlying buckets contain the data required to generate that aggregation.
+   */
+  aggregations: OperationsAggregationsResult
+}

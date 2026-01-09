@@ -1,5 +1,6 @@
+import { sanitizeRichText } from '@components/components/Editor/utils';
+
 import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
-import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import { pathMatchesExact } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { EditableSchemaMetadata, SchemaField } from '@src/types.generated';
 
@@ -10,7 +11,7 @@ export default function useExtractFieldDescriptionInfo(
         const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const { displayedDescription, isPropagated, sourceDetail } = getFieldDescriptionDetails({
+        const { displayedDescription, isPropagated, sourceDetail, attribution } = getFieldDescriptionDetails({
             schemaFieldEntity: record.schemaFieldEntity,
             editableFieldInfo: editableFieldInfoB,
             defaultDescription: description || record?.description,
@@ -23,6 +24,7 @@ export default function useExtractFieldDescriptionInfo(
             sanitizedDescription,
             isPropagated,
             sourceDetail,
+            attribution,
         };
     };
 }

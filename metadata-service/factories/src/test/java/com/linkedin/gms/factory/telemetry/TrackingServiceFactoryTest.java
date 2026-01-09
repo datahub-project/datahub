@@ -6,7 +6,11 @@ import static org.testng.Assert.*;
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.dao.producer.GenericProducerImpl;
+import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -153,9 +157,9 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
       com.linkedin.metadata.config.kafka.KafkaConfiguration config =
           new com.linkedin.metadata.config.kafka.KafkaConfiguration();
       com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
-          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration(null, null);
       topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
-      config.setTopics(topicsConfig);
+      config.setTopicsConfiguration(topicsConfig);
       return config;
     }
 
@@ -193,6 +197,14 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("dataHubUsageProducer")
     public Producer<String, String> dataHubUsageProducer() {
       return mock(Producer.class);
+    }
+
+    @Bean
+    @Qualifier("dataHubUsageEventProducer")
+    public GenericProducer<String> dataHubUsageEventProducer(
+        @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
+      return new GenericProducerImpl<>(
+          producer, mock(KafkaHealthChecker.class), mock(MetricUtils.class));
     }
   }
 
@@ -223,9 +235,9 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
       com.linkedin.metadata.config.kafka.KafkaConfiguration config =
           new com.linkedin.metadata.config.kafka.KafkaConfiguration();
       com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
-          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration(null, null);
       topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
-      config.setTopics(topicsConfig);
+      config.setTopicsConfiguration(topicsConfig);
       return config;
     }
 
@@ -263,6 +275,14 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("dataHubUsageProducer")
     public Producer<String, String> dataHubUsageProducer() {
       return mock(Producer.class);
+    }
+
+    @Bean
+    @Qualifier("dataHubUsageEventProducer")
+    public GenericProducer<String> dataHubUsageEventProducer(
+        @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
+      return new GenericProducerImpl<>(
+          producer, mock(KafkaHealthChecker.class), mock(MetricUtils.class));
     }
   }
 }

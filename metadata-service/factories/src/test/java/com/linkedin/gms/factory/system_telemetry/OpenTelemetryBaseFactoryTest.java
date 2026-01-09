@@ -8,6 +8,7 @@ import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Tracer;
@@ -17,7 +18,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.kafka.clients.producer.Producer;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.*;
@@ -27,6 +27,10 @@ public class OpenTelemetryBaseFactoryTest {
   // Mock TopicsConfiguration since it's not provided in the classes
   public static class TopicsConfiguration
       extends com.linkedin.metadata.config.kafka.TopicsConfiguration {
+    TopicsConfiguration() {
+      super(null, null);
+    }
+
     private String dataHubUsage;
 
     public String getDataHubUsage() {
@@ -56,7 +60,7 @@ public class OpenTelemetryBaseFactoryTest {
 
   @Mock private ConfigurationProvider mockConfigurationProvider;
 
-  @Mock private Producer<String, String> mockProducer;
+  @Mock private GenericProducer<String> mockProducer;
 
   @Mock private PlatformAnalyticsConfiguration mockPlatformAnalytics;
 
@@ -86,7 +90,7 @@ public class OpenTelemetryBaseFactoryTest {
     public SystemTelemetryContext testTraceContext(
         MetricUtils metricUtils,
         ConfigurationProvider configurationProvider,
-        Producer<String, String> dueProducer) {
+        GenericProducer<String> dueProducer) {
       return traceContext(metricUtils, configurationProvider, dueProducer);
     }
   }
@@ -180,7 +184,7 @@ public class OpenTelemetryBaseFactoryTest {
     // Use reflection to test private method
     Method getUsageSpanExporterMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "getUsageSpanExporter", ConfigurationProvider.class, Producer.class);
+            "getUsageSpanExporter", ConfigurationProvider.class, GenericProducer.class);
     getUsageSpanExporterMethod.setAccessible(true);
 
     // Test with all conditions met

@@ -30,6 +30,7 @@ public class IndexConventionFactory {
                     .getDocIds()
                     .getSchemaField()
                     .isHashIdEnabled())
-            .build());
+            .build(),
+        elasticSearchConfiguration.getEntityIndex());
   }
 }

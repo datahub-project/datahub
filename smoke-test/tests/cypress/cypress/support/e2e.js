@@ -16,6 +16,10 @@
 // Import commands.js using ES2015 syntax:
 import "./commands";
 
+// Import Testing Library commands
+import "@testing-library/cypress/add-commands";
+import "cypress-real-events/support";
+
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
 
@@ -34,4 +38,16 @@ beforeEach(function () {
       this.currentTest.title = `${testPath}`;
     }
   }
+});
+
+afterEach(() => {
+  cy.window().then((win) => {
+    const browserMemoryUsage = {
+      usedJSHeapSize: win.performance?.memory?.usedJSHeapSize,
+      totalJSHeapSize: win.performance?.memory?.totalJSHeapSize,
+      jsHeapSizeLimit: win.performance?.memory?.jsHeapSizeLimit,
+    };
+
+    cy.task("logMemoryUsage", browserMemoryUsage);
+  });
 });

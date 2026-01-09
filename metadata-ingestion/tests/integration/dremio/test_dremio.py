@@ -6,11 +6,13 @@ from typing import Dict
 import boto3
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
+
+pytestmark = pytest.mark.integration_batch_4
 
 FROZEN_TIME = "2023-10-15 07:00:00"
 MINIO_PORT = 9000
@@ -467,7 +469,7 @@ def populate_minio(pytestconfig, s3_bkt):
     yield
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_ingest(
     test_resources_dir,
@@ -486,11 +488,15 @@ def test_dremio_ingest(
         pytestconfig,
         output_path=output_path,
         golden_path=test_resources_dir / "dremio_mces_golden.json",
-        ignore_paths=[],
+        ignore_paths=[
+            # Dremio service timestamps can't be frozen
+            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['created'\]\['time'\]",
+        ],
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_platform_instance_urns(
     test_resources_dir,
@@ -567,11 +573,15 @@ def test_dremio_platform_instance_urns(
         pytestconfig,
         output_path=output_path,
         golden_path=test_resources_dir / "dremio_platform_instance_mces_golden.json",
-        ignore_paths=[],
+        ignore_paths=[
+            # Dremio service timestamps can't be frozen
+            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['created'\]\['time'\]",
+        ],
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_schema_filter(
     test_resources_dir,
@@ -589,5 +599,9 @@ def test_dremio_schema_filter(
         pytestconfig,
         output_path=output_path,
         golden_path=test_resources_dir / "dremio_schema_filter_mces_golden.json",
-        ignore_paths=[],
+        ignore_paths=[
+            # Dremio service timestamps can't be frozen
+            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['created'\]\['time'\]",
+        ],
     )

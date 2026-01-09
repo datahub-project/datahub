@@ -31,13 +31,14 @@ task environmentSetup(type: Exec) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  commandLine 'bash', '-c', 
-    "${python_executable} -m venv ${venv_name} && set -x && " +
+  def venv_copies_flag = System.getenv('DATAHUB_VENV_USE_COPIES') == 'true' ? '--copies' : ''
+  commandLine 'bash', '-c',
+    "${python_executable} -m venv ${venv_copies_flag} ${venv_name} && set -x && " +
     "${venv_name}/bin/python -m pip install --upgrade uv && " +
     "touch ${sentinel_file}"
 }
 
-task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
+task install(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
@@ -46,8 +47,6 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
     "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_constraints} &&" +
     "touch ${sentinel_file}"
 }
-
-task install(dependsOn: [installPackage])
 
 task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
@@ -71,16 +70,20 @@ task installTest(type: Exec, dependsOn: [installDev]) {
 }
 
 task lint(type: Exec, dependsOn: installDev) {
-  /*
-    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
-   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
-   */
   commandLine 'bash', '-c',
-    "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     venv_activate_command +
     "ruff check src/ tests/ && " +
     "ruff format --check src/ tests/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/"
+    // Detect Airflow version and exclude incompatible plugin implementation
+    // This mirrors the tox approach: check only one implementation at a time
+    "AIRFLOW_VERSION=\$(python -c 'import airflow; print(airflow.__version__)') && " +
+    "if python -c 'import packaging.version; import airflow; exit(0 if packaging.version.parse(airflow.__version__) >= packaging.version.parse(\"3.0.0\") else 1)'; then " +
+      "echo \"Detected Airflow \$AIRFLOW_VERSION (3.x) - excluding airflow2 from mypy\" && " +
+      "mypy --exclude 'src/datahub_airflow_plugin/airflow2' --show-traceback --show-error-codes src/ tests/; " +
+    "else " +
+      "echo \"Detected Airflow \$AIRFLOW_VERSION (2.x) - excluding airflow3 from mypy\" && " +
+      "mypy --exclude 'src/datahub_airflow_plugin/airflow3' --show-traceback --show-error-codes src/ tests/; " +
+    "fi"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',

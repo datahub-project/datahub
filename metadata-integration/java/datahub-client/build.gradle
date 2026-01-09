@@ -52,6 +52,8 @@ dependencies {
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
   testRuntimeOnly externalDependency.logbackClassic
+  // ASM for bytecode inspection in tests
+  testImplementation 'org.ow2.asm:asm:9.5'
 }
 
 task copyAvroSchemas {
@@ -93,6 +95,26 @@ test {
   dependsOn validatePythonEnv
   dependsOn tasks.getByPath(":metadata-ingestion:installDev")
   systemProperty 'python.venv.path', System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
+
+  // Disable parallel test execution for integration tests
+  maxParallelForks = 1
+
+  // Pass DataHub integration test environment variables
+  if (System.getenv('DATAHUB_SERVER')) {
+    environment 'DATAHUB_SERVER', System.getenv('DATAHUB_SERVER')
+  }
+  if (System.getenv('DATAHUB_TOKEN')) {
+    environment 'DATAHUB_TOKEN', System.getenv('DATAHUB_TOKEN')
+  }
+  if (System.getenv('ADMIN_USERNAME')) {
+    environment 'ADMIN_USERNAME', System.getenv('ADMIN_USERNAME')
+  }
+  if (System.getenv('ADMIN_PASSWORD')) {
+    environment 'ADMIN_PASSWORD', System.getenv('ADMIN_PASSWORD')
+  }
+
+  // Integration tests are skipped by BaseIntegrationTest.assumeTrue() when DATAHUB_SERVER is not set.
+  // This ensures regular builds are fast, while smoke tests (which set DATAHUB_SERVER) run all tests.
   finalizedBy jacocoTestReport
 }
 
@@ -234,8 +256,8 @@ publishing {
 
   repositories {
     maven {
-      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def releasesRepoUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/"
       def ossrhUsername = System.getenv('RELEASE_USERNAME')
       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
       credentials {
@@ -255,8 +277,8 @@ signing {
 }
 
 nexusStaging {
-  serverUrl = "https://s01.oss.sonatype.org/service/local/"
+  serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/"
   //required only for projects registered in Sonatype after 2021-02-24
-  username = System.getenv("NEXUS_USERNAME")
-  password = System.getenv("NEXUS_PASSWORD")
+  username = System.getenv("RELEASE_USERNAME")
+  password = System.getenv("RELEASE_PASSWORD")
 }

@@ -49,7 +49,7 @@ const CaretWrapper = styled.div<{ $disabled?: boolean }>`
     & svg {
         color: ${colors.gray[1800]};
         display: flex;
-        align-items: center;
+        align-items: start;
         cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
         :hover {

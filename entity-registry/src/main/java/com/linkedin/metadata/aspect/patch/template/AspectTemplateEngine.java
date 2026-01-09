@@ -38,7 +38,12 @@ public class AspectTemplateEngine {
               STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
               FORM_INFO_ASPECT_NAME,
               UPSTREAM_LINEAGE_ASPECT_NAME,
-              VERSION_PROPERTIES_ASPECT_NAME)
+              VERSION_PROPERTIES_ASPECT_NAME,
+              SIBLINGS_ASPECT_NAME,
+              DOMAINS_ASPECT_NAME,
+              EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+              CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
@@ -53,9 +58,15 @@ public class AspectTemplateEngine {
 
   @Nullable
   public RecordTemplate getDefaultTemplate(String aspectSpecName) {
-    return _aspectTemplateMap.containsKey(aspectSpecName)
-        ? _aspectTemplateMap.get(aspectSpecName).getDefault()
-        : null;
+    if (_aspectTemplateMap.containsKey(aspectSpecName)) {
+      try {
+        return _aspectTemplateMap.get(aspectSpecName).getDefault();
+      } catch (UnsupportedOperationException e) {
+        // Some templates intentionally do not provide a sensible default; signal absence.
+        return null;
+      }
+    }
+    return null;
   }
 
   /**

@@ -8,7 +8,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
-SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
 
@@ -38,10 +38,21 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
         ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
+    )
+
+    # Domains that can be downstream tables in lineage
+    DOWNSTREAM_TABLE_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+    }
+
+    DOWNSTREAM_TABLE_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in DOWNSTREAM_TABLE_DOMAINS)
     )
 
     @staticmethod
@@ -167,6 +178,10 @@ class SnowflakeQuery:
         order by procedure_schema, procedure_name"""
 
     @staticmethod
+    def streamlit_apps_for_database(db_name: str) -> str:
+        return f'SHOW STREAMLITS IN DATABASE "{db_name}"'
+
+    @staticmethod
     def get_all_tags():
         return """
         SELECT tag_database as "TAG_DATABASE",
@@ -235,7 +250,7 @@ class SnowflakeQuery:
     @staticmethod
     def show_views_for_database(
         db_name: str,
-        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
         view_pagination_marker: Optional[str] = None,
     ) -> str:
         # While there is an information_schema.views view, that only shows the view definition if the role
@@ -244,7 +259,7 @@ class SnowflakeQuery:
 
         # SHOW VIEWS can return a maximum of 10000 rows.
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
-        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
         # To work around this, we paginate through the results using the FROM clause.
         from_clause = (
@@ -253,6 +268,33 @@ class SnowflakeQuery:
         return f"""\
 SHOW VIEWS IN DATABASE "{db_name}"
 LIMIT {limit} {from_clause};
+"""
+
+    @staticmethod
+    def get_views_for_database(db_name: str) -> str:
+        # We've seen some issues with the `SHOW VIEWS` query,
+        # particularly when it requires pagination.
+        # This is an experimental alternative query that might be more reliable.
+        return f"""\
+SELECT
+  TABLE_CATALOG as "VIEW_CATALOG",
+  TABLE_SCHEMA as "VIEW_SCHEMA",
+  TABLE_NAME as "VIEW_NAME",
+  COMMENT,
+  VIEW_DEFINITION,
+  CREATED,
+  LAST_ALTERED,
+  IS_SECURE
+FROM "{db_name}".information_schema.views
+WHERE TABLE_CATALOG = '{db_name}'
+  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+"""
+
+    @staticmethod
+    def get_views_for_schema(db_name: str, schema_name: str) -> str:
+        return f"""\
+{SnowflakeQuery.get_views_for_database(db_name).rstrip()}
+  AND TABLE_SCHEMA = '{schema_name}'
 """
 
     @staticmethod
@@ -267,6 +309,188 @@ LIMIT {limit} {from_clause};
             FROM SNOWFLAKE.ACCOUNT_USAGE.VIEWS
             WHERE IS_SECURE = 'YES' AND VIEW_DEFINITION !='' AND DELETED IS NULL
         """
+
+    @staticmethod
+    def get_semantic_views_for_database(db_name: str) -> str:
+        # Query semantic views from dedicated INFORMATION_SCHEMA.SEMANTIC_VIEWS view
+        return f"""\
+SELECT
+  CATALOG as "SEMANTIC_VIEW_CATALOG",
+  SCHEMA as "SEMANTIC_VIEW_SCHEMA",
+  NAME as "SEMANTIC_VIEW_NAME",
+  COMMENT,
+  CREATED
+FROM "{db_name}".information_schema.semantic_views
+"""
+
+    @staticmethod
+    def get_semantic_views_for_schema(db_name: str, schema_name: str) -> str:
+        return f"""\
+{SnowflakeQuery.get_semantic_views_for_database(db_name).rstrip()}
+WHERE SCHEMA = '{schema_name}'
+"""
+
+    @staticmethod
+    def get_semantic_view_ddl(
+        db_name: str, schema_name: str, semantic_view_name: str
+    ) -> str:
+        """Generate query to get the DDL definition of a semantic view.
+
+        Note: Inputs are expected to be pre-validated Snowflake identifiers from
+        INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
+        """
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+
+    @staticmethod
+    def get_semantic_tables_for_database(db_name: str) -> str:
+        """Generate query to get semantic tables (base table mappings) for all semantic views in a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_tables
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_tables_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic tables for semantic views in a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT"
+FROM "{db_name}".information_schema.semantic_tables
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_database(db_name: str) -> str:
+        """Generate query to get all semantic dimensions for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic dimensions for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_database(db_name: str) -> str:
+        """Generate query to get all semantic facts for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic facts for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_database(db_name: str) -> str:
+        """Generate query to get all semantic metrics for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic metrics for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
 
     @staticmethod
     def columns_for_schema(
@@ -686,7 +910,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         column_upstream_jobs AS (
@@ -843,7 +1067,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         table_upstream_jobs_unique AS (
@@ -940,3 +1164,37 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
         return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
+
+    @staticmethod
+    def show_dynamic_tables_for_database(
+        db_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        dynamic_table_pagination_marker: Optional[str] = None,
+    ) -> str:
+        """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+
+        from_clause = (
+            f"""FROM '{dynamic_table_pagination_marker}'"""
+            if dynamic_table_pagination_marker
+            else ""
+        )
+        return f"""\
+    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
+    LIMIT {limit} {from_clause};
+    """
+
+    @staticmethod
+    def get_dynamic_table_graph_history(db_name: str) -> str:
+        """Get dynamic table dependency information from information schema."""
+        return f"""
+            SELECT   
+                name,
+                inputs,
+                target_lag_type,
+                target_lag_sec,
+                scheduling_state,
+                alter_trigger
+            FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            ORDER BY name
+        """

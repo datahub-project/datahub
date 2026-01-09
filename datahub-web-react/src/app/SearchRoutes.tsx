@@ -2,6 +2,7 @@ import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
 import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
+import { AnalyticsPage as AnalyticsPageV2 } from '@app/analyticsDashboardV2/components/AnalyticsPage';
 import { ManageApplications } from '@app/applications/ManageApplications';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
 import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
@@ -16,7 +17,8 @@ import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
-import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
+import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
+import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -61,6 +63,14 @@ export const SearchRoutes = (): JSX.Element => {
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
+    const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
+
+    const renderAnalyticsPage = () => {
+        if (!showAnalytics) {
+            return <NoPageFound />;
+        }
+        return isThemeV2 ? <AnalyticsPageV2 /> : <AnalyticsPage />;
+    };
 
     return (
         <FinalSearchablePage>
@@ -85,7 +95,7 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                 <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
-                <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
+                <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route
                     path={PageRoutes.SETTINGS_POLICIES}
@@ -107,7 +117,7 @@ export const SearchRoutes = (): JSX.Element => {
                 )}
 
                 {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
-                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPageV2 />} />}
+                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
 
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
@@ -129,6 +139,7 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
+                <Route path="/mfe*" component={MFERoutes} />
                 {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
         </FinalSearchablePage>

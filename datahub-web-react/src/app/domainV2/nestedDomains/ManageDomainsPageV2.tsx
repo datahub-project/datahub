@@ -1,4 +1,3 @@
-import { useApolloClient } from '@apollo/client';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -6,7 +5,6 @@ import styled from 'styled-components/macro';
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import RootDomains from '@app/domainV2/nestedDomains/RootDomains';
-import { updateListDomainsCache } from '@app/domainV2/utils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
 import { Button } from '@src/alchemy-components';
@@ -35,7 +33,6 @@ const Header = styled.div`
 export default function ManageDomainsPageV2() {
     const { setEntityData } = useDomainsContextV2();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
-    const client = useApolloClient();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const location = useLocation();
     const history = useHistory();
@@ -69,14 +66,7 @@ export default function ManageDomainsPageV2() {
                 </Button>
             </Header>
             <RootDomains setIsCreatingDomain={setIsCreatingDomain} />
-            {isCreatingDomain && (
-                <CreateDomainModal
-                    onClose={() => setIsCreatingDomain(false)}
-                    onCreate={(urn, id, name, description, parentDomain) =>
-                        updateListDomainsCache(client, urn, id, name, description, parentDomain)
-                    }
-                />
-            )}
+            {isCreatingDomain && <CreateDomainModal onClose={() => setIsCreatingDomain(false)} />}
         </PageWrapper>
     );
 }

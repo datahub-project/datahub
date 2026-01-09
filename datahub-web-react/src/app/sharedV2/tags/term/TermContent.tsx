@@ -1,37 +1,46 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
-import { Modal, Tag, message } from 'antd';
-import React from 'react';
+import { Tag, message } from 'antd';
+import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
-import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
+import { StopPropagation } from '@app/shared/StopPropagation';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
-import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
+import { DataHubPageModuleType, GlossaryTermAssociation, SubResourceType } from '@types';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
-const TermContainer = styled.div`
+const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
     position: relative;
     max-width: 200px;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
-        border: 1px solid #ccd1dd;
+        border: 1px solid ${colors.gray[100]};
     }
 
-    :hover {
-        .ant-tag.ant-tag {
-            border: 1px solid ${(props) => props.theme.styles['primary-color']};
+    ${(props) =>
+        props.$shouldHighlightBorderOnHover &&
+        `
+        :hover {
+            .ant-tag.ant-tag {
+                border: 1px solid ${props.theme.styles['primary-color']};
+            }
         }
-    }
+    `}
 `;
 
 const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
@@ -116,9 +125,9 @@ interface Props {
     highlightText?: string;
     fontSize?: number;
     onOpenModal?: () => void;
+    onCloseModal?: () => void;
     refetch?: () => Promise<any>;
     showOneAndCount?: boolean;
-    context?: string | null;
 }
 
 export default function TermContent({
@@ -130,60 +139,68 @@ export default function TermContent({
     highlightText,
     fontSize,
     onOpenModal,
+    onCloseModal,
     refetch,
     showOneAndCount,
-    context,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { reloadByKeyType } = useReloadableContext();
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
     const generateColor = useGenerateGlossaryColorFromPalette();
-
+    const [termTobeRemoved, setTermToBeRemoved] = useState<GlossaryTermAssociation | null>(null);
+    const termName = termTobeRemoved && entityRegistry.getDisplayName(termTobeRemoved.term.type, termTobeRemoved.term);
     const highlightTerm = useHasMatchedFieldByUrn(urn, 'glossaryTerms');
     const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
     const termColor = lastParentNode
         ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
         : generateColor(urn);
     const displayName = entityRegistry.getDisplayName(type, term.term);
-    const removeTerm = (termToRemove: GlossaryTermAssociation) => {
-        onOpenModal?.();
-        const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
-        Modal.confirm({
-            title: `Do you want to remove ${termName} term?`,
-            content: `Are you sure you want to remove the ${termName} term?`,
-            onOk() {
-                if (termToRemove.associatedUrn || entityUrn) {
-                    removeTermMutation({
-                        variables: {
-                            input: {
-                                termUrn: termToRemove.term.urn,
-                                resourceUrn: termToRemove.associatedUrn || entityUrn || '',
-                                subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                            },
-                        },
-                    })
-                        .then(({ errors }) => {
-                            if (!errors) {
-                                message.success({ content: 'Removed Term!', duration: 2 });
-                            }
-                        })
-                        .then(refetch)
-                        .catch((e) => {
-                            message.destroy();
-                            message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
-                        });
-                }
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+
+    const removeTerm = () => {
+        if (termTobeRemoved?.associatedUrn || entityUrn) {
+            removeTermMutation({
+                variables: {
+                    input: {
+                        termUrn: termTobeRemoved?.term?.urn || '',
+                        resourceUrn: termTobeRemoved?.associatedUrn || entityUrn || '',
+                        subResource: entitySubresource,
+                        subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                    },
+                },
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        message.success({ content: 'Removed Term!', duration: 2 });
+                        // Reload modules
+                        // RelatedTerms - to update related terms in case some of them was removed
+                        // ChildHierarchy - to update contents module in glossary node
+                        reloadByKeyType(
+                            [
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.RelatedTerms,
+                                ),
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                            ],
+                            3000,
+                        );
+                    }
+                    setTermToBeRemoved(null);
+                })
+                .then(refetch)
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                });
+        }
     };
 
     return (
-        <TermContainer>
+        <TermContainer $shouldHighlightBorderOnHover={!readOnly} data-testid={`term-${displayName}`}>
             <StyledTerm
                 style={{ cursor: 'pointer' }}
                 fontSize={fontSize}
@@ -195,7 +212,6 @@ export default function TermContent({
                 <StyledHighlight matchStyle={highlightMatchStyle} search={highlightText}>
                     {displayName}
                 </StyledHighlight>
-                <LabelPropagationDetails entityType={EntityType.GlossaryTerm} context={context} />
 
                 {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
             </StyledTerm>
@@ -203,12 +219,26 @@ export default function TermContent({
                 <CloseButtonContainer
                     onClick={(e) => {
                         e.preventDefault();
-                        removeTerm(term);
+                        onOpenModal?.();
+                        setTermToBeRemoved(term);
                     }}
+                    data-testid="remove-icon"
                 >
                     <CloseIconStyle />
                 </CloseButtonContainer>
             )}
+            <StopPropagation>
+                <ConfirmationModal
+                    isOpen={!!termTobeRemoved}
+                    handleClose={() => {
+                        setTermToBeRemoved(null);
+                        onCloseModal?.();
+                    }}
+                    handleConfirm={removeTerm}
+                    modalTitle={`Do you want to remove ${termName} term?`}
+                    modalText={`Are you sure you want to remove the ${termName} term?`}
+                />
+            </StopPropagation>
         </TermContainer>
     );
 }

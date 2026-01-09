@@ -80,6 +80,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setViewTests(canViewTests(context));
             platformPrivileges.setManageTests(canManageTests(context));
             platformPrivileges.setManageGlossaries(canManageGlossaries(context));
+            platformPrivileges.setManageDocuments(AuthorizationUtils.canManageDocuments(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
             platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
             platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
@@ -102,6 +103,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageApplications(
                 ApplicationAuthorizationUtils.canManageApplications(context));
             platformPrivileges.setManageFeatures(AuthorizationUtils.canManageFeatures(context));
+            platformPrivileges.setManageHomePageTemplates(
+                AuthorizationUtils.canManageHomePageTemplates(context));
+
             // Construct and return authenticated user object.
             final AuthenticatedUser authUser = new AuthenticatedUser();
             authUser.setCorpUser(corpUser);

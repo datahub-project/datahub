@@ -46,6 +46,7 @@ public class AuthServiceClient {
 
   private final String metadataServiceHost;
   private final Integer metadataServicePort;
+  private final String metadataServiceBasePath;
   private final Boolean metadataServiceUseSsl;
   private final Authentication systemAuthentication;
   private final CloseableHttpClient httpClient;
@@ -54,11 +55,13 @@ public class AuthServiceClient {
   public AuthServiceClient(
       @Nonnull final String metadataServiceHost,
       @Nonnull final Integer metadataServicePort,
+      @Nonnull final String metadataServiceBasePath,
       @Nonnull final Boolean useSsl,
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final CloseableHttpClient httpClient) {
     this.metadataServiceHost = Objects.requireNonNull(metadataServiceHost);
     this.metadataServicePort = Objects.requireNonNull(metadataServicePort);
+    this.metadataServiceBasePath = Objects.requireNonNull(metadataServiceBasePath);
     this.metadataServiceUseSsl = Objects.requireNonNull(useSsl);
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
     this.httpClient = Objects.requireNonNull(httpClient);
@@ -81,10 +84,11 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
+                  "%s://%s:%s%s/%s",
                   protocol,
                   this.metadataServiceHost,
                   this.metadataServicePort,
+                  this.metadataServiceBasePath,
                   GENERATE_SESSION_TOKEN_ENDPOINT));
 
       log.info("Requesting session token for user: {}", userId);
@@ -133,13 +137,12 @@ public class AuthServiceClient {
       @Nonnull final String userUrn,
       @Nonnull final String fullName,
       @Nonnull final String email,
-      @Nonnull final String title,
+      final String title,
       @Nonnull final String password,
       @Nonnull final String inviteToken) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(fullName, "fullName must not be null");
     Objects.requireNonNull(email, "email must not be null");
-    Objects.requireNonNull(title, "title must not be null");
     Objects.requireNonNull(password, "password must not be null");
     Objects.requireNonNull(inviteToken, "inviteToken must not be null");
     CloseableHttpResponse response = null;
@@ -150,8 +153,12 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
-                  protocol, this.metadataServiceHost, this.metadataServicePort, SIGN_UP_ENDPOINT));
+                  "%s://%s:%s%s/%s",
+                  protocol,
+                  this.metadataServiceHost,
+                  this.metadataServicePort,
+                  this.metadataServiceBasePath,
+                  SIGN_UP_ENDPOINT));
 
       // Build JSON request to sign up a native user.
       final ObjectMapper objectMapper = new ObjectMapper();
@@ -159,7 +166,9 @@ public class AuthServiceClient {
       objectNode.put(USER_URN_FIELD, userUrn);
       objectNode.put(FULL_NAME_FIELD, fullName);
       objectNode.put(EMAIL_FIELD, email);
-      objectNode.put(TITLE_FIELD, title);
+      if (title != null) {
+        objectNode.put(TITLE_FIELD, title);
+      }
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(INVITE_TOKEN_FIELD, inviteToken);
       final String json =
@@ -215,10 +224,11 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
+                  "%s://%s:%s%s/%s",
                   protocol,
                   this.metadataServiceHost,
                   this.metadataServicePort,
+                  this.metadataServiceBasePath,
                   RESET_NATIVE_USER_CREDENTIALS_ENDPOINT));
 
       // Build JSON request to verify credentials for a native user.
@@ -272,10 +282,11 @@ public class AuthServiceClient {
       final HttpPost request =
           new HttpPost(
               String.format(
-                  "%s://%s:%s/%s",
+                  "%s://%s:%s%s/%s",
                   protocol,
                   this.metadataServiceHost,
                   this.metadataServicePort,
+                  this.metadataServiceBasePath,
                   VERIFY_NATIVE_USER_CREDENTIALS_ENDPOINT));
 
       // Build JSON request to verify credentials for a native user.

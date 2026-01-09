@@ -1,3 +1,4 @@
+import logging
 import time
 
 import pytest
@@ -5,6 +6,7 @@ from opensearchpy import OpenSearch
 
 from tests.utils import delete_urns, wait_for_writes_to_sync
 
+logger = logging.getLogger(__name__)
 es = OpenSearch(["http://localhost:9200"])
 
 
@@ -22,11 +24,11 @@ generated_urns = {
 @pytest.fixture(scope="module", autouse=True)
 def test_setup(graph_client):
     """Fixture to clean-up urns before and after a test is run"""
-    print("removing previous test data")
+    logger.info("removing previous test data")
     delete_urns(graph_client, list(generated_urns.values()))
     wait_for_writes_to_sync()
     yield
-    print("removing generated test data")
+    logger.info("removing generated test data")
     delete_urns(graph_client, list(generated_urns.values()))
     wait_for_writes_to_sync()
 
@@ -440,7 +442,7 @@ def extract_trace_system_metadata(system_metadata):
     return system_metadata["properties"]["telemetryTraceId"]
 
 
-def delete_elasticsearch_trace(trace_id, timeout=10, refresh_interval=1):
+def delete_elasticsearch_trace(trace_id, timeout=10, refresh_interval=3):
     field_name = "telemetryTraceId"
     index_name = "system_metadata_service_v1"
 

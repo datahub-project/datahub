@@ -19,6 +19,7 @@ export function Day<ValueType>({ day, weekOffset, dayIndex }: DayProps<ValueType
     const renderBar = () => {
         return (
             <StyledBar
+                data-testid={`day-${day.key}`}
                 x={weekOffset}
                 y={y}
                 width={squareSize}

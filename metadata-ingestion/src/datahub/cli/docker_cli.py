@@ -36,6 +36,7 @@ from datahub.cli.docker_check import (
 from datahub.cli.quickstart_versioning import (
     QuickstartVersionMappingConfig,
 )
+from datahub.configuration.env_vars import get_docker_compose_base
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -218,11 +219,13 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
 
 def _docker_compose_v2() -> List[str]:
     try:
-        # Check for the docker compose v2 plugin.
+        # Check for the docker compose v2 or newer plugin.
         compose_version = subprocess.check_output(
             ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
         ).decode()
-        assert compose_version.startswith("2.") or compose_version.startswith("v2.")
+        assert not (
+            compose_version.startswith("1.") or compose_version.startswith("v1.")
+        )
         return ["docker", "compose"]
     except (OSError, subprocess.CalledProcessError, AssertionError):
         # We'll check for docker-compose as well.
@@ -230,14 +233,16 @@ def _docker_compose_v2() -> List[str]:
             compose_version = subprocess.check_output(
                 ["docker-compose", "version", "--short"], stderr=subprocess.STDOUT
             ).decode()
-            if compose_version.startswith("2.") or compose_version.startswith("v2."):
+            if not (
+                compose_version.startswith("1.") or compose_version.startswith("v1.")
+            ):
                 # This will happen if docker compose v2 is installed in standalone mode
                 # instead of as a plugin.
                 return ["docker-compose"]
 
             raise DockerComposeVersionError(
-                f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2. "
-                "Please upgrade to Docker Compose v2. "
+                f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2 or later. "
+                "Please upgrade to Docker Compose v2 or later. "
                 "See https://docs.docker.com/compose/compose-v2/ for more information."
             )
         except (OSError, subprocess.CalledProcessError):
@@ -363,7 +368,7 @@ EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
 ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
 GRAPH_SERVICE_IMPL=elasticsearch
 KAFKA_BOOTSTRAP_SERVER=broker:29092
-KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
+KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-registry/api/
 SCHEMA_REGISTRY_TYPE=INTERNAL
 
 ELASTICSEARCH_HOST=search
@@ -792,8 +797,9 @@ def quickstart(
 
 
 def get_docker_compose_base_url(version_tag: str) -> str:
-    if os.environ.get("DOCKER_COMPOSE_BASE"):
-        return os.environ["DOCKER_COMPOSE_BASE"]
+    docker_compose_base = get_docker_compose_base()
+    if docker_compose_base:
+        return docker_compose_base
 
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 

@@ -3,7 +3,7 @@ import { SourceConfig } from '@app/ingestV2/source/conf/types';
 import hiveLogo from '@images/hivelogo.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: hive
     config:
         # Coordinates

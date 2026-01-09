@@ -6,14 +6,16 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { EXECUTION_REQUEST_STATUS_PENDING } from '@app/ingestV2/executions/constants';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
-import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
+import DateTimeColumn, { wrapDateTimeColumnWithHover } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
     ActionsColumn,
     NameColumn,
     OwnerColumn,
     ScheduleColumn,
+    wrapOwnerColumnWithHover,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getSourceStatus } from '@app/ingestV2/source/utils';
@@ -91,7 +93,7 @@ function IngestionSourceTable({
             { arrayFormat: 'comma' },
         );
 
-        history.replace({
+        history.push({
             pathname: tabUrlMap[TabType.RunHistory],
             search,
         });
@@ -102,10 +104,11 @@ function IngestionSourceTable({
             title: 'Name',
             key: 'name',
             render: (record) => {
-                return <NameColumn type={record.type} record={record} />;
+                return <NameColumn type={record.type} record={record} onNameClick={() => onEdit(record.urn)} />;
             },
             width: '25%',
             sorter: true,
+            onCellClick: (record) => onEdit(record.urn),
         },
         {
             title: 'Schedule',
@@ -118,14 +121,15 @@ function IngestionSourceTable({
             key: 'owner',
             render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
             width: '20%',
+            cellWrapper: wrapOwnerColumnWithHover,
         },
         {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => (
-                <DateTimeColumn time={record.lastExecTime} showRelative onClick={() => navigateToRunHistory(record)} />
-            ),
+            render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
+            onCellClick: (record) => navigateToRunHistory(record),
+            cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },
         {
             title: 'Status',
@@ -138,6 +142,11 @@ function IngestionSourceTable({
                 />
             ),
             width: '15%',
+            onCellClick: (record) =>
+                record.lastExecStatus !== EXECUTION_REQUEST_STATUS_PENDING &&
+                record.lastExecUrn &&
+                setFocusExecutionUrn(record.lastExecUrn),
+            isCellClickable: (record) => record.lastExecStatus !== EXECUTION_REQUEST_STATUS_PENDING,
         },
 
         {
@@ -170,7 +179,6 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
-            onRowClick={(record) => onEdit(record.urn)}
             footer={
                 isLastPage ? (
                     <TableFooter
@@ -179,6 +187,7 @@ function IngestionSourceTable({
                     />
                 ) : null
             }
+            rowDataTestId={(row) => `row-${row.name}`}
         />
     );
 }

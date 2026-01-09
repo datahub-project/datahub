@@ -22,6 +22,14 @@ const Container = styled.div`
     border-radius: ${radius.full};
 `;
 
+const DomainContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 28px;
+    width: 28px;
+`;
+
 const IconContainer = styled.div`
     margin-left: -4px;
     &:first-child {
@@ -31,7 +39,7 @@ const IconContainer = styled.div`
 
 const ICON_SIZE = 20;
 const SIBLING_ICON_SIZE = 16;
-const DOMAIN_ICON_SIZE = 28;
+const DOMAIN_ICON_SIZE = 24;
 
 export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps) {
     const entityRegistry = useEntityRegistryV2();
@@ -47,7 +55,11 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
     const { platforms } = getEntityPlatforms(entity.type, properties);
 
     if (entity.type === EntityType.Domain) {
-        return <DomainColoredIcon domain={entity as Domain} size={DOMAIN_ICON_SIZE} />;
+        return (
+            <DomainContainer>
+                <DomainColoredIcon domain={entity as Domain} size={DOMAIN_ICON_SIZE} fontSize={16} />
+            </DomainContainer>
+        );
     }
 
     if (!hasSiblings && (platforms?.length ?? 0) > 1) {

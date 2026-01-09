@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import (
@@ -29,7 +29,7 @@ data_platform = "trino"
 def trino_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/trino"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "trino"
+        test_resources_dir / "docker-compose.yml", "trino", setup_command=["up --wait"]
     ) as docker_services:
         wait_for_port(docker_services, "testtrino", 8080)
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)
@@ -57,7 +57,7 @@ def loaded_trino(trino_runner):
     subprocess.run(command, shell=True, check=True)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -111,11 +111,11 @@ def test_trino_ingest(
                             platform_instance="local_server",
                         )
                     },
-                ).dict(),
+                ).model_dump(),
             },
             "sink": {
                 "type": "file",
-                "config": FileSinkConfig(filename=str(events_file)).dict(),
+                "config": FileSinkConfig(filename=str(events_file)).model_dump(),
             },
         }
 
@@ -132,7 +132,7 @@ def test_trino_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_hive_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -161,11 +161,11 @@ def test_trino_hive_ingest(
                     ],
                     max_workers=1,
                 ),
-            ).dict(),
+            ).model_dump(),
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": FileSinkConfig(filename=str(events_file)).model_dump(),
         },
     }
 
@@ -199,7 +199,7 @@ def test_trino_hive_ingest(
     # Limitation 3 - Limited DatasetProperties available in Trino than in direct hive source - https://trino.io/docs/current/connector/hive.html#table-properties.
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_instance_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -221,11 +221,11 @@ def test_trino_instance_ingest(
                         platform_instance="local_server",
                     )
                 },
-            ).dict(),
+            ).model_dump(),
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": FileSinkConfig(filename=str(events_file)).model_dump(),
         },
     }
 

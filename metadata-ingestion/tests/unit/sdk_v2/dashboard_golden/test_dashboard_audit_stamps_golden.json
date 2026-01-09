@@ -1,0 +1,84 @@
+[
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,audit_golden_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,audit_golden_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "audit_test": "true"
+            },
+            "title": "Audit Golden Test",
+            "description": "Testing audit stamps with golden files",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1672596000000,
+                    "actor": "urn:li:corpuser:creator@example.com"
+                },
+                "lastModified": {
+                    "time": 1672698600000,
+                    "actor": "urn:li:corpuser:modifier@example.com"
+                },
+                "deleted": {
+                    "time": 1672793100000,
+                    "actor": "urn:li:corpuser:deleter@example.com"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,audit_golden_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:owner@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,audit_golden_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:audit"
+                },
+                {
+                    "tag": "urn:li:tag:test"
+                }
+            ]
+        }
+    }
+}
+]

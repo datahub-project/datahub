@@ -1,5 +1,6 @@
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
+import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
@@ -15,6 +16,8 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
+import googleSheetsLogo from '@images/google-sheets-logo.png';
+import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
@@ -35,7 +38,9 @@ import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
+import snaplogicLogo from '@images/snaplogic.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.png';
 import trinoLogo from '@images/trinologo.png';
@@ -46,6 +51,8 @@ export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
 export const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
+export const AZURE_DATA_FACTORY = 'azure-data-factory';
+export const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
 export const BIGQUERY = 'bigquery';
 export const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
@@ -70,6 +77,8 @@ export const FEAST_LEGACY = 'feast-legacy';
 export const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
 export const GLUE = 'glue';
 export const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
+export const GRAFANA = 'grafana';
+export const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 export const HIVE = 'hive';
 export const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
 export const KAFKA = 'kafka';
@@ -146,10 +155,17 @@ export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
+export const SNAPLOGIC = 'snaplogic';
+export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const GOOGLE_SHEETS = 'google_sheets';
+export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const STREAMLIT = 'streamlit';
+export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
+    [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
@@ -160,6 +176,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
     [GLUE_URN]: glueLogo,
+    [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
@@ -192,6 +209,9 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
+    [SNAPLOGIC_URN]: snaplogicLogo,
+    [GOOGLE_SHEETS_URN]: googleSheetsLogo,
+    [STREAMLIT_URN]: streamlitLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

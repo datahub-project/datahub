@@ -3,6 +3,7 @@ import { AvatarSizeOptions } from '@src/alchemy-components/theme/config';
 export enum AvatarType {
     user,
     group,
+    role,
 }
 export interface AvatarItemProps {
     name: string;
@@ -12,8 +13,9 @@ export interface AvatarItemProps {
 }
 
 export type AvatarStackProps = {
-    avatars: AvatarItemProps[];
+    avatars?: AvatarItemProps[];
     size?: AvatarSizeOptions;
     showRemainingNumber?: boolean;
     maxToShow?: number;
+    title?: string;
 };

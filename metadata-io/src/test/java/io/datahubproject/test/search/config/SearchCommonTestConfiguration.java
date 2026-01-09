@@ -1,6 +1,7 @@
 package io.datahubproject.test.search.config;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.search.CustomConfiguration;
@@ -9,8 +10,13 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +26,7 @@ import org.springframework.context.annotation.Bean;
 public class SearchCommonTestConfiguration {
   @Bean
   public SearchConfiguration searchConfiguration() {
-    SearchConfiguration searchConfiguration = TEST_ES_SEARCH_CONFIG.getSearch();
+    SearchConfiguration searchConfiguration = TEST_OS_SEARCH_CONFIG.getSearch();
     searchConfiguration.setMaxTermBucketSize(20);
 
     ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();
@@ -64,7 +70,33 @@ public class SearchCommonTestConfiguration {
 
   @Bean(name = "queryOperationContext")
   public OperationContext queryOperationContext() {
-    return TestOperationContexts.systemContextNoSearchAuthorization();
+    OperationContext testOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    // Create IndexConvention for the SearchContext
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("test")
+                .hashIdAlgo("MD5")
+                .build(),
+            TEST_OS_SEARCH_CONFIG.getEntityIndex());
+
+    // Create real SearchContext using ESUtils methods to populate searchableFieldTypes
+    MappingsBuilder mappingsBuilder =
+        createDelegatingMappingsBuilder(TEST_OS_SEARCH_CONFIG.getEntityIndex());
+    SearchContext searchContext =
+        SearchContext.builder()
+            .indexConvention(indexConvention)
+            .searchableFieldTypes(
+                ESUtils.buildSearchableFieldTypes(
+                    testOpContext.getEntityRegistry(), mappingsBuilder))
+            .searchableFieldPaths(
+                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .build();
+
+    return testOpContext.toBuilder()
+        .searchContext(searchContext)
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean

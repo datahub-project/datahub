@@ -1,21 +1,15 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.ALIAS_FIELD_TYPE;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.PATH;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TYPE;
-import static com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE;
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
-import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.DataSchema;
-import com.linkedin.data.schema.MapDataSchema;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -24,7 +18,6 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -39,7 +32,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -51,7 +43,6 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -65,8 +56,9 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -84,9 +76,10 @@ import org.opensearch.search.suggest.term.TermSuggestion;
 @Slf4j
 public class SearchRequestHandler extends BaseRequestHandler {
 
-  private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
+  private static final Map<SearchHandlerKey, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private final List<EntitySpec> entitySpecs;
+  private final List<String> entityNames;
   @Getter private final Set<String> defaultQueryFieldNames;
   @Nonnull private final HighlightBuilder highlights;
 
@@ -95,6 +88,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
   private final CustomizedQueryHandler customizedQueryHandler;
+  private final Map<PathSpec, String> searchableFieldPaths;
+
   private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   private SearchRequestHandler(
@@ -121,6 +116,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfig) {
     this.entitySpecs = entitySpecs;
+    this.entityNames = entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList());
     Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations =
         getSearchableAnnotations();
     List<SearchableAnnotation> annotations =
@@ -133,8 +129,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
     aggregationQueryBuilder =
         new AggregationQueryBuilder(configs.getSearch(), entitySearchAnnotations);
     this.searchServiceConfig = searchServiceConfig;
-    this.searchableFieldTypes =
-        buildSearchableFieldTypes(opContext.getEntityRegistry(), entitySpecs);
+    searchableFieldTypes = opContext.getSearchContext().getSearchableFieldTypes();
+    searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
@@ -148,16 +144,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
-    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
+    return getBuilder(
+        systemOperationContext,
         ImmutableList.of(entitySpec),
-        k ->
-            new SearchRequestHandler(
-                systemOperationContext,
-                entitySpec,
-                configs,
-                customSearchConfiguration,
-                queryFilterRewriteChain,
-                searchServiceConfiguration));
+        configs,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        searchServiceConfiguration);
   }
 
   public static SearchRequestHandler getBuilder(
@@ -168,7 +161,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
-        ImmutableList.copyOf(entitySpecs),
+        new SearchHandlerKey(
+            ImmutableList.copyOf(entitySpecs),
+            configs,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfiguration),
         k ->
             new SearchRequestHandler(
                 systemOperationContext,
@@ -208,18 +206,20 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
-    return getFilterQuery(opContext, filter, searchableFieldTypes, queryFilterRewriteChain);
+    return getFilterQuery(
+        opContext, this.entityNames, filter, searchableFieldTypes, queryFilterRewriteChain);
   }
 
   public static BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityNames,
       @Nullable Filter filter,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
             filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
-    return applyDefaultSearchFilters(opContext, filter, filterQuery);
+    return applyDefaultSearchFilters(opContext, entityNames, filter, filterQuery);
   }
 
   /**
@@ -278,7 +278,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
-
     return searchRequest;
   }
 
@@ -312,6 +311,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
     searchSourceBuilder.fetchSource("urn", null);
@@ -445,22 +445,49 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
-    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+
+    // Build per-hit results and attach a per-element scrollId
+    final SearchHit[] searchHits = searchResponse.getHits().getHits();
+    long expirationTimeMs = 0L;
+    if (keepAlive != null && supportsPointInTime) {
+      expirationTimeMs =
+          TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
+              + System.currentTimeMillis();
+    }
+
+    List<SearchEntity> results = new ArrayList<>(searchHits.length);
+    for (SearchHit hit : searchHits) {
+      // Build base SearchEntity
+      SearchEntity entity = getResult(hit);
+      // Compute per-hit scrollId using this hit's sort values
+      Object[] sort = hit.getSortValues();
+      String perHitScrollId =
+          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+              .toScrollId();
+      // Merge into existing extraFields if present
+      StringMap extra = entity.getExtraFields();
+      if (extra == null) {
+        entity.setExtraFields(new StringMap(Map.of("scrollId", perHitScrollId)));
+      } else {
+        extra.put("scrollId", perHitScrollId);
+        entity.setExtraFields(extra);
+      }
+      results.add(entity);
+    }
+
+    // Apply access control restrictions while preserving order
+    Collection<SearchEntity> resultList =
+        ESAccessControlUtil.restrictSearchResult(opContext, results);
+
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
-    SearchHit[] searchHits = searchResponse.getHits().getHits();
+
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
-    if (searchHits.length == size) {
-      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      long expirationTimeMs = 0L;
-      if (keepAlive != null && supportsPointInTime) {
-        expirationTimeMs =
-            TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
-                + System.currentTimeMillis();
-      }
+    if (searchHits.length == size && searchHits.length > 0) {
+      Object[] lastSort = searchHits[searchHits.length - 1].getSortValues();
       nextScrollId =
-          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+          new SearchAfterWrapper(lastSort, searchResponse.pointInTimeId(), expirationTimeMs)
               .toScrollId();
     }
 
@@ -468,7 +495,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         new ScrollResult()
             .setEntities(new SearchEntityArray(resultList))
             .setMetadata(searchResultMetadata)
-            .setPageSize(size)
+            .setPageSize(Math.min(size, totalCount))
             .setNumEntities(totalCount);
 
     if (nextScrollId != null) {
@@ -653,125 +680,20 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   /**
-   * Calculate the field types based on annotations if available, with fallback to ES mappings
+   * Enhanced cache key implementation to prevent handler cross-contamination in tests.
    *
-   * @param entitySpecs entitySpecs
-   * @return Field name to annotation field types
+   * <p>Background: Flaky tests occurred because the cache key (previously just entitySpecs) didn't
+   * account for all configuration variants. Identical entitySpecs with different search
+   * configurations would incorrectly share handlers, leading to test instability.
+   *
+   * <p>This key ensures each unique configuration combination gets its own handler instance.
    */
-  private static Map<String, Set<SearchableAnnotation.FieldType>> buildSearchableFieldTypes(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull List<EntitySpec> entitySpecs) {
-    return entitySpecs.stream()
-        .flatMap(
-            entitySpec -> {
-              Map<String, Set<SearchableAnnotation.FieldType>> annotationFieldTypes =
-                  entitySpec.getSearchableFieldTypes();
-
-              // fallback to mappings
-              Map<String, Map<String, Object>> rawMappingTypes =
-                  ((Map<String, Object>)
-                          MappingsBuilder.getMappings(entityRegistry, entitySpec)
-                              .getOrDefault("properties", Map.<String, Object>of()))
-                      .entrySet().stream()
-                          .filter(
-                              entry ->
-                                  !annotationFieldTypes.containsKey(entry.getKey())
-                                      && ((Map<String, Object>) entry.getValue()).containsKey(TYPE))
-                          .collect(
-                              Collectors.toMap(
-                                  Map.Entry::getKey, e -> (Map<String, Object>) e.getValue()));
-
-              Map<String, Set<SearchableAnnotation.FieldType>> mappingFieldTypes =
-                  rawMappingTypes.entrySet().stream()
-                      .map(
-                          entry -> Map.entry(entry.getKey(), entry.getValue().get(TYPE).toString()))
-                      .map(
-                          entry ->
-                              Map.entry(
-                                  entry.getKey(),
-                                  fallbackMappingToAnnotation(entry.getValue()).stream()
-                                      .collect(Collectors.toSet())))
-                      .filter(entry -> !entry.getValue().isEmpty())
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-              // aliases - pull from annotations
-              Map<String, Set<SearchableAnnotation.FieldType>> aliasFieldTypes =
-                  rawMappingTypes.entrySet().stream()
-                      .filter(
-                          entry -> ALIAS_FIELD_TYPE.equals(entry.getValue().get(TYPE).toString()))
-                      .map(
-                          entry ->
-                              Map.entry(
-                                  entry.getKey(),
-                                  annotationFieldTypes.getOrDefault(
-                                      entry.getValue().get(PATH).toString(),
-                                      Collections.emptySet())))
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-              List<SearchableFieldSpec> objectFieldSpec =
-                  entitySpec.getSearchableFieldSpecs().stream()
-                      .filter(
-                          searchableFieldSpec ->
-                              searchableFieldSpec.getSearchableAnnotation().getFieldType()
-                                  == SearchableAnnotation.FieldType.OBJECT)
-                      .collect(Collectors.toList());
-
-              Map<String, Set<SearchableAnnotation.FieldType>> objectFieldTypes = new HashMap<>();
-
-              objectFieldSpec.forEach(
-                  fieldSpec -> {
-                    String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
-                    DataSchema.Type dataType =
-                        ((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType();
-
-                    Set<SearchableAnnotation.FieldType> fieldType;
-
-                    switch (dataType) {
-                      case BOOLEAN:
-                        fieldType = Set.of(SearchableAnnotation.FieldType.BOOLEAN);
-                        break;
-                      case INT:
-                        fieldType = Set.of(SearchableAnnotation.FieldType.COUNT);
-                        break;
-                      case DOUBLE:
-                      case LONG:
-                      case FLOAT:
-                        fieldType = Set.of(SearchableAnnotation.FieldType.DOUBLE);
-                        break;
-                      default:
-                        fieldType = Set.of(SearchableAnnotation.FieldType.TEXT);
-                        break;
-                    }
-                    objectFieldTypes.put(fieldName, fieldType);
-                    annotationFieldTypes.remove(fieldName);
-                  });
-
-              return Stream.concat(
-                  Stream.concat(
-                      objectFieldTypes.entrySet().stream(),
-                      annotationFieldTypes.entrySet().stream()),
-                  Stream.concat(
-                      mappingFieldTypes.entrySet().stream(), aliasFieldTypes.entrySet().stream()));
-            })
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                Map.Entry::getValue,
-                (set1, set2) -> {
-                  set1.addAll(set2);
-                  return set1;
-                }));
-  }
-
-  private static Set<SearchableAnnotation.FieldType> fallbackMappingToAnnotation(
-      @Nonnull String mappingType) {
-    switch (mappingType) {
-      case KEYWORD_FIELD_TYPE:
-        return Set.of(SearchableAnnotation.FieldType.KEYWORD);
-      case DATE_FIELD_TYPE:
-        return Set.of(SearchableAnnotation.FieldType.DATETIME);
-      case OBJECT_FIELD_TYPE:
-        return Set.of(SearchableAnnotation.FieldType.OBJECT);
-    }
-    return Collections.emptySet();
+  @Value
+  private static class SearchHandlerKey {
+    @Nonnull private final List<EntitySpec> entitySpecs;
+    @Nonnull private final ElasticSearchConfiguration configs;
+    @Nullable private final CustomSearchConfiguration customSearchConfiguration;
+    @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
+    @Nonnull private final SearchServiceConfiguration searchServiceConfiguration;
   }
 }

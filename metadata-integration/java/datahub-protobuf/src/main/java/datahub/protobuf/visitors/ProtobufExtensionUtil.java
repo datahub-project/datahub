@@ -14,7 +14,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -43,45 +42,59 @@ public class ProtobufExtensionUtil {
     public static final String PROTOBUF_TYPE = "DataHubMetadataType";
   }
 
+  /**
+   * Checks if a field descriptor is annotated with a specific DataHub metadata type option. Fields
+   * without an explicit annotation default to PROPERTY type.
+   */
+  @SuppressWarnings("unchecked")
+  private static boolean matchesDataHubType(
+      Descriptors.FieldDescriptor fieldDescriptor,
+      ExtensionRegistry registry,
+      DataHubMetadataType filterType) {
+    DescriptorProtos.FieldDescriptorProto extendedProtoOptions =
+        extendProto(fieldDescriptor.toProto(), registry);
+
+    for (Map.Entry<Descriptors.FieldDescriptor, Object> extEntry :
+        extendedProtoOptions.getOptions().getAllFields().entrySet()) {
+      if (extEntry.getKey().getJavaType() != Descriptors.FieldDescriptor.JavaType.ENUM) {
+        continue;
+      }
+
+      Collection<Descriptors.EnumValueDescriptor> enumValues;
+      if (extEntry.getKey().isRepeated()) {
+        enumValues = (Collection<Descriptors.EnumValueDescriptor>) extEntry.getValue();
+      } else {
+        enumValues = List.of((Descriptors.EnumValueDescriptor) extEntry.getValue());
+      }
+
+      for (Descriptors.EnumValueDescriptor enumDesc : enumValues) {
+        if (!enumDesc.getType().getFullName().endsWith("." + DataHubMetadataType.PROTOBUF_TYPE)) {
+          continue;
+        }
+
+        DataHubMetadataType dhmt = DataHubMetadataType.valueOf(enumDesc.getName());
+        if (dhmt.equals(filterType)) {
+          return true;
+        }
+      }
+    }
+
+    return filterType.equals(DataHubMetadataType.PROPERTY);
+  }
+
   public static List<Pair<Descriptors.FieldDescriptor, Object>> filterByDataHubType(
       List<Pair<Descriptors.FieldDescriptor, Object>> options,
       ExtensionRegistry registry,
       DataHubMetadataType filterType) {
-    return options.stream()
-        .filter(
-            entry -> {
-              DescriptorProtos.FieldDescriptorProto extendedProtoOptions =
-                  extendProto(entry.getKey().toProto(), registry);
-              Optional<DataHubMetadataType> dataHubMetadataType =
-                  extendedProtoOptions.getOptions().getAllFields().entrySet().stream()
-                      .filter(
-                          extEntry ->
-                              extEntry.getKey().getJavaType()
-                                  == Descriptors.FieldDescriptor.JavaType.ENUM)
-                      .flatMap(
-                          extEntry -> {
-                            if (extEntry.getKey().isRepeated()) {
-                              return ((Collection<Descriptors.EnumValueDescriptor>)
-                                      extEntry.getValue())
-                                  .stream();
-                            } else {
-                              return Stream.of(
-                                  (Descriptors.EnumValueDescriptor) extEntry.getValue());
-                            }
-                          })
-                      .filter(
-                          enumDesc ->
-                              enumDesc
-                                  .getType()
-                                  .getFullName()
-                                  .endsWith("." + DataHubMetadataType.PROTOBUF_TYPE))
-                      .map(enumDesc -> DataHubMetadataType.valueOf(enumDesc.getName()))
-                      .filter(dhmt -> dhmt.equals(filterType))
-                      .findFirst();
+    List<Pair<Descriptors.FieldDescriptor, Object>> result = new java.util.ArrayList<>();
 
-              return filterType.equals(dataHubMetadataType.orElse(DataHubMetadataType.PROPERTY));
-            })
-        .collect(Collectors.toList());
+    for (Pair<Descriptors.FieldDescriptor, Object> entry : options) {
+      if (matchesDataHubType(entry.getKey(), registry, filterType)) {
+        result.add(entry);
+      }
+    }
+
+    return result;
   }
 
   public static Stream<Map.Entry<String, String>> getProperties(

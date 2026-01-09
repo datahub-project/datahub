@@ -44,7 +44,7 @@ public class EbeanAspectV2 extends Model {
   @Embeddable
   @Getter
   @NoArgsConstructor
-  public static class PrimaryKey implements Serializable {
+  public static class PrimaryKey implements Serializable, Comparable<PrimaryKey> {
 
     private static final long serialVersionUID = 1L;
 
@@ -96,6 +96,25 @@ public class EbeanAspectV2 extends Model {
     public int hashCode() {
       return Objects.hash(urn.stripTrailing(), aspect.stripTrailing(), version);
     }
+
+    @Override
+    public int compareTo(EbeanAspectV2.PrimaryKey other) {
+      final String thisUrn = this.urn.stripTrailing();
+      final String otherUrn = other.urn.stripTrailing();
+      int urnComparison = thisUrn.compareTo(otherUrn);
+      if (urnComparison != 0) {
+        return urnComparison;
+      }
+
+      final String thisAspect = this.aspect.stripTrailing();
+      final String otherAspect = other.aspect.stripTrailing();
+      int aspectComparison = thisAspect.compareTo(otherAspect);
+      if (aspectComparison != 0) {
+        return aspectComparison;
+      }
+
+      return Long.compare(this.version, other.version);
+    }
   }
 
   @Nonnull @EmbeddedId @Index protected PrimaryKey key;
@@ -128,6 +147,7 @@ public class EbeanAspectV2 extends Model {
   private String createdFor;
 
   @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
+  @Lob
   protected String systemMetadata;
 
   public EbeanAspectV2(

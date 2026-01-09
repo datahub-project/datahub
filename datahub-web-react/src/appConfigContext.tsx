@@ -47,6 +47,12 @@ export const DEFAULT_APP_CONFIG = {
     searchBarConfig: {
         apiVariant: SearchBarApi.AutocompleteForMultiple,
     },
+    searchCardConfig: {
+        showDescription: false,
+    },
+    searchFlagsConfig: {
+        defaultSkipHighlighting: false,
+    },
     homePageConfig: {
         firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },
@@ -79,11 +85,19 @@ export const DEFAULT_APP_CONFIG = {
         showManageTags: false,
         showIntroducePage: false,
         showIngestionPageRedesign: false,
+        ingestionOnboardingRedesignV1: false,
         showLineageExpandMore: false,
+        showDefaultExternalLinks: true,
+        showStatsTabRedesign: false,
         showHomePageRedesign: false,
         showProductUpdates: false,
         lineageGraphV3: false,
         logicalModelsEnabled: false,
+        showHomepageUserRole: false,
+        assetSummaryPageV1: false,
+        datasetSummaryPageV1: false,
+        documentationFileUploadV1: false,
+        contextDocumentsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

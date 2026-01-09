@@ -82,7 +82,6 @@ describe('convertModuleToModuleInfo', () => {
             key: module.urn,
             type: getModuleType(module),
             name: getModuleName(module),
-            description: getModuleDescription(module),
             icon: getModuleIcon(module),
         });
     });

@@ -18,6 +18,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
@@ -32,7 +33,6 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -120,7 +120,7 @@ public class TrackingService {
   private final ObjectMapper _objectMapper = new ObjectMapper();
   private final ObjectWriter _objectWriter = _objectMapper.writerWithDefaultPrettyPrinter();
   private String _clientId;
-  private final Producer<String, String> dataHubUsageProducer;
+  private final GenericProducer<String> dataHubUsageProducer;
 
   public TrackingService(
       final TopicsConfiguration topicsConfiguration,
@@ -129,7 +129,7 @@ public class TrackingService {
       final MixpanelAPI mixpanelAPI,
       @Nonnull EntityService<?> entityService,
       @Nonnull GitVersion gitVersion,
-      @Nullable Producer<String, String> dataHubUsageProducer) {
+      @Nullable GenericProducer<String> dataHubUsageProducer) {
     this.topicsConfiguration = topicsConfiguration;
     this.secretService = secretService;
     this.messageBuilder = messageBuilder;
@@ -153,56 +153,6 @@ public class TrackingService {
       log.info("TrackingService initialized without Kafka producer for DataHubUsageEvent");
     }
   }
-
-  // TODO: No callers: Remove post review
-  /*
-  public void track(
-      @Nonnull final String eventName,
-      @Nonnull final OperationContext opContext,
-      @Nullable final Authenticator authenticator,
-      @Nullable final EntityClient entityClient) {
-    if (mixpanelAPI == null || messageBuilder == null) {
-      log.warn("Mixpanel tracking is not enabled. Skipping event: {}", eventName);
-      return;
-    }
-
-    try {
-      final String actorId = opContext.getActorContext().getActorUrn().toString();
-
-      // Create the event message using MessageBuilder
-      JSONObject message = messageBuilder.event(actorId, eventName, new JSONObject());
-
-      // Create properties object if it doesn't exist
-      JSONObject properties;
-      if (message.has("properties")) {
-        properties = message.getJSONObject("properties");
-      } else {
-        properties = new JSONObject();
-        message.put("properties", properties);
-      }
-
-      // Add properties to the event
-      properties.put("distinct_id", actorId);
-      properties.put("actor", actorId);
-      properties.put("version", _gitVersion.getVersion());
-      properties.put("time", System.currentTimeMillis() / 1000L);
-
-      // Sanitize the properties
-      JSONObject sanitizedProperties = sanitizeEvent(properties);
-      if (sanitizedProperties != null) {
-        message.put("properties", sanitizedProperties);
-      }
-
-      // log the message
-      log.info("Sending event {} to Mixpanel: {}", eventName, message.toString());
-      mixpanelAPI.sendMessage(message);
-      log.debug("Successfully sent event {} to Mixpanel", eventName);
-    } catch (Exception e) {
-      log.warn("Failed to track event: {}", eventName, e);
-    }
-  }
-
-   */
 
   /**
    * Parse a timestamp from various formats (numeric or string) and convert it to epoch milliseconds

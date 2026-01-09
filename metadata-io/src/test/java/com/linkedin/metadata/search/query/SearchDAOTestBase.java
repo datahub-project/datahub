@@ -7,7 +7,6 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -18,6 +17,7 @@ import static org.testng.Assert.fail;
 
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -39,6 +39,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,7 +51,6 @@ import java.util.Map;
 import org.apache.commons.lang3.tuple.Triple;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -58,7 +58,7 @@ import org.testng.annotations.Test;
 
 public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests {
 
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   protected abstract SearchConfiguration getSearchConfiguration();
 
@@ -67,6 +67,8 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   protected abstract ESSearchDAO getESSearchDao();
 
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
+
+  protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
   @Test
   public void testTransformFilterForEntitiesNoChange() {
@@ -210,8 +212,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         new ESSearchDAO(
             getSearchClient(),
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
@@ -302,8 +303,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         new ESSearchDAO(
             getSearchClient(),
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);

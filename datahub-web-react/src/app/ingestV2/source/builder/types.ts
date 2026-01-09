@@ -22,6 +22,9 @@ export interface SourceConfig {
     docsUrl: string;
     description?: string;
     recipe: string;
+    category?: string;
+    isPopular?: boolean;
+    isExternal?: boolean;
 }
 
 /**
@@ -38,6 +41,10 @@ export type StepProps = {
     isEditing: boolean;
     sourceRefetch?: () => Promise<any>;
     selectedSource?: IngestionSource;
+    // This is not same as selectedSource
+    // This is required when the ingestion source has not been created
+    selectedSourceType?: string;
+    setSelectedSourceType?: (sourceType: string) => void;
 };
 
 export type StringMapEntryInput = {

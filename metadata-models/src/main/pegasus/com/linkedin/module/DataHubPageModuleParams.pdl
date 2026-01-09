@@ -25,4 +25,9 @@ record DataHubPageModuleParams {
    * The params required if the module is type ASSET_COLLECTION
    */
   assetCollectionParams: optional AssetCollectionModuleParams
+
+  /**
+   * The params required if the module is type HIERARCHY_VIEW
+   */
+  hierarchyViewParams: optional HierarchyModuleParams
 }

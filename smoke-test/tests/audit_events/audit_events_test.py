@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from typing import List
@@ -11,6 +12,8 @@ from tests.utils import (
     login_as,
     wait_for_writes_to_sync,
 )
+
+logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
 
@@ -125,15 +128,24 @@ def access_token_setup(auth_session, auth_exclude_filter):
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
+
+    if res_data["data"]["listAccessTokens"]["tokens"]:
+        for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
+            revokeAccessToken(admin_session, metadata["id"])
+        wait_for_writes_to_sync()
+
+    # Verify clean state after cleanup
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data["data"]["listAccessTokens"]["total"] == 0
     assert not res_data["data"]["listAccessTokens"]["tokens"]
 
     yield
 
-    # Clean up
+    # Clean up after the test
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
         revokeAccessToken(admin_session, metadata["id"])
+    wait_for_writes_to_sync()
 
 
 def test_audit_token_events(auth_exclude_filter):
@@ -172,7 +184,7 @@ def test_audit_token_events(auth_exclude_filter):
         ["urn:li:corpuser:user"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 2
@@ -202,7 +214,7 @@ def test_login_events(auth_exclude_filter):
         ["urn:li:corpuser:user"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 1
@@ -229,7 +241,7 @@ def test_failed_login_events(auth_exclude_filter):
         ["urn:li:corpuser:user"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 1
@@ -313,7 +325,7 @@ def test_policy_events(auth_exclude_filter):
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
@@ -409,7 +421,7 @@ def test_ingestion_source_events(auth_exclude_filter):
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 2
@@ -433,7 +445,7 @@ def test_user_events(auth_exclude_filter):
         ["urn:li:corpuser:__datahub_system"],
         ["corpUserKey", "corpUserInfo", "corpUserStatus", "corpUserCredentials"],
     )
-    print(res_data)
+    logger.info(res_data)
     assert len(res_data["usageEvents"]) == 4
     assert res_data["usageEvents"][0]["eventType"] == "UpdateUserEvent"
     assert res_data["usageEvents"][0]["entityUrn"] == "urn:li:corpuser:user"
@@ -530,7 +542,7 @@ def test_policy_create_delete(auth_exclude_filter):
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
-    print(res_data)
+    logger.info(res_data)
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2

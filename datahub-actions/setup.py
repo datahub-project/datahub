@@ -41,7 +41,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "ruff==0.11.7",
-    "mypy==1.14.1",
+    "mypy==1.17.1",
 }
 
 base_requirements = {
@@ -74,11 +74,11 @@ framework_common = {
 plugins: Dict[str, Set[str]] = {
     # Source Plugins
     "kafka": {
-        "confluent-kafka[schemaregistry]",
+        "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
     "executor": {
-        "acryl-executor==0.2.2",
+        "acryl-executor==0.3.2",
     },
     "slack": {
         "slack-bolt>=1.15.5",
@@ -92,6 +92,10 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub[snowflake-slim]{_self_pin}",
     },
     "doc_propagation": set(),
+    "observability": {
+        "opentelemetry-api>=1.20.0",
+        "opentelemetry-sdk>=1.20.0",
+    },
     # Transformer Plugins (None yet)
 }
 

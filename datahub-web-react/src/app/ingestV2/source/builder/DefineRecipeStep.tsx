@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import RecipeBuilder from '@app/ingestV2/source/builder/RecipeBuilder';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { StepProps } from '@app/ingestV2/source/builder/types';
@@ -39,7 +39,15 @@ const ControlsContainer = styled.div`
 /**
  * The step for defining a recipe
  */
-export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSources }: StepProps) => {
+export const DefineRecipeStep = ({
+    state,
+    updateState,
+    goTo,
+    prev,
+    ingestionSources,
+    selectedSource,
+    setSelectedSourceType,
+}: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
@@ -96,9 +104,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
         updateState(newState);
 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
+        setSelectedSourceType?.(newState.type);
     };
 
-    if (type && CONNECTORS_WITH_FORM.has(type)) {
+    if (type && CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS.has(type)) {
         return (
             <RecipeBuilder
                 key={stagedRecipeName}
@@ -109,6 +118,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 setStagedRecipe={setStagedRecipeYml}
                 onClickNext={onClickNext}
                 goToPrevious={prev}
+                selectedSource={selectedSource}
             />
         );
     }

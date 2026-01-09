@@ -1,16 +1,14 @@
 import React, { memo, useMemo } from 'react';
 
-import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import NewRowDropZone from '@app/homeV3/template/components/NewRowDropZone';
 import TemplateRow from '@app/homeV3/templateRow/TemplateRow';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
 
 interface Props {
     wrappedRows: WrappedRow[];
-    modulesAvailableToAdd: ModulesAvailableToAdd;
 }
 
-function TemplateGrid({ wrappedRows, modulesAvailableToAdd }: Props) {
+function TemplateGrid({ wrappedRows }: Props) {
     // Memoize the template rows with drop zones between them
     const templateRowsWithDropZones = useMemo(() => {
         const result: React.ReactElement[] = [];
@@ -24,9 +22,7 @@ function TemplateGrid({ wrappedRows, modulesAvailableToAdd }: Props) {
 
             // Add the actual row
             const rowKey = `templateRow-${i}`;
-            result.push(
-                <TemplateRow key={rowKey} row={row} rowIndex={i} modulesAvailableToAdd={modulesAvailableToAdd} />,
-            );
+            result.push(<TemplateRow key={rowKey} row={row} rowIndex={i} />);
 
             // Add drop zone after each row (for inserting between/after rows)
             const finalDropKey = `drop-zone-after-${i}`;
@@ -34,7 +30,7 @@ function TemplateGrid({ wrappedRows, modulesAvailableToAdd }: Props) {
         });
 
         return result;
-    }, [wrappedRows, modulesAvailableToAdd]);
+    }, [wrappedRows]);
 
     return <>{templateRowsWithDropZones}</>;
 }

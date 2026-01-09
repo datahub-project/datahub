@@ -103,7 +103,7 @@ function GlossaryBrowser(props: Props) {
     });
 
     return (
-        <BrowserWrapper>
+        <BrowserWrapper data-testid="glossary-browser">
             {loading && (
                 <LoadingWrapper>
                     <LoadingOutlined />

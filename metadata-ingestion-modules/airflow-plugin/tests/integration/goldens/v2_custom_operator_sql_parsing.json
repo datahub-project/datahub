@@ -7,15 +7,15 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "_access_control": "None",
-                "catchup": "False",
-                "description": "None",
-                "doc_md": "None",
+                "_access_control": "",
+                "catchup": "false",
+                "description": "",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
-                "timezone": "Timezone('UTC')"
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=custom_operator_sql_parsing",
             "name": "custom_operator_sql_parsing",
@@ -125,7 +125,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"unusual_prefix_4e637e24cdc764538c4f2c50a69337d834414024_custom_operator_sql_parsing.CustomOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"transform_cost_table\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": \"[]\", \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"CustomOperator\", \"operator_class_path\": \"unusual_prefix_ebd3fdb1fd41551f8768e86cd65c563e963a66ee_custom_operator_sql_parsing.CustomOperator\", \"outlets\": \"[]\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"transform_cost_table\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_sql_parsing&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -144,20 +144,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,custom_operator_sql_parsing,prod),transform_cost_table)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [],
-            "fineGrainedLineages": []
         }
     }
 },
@@ -205,26 +191,26 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "<duration>",
                 "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "running",
+                "task_id": "transform_cost_table",
+                "dag_id": "custom_operator_sql_parsing",
+                "duration": "<duration>",
                 "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
-                "try_number": "0",
+                "operator": "CustomOperator",
                 "max_tries": "0",
                 "external_executor_id": "None",
-                "state": "running",
-                "operator": "CustomOperator",
                 "priority_weight": "1",
                 "log_url": "http://airflow.example.com/dags/custom_operator_sql_parsing/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
-                "orchestrator": "airflow",
-                "dag_id": "custom_operator_sql_parsing",
-                "task_id": "transform_cost_table"
+                "orchestrator": "airflow"
             },
             "externalUrl": "http://airflow.example.com/dags/custom_operator_sql_parsing/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "custom_operator_sql_parsing_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1743006088881,
+                "time": 1765381379152,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -249,7 +235,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1743006088881,
+            "timestampMillis": 1765381379152,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -278,7 +264,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.default.my_input_table,PROD)')]",
                 "outlets": "[Urn(_urn='urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.default.my_output_table,PROD)')]",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.25.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"unusual_prefix_4e637e24cdc764538c4f2c50a69337d834414024_custom_operator_sql_parsing.CustomOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"transform_cost_table\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet\", \"unknownItems\": [{\"name\": \"CustomOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": \"[]\", \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"CustomOperator\", \"operator_class_path\": \"unusual_prefix_ebd3fdb1fd41551f8768e86cd65c563e963a66ee_custom_operator_sql_parsing.CustomOperator\", \"outlets\": \"[]\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"transform_cost_table\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=custom_operator_sql_parsing&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -386,7 +372,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1743006089018,
+            "timestampMillis": 1765381379288,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -396,6 +382,50 @@
                 "type": "SUCCESS",
                 "nativeResultType": "airflow"
             }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e9904feabede38cc4dc2bc74e51c6d77",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.default.my_input_table,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:e9904feabede38cc4dc2bc74e51c6d77",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.default.my_output_table,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.default.my_output_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1765381379331,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1765381379331
         }
     }
 }

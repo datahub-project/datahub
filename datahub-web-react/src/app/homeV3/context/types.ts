@@ -1,7 +1,13 @@
+import { AssetProperty } from '@app/entityV2/summary/properties/types';
+import {
+    AddSummaryElementInput,
+    ReplaceSummaryElementInput,
+} from '@app/homeV3/context/hooks/useAssetSummaryOperations';
+import { TemplateUpdateContext } from '@app/homeV3/context/hooks/utils/templateOperationUtils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, PageModuleScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
 // Input types for the methods
 export interface UpsertModuleInput {
@@ -19,9 +25,10 @@ export interface AddModuleInput {
 }
 
 export interface RemoveModuleInput {
-    moduleUrn: string;
+    module: PageModuleFragment;
     position: ModulePositionInput;
 }
+
 export interface ModuleModalState {
     isOpen: boolean;
     moduleType: DataHubPageModuleType | null;
@@ -30,7 +37,11 @@ export interface ModuleModalState {
     close: () => void;
     isEditing: boolean;
     initialState: PageModuleFragment | null;
-    openToEdit: (moduleType: DataHubPageModuleType, currentData: PageModuleFragment) => void;
+    openToEdit: (
+        moduleType: DataHubPageModuleType,
+        currentData: PageModuleFragment,
+        currentPosition: ModulePositionInput,
+    ) => void;
 }
 
 export interface MoveModuleInput {
@@ -42,10 +53,12 @@ export interface MoveModuleInput {
 
 // Context state shape
 export type PageTemplateContextState = {
+    isTemplateEditable: boolean;
     personalTemplate: PageTemplateFragment | null;
     globalTemplate: PageTemplateFragment | null;
     template: PageTemplateFragment | null;
     isEditingGlobalTemplate: boolean;
+    templateType: PageTemplateSurfaceType;
     setIsEditingGlobalTemplate: (val: boolean) => void;
     setPersonalTemplate: (template: PageTemplateFragment | null) => void;
     setGlobalTemplate: (template: PageTemplateFragment | null) => void;
@@ -55,4 +68,11 @@ export type PageTemplateContextState = {
     moduleModalState: ModuleModalState;
     removeModule: (input: RemoveModuleInput) => void;
     moveModule: (input: MoveModuleInput) => void;
+    resetTemplateToDefault: () => void;
+    moduleContext: TemplateUpdateContext;
+    // Asset summary operations
+    summaryElements?: AssetProperty[];
+    addSummaryElement: (input: AddSummaryElementInput) => void;
+    removeSummaryElement: (position: number, elementType: SummaryElementType) => void;
+    replaceSummaryElement: (input: ReplaceSummaryElementInput) => void;
 };

@@ -22,6 +22,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -33,6 +34,7 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -215,6 +217,73 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
+  public static void testFilterRemovesDuplicates() throws Exception {
+    // Has no duplicate values
+    Filter expectedFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("baseField", Condition.EQUAL, "baseTest"))))));
+
+    ViewService mockService = Mockito.mock(ViewService.class);
+    EntityClient mockClient =
+        initMockEntityClient(
+            ImmutableList.of(Constants.DATASET_ENTITY_NAME),
+            "",
+            expectedFilter,
+            0,
+            10,
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    final SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+
+    final SearchAcrossEntitiesInput testInput =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET),
+            "",
+            0,
+            10,
+            null,
+            ImmutableList.of(
+                new AndFilterInput(
+                    ImmutableList.of(
+                        new FacetFilterInput(
+                            "baseField",
+                            "",
+                            ImmutableList.of("baseTest", "baseTest"),
+                            false,
+                            FilterOperator.EQUAL)))),
+            null,
+            null,
+            null);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    verifyMockEntityClient(
+        mockClient,
+        ImmutableList.of(
+            Constants.DATASET_ENTITY_NAME), // Verify that merged entity types were used.
+        "",
+        expectedFilter,
+        0,
+        10);
+  }
+
+  @Test
   public static void testApplyViewNullBaseEntityTypes() throws Exception {
     Filter viewFilter =
         new Filter()
@@ -359,6 +428,8 @@ public class SearchAcrossEntitiesResolverTest {
   @Test
   public static void testApplyViewViewDoesNotExist() throws Exception {
     // When a view does not exist, the endpoint should WARN and not apply the view.
+    // Note: Since DOCUMENT is now in SEARCHABLE_ENTITY_TYPES, document default filters
+    // (state=PUBLISHED, showInGlobalContext=true) are automatically applied.
 
     ViewService mockService = initMockViewService(TEST_VIEW_URN, null);
 
@@ -367,11 +438,14 @@ public class SearchAcrossEntitiesResolverTest {
             .map(EntityTypeMapper::getName)
             .collect(Collectors.toList());
 
+    // Create the expected document filter that gets applied when DOCUMENT is in entity types
+    Filter expectedDocumentFilter = buildDocumentDefaultFilter();
+
     EntityClient mockClient =
         initMockEntityClient(
             searchEntityTypes,
             "",
-            null,
+            expectedDocumentFilter,
             0,
             10,
             new SearchResult()
@@ -401,7 +475,40 @@ public class SearchAcrossEntitiesResolverTest {
 
     resolver.get(mockEnv).get();
 
-    verifyMockEntityClient(mockClient, searchEntityTypes, "", null, 0, 10);
+    verifyMockEntityClient(mockClient, searchEntityTypes, "", expectedDocumentFilter, 0, 10);
+  }
+
+  /**
+   * Builds the default document filter that is applied when DOCUMENT is in the search entity types.
+   * Uses negated EQUAL conditions which naturally pass through for non-document entities:
+   *
+   * <p>state != UNPUBLISHED (negated) AND showInGlobalContext != false (negated)
+   */
+  private static Filter buildDocumentDefaultFilter() {
+    List<Criterion> criteria = new ArrayList<>();
+
+    // Exclude unpublished documents (non-documents pass through) - negated EQUAL
+    Criterion stateCriterion = new Criterion();
+    stateCriterion.setField("state");
+    stateCriterion.setCondition(Condition.EQUAL);
+    stateCriterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList("UNPUBLISHED")));
+    stateCriterion.setNegated(true);
+    criteria.add(stateCriterion);
+
+    // Exclude documents not meant for global context (non-documents pass through) - negated EQUAL
+    Criterion showInGlobalContextCriterion = new Criterion();
+    showInGlobalContextCriterion.setField("showInGlobalContext");
+    showInGlobalContextCriterion.setCondition(Condition.EQUAL);
+    showInGlobalContextCriterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList("false")));
+    showInGlobalContextCriterion.setNegated(true);
+    criteria.add(showInGlobalContextCriterion);
+
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
   }
 
   @Test

@@ -13,14 +13,51 @@ import {
 import {
     buildOwnerEntities,
     capitalizeMonthsAndDays,
+    formatExtraArgs,
     formatTimezone,
-    getEntitiesIngestedByType,
+    getAspectsBySubtypes,
+    getEntitiesIngestedByTypeOrSubtype,
+    getIngestionContents,
+    getIngestionSourceMutationInput,
+    getNewIngestionSourcePlaceholder,
+    getOtherIngestionContents,
     getSortInput,
     getSourceStatus,
+    getStructuredReport,
     getTotalEntitiesIngested,
 } from '@app/ingestV2/source/utils';
 
-import { EntityType, ExecutionRequest, ExecutionRequestResult, IngestionSource, SortOrder } from '@types';
+import {
+    EntityType,
+    ExecutionRequest,
+    ExecutionRequestResult,
+    IngestionSource,
+    OwnershipTypeEntity,
+    SortOrder,
+} from '@types';
+
+// Mock entity registry for tests
+const mockEntityRegistry = {
+    getSearchEntityTypesAsCamelCase: () => [
+        'dataset',
+        'container',
+        'dashboard',
+        'chart',
+        'dataJob',
+        'dataFlow',
+        'mlModel',
+        'mlModelGroup',
+        'mlPrimaryKey',
+        'mlFeature',
+        'mlFeatureTable',
+        'glossaryTerm',
+        'tag',
+        'corpUser',
+        'corpGroup',
+        'domain',
+        'notebook',
+    ],
+} as any;
 
 // Extend dayjs with required plugins
 dayjs.extend(utc);
@@ -35,7 +72,7 @@ const mockExecutionRequestResult = (structuredReportData: any): Partial<Executio
     } as Partial<ExecutionRequestResult>;
 };
 
-describe('getEntitiesIngestedByType', () => {
+describe('getEntitiesIngestedByTypeOrSubtype', () => {
     // Mock for console.error
     const originalConsoleError = console.error;
     console.error = vi.fn();
@@ -49,7 +86,7 @@ describe('getEntitiesIngestedByType', () => {
     });
 
     test('returns null when structured report is not available', () => {
-        const result = getEntitiesIngestedByType({} as Partial<ExecutionRequestResult>);
+        const result = getEntitiesIngestedByTypeOrSubtype({} as Partial<ExecutionRequestResult>, mockEntityRegistry);
         expect(result).toBeNull();
     });
 
@@ -63,7 +100,10 @@ describe('getEntitiesIngestedByType', () => {
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(malformedReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(
+            mockExecutionRequestResult(malformedReport),
+            mockEntityRegistry,
+        );
         expect(result).toBeNull();
     });
 
@@ -72,24 +112,32 @@ describe('getEntitiesIngestedByType', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: 156,
-                            container: 117,
+                            unknown: {
+                                containerProperties: 156,
+                                container: 117,
+                                status: 156,
+                            },
                         },
                         dataset: {
-                            status: 1505,
-                            schemaMetadata: 1505,
-                            datasetProperties: 1505,
-                            container: 1505,
-                            operation: 1521,
+                            unknown: {
+                                status: 1505,
+                                schemaMetadata: 1505,
+                                datasetProperties: 1505,
+                                container: 1505,
+                                operation: 1521,
+                            },
                         },
                     },
                 },
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(
+            mockExecutionRequestResult(structuredReport),
+            mockEntityRegistry,
+        );
 
         expect(result).toEqual([
             {
@@ -107,12 +155,15 @@ describe('getEntitiesIngestedByType', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {},
+                    aspects_by_subtypes: {},
                 },
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(
+            mockExecutionRequestResult(structuredReport),
+            mockEntityRegistry,
+        );
         expect(result).toBeNull();
     });
 
@@ -120,23 +171,258 @@ describe('getEntitiesIngestedByType', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: '156',
-                            container: 117,
+                            unknown: {
+                                containerProperties: '156',
+                                container: 117,
+                                status: 156,
+                            },
                         },
                     },
                 },
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(
+            mockExecutionRequestResult(structuredReport),
+            mockEntityRegistry,
+        );
         expect(result).toEqual([
             {
                 count: 156,
                 displayName: 'container',
             },
         ]);
+    });
+});
+
+describe('getAspectsBySubtypes', () => {
+    test('returns null when aspects_by_subtypes is not present', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    // Missing aspects_by_subtypes property
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when structured report object is null', () => {
+        const result = getAspectsBySubtypes(null, mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when structured report object is undefined', () => {
+        const result = getAspectsBySubtypes(undefined, mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when source is missing', () => {
+        const structuredReportObject = {
+            // Missing source property
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when report is missing', () => {
+        const structuredReportObject = {
+            source: {
+                // Missing report property
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('filters out entities without search card', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        // Entities that should be kept (not in entitesWithoutSearchCard list)
+                        dataset: {
+                            Table: {
+                                status: 100,
+                                schemaMetadata: 100,
+                            },
+                        },
+                        container: {
+                            Container: {
+                                status: 50,
+                                containerProperties: 50,
+                            },
+                        },
+                        dashboard: {
+                            Dashboard: {
+                                status: 25,
+                                dashboardInfo: 25,
+                            },
+                        },
+                        // Entities that should be filtered out (in entitesWithoutSearchCard list)
+                        dataPlatform: {
+                            Platform: {
+                                status: 10,
+                                platformProperties: 10,
+                            },
+                        },
+                        role: {
+                            Role: {
+                                status: 5,
+                                roleProperties: 5,
+                            },
+                        },
+                        dataHubPolicy: {
+                            Policy: {
+                                status: 3,
+                                policyProperties: 3,
+                            },
+                        },
+                        schemaField: {
+                            Field: {
+                                status: 200,
+                                fieldProperties: 200,
+                            },
+                        },
+                        assertion: {
+                            Assertion: {
+                                status: 15,
+                                assertionProperties: 15,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
+
+        // Should only contain entities that are NOT in the entitesWithoutSearchCard list
+        expect(result).toEqual({
+            dataset: {
+                Table: {
+                    status: 100,
+                    schemaMetadata: 100,
+                },
+            },
+            container: {
+                Container: {
+                    status: 50,
+                    containerProperties: 50,
+                },
+            },
+            dashboard: {
+                Dashboard: {
+                    status: 25,
+                    dashboardInfo: 25,
+                },
+            },
+        });
+    });
+
+    test('returns all entities when none are in the filter list', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 100,
+                                schemaMetadata: 100,
+                            },
+                        },
+                        container: {
+                            Container: {
+                                status: 50,
+                                containerProperties: 50,
+                            },
+                        },
+                        dashboard: {
+                            Dashboard: {
+                                status: 25,
+                                dashboardInfo: 25,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
+
+        expect(result).toEqual({
+            dataset: {
+                Table: {
+                    status: 100,
+                    schemaMetadata: 100,
+                },
+            },
+            container: {
+                Container: {
+                    status: 50,
+                    containerProperties: 50,
+                },
+            },
+            dashboard: {
+                Dashboard: {
+                    status: 25,
+                    dashboardInfo: 25,
+                },
+            },
+        });
+    });
+
+    test('returns empty object when all entities are filtered out', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataPlatform: {
+                            Platform: {
+                                status: 10,
+                                platformProperties: 10,
+                            },
+                        },
+                        role: {
+                            Role: {
+                                status: 5,
+                                roleProperties: 5,
+                            },
+                        },
+                        schemaField: {
+                            Field: {
+                                status: 200,
+                                fieldProperties: 200,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
+
+        expect(result).toEqual({});
+    });
+
+    test('handles empty aspects_by_subtypes object', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {},
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject, mockEntityRegistry);
+
+        expect(result).toEqual({});
     });
 });
 
@@ -162,7 +448,7 @@ describe('getSortInput', () => {
 
 describe('getTotalEntitiesIngested', () => {
     test('returns null when structured report is not available', () => {
-        const result = getTotalEntitiesIngested({} as Partial<ExecutionRequestResult>);
+        const result = getTotalEntitiesIngested({} as Partial<ExecutionRequestResult>, mockEntityRegistry);
         expect(result).toBeNull();
     });
 
@@ -171,12 +457,12 @@ describe('getTotalEntitiesIngested', () => {
         const malformedReport = {
             source: {
                 report: {
-                    // Missing aspects property to trigger exception
+                    // Missing aspects_by_subtypes property to trigger exception
                 },
             },
         };
 
-        const result = getTotalEntitiesIngested(mockExecutionRequestResult(malformedReport));
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(malformedReport), mockEntityRegistry);
         expect(result).toBeNull();
     });
 
@@ -184,12 +470,12 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {},
+                    aspects_by_subtypes: {},
                 },
             },
         };
 
-        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
         expect(result).toBeNull();
     });
 
@@ -197,28 +483,35 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: 156,
-                            container: 117,
+                            unknown: {
+                                containerProperties: 156,
+                                container: 117,
+                                status: 156,
+                            },
                         },
                         dataset: {
-                            status: 1505,
-                            schemaMetadata: 1505,
-                            datasetProperties: 1505,
-                            container: 1505,
-                            operation: 1521,
+                            unknown: {
+                                status: 1505,
+                                schemaMetadata: 1505,
+                                datasetProperties: 1505,
+                                container: 1505,
+                                operation: 1521,
+                            },
                         },
                         dashboard: {
-                            status: 42,
-                            dashboardInfo: 42,
+                            unknown: {
+                                status: 42,
+                                dashboardInfo: 42,
+                            },
                         },
                     },
                 },
             },
         };
 
-        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
         expect(result).toBe(156 + 1505 + 42); // 1703
     });
 
@@ -226,17 +519,20 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: 156,
-                            container: 117,
+                            unknown: {
+                                containerProperties: 156,
+                                container: 117,
+                                status: 156,
+                            },
                         },
                     },
                 },
             },
         };
 
-        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
         expect(result).toBe(156);
     });
 
@@ -244,17 +540,20 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: '156',
-                            container: 117,
+                            unknown: {
+                                containerProperties: '156',
+                                container: 117,
+                                status: 156,
+                            },
                         },
                     },
                 },
             },
         };
 
-        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
+        const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
         expect(result).toBe(156);
     });
 });
@@ -278,7 +577,7 @@ describe('formatTimezone', () => {
         expect(['EST', 'EDT']).toContain(nycAbbr);
 
         const londonAbbr = formatTimezone('Europe/London');
-        expect(['GMT+1', 'BST']).toContain(londonAbbr);
+        expect(['GMT', 'BST']).toContain(londonAbbr);
 
         // Tokyo doesn't observe DST, so it's always GMT+9
         expect(formatTimezone('Asia/Tokyo')).toBe('GMT+9');
@@ -412,6 +711,430 @@ describe('getSourceStatus', () => {
     });
 });
 
+describe('getIngestionContents', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getIngestionContents({} as Partial<ExecutionRequestResult>, mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when aspects_by_subtypes is empty', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {},
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('processes dataset subtypes with lineage information correctly', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        container: {
+                            containerProperties: 156,
+                            container: 117,
+                        },
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                upstreamLineage: 5,
+                                datasetProfile: 10,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 10,
+                                datasetProfile: 20,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                title: 'Table',
+                count: 5,
+                percent: '50%',
+            },
+            {
+                title: 'View',
+                count: 10,
+                percent: '50%',
+            },
+        ]);
+    });
+
+    test('filters out subtypes with 0% lineage', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                upstreamLineage: 0,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 5,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                title: 'View',
+                count: 5,
+                percent: '25%',
+            },
+        ]);
+    });
+
+    test('filters out subtypes with status count of 0', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 0,
+                                upstreamLineage: 5,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 10,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                title: 'View',
+                count: 10,
+                percent: '50%',
+            },
+        ]);
+    });
+
+    test('handles missing upstreamLineage property', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                // upstreamLineage is missing
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('handles missing status property', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                // status is missing
+                                upstreamLineage: 5,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('calculates percentage correctly and rounds to nearest integer', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 7,
+                                upstreamLineage: 2, // 2/7 = 28.57...% rounds to 29%
+                            },
+                            View: {
+                                status: 3,
+                                upstreamLineage: 1, // 1/3 = 33.33...% rounds to 33%
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                title: 'Table',
+                count: 2,
+                percent: '29%',
+            },
+            {
+                title: 'View',
+                count: 1,
+                percent: '33%',
+            },
+        ]);
+    });
+});
+
+describe('getOtherIngestionContents', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getOtherIngestionContents({} as Partial<ExecutionRequestResult>, mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when aspects_by_subtypes is empty', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {},
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toBeNull();
+    });
+
+    test('processes multiple dataset subtypes and aggregates profiling and usage entries', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                datasetProfile: 5,
+                                datasetUsageStatistics: 3,
+                            },
+                            View: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 13, // 5 + 8
+                percent: '43%', // (13 / 30) * 100 = 43.33...% rounds to 43%
+            },
+            {
+                type: 'Usage',
+                count: 15, // 3 + 12
+                percent: '50%', // (15 / 30) * 100 = 50%
+            },
+        ]);
+    });
+
+    test('filters out subtypes with zero profiling and usage counts', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                datasetProfile: 0,
+                                datasetUsageStatistics: 0,
+                            },
+                            View: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 8,
+                percent: '27%', // (8 / 30) * 100 = 26.66...% rounds to 27%
+            },
+            {
+                type: 'Usage',
+                count: 12,
+                percent: '40%', // (12 / 30) * 100 = 40%
+            },
+        ]);
+    });
+
+    test('filters out subtypes with zero status count', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 0,
+                                datasetProfile: 5,
+                                datasetUsageStatistics: 3,
+                            },
+                            View: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 8,
+                percent: '40%', // (8 / 20) * 100 = 40%
+            },
+            {
+                type: 'Usage',
+                count: 12,
+                percent: '60%', // (12 / 20) * 100 = 60%
+            },
+        ]);
+    });
+
+    test('handles missing datasetProfile and datasetUsageStatistics properties', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                // datasetProfile and datasetUsageStatistics are missing
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                count: 0,
+                percent: '0%',
+                type: 'Usage',
+            },
+        ]);
+    });
+
+    test('ignores non-dataset entity types', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        container: {
+                            Container: {
+                                status: 10,
+                                datasetProfile: 5,
+                                datasetUsageStatistics: 3,
+                            },
+                        },
+                        dataset: {
+                            Table: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 8,
+                percent: '40%', // (8 / 20) * 100 = 40%
+            },
+            {
+                type: 'Usage',
+                count: 12,
+                percent: '60%', // (12 / 20) * 100 = 60%
+            },
+        ]);
+    });
+
+    test('calculates percentage correctly and rounds to nearest integer', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 7,
+                                datasetProfile: 2, // 2/7 = 28.57...% rounds to 29%
+                                datasetUsageStatistics: 1, // 1/7 = 14.28...% rounds to 14%
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport), mockEntityRegistry);
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 2,
+                percent: '29%',
+            },
+            {
+                type: 'Usage',
+                count: 1,
+                percent: '14%',
+            },
+        ]);
+    });
+});
+
 describe('buildOwnerEntities', () => {
     const entityUrn = 'urn:li:entity:123';
     const ownerUrn = 'urn:li:user:123';
@@ -462,6 +1185,7 @@ describe('buildOwnerEntities', () => {
                         title: '',
                     },
                 },
+                attribution: null,
                 associatedUrn: entityUrn,
                 type: 'CORP_USER',
                 ownershipType: defaultOwnerType,
@@ -514,5 +1238,551 @@ describe('buildOwnerEntities', () => {
         expect(result[0].owner.editableProperties.displayName).toBe('Partial User');
         expect(result[0].owner.properties.displayName).toBe('');
         expect(result[0].owner.info.admins).toEqual([]);
+    });
+});
+
+describe('getStructuredReport', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getStructuredReport({} as Partial<ExecutionRequestResult>);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when both source and sink reports are missing', () => {
+        const structuredReport = {
+            // No source or sink
+        };
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).toBeNull();
+    });
+
+    test('extracts errors, warnings, and infos from source report only', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Source Error',
+                            message: 'Failed to connect to source',
+                            context: ['connection', 'timeout'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Source Warning',
+                            message: 'Deprecated API used',
+                            context: ['api', 'v1'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Source Info',
+                            message: 'Processing completed',
+                            context: ['summary'],
+                        },
+                    ],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(1);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(1);
+        expect(result?.items).toHaveLength(3);
+    });
+
+    test('extracts errors, warnings, and infos from sink report only', () => {
+        const structuredReport = {
+            sink: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Sink Error',
+                            message: 'Failed to write to sink',
+                            context: ['write', 'permission'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Sink Warning',
+                            message: 'Slow write speed',
+                            context: ['performance'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Sink Info',
+                            message: 'Write completed',
+                            context: ['summary'],
+                        },
+                    ],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(1);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(1);
+        expect(result?.items).toHaveLength(3);
+    });
+
+    test('extracts and combines errors, warnings, and infos from both source and sink reports', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Source Error 1',
+                            message: 'Failed to connect',
+                            context: ['connection'],
+                        },
+                        {
+                            title: 'Source Error 2',
+                            message: 'Failed to authenticate',
+                            context: ['auth'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Source Warning',
+                            message: 'Deprecated field',
+                            context: ['field'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Source Info',
+                            message: 'Processing started',
+                            context: ['start'],
+                        },
+                    ],
+                },
+            },
+            sink: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Sink Error',
+                            message: 'Write failed',
+                            context: ['write'],
+                        },
+                    ],
+                    warnings: [
+                        {
+                            title: 'Sink Warning 1',
+                            message: 'Slow write',
+                            context: ['performance'],
+                        },
+                        {
+                            title: 'Sink Warning 2',
+                            message: 'Buffer full',
+                            context: ['buffer'],
+                        },
+                    ],
+                    infos: [
+                        {
+                            title: 'Sink Info',
+                            message: 'Write completed',
+                            context: ['end'],
+                        },
+                    ],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(3); // 2 from source + 1 from sink
+        expect(result?.warnCount).toBe(3); // 1 from source + 2 from sink
+        expect(result?.infoCount).toBe(2); // 1 from source + 1 from sink
+        expect(result?.items).toHaveLength(8);
+    });
+
+    test('handles legacy object format for failures and warnings', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: {
+                        'Connection error': ['host1', 'host2'],
+                        'Authentication error': ['user1'],
+                    },
+                    warnings: {
+                        'Deprecated API': ['endpoint1'],
+                    },
+                    infos: {},
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(2);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(0);
+        expect(result?.items[0].message).toBe('Connection error');
+        expect(result?.items[0].context).toEqual(['host1', 'host2']);
+    });
+
+    test('handles mixed array and object formats', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        {
+                            title: 'Source Error',
+                            message: 'Array format error',
+                            context: ['context1'],
+                        },
+                    ],
+                    warnings: {},
+                    infos: [],
+                },
+            },
+            sink: {
+                report: {
+                    failures: {
+                        'Object format error': ['context2'],
+                    },
+                    warnings: [
+                        {
+                            title: 'Sink Warning',
+                            message: 'Array format warning',
+                            context: ['context3'],
+                        },
+                    ],
+                    infos: {},
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(2);
+        expect(result?.warnCount).toBe(1);
+        expect(result?.infoCount).toBe(0);
+        expect(result?.items).toHaveLength(3);
+    });
+
+    test('handles empty source and sink reports', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [],
+                    warnings: [],
+                    infos: [],
+                },
+            },
+            sink: {
+                report: {
+                    failures: [],
+                    warnings: [],
+                    infos: [],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(0);
+        expect(result?.warnCount).toBe(0);
+        expect(result?.infoCount).toBe(0);
+        expect(result?.items).toHaveLength(0);
+    });
+
+    test('filters out string items from array format', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    failures: [
+                        'sampled from 100 records',
+                        {
+                            title: 'Valid Error',
+                            message: 'This should be included',
+                            context: ['context'],
+                        },
+                    ],
+                    warnings: [],
+                    infos: [],
+                },
+            },
+        };
+
+        const result = getStructuredReport(mockExecutionRequestResult(structuredReport));
+        expect(result).not.toBeNull();
+        expect(result?.errorCount).toBe(1);
+        expect(result?.items).toHaveLength(1);
+        expect(result?.items[0].message).toBe('This should be included');
+    });
+});
+
+describe('formatExtraArgs', () => {
+    test('should return empty array when input is null', () => {
+        expect(formatExtraArgs(null)).toEqual([]);
+    });
+
+    test('should return empty array when input is undefined', () => {
+        expect(formatExtraArgs(undefined)).toEqual([]);
+    });
+
+    test('should return filtered and mapped array when input has valid entries', () => {
+        const input = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key2', value: 'value2' },
+        ];
+        expect(formatExtraArgs(input)).toEqual(input);
+    });
+
+    test('should filter out entries with null, undefined, or empty string values', () => {
+        const input = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key2', value: null },
+            { key: 'key3', value: undefined },
+            { key: 'key4', value: '' },
+            { key: 'key5', value: 'value5' },
+        ];
+        const expected = [
+            { key: 'key1', value: 'value1' },
+            { key: 'key5', value: 'value5' },
+        ];
+        expect(formatExtraArgs(input)).toEqual(expected);
+    });
+
+    test('should handle empty array input', () => {
+        expect(formatExtraArgs([])).toEqual([]);
+    });
+});
+
+describe('getNewIngestionSourcePlaceholder', () => {
+    test('should create a placeholder ingestion source with correct structure', () => {
+        const urn = 'test-urn';
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+            owners: [],
+        };
+
+        const defaultOwnershipType = {
+            urn: 'urn:li:ownershipType:TEST',
+            name: 'TEST',
+            description: 'Test ownership type',
+            type: EntityType.CustomOwnershipType,
+        } as OwnershipTypeEntity;
+
+        const result = getNewIngestionSourcePlaceholder(urn, data, defaultOwnershipType);
+
+        expect(result).toMatchObject({
+            urn: 'test-urn',
+            name: 'test-source',
+            type: 'test-type',
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+            platform: null,
+            executions: null,
+            source: null,
+            config: {
+                executorId: '',
+                recipe: '',
+                version: null,
+                debugMode: null,
+                extraArgs: null,
+            },
+            ownership: {
+                lastModified: {
+                    time: 0,
+                },
+                __typename: 'Ownership',
+            },
+            __typename: 'IngestionSource',
+        });
+    });
+
+    test('should handle data with missing optional fields', () => {
+        const urn = 'test-urn';
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            // No schedule provided
+            owners: [],
+        };
+
+        const result = getNewIngestionSourcePlaceholder(urn, data, undefined);
+
+        expect(result.schedule.interval).toBe('');
+        expect(result.schedule.timezone).toBe(null);
+    });
+});
+
+describe('getIngestionSourceMutationInput', () => {
+    test('should create mutation input with correct structure', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                version: '1.0.0',
+                executorId: 'executor-1',
+                debugMode: true,
+                extraArgs: [{ key: 'arg1', value: 'value1' }],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result).toEqual({
+            type: 'test-type',
+            name: 'test-source',
+            config: {
+                recipe: 'test-recipe',
+                version: '1.0.0',
+                executorId: 'executor-1',
+                debugMode: true,
+                extraArgs: [{ key: 'arg1', value: 'value1' }],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        });
+    });
+
+    test('should use default executor ID when executorId is not provided', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                executorId: '',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.executorId).toBe('default');
+    });
+
+    test('should use undefined version when version is empty', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                version: '', // Empty string
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.version).toBeUndefined();
+    });
+
+    test('should not include schedule when no schedule is provided', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            // No schedule provided
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.schedule).toBeUndefined();
+    });
+
+    test('should preserve source field when editing existing sources', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const existingSource = {
+            urn: 'test-urn',
+            name: 'test-source',
+            type: 'test-type',
+            config: { recipe: '', executorId: '' },
+            source: {
+                type: 'SYSTEM',
+            },
+        } as IngestionSource;
+
+        const result = getIngestionSourceMutationInput(data, existingSource);
+
+        expect(result.source).toEqual({ type: 'SYSTEM' });
+    });
+
+    test('should not include source field for new sources', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.source).toBeUndefined();
+    });
+
+    test('should format extraArgs using formatExtraArgs function', () => {
+        const data = {
+            name: 'test-source',
+            type: 'test-type',
+            config: {
+                recipe: 'test-recipe',
+                extraArgs: [
+                    { key: 'key1', value: 'value1' },
+                    { key: 'key2', value: '' },
+                    { key: 'key3', value: '' },
+                ],
+            },
+            schedule: {
+                interval: '0 * * * *',
+                timezone: 'UTC',
+            },
+        };
+
+        const result = getIngestionSourceMutationInput(data);
+
+        expect(result.config.extraArgs).toEqual([{ key: 'key1', value: 'value1' }]);
     });
 });

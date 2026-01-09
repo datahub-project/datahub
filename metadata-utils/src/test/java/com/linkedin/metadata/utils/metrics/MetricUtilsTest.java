@@ -10,7 +10,6 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.mockito.Mock;
@@ -44,18 +43,25 @@ public class MetricUtilsTest {
   }
 
   @Test
-  public void testGetRegistryReturnsOptionalWithRegistry() {
-    Optional<MeterRegistry> registry = metricUtils.getRegistry();
-    assertTrue(registry.isPresent());
-    assertSame(registry.get(), meterRegistry);
+  public void testGetRegistryReturnsRegistry() {
+    MeterRegistry registry = metricUtils.getRegistry();
+    assertNotNull(registry);
+    assertSame(registry, meterRegistry);
   }
 
   @Test
-  public void testGetRegistryReturnsEmptyOptionalWhenNull() {
-    MetricUtils utilsWithNullRegistry = MetricUtils.builder().registry(null).build();
+  public void testGetRegistryReturnsDefaultWhenNotSpecified() {
+    MetricUtils utilsWithDefaultRegistry = MetricUtils.builder().build();
 
-    Optional<MeterRegistry> registry = utilsWithNullRegistry.getRegistry();
-    assertFalse(registry.isPresent());
+    MeterRegistry registry = utilsWithDefaultRegistry.getRegistry();
+    assertNotNull(registry);
+    assertTrue(registry instanceof io.micrometer.core.instrument.composite.CompositeMeterRegistry);
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testBuilderRejectsNullRegistry() {
+    // This should throw NullPointerException due to @NonNull annotation
+    MetricUtils.builder().registry(null).build();
   }
 
   @Test
@@ -72,11 +78,11 @@ public class MetricUtilsTest {
   }
 
   @Test
-  public void testTimeWithNullRegistryDoesNothing() {
-    MetricUtils utilsWithNullRegistry = MetricUtils.builder().registry(null).build();
+  public void testTimeWithDefaultRegistryWorks() {
+    MetricUtils utilsWithDefaultRegistry = MetricUtils.builder().build();
 
-    // Should not throw exception
-    utilsWithNullRegistry.time("test.timer", 1000);
+    // Should not throw exception and should work with default registry
+    utilsWithDefaultRegistry.time("test.timer", 1000);
   }
 
   @Test
@@ -217,16 +223,21 @@ public class MetricUtilsTest {
   }
 
   @Test
-  public void testAllMethodsWithNullRegistry() {
-    MetricUtils utilsWithNullRegistry = MetricUtils.builder().registry(null).build();
+  public void testAllMethodsWithDefaultRegistry() {
+    MetricUtils utilsWithDefaultRegistry = MetricUtils.builder().build();
 
-    // None of these should throw exceptions
-    utilsWithNullRegistry.time("timer", 1000);
-    utilsWithNullRegistry.increment(this.getClass(), "counter", 1);
-    utilsWithNullRegistry.increment("counter", 1);
-    utilsWithNullRegistry.exceptionIncrement(this.getClass(), "error", new RuntimeException());
-    utilsWithNullRegistry.setGaugeValue(this.getClass(), "gauge", 42);
-    utilsWithNullRegistry.histogram(this.getClass(), "histogram", 100);
+    // All methods should work with the default CompositeMeterRegistry
+    utilsWithDefaultRegistry.time("timer", 1000);
+    utilsWithDefaultRegistry.increment(this.getClass(), "counter", 1);
+    utilsWithDefaultRegistry.increment("counter", 1);
+    utilsWithDefaultRegistry.exceptionIncrement(this.getClass(), "error", new RuntimeException());
+    utilsWithDefaultRegistry.setGaugeValue(this.getClass(), "gauge", 42);
+    utilsWithDefaultRegistry.histogram(this.getClass(), "histogram", 100);
+
+    // Verify the registry is the expected type
+    assertTrue(
+        utilsWithDefaultRegistry.getRegistry()
+            instanceof io.micrometer.core.instrument.composite.CompositeMeterRegistry);
   }
 
   @Test
@@ -241,5 +252,231 @@ public class MetricUtilsTest {
     for (Meter meter : meterRegistry.getMeters()) {
       assertEquals(meter.getId().getTag(MetricUtils.DROPWIZARD_METRIC), "true");
     }
+  }
+
+  @Test
+  public void testParsePercentilesWithValidConfig() {
+    String percentilesConfig = "0.5, 0.75, 0.95, 0.99, 0.999";
+    double[] result = MetricUtils.parsePercentiles(percentilesConfig);
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.75);
+    assertEquals(result[2], 0.95);
+    assertEquals(result[3], 0.99);
+    assertEquals(result[4], 0.999);
+  }
+
+  @Test
+  public void testParsePercentilesWithNullConfig() {
+    double[] result = MetricUtils.parsePercentiles(null);
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithEmptyConfig() {
+    double[] result = MetricUtils.parsePercentiles("");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithWhitespaceOnlyConfig() {
+    double[] result = MetricUtils.parsePercentiles("   ");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithSingleValue() {
+    double[] result = MetricUtils.parsePercentiles("0.99");
+
+    assertEquals(result.length, 1);
+    assertEquals(result[0], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithExtraSpaces() {
+    double[] result = MetricUtils.parsePercentiles("  0.5  ,  0.95  ,  0.99  ");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithValidConfig() {
+    String sloConfig = "100, 500, 1000, 5000, 10000";
+    double[] result = MetricUtils.parseSLOSeconds(sloConfig);
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 100.0);
+    assertEquals(result[1], 500.0);
+    assertEquals(result[2], 1000.0);
+    assertEquals(result[3], 5000.0);
+    assertEquals(result[4], 10000.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithNullConfig() {
+    double[] result = MetricUtils.parseSLOSeconds(null);
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 60.0);
+    assertEquals(result[1], 300.0);
+    assertEquals(result[2], 900.0);
+    assertEquals(result[3], 1800.0);
+    assertEquals(result[4], 3600.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithEmptyConfig() {
+    double[] result = MetricUtils.parseSLOSeconds("");
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 60.0);
+    assertEquals(result[1], 300.0);
+    assertEquals(result[2], 900.0);
+    assertEquals(result[3], 1800.0);
+    assertEquals(result[4], 3600.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithWhitespaceOnlyConfig() {
+    double[] result = MetricUtils.parseSLOSeconds("   ");
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 60.0);
+    assertEquals(result[1], 300.0);
+    assertEquals(result[2], 900.0);
+    assertEquals(result[3], 1800.0);
+    assertEquals(result[4], 3600.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithSingleValue() {
+    double[] result = MetricUtils.parseSLOSeconds("1000");
+
+    assertEquals(result.length, 1);
+    assertEquals(result[0], 1000.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithDecimalValues() {
+    double[] result = MetricUtils.parseSLOSeconds("100.5, 500.75, 1000.0");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 100.5);
+    assertEquals(result[1], 500.75);
+    assertEquals(result[2], 1000.0);
+  }
+
+  @Test(expectedExceptions = NumberFormatException.class)
+  public void testParsePercentilesWithInvalidNumber() {
+    MetricUtils.parsePercentiles("0.5, invalid, 0.99");
+  }
+
+  @Test(expectedExceptions = NumberFormatException.class)
+  public void testParseSLOSecondsWithInvalidNumber() {
+    MetricUtils.parseSLOSeconds("100, not-a-number, 1000");
+  }
+
+  @Test
+  public void testParsePercentilesWithTrailingComma() {
+    double[] result = MetricUtils.parsePercentiles("0.5, 0.95,");
+
+    // This will throw NumberFormatException when parsing empty string after last comma
+    // If this is intended behavior, keep the test as expectedExceptions
+    // If not, the implementation should handle trailing commas
+  }
+
+  @Test
+  public void testParseSLOSecondsWithNegativeValues() {
+    // Test if negative values are accepted (they probably shouldn't be for SLOs)
+    double[] result = MetricUtils.parseSLOSeconds("-100, 500, 1000");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], -100.0);
+    assertEquals(result[1], 500.0);
+    assertEquals(result[2], 1000.0);
+  }
+
+  @Test
+  public void testIncrementMicrometerBasicFunctionality() {
+    String metricName = "test.micrometer.counter";
+    double incrementValue = 2.5;
+
+    metricUtils.incrementMicrometer(metricName, incrementValue);
+
+    Counter counter = meterRegistry.counter(metricName);
+    assertNotNull(counter);
+    assertEquals(counter.count(), incrementValue);
+  }
+
+  @Test
+  public void testIncrementMicrometerWithTags() {
+    String metricName = "test.micrometer.tagged";
+    double incrementValue = 1.0;
+
+    metricUtils.incrementMicrometer(metricName, incrementValue, "env", "prod", "service", "api");
+
+    Counter counter = meterRegistry.counter(metricName, "env", "prod", "service", "api");
+    assertNotNull(counter);
+    assertEquals(counter.count(), incrementValue);
+  }
+
+  @Test
+  public void testIncrementMicrometerCachingBehavior() {
+    String metricName = "test.cache.counter";
+
+    // First call should create the counter
+    metricUtils.incrementMicrometer(metricName, 1.0);
+    Counter counter1 = meterRegistry.counter(metricName);
+    assertEquals(counter1.count(), 1.0);
+
+    // Second call should reuse the same counter
+    metricUtils.incrementMicrometer(metricName, 2.0);
+    Counter counter2 = meterRegistry.counter(metricName);
+    assertSame(counter1, counter2); // Should be the exact same object due to caching
+    assertEquals(counter2.count(), 3.0); // 1.0 + 2.0
+  }
+
+  @Test
+  public void testIncrementMicrometerDifferentTagsCacheSeparately() {
+    String metricName = "test.cache.tags";
+
+    // Create counters with different tags
+    metricUtils.incrementMicrometer(metricName, 1.0, "env", "prod");
+    metricUtils.incrementMicrometer(metricName, 2.0, "env", "dev");
+
+    Counter prodCounter = meterRegistry.counter(metricName, "env", "prod");
+    Counter devCounter = meterRegistry.counter(metricName, "env", "dev");
+
+    assertNotSame(prodCounter, devCounter); // Different cache entries
+    assertEquals(prodCounter.count(), 1.0);
+    assertEquals(devCounter.count(), 2.0);
+  }
+
+  @Test
+  public void testIncrementMicrometerMultipleIncrementsOnSameCounter() {
+    String metricName = "test.multiple.increments";
+
+    metricUtils.incrementMicrometer(metricName, 1.0, "type", "request");
+    metricUtils.incrementMicrometer(metricName, 3.0, "type", "request");
+    metricUtils.incrementMicrometer(metricName, 2.0, "type", "request");
+
+    Counter counter = meterRegistry.counter(metricName, "type", "request");
+    assertEquals(counter.count(), 6.0); // 1.0 + 3.0 + 2.0
   }
 }

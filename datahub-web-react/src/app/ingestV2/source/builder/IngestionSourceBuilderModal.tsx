@@ -2,15 +2,16 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Modal } from '@components';
 import { Spin, Steps } from 'antd';
 import { isEqual } from 'lodash';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { CreateScheduleStep } from '@app/ingestV2/source/builder/CreateScheduleStep';
 import { DefineRecipeStep } from '@app/ingestV2/source/builder/DefineRecipeStep';
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateStep';
-import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 
 import { IngestionSource } from '@types';
 
@@ -58,6 +59,8 @@ type Props = {
     sourceRefetch?: () => Promise<any>;
     selectedSource?: IngestionSource;
     loading?: boolean;
+    selectedSourceType?: string;
+    setSelectedSourceType?: (sourceType: string) => void;
 };
 
 export const IngestionSourceBuilderModal = ({
@@ -68,6 +71,8 @@ export const IngestionSourceBuilderModal = ({
     sourceRefetch,
     selectedSource,
     loading,
+    selectedSourceType,
+    setSelectedSourceType,
 }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
@@ -82,22 +87,48 @@ export const IngestionSourceBuilderModal = ({
         },
     });
 
-    const ingestionSources = JSON.parse(JSON.stringify(sourcesJson)); // TODO: replace with call to server once we have access to dynamic list of sources
+    const { ingestionSources } = useIngestionSources();
 
-    // Reset the ingestion builder modal state when the modal is re-opened.
+    const sendAnalyticsStepViewedEvent = useCallback(
+        (step: IngestionSourceBuilderStep) => {
+            if (open) {
+                analytics.event({
+                    type: EventType.IngestionSourceConfigurationImpressionEvent,
+                    viewedSection: step,
+                    sourceType: selectedSource?.type || selectedSourceType,
+                    sourceUrn: selectedSource?.urn,
+                });
+            }
+        },
+        [selectedSource?.type, selectedSource?.urn, selectedSourceType, open],
+    );
+
+    // Reset the modal state when initialState changes or modal opens
     const prevInitialState = useRef(initialState);
+    const prevOpen = useRef(open);
     useEffect(() => {
-        if (!isEqual(prevInitialState.current, initialState)) {
-            setIngestionBuilderState(initialState || {});
-        }
-        prevInitialState.current = initialState;
-    }, [initialState]);
+        const stateChanged = !isEqual(prevInitialState.current, initialState);
+        const modalOpened = !prevOpen.current && open;
 
-    // Reset the step stack to the initial step when the modal is re-opened.
-    useEffect(() => setStepStack([initialStep]), [initialStep]);
+        if (stateChanged) {
+            setIngestionBuilderState(initialState || {});
+            setStepStack([initialStep]);
+            setSelectedSourceType?.('');
+            prevInitialState.current = initialState;
+        }
+
+        // Fire event when modal opens
+        if (modalOpened) {
+            setStepStack([initialStep]); // Ensure correct step when modal opens
+            sendAnalyticsStepViewedEvent(initialStep);
+        }
+
+        prevOpen.current = open;
+    }, [initialState, initialStep, open, sendAnalyticsStepViewedEvent, setSelectedSourceType]);
 
     const goTo = (step: IngestionSourceBuilderStep) => {
         setStepStack([...stepStack, step]);
+        sendAnalyticsStepViewedEvent(step);
     };
 
     const prev = () => {
@@ -151,6 +182,8 @@ export const IngestionSourceBuilderModal = ({
                     ingestionSources={ingestionSources}
                     sourceRefetch={sourceRefetch}
                     selectedSource={selectedSource}
+                    selectedSourceType={selectedSourceType}
+                    setSelectedSourceType={setSelectedSourceType}
                 />
             </Spin>
         </Modal>

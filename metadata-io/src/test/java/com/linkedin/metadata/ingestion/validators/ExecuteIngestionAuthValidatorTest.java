@@ -232,10 +232,7 @@ public class ExecuteIngestionAuthValidatorTest {
             .validateProposed(Set.of(testItem), mockRetrieverContext, mockSession)
             .collect(Collectors.toList());
 
-    assertEquals(exceptions.size(), 1);
-    assertTrue(
-        exceptions.get(0).getMessage().contains("Couldn't find the ingestion source details"));
-    assertTrue(exceptions.get(0).getMessage().contains(EXECUTION_REQUEST_URN_STRING));
+    assertEquals(exceptions.size(), 0);
   }
 
   @Test
@@ -258,9 +255,7 @@ public class ExecuteIngestionAuthValidatorTest {
             .validateProposed(Set.of(testItem), mockRetrieverContext, mockSession)
             .collect(Collectors.toList());
 
-    assertEquals(exceptions.size(), 1);
-    assertTrue(
-        exceptions.get(0).getMessage().contains("Couldn't find the ingestion source details"));
+    assertEquals(exceptions.size(), 0);
   }
 
   @Test

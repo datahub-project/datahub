@@ -43,6 +43,18 @@ const meta = {
         renderControls: {
             description: 'A function to render additiona controls on the card',
         },
+        showHeader: {
+            description: 'Show or hide the header of the card',
+            control: 'boolean',
+        },
+        showEmptyMessageHeader: {
+            description: 'Show or hide the header of the empty message',
+            control: 'boolean',
+        },
+        emptyMessage: {
+            description: 'The message to display when there is no data',
+            control: 'text',
+        },
     },
 
     // Define defaults

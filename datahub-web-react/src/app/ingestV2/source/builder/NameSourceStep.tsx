@@ -1,14 +1,16 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
+import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
+import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
-import { Entity } from '@types';
+import { Entity, Owner } from '@types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -24,17 +26,17 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({
-    state,
-    updateState,
-    prev,
-    submit,
-    sourceRefetch,
-    isEditing,
-    selectedSource,
-}: StepProps) => {
-    const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, selectedSource }: StepProps) => {
+    const me = useUserContext();
+    const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
+    const defaultActors = useMemo(() => {
+        if (!isEditing && me.user && me.loaded) {
+            return [me.user];
+        }
+        return existingOwners.map((owner) => owner.owner);
+    }, [existingOwners, isEditing, me.user, me.loaded]);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(defaultActors.map((actor) => actor.urn));
+    const [areOwnersInitialized, setAreOwnersInitialized] = useState<boolean>(false);
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -48,13 +50,24 @@ export const NameSourceStep = ({
         updateState(newState);
     };
 
-    const setOwners = (newOwners: Entity[]) => {
-        const newState: SourceBuilderState = {
-            ...state,
-            owners: newOwners,
-        };
-        updateState(newState);
-    };
+    const setOwners = useCallback(
+        (newOwners: Entity[]) => {
+            const newState: SourceBuilderState = {
+                ...state,
+                owners: newOwners,
+            };
+            updateState(newState);
+        },
+        [updateState, state],
+    );
+
+    // Initialize state with default owners while source creation
+    useEffect(() => {
+        if (me.loaded && !isEditing && !areOwnersInitialized) {
+            setOwners(defaultActors);
+            setAreOwnersInitialized(true);
+        }
+    }, [defaultActors, isEditing, me.loaded, areOwnersInitialized, setOwners]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {
@@ -90,7 +103,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraEnvs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -99,7 +112,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraEnvs = (envs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         const value = { key: ExtraEnvKey, value: envs };
         if (indxOfEnvVars > -1) {
@@ -118,7 +131,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraDataHubPlugins = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -127,7 +140,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraDataHubPlugins = (plugins: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         const value = { key: ExtraPluginKey, value: plugins };
         if (indxOfPlugins > -1) {
@@ -146,7 +159,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraReqs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -155,7 +168,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraReqs = (reqs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         const value = { key: ExtraReqKey, value: reqs };
         if (indxOfReqs > -1) {
@@ -179,6 +192,14 @@ export const NameSourceStep = ({
             setSelectedOwnerUrns([]);
         }
     };
+
+    const onUpdateOwners = useCallback(
+        (actors: ActorEntity[]) => {
+            setOwners(actors);
+            setSelectedOwnerUrns(actors.map((actor) => actor.urn));
+        },
+        [setOwners],
+    );
 
     const handleBlur = (event: React.FocusEvent<HTMLInputElement>, setterFunction: (value: string) => void) => {
         const trimmedValue = event.target.value.trim();
@@ -207,15 +228,21 @@ export const NameSourceStep = ({
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
-                <OwnersSection
-                    selectedOwnerUrns={selectedOwnerUrns}
-                    setSelectedOwnerUrns={setSelectedOwnerUrns}
-                    existingOwners={existingOwners}
-                    onChange={setOwners}
-                    sourceRefetch={sourceRefetch}
-                    isEditForm={isEditing}
-                    shouldSetOwnerEntities
-                />
+
+                <Form.Item
+                    label={
+                        <LabelContainer>
+                            <Text>Owners</Text>
+                        </LabelContainer>
+                    }
+                    style={{ marginBottom: 16 }}
+                >
+                    <ActorsSearchSelect
+                        selectedActorUrns={selectedOwnerUrns}
+                        onUpdate={onUpdateOwners}
+                        defaultActors={defaultActors}
+                    />
+                </Form.Item>
 
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">

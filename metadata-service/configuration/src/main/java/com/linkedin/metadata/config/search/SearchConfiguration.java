@@ -13,9 +13,11 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class SearchConfiguration {
   private int maxTermBucketSize;
+  private boolean pointInTimeCreationEnabled;
   private ExactMatchConfiguration exactMatch;
   private PartialConfiguration partial;
   private CustomConfiguration custom;
   private GraphQueryConfiguration graph;
   private WordGramConfiguration wordGram;
+  private SearchValidationConfiguration validation;
 }

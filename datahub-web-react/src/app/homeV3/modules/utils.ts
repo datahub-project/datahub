@@ -29,7 +29,6 @@ export function convertModuleToModuleInfo(module: PageModuleFragment): ModuleInf
         key: module.urn,
         type: getModuleType(module),
         name: getModuleName(module),
-        description: getModuleDescription(module),
         icon: getModuleIcon(module),
     };
 }

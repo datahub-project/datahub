@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import os.path
 import re
 from typing import Dict, Optional
@@ -13,10 +12,11 @@ from packaging.version import parse
 from pydantic import BaseModel
 
 from datahub._version import nice_version_name
+from datahub.configuration.env_vars import get_force_local_quickstart_mapping
 
 logger = logging.getLogger(__name__)
 
-LOCAL_QUICKSTART_MAPPING_FILE = os.environ.get("FORCE_LOCAL_QUICKSTART_MAPPING", "")
+LOCAL_QUICKSTART_MAPPING_FILE = get_force_local_quickstart_mapping()
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
 
@@ -44,7 +44,7 @@ def get_minimum_supported_version_message(version: str) -> str:
 class QuickstartExecutionPlan(BaseModel):
     composefile_git_ref: str
     docker_tag: str
-    mysql_tag: Optional[str]
+    mysql_tag: Optional[str] = None
 
 
 def _is_it_a_version(version: str) -> bool:
@@ -80,7 +80,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             path = os.path.expanduser(LOCAL_QUICKSTART_MAPPING_FILE)
             with open(path) as f:
                 config_raw = yaml.safe_load(f)
-            return cls.parse_obj(config_raw)
+            return cls.model_validate(config_raw)
 
         config_raw = None
         try:
@@ -110,7 +110,7 @@ class QuickstartVersionMappingConfig(BaseModel):
                 }
             )
 
-        config = cls.parse_obj(config_raw)
+        config = cls.model_validate(config_raw)
 
         # If stable is not defined in the config, we need to fetch the latest version from github.
         if config.quickstart_version_map.get("stable") is None:
@@ -177,7 +177,7 @@ def save_quickstart_config(
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
-        yaml.dump(config.dict(), f)
+        yaml.dump(config.model_dump(), f)
     logger.info(f"Saved quickstart config to {path}.")
 
 

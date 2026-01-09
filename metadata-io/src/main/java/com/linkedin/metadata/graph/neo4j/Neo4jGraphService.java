@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph.neo4j;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
+
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -54,9 +56,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
@@ -73,6 +75,7 @@ public class Neo4jGraphService implements GraphService {
   private final Driver driver;
   private final SessionConfig sessionConfig;
   @Getter private final GraphServiceConfiguration graphServiceConfig;
+  private boolean canWrite = true;
 
   public Neo4jGraphService(
       @Nonnull LineageRegistry lineageRegistry,
@@ -85,6 +88,10 @@ public class Neo4jGraphService implements GraphService {
     this.graphServiceConfig = graphServiceConfig;
   }
 
+  public void setWritable(boolean writable) {
+    canWrite = writable;
+  }
+
   @Override
   public LineageRegistry getLineageRegistry() {
     return lineageRegistry;
@@ -92,6 +99,10 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     log.debug(
         String.format(
             "Adding Edge source: %s, destination: %s, type: %s",
@@ -216,11 +227,19 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void upsertEdge(final Edge edge) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     addEdge(edge);
   }
 
   @Override
   public void removeEdge(final Edge edge) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     log.debug(
         String.format(
             "Deleting Edge source: %s, destination: %s, type: %s",
@@ -340,6 +359,19 @@ public class Neo4jGraphService implements GraphService {
 
     log.debug("Neo4j getLineage results = {}", result);
     return result;
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int maxHops) {
+    // For Neo4j, we can reuse the existing getLineage method with appropriate parameters
+    // since Neo4j doesn't have the same slice-based search capabilities as Elasticsearch
+    log.debug("Neo4j getImpactLineage maxHops = {}", maxHops);
+    return getLineage(opContext, entityUrn, lineageGraphFilters, 0, null, maxHops);
   }
 
   private String getPathFindingLabelFilter(Set<String> entityNames) {
@@ -629,6 +661,10 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
 
     log.debug("Removing Neo4j node with urn: {}", urn);
     final String srcNodeLabel = urn.getEntityType();
@@ -659,6 +695,10 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final Urn urn,
       @Nonnull final Set<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
 
     log.debug(
         "Removing Neo4j edge types from node with urn: {}, types: {}, filter: {}",
@@ -718,6 +758,10 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     log.debug("Removing Neo4j nodes matching label {}", labelPattern);
     final String matchTemplate =
         "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
@@ -730,11 +774,19 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void clear() {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     removeNodesMatchingLabel(".*");
   }
 
   @VisibleForTesting
   public void wipe() {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     runQuery(new Statement("MATCH (n) DETACH DELETE n", Map.of())).consume();
   }
 
@@ -882,20 +934,6 @@ public class Neo4jGraphService implements GraphService {
     return joiner.length() <= 2 ? "" : joiner.toString();
   }
 
-  /** Gets Node based on Urn, if not exist, creates placeholder node. */
-  @Nonnull
-  private Statement getOrInsertNode(@Nonnull Urn urn) {
-    final String nodeType = urn.getEntityType();
-
-    final String mergeTemplate = "MERGE (node:%s {urn: $urn}) RETURN node";
-    final String statement = String.format(mergeTemplate, nodeType);
-
-    final Map<String, Object> params = new HashMap<>();
-    params.put("urn", urn.toString());
-
-    return buildStatement(statement, params);
-  }
-
   @Override
   public boolean supportsMultiHop() {
     return true;
@@ -949,6 +987,7 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {

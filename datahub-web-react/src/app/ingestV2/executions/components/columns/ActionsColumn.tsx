@@ -7,12 +7,12 @@ import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/col
 
 interface ActionsColumnProps {
     record: ExecutionRequestRecord;
-    setFocusExecutionUrn: (urn: string) => void;
+    handleViewDetails: (urn: string) => void;
     handleRollback: (urn: string) => void;
     handleCancel: (urn: string) => void;
 }
 
-export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, handleCancel }: ActionsColumnProps) {
+export function ActionsColumn({ record, handleViewDetails, handleRollback, handleCancel }: ActionsColumnProps) {
     const items = [
         {
             key: '0',
@@ -32,7 +32,7 @@ export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, ha
             label: (
                 <MenuItem
                     onClick={() => {
-                        setFocusExecutionUrn(record.urn);
+                        handleViewDetails(record.urn);
                     }}
                 >
                     Details
@@ -53,7 +53,12 @@ export function ActionsColumn({ record, setFocusExecutionUrn, handleRollback, ha
             dropdownItems={items}
             extraActions={
                 record.status === EXECUTION_REQUEST_STATUS_SUCCESS && record.showRollback ? (
-                    <Icon icon="ArrowUUpLeft" source="phosphor" onClick={() => handleRollback(record.id)} />
+                    <Icon
+                        icon="ArrowUUpLeft"
+                        source="phosphor"
+                        onClick={() => handleRollback(record.id)}
+                        tooltipText="Rollback"
+                    />
                 ) : null
             }
         />

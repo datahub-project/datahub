@@ -20,3 +20,9 @@ export interface ExecutionCancelInfo {
     executionUrn: string;
     sourceUrn: string;
 }
+
+export const enum TabType {
+    Summary = 'Summary',
+    Logs = 'Logs',
+    Recipe = 'Recipe',
+}

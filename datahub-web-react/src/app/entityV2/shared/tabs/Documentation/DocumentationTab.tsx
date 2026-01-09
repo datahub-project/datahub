@@ -1,26 +1,24 @@
 import { EditOutlined, ExpandAltOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button as AntButton, Divider, Typography } from 'antd';
+import { Button as AntButton, Typography } from 'antd';
 import queryString from 'query-string';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
-import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { RelatedSection } from '@app/entityV2/shared/tabs/Documentation/components/RelatedSection';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor } from '@src/alchemy-components';
 
 const DocumentationContainer = styled.div`
-    margin: 0 32px;
-    padding: 40px 0;
+    margin: 0 16px;
+    padding: 32px 0;
     max-width: calc(100% - 10px);
 `;
 
@@ -51,7 +49,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
 
-    const refetch = useRefetch();
     const { displayedDescription } = getAssetDescriptionDetails({
         entityProperties: entityData,
     });
@@ -87,7 +84,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             >
                                 <EditOutlined /> Edit
                             </AntButton>
-                            {!hideLinksButton && <AddLinkModal buttonType="text" refetch={refetch} />}
                         </div>
                         <div>
                             <AntButton
@@ -111,16 +107,12 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
                             </DocumentationContainer>
                         )}
-                        <Divider />
-                        <DocumentationContainer>
-                            {!hideLinksButton && <LinkList refetch={refetch} />}
-                        </DocumentationContainer>
+                        {!hideLinksButton && <RelatedSection />}
                     </div>
                 </>
             ) : (
                 <EmptyTabWrapper>
                     <EmptyTab tab="documentation" hideImage={false}>
-                        {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}

@@ -16,7 +16,11 @@
       "Bash(ruff:*)",
       "Bash(python -m mypy:*)",
       "Bash(python -m ruff:*)",
-      "Bash(python -m pytest:*)"
+      "Bash(python -m pytest:*)",
+      "Bash(yarn:*)",
+      "Bash(./gradlew:*)",
+      "Bash(../gradlew :metadata-ingestion:lintFix:*)",
+      "Bash(gw:*)"
     ],
     "deny": []
   }

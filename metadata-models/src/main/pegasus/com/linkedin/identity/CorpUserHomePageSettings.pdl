@@ -9,6 +9,10 @@ record CorpUserHomePageSettings {
   /**
    * The page template that will be rendered in the UI by default for this user
    */
+  @Relationship = {
+    "name": "HasPersonalPageTemplate",
+    "entityTypes": [ "dataHubPageTemplate" ]
+  }
   pageTemplate: optional Urn
 
    /**
