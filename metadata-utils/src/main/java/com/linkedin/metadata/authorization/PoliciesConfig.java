@@ -854,6 +854,9 @@ public class PoliciesConfig {
               EXISTS_ENTITY_PRIVILEGE,
               EDIT_ENTITY_DOMAINS_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
               MANAGE_DOCUMENTS_PRIVILEGE));
 
   // Group Privileges
