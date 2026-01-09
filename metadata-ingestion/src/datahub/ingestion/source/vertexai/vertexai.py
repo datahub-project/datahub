@@ -110,11 +110,8 @@ logger = logging.getLogger(__name__)
 
 
 def _is_config_error(exc: GoogleAPICallError) -> bool:
-    if isinstance(exc, (InvalidArgument, FailedPrecondition)):
-        return True
-    # Fallback: check error message for known config issues
-    msg = str(exc).lower()
-    return "api" in msg and "not enabled" in msg
+    """Check if exception indicates a configuration error that should fail fast."""
+    return isinstance(exc, (InvalidArgument, FailedPrecondition))
 
 
 @dataclasses.dataclass
@@ -238,25 +235,26 @@ class VertexAISource(Source):
             f"deny: {self.config.project_id_pattern.deny}. {tips}"
         )
 
-    def _handle_project_error(self, project_id: str, exc: Exception) -> None:
+    def _handle_project_exception(
+        self,
+        project_id: str,
+        exc: Exception,
+        failed_projects: List[str],
+    ) -> None:
+        """Handle project-level exceptions - report failure and continue."""
         if isinstance(exc, NotFound):
-            label = "Project not found"
             debug_cmd = f"gcloud projects describe {project_id}"
-            log_fn = logger.error
         elif isinstance(exc, PermissionDenied):
-            label = "Permission denied"
             debug_cmd = f"gcloud projects get-iam-policy {project_id}"
-            log_fn = logger.warning
         else:
-            label = "GCP API error"
             debug_cmd = f"gcloud ai models list --project={project_id} --region={self.config.region}"
-            log_fn = logger.warning
 
-        title = f"{label}: {project_id}"
-        message = f"{label} for project {project_id}. Debug: {debug_cmd}"
-
-        log_fn("Project %s: %s", project_id, message)
-        self.report.failure(title=title, message=message, exc=exc)
+        self.report.failure(
+            title=f"Project failed: {project_id}",
+            message=f"Debug: {debug_cmd}",
+            exc=exc,
+        )
+        failed_projects.append(project_id)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         projects = self._get_projects_to_process()
@@ -264,7 +262,6 @@ class VertexAISource(Source):
         if not projects:
             raise RuntimeError(self._build_no_projects_error())
 
-        explicit_projects = self.config.has_explicit_project_ids()
         successful_projects = 0
         failed_projects: List[str] = []
 
@@ -274,56 +271,18 @@ class VertexAISource(Source):
                 self._init_for_project(project)
                 yield from self._process_current_project()
                 successful_projects += 1
-            except NotFound as e:
-                if explicit_projects:
-                    raise RuntimeError(
-                        f"Project '{project.id}' not found. This project was explicitly configured "
-                        f"in project_ids - check for typos. Debug: gcloud projects describe {project.id}"
-                    ) from e
-                failed_projects.append(project.id)
-                self._handle_project_error(project.id, e)
-                continue
-            except PermissionDenied as e:
-                if explicit_projects:
-                    raise RuntimeError(
-                        f"Permission denied for project '{project.id}'. This project was explicitly "
-                        f"configured in project_ids. Ensure the service account has "
-                        f"roles/aiplatform.viewer. Debug: gcloud projects get-iam-policy {project.id}"
-                    ) from e
-                failed_projects.append(project.id)
-                self._handle_project_error(project.id, e)
-                continue
-            except GoogleAPICallError as e:
-                if _is_config_error(e):
-                    raise RuntimeError(
-                        f"Configuration error for project {project.id}: {e}. "
-                        "Check that Vertex AI API is enabled and region is valid."
-                    ) from e
-                failed_projects.append(project.id)
-                self._handle_project_error(project.id, e)
-                continue
+            except (NotFound, PermissionDenied, GoogleAPICallError) as e:
+                self._handle_project_exception(project.id, e, failed_projects)
 
         if failed_projects:
             if successful_projects == 0:
                 raise RuntimeError(
-                    f"All {len(failed_projects)} projects failed to process: {failed_projects}. "
-                    "Check the failure reports above for specific errors per project. "
-                    "Common causes: (1) Service account lacks roles/aiplatform.viewer, "
-                    "(2) Project IDs are incorrect, (3) Vertex AI API not enabled in projects."
+                    f"All {len(failed_projects)} projects failed. "
+                    f"Check failure reports for details. Projects: {failed_projects}"
                 )
-            logger.warning(
-                "=" * 60 + "\n"
-                "PARTIAL INGESTION: %d of %d projects failed!\n"
-                "Failed projects: %s\n"
-                "Data from these projects is MISSING from this ingestion run.\n"
-                "Review failures above and re-run if needed.\n" + "=" * 60,
-                len(failed_projects),
-                len(projects),
-                failed_projects,
-            )
             self.report.warning(
-                title=f"PARTIAL INGESTION: {len(failed_projects)}/{len(projects)} projects failed",
-                message=f"Failed: {', '.join(failed_projects)}. Data from these projects is missing.",
+                title=f"Partial ingestion: {len(failed_projects)}/{len(projects)} projects failed",
+                message=f"Failed: {', '.join(failed_projects)}",
             )
 
     def _process_current_project(self) -> Iterable[MetadataWorkUnit]:

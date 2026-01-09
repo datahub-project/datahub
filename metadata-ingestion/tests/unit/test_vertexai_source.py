@@ -907,7 +907,6 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
         assert len(run_mcps) > 0
 
 
-# ============================================================================
 class TestMultiProjectConfig:
     def test_backward_compatibility_project_id(self) -> None:
         config = VertexAIConfig(project_id="my-project", region="us-central1")

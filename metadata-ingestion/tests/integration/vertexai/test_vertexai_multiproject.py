@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import call, patch
 
 import pytest
-from google.api_core.exceptions import PermissionDenied
+from google.api_core.exceptions import NotFound, PermissionDenied
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.gcp_project_utils import GCPProject
@@ -81,10 +81,7 @@ def make_source(
 
 
 class TestMultiProjectIntegration:
-    """Integration tests that verify SDK interaction patterns."""
-
     def test_init_called_per_project(self, mock_aiplatform, pipeline_ctx):
-        """Verifies aiplatform.init() is called once per project with correct args."""
         source = make_source(
             pipeline_ctx, project_ids=["project-a", "project-b", "project-c"]
         )
@@ -99,7 +96,6 @@ class TestMultiProjectIntegration:
     def test_auto_discovery_integration(
         self, mock_aiplatform, mock_project_discovery, pipeline_ctx
     ):
-        """Verifies auto-discovery triggers get_projects() and processes all discovered."""
         mock_project_discovery.return_value = [
             GCPProject(id="discovered-1", name="Discovered 1"),
             GCPProject(id="discovered-2", name="Discovered 2"),
@@ -111,7 +107,6 @@ class TestMultiProjectIntegration:
         assert mock_aiplatform["init"].call_count == 2
 
     def test_project_container_urn_generation(self, mock_aiplatform, pipeline_ctx):
-        """Verifies container URNs include project_id in custom properties."""
         source = make_source(pipeline_ctx, project_ids=["my-test-project"])
         workunits = list(source.get_workunits())
 
@@ -132,7 +127,6 @@ class TestMultiProjectIntegration:
     def test_partial_failure_continues_processing(
         self, mock_aiplatform, mock_project_discovery, pipeline_ctx
     ):
-        """Verifies discovered project failures don't stop processing of other projects."""
         mock_project_discovery.return_value = [
             GCPProject(id="project-a", name="A"),
             GCPProject(id="project-b", name="B"),
@@ -146,6 +140,43 @@ class TestMultiProjectIntegration:
         source = make_source(pipeline_ctx, project_labels=["env:prod"])
         list(source.get_workunits())
 
-        # Both projects attempted, one failure recorded
         assert mock_aiplatform["init"].call_count == 2
         assert len(source.report.failures) >= 1
+
+
+class TestProjectErrorHandling:
+    @pytest.mark.parametrize(
+        "exception",
+        [NotFound("Project not found"), PermissionDenied("Access denied")],
+    )
+    def test_project_errors_continue(self, mock_aiplatform, pipeline_ctx, exception):
+        def selective_fail(**kwargs):
+            if kwargs["project"] == "fail-project":
+                raise exception
+
+        mock_aiplatform["init"].side_effect = selective_fail
+        source = make_source(pipeline_ctx, project_ids=["fail-project", "ok-project"])
+        list(source.get_workunits())
+
+        assert mock_aiplatform["init"].call_count == 2
+        assert len(source.report.failures) == 1
+        assert "fail-project" in str(source.report.failures)
+
+    def test_all_projects_fail_raises(self, mock_aiplatform, pipeline_ctx):
+        mock_aiplatform["init"].side_effect = PermissionDenied("No access")
+        source = make_source(pipeline_ctx, project_ids=["project-1", "project-2"])
+
+        with pytest.raises(RuntimeError, match="All .* projects failed"):
+            list(source.get_workunits())
+
+    def test_partial_failure_reports_warning(self, mock_aiplatform, pipeline_ctx):
+        def selective_fail(**kwargs):
+            if kwargs["project"] == "fail-project":
+                raise PermissionDenied("No access")
+
+        mock_aiplatform["init"].side_effect = selective_fail
+        source = make_source(pipeline_ctx, project_ids=["fail-project", "ok-project"])
+        list(source.get_workunits())
+
+        assert len(source.report.warnings) >= 1
+        assert "fail-project" in str(source.report.warnings)
