@@ -607,13 +607,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Qlik Sense plugin execution is started")
-        for space in self._get_allowed_spaces():
-            yield from self._gen_space_workunit(space)
-        for item in self.qlik_api.get_items():
-            if isinstance(item, App):
-                yield from self._gen_app_workunit(item)
-            elif isinstance(item, QlikDataset):
-                yield from self._gen_dataset_workunit(item)
+        allowed_spaces = self._get_allowed_spaces()
+        for allowed_space in allowed_spaces:
+            yield from self._gen_space_workunit(allowed_space)
+            for item in self.qlik_api.get_items(
+                    'personal' if allowed_space.id == Constant.PERSONAL_SPACE_ID
+            else allowed_space.itemId
+            ):
+                if isinstance(item, App):
+                    yield from self._gen_app_workunit(item)
+                elif isinstance(item, QlikDataset):
+                    yield from self._gen_dataset_workunit(item)
 
     def get_report(self) -> SourceReport:
         return self.reporter
