@@ -7,6 +7,7 @@ from datahub.metadata.schema_classes import OperationTypeClass
 
 PLATFORMS_WITH_CASE_SENSITIVE_TABLES = {
     "bigquery",
+    "db2",
 }
 
 DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
