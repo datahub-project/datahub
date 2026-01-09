@@ -14,6 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Base branch for comparison (OSS: master, internal fork: acryl-main)
+  BASE_BRANCH: acryl-main
   EXCLUSION_PATTERNS: |
     examples
 
@@ -80,14 +82,14 @@ jobs:
             fi
           done < /tmp/projects_to_check.txt
 
-      - name: Checkout master branch
+      - name: Checkout base branch
         run: |
-          git fetch origin master
-          git checkout origin/master
+          git fetch origin $BASE_BRANCH
+          git checkout origin/$BASE_BRANCH
 
-      - name: Analyze dependencies on master branch
+      - name: Analyze dependencies on base branch
         run: |
-          echo "Analyzing Python dependencies on master branch..."
+          echo "Analyzing Python dependencies on $BASE_BRANCH branch..."
           mkdir -p /tmp/master-results
 
           while IFS= read -r project; do
@@ -97,7 +99,7 @@ jobs:
               echo "  Analyzing: $project -> /tmp/master-${safe_name}.json"
 
               python .github/scripts/dep-analyzer.py --exec --json "$project" > "/tmp/master-${safe_name}.json" 2>&1 || {
-                echo "Warning: Failed to analyze $project on master branch"
+                echo "Warning: Failed to analyze $project on $BASE_BRANCH branch"
                 echo '{"by_level": {}, "errors": ["Analysis failed"]}' > "/tmp/master-${safe_name}.json"
               }
             fi
@@ -110,7 +112,7 @@ jobs:
       - name: Compare dependencies and collect results
         id: compare
         run: |
-          echo "Comparing dependencies between master and PR..."
+          echo "Comparing dependencies between $BASE_BRANCH and PR..."
           mkdir -p /tmp/comparison-results
 
           has_violations=false
@@ -262,7 +264,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "2. For existing dependencies being modified, maintain or improve pinning level" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "3. If you must use loose pinning, ensure it exists in master first (grandfathered)" >> $GITHUB_STEP_SUMMARY
+          echo "3. If you must use loose pinning, ensure it exists in $BASE_BRANCH first (grandfathered)" >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if violations found
         if: steps.compare.outputs.has_violations == 'true'
