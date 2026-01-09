@@ -5,7 +5,10 @@ import pytest
 from freezegun import freeze_time
 from tableauserverclient import Server
 from tableauserverclient.models import UserItem
-from tableauserverclient.server.endpoint.exceptions import InternalServerError
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    NonXMLResponseError,
+)
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
@@ -33,6 +36,15 @@ class MockInternalServerError(InternalServerError):
     def __init__(self, message="Internal Server Error", code=503):
         Exception.__init__(self, message)
         self.code = code
+
+
+class MockNonXMLResponseError(NonXMLResponseError):
+    """Mock NonXMLResponseError that can be instantiated easily for testing."""
+
+    def __init__(
+        self, message='{"timestamp":"xxx","status":401,"error":"Unauthorized"}'
+    ):
+        Exception.__init__(self, message)
 
 
 def create_mock_server(metadata_query_side_effect):
@@ -204,3 +216,120 @@ def test_internal_server_error_raises_after_max_retries():
             ]
             == max_retries + 1
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_non_xml_response_error_with_backoff():
+    """Test that NonXMLResponseError (REAUTHENTICATE_ERRORS) retries with exponential backoff."""
+    mock_config = mock.MagicMock()
+    mock_config.max_retries = 3
+
+    auth_error = NonXMLResponseError(
+        '{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}'
+    )
+    mock_server = create_mock_server([auth_error, SUCCESS_RESPONSE])
+    tableau_source = create_tableau_source(mock_config, mock_server)
+
+    with mock.patch("time.sleep") as mock_sleep:
+        result = tableau_source.get_connection_object_page(
+            query="workbooksConnection { nodes { id } }",
+            connection_type="workbooksConnection",
+            query_filter="",
+            current_cursor=None,
+            retries_remaining=3,
+            fetch_size=10,
+        )
+
+        # First retry: (3 - 3 + 1)^2 = 1 second
+        assert mock_sleep.call_count == 1
+        assert mock_sleep.call_args[0][0] == 1
+        assert (
+            tableau_source.report.tableau_server_error_stats[
+                NonXMLResponseError.__name__
+            ]
+            == 1
+        )
+        assert result is not None
+
+
+@freeze_time(FROZEN_TIME)
+def test_non_xml_response_error_exhausts_retries():
+    """Test that NonXMLResponseError raises after exhausting retries."""
+    mock_config = mock.MagicMock()
+    mock_config.max_retries = 2
+
+    auth_error = NonXMLResponseError(
+        '{"timestamp":"xxx","status":401,"error":"Unauthorized"}'
+    )
+    mock_server = create_mock_server(auth_error)
+    tableau_source = create_tableau_source(mock_config, mock_server)
+
+    with mock.patch("time.sleep") as mock_sleep:
+        with pytest.raises(NonXMLResponseError):
+            tableau_source.get_connection_object_page(
+                query="workbooksConnection { nodes { id } }",
+                connection_type="workbooksConnection",
+                query_filter="",
+                current_cursor=None,
+                retries_remaining=2,
+                fetch_size=10,
+            )
+
+        # First retry: (2 - 2 + 1)^2 = 1 second, Second: (2 - 1 + 1)^2 = 4 seconds
+        assert mock_sleep.call_count == 2
+        assert mock_sleep.call_args_list[0][0][0] == 1
+        assert mock_sleep.call_args_list[1][0][0] == 4
+
+
+@freeze_time(FROZEN_TIME)
+def test_os_error_with_backoff():
+    """Test that OSError retries with exponential backoff."""
+    mock_config = mock.MagicMock()
+    mock_config.max_retries = 3
+
+    os_error = OSError("Response is not a http response?")
+    mock_server = create_mock_server([os_error, SUCCESS_RESPONSE])
+    tableau_source = create_tableau_source(mock_config, mock_server)
+
+    with mock.patch("time.sleep") as mock_sleep:
+        result = tableau_source.get_connection_object_page(
+            query="workbooksConnection { nodes { id } }",
+            connection_type="workbooksConnection",
+            query_filter="",
+            current_cursor=None,
+            retries_remaining=3,
+            fetch_size=10,
+        )
+
+        # First retry: (3 - 3 + 1)^2 = 1 second
+        assert mock_sleep.call_count == 1
+        assert mock_sleep.call_args[0][0] == 1
+        assert tableau_source.report.tableau_server_error_stats[OSError.__name__] == 1
+        assert result is not None
+
+
+@freeze_time(FROZEN_TIME)
+def test_os_error_exhausts_retries():
+    """Test that OSError raises after exhausting retries."""
+    mock_config = mock.MagicMock()
+    mock_config.max_retries = 2
+
+    os_error = OSError("Response is not a http response?")
+    mock_server = create_mock_server(os_error)
+    tableau_source = create_tableau_source(mock_config, mock_server)
+
+    with mock.patch("time.sleep") as mock_sleep:
+        with pytest.raises(OSError):
+            tableau_source.get_connection_object_page(
+                query="workbooksConnection { nodes { id } }",
+                connection_type="workbooksConnection",
+                query_filter="",
+                current_cursor=None,
+                retries_remaining=2,
+                fetch_size=10,
+            )
+
+        # First retry: (2 - 2 + 1)^2 = 1 second, Second: (2 - 1 + 1)^2 = 4 seconds
+        assert mock_sleep.call_count == 2
+        assert mock_sleep.call_args_list[0][0][0] == 1
+        assert mock_sleep.call_args_list[1][0][0] == 4
