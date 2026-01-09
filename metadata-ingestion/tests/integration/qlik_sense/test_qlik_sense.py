@@ -161,8 +161,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 },
             },
         },
-        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items?spaceId=personal":
-            {
+        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items?spaceId=personal": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -204,7 +203,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "resourceReloadStatus": "",
                         "resourceSize": {"appFile": 0, "appMemory": 0},
                     },
-                    ],
+                ],
                 "links": {
                     "self": {
                         "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items?spaceId=personal"
