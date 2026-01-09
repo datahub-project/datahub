@@ -1,0 +1,136 @@
+{
+  "version": "1.0",
+  "session_id": "marge-session-392c57ac",
+  "checkpoint_timestamp": "2026-01-09T09:46:31.028660",
+  "upstream_remote": "upstream",
+  "upstream_branch": "master",
+  "target_branch": "acryl-main",
+  "merge_strategy": "stacked",
+  "pr_number": null,
+  "max_attempts": 3,
+  "commits_to_merge": [
+    "4cb93c6c71831017c41e6a19eefbe45fb498cc9b",
+    "cf0612955cc35cffac4e7f69828a987b967469ab",
+    "24e0b690ff401939e886be65ae2c46e7014f93e8",
+    "3d8d111e8d53b6228331cafdf3371fa500ba0729",
+    "1aae6e561e475678de626ecec570eee242a69e88",
+    "81edffca68e860a04938852e2d385bbfa03461ac",
+    "04e7a40d6c2c5f79b67d2d2245b6a92249535004",
+    "136f0608085bc62b1adb8230b06d6d017b8cc9e7",
+    "5a22fce7076944341b0a264bd1cced3ce7875c36",
+    "47b0f2125a652a50fd71eb9358cc72839f6b5504"
+  ],
+  "next_commit_index": 8,
+  "processed_commits": [
+    {
+      "sha": "4cb93c6c71831017c41e6a19eefbe45fb498cc9b",
+      "short_hash": "4cb93c6c71",
+      "message": "fix(ui/ingestion): pending pill should not look clickable (#15789)",
+      "author": "Purnima Garg <139125209+purnimagarg1@users.noreply.github.com>",
+      "status": "merged_with_conflicts",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "cf0612955cc35cffac4e7f69828a987b967469ab",
+      "short_hash": "cf0612955c",
+      "message": "docs(sdk): smart sql, column value, and schema assertion sync method guides (#15754)",
+      "author": "Jay <159848059+jayacryl@users.noreply.github.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "24e0b690ff401939e886be65ae2c46e7014f93e8",
+      "short_hash": "24e0b690ff",
+      "message": "fix(structured-properties): fix build indices mapping for structured \u2026 (#15810)",
+      "author": "david-leifker <114954101+david-leifker@users.noreply.github.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "3d8d111e8d53b6228331cafdf3371fa500ba0729",
+      "short_hash": "3d8d111e8d",
+      "message": "fix(sql-parsing): Restore # prefix for MSSQL temporary tables in lineage extraction (#15703)",
+      "author": "dinesh-verma-datahub <dinesh.verma@datahub.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "1aae6e561e475678de626ecec570eee242a69e88",
+      "short_hash": "1aae6e561e",
+      "message": "docs(local-dev): Added instructions on how to use mise for installing tools (#15806)",
+      "author": "Devashish Chandra <devashish2203@users.noreply.github.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "81edffca68e860a04938852e2d385bbfa03461ac",
+      "short_hash": "81edffca68",
+      "message": "feat(bigquery): Add pushdown_deny_usernames and pushdown_allow_usernames for server-side user filtering (#15699)",
+      "author": "dinesh-verma-datahub <dinesh.verma@datahub.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "04e7a40d6c2c5f79b67d2d2245b6a92249535004",
+      "short_hash": "04e7a40d6c",
+      "message": "docs(dataplex): general improvements to dataplex documentation (#15811)",
+      "author": "Patrick Druley <patrick.druley@datahub.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "136f0608085bc62b1adb8230b06d6d017b8cc9e7",
+      "short_hash": "136f060808",
+      "message": "fix(docs): correct sql server odbc version (#15822)",
+      "author": "Kevin Karch <kevin.karch@acryl.io>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    }
+  ],
+  "stack": {
+    "size": 7,
+    "commit_shas": [
+      "cf0612955cc35cffac4e7f69828a987b967469ab",
+      "24e0b690ff401939e886be65ae2c46e7014f93e8",
+      "3d8d111e8d53b6228331cafdf3371fa500ba0729",
+      "1aae6e561e475678de626ecec570eee242a69e88",
+      "81edffca68e860a04938852e2d385bbfa03461ac",
+      "04e7a40d6c2c5f79b67d2d2245b6a92249535004",
+      "136f0608085bc62b1adb8230b06d6d017b8cc9e7"
+    ],
+    "commit_messages": [
+      "docs(sdk): smart sql, column value, and schema assertion sync method guides (#15754)",
+      "fix(structured-properties): fix build indices mapping for structured \u2026 (#15810)",
+      "fix(sql-parsing): Restore # prefix for MSSQL temporary tables in lineage extraction (#15703)",
+      "docs(local-dev): Added instructions on how to use mise for installing tools (#15806)",
+      "feat(bigquery): Add pushdown_deny_usernames and pushdown_allow_usernames for server-side user filtering (#15699)",
+      "docs(dataplex): general improvements to dataplex documentation (#15811)",
+      "fix(docs): correct sql server odbc version (#15822)"
+    ],
+    "last_committed": "2026-01-09T09:46:31.028676"
+  },
+  "git_state": {
+    "head_sha": "293486b9018499262da61f263bfa303d4037775e",
+    "branch": "marge-session-392c57ac-branch",
+    "working_tree_clean": false,
+    "uncommitted_files": [
+      "marge_checkpoints/marge-session-392c57ac.json"
+    ]
+  }
+}

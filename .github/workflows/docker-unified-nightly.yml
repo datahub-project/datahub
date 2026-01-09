@@ -434,9 +434,6 @@ jobs:
         run: |
           ./smoke-test/run-quickstart.sh
 
-      - name: Disk Check
-        run: df -h . && docker images
-
       - name: Disable ES Disk Threshold
         if: |
           steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
