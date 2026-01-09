@@ -572,6 +572,8 @@ plugins: Dict[str, Set[str]] = {
     "mysql": sql_common | mysql | aws_common,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | mysql | aws_common,
+    # starrocks should have same dependency as mysql
+    "starrocks": sql_common | mysql,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -757,6 +759,7 @@ base_dev_requirements = {
             "lookml",
             "glue",
             "mariadb",
+            "starrocks",
             "okta",
             "oracle",
             "postgres",
@@ -827,6 +830,7 @@ full_test_dev_requirements = {
             "mssql-odbc",
             "mysql",
             "mariadb",
+            "starrocks",
             "redash",
             "vertica",
             "vertexai",
@@ -888,6 +892,7 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb.MariaDBSource",
+        "starrocks = datahub.ingestion.source.sql.starrocks.StarRocksSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
