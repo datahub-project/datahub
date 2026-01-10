@@ -853,6 +853,17 @@ class Mapper:
             )
             list_of_mcps.append(tags_mcp)
 
+    def _make_user_urn(self, user: powerbi_data_classes.User) -> str:
+        """
+        Single source of truth for user URN generation.
+        Handles email/ID selection and suffix removal based on config.
+        """
+        user_id = user.get_urn_part(
+            use_email=self.__config.ownership.use_powerbi_email,
+            remove_email_suffix=self.__config.ownership.remove_email_suffix,
+        )
+        return builder.make_user_urn(user_id)
+
     def to_datahub_user(
         self, user: powerbi_data_classes.User
     ) -> List[MetadataChangeProposalWrapper]:
@@ -867,19 +878,15 @@ class Mapper:
             user.id,
         )
 
-        # Create URN for user (may use email or PowerBI ID based on config)
-        user_id = user.get_urn_part(
-            use_email=self.__config.ownership.use_powerbi_email,
-            remove_email_suffix=self.__config.ownership.remove_email_suffix,
-        )
-        user_urn = builder.make_user_urn(user_id)
+        user_urn = self._make_user_urn(user)
+        # Extract user_id from URN for Key aspect (must match URN identity)
+        user_id = user_urn.split(":")[-1]
 
-        # Key username MUST match URN username (identity aspect)
         user_key = CorpUserKeyClass(username=user_id)
 
         user_info = CorpUserInfoClass(
             displayName=user.displayName or user_id,  # Fallback to user_id if null
-            email=user.emailAddress,
+            email=user.emailAddress or None,  # Convert empty string to None
             active=True,
         )
 
@@ -888,7 +895,7 @@ class Mapper:
             self.new_mcp(entity_urn=user_urn, aspect=user_info),
         ]
 
-    def _filter_qualified_users(
+    def _get_qualified_owners(
         self, users: List[powerbi_data_classes.User]
     ) -> List[powerbi_data_classes.User]:
         """
@@ -944,7 +951,7 @@ class Mapper:
 
         # Opt-in mode: Create full user entities
         user_mcps = []
-        for user in self._filter_qualified_users(users):
+        for user in self._get_qualified_owners(users):
             user_mcps.extend(self.to_datahub_user(user))
 
         return user_mcps
@@ -955,14 +962,7 @@ class Mapper:
         Used when create_corp_user=False (default mode).
         No entity creation - follows Tableau/Looker pattern.
         """
-        user_urns = []
-        for user in self._filter_qualified_users(users):
-            user_id = user.get_urn_part(
-                use_email=self.__config.ownership.use_powerbi_email,
-                remove_email_suffix=self.__config.ownership.remove_email_suffix,
-            )
-            user_urns.append(builder.make_user_urn(user_id))
-        return user_urns
+        return [self._make_user_urn(user) for user in self._get_qualified_owners(users)]
 
     def _get_user_urns_for_ownership(
         self,

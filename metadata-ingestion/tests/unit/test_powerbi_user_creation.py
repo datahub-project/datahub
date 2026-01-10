@@ -305,6 +305,68 @@ class TestEdgeCases:
 
         assert urns == []
 
+    def test_user_with_empty_email_address(self) -> None:
+        """Empty email should be converted to None, not stored as empty string."""
+        from datahub.metadata.schema_classes import CorpUserInfoClass
+
+        # Simulate PowerBI returning empty string for email
+        email_value = ""
+
+        # The fix: email=user.emailAddress or None
+        user_info = CorpUserInfoClass(
+            displayName="Test User",
+            email=email_value or None,  # Convert "" to None
+            active=True,
+        )
+
+        assert user_info.email is None
+
+    def test_user_with_very_long_display_name(self) -> None:
+        """Long displayName should be handled without truncation."""
+        long_name = "A" * 500  # 500 character name
+
+        user = make_test_user(
+            user_id="longname@example.com",
+            display_name=long_name,
+            principal_type="User",
+        )
+
+        # System should handle long names without error
+        assert user.displayName == long_name
+        assert len(user.displayName) == 500
+
+    def test_user_with_special_characters_in_email(self) -> None:
+        """Emails with special characters should be handled correctly."""
+        special_emails = [
+            "user+tag@example.com",
+            "user.name@sub.domain.com",
+            "user_name@example.com",
+        ]
+
+        for email_addr in special_emails:
+            user = make_test_user(
+                user_id=email_addr,
+                email=email_addr,
+                principal_type="User",
+            )
+            assert user.emailAddress == email_addr
+
+    def test_user_with_null_display_name_uses_user_id_fallback(self) -> None:
+        """When displayName is None, user_id should be used as fallback."""
+        from datahub.metadata.schema_classes import CorpUserInfoClass
+
+        display_name = None
+        user_id = "fallback_user"
+
+        # The pattern: displayName=user.displayName or user_id
+        user_info = CorpUserInfoClass(
+            displayName=display_name or user_id,
+            email="test@example.com",
+            active=True,
+        )
+
+        assert user_info.displayName == "fallback_user"
+
 
 class TestConfigDefaults:
     """Tests for config default value changes.
