@@ -122,6 +122,10 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             assertion, parameters
         )
 
+        # Add runtime parameters for filter template substitution (e.g. ${partition_name})
+        if context.runtime_parameters:
+            source_params["runtime_parameters"] = context.runtime_parameters
+
         if event_type == EntityEventType.DATAHUB_OPERATION:
             return self._hydrate_window_event_result_with_window_parameters(
                 self._evaluate_datahub_operation_assertion(
