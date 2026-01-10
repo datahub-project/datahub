@@ -79,8 +79,8 @@ public class BillingFactory {
   /**
    * Derive customer name from base URL.
    *
-   * <p>Extracts the customer name from URL 
-   * "https://<customer_name>.trials.acryl.io" -> "<customer_name>"
+   * <p>Extracts the customer name from URL "https://<customer_name>.trials.acryl.io" ->
+   * "<customer_name>"
    *
    * @param baseUrl DataHub base URL
    * @return Customer name for billing provider

@@ -78,13 +78,14 @@ const FreeTrialContent = () => {
     const isLoading = educationSteps === null || ingestionLoading;
 
     // Check if any ingestion source has a successful execution
-    // TODO: We will need to update this to get other statuses later
     const hasSuccessfulIngestion = useMemo(() => {
         const sources = ingestionSourcesData?.listIngestionSources?.ingestionSources || [];
         return sources.some((source) => {
-            const latestExecution = source?.executions?.executionRequests?.[0];
-            const status = latestExecution?.result?.status;
-            return status === 'SUCCESS' || status === 'SUCCEEDED_WITH_WARNINGS';
+            const executionRequests = source?.executions?.executionRequests || [];
+            return executionRequests.some((execution) => {
+                const status = execution?.result?.status;
+                return status === 'SUCCESS' || status === 'SUCCEEDED_WITH_WARNINGS';
+            });
         });
     }, [ingestionSourcesData]);
 
@@ -245,9 +246,36 @@ const FreeTrialContent = () => {
         );
     }
 
+    const handleGoToSettings = () => {
+        history.push('/settings/preferences');
+    };
+
     return (
         <Container>
-            {!hasIngestionSources && (
+            {hasSuccessfulIngestion ? (
+                <PageBanner
+                    icon={
+                        <Icon
+                            icon="CheckCircle"
+                            color="green"
+                            colorLevel={1000}
+                            size="lg"
+                            weight="fill"
+                            source="phosphor"
+                        />
+                    }
+                    content={
+                        <Text color="green" colorLevel={1000}>
+                            You&apos;ve successfully connected your data! Would you like to disable sample e-commerce
+                            data?
+                        </Text>
+                    }
+                    backgroundColor={colors.green[0]}
+                    actionText="Go to Settings"
+                    onAction={handleGoToSettings}
+                    actionColor={colors.green[1000]}
+                />
+            ) : (
                 <PageBanner
                     icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
                     content={
