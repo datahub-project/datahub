@@ -322,3 +322,78 @@ def test_soft_reference_mode_no_user_entities(
         output_path=f"{tmp_path}/powerbi_soft_ref_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_empty_owner_criteria_includes_all_users(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """
+    Test owner_criteria=[] (empty list) behaves same as None.
+
+    This validates the fix for the bug where empty owner_criteria list
+    would filter out ALL users instead of including all users.
+
+    When owner_criteria=[]:
+    - Should behave same as owner_criteria=None (no filtering)
+    - All users with principalType='User' should be included as owners
+    - Uses same golden file as test_mysql_ingest (users are created)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        pytestconfig=pytestconfig,
+        override_data=read_mock_data(
+            pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/mysql_mock_response.json"
+        ),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    "tenant_id": "0b0c960b-fcdf-4d0f-8c45-2e03bb59ddeb",
+                    "client_id": "a8d655a6-f521-477e-8c22-255018583bf4",
+                    "client_secret": "ababa~cdcdcdcdcdcdcdcdcdcd-abcd.defghijk",
+                    "extract_ownership": True,
+                    "extract_endorsements_to_tags": True,
+                    "extract_app": True,
+                    "extract_column_level_lineage": True,
+                    "workspace_name_pattern": {"allow": ["^Employees$"]},
+                    "ownership": {
+                        "create_corp_user": True,
+                        # Empty list should behave same as None (include all users)
+                        "owner_criteria": [],
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_empty_criteria_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Uses same golden file as test_mysql_ingest since all users should be included
+    golden_file = "golden_test_mysql.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_empty_criteria_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
