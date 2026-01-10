@@ -33,18 +33,18 @@ public class EntityAspectDaoFactory {
       @Qualifier("ebeanServer") final Database server,
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
+    List<SystemAspectValidator> validators =
+        Objects.requireNonNullElse(payloadValidators, List.of());
     log.debug(
         "Creating EntityAspectDao with {} SystemAspectValidators: {}",
-        payloadValidators != null ? payloadValidators.size() : 0,
-        payloadValidators != null
-            ? payloadValidators.stream().map(v -> v.getClass().getSimpleName()).toList()
-            : "[]");
+        validators.size(),
+        validators.stream().map(v -> v.getClass().getSimpleName()).toList());
     EbeanAspectDao ebeanAspectDao =
         new EbeanAspectDao(
             server,
             configurationProvider.getEbean(),
             metricUtils,
-            Objects.requireNonNullElse(payloadValidators, List.of()),
+            validators,
             configurationProvider.getDatahub().getValidation() != null
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()
                 : null);
@@ -60,10 +60,12 @@ public class EntityAspectDaoFactory {
   @Nonnull
   protected AspectDao createCassandraInstance(
       CqlSession session, final ConfigurationProvider configurationProvider) {
+    List<SystemAspectValidator> validators =
+        Objects.requireNonNullElse(payloadValidators, List.of());
     CassandraAspectDao cassandraAspectDao =
         new CassandraAspectDao(
             session,
-            Objects.requireNonNullElse(payloadValidators, List.of()),
+            validators,
             configurationProvider.getDatahub().getValidation() != null
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()
                 : null);
