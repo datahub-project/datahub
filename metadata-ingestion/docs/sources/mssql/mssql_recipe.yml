@@ -43,7 +43,7 @@ source:
     # Options
     use_odbc: "True"
     uri_args:
-      driver: "ODBC Driver 17 for SQL Server"
+      driver: "ODBC Driver 18 for SQL Server"
       Encrypt: "yes"
       TrustServerCertificate: "Yes"
       ssl: "True"

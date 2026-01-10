@@ -539,6 +539,11 @@ export function getSortInput(field: string, order: SortingState): SortCriterion 
     };
 }
 
+export const DEFAULT_SOURCE_SORT_CRITERION: SortCriterion = {
+    sortOrder: SortOrder.Ascending,
+    field: 'type',
+};
+
 export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
     return hideSystemSources
         ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }

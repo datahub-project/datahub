@@ -22,6 +22,17 @@ Usage:
 import logging
 from typing import Iterable, Optional
 
+from azure.mgmt.datafactory.models import (
+    Activity,
+    DataFlowResource,
+    DatasetResource,
+    Factory,
+    LinkedServiceResource,
+    PipelineResource,
+    PipelineRun,
+    TriggerResource,
+)
+
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
@@ -44,16 +55,6 @@ from datahub.ingestion.source.azure_data_factory.adf_client import (
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
-)
-from datahub.ingestion.source.azure_data_factory.adf_models import (
-    Activity,
-    DataFlow as AdfDataFlow,
-    Dataset as AdfDataset,
-    Factory,
-    LinkedService,
-    Pipeline,
-    PipelineRun,
-    Trigger,
 )
 from datahub.ingestion.source.azure_data_factory.adf_report import (
     AzureDataFactorySourceReport,
@@ -234,11 +235,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # - resource_name: Name of the ADF resource (e.g., "MyDataset", "MyPipeline")
         # - resource_object: Parsed ADF resource model
         # These caches enable resolution of cross-references (e.g., dataset -> linked service)
-        self._datasets_cache: dict[str, dict[str, AdfDataset]] = {}
-        self._linked_services_cache: dict[str, dict[str, LinkedService]] = {}
-        self._data_flows_cache: dict[str, dict[str, AdfDataFlow]] = {}
-        self._pipelines_cache: dict[str, dict[str, Pipeline]] = {}
-        self._triggers_cache: dict[str, list[Trigger]] = {}
+        self._datasets_cache: dict[str, dict[str, DatasetResource]] = {}
+        self._linked_services_cache: dict[str, dict[str, LinkedServiceResource]] = {}
+        self._data_flows_cache: dict[str, dict[str, DataFlowResource]] = {}
+        self._pipelines_cache: dict[str, dict[str, PipelineResource]] = {}
+        self._triggers_cache: dict[str, list[TriggerResource]] = {}
 
     @classmethod
     def create(
@@ -281,21 +282,28 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         for factory in factories:
             self.report.report_api_call()
 
+            # SDK attributes can be None - skip factories with missing required fields
+            factory_name = factory.name
+            factory_id = factory.id
+            if not factory_name or not factory_id:
+                logger.warning(f"Skipping factory with missing name or id: {factory}")
+                continue
+
             # Check if factory matches pattern
-            if not self.config.factory_pattern.allowed(factory.name):
-                self.report.report_factory_filtered(factory.name)
+            if not self.config.factory_pattern.allowed(factory_name):
+                self.report.report_factory_filtered(factory_name)
                 continue
 
             try:
                 self.report.report_factory_scanned()
-                logger.info(f"Processing Data Factory: {factory.name}")
+                logger.info(f"Processing Data Factory: {factory_name}")
 
                 # Extract resource group from factory ID
                 # Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/...
-                resource_group = self._extract_resource_group(factory.id)
+                resource_group = self._extract_resource_group(factory_id)
 
                 # Cache datasets and linked services for this factory
-                self._cache_factory_resources(resource_group, factory.name)
+                self._cache_factory_resources(resource_group, factory_name)
 
                 # Emit factory as container and get the Container object for browse paths
                 container, container_workunits = self._emit_factory(
@@ -314,7 +322,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.report.report_warning(
                     title="Failed to Process Data Factory",
                     message="Error processing Data Factory. Skipping to next.",
-                    context=f"factory={factory.name}",
+                    context=f"factory={factory_name}",
                     exc=e,
                 )
 
@@ -343,7 +351,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             for dataset in self.client.get_datasets(resource_group, factory_name):
                 self.report.report_api_call()
                 self.report.report_dataset_scanned()
-                self._datasets_cache[factory_key][dataset.name] = dataset
+                if dataset.name:  # Skip datasets with no name
+                    self._datasets_cache[factory_key][dataset.name] = dataset
 
         # Cache linked services (needed for lineage resolution - maps datasets to platforms)
         if self.config.include_lineage:
@@ -351,7 +360,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             for ls in self.client.get_linked_services(resource_group, factory_name):
                 self.report.report_api_call()
                 self.report.report_linked_service_scanned()
-                self._linked_services_cache[factory_key][ls.name] = ls
+                if ls.name:  # Skip linked services with no name
+                    self._linked_services_cache[factory_key][ls.name] = ls
 
         # Cache triggers (for custom properties on pipelines)
         self._triggers_cache[factory_key] = []
@@ -366,7 +376,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             for data_flow in self.client.get_data_flows(resource_group, factory_name):
                 self.report.report_api_call()
                 self.report.report_data_flow_scanned()
-                self._data_flows_cache[factory_key][data_flow.name] = data_flow
+                if data_flow.name:  # Skip data flows with no name
+                    self._data_flows_cache[factory_key][data_flow.name] = data_flow
 
     def _emit_factory(
         self, factory: Factory, resource_group: str
@@ -377,29 +388,33 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             Tuple of (Container object, workunits). The Container object is needed
             by child entities (DataFlows) to properly set up browse paths.
         """
+        factory_name = factory.name or "Unknown"
+        factory_id = factory.id or ""
+
         container_key = AzureDataFactoryContainerKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
             resource_group=resource_group,
-            factory_name=factory.name,
+            factory_name=factory_name,
             env=self.config.env,
         )
 
         # Build custom properties
-        custom_props: dict[str, str] = {
-            "azure_resource_id": factory.id,
-            "location": factory.location,
-        }
+        custom_props: dict[str, str] = {}
+        if factory_id:
+            custom_props["azure_resource_id"] = factory_id
+        if factory.location:
+            custom_props["location"] = factory.location
         if factory.tags:
             for key, value in factory.tags.items():
                 custom_props[f"tag:{key}"] = value
-        if factory.properties and factory.properties.provisioning_state:
-            custom_props["provisioning_state"] = factory.properties.provisioning_state
+        if factory.provisioning_state:
+            custom_props["provisioning_state"] = factory.provisioning_state
 
         container = Container(
             container_key,
-            display_name=factory.name,
-            description=f"Azure Data Factory: {factory.name}",
+            display_name=factory_name,
+            description=f"Azure Data Factory: {factory_name}",
             subtype=FlowContainerSubTypes.ADF_DATA_FACTORY,
             external_url=self._get_factory_url(factory, resource_group),
             extra_properties=custom_props,
@@ -433,19 +448,21 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             resource_group: Azure resource group name
             container: The parent Container object (for browse path hierarchy)
         """
-        factory_key = f"{resource_group}/{factory.name}"
+        factory_name = factory.name or "Unknown"
+        factory_key = f"{resource_group}/{factory_name}"
 
         # First pass: Cache all pipelines for this factory
         self._pipelines_cache[factory_key] = {}
         try:
-            for pipeline in self.client.get_pipelines(resource_group, factory.name):
+            for pipeline in self.client.get_pipelines(resource_group, factory_name):
                 self.report.report_api_call()
-                self._pipelines_cache[factory_key][pipeline.name] = pipeline
+                if pipeline.name:  # Skip pipelines with no name
+                    self._pipelines_cache[factory_key][pipeline.name] = pipeline
         except Exception as e:
             self.report.report_warning(
                 title="Failed to List Pipelines",
                 message="Unable to retrieve pipelines from factory.",
-                context=f"factory={factory.name}",
+                context=f"factory={factory_name}",
                 exc=e,
             )
             return  # Can't process pipelines if we can't list them
@@ -458,7 +475,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 continue
 
             self.report.report_pipeline_scanned()
-            logger.debug(f"Processing pipeline: {factory.name}/{pipeline_name}")
+            logger.debug(f"Processing pipeline: {factory_name}/{pipeline_name}")
 
             # Emit pipeline as DataFlow, passing the Container for proper browse paths
             dataflow = self._create_dataflow(
@@ -467,12 +484,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             yield from dataflow.as_workunits()
 
             # Emit activities as DataJobs
-            if pipeline.properties is None:
-                logger.warning(
-                    f"Pipeline {pipeline_name} has no properties, skipping activities"
-                )
-                continue
-            for activity in pipeline.properties.activities:
+            for activity in pipeline.activities or []:
                 self.report.report_activity_scanned()
 
                 datajob = self._create_datajob(
@@ -499,7 +511,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
     def _create_dataflow(
         self,
-        pipeline: Pipeline,
+        pipeline: PipelineResource,
         factory: Factory,
         resource_group: str,
         container: Container,
@@ -512,31 +524,36 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             resource_group: Azure resource group name
             container: The parent Container object (enables proper browse path hierarchy)
         """
+        factory_name = factory.name or "Unknown"
+        pipeline_name = pipeline.name or "Unknown"
+
         # Build flow name with factory prefix for uniqueness across factories
-        flow_name = f"{factory.name}.{pipeline.name}"
+        flow_name = f"{factory_name}.{pipeline_name}"
 
         # Custom properties
         custom_props: dict[str, str] = {
-            "azure_resource_id": pipeline.id,
-            "factory_name": factory.name,
+            "factory_name": factory_name,
         }
+        if pipeline.id:
+            custom_props["azure_resource_id"] = pipeline.id
 
-        # Extract properties if available
-        description: Optional[str] = None
-        if pipeline.properties is not None:
-            if pipeline.properties.concurrency:
-                custom_props["concurrency"] = str(pipeline.properties.concurrency)
-            if pipeline.properties.folder:
-                folder_name = pipeline.properties.folder.get("name", "")
-                if folder_name:
-                    custom_props["folder"] = folder_name
-            if pipeline.properties.annotations:
-                custom_props["annotations"] = ", ".join(pipeline.properties.annotations)
-            description = pipeline.properties.description
+        # Extract properties (PipelineResource has them at root level)
+        if pipeline.concurrency:
+            custom_props["concurrency"] = str(pipeline.concurrency)
+        if pipeline.folder:
+            folder_name = pipeline.folder.name if pipeline.folder.name else ""
+            if folder_name:
+                custom_props["folder"] = folder_name
+        if pipeline.annotations:
+            # annotations is list[Any] per SDK - convert to strings for display
+            custom_props["annotations"] = ", ".join(
+                str(a) for a in pipeline.annotations
+            )
+        description: Optional[str] = pipeline.description
 
         # Add trigger info if available
         triggers = self._get_pipeline_triggers(
-            resource_group, factory.name, pipeline.name
+            resource_group, factory_name, pipeline_name
         )
         if triggers:
             custom_props["triggers"] = ", ".join(triggers)
@@ -548,9 +565,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             name=flow_name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            display_name=pipeline.name,
+            display_name=pipeline_name,
             description=description,
-            external_url=self._get_pipeline_url(factory, resource_group, pipeline.name),
+            external_url=self._get_pipeline_url(factory, resource_group, pipeline_name),
             custom_properties=custom_props,
             parent_container=container,
         )
@@ -564,14 +581,15 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         factory_key = f"{resource_group}/{factory_name}"
         triggers = self._triggers_cache.get(factory_key, [])
 
-        result = []
+        result: list[str] = []
         for trigger in triggers:
             # Check if trigger references this pipeline
-            for pipeline_ref in trigger.properties.pipelines:
-                ref_name = pipeline_ref.get("pipelineReference", {}).get(
-                    "referenceName", ""
-                )
-                if ref_name == pipeline_name:
+            # Not all trigger types have pipelines (e.g., TumblingWindowTrigger)
+            pipelines = getattr(trigger.properties, "pipelines", None) or []
+            for pipeline_ref in pipelines:
+                ref = pipeline_ref.pipeline_reference
+                ref_name = ref.reference_name if ref else ""
+                if ref_name == pipeline_name and trigger.name:
                     result.append(trigger.name)
                     break
 
@@ -591,19 +609,22 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     def _create_datajob(
         self,
         activity: Activity,
-        pipeline: Pipeline,
+        pipeline: PipelineResource,
         factory: Factory,
         resource_group: str,
         dataflow: DataFlow,
         factory_key: str,
     ) -> DataJob:
         """Create a DataJob entity for an activity."""
+        activity_type = activity.type or "Unknown"
+        activity_name = activity.name or "Unknown"
+
         # Determine activity subtype
-        subtype = ACTIVITY_SUBTYPE_MAP.get(activity.type, activity.type)
+        subtype = ACTIVITY_SUBTYPE_MAP.get(activity_type, activity_type)
 
         # Custom properties
         custom_props: dict[str, str] = {
-            "activity_type": activity.type,
+            "activity_type": activity_type,
         }
         if activity.description:
             custom_props["activity_description"] = activity.description
@@ -622,12 +643,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # Create DataJob with external URL to the parent pipeline
         # (ADF doesn't have direct activity URLs, so we link to the pipeline)
+        pipeline_name = pipeline.name or "Unknown"
         datajob = DataJob(
-            name=activity.name,
+            name=activity_name,
             flow=dataflow,
-            display_name=activity.name,
+            display_name=activity_name,
             description=activity.description,
-            external_url=self._get_pipeline_url(factory, resource_group, pipeline.name),
+            external_url=self._get_pipeline_url(factory, resource_group, pipeline_name),
             custom_properties=custom_props,
             subtype=subtype,
             inlets=inlets,
@@ -643,7 +665,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         inputs: list[DatasetUrnOrStr] = []
 
         # Process explicit inputs (for Copy activities and others)
-        for input_ref in activity.inputs:
+        # Note: Only some activity types (e.g., CopyActivity) have inputs/outputs
+        for input_ref in getattr(activity, "inputs", None) or []:
             dataset_urn = self._resolve_dataset_urn(
                 input_ref.reference_name, factory_key
             )
@@ -657,14 +680,16 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             inputs.extend(data_flow_inputs)
 
         # Process source in typeProperties (for Copy activities)
-        if activity.type_properties and "source" in activity.type_properties:
-            source = activity.type_properties["source"]
-            if "datasetSettings" in source:
+        # SDK CopyActivity has source attribute directly, not in type_properties dict
+        source = getattr(activity, "source", None)
+        if source:
+            dataset_settings = getattr(source, "dataset_settings", None)
+            if dataset_settings:
                 # Inline dataset configuration
                 pass  # Complex case, skip for now
             # Source might reference a dataset in storeSettings
-            store_settings = source.get("storeSettings", {})
-            if "linkedServiceName" in store_settings:
+            store_settings = getattr(source, "store_settings", None)
+            if store_settings and getattr(store_settings, "linked_service_name", None):
                 # Could resolve to a dataset if we have schema info
                 pass
 
@@ -677,7 +702,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         outputs: list[DatasetUrnOrStr] = []
 
         # Process explicit outputs (for Copy activities and others)
-        for output_ref in activity.outputs:
+        # Note: Only some activity types (e.g., CopyActivity) have inputs/outputs
+        for output_ref in getattr(activity, "outputs", None) or []:
             dataset_urn = self._resolve_dataset_urn(
                 output_ref.reference_name, factory_key
             )
@@ -691,9 +717,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             outputs.extend(data_flow_outputs)
 
         # Process sink in typeProperties (for Copy activities)
-        if activity.type_properties and "sink" in activity.type_properties:
-            sink = activity.type_properties["sink"]
-            if "datasetSettings" in sink:
+        # SDK CopyActivity has sink attribute directly, not in type_properties dict
+        sink = getattr(activity, "sink", None)
+        if sink:
+            dataset_settings = getattr(sink, "dataset_settings", None)
+            if dataset_settings:
                 # Inline dataset configuration
                 pass  # Complex case, skip for now
 
@@ -715,15 +743,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         Returns:
             Data Flow name if found, None otherwise
         """
-        # Approach 1: Try typeProperties.dataFlow (SDK expected format)
-        if activity.type_properties:
-            data_flow_ref = activity.type_properties.get(
-                "dataFlow", activity.type_properties.get("dataflow", {})
-            )
-            if isinstance(data_flow_ref, dict):
-                name = data_flow_ref.get("referenceName")
-                if name:
-                    return name
+        # Approach 1: SDK ExecuteDataFlowActivity has data_flow attribute directly
+        data_flow_ref = getattr(activity, "data_flow", None)
+        if data_flow_ref:
+            # DataFlowReference has reference_name attribute
+            name = getattr(data_flow_ref, "reference_name", None)
+            if name:
+                return name
 
         # Approach 2: Try to match activity name to Data Flow name
         # Many users name their activity similarly to the Data Flow
@@ -775,8 +801,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if not data_flow or not data_flow.properties:
             return
 
-        # Get the script from the Data Flow
-        script = data_flow.properties.get_script()
+        # Get the script from the Data Flow (join script_lines or use script)
+        # Note: script_lines/script are on MappingDataFlow, not base DataFlow
+        props = data_flow.properties
+        script_lines = getattr(props, "script_lines", None)
+        script = (
+            "\n".join(script_lines) if script_lines else getattr(props, "script", None)
+        )
         if not script:
             logger.debug(f"No script found for Data Flow: {data_flow_name}")
             return
@@ -891,13 +922,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         Yields:
             MetadataWorkUnit for the pipeline dependency
         """
-        if not activity.type_properties:
+        # SDK ExecutePipelineActivity has pipeline attribute directly
+        pipeline_ref = getattr(activity, "pipeline", None)
+        if not pipeline_ref:
             return
 
-        # Extract the child pipeline reference from typeProperties
-        pipeline_ref = activity.type_properties.get("pipeline", {})
-        child_pipeline_name = pipeline_ref.get("referenceName")
-
+        # PipelineReference has reference_name attribute
+        child_pipeline_name = getattr(pipeline_ref, "reference_name", None)
         if not child_pipeline_name:
             logger.debug(
                 f"ExecutePipeline activity {activity.name} has no pipeline reference"
@@ -919,9 +950,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         child_datajob_urn: Optional[DataJobUrn] = None
         first_activity_name: Optional[str] = None
 
-        if child_pipeline and child_pipeline.properties:
-            activities = child_pipeline.properties.activities
-            if activities:
+        if child_pipeline:
+            activities = child_pipeline.activities
+            if activities and activities[0].name:
                 first_activity_name = activities[0].name
                 child_datajob_urn = DataJobUrn.create_from_ids(
                     data_flow_urn=str(child_flow_urn),
@@ -975,15 +1006,24 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # Get linked service to determine platform
         linked_service_ref = dataset.properties.linked_service_name
+        if not linked_service_ref or not linked_service_ref.reference_name:
+            self.report.report_unmapped_platform(dataset_name, "unknown")
+            return None
+
+        ls_ref_name = linked_service_ref.reference_name
         linked_services = self._linked_services_cache.get(factory_key, {})
-        linked_service = linked_services.get(linked_service_ref.reference_name)
+        linked_service = linked_services.get(ls_ref_name)
 
         if not linked_service:
             self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
         # Map linked service type to DataHub platform
-        ls_type = linked_service.properties.type
+        ls_type = linked_service.properties.type if linked_service.properties else None
+        if not ls_type:
+            self.report.report_unmapped_platform(dataset_name, "unknown")
+            return None
+
         platform = LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
 
         if not platform:
@@ -996,9 +1036,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             table_name = dataset_name  # Fallback to ADF dataset name
 
         # Check if there's a platform instance mapping
-        platform_instance = self.config.platform_instance_map.get(
-            linked_service_ref.reference_name
-        )
+        platform_instance = self.config.platform_instance_map.get(ls_ref_name)
 
         return DatasetUrn.create_from_ids(
             platform_id=platform,
@@ -1008,45 +1046,46 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         )
 
     def _extract_table_name(
-        self, dataset: AdfDataset, linked_service: LinkedService
+        self, dataset: DatasetResource, linked_service: LinkedServiceResource
     ) -> Optional[str]:
-        """Extract table/file name from dataset type properties."""
-        if not dataset.properties.type_properties:
-            return None
+        """Extract table/file name from dataset properties.
 
-        type_props = dataset.properties.type_properties
+        SDK dataset subclasses have type-specific properties as direct attributes
+        (e.g., table_name, table, schema_type_properties_schema, file_name, etc.)
+        """
+        props = dataset.properties
 
-        # SQL-like datasets
-        if "tableName" in type_props:
-            return type_props["tableName"]
-        if "table" in type_props:
-            return type_props["table"]
+        # SQL-like datasets - check for table_name or table attributes
+        table_name = getattr(props, "table_name", None)
+        if table_name:
+            return str(table_name) if not isinstance(table_name, str) else table_name
 
-        # Structured table reference
-        if "schema" in type_props and "table" in type_props:
-            schema = type_props.get("schema", "")
-            table = type_props.get("table", "")
-            if schema and table:
-                return f"{schema}.{table}"
+        table = getattr(props, "table", None)
+        if table:
+            return str(table) if not isinstance(table, str) else table
+
+        # Structured table reference (schema.table)
+        schema = getattr(props, "schema_type_properties_schema", None)
+        if schema and table:
+            return f"{schema}.{table}"
 
         # File-based datasets
-        if "fileName" in type_props:
-            folder = type_props.get("folderPath", "")
-            filename = type_props.get("fileName", "")
-            if folder and filename:
-                return f"{folder}/{filename}"
-            return filename
+        file_name = getattr(props, "file_name", None)
+        if file_name:
+            folder_path = getattr(props, "folder_path", None)
+            if folder_path and file_name:
+                return f"{folder_path}/{file_name}"
+            return str(file_name) if not isinstance(file_name, str) else file_name
 
-        # Container/path based
-        if "location" in type_props:
-            location = type_props["location"]
-            if isinstance(location, dict):
-                container = location.get("container", "")
-                folder = location.get("folderPath", "")
-                filename = location.get("fileName", "")
-                parts = [p for p in [container, folder, filename] if p]
-                if parts:
-                    return "/".join(parts)
+        # Container/path based (e.g., DelimitedTextDataset with location)
+        location = getattr(props, "location", None)
+        if location:
+            container = getattr(location, "container", None)
+            folder = getattr(location, "folder_path", None)
+            filename = getattr(location, "file_name", None)
+            parts = [str(p) for p in [container, folder, filename] if p]
+            if parts:
+                return "/".join(parts)
 
         return None
 
@@ -1054,8 +1093,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self, factory: Factory, resource_group: str
     ) -> Iterable[MetadataWorkUnit]:
         """Process pipeline execution history for a Data Factory."""
+        factory_name = factory.name or "Unknown"
         logger.info(
-            f"Fetching execution history for Data Factory: {factory.name} "
+            f"Fetching execution history for Data Factory: {factory_name} "
             f"(last {self.config.execution_history_days} days)"
         )
 
@@ -1063,7 +1103,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             pipeline_runs: list[PipelineRun] = list(
                 self.client.get_pipeline_runs(
                     resource_group,
-                    factory.name,
+                    factory_name,
                     days=self.config.execution_history_days,
                 )
             )
@@ -1071,7 +1111,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             self.report.report_warning(
                 title="Failed to Fetch Execution History",
                 message="Unable to retrieve pipeline runs.",
-                context=f"factory={factory.name}",
+                context=f"factory={factory_name}",
                 exc=e,
             )
             return
@@ -1079,6 +1119,10 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         for pipeline_run in pipeline_runs:
             self.report.report_api_call()
             self.report.report_pipeline_run_scanned()
+
+            # Skip runs with missing required fields
+            if not pipeline_run.pipeline_name or not pipeline_run.run_id:
+                continue
 
             # Check if pipeline matches pattern
             if not self.config.pipeline_pattern.allowed(pipeline_run.pipeline_name):
@@ -1093,8 +1137,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         resource_group: str,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit a pipeline run as DataProcessInstance."""
+        factory_name = factory.name or "Unknown"
+        pipeline_name = pipeline_run.pipeline_name or "Unknown"
+        run_id = pipeline_run.run_id or "Unknown"
+        status = pipeline_run.status or "Unknown"
+
         # Build DataFlow URN for the template - include factory name for uniqueness
-        flow_name = f"{factory.name}.{pipeline_run.pipeline_name}"
+        flow_name = f"{factory_name}.{pipeline_name}"
         flow_urn = DataFlowUrn.create_from_ids(
             orchestrator=PLATFORM,
             flow_id=flow_name,
@@ -1103,12 +1152,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         )
 
         # Map ADF status to InstanceRunResult
-        result = self._map_run_status(pipeline_run.status)
+        result = self._map_run_status(status)
 
         # Build custom properties
         properties: dict[str, str] = {
-            "run_id": pipeline_run.run_id,
-            "status": pipeline_run.status,
+            "run_id": run_id,
+            "status": status,
         }
         if pipeline_run.message:
             properties["message"] = pipeline_run.message[:MAX_RUN_MESSAGE_LENGTH]
@@ -1127,15 +1176,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # Create DataProcessInstance
         dpi = DataProcessInstance(
-            id=pipeline_run.run_id,
+            id=run_id,
             orchestrator=PLATFORM,
             cluster=self.config.env,
             type=DataProcessTypeClass.BATCH_SCHEDULED,
             template_urn=flow_urn,
             properties=properties,
-            url=self._get_pipeline_run_url(
-                factory, resource_group, pipeline_run.run_id
-            ),
+            url=self._get_pipeline_run_url(factory, resource_group, run_id),
             data_platform_instance=self.config.platform_instance,
         )
 
@@ -1185,11 +1232,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self, factory: Factory, resource_group: str, run_id: str
     ) -> str:
         """Generate Azure Portal URL for a pipeline run."""
+        factory_name = factory.name or "Unknown"
         return (
             f"https://adf.azure.com/en/monitoring/pipelineruns/{run_id}"
             f"?factory=/subscriptions/{self.config.subscription_id}"
             f"/resourceGroups/{resource_group}"
-            f"/providers/Microsoft.DataFactory/factories/{factory.name}"
+            f"/providers/Microsoft.DataFactory/factories/{factory_name}"
         )
 
     def _emit_activity_runs(
@@ -1199,17 +1247,29 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         resource_group: str,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit activity runs as DataProcessInstance for each DataJob."""
+        factory_name = factory.name or "Unknown"
+        pipeline_run_id = pipeline_run.run_id or "Unknown"
+
         try:
             for activity_run in self.client.get_activity_runs(
                 resource_group,
-                factory.name,
-                pipeline_run.run_id,
+                factory_name,
+                pipeline_run_id,
             ):
                 self.report.report_api_call()
                 self.report.report_activity_run_scanned()
 
+                # Skip activity runs with missing required fields
+                activity_name = activity_run.activity_name
+                activity_run_id = activity_run.activity_run_id
+                if not activity_name or not activity_run_id:
+                    continue
+
+                activity_pipeline = activity_run.pipeline_name or "Unknown"
+                activity_status = activity_run.status or "Unknown"
+
                 # Build DataJob URN for the template
-                flow_name = f"{factory.name}.{activity_run.pipeline_name}"
+                flow_name = f"{factory_name}.{activity_pipeline}"
                 flow_urn = DataFlowUrn.create_from_ids(
                     orchestrator=PLATFORM,
                     flow_id=flow_name,
@@ -1218,19 +1278,21 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 )
                 job_urn = DataJobUrn.create_from_ids(
                     data_flow_urn=str(flow_urn),
-                    job_id=activity_run.activity_name,
+                    job_id=activity_name,
                 )
 
                 # Map ADF status to InstanceRunResult
-                result = self._map_run_status(activity_run.status)
+                result = self._map_run_status(activity_status)
 
                 # Build custom properties
                 properties: dict[str, str] = {
-                    "activity_run_id": activity_run.activity_run_id,
-                    "activity_type": activity_run.activity_type,
-                    "pipeline_run_id": activity_run.pipeline_run_id,
-                    "status": activity_run.status,
+                    "activity_run_id": activity_run_id,
+                    "status": activity_status,
                 }
+                if activity_run.activity_type:
+                    properties["activity_type"] = activity_run.activity_type
+                if activity_run.pipeline_run_id:
+                    properties["pipeline_run_id"] = activity_run.pipeline_run_id
                 if activity_run.duration_in_ms is not None:
                     properties["duration_ms"] = str(activity_run.duration_in_ms)
                 if activity_run.error:
@@ -1240,14 +1302,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
                 # Create DataProcessInstance linked to DataJob
                 dpi = DataProcessInstance(
-                    id=activity_run.activity_run_id,
+                    id=activity_run_id,
                     orchestrator=PLATFORM,
                     cluster=self.config.env,
                     type=DataProcessTypeClass.BATCH_SCHEDULED,
                     template_urn=job_urn,
                     properties=properties,
                     url=self._get_pipeline_run_url(
-                        factory, resource_group, pipeline_run.run_id
+                        factory, resource_group, pipeline_run_id
                     ),
                     data_platform_instance=self.config.platform_instance,
                 )

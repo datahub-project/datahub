@@ -174,7 +174,27 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                     Resources
                 </SectionTitle>
                 {supportsRelatedDocuments && !hideLinksButton && menuItems.length > 0 && (
-                    <>
+                    <Popover
+                        open={showAddContextPopover}
+                        trigger="click"
+                        onOpenChange={(visible) => !visible && setShowAddContextPopover(false)}
+                        content={
+                            urn ? (
+                                <AddContextDocumentPopover
+                                    entityUrn={urn}
+                                    onDocumentSelected={handleDocumentSelected}
+                                    onClose={() => setShowAddContextPopover(false)}
+                                />
+                            ) : null
+                        }
+                        placement="bottomRight"
+                        overlayStyle={{ padding: 0 }}
+                        overlayInnerStyle={{
+                            padding: 0,
+                            background: 'transparent',
+                            boxShadow: 'none',
+                        }}
+                    >
                         <Menu items={menuItems} placement="bottomRight">
                             <Tooltip title="Add related link or context">
                                 <Button
@@ -188,29 +208,7 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                                 />
                             </Tooltip>
                         </Menu>
-                        <Popover
-                            open={showAddContextPopover}
-                            onOpenChange={(visible) => !visible && setShowAddContextPopover(false)}
-                            content={
-                                urn ? (
-                                    <AddContextDocumentPopover
-                                        entityUrn={urn}
-                                        onDocumentSelected={handleDocumentSelected}
-                                        onClose={() => setShowAddContextPopover(false)}
-                                    />
-                                ) : null
-                            }
-                            placement="rightTop"
-                            overlayStyle={{ padding: 0 }}
-                            overlayInnerStyle={{
-                                padding: 0,
-                                background: 'transparent',
-                                boxShadow: 'none',
-                            }}
-                        >
-                            <span style={{ position: 'absolute', pointerEvents: 'none' }} />
-                        </Popover>
-                    </>
+                    </Popover>
                 )}
             </SectionHeader>
 

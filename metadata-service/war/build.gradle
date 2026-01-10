@@ -128,6 +128,7 @@ docker {
 test {
   jacoco {
     // This contains quickstart tested code for jetty startup
-    excludes = []
+    excludes = ["com.linkedin.gms.ServletConfig",
+                "com.linkedin.gms.GMSApplication"]
   }
 }

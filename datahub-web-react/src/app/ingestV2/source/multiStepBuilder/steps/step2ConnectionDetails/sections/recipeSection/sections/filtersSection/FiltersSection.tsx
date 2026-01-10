@@ -1,10 +1,11 @@
-import { Button, Input, SimpleSelect, spacing } from '@components';
+import { Button, Icon, Input, Popover, SimpleSelect, spacing } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { FilterRecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
 import { RemoveIcon } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/RemoveIcon';
+import RegexTooltipContent from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/RegexTooltipContent';
 import { Filter } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/types';
 import {
     convertFiltersToFieldValues,
@@ -41,6 +42,9 @@ const SelectLabelWrapper = styled.div`
 
 const SelectLabelWrapperFullWidth = styled.div`
     width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 `;
 
 const Spacer = styled.div`
@@ -167,7 +171,8 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
     return (
         <>
             <SectionName
-                name="Filters"
+                name="Asset Filters"
+                description="Optional. Leave blank to ingest all accessible assets. Create include rules to allow specific assets, exclude rules to block them, or both."
                 topRowRightItems={
                     <Button size="sm" onClick={onAddFilterClick}>
                         Add Filter
@@ -177,13 +182,16 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
             <FilterRow>
                 <FilterFieldsWrapper>
                     <SelectLabelWrapper>
-                        <FieldLabel label="Rule" />
+                        <FieldLabel label="Filter Type" />
                     </SelectLabelWrapper>
                     <SelectLabelWrapper>
-                        <FieldLabel label="Subtype" />
+                        <FieldLabel label="Asset Type" />
                     </SelectLabelWrapper>
                     <SelectLabelWrapperFullWidth>
-                        <FieldLabel label="Regex Entry" />
+                        <FieldLabel label="Name or Pattern" />
+                        <Popover content={<RegexTooltipContent />}>
+                            <Icon icon="Info" source="phosphor" color="gray" size="lg" />
+                        </Popover>
                     </SelectLabelWrapperFullWidth>
                 </FilterFieldsWrapper>
                 <Spacer />
