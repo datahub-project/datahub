@@ -1,6 +1,10 @@
 package com.linkedin.metadata.aspect;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -350,5 +354,42 @@ public class EntityAspectTest {
     // Make a second call to verify we get the same object back (cached)
     SystemMetadata cachedResult = systemAspect.getSystemMetadata();
     assertSame(result, cachedResult, "Second call should return the same cached object");
+  }
+
+  @Test
+  public void testPayloadValidatorInjection() {
+    // Test that SystemAspectValidators injected via payloadValidators list are actually invoked
+    // during withVersion() - addresses RyanHolstien feedback
+
+    // Create mock validator
+    com.linkedin.metadata.aspect.SystemAspectValidator mockValidator =
+        mock(com.linkedin.metadata.aspect.SystemAspectValidator.class);
+
+    // Create EntitySystemAspect with validator injected
+    EntityAspect.EntitySystemAspect systemAspect =
+        new EntityAspect.EntitySystemAspect(
+            null,
+            UrnUtils.getUrn(TEST_URN),
+            new Status().setRemoved(false),
+            null, // systemMetadata will be auto-created
+            null, // auditStamp
+            entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
+            entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(TEST_ASPECT),
+            java.util.Collections.singletonList(mockValidator),
+            null);
+
+    // Call withVersion - this should invoke the validator
+    EntityAspect result = systemAspect.withVersion(0);
+
+    // Verify validator was called with correct parameters
+    verify(mockValidator, times(1))
+        .validatePayload(
+            any(com.linkedin.metadata.aspect.SystemAspect.class),
+            any(com.linkedin.metadata.aspect.EntityAspect.class));
+
+    // Verify result was created
+    assertNotNull(result);
+    assertEquals(result.getUrn(), TEST_URN);
+    assertEquals(result.getAspect(), TEST_ASPECT);
   }
 }
