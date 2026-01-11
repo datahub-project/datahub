@@ -1291,7 +1291,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
         return DatahubGEProfiler(
-            conn=inspector.bind,
+            engine=inspector.bind.engine,
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,

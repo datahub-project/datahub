@@ -1149,7 +1149,7 @@ class DatahubGEProfiler:
 
     def __init__(
         self,
-        conn: Union[Engine, Connection],
+        engine: Engine,
         report: SQLSourceReport,
         config: GEProfilingConfig,
         platform: str,
@@ -1161,13 +1161,7 @@ class DatahubGEProfiler:
         self.total_row_count = 0
 
         self.env = env
-
-        # TRICKY: The call to `.engine` is quite important here. Connection.connect()
-        # returns a "branched" connection, which does not actually use a new underlying
-        # DB-API object from the connection pool. Engine.connect() does what we want to
-        # make the threading code work correctly. As such, we need to make sure we've
-        # got an engine here.
-        self.base_engine = conn.engine
+        self.base_engine = engine
 
         if IS_SQLALCHEMY_1_4:
             # SQLAlchemy 1.4 added a statement "linter", which issues warnings about cartesian products in SELECT statements.
