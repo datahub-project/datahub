@@ -56,7 +56,7 @@ class UnityCatalogConnectionConfig(ConfigModel):
         super().__init__(**data)
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
-        uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
+        uri_opts = {}
         if database:
             uri_opts["catalog"] = database
         return make_sqlalchemy_uri(
