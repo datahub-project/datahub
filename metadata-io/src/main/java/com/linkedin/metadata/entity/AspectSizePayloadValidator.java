@@ -49,6 +49,22 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
     this.metricUtils = metricUtils;
   }
 
+  /**
+   * Categorize aspect size into buckets for distribution tracking. Buckets are configured to align
+   * with typical validation thresholds.
+   *
+   * @param bytes aspect size in bytes
+   * @return bucket label (e.g., "1-5MB", "10-15MB")
+   */
+  private static String getSizeBucket(long bytes) {
+    long mb = bytes / (1024 * 1024);
+    if (mb < 1) return "0-1MB";
+    if (mb < 5) return "1-5MB";
+    if (mb < 10) return "5-10MB";
+    if (mb < 15) return "10-15MB";
+    return "15MB+";
+  }
+
   @Override
   public void validatePayload(
       @Nonnull SystemAspect systemAspect, @Nonnull EntityAspect serializedAspect) {
@@ -64,6 +80,17 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
 
     long actualSize = metadata.length();
     long threshold = config.getPostPatch().getMaxSizeBytes();
+
+    // Emit bucketed counter for size distribution tracking
+    if (metricUtils != null) {
+      metricUtils.incrementMicrometer(
+          "aspectSizeValidation.postPatch.aspectSize",
+          1,
+          "aspectName",
+          systemAspect.getAspectSpec().getName(),
+          "sizeBucket",
+          getSizeBucket(actualSize));
+    }
 
     if (actualSize > threshold) {
       OversizedAspectRemediation remediation = config.getPostPatch().getOversizedRemediation();

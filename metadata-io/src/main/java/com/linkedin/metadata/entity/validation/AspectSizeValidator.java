@@ -34,6 +34,22 @@ public class AspectSizeValidator {
   }
 
   /**
+   * Categorize aspect size into buckets for distribution tracking. Buckets are configured to align
+   * with typical validation thresholds.
+   *
+   * @param bytes aspect size in bytes
+   * @return bucket label (e.g., "1-5MB", "10-15MB")
+   */
+  private static String getSizeBucket(long bytes) {
+    long mb = bytes / (1024 * 1024);
+    if (mb < 1) return "0-1MB";
+    if (mb < 5) return "1-5MB";
+    if (mb < 10) return "5-10MB";
+    if (mb < 15) return "10-15MB";
+    return "15MB+";
+  }
+
+  /**
    * Validates pre-patch aspect size (existing aspect from database).
    *
    * <p>This is a convenience method that calls {@link #validatePrePatchSize(String, Urn, String,
@@ -105,6 +121,17 @@ public class AspectSizeValidator {
 
     long actualSize = rawMetadata.length();
     long threshold = config.getPrePatch().getMaxSizeBytes();
+
+    // Emit bucketed counter for size distribution tracking
+    if (metricUtils != null) {
+      metricUtils.incrementMicrometer(
+          "aspectSizeValidation.prePatch.aspectSize",
+          1,
+          "aspectName",
+          aspectName,
+          "sizeBucket",
+          getSizeBucket(actualSize));
+    }
 
     if (actualSize > threshold) {
       OversizedAspectRemediation remediation = config.getPrePatch().getOversizedRemediation();
