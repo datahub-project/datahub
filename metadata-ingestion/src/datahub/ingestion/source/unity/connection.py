@@ -61,8 +61,8 @@ class UnityCatalogConnectionConfig(ConfigModel):
             uri_opts["catalog"] = database
         return make_sqlalchemy_uri(
             scheme=self.scheme,
-            username="token",
-            password=self.token,
+            username=None,
+            password=None,
             at=urlparse(self.workspace_url).netloc,
             db=database,
             uri_opts=uri_opts,
@@ -96,11 +96,16 @@ def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceCl
 
 def get_sql_connection_params(workspace_client: WorkspaceClient) -> dict[str, Any]:
     return {
-        "access_token": workspace_client.config.token,
         "server_hostname": workspace_client.config.host.replace("https://", ""),
         "user_agent_entry": DATABRICKS_USER_AGENT_ENTRY,
         # Don't use workspace_client.config.sql_http_path because it adds
         # `sdk-feature/sql-http-path` to the user-agent, which causes errors from the
         # Databricks endpoint: `{user_agent} is not supported for SQL warehouses`.
         "http_path": f"/sql/1.0/warehouses/{workspace_client.config.warehouse_id}",
+        # Delegate to workspace_client for authentication, since it (1) already handles
+        # all auth methods and (2) automatically handles token expiration and refresh.
+        # The `credentials_provider` parameter must be a factory function which is called
+        # once upon initialization, returning another function which is called on every
+        # request, which returns authentication headers for the Databricks endpoints.
+        "credentials_provider": lambda: workspace_client.config.authenticate,
     }

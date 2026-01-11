@@ -1267,10 +1267,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         # Log connection parameters (with masked token)
         sql_connection_params = get_sql_connection_params(self._workspace_client)
-        masked_params = {**sql_connection_params}
-        if "access_token" in masked_params:
-            masked_params["access_token"] = "***MASKED***"
-        logger.debug(f"Using connection parameters: {masked_params}")
+        logger.debug(f"Using connection parameters: {sql_connection_params}")
 
         # Log proxy environment variables that affect SQL connections
         proxy_env_debug = {}
