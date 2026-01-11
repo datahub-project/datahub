@@ -106,12 +106,6 @@ public class AspectSizeValidator {
     long actualSize = rawMetadata.length();
     long threshold = config.getPrePatch().getMaxSizeBytes();
 
-    // Emit histogram metric for all aspect sizes
-    if (metricUtils != null) {
-      metricUtils.histogram(
-          AspectSizeValidator.class, "aspectSizeValidation.prePatch.aspectSize", actualSize);
-    }
-
     if (actualSize > threshold) {
       OversizedAspectRemediation remediation = config.getPrePatch().getOversizedRemediation();
 

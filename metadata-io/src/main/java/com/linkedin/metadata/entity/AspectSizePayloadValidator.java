@@ -65,12 +65,6 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
     long actualSize = metadata.length();
     long threshold = config.getPostPatch().getMaxSizeBytes();
 
-    // Emit histogram metric for all aspect sizes
-    if (metricUtils != null) {
-      metricUtils.histogram(
-          this.getClass(), "aspectSizeValidation.postPatch.aspectSize", actualSize);
-    }
-
     if (actualSize > threshold) {
       OversizedAspectRemediation remediation = config.getPostPatch().getOversizedRemediation();
 
