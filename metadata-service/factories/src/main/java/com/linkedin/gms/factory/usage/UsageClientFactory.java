@@ -30,6 +30,24 @@ public class UsageClientFactory {
   @Value("${DATAHUB_GMS_SSL_PROTOCOL:#{null}}")
   private String gmsSslProtocol;
 
+    @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}}")
+    private String gmsSslTrustStorePath;
+
+    @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}}")
+    private String gmsSslTrustStorePass;
+
+    @Value("${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:#{null}}")
+    private String gmsSslTrustStoreType;
+
+    @Value("${SERVER_SSL_KEY_STORE:#{null}}")
+    private String serverSslTrustStorePath;
+
+    @Value("${SERVER_SSL_KEY_STORE_PASSWORD:#{null}}")
+    private String serverSslTrustStorePass;
+
+    @Value("${SERVER_SSL_KEY_STORE_TYPE:#{null}}")
+    private String serverSslTrustStoreType;
+
   @Value("${usageClient.retryInterval:2}")
   private int retryInterval;
 
@@ -48,9 +66,19 @@ public class UsageClientFactory {
     Map<String, String> params = new HashMap<>();
     params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
-    Client restClient =
-        DefaultRestliClientFactory.getRestLiClient(
-            gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, params);
+      Client restClient =
+              DefaultRestliClientFactory.getRestLiClient(
+                      gmsHost,
+                      gmsPort,
+                      gmsUseSSL,
+                      gmsSslProtocol,
+                      params,
+                      gmsSslTrustStorePath,
+                      gmsSslTrustStorePass,
+                      gmsSslTrustStoreType,
+                      serverSslTrustStorePath,
+                      serverSslTrustStorePass,
+                      serverSslTrustStoreType);
     return new RestliUsageClient(
         restClient,
         new ExponentialBackoff(retryInterval),

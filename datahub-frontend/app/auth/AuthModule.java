@@ -62,6 +62,7 @@ import play.Environment;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
 import utils.CustomHttpClientFactory;
+import utils.KeyStoreConfig;
 import utils.TruststoreConfig;
 
 /** Responsible for configuring, validating, and providing authentication related components. */
@@ -320,10 +321,29 @@ public class AuthModule extends AbstractModule {
   @Singleton
   protected CloseableHttpClient provideCloseableHttpClient(com.typesafe.config.Config config) {
     TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    KeyStoreConfig keyStoreConfig = KeyStoreConfig.fromConfig(config);
     try {
-      if (tsConfig.isValid()) {
+      // TLS/mTLS configuration behavior:
+      // - If a truststore is provided, the client enables TLS and validates the server certificate.
+      // - If both a truststore and a keystore are provided, the client enables mutual TLS (mTLS),
+      //   allowing the server to validate the client's certificate as well.
+      // - If neither is provided, the client uses plain HTTP.
+      //
+      // The getJavaHttpClient(...) method gracefully handles null paths/passwords/types:
+      //   • truststore only  → one‑way TLS
+      //   • truststore + keystore → mutual TLS
+      //   • neither → no TLS
+      //
+      // This block simply checks whether any SSL material is present and delegates the actual
+      // SSLContext construction to CustomHttpClientFactory.
+      if (tsConfig.isValid() || keyStoreConfig.isValid()) {
         return CustomHttpClientFactory.getApacheHttpClient(
-            tsConfig.path, tsConfig.password, tsConfig.type);
+            keyStoreConfig.path,
+            keyStoreConfig.password,
+            keyStoreConfig.type,
+            tsConfig.path,
+            tsConfig.password,
+            tsConfig.type);
       } else {
         return HttpClients.createDefault();
       }
@@ -336,10 +356,29 @@ public class AuthModule extends AbstractModule {
   @Singleton
   protected HttpClient provideHttpClient(com.typesafe.config.Config config) {
     TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    KeyStoreConfig keyStoreConfig = KeyStoreConfig.fromConfig(config);
     try {
-      if (tsConfig.isValid()) {
+      // TLS/mTLS configuration behavior:
+      // - If a truststore is provided, the client enables TLS and validates the server certificate.
+      // - If both a truststore and a keystore are provided, the client enables mutual TLS (mTLS),
+      //   allowing the server to validate the client's certificate as well.
+      // - If neither is provided, the client uses plain HTTP.
+      //
+      // The getJavaHttpClient(...) method gracefully handles null paths/passwords/types:
+      //   • truststore only  → one‑way TLS
+      //   • truststore + keystore → mutual TLS
+      //   • neither → no TLS
+      //
+      // This block simply checks whether any SSL material is present and delegates the actual
+      // SSLContext construction to CustomHttpClientFactory.
+      if (tsConfig.isValid() || keyStoreConfig.isValid()) {
         return CustomHttpClientFactory.getJavaHttpClient(
-            tsConfig.path, tsConfig.password, tsConfig.type);
+            keyStoreConfig.path,
+            keyStoreConfig.password,
+            keyStoreConfig.type,
+            tsConfig.path,
+            tsConfig.password,
+            tsConfig.type);
       } else {
         return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
       }
@@ -348,7 +387,49 @@ public class AuthModule extends AbstractModule {
     }
   }
 
+  /**
+   * We pass both a truststore and a keystore to the Rest.li client factory to enable full TLS +
+   * mutual TLS (mTLS) when the frontend communicates with GMS.
+   *
+   * <p>TRUSTSTORE (server verification) -------------------------------- truststorePath /
+   * truststorePassword / truststoreType
+   *
+   * <p>The truststore contains ONLY the CA certificates that signed the GMS server certificate. It
+   * is used by the client to validate the SERVER identity during the TLS handshake.
+   *
+   * <p>If this truststore does not contain the CA that signed GMS's certificate, the client
+   * handshake will fail with:
+   *
+   * <p>javax.net.ssl.SSLHandshakeException: certificate_unknown
+   *
+   * <p>because Java will reject the server certificate.
+   *
+   * <p>KEYSTORE (client authentication for mTLS) -----------------------------------------
+   * serverKeystorePath / serverKeystorePassword / serverKeystoreType
+   *
+   * <p>The keystore contains: • The CLIENT certificate (public) • The CLIENT private key
+   *
+   * <p>When GMS is configured with:
+   *
+   * <p>SERVER_SSL_CLIENT_AUTH = NEED
+   *
+   * <p>GMS requires every incoming HTTPS connection to present a client certificate. This keystore
+   * provides that certificate, enabling proper mutual TLS authentication.
+   *
+   * <p>If the keystore is missing or does not contain the correct cert+key pair, GMS will
+   * immediately reject the handshake with:
+   *
+   * <p>Received fatal alert: certificate_unknown
+   *
+   * <p>SUMMARY ------- truststore → validates GMS's identity (server authentication) keystore →
+   * proves frontend’s identity to GMS (client authentication / mTLS)
+   *
+   * <p>Passing these into DefaultRestliClientFactory ensures all Rest.li calls made by
+   * datahub-frontend to GMS are protected by full mutual TLS.
+   */
   private com.linkedin.restli.client.Client buildRestliClient() {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(this.configs);
+    KeyStoreConfig keyStoreConfig = KeyStoreConfig.fromConfig(this.configs);
     final String metadataServiceHost =
         utils.ConfigUtil.getString(
             configs,
@@ -359,16 +440,6 @@ public class AuthModule extends AbstractModule {
             configs,
             utils.ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             utils.ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
-    final String metadataServiceBasePath =
-        utils.ConfigUtil.getString(
-            configs,
-            utils.ConfigUtil.METADATA_SERVICE_BASE_PATH_CONFIG_PATH,
-            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH);
-    final boolean metadataServiceBasePathEnabled =
-        utils.ConfigUtil.getBoolean(
-            configs,
-            utils.ConfigUtil.METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH,
-            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH_ENABLED);
     final boolean metadataServiceUseSsl =
         utils.ConfigUtil.getBoolean(
             configs,
@@ -380,17 +451,47 @@ public class AuthModule extends AbstractModule {
             utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL);
 
-    // Use the same logic as GMSConfiguration.getResolvedBasePath()
-    String resolvedBasePath =
-        com.linkedin.metadata.utils.BasePathUtils.resolveBasePath(
-            metadataServiceBasePathEnabled, metadataServiceBasePath);
+    String truststorePath = null;
+    String truststorePassword = null;
+    String truststoreType = null;
+    String serverKeystorePath = null;
+    String serverKeystorePassword = null;
+    String serverKeystoreType = null;
+
+    // TLS/mTLS configuration behavior:
+    // - If a truststore is provided, the client enables TLS and validates the server certificate.
+    // - If both a truststore and a keystore are provided, the client enables mutual TLS (mTLS),
+    //   allowing the server to validate the client's certificate as well.
+    // - If neither is provided, the client uses plain HTTP.
+    //
+    // The getJavaHttpClient(...) method gracefully handles null paths/passwords/types:
+    //   • truststore only  → one‑way TLS
+    //   • truststore + keystore → mutual TLS
+    //   • neither → no TLS
+    //
+    // This block simply checks whether any SSL material is present and delegates the actual
+    // SSLContext construction to CustomHttpClientFactory.
+
+    if (tsConfig.isValid() || keyStoreConfig.isValid()) {
+      truststorePath = tsConfig.path;
+      truststorePassword = tsConfig.password;
+      truststoreType = tsConfig.type;
+      serverKeystorePath = keyStoreConfig.path;
+      serverKeystorePassword = keyStoreConfig.password;
+      serverKeystoreType = keyStoreConfig.type;
+    }
 
     return DefaultRestliClientFactory.getRestLiClient(
         metadataServiceHost,
         metadataServicePort,
-        resolvedBasePath,
         metadataServiceUseSsl,
-        metadataServiceSslProtocol);
+        metadataServiceSslProtocol,
+        truststorePath,
+        truststorePassword,
+        truststoreType,
+        serverKeystorePath,
+        serverKeystorePassword,
+        serverKeystoreType);
   }
 
   protected boolean doesMetadataServiceUseSsl(com.typesafe.config.Config configs) {

@@ -19,8 +19,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+@Slf4j
 public class DefaultRestliClientFactory {
 
   private static final String DEFAULT_REQUEST_TIMEOUT_IN_MS = "10000";
@@ -44,18 +46,25 @@ public class DefaultRestliClientFactory {
       @Nonnull String restLiServerHost,
       int restLiServerPort,
       boolean useSSL,
-      @Nullable String sslProtocol) {
-    return getRestLiClient(restLiServerHost, restLiServerPort, useSSL, sslProtocol, null);
-  }
-
-  @Nonnull
-  public static RestClient getRestLiClient(
-      @Nonnull String restLiServerHost,
-      int restLiServerPort,
-      @Nullable String basePath,
-      boolean useSSL,
-      @Nullable String sslProtocol) {
-    return getRestLiClient(restLiServerHost, restLiServerPort, basePath, useSSL, sslProtocol, null);
+      @Nullable String sslProtocol,
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType,
+      String serverKeyStorePath,
+      String serverKeystorePassword,
+      String serverKeystoreType) {
+    return getRestLiClient(
+        restLiServerHost,
+        restLiServerPort,
+        useSSL,
+        sslProtocol,
+        null,
+        truststorePath,
+        truststorePassword,
+        truststoreType,
+        serverKeyStorePath,
+        serverKeystorePassword,
+        serverKeystoreType);
   }
 
   @Nonnull
@@ -64,41 +73,60 @@ public class DefaultRestliClientFactory {
       int restLiServerPort,
       boolean useSSL,
       @Nullable String sslProtocol,
-      @Nullable Map<String, String> params) {
-    return getRestLiClient(restLiServerHost, restLiServerPort, null, useSSL, sslProtocol, params);
-  }
-
-  @Nonnull
-  public static RestClient getRestLiClient(
-      @Nonnull String restLiServerHost,
-      int restLiServerPort,
-      @Nullable String basePath,
-      boolean useSSL,
-      @Nullable String sslProtocol,
-      @Nullable Map<String, String> params) {
-    String basePathPart = "";
-    if (basePath != null && !basePath.isEmpty()) {
-      basePathPart = basePath.startsWith("/") ? basePath : "/" + basePath;
-    }
+      @Nullable Map<String, String> params,
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType,
+      String serverKeyStorePath,
+      String serverKeystorePassword,
+      String serverKeystoreType) {
     return getRestLiClient(
         URI.create(
             String.format(
-                "%s://%s:%s%s",
-                useSSL ? "https" : "http", restLiServerHost, restLiServerPort, basePathPart)),
+                "%s://%s:%s", useSSL ? "https" : "http", restLiServerHost, restLiServerPort)),
         sslProtocol,
-        params);
-  }
-
-  @Nonnull
-  public static RestClient getRestLiClient(@Nonnull URI gmsUri, @Nullable String sslProtocol) {
-    return getRestLiClient(gmsUri, sslProtocol, null);
+        params,
+        truststorePath,
+        truststorePassword,
+        truststoreType,
+        serverKeyStorePath,
+        serverKeystorePassword,
+        serverKeystoreType);
   }
 
   @Nonnull
   public static RestClient getRestLiClient(
       @Nonnull URI gmsUri,
       @Nullable String sslProtocol,
-      @Nullable Map<String, String> inputParams) {
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType,
+      String serverKeyStorePath,
+      String serverKeystorePassword,
+      String serverKeystoreType) {
+    return getRestLiClient(
+        gmsUri,
+        sslProtocol,
+        null,
+        truststorePath,
+        truststorePassword,
+        truststoreType,
+        serverKeyStorePath,
+        serverKeystorePassword,
+        serverKeystoreType);
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull URI gmsUri,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> inputParams,
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType,
+      String serverKeyStorePath,
+      String serverKeystorePassword,
+      String serverKeystoreType) {
     if (StringUtils.isBlank(gmsUri.getHost()) || gmsUri.getPort() <= 0) {
       throw new InvalidParameterException("Invalid restli server host name or port!");
     }
@@ -114,10 +142,23 @@ public class DefaultRestliClientFactory {
       } catch (NoSuchAlgorithmException ex) {
         throw new RuntimeException(ex);
       }
-
       SSLParameters sslParameters = new SSLParameters();
       if (sslProtocol != null) {
         sslParameters.setProtocols(new String[] {sslProtocol});
+      }
+      try {
+        sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+        SSLContext sslContext =
+            SslContextUtil.buildSslContext(
+                serverKeyStorePath,
+                serverKeystorePassword,
+                serverKeystoreType,
+                truststorePath,
+                truststorePassword,
+                truststoreType);
+        params.put(HttpClientFactory.HTTP_SSL_CONTEXT, sslContext);
+      } catch (Exception e) {
+        log.info("Exception in setting up SSLContext: {}", e.getMessage());
       }
       params.put(HttpClientFactory.HTTP_SSL_PARAMS, sslParameters);
     }
