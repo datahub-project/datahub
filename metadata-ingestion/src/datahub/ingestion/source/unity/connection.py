@@ -1,5 +1,6 @@
 """Databricks Unity Catalog connection configuration."""
 
+import logging
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
@@ -11,6 +12,8 @@ from datahub._version import nice_version_name
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
+
+logger = logging.getLogger(__name__)
 
 DATABRICKS = "databricks"
 # User agent entry for Databricks connections.
@@ -114,6 +117,12 @@ def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceCl
         # initialization, only by environment variable. But we want it populated so
         # we can generate the SQL HTTP Path later.
         workspace_client.config.warehouse_id = config.warehouse_id
+    if not workspace_client.config.warehouse_id:
+        default_warehouse_id = (
+            workspace_client.settings.default_warehouse_id.get().string_val.value
+        )
+        logger.debug(f"Retrieved default warehouse_id: {default_warehouse_id}")
+        workspace_client.config.warehouse_id = default_warehouse_id or ""
     return workspace_client
 
 
