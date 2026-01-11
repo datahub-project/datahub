@@ -365,14 +365,15 @@ class PowerBiDashboardSourceConfig(
         "is 'prod' you would configure the mapping as 'database: prod'. "
         "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
     )
-    # ODBC table to platform override mapping
-    odbc_table_platform_override: Dict[str, str] = pydantic.Field(
+    # Athena federated table platform override mapping
+    athena_table_platform_override: Dict[str, str] = pydantic.Field(
         default={},
-        description="A mapping of table names to DataHub platform names for ODBC lineage. "
-        "Use this to override the platform for specific tables when Athena queries data "
-        "from federated sources (e.g., MySQL) via ODBC. "
-        "This override is applied AFTER catalog stripping for Athena tables, so use "
-        "2-part names (database.table), not 3-part names (catalog.database.table). "
+        description="A mapping of table names to DataHub platform names for Athena federated queries. "
+        "Use this to override the platform when Athena queries data from federated sources "
+        "(e.g., MySQL, PostgreSQL) via ODBC. The lineage will point to the actual source "
+        "platform instead of Athena. "
+        "This override is applied AFTER catalog stripping, so use 2-part names "
+        "(database.table), not 3-part names (catalog.database.table). "
         "Keys can optionally be prefixed with DSN to scope the override to a specific "
         "data source (format: 'dsn:database.table'). DSN-scoped keys take precedence "
         "over global keys. "

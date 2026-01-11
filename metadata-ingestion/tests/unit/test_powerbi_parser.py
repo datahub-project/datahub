@@ -613,8 +613,8 @@ def test_odbc_strip_athena_3part_catalog_from_upstreams(odbc_lineage):
     )
 
 
-def test_odbc_table_platform_override():
-    """Test that ODBC applies table-specific platform overrides."""
+def test_athena_table_platform_override():
+    """Test that Athena applies table-specific platform overrides for federated queries."""
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
         PowerBiDashboardSourceConfig,
@@ -634,7 +634,7 @@ def test_odbc_table_platform_override():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        odbc_table_platform_override={
+        athena_table_platform_override={
             "my_schema.my_table": "mysql",
         },
     )
@@ -679,7 +679,7 @@ def test_odbc_table_platform_override():
     )
 
 
-def test_odbc_table_platform_override_no_match():
+def test_athena_table_platform_override_no_match():
     """Test that tables not in override config are unchanged."""
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
@@ -700,7 +700,7 @@ def test_odbc_table_platform_override_no_match():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        odbc_table_platform_override={
+        athena_table_platform_override={
             "other_schema.other_table": "mysql",
         },
     )
@@ -745,7 +745,7 @@ def test_odbc_table_platform_override_no_match():
     )
 
 
-def test_odbc_table_platform_override_dsn_scoped():
+def test_athena_table_platform_override_dsn_scoped():
     """Test that DSN-scoped override keys take precedence over global keys."""
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
@@ -766,7 +766,7 @@ def test_odbc_table_platform_override_dsn_scoped():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        odbc_table_platform_override={
+        athena_table_platform_override={
             "ProdDSN:my_schema.my_table": "mysql",  # DSN-scoped
             "DevDSN:my_schema.my_table": "postgres",  # Different DSN
             "my_schema.my_table": "oracle",  # Global fallback
@@ -828,7 +828,7 @@ def test_odbc_table_platform_override_dsn_scoped():
     )
 
 
-def test_odbc_table_platform_override_column_lineage():
+def test_athena_table_platform_override_column_lineage():
     """Test that platform override is applied to column lineage URNs."""
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
@@ -853,7 +853,7 @@ def test_odbc_table_platform_override_column_lineage():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        odbc_table_platform_override={
+        athena_table_platform_override={
             "my_schema.my_table": "mysql",
         },
     )
@@ -922,7 +922,7 @@ def test_odbc_table_platform_override_column_lineage():
             assert "athena" not in col_ref.table
 
 
-def test_odbc_table_platform_override_dsn_with_special_chars():
+def test_athena_table_platform_override_dsn_with_special_chars():
     """Test that DSN-scoped keys work with special characters (e.g., spaces)."""
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
@@ -942,7 +942,7 @@ def test_odbc_table_platform_override_dsn_with_special_chars():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        odbc_table_platform_override={
+        athena_table_platform_override={
             "RDS MYSQL:normalized-data.users": "mysql",
         },
     )
@@ -1012,7 +1012,7 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
         dsn_to_platform_name={
             "ThreadProdDataLake": "athena",
         },
-        odbc_table_platform_override={
+        athena_table_platform_override={
             # Key is 2-part name AFTER catalog stripping
             "normalized-data.normalized_accounts": "mysql",
         },

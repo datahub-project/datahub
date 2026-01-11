@@ -1229,16 +1229,16 @@ class OdbcLineage(AbstractLineage):
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
-        # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs for athena platform
-        # This ensures URN consistency with the standalone Athena connector which doesn't include the catalog
+        # Athena-specific processing: catalog stripping and federated table platform override
         if (
             platform_pair.datahub_data_platform_name
             == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
         ):
+            # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs
+            # This ensures URN consistency with the standalone Athena connector
             result = self._strip_athena_catalog_from_lineage(result)
-
-        # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
-        result = self._apply_table_platform_override(result, dsn)
+            # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
+            result = self._apply_table_platform_override(result, dsn)
 
         return result
 
@@ -1323,7 +1323,7 @@ class OdbcLineage(AbstractLineage):
         - DSN-scoped: "dsn:database.table" (takes precedence)
         - Global: "database.table" (fallback)
         """
-        if not self.config.odbc_table_platform_override:
+        if not self.config.athena_table_platform_override:
             return lineage
 
         def override_platform_in_urn(urn: str) -> str:
@@ -1338,9 +1338,9 @@ class OdbcLineage(AbstractLineage):
 
             # Try DSN-scoped key first, then fall back to global key
             dsn_scoped_key = f"{dsn}:{table_name}"
-            target_platform = self.config.odbc_table_platform_override.get(
+            target_platform = self.config.athena_table_platform_override.get(
                 dsn_scoped_key
-            ) or self.config.odbc_table_platform_override.get(table_name)
+            ) or self.config.athena_table_platform_override.get(table_name)
             if not target_platform:
                 return urn
 
