@@ -41,15 +41,13 @@ from databricks.sql import connect
 from databricks.sql.types import Row
 from typing_extensions import assert_never
 
-from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import parse_ts_millis
-from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
     UsageDataSource,
 )
-from datahub.ingestion.source.unity.connection import DATABRICKS_USER_AGENT_ENTRY
+from datahub.ingestion.source.unity.connection import get_sql_connection_params
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
@@ -170,47 +168,20 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     def __init__(
         self,
-        workspace_url: str,
-        warehouse_id: Optional[str],
+        workspace_client: WorkspaceClient,
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
         lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
         usage_data_source: UsageDataSource = UsageDataSource.AUTO,
         databricks_api_page_size: int = 0,
-        personal_access_token: Optional[str] = None,
-        azure_auth: Optional[AzureAuthConfig] = None,
     ):
-        if azure_auth:
-            self._workspace_client = WorkspaceClient(
-                host=workspace_url,
-                azure_tenant_id=azure_auth.tenant_id,
-                azure_client_id=azure_auth.client_id,
-                azure_client_secret=azure_auth.client_secret.get_secret_value(),
-                product=DATABRICKS_USER_AGENT_ENTRY,
-                product_version=nice_version_name(),
-            )
-        else:
-            self._workspace_client = WorkspaceClient(
-                host=workspace_url,
-                token=personal_access_token,
-                product=DATABRICKS_USER_AGENT_ENTRY,
-                product_version=nice_version_name(),
-            )
-        self.warehouse_id = warehouse_id or ""
+        self._workspace_client = workspace_client
+        self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
         self.lineage_data_source = lineage_data_source
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
-        self._workspace_url = workspace_url
-        self._sql_connection_params = {
-            "server_hostname": self._workspace_client.config.host.replace(
-                "https://", ""
-            ),
-            "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
-            "access_token": self._workspace_client.config.token,
-            "user_agent_entry": DATABRICKS_USER_AGENT_ENTRY,
-        }
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -1295,7 +1266,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return []
 
         # Log connection parameters (with masked token)
-        masked_params = {**self._sql_connection_params}
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+        masked_params = {**sql_connection_params}
         if "access_token" in masked_params:
             masked_params["access_token"] = "***MASKED***"
         logger.debug(f"Using connection parameters: {masked_params}")
@@ -1316,7 +1288,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         try:
             with (
-                connect(**self._sql_connection_params) as connection,
+                connect(**sql_connection_params) as connection,
                 connection.cursor() as cursor,
             ):
                 cursor.execute(query, list(params))

@@ -73,6 +73,7 @@ from datahub.ingestion.source.unity.config import (
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
 )
+from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
@@ -210,15 +211,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.init_hive_metastore_proxy()
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
-            config.workspace_url,
-            config.warehouse_id,
+            create_workspace_client(self.config),
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
             usage_data_source=config.usage_data_source,
             databricks_api_page_size=config.databricks_api_page_size,
-            personal_access_token=config.token if config.token else None,
-            azure_auth=config.azure_auth if config.azure_auth else None,
         )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")

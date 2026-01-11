@@ -4,8 +4,10 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import pydantic
+from databricks.sdk import WorkspaceClient
 from pydantic import Field
 
+from datahub._version import nice_version_name
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
@@ -68,3 +70,37 @@ class UnityCatalogConnectionConfig(ConfigModel):
 
     def get_options(self) -> dict:
         return self.extra_client_options
+
+
+def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceClient:
+    workspace_client = WorkspaceClient(
+        host=config.workspace_url,
+        product=DATABRICKS_USER_AGENT_ENTRY,
+        product_version=nice_version_name(),
+        token=config.token,
+        azure_tenant_id=config.azure_auth.tenant_id if config.azure_auth else None,
+        azure_client_id=config.azure_auth.client_id if config.azure_auth else None,
+        azure_client_secret=(
+            config.azure_auth.client_secret.get_secret_value()
+            if config.azure_auth
+            else None
+        ),
+    )
+    if config.warehouse_id:
+        # workspace_client.config.warehouse_id isn't populated by the WorkspaceClient
+        # initialization, only by environment variable. But we want it populated so
+        # we can generate the SQL HTTP Path later.
+        workspace_client.config.warehouse_id = config.warehouse_id
+    return workspace_client
+
+
+def get_sql_connection_params(workspace_client: WorkspaceClient) -> dict[str, Any]:
+    return {
+        "access_token": workspace_client.config.token,
+        "server_hostname": workspace_client.config.host.replace("https://", ""),
+        "user_agent_entry": DATABRICKS_USER_AGENT_ENTRY,
+        # Don't use workspace_client.config.sql_http_path because it adds
+        # `sdk-feature/sql-http-path` to the user-agent, which causes errors from the
+        # Databricks endpoint: `{user_agent} is not supported for SQL warehouses`.
+        "http_path": f"/sql/1.0/warehouses/{workspace_client.config.warehouse_id}",
+    }
