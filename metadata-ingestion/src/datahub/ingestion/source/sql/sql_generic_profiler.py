@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Union, cast
 
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
@@ -189,17 +188,6 @@ class GenericProfiler:
             schema=schema_name,
             table=table.name,
         )
-
-    def get_inspectors(self) -> Iterable[Inspector]:
-        # This method can be overridden in the case that you want to dynamically
-        # run on multiple databases.
-
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            inspector = inspect(conn)
-            yield inspector
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
