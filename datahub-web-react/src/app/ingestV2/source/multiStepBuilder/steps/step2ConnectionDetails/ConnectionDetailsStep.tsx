@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -9,6 +9,7 @@ import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { INGESTION_TYPE_ERROR } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
 import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvansedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
@@ -40,13 +41,17 @@ export function ConnectionDetailsStep() {
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
+    const analyticsRef = useRef(false);
+
     const updateRecipe = useCallback(
-        (recipe: string, shouldSetIsRecipeValid?: boolean) => {
-            const recipeJson = getRecipeJson(recipe);
-            if (!recipeJson) return;
+        (recipe: string, shouldSetIsRecipeValid?: boolean, hideYamlWarnings = false) => {
+            const recipeJson = getRecipeJson(recipe, hideYamlWarnings);
+            if (!recipeJson) {
+                throw Error('Invalid YAML');
+            }
 
             if (!JSON.parse(recipeJson).source?.type) {
-                throw Error('Ingestion type is undefined');
+                throw Error(INGESTION_TYPE_ERROR);
             }
 
             const newState = {
@@ -67,7 +72,7 @@ export function ConnectionDetailsStep() {
         (recipe: string) => {
             setStagedRecipeYml(recipe);
             try {
-                updateRecipe(recipe);
+                updateRecipe(recipe, false, true);
             } catch (e: unknown) {
                 if (e instanceof Error) {
                     console.error(e.message);
@@ -96,7 +101,9 @@ export function ConnectionDetailsStep() {
     }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     useEffect(() => {
+        if (analyticsRef.current) return;
         if (state) {
+            analyticsRef.current = true;
             analytics.event({
                 type: EventType.IngestionEnterConfigurationEvent,
                 sourceType: state.type || '',
@@ -120,11 +127,14 @@ export function ConnectionDetailsStep() {
             updateRecipe(stagedRecipeYml, true);
         } catch (e: unknown) {
             if (e instanceof Error) {
-                message.warning({
-                    content: `Please add valid ingestion type`,
-                    duration: 3,
-                });
+                if (e.message === INGESTION_TYPE_ERROR) {
+                    message.warning({
+                        content: `Please add valid ingestion type`,
+                        duration: 3,
+                    });
+                }
             }
+            throw e;
         }
     }, [stagedRecipeYml, updateRecipe]);
 

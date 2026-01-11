@@ -105,7 +105,7 @@ export function ScheduleStep() {
                 </Text>
             </SwitchLabel>
             <Switch
-                label="Enable to run ingestion syncs on a schedule. Running syncs on a schedule helps to keep information up to date."
+                label="Keep metadata current by automatically syncing on a regular interval"
                 checked={scheduleEnabled}
                 onChange={(e) => setScheduleEnabled(e.target.checked)}
                 labelPosition="right"

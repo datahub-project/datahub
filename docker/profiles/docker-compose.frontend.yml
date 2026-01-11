@@ -30,7 +30,10 @@ x-datahub-frontend-service-dev: &datahub-frontend-service-dev
     DATAHUB_ANALYTICS_ENABLED: ${DATAHUB_ANALYTICS_ENABLED:-true}
   volumes:
     - ../../datahub-frontend/build/stage/main:/datahub-frontend
-    - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
+    # Removed nested mount - causes virtiofs mountpoint error in Docker Desktop >= 4.42.0
+    # The file is already in the Docker image, so this mount isn't needed.
+    # If you need to override it for development, copy it to the build directory instead.
+    # - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
 
 services:
   frontend-quickstart:
