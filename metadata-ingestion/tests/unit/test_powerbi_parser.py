@@ -1058,3 +1058,62 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
         result.upstreams[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mysql,normalized-data.normalized_accounts,PROD)"
     )
+
+
+# Tests for athena_table_platform_override config validation
+def test_athena_table_platform_override_invalid_key_format():
+    """Test that keys must be in database.table format."""
+    # Single-part key (forgot database prefix)
+    with pytest.raises(ValueError) as exc_info:
+        PowerBiDashboardSourceConfig(
+            tenant_id="test-tenant-id",
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            athena_table_platform_override={"users": "mysql"},
+        )
+    assert "expected format 'database.table'" in str(exc_info.value)
+
+    # Three-part key (used catalog.database.table instead of database.table)
+    with pytest.raises(ValueError) as exc_info:
+        PowerBiDashboardSourceConfig(
+            tenant_id="test-tenant-id",
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            athena_table_platform_override={"catalog.database.table": "mysql"},
+        )
+    assert "expected format 'database.table'" in str(exc_info.value)
+
+
+def test_athena_table_platform_override_dsn_scoped_invalid_table_format():
+    """Test that DSN-scoped keys also require database.table format after the colon."""
+    # DSN-scoped with single-part table
+    with pytest.raises(ValueError) as exc_info:
+        PowerBiDashboardSourceConfig(
+            tenant_id="test-tenant-id",
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            athena_table_platform_override={"MyDSN:users": "mysql"},
+        )
+    assert "expected format 'database.table'" in str(exc_info.value)
+
+    # DSN-scoped with three-part table
+    with pytest.raises(ValueError) as exc_info:
+        PowerBiDashboardSourceConfig(
+            tenant_id="test-tenant-id",
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            athena_table_platform_override={"MyDSN:catalog.database.table": "mysql"},
+        )
+    assert "expected format 'database.table'" in str(exc_info.value)
+
+
+def test_athena_table_platform_override_empty_platform():
+    """Test that empty platform value raises validation error."""
+    with pytest.raises(ValueError) as exc_info:
+        PowerBiDashboardSourceConfig(
+            tenant_id="test-tenant-id",
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            athena_table_platform_override={"database.table": ""},
+        )
+    assert "must be a non-empty platform name" in str(exc_info.value)

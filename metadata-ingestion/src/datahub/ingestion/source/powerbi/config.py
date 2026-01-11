@@ -660,3 +660,37 @@ class PowerBiDashboardSourceConfig(
                     )
 
         return self
+
+    @model_validator(mode="after")
+    def validate_athena_table_platform_override(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        if not self.athena_table_platform_override:
+            return self
+
+        for key, value in self.athena_table_platform_override.items():
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    f"athena_table_platform_override: value for key '{key}' must be a non-empty platform name"
+                )
+
+            # Check key format: either "database.table" or "dsn:database.table"
+            if ":" in key:
+                # DSN-scoped key format: "dsn:database.table"
+                dsn_part, table_part = key.split(":", 1)
+                if not dsn_part.strip():
+                    raise ValueError(
+                        f"athena_table_platform_override: invalid key '{key}' - DSN name cannot be empty"
+                    )
+                table_parts = table_part.split(".")
+            else:
+                # Global key format: "database.table"
+                table_parts = key.split(".")
+
+            if len(table_parts) != 2:
+                raise ValueError(
+                    f"athena_table_platform_override: invalid key '{key}' - "
+                    "expected format 'database.table' or 'dsn:database.table'"
+                )
+
+        return self

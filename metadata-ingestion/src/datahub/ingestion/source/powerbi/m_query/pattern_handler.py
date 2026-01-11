@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, cast
+from typing import Callable, Dict, List, Optional, Tuple, Type, cast
 
 import sqlglot
 from lark import Tree
@@ -1242,6 +1242,57 @@ class OdbcLineage(AbstractLineage):
 
         return result
 
+    @staticmethod
+    def _transform_lineage_urns(
+        lineage: Lineage, transform_fn: Callable[[str], str]
+    ) -> Lineage:
+        """
+        Transform URNs in lineage using the provided transformation function.
+
+        This is a helper method used by _strip_athena_catalog_from_lineage and
+        _apply_table_platform_override to avoid code duplication.
+
+        Args:
+            lineage: The lineage object to transform
+            transform_fn: Function that takes a URN string and returns a transformed URN
+
+        Returns:
+            New Lineage object with transformed URNs
+        """
+        # Transform upstream table URNs
+        updated_upstreams: List[DataPlatformTable] = []
+        for upstream in lineage.upstreams:
+            transformed_urn = transform_fn(upstream.urn)
+            updated_upstreams.append(
+                DataPlatformTable(
+                    data_platform_pair=upstream.data_platform_pair,
+                    urn=transformed_urn,
+                )
+            )
+
+        # Transform column lineage URNs
+        updated_column_lineage: List[ColumnLineageInfo] = []
+        for col_info in lineage.column_lineage:
+            updated_col_upstreams: List[ColumnRef] = []
+            for col_ref in col_info.upstreams:
+                transformed_table_urn = transform_fn(col_ref.table)
+                updated_col_upstreams.append(
+                    ColumnRef(table=transformed_table_urn, column=col_ref.column)
+                )
+
+            updated_column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=col_info.downstream,
+                    upstreams=updated_col_upstreams,
+                    logic=col_info.logic,
+                )
+            )
+
+        return Lineage(
+            upstreams=updated_upstreams,
+            column_lineage=updated_column_lineage,
+        )
+
     def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
         """
         Strip catalog/database prefix from Athena URNs to normalize to database.table format.
@@ -1278,39 +1329,7 @@ class OdbcLineage(AbstractLineage):
             logger.debug(f"Stripped catalog prefix from URN: {urn} -> {stripped_urn}")
             return stripped_urn
 
-        # Strip catalog from upstream table URNs
-        updated_upstreams: List[DataPlatformTable] = []
-        for upstream in lineage.upstreams:
-            stripped_urn = strip_catalog_from_urn(upstream.urn)
-            updated_upstreams.append(
-                DataPlatformTable(
-                    data_platform_pair=upstream.data_platform_pair,
-                    urn=stripped_urn,
-                )
-            )
-
-        # Strip catalog from column lineage URNs
-        updated_column_lineage: List[ColumnLineageInfo] = []
-        for col_info in lineage.column_lineage:
-            updated_col_upstreams: List[ColumnRef] = []
-            for col_ref in col_info.upstreams:
-                stripped_table_urn = strip_catalog_from_urn(col_ref.table)
-                updated_col_upstreams.append(
-                    ColumnRef(table=stripped_table_urn, column=col_ref.column)
-                )
-
-            updated_column_lineage.append(
-                ColumnLineageInfo(
-                    downstream=col_info.downstream,
-                    upstreams=updated_col_upstreams,
-                    logic=col_info.logic,
-                )
-            )
-
-        return Lineage(
-            upstreams=updated_upstreams,
-            column_lineage=updated_column_lineage,
-        )
+        return self._transform_lineage_urns(lineage, strip_catalog_from_urn)
 
     def _apply_table_platform_override(self, lineage: Lineage, dsn: str) -> Lineage:
         """
@@ -1352,39 +1371,7 @@ class OdbcLineage(AbstractLineage):
             )
             return overridden_urn
 
-        # Apply override to upstream table URNs
-        updated_upstreams: List[DataPlatformTable] = []
-        for upstream in lineage.upstreams:
-            overridden_urn = override_platform_in_urn(upstream.urn)
-            updated_upstreams.append(
-                DataPlatformTable(
-                    data_platform_pair=upstream.data_platform_pair,
-                    urn=overridden_urn,
-                )
-            )
-
-        # Apply override to column lineage URNs
-        updated_column_lineage: List[ColumnLineageInfo] = []
-        for col_info in lineage.column_lineage:
-            updated_col_upstreams: List[ColumnRef] = []
-            for col_ref in col_info.upstreams:
-                overridden_table_urn = override_platform_in_urn(col_ref.table)
-                updated_col_upstreams.append(
-                    ColumnRef(table=overridden_table_urn, column=col_ref.column)
-                )
-
-            updated_column_lineage.append(
-                ColumnLineageInfo(
-                    downstream=col_info.downstream,
-                    upstreams=updated_col_upstreams,
-                    logic=col_info.logic,
-                )
-            )
-
-        return Lineage(
-            upstreams=updated_upstreams,
-            column_lineage=updated_column_lineage,
-        )
+        return self._transform_lineage_urns(lineage, override_platform_in_urn)
 
     def expression_lineage(
         self,
