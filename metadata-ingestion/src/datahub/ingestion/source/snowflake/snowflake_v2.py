@@ -5,7 +5,6 @@ import logging
 import os
 import os.path
 import platform
-import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -472,8 +471,8 @@ class SnowflakeV2Source(
 
     def _is_temp_table(self, name: str) -> bool:
         if any(
-            re.match(pattern, name, flags=re.IGNORECASE)
-            for pattern in self.config.temporary_tables_pattern
+            pattern.match(name)
+            for pattern in self.config._compiled_temporary_tables_pattern
         ):
             return True
 
@@ -571,6 +570,14 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table_name in schema.views
         ]
+        discovered_semantic_views: List[str] = [
+            self.identifiers.get_dataset_identifier(
+                semantic_view_name, schema.name, db.name
+            )
+            for db in databases
+            for schema in db.schemas
+            for semantic_view_name in schema.semantic_views
+        ]
         discovered_streams: List[str] = [
             self.identifiers.get_dataset_identifier(stream_name, schema.name, db.name)
             for db in databases
@@ -581,6 +588,7 @@ class SnowflakeV2Source(
         if (
             len(discovered_tables) == 0
             and len(discovered_views) == 0
+            and len(discovered_semantic_views) == 0
             and len(discovered_streams) == 0
         ):
             if self.config.warn_no_datasets:
@@ -594,7 +602,10 @@ class SnowflakeV2Source(
                 )
 
         self.discovered_datasets = (
-            discovered_tables + discovered_views + discovered_streams
+            discovered_tables
+            + discovered_views
+            + discovered_semantic_views
+            + discovered_streams
         )
 
         if self.config.use_queries_v2:

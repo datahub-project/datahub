@@ -25,6 +25,11 @@ export default function AddPropertyButton() {
 
     const menuItems = useAddPropertyMenuItems(onAddProperty);
 
+    // Hide button if there are no properties available to add
+    if (menuItems.length === 0) {
+        return null;
+    }
+
     return (
         <Menu open={isOpened} onOpenChange={(open) => setIsOpened(open)} items={menuItems} trigger={['click']}>
             <StyledButton

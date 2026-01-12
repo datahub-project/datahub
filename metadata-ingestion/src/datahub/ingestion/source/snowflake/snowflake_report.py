@@ -105,6 +105,7 @@ class SnowflakeV2Report(
     streams_scanned: int = 0
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0
+    semantic_views_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -119,11 +120,16 @@ class SnowflakeV2Report(
     num_secure_views_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
 
+
     marketplace_listings_scanned: int = 0
     marketplace_purchases_scanned: int = 0
     marketplace_usage_events_processed: int = 0
     marketplace_data_products_created: int = 0
     marketplace_enhanced_datasets: int = 0
+
+    # Lineage consistency tracking
+    num_tables_added_from_column_lineage: int = 0
+    num_queries_with_empty_directsources: int = 0
 
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
@@ -157,6 +163,8 @@ class SnowflakeV2Report(
             self.tables_scanned += 1
         elif ent_type == "view":
             self.views_scanned += 1
+        elif ent_type == "semantic view":
+            self.semantic_views_scanned += 1
         elif ent_type == "schema":
             self.schemas_scanned += 1
         elif ent_type == "database":

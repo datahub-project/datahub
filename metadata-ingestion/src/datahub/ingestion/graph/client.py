@@ -1711,28 +1711,44 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertion(
         self,
         urn: str,
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run a DataHub assertion on-demand.
+
+        Args:
+            urn: The URN of the assertion to run.
+            save_result: Whether to save the result to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertion's SQL fragment.
+            async_flag: Whether to run the assertion asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing the assertion result with type (SUCCESS/FAILURE/ERROR) and details.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
-            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertion(urn: $assertionUrn, saveResult: $saveResult, parameters: $parameters, async: $async) {
                     ... assertionResult
                 }
             }
         """ % (self._assertion_result_shared())
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrn": urn,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1744,17 +1760,29 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertions(
         self,
         urns: List[str],
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run multiple DataHub assertions on-demand.
+
+        Args:
+            urns: List of assertion URNs to run.
+            save_result: Whether to save the results to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertions(urns: $assertionUrns, saveResults: $saveResult, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1769,12 +1797,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrns": urns,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1788,17 +1820,31 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         urn: str,
         tag_urns: Optional[List[str]] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if tag_urns is None:
-            tag_urns = []
-        if parameters is None:
-            parameters = {}
+        """
+        Run all assertions (or tagged subset) for a data asset on-demand.
+
+        Args:
+            urn: The URN of the data asset (e.g., dataset) whose assertions to run.
+            tag_urns: Optional list of tag URNs to filter which assertions to run.
+                If not specified, all assertions for the asset will be run.
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+
+        Note:
+            This method does not support the save_result parameter. Results are always
+            saved to DataHub's backend (equivalent to save_result=True).
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertionsForAsset(urn: $assetUrn, tagUrns: $tagUrns, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1813,12 +1859,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assetUrn": urn,
-            "tagUrns": tag_urns,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if tag_urns is not None:
+            variables["tagUrns"] = tag_urns
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,

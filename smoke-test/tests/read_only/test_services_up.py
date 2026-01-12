@@ -1,8 +1,11 @@
+import logging
 import re
 
 import pytest
 
 from tests.utilities import env_vars
+
+logger = logging.getLogger(__name__)
 
 # Kept separate so that it does not cause failures in PRs
 DATAHUB_VERSION = env_vars.get_test_datahub_version()
@@ -20,13 +23,13 @@ def test_gms_config_accessible(auth_session) -> None:
     if DATAHUB_VERSION is not None:
         assert gms_config["versions"]["acryldata/datahub"]["version"] == DATAHUB_VERSION
     else:
-        print("[WARN] TEST_DATAHUB_VERSION is not set")
+        logger.info("[WARN] TEST_DATAHUB_VERSION is not set")
 
     # Make sure that the default CLI version gets generated properly.
     # While we don't want to hardcode the actual value, we can make
     # sure it mostly looks like a version string.
     default_cli_version: str = gms_config["managedIngestion"]["defaultCliVersion"]
-    print(f"Default CLI version: {default_cli_version}")
+    logger.info(f"Default CLI version: {default_cli_version}")
     assert not default_cli_version.startswith("@")
     assert "." in default_cli_version or looks_like_a_short_sha(default_cli_version), (
         "Default CLI version does not look like a version string"
