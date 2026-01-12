@@ -658,7 +658,7 @@ plugins: Dict[str, Set[str]] = {
         # (e.g., Looker SDK) that break with VCR's urllib3 patching
         "responses>=0.25.0,<1.0",
         # AES-256 encrypted zip files
-        "pyzipper>=0.3.6",
+        "pyzipper>=0.3.6,<1.0",
         # Note: This plugin uses lazy imports to avoid requiring optional dependencies
         # (e.g., sqlalchemy) when recording is not used. Dependencies like sqlalchemy
         # are expected to be provided by the source connector itself when needed.
