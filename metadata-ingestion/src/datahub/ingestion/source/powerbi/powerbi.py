@@ -166,7 +166,7 @@ class Mapper:
         )
 
     def _to_work_unit(
-        self, mcp: MetadataChangeProposalWrapper
+        self, mcp: MetadataChangeProposalWrapper, is_primary_source: bool = True
     ) -> EquableMetadataWorkUnit:
         return Mapper.EquableMetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
@@ -175,7 +175,23 @@ class Mapper:
                 ASPECT_NAME=mcp.aspectName,
             ),
             mcp=mcp,
+            is_primary_source=is_primary_source,
         )
+
+    def _to_user_work_unit(
+        self, mcp: MetadataChangeProposalWrapper
+    ) -> EquableMetadataWorkUnit:
+        """
+        Create work unit for user entities with is_primary_source=False.
+
+        PowerBI is NOT the authoritative source for users (LDAP/Okta/SCIM are).
+        By marking is_primary_source=False, we prevent stateful ingestion from:
+        1. Tracking these user entities in its state
+        2. Soft-deleting them when they disappear from PowerBI
+
+        This follows the pattern used by dbt, Unity Catalog, and other non-authoritative sources.
+        """
+        return self._to_work_unit(mcp, is_primary_source=False)
 
     def extract_dataset_schema(
         self, table: powerbi_data_classes.Table, ds_urn: str
@@ -1054,17 +1070,26 @@ class Mapper:
             )
         )
 
-        # Now add MCPs in sequence
+        # Now add MCPs in sequence (excluding user MCPs which are handled separately)
         mcps.extend(ds_mcps)
-        if self.__config.ownership.create_corp_user:
-            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(dashboard_mcps)
 
         # Convert MCP to work_units
-        work_units = map(self._to_work_unit, mcps)
+        work_units: List[Mapper.EquableMetadataWorkUnit] = [
+            wu for wu in map(self._to_work_unit, mcps) if wu is not None
+        ]
+
+        # Handle user MCPs separately with is_primary_source=False
+        # This prevents stateful ingestion from tracking/soft-deleting users
+        if self.__config.ownership.create_corp_user:
+            user_work_units = [
+                wu for wu in map(self._to_user_work_unit, user_mcps) if wu is not None
+            ]
+            work_units.extend(user_work_units)
+
         # Return set of work_unit
-        return deduplicate_list([wu for wu in work_units if wu is not None])
+        return deduplicate_list(work_units)
 
     def pages_to_chart(
         self,
@@ -1295,14 +1320,20 @@ class Mapper:
             dataset_edges=dataset_edges,
         )
 
-        # Now add MCPs in sequence
+        # Now add MCPs in sequence (excluding user MCPs which are handled separately)
         mcps.extend(ds_mcps)
-        if self.__config.ownership.create_corp_user:
-            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
 
-        return map(self._to_work_unit, mcps)
+        # Convert primary MCPs to work units
+        for mcp in mcps:
+            yield self._to_work_unit(mcp)
+
+        # Handle user MCPs separately with is_primary_source=False
+        # This prevents stateful ingestion from tracking/soft-deleting users
+        if self.__config.ownership.create_corp_user:
+            for mcp in user_mcps:
+                yield self._to_user_work_unit(mcp)
 
 
 @platform_name("PowerBI")

@@ -380,3 +380,90 @@ class TestConfigDefaults:
 
         config = OwnershipMapping()
         assert config.create_corp_user is False
+
+
+class TestStatefulIngestionBehavior:
+    """Tests for stateful ingestion integration.
+
+    User entities should be marked as is_primary_source=False to prevent
+    stateful ingestion from tracking and soft-deleting them.
+    """
+
+    def test_user_work_unit_has_is_primary_source_false(self) -> None:
+        """User work units should have is_primary_source=False.
+
+        This prevents stateful ingestion from:
+        1. Tracking user entities in its state
+        2. Soft-deleting them when they disappear from PowerBI
+
+        PowerBI is NOT the authoritative source for users (LDAP/Okta/SCIM are).
+        """
+        from unittest.mock import MagicMock
+
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.powerbi.config import (
+            PowerBiDashboardSourceConfig,
+        )
+        from datahub.ingestion.source.powerbi.powerbi import Mapper
+        from datahub.metadata.schema_classes import CorpUserKeyClass
+
+        # Setup
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="test",
+            client_id="test",
+            client_secret="test",
+        )
+        ctx = PipelineContext(run_id="test")
+
+        mapper = Mapper(ctx, config, MagicMock(), MagicMock())
+
+        # Create a test MCP for a user entity
+        user_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:corpuser:test@example.com",
+            aspect=CorpUserKeyClass(username="test@example.com"),
+        )
+
+        # Test the _to_user_work_unit method
+        work_unit = mapper._to_user_work_unit(user_mcp)
+
+        # Verify is_primary_source is False
+        assert work_unit.is_primary_source is False
+
+    def test_regular_work_unit_has_is_primary_source_true(self) -> None:
+        """Non-user work units should have is_primary_source=True (default).
+
+        This ensures datasets, dashboards, charts are properly tracked
+        by stateful ingestion for stale entity removal.
+        """
+        from unittest.mock import MagicMock
+
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.powerbi.config import (
+            PowerBiDashboardSourceConfig,
+        )
+        from datahub.ingestion.source.powerbi.powerbi import Mapper
+        from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+        # Setup
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="test",
+            client_id="test",
+            client_secret="test",
+        )
+        ctx = PipelineContext(run_id="test")
+
+        mapper = Mapper(ctx, config, MagicMock(), MagicMock())
+
+        # Create a test MCP for a dataset entity
+        dataset_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:powerbi,test,PROD)",
+            aspect=DatasetPropertiesClass(name="Test Dataset"),
+        )
+
+        # Test the regular _to_work_unit method
+        work_unit = mapper._to_work_unit(dataset_mcp)
+
+        # Verify is_primary_source is True (default)
+        assert work_unit.is_primary_source is True
