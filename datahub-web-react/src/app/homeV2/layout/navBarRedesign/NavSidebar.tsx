@@ -246,6 +246,11 @@ export const NavSidebar = () => {
                         selectedIcon: <FileText weight="fill" />,
                         link: PageRoutes.CONTEXT_DOCUMENTS,
                         additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Document)}/:urn`],
+                        badge: {
+                            label: 'BETA',
+                            show: true,
+                            showDot: false,
+                        },
                     },
                 ],
             },
