@@ -651,7 +651,7 @@ plugins: Dict[str, Set[str]] = {
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
         # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
-        "vcrpy>=8.0.0; python_version >= '3.10'",
+        "vcrpy>=8.0.0,<9.0; python_version >= '3.10'",
         # vcrpy 7.x for Python 3.9 (requires urllib3 < 2.0) Python 3.9 EOL passed already, so we should get rid of this soon
         "vcrpy>=7.0.0,<8.0.0; python_version < '3.10'",
         # responses library for HTTP replay - better compatibility with custom SDK transports
