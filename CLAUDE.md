@@ -277,6 +277,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 When creating PRs, follow the template in `.github/pull_request_template.md`:
 
 **PR Title Format** (from [Contributing Guide](docs/CONTRIBUTING.md#pr-title-format)):
+
 ```
 <type>[optional scope]: <description>
 ```
@@ -286,6 +287,7 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
 Example: `feat(parser): add ability to parse arrays`
 
 **Checklist** (verify before submitting):
+
 - [ ] PR conforms to the Contributing Guideline (especially PR Title Format)
 - [ ] Links to related issues (if applicable)
 - [ ] Tests added/updated (if applicable)
