@@ -31,13 +31,15 @@ export default function SourcePlatformCard({ source, onSelect }: Props) {
             iconAlignment="horizontal"
             iconStyles={logoStyles}
             pill={
-                <Pill
-                    label={pillLabel}
-                    size="sm"
-                    color="primary"
-                    clickable={false}
-                    variant={pillLabel === 'External' ? 'outline' : 'filled'}
-                />
+                pillLabel && (
+                    <Pill
+                        label={pillLabel}
+                        size="sm"
+                        color="primary"
+                        clickable={false}
+                        variant={pillLabel === 'External' ? 'outline' : 'filled'}
+                    />
+                )
             }
             onClick={() => onSelect(source)}
             isCardClickable
