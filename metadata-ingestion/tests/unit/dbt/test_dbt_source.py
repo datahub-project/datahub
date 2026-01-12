@@ -40,6 +40,7 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     CustomAssertionInfoClass,
     OwnerClass,
+    OwnershipClass,
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
@@ -2083,5 +2084,6 @@ def test_create_exposure_mcps_with_owner_name_only():
     )
     assert ownership_mcp is not None
     assert ownership_mcp.aspect is not None
+    assert isinstance(ownership_mcp.aspect, OwnershipClass)
     # Owner URN should be derived from owner_name: "john_doe"
     assert "john_doe" in ownership_mcp.aspect.owners[0].owner
