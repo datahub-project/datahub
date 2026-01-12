@@ -43,6 +43,7 @@ from datahub.configuration.common import (
 from datahub.configuration.env_vars import (
     get_emit_mode,
     get_emitter_trace,
+    get_rest_emitter_429_retry_multiplier,
     get_rest_emitter_batch_max_payload_bytes,
     get_rest_emitter_batch_max_payload_length,
     get_rest_emitter_default_endpoint,
@@ -90,6 +91,9 @@ _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(get_rest_emitter_default_retry_max_times())
 
+# Multiplier to increase number of retries on 429s
+_429_RETRY_MULTIPLIER = get_rest_emitter_429_retry_multiplier()
+
 _DATAHUB_EMITTER_TRACE = get_emitter_trace()
 
 _DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
@@ -109,6 +113,46 @@ INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
 # too much to the backend and hitting a timeout, we try to limit
 # the number of MCPs we send in a batch.
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
+
+
+class WeightedRetry(Retry):
+    def increment(
+        self,
+        method=None,
+        url=None,
+        response=None,
+        error=None,
+        _pool=None,
+        _stacktrace=None,
+    ):
+        handle_429 = response and response.status == 429 and isinstance(self.total, int)
+        if handle_429:
+            _429_count = getattr(self, "_429_count", 0)
+
+            num_retries_left = (self.total - 1) * _429_RETRY_MULTIPLIER + (
+                (_429_RETRY_MULTIPLIER - 1) - (_429_count % _429_RETRY_MULTIPLIER)
+            )
+            logger.debug(
+                f"Retrying after 429, ~{num_retries_left} retries left. "
+                f"total={self.total}, _429_count={_429_count}"
+                + (
+                    f" after {response.headers['Retry-After']}s"
+                    if "Retry-After" in response.headers
+                    else ""
+                )
+            )
+
+        r = super().increment(method, url, response, error, _pool, _stacktrace)
+
+        if hasattr(self, "_429_count"):
+            r._429_count = self._429_count
+
+        if handle_429:
+            r._429_count = getattr(r, "_429_count", 0) + 1
+            if r._429_count % _429_RETRY_MULTIPLIER != 0 and isinstance(r.total, int):
+                r.total += 1
+
+        return r
 
 
 def preserve_unicode_escapes(obj: Any) -> Any:
@@ -204,7 +248,7 @@ class RequestsSessionConfig(ConfigModel):
             # Set raise_on_status to False to propagate errors:
             # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
             # Must call `raise_for_status` after making a request, which we do
-            retry_strategy = Retry(
+            retry_strategy = WeightedRetry(
                 total=self.retry_max_times,
                 status_forcelist=self.retry_status_codes,
                 backoff_factor=2,
@@ -213,7 +257,7 @@ class RequestsSessionConfig(ConfigModel):
             )
         except TypeError:
             # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
-            retry_strategy = Retry(
+            retry_strategy = WeightedRetry(
                 total=self.retry_max_times,
                 status_forcelist=self.retry_status_codes,
                 backoff_factor=2,
