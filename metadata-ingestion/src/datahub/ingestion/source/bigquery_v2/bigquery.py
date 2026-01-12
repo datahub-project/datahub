@@ -1,6 +1,5 @@
 import functools
 import logging
-import os
 from typing import Iterable, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -46,6 +45,7 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.common.gcp_project_utils import (
     temporary_credentials_file,
+    with_temporary_credentials,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
@@ -277,16 +277,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if credentials_dict is None:
             yield from super().get_workunits()
         else:
-            original_creds_env = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-            try:
-                with temporary_credentials_file(credentials_dict) as cred_path:
-                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
-                    yield from super().get_workunits()
-            finally:
-                if original_creds_env is not None:
-                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_creds_env
-                else:
-                    os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+            with (
+                temporary_credentials_file(credentials_dict) as cred_path,
+                with_temporary_credentials(cred_path),
+            ):
+                yield from super().get_workunits()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._warn_deprecated_configs()

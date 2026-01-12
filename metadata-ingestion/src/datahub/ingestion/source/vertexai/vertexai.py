@@ -1,6 +1,5 @@
 import dataclasses
 import logging
-import os
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
@@ -60,6 +59,7 @@ from datahub.ingestion.source.common.gcp_project_utils import (
     get_projects,
     get_projects_client,
     temporary_credentials_file,
+    with_temporary_credentials,
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
@@ -257,16 +257,11 @@ class VertexAISource(Source):
         if credentials_dict is None:
             yield from super().get_workunits()
         else:
-            original_creds_env = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-            try:
-                with temporary_credentials_file(credentials_dict) as cred_path:
-                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
-                    yield from super().get_workunits()
-            finally:
-                if original_creds_env is not None:
-                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_creds_env
-                else:
-                    os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+            with (
+                temporary_credentials_file(credentials_dict) as cred_path,
+                with_temporary_credentials(cred_path),
+            ):
+                yield from super().get_workunits()
 
     def _build_no_projects_error(self) -> str:
         if self.config.project_ids:

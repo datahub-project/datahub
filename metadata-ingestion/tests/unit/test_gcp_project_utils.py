@@ -17,17 +17,17 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
     GCPProjectDiscoveryError,
+    _filter_and_validate,
     _filter_projects_by_pattern,
     _is_rate_limit_error,
     _search_projects_with_retry,
-    _validate_and_filter_projects,
     _validate_pattern_against_explicit_list,
     _validate_pattern_before_discovery,
     get_projects,
     get_projects_by_labels,
     get_projects_from_explicit_list,
-    list_all_accessible_projects,
     temporary_credentials_file,
+    with_temporary_credentials,
 )
 
 
@@ -54,7 +54,7 @@ class TestAutoDiscovery:
         [
             (PermissionDenied("No access"), "Permission denied"),
             (GoogleAPICallError("API error"), "GCP API error"),
-            (DeadlineExceeded("Timeout"), "timed out"),
+            (DeadlineExceeded("Timeout"), "timeout"),
             (ServiceUnavailable("Down"), "unavailable"),
         ],
     )
@@ -62,7 +62,7 @@ class TestAutoDiscovery:
         mock_client = MagicMock()
         mock_client.search_projects.side_effect = exception
         with pytest.raises(GCPProjectDiscoveryError, match=error_match):
-            list(list_all_accessible_projects(mock_client))
+            get_projects(client=mock_client)
 
     def test_empty_result_raises_error(self) -> None:
         mock_client = MagicMock()
@@ -106,16 +106,14 @@ class TestLabelBasedDiscovery:
     def test_no_matches_raises_error(self) -> None:
         mock_client = MagicMock()
         mock_client.search_projects.return_value = iter([])
-        with pytest.raises(
-            GCPProjectDiscoveryError, match="No projects discovered via label search"
-        ):
+        with pytest.raises(GCPProjectDiscoveryError, match="No projects found"):
             get_projects_by_labels(["env:prod"], mock_client)
 
     @pytest.mark.parametrize(
         "exception,error_match",
         [
             (PermissionDenied("No access"), "Permission denied"),
-            (DeadlineExceeded("Timeout"), "timed out"),
+            (DeadlineExceeded("Timeout"), "timeout"),
             (ServiceUnavailable("Down"), "unavailable"),
         ],
     )
@@ -174,10 +172,8 @@ class TestPatternFiltering:
     def test_validate_all_filtered_raises_error(self) -> None:
         projects = [GCPProject(id="dev-project", name="Dev Project")]
         pattern = AllowDenyPattern(allow=["prod-.*"])
-        with pytest.raises(
-            GCPProjectDiscoveryError, match="excluded by project_id_pattern"
-        ):
-            _validate_and_filter_projects(projects, pattern, "test source")
+        with pytest.raises(GCPProjectDiscoveryError, match="all were excluded"):
+            _filter_and_validate(projects, pattern, "test source")
 
 
 class TestEdgeCases:
@@ -265,7 +261,6 @@ class TestTemporaryCredentialsFile:
 
         with temporary_credentials_file(creds) as cred_path:
             os.unlink(cred_path)
-        # Should not raise - cleanup handles FileNotFoundError
 
 
 class TestFailFastPatternValidation:
@@ -276,7 +271,6 @@ class TestFailFastPatternValidation:
 
     def test_deny_all_with_explicit_allow_passes(self) -> None:
         pattern = AllowDenyPattern(allow=["prod-.*"], deny=[".*"])
-        # Should warn but not raise since explicit allow is provided
         _validate_pattern_before_discovery(pattern, "auto-discovery")
 
     def test_glob_syntax_warning(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -310,3 +304,31 @@ class TestFailFastPatternValidation:
                 pattern, ["prod-app", "dev-1", "dev-2"]
             )
         assert "will exclude" not in caplog.text
+
+
+class TestWithTemporaryCredentials:
+    def test_sets_and_restores_env_var(self) -> None:
+        original = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        with with_temporary_credentials("/tmp/test_creds.json"):
+            assert (
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/test_creds.json"
+            )
+        assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original
+
+    def test_restores_none_when_not_set(self) -> None:
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+        with with_temporary_credentials("/tmp/test_creds.json"):
+            assert (
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/test_creds.json"
+            )
+        assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+
+    def test_restores_on_exception(self) -> None:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/original/path.json"
+        with (
+            pytest.raises(ValueError),
+            with_temporary_credentials("/tmp/test_creds.json"),
+        ):
+            raise ValueError("test error")
+        assert os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == "/original/path.json"
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
