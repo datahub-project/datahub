@@ -2105,6 +2105,7 @@ def test_dbt_exposure_owner_from_email():
     # Owner URN should be derived from email prefix
     from datahub.emitter import mce_builder
 
+    assert exposure.owner_email is not None
     owner_urn = mce_builder.make_user_urn(exposure.owner_email.split("@")[0])
     assert owner_urn == "urn:li:corpuser:john.doe"
 
@@ -2119,6 +2120,7 @@ def test_dbt_exposure_owner_from_name():
     # Owner URN should be derived from name with spaces replaced
     from datahub.emitter import mce_builder
 
+    assert exposure.owner_name is not None
     owner_urn = mce_builder.make_user_urn(exposure.owner_name.replace(" ", "_").lower())
     assert owner_urn == "urn:li:corpuser:john_doe"
 
@@ -2146,3 +2148,288 @@ def test_dbt_core_load_exposures():
     exposures = source.load_exposures()
     assert len(exposures) == 1
     assert exposures[0].name == "test_exposure"
+
+
+def test_create_exposure_mcps_basic():
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
+    from datahub.metadata.schema_classes import (
+        DataPlatformInstanceClass,
+    )
+
+    # Create a mock source with required config
+    source = MagicMock(spec=DBTSourceBase)
+    source.config = MagicMock()
+    source.config.platform_instance = None
+    source.config.env = "PROD"
+
+    # Mock the _make_data_platform_instance_aspect method
+    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
+        platform="urn:li:dataPlatform:dbt"
+    )
+
+    exposure = DBTExposure(
+        name="weekly_dashboard",
+        unique_id="exposure.my_project.weekly_dashboard",
+        type="dashboard",
+        description="Weekly metrics",
+    )
+
+    # Call the actual method
+    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+
+    # Should generate 4 MCPs: platform instance, dashboard info, status, subtypes
+    assert len(mcps) == 4
+
+    # Check aspect types
+    aspect_types = [type(mcp.aspect).__name__ for mcp in mcps]
+    assert "DataPlatformInstanceClass" in aspect_types
+    assert "DashboardInfoClass" in aspect_types
+    assert "StatusClass" in aspect_types
+    assert "SubTypesClass" in aspect_types
+
+
+def test_create_exposure_mcps_with_owner_email():
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
+    from datahub.metadata.schema_classes import (
+        DataPlatformInstanceClass,
+        OwnershipClass,
+    )
+
+    source = MagicMock(spec=DBTSourceBase)
+    source.config = MagicMock()
+    source.config.platform_instance = None
+    source.config.env = "PROD"
+    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
+        platform="urn:li:dataPlatform:dbt"
+    )
+
+    exposure = DBTExposure(
+        name="dashboard_with_owner",
+        unique_id="exposure.my_project.dashboard_with_owner",
+        type="dashboard",
+        owner_email="john.doe@company.com",
+    )
+
+    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+
+    # Should have 5 MCPs including ownership
+    assert len(mcps) == 5
+
+    ownership_mcps = [m for m in mcps if isinstance(m.aspect, OwnershipClass)]
+    assert len(ownership_mcps) == 1
+    ownership_aspect = ownership_mcps[0].aspect
+    assert isinstance(ownership_aspect, OwnershipClass)
+    assert ownership_aspect.owners[0].owner == "urn:li:corpuser:john.doe"
+
+
+def test_create_exposure_mcps_with_owner_name():
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
+    from datahub.metadata.schema_classes import (
+        DataPlatformInstanceClass,
+        OwnershipClass,
+    )
+
+    source = MagicMock(spec=DBTSourceBase)
+    source.config = MagicMock()
+    source.config.platform_instance = None
+    source.config.env = "PROD"
+    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
+        platform="urn:li:dataPlatform:dbt"
+    )
+
+    exposure = DBTExposure(
+        name="dashboard_with_owner",
+        unique_id="exposure.my_project.dashboard_with_owner",
+        type="dashboard",
+        owner_name="John Doe",
+    )
+
+    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+
+    ownership_mcps = [m for m in mcps if isinstance(m.aspect, OwnershipClass)]
+    assert len(ownership_mcps) == 1
+    ownership_aspect = ownership_mcps[0].aspect
+    assert isinstance(ownership_aspect, OwnershipClass)
+    assert ownership_aspect.owners[0].owner == "urn:li:corpuser:john_doe"
+
+
+def test_create_exposure_mcps_with_tags():
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
+    from datahub.metadata.schema_classes import (
+        DataPlatformInstanceClass,
+        GlobalTagsClass,
+    )
+
+    source = MagicMock(spec=DBTSourceBase)
+    source.config = MagicMock()
+    source.config.platform_instance = None
+    source.config.env = "PROD"
+    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
+        platform="urn:li:dataPlatform:dbt"
+    )
+
+    exposure = DBTExposure(
+        name="tagged_dashboard",
+        unique_id="exposure.my_project.tagged_dashboard",
+        type="dashboard",
+        tags=["important", "weekly"],
+    )
+
+    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+
+    # Should have 5 MCPs including tags
+    assert len(mcps) == 5
+
+    tags_mcps = [m for m in mcps if isinstance(m.aspect, GlobalTagsClass)]
+    assert len(tags_mcps) == 1
+    tags_aspect = tags_mcps[0].aspect
+    assert isinstance(tags_aspect, GlobalTagsClass)
+    tag_urns = [t.tag for t in tags_aspect.tags]
+    assert "urn:li:tag:important" in tag_urns
+    assert "urn:li:tag:weekly" in tag_urns
+
+
+def test_create_exposure_mcps_with_upstream_lineage():
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTNode, DBTSourceBase
+    from datahub.metadata.schema_classes import (
+        DashboardInfoClass,
+        DataPlatformInstanceClass,
+    )
+
+    source = MagicMock(spec=DBTSourceBase)
+    source.config = MagicMock()
+    source.config.platform_instance = None
+    source.config.env = "PROD"
+    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
+        platform="urn:li:dataPlatform:dbt"
+    )
+
+    # Create an upstream node with required fields only
+    upstream_node = DBTNode(
+        database="db",
+        schema="schema",
+        name="orders",
+        alias="orders",
+        comment="",
+        description="",
+        language="sql",
+        raw_code="SELECT 1",
+        dbt_adapter="postgres",
+        dbt_name="model.my_project.orders",
+        dbt_file_path="/path/to/orders.sql",
+        dbt_package_name=None,
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type="table",
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code="SELECT 1",
+    )
+
+    exposure = DBTExposure(
+        name="dashboard_with_lineage",
+        unique_id="exposure.my_project.dashboard_with_lineage",
+        type="dashboard",
+        depends_on=["model.my_project.orders"],
+    )
+
+    all_nodes_map = {"model.my_project.orders": upstream_node}
+
+    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], all_nodes_map))
+
+    # Find DashboardInfo MCP and check datasets
+    dashboard_mcps = [m for m in mcps if isinstance(m.aspect, DashboardInfoClass)]
+    assert len(dashboard_mcps) == 1
+    dashboard_aspect = dashboard_mcps[0].aspect
+    assert isinstance(dashboard_aspect, DashboardInfoClass)
+    assert dashboard_aspect.datasets is not None
+    assert len(dashboard_aspect.datasets) == 1
+
+
+def test_create_exposure_mcps_with_custom_properties():
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
+    from datahub.metadata.schema_classes import (
+        DashboardInfoClass,
+        DataPlatformInstanceClass,
+    )
+
+    source = MagicMock(spec=DBTSourceBase)
+    source.config = MagicMock()
+    source.config.platform_instance = None
+    source.config.env = "PROD"
+    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
+        platform="urn:li:dataPlatform:dbt"
+    )
+
+    exposure = DBTExposure(
+        name="full_exposure",
+        unique_id="exposure.my_project.full_exposure",
+        type="notebook",
+        maturity="high",
+        dbt_package_name="my_project",
+        dbt_file_path="/path/to/exposure.yml",
+        meta={"team": "analytics", "priority": "1"},
+    )
+
+    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+
+    dashboard_mcps = [m for m in mcps if isinstance(m.aspect, DashboardInfoClass)]
+    assert len(dashboard_mcps) == 1
+    dashboard_aspect = dashboard_mcps[0].aspect
+    assert isinstance(dashboard_aspect, DashboardInfoClass)
+
+    props = dashboard_aspect.customProperties
+    assert props is not None
+    assert props["dbt_unique_id"] == "exposure.my_project.full_exposure"
+    assert props["exposure_type"] == "notebook"
+    assert props["maturity"] == "high"
+    assert props["dbt_package_name"] == "my_project"
+    assert props["dbt_file_path"] == "/path/to/exposure.yml"
+    assert props["team"] == "analytics"
+    assert props["priority"] == "1"
+
+
+def test_create_exposure_mcps_subtypes():
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
+    from datahub.metadata.schema_classes import (
+        DataPlatformInstanceClass,
+        SubTypesClass,
+    )
+
+    source = MagicMock(spec=DBTSourceBase)
+    source.config = MagicMock()
+    source.config.platform_instance = None
+    source.config.env = "PROD"
+    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
+        platform="urn:li:dataPlatform:dbt"
+    )
+
+    # Test ML type
+    exposure = DBTExposure(
+        name="ml_model",
+        unique_id="exposure.my_project.ml_model",
+        type="ml",
+    )
+
+    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+
+    subtype_mcps = [m for m in mcps if isinstance(m.aspect, SubTypesClass)]
+    assert len(subtype_mcps) == 1
+    subtype_aspect = subtype_mcps[0].aspect
+    assert isinstance(subtype_aspect, SubTypesClass)
+    assert subtype_aspect.typeNames == ["ML Model"]
