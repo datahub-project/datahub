@@ -275,9 +275,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         credentials_dict = self.config.get_credentials_dict()
         if credentials_dict:
-            with temporary_credentials_file(credentials_dict) as cred_path:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
-                yield from super().get_workunits()
+            original_creds_env = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+            try:
+                with temporary_credentials_file(credentials_dict) as cred_path:
+                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
+                    yield from super().get_workunits()
+            finally:
+                if original_creds_env is not None:
+                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_creds_env
+                else:
+                    os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
         else:
             yield from super().get_workunits()
 
