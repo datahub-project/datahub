@@ -99,6 +99,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ChangeAuditStampsClass,
+    DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -120,7 +122,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import DatasetUrn, QueryUrn
+from datahub.metadata.urns import DashboardUrn, DatasetUrn, QueryUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -348,6 +350,11 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit model performance metadata when set to Yes or Only. "
         "Only supported with dbt core.",
     )
+    exposures: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit metadata for dbt exposures when set to Yes or Only. "
+        "Exposures represent downstream consumers like dashboards, notebooks, or applications.",
+    )
     queries: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit Query entities from meta.queries field when set to Yes or Only.",
@@ -390,6 +397,7 @@ class DBTEntitiesEnabled(ConfigModel):
             "seed": self.seeds,
             "snapshot": self.snapshots,
             "test": self.test_definitions,
+            "exposure": self.exposures,
         }
 
     def can_emit_node_type(self, node_type: str) -> bool:
@@ -415,6 +423,10 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_model_performance(self) -> bool:
         return self.model_performance == EmitDirective.YES
+
+    @property
+    def can_emit_exposures(self) -> bool:
+        return self.exposures == EmitDirective.YES
 
     @property
     def can_emit_queries(self) -> bool:
@@ -990,6 +1002,42 @@ class DBTNode:
         ]
 
 
+@dataclass
+class DBTExposure:
+    """
+    Represents a dbt exposure - a downstream consumer of dbt models.
+    Exposures can be dashboards, notebooks, ML models, applications, or analysis tools.
+    See https://docs.getdbt.com/docs/build/exposures
+    """
+
+    name: str
+    unique_id: str  # e.g., "exposure.my_project.my_dashboard"
+    type: str  # dashboard, notebook, ml, application, analysis
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+    maturity: Optional[str] = None  # high, medium, low
+    depends_on: List[str] = field(default_factory=list)  # list of upstream dbt node unique_ids
+    tags: List[str] = field(default_factory=list)
+    meta: Dict[str, Any] = field(default_factory=dict)
+    dbt_package_name: Optional[str] = None
+    dbt_file_path: Optional[str] = None
+
+    def get_urn(
+        self,
+        platform_instance: Optional[str],
+        env: str,
+    ) -> str:
+        """Generate a Dashboard URN for this exposure."""
+        # DashboardUrn.create_from_ids handles platform_instance prefix automatically
+        return DashboardUrn.create_from_ids(
+            platform=DBT_PLATFORM,
+            name=self.unique_id,
+            platform_instance=platform_instance,
+        ).urn()
+
+
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     # initialize custom properties to node's meta props
     # (dbt-native node properties)
@@ -1381,6 +1429,128 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # return dbt nodes (including semantic models) + global custom properties
         raise NotImplementedError()
 
+    def load_exposures(self) -> List[DBTExposure]:
+        """Load dbt exposures. Override in subclasses to implement exposure loading."""
+        return []
+
+    def create_exposure_mcps(
+        self,
+        exposures: List[DBTExposure],
+        all_nodes_map: Dict[str, DBTNode],
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Generate MCPs for dbt exposures as Dashboard entities with upstream lineage."""
+        for exposure in sorted(exposures, key=lambda e: e.unique_id):
+            exposure_urn = exposure.get_urn(
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            # Platform instance aspect
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=self._make_data_platform_instance_aspect(),
+            )
+
+            # Build custom properties
+            custom_properties: Dict[str, str] = {
+                "dbt_unique_id": exposure.unique_id,
+                "exposure_type": exposure.type,
+            }
+            if exposure.maturity:
+                custom_properties["maturity"] = exposure.maturity
+            if exposure.dbt_package_name:
+                custom_properties["dbt_package_name"] = exposure.dbt_package_name
+            if exposure.dbt_file_path:
+                custom_properties["dbt_file_path"] = exposure.dbt_file_path
+            # Add meta properties
+            for key, value in exposure.meta.items():
+                custom_properties[str(key)] = str(value)
+
+            # Generate upstream lineage from depends_on
+            upstream_urns: List[str] = []
+            for upstream_dbt_name in exposure.depends_on:
+                upstream_node = all_nodes_map.get(upstream_dbt_name)
+                if upstream_node:
+                    upstream_urn = upstream_node.get_urn(
+                        target_platform=DBT_PLATFORM,
+                        env=self.config.env,
+                        data_platform_instance=self.config.platform_instance,
+                    )
+                    upstream_urns.append(upstream_urn)
+                else:
+                    logger.warning(
+                        f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
+                    )
+
+            # Dashboard info aspect
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=DashboardInfoClass(
+                    title=exposure.name,
+                    description=exposure.description or "",
+                    customProperties=custom_properties,
+                    externalUrl=exposure.url,
+                    lastModified=ChangeAuditStampsClass(),
+                    datasets=upstream_urns if upstream_urns else None,
+                ),
+            )
+
+            # Status aspect
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=StatusClass(removed=False),
+            )
+
+            # SubTypes aspect - use exposure type as subtype
+            subtype_mapping = {
+                "dashboard": "Dashboard",
+                "notebook": "Notebook",
+                "analysis": "Analysis",
+                "ml": "ML Model",
+                "application": "Application",
+            }
+            subtype = subtype_mapping.get(exposure.type.lower(), exposure.type.title())
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=SubTypesClass(typeNames=[subtype]),
+            )
+
+            # Ownership aspect
+            if exposure.owner_email or exposure.owner_name:
+                owner_urn = None
+                if exposure.owner_email:
+                    owner_urn = mce_builder.make_user_urn(
+                        exposure.owner_email.split("@")[0]
+                    )
+                elif exposure.owner_name:
+                    owner_urn = mce_builder.make_user_urn(
+                        exposure.owner_name.replace(" ", "_").lower()
+                    )
+
+                if owner_urn:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=exposure_urn,
+                        aspect=OwnershipClass(
+                            owners=[
+                                OwnerClass(
+                                    owner=owner_urn,
+                                    type=OwnershipTypeClass.DATAOWNER,
+                                )
+                            ]
+                        ),
+                    )
+
+            # Tags aspect
+            if exposure.tags:
+                tag_associations = [
+                    TagAssociationClass(tag=mce_builder.make_tag_urn(tag))
+                    for tag in exposure.tags
+                ]
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=GlobalTagsClass(tags=tag_associations),
+                )
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -1451,6 +1621,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             non_test_nodes,
             additional_custom_props_filtered,
         )
+
+        # Load and emit exposures if enabled
+        if self.config.entities_enabled.can_emit_exposures:
+            exposures = self.load_exposures()
+            if exposures:
+                logger.info(
+                    f"Creating dbt exposure metadata for {len(exposures)} exposures"
+                )
+                yield from self.create_exposure_mcps(exposures, all_nodes_map)
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
         """

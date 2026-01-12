@@ -12,8 +12,11 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBTEntitiesEnabled,
+    DBTExposure,
     DBTNode,
     DBTSourceReport,
+    EmitDirective,
     NullTypeClass,
     get_column_type,
     parse_semantic_view_cll,
@@ -21,6 +24,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
+    extract_dbt_exposures,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -1812,3 +1816,143 @@ def test_make_assertion_result_from_freshness(
     assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result is not None
     assert mcp.aspect.result.type == expected
+
+
+def test_extract_dbt_exposures_basic():
+    manifest_exposures: Dict[str, Any] = {
+        "exposure.my_project.weekly_dashboard": {
+            "name": "weekly_dashboard",
+            "type": "dashboard",
+            "owner": {"name": "Analytics Team", "email": "analytics@company.com"},
+            "description": "Weekly metrics dashboard",
+            "url": "https://looker.company.com/dashboards/42",
+            "maturity": "high",
+            "depends_on": {
+                "nodes": ["model.my_project.orders", "model.my_project.customers"],
+                "macros": [],
+            },
+            "tags": ["executive", "weekly"],
+            "meta": {"team": "analytics", "priority": "P1"},
+            "package_name": "my_project",
+            "original_file_path": "models/exposures.yml",
+        }
+    }
+
+    exposures = extract_dbt_exposures(manifest_exposures, tag_prefix="dbt:")
+
+    assert len(exposures) == 1
+    exp = exposures[0]
+    assert exp.name == "weekly_dashboard"
+    assert exp.unique_id == "exposure.my_project.weekly_dashboard"
+    assert exp.type == "dashboard"
+    assert exp.owner_name == "Analytics Team"
+    assert exp.owner_email == "analytics@company.com"
+    assert exp.description == "Weekly metrics dashboard"
+    assert exp.url == "https://looker.company.com/dashboards/42"
+    assert exp.maturity == "high"
+    assert exp.depends_on == [
+        "model.my_project.orders",
+        "model.my_project.customers",
+    ]
+    assert exp.tags == ["dbt:executive", "dbt:weekly"]
+    assert exp.meta == {"team": "analytics", "priority": "P1"}
+    assert exp.dbt_package_name == "my_project"
+    assert exp.dbt_file_path == "models/exposures.yml"
+
+
+def test_extract_dbt_exposures_minimal():
+    manifest_exposures: Dict[str, Any] = {
+        "exposure.my_project.simple_exposure": {
+            "name": "simple_exposure",
+            "type": "notebook",
+        }
+    }
+
+    exposures = extract_dbt_exposures(manifest_exposures, tag_prefix="")
+
+    assert len(exposures) == 1
+    exp = exposures[0]
+    assert exp.name == "simple_exposure"
+    assert exp.type == "notebook"
+    assert exp.owner_name is None
+    assert exp.owner_email is None
+    assert exp.description is None
+    assert exp.depends_on == []
+    assert exp.tags == []
+
+
+def test_extract_dbt_exposures_multiple():
+    manifest_exposures: Dict[str, Any] = {
+        "exposure.project.dashboard1": {
+            "name": "dashboard1",
+            "type": "dashboard",
+            "depends_on": {"nodes": ["model.project.orders"]},
+        },
+        "exposure.project.ml_model": {
+            "name": "ml_model",
+            "type": "ml",
+            "depends_on": {"nodes": ["model.project.customers"]},
+        },
+        "exposure.project.notebook1": {
+            "name": "notebook1",
+            "type": "notebook",
+            "depends_on": {"nodes": []},
+        },
+    }
+
+    exposures = extract_dbt_exposures(manifest_exposures, tag_prefix="")
+
+    assert len(exposures) == 3
+    names = {e.name for e in exposures}
+    assert names == {"dashboard1", "ml_model", "notebook1"}
+    types = {e.type for e in exposures}
+    assert types == {"dashboard", "ml", "notebook"}
+
+
+def test_extract_dbt_exposures_empty():
+    exposures = extract_dbt_exposures({}, tag_prefix="dbt:")
+    assert len(exposures) == 0
+
+
+def test_dbt_exposure_get_urn():
+    exposure = DBTExposure(
+        name="weekly_dashboard",
+        unique_id="exposure.my_project.weekly_dashboard",
+        type="dashboard",
+    )
+
+    urn = exposure.get_urn(platform_instance=None, env="PROD")
+    assert urn == "urn:li:dashboard:(dbt,exposure.my_project.weekly_dashboard)"
+
+
+def test_dbt_exposure_get_urn_with_platform_instance():
+    exposure = DBTExposure(
+        name="weekly_dashboard",
+        unique_id="exposure.my_project.weekly_dashboard",
+        type="dashboard",
+    )
+
+    urn = exposure.get_urn(platform_instance="my_instance", env="PROD")
+    assert (
+        urn
+        == "urn:li:dashboard:(dbt,my_instance.exposure.my_project.weekly_dashboard)"
+    )
+
+
+def test_dbt_entities_enabled_exposures_default():
+    config = DBTEntitiesEnabled()
+    assert config.exposures == EmitDirective.YES
+    assert config.can_emit_exposures is True
+
+
+def test_dbt_entities_enabled_exposures_disabled():
+    config = DBTEntitiesEnabled(exposures=EmitDirective.NO)
+    assert config.exposures == EmitDirective.NO
+    assert config.can_emit_exposures is False
+
+
+def test_dbt_entities_enabled_node_type_allow_map_includes_exposure():
+    config = DBTEntitiesEnabled()
+    allow_map = config._node_type_allow_map()
+    assert "exposure" in allow_map
+    assert allow_map["exposure"] == EmitDirective.YES
