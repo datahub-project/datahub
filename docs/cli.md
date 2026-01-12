@@ -328,7 +328,7 @@ These deployment options that can be specified via CLI flags can also be configu
 | `time_zone`   | `--time-zone`   | Timezone for scheduled runs     | `"UTC"`            |
 | `executor_id` | `--executor-id` | Target executor for ingestion   | `"default"`        |
 | `cli_version` | `--cli-version` | CLI version for ingestion       | Server default     |
-| `extra_pip`.  | `--extra-pip`   | Extra pip packages              | None               |
+| `extra_pip`   | `--extra-pip`   | Extra pip packages              | None               |
 | `extra_env`   | `--extra-env`   | Extra environment variables     | None               |
 
 #### Batch Deployment
