@@ -238,7 +238,7 @@ describe('usePollSource', () => {
         expect(result2.has(sourceUrn1)).toBe(false);
     });
 
-    it('should stop polling after maximum retries', () => {
+    it('should stop polling after maximum retries when no executions returned', () => {
         const { onCompleted } = setupHook({
             setFinalSources,
             setSourcesToRefetch,
@@ -268,5 +268,193 @@ describe('usePollSource', () => {
 
         expect(executedResult.has(sourceUrn1)).toBe(false);
         expect(executedResult.has(sourceUrn2)).toBe(true);
+    });
+
+    it('should continue polling when isExecutedNow but execution request has not been picked up yet', () => {
+        const oldTimestamp = Date.now() - 10000; // 10 seconds ago - older than nowWithBuffer
+        const { onCompleted } = setupHook({
+            setFinalSources,
+            setSourcesToRefetch,
+            setExecutedUrns,
+            getIngestionSourceQuery,
+            client,
+            isExecutedNow: true,
+        });
+
+        triggerOnCompleted(onCompleted, {
+            ingestionSource: {
+                urn: sourceUrn1,
+                executions: {
+                    executionRequests: [
+                        {
+                            urn: requestUrn,
+                            result: { startTimeMs: oldTimestamp },
+                        },
+                    ],
+                },
+            },
+        });
+
+        // Should not remove from polling
+        expect(setSourcesToRefetch).not.toHaveBeenCalled();
+        expect(setExecutedUrns).not.toHaveBeenCalled();
+
+        // Should continue polling
+        getIngestionSourceQuery.mockClear();
+        vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
+    });
+
+    it('should stop polling after maximum retries when execution requests are old', () => {
+        const oldTimestamp = Date.now() - 10000; // 10 seconds ago
+        const { onCompleted } = setupHook({
+            setFinalSources,
+            setSourcesToRefetch,
+            setExecutedUrns,
+            getIngestionSourceQuery,
+            client,
+            isExecutedNow: true,
+        });
+
+        for (let i = 0; i < MAX_EMPTY_RETRIES; i++) {
+            triggerOnCompleted(onCompleted, {
+                ingestionSource: {
+                    urn: sourceUrn1,
+                    executions: {
+                        executionRequests: [
+                            {
+                                urn: requestUrn,
+                                result: { startTimeMs: oldTimestamp },
+                            },
+                        ],
+                    },
+                },
+            });
+            vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
+        }
+
+        expect(setSourcesToRefetch).toHaveBeenCalled();
+        expect(setExecutedUrns).toHaveBeenCalled();
+
+        const refetchCb = setSourcesToRefetch.mock.calls[0][0];
+        const executedCb = setExecutedUrns.mock.calls[0][0];
+
+        const prevSet = new Set([sourceUrn1, sourceUrn2]);
+        const refetchResult = refetchCb(prevSet);
+        const executedResult = executedCb(prevSet);
+
+        expect(refetchResult.has(sourceUrn1)).toBe(false);
+        expect(executedResult.has(sourceUrn1)).toBe(false);
+    });
+
+    it('should stop polling when execution request is recent', () => {
+        const recentTimestamp = Date.now(); // Current time - newer than nowWithBuffer
+        const { onCompleted } = setupHook({
+            setFinalSources,
+            setSourcesToRefetch,
+            setExecutedUrns,
+            getIngestionSourceQuery,
+            client,
+            isExecutedNow: true,
+        });
+
+        (isExecutionRequestActive as any).mockReturnValue(false);
+
+        triggerOnCompleted(onCompleted, {
+            ingestionSource: {
+                urn: sourceUrn1,
+                executions: {
+                    executionRequests: [
+                        {
+                            urn: requestUrn,
+                            result: { startTimeMs: recentTimestamp },
+                        },
+                    ],
+                },
+            },
+        });
+
+        // Should remove from polling
+        expect(setSourcesToRefetch).toHaveBeenCalled();
+        expect(setExecutedUrns).toHaveBeenCalled();
+
+        const refetchCb = setSourcesToRefetch.mock.calls[0][0];
+        const executedCb = setExecutedUrns.mock.calls[0][0];
+
+        const prevSet = new Set([sourceUrn1, sourceUrn2]);
+        const refetchResult = refetchCb(prevSet);
+        const executedResult = executedCb(prevSet);
+
+        expect(refetchResult.has(sourceUrn1)).toBe(false);
+        expect(executedResult.has(sourceUrn1)).toBe(false);
+    });
+
+    it('should handle execution request with missing result gracefully', () => {
+        const { onCompleted } = setupHook({
+            setFinalSources,
+            setSourcesToRefetch,
+            setExecutedUrns,
+            getIngestionSourceQuery,
+            client,
+            isExecutedNow: true,
+        });
+
+        triggerOnCompleted(onCompleted, {
+            ingestionSource: {
+                urn: sourceUrn1,
+                executions: {
+                    executionRequests: [
+                        {
+                            urn: requestUrn,
+                            result: undefined,
+                        },
+                    ],
+                },
+            },
+        });
+
+        // Should continue polling since result.startTimeMs is undefined (0)
+        expect(setSourcesToRefetch).not.toHaveBeenCalled();
+        expect(setExecutedUrns).not.toHaveBeenCalled();
+
+        // Should continue polling
+        getIngestionSourceQuery.mockClear();
+        vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
+    });
+
+    it('should continue polling when isExecutedNow is false and execution is active', () => {
+        const { onCompleted } = setupHook({
+            setFinalSources,
+            setSourcesToRefetch,
+            setExecutedUrns,
+            getIngestionSourceQuery,
+            client,
+            isExecutedNow: false,
+        });
+
+        (isExecutionRequestActive as any).mockReturnValue(true);
+
+        triggerOnCompleted(onCompleted, {
+            ingestionSource: {
+                urn: sourceUrn1,
+                executions: {
+                    executionRequests: [
+                        {
+                            urn: requestUrn,
+                        },
+                    ],
+                },
+            },
+        });
+
+        // Should not remove from polling when still running
+        expect(setSourcesToRefetch).not.toHaveBeenCalled();
+        expect(setExecutedUrns).not.toHaveBeenCalled();
+
+        // Should continue polling
+        getIngestionSourceQuery.mockClear();
+        vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
     });
 });
