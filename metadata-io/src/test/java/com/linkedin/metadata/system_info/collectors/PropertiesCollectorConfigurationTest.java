@@ -864,6 +864,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.validation.aspectSize.postPatch.warnSizeBytes",
           "datahub.validation.aspectSize.postPatch.maxSizeBytes",
           "datahub.validation.aspectSize.postPatch.oversizedRemediation",
+          "datahub.validation.aspectSize.metrics.sizeBuckets",
           // CDC (Change Data Capture) configuration properties
           "kafka.serde.cdc.key.serializer",
           "kafka.serde.cdc.key.deserializer",
