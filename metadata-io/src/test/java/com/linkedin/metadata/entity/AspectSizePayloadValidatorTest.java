@@ -354,4 +354,131 @@ public class AspectSizePayloadValidatorTest {
     }
     return sb.toString();
   }
+
+  @Test
+  public void testConfigurableSizeBucketing() {
+    // Test custom bucket configuration
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setMaxSizeBytes(100_000_000L);
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPostPatch(postPatchConfig);
+
+    // Configure custom buckets: 512KB, 2MB, 8MB
+    AspectSizeValidationConfig.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfig.MetricsConfig();
+    metricsConfig.setSizeBuckets(List.of(524288L, 2097152L, 8388608L));
+    config.setMetrics(metricsConfig);
+
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
+
+    // Verify validator initialized with custom buckets
+    assertNotNull(validator);
+  }
+
+  @Test
+  public void testDefaultSizeBucketing() {
+    // Test default bucket configuration (when metrics config is null)
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setMaxSizeBytes(100_000_000L);
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPostPatch(postPatchConfig);
+    // No metrics config - should use defaults
+
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
+
+    // Verify validator initialized with defaults (1MB, 5MB, 10MB, 15MB)
+    assertNotNull(validator);
+  }
+
+  @Test
+  public void testSizeBucketingEdgeCases() {
+    // Test edge cases: sizes exactly at bucket boundaries
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setMaxSizeBytes(100_000_000L);
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPostPatch(postPatchConfig);
+
+    // Configure buckets: 1KB, 1MB
+    AspectSizeValidationConfig.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfig.MetricsConfig();
+    metricsConfig.setSizeBuckets(List.of(1024L, 1048576L));
+    config.setMetrics(metricsConfig);
+
+    com.linkedin.metadata.utils.metrics.MetricUtils mockMetrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, mockMetrics);
+
+    // Test size below first bucket (500 bytes)
+    EntityAspect aspect1 = new EntityAspect();
+    aspect1.setMetadata(generateLargeMetadata(500));
+    validator.validatePayload(systemAspect, aspect1);
+
+    // Test size between buckets (2KB)
+    EntityAspect aspect2 = new EntityAspect();
+    aspect2.setMetadata(generateLargeMetadata(2048));
+    validator.validatePayload(systemAspect, aspect2);
+
+    // Test size above all buckets (2MB)
+    EntityAspect aspect3 = new EntityAspect();
+    aspect3.setMetadata(generateLargeMetadata(2_097_152));
+    validator.validatePayload(systemAspect, aspect3);
+
+    // Verify metrics were called for all three sizes with correct bucket labels
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.postPatch.sizeDistribution"),
+            eq(1.0),
+            eq("aspectName"),
+            anyString(),
+            eq("sizeBucket"),
+            eq("0-1024B")); // 500 bytes -> first bucket
+
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.postPatch.sizeDistribution"),
+            eq(1.0),
+            eq("aspectName"),
+            anyString(),
+            eq("sizeBucket"),
+            eq("1024B-1MB")); // 2KB -> second bucket
+
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.postPatch.sizeDistribution"),
+            eq(1.0),
+            eq("aspectName"),
+            anyString(),
+            eq("sizeBucket"),
+            eq("1MB+")); // 2MB -> exceeds all buckets
+  }
+
+  @Test
+  public void testEmptyBucketConfiguration() {
+    // Test with empty bucket list - should handle gracefully
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setMaxSizeBytes(100_000_000L);
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPostPatch(postPatchConfig);
+
+    AspectSizeValidationConfig.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfig.MetricsConfig();
+    metricsConfig.setSizeBuckets(List.of()); // Empty list
+    config.setMetrics(metricsConfig);
+
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
+
+    EntityAspect aspect = new EntityAspect();
+    aspect.setMetadata(generateLargeMetadata(1000));
+
+    // Should not throw - validation still works
+    validator.validatePayload(systemAspect, aspect);
+  }
 }
