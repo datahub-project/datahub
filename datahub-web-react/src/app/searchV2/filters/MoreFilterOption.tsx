@@ -1,5 +1,6 @@
 import { RightOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
 
@@ -27,12 +28,6 @@ const StyledValueSelector = styled(ValueSelector)<{ width: number; height: numbe
 const StyledRightOutlined = styled(RightOutlined)`
     font-size: 12px;
     height: 12px;
-`;
-
-const TruncatedTextWrapper = styled.span`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 `;
 
 interface Props {
@@ -80,9 +75,16 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
                 <Tooltip title={displayName} placement="left">
                     <IconNameWrapper>
                         {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                        <TruncatedTextWrapper>
+                        <Typography.Text
+                            ellipsis={{
+                                tooltip: {
+                                    title: displayName,
+                                    showArrow: false,
+                                },
+                            }}
+                        >
                             {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                        </TruncatedTextWrapper>
+                        </Typography.Text>
                     </IconNameWrapper>
                     <StyledRightOutlined />
                 </Tooltip>
