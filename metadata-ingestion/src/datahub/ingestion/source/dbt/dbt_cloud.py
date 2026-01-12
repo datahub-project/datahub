@@ -292,7 +292,6 @@ _DBT_FIELDS_BY_TYPE = {
 """,
     # Currently unsupported dbt node types:
     # - metrics
-    # - snapshots
     # - exposures
 }
 
@@ -662,31 +661,104 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         return nodes, additional_metadata
 
+    def _extract_code_fields(
+        self, node: Dict, materialization: Optional[str]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Extract raw_code and compiled_code from a node."""
+        key = node["uniqueId"]
+        resource_type = node["resourceType"]
+
+        if resource_type in {"model", "seed", "snapshot"}:
+            status = node["status"]
+            if status is None and materialization != "ephemeral":
+                self.report.warning(
+                    title="Schema information may be incomplete",
+                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
+                    context=key,
+                )
+
+            raw_code = node["rawCode"] or node["rawSql"]
+            compiled_code = node["compiledCode"] or node["compiledSql"]
+
+            if not compiled_code:
+                self.report.warning(
+                    title="Missing compiled_code",
+                    message=f"compiled_code is missing (materialization={materialization}). "
+                    "Column-level lineage will not be available for this model.",
+                    context=key,
+                )
+            return raw_code, compiled_code
+
+        return None, None
+
+    def _extract_test_info(
+        self, node: Dict, name: str
+    ) -> Tuple[Optional[DBTTest], Optional[DBTTestResult]]:
+        """Extract test info and result from a test node."""
+        qualified_test_name = name
+
+        for dependency in node["dependsOn"]:
+            if dependency.startswith("macro."):
+                _, macro = dependency.split(".", 1)
+                if macro.startswith("dbt."):
+                    if not macro.startswith("dbt.test_"):
+                        continue
+                    macro = macro[len("dbt.test_") :]
+
+                qualified_test_name = macro
+                break
+
+        test_info = DBTTest(
+            qualified_test_name=qualified_test_name,
+            column_name=node["columnName"],
+            kw_args={},  # TODO: dbt Cloud doesn't expose the args.
+        )
+
+        test_result = None
+        if not node["skip"]:
+            test_result = DBTTestResult(
+                invocation_id=f"job{node['jobId']}-run{node['runId']}",
+                execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                status=node["status"],
+                native_results={
+                    key: str(node[key])
+                    for key in {
+                        "columnName",
+                        "error",
+                        "fail",
+                        "warn",
+                        "skip",
+                        "state",
+                        "status",
+                    }
+                },
+            )
+        return test_info, test_result
+
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
+        resource_type = node["resourceType"]
 
         name = node["name"]
         if self.config.use_identifiers and node.get("identifier"):
             name = node["identifier"]
-        if node["resourceType"] != "test" and node.get("alias"):
+        if resource_type != "test" and node.get("alias"):
             name = node["alias"]
 
         comment = node.get("comment", "")
+        # description is table-level (more specific), sourceDescription is schema-level
+        table_level_desc = node.get("description")
+        schema_level_desc = node.get("sourceDescription")
+        description = table_level_desc or schema_level_desc or ""
 
-        # In dbt sources, there are two types of descriptions:
-        # - description: table-level description (specific to the source table)
-        # - sourceDescription: schema-level description (describes the overall source schema)
-        # The table-level description should take precedence since it's more specific.
-        description = node["description"] or node.get("sourceDescription", "")
-
-        if node["resourceType"] == "model":
+        if resource_type == "model":
             materialization = node["materializedType"]
-        elif node["resourceType"] == "snapshot":
+        elif resource_type == "snapshot":
             materialization = "snapshot"
         else:
             materialization = None
 
-        if node["resourceType"] == "snapshot":
+        if resource_type == "snapshot":
             upstream_nodes = [
                 obj["uniqueId"]
                 for obj in [
@@ -698,44 +770,23 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             upstream_nodes = node.get("dependsOn", [])
 
         catalog_type = node.get("type")
-
         meta = node["meta"]
-
-        # The dbt owner field is set to the db user, and not the meta property.
-        # owner = node.get("owner")
+        # Note: node["owner"] contains the database user, not the meta property.
+        # We use meta.owner to match dbt_core.py behavior.
         owner = meta.get("owner")
+        tags = [self.config.tag_prefix + tag for tag in node["tags"]]
 
-        tags = node["tags"]
-        tags = [self.config.tag_prefix + tag for tag in tags]
-
-        if node["resourceType"] in {"model", "seed", "snapshot"}:
-            status = node["status"]
-            if status is None and materialization != "ephemeral":
-                self.report.warning(
-                    title="Schema information may be incomplete",
-                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
-                    context=key,
-                    log=False,
-                )
-
-            # The code fields are new in dbt 1.3, and replace the sql ones.
-            raw_code = node["rawCode"] or node["rawSql"]
-            compiled_code = node["compiledCode"] or node["compiledSql"]
-        else:
-            raw_code = None
-            compiled_code = None
+        raw_code, compiled_code = self._extract_code_fields(node, materialization)
 
         max_loaded_at = None
-        if node["resourceType"] == "source":
+        if resource_type == "source":
             max_loaded_at_str = node["maxLoadedAt"]
             if max_loaded_at_str:
                 max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
-
-                # For missing data, dbt returns 0001-01-01T00:00:00.000Z.
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
-        columns = []
+        columns: List[DBTColumn] = []
         if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
@@ -747,50 +798,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         test_info = None
         test_result = None
-        if node["resourceType"] == "test":
-            qualified_test_name = name
-
-            # The qualified test name should be the test name from the dbt project.
-            # It can be simple (e.g. 'unique') or prefixed (e.g. 'dbt_expectations.expect_column_values_to_not_be_null').
-            # We attempt to guess the test name based on the macros used.
-            for dependency in node["dependsOn"]:
-                # An example dependsOn list could be:
-                #     ['model.sample_dbt.monthly_billing_with_cust', 'macro.dbt.test_not_null', 'macro.dbt.get_where_subquery']
-                # In that case, the test should be `not_null`.
-
-                if dependency.startswith("macro."):
-                    _, macro = dependency.split(".", 1)
-                    if macro.startswith("dbt."):
-                        if not macro.startswith("dbt.test_"):
-                            continue
-                        macro = macro[len("dbt.test_") :]
-
-                    qualified_test_name = macro
-                    break
-
-            test_info = DBTTest(
-                qualified_test_name=qualified_test_name,
-                column_name=node["columnName"],
-                kw_args={},  # TODO: dbt Cloud doesn't expose the args.
-            )
-            if not node["skip"]:
-                test_result = DBTTestResult(
-                    invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                    execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
-                    status=node["status"],
-                    native_results={
-                        key: str(node[key])
-                        for key in {
-                            "columnName",
-                            "error",
-                            "fail",
-                            "warn",
-                            "skip",
-                            "state",
-                            "status",
-                        }
-                    },
-                )
+        if resource_type == "test":
+            test_info, test_result = self._extract_test_info(node, name)
 
         return DBTNode(
             dbt_name=key,
@@ -802,7 +811,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name=name,
             alias=node.get("alias"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
-            node_type=node["resourceType"],
+            node_type=resource_type,
             max_loaded_at=max_loaded_at,
             comment=comment,
             description=description,

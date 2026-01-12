@@ -65,31 +65,26 @@ logger = logging.getLogger(__name__)
 @support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.CONTAINERS,
-    "Links BigQuery datasets to BigQuery dataset containers. Supports dual API extraction: "
-    "Entries API (Universal Catalog) for system-managed resources, and Entities API (Lakes/Zones) for Dataplex-managed assets. "
-    "Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
+    "Enabled by default",
 )
 @capability(
     SourceCapability.SCHEMA_METADATA,
-    "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). "
-    "Schema extraction can be disabled via include_schema config for faster ingestion.",
+    "Enabled by default, can be disabled via configuration `include_schema`",
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Extract table-level lineage from Dataplex Lineage API. "
-    "Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
+    "Optionally enabled via configuration `include_lineage`",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is configured. "
-    "Tracks entities from both Entries API (Universal Catalog) and Entities API (Lakes/Zones).",
+    "Enabled by default via stateful ingestion",
 )
 @capability(
     SourceCapability.TEST_CONNECTION,
-    "Verifies connectivity to Dataplex API, including both Entries API (Universal Catalog) and Entities API (Lakes/Zones) if enabled.",
+    "Enabled by default",
 )
 class DataplexSource(StatefulIngestionSourceBase, TestableSource):
-    """Source to ingest metadata from Google Dataplex."""
+    """Source to ingest metadata from Google Dataplex Universal Catalog."""
 
     platform: str = "dataplex"
 
