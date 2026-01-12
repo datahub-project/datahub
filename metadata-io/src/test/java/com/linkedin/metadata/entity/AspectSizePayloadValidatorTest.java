@@ -437,7 +437,7 @@ public class AspectSizePayloadValidatorTest {
             eq("aspectName"),
             anyString(),
             eq("sizeBucket"),
-            eq("0-1024B")); // 500 bytes -> first bucket
+            eq("0-1KB")); // 500 bytes -> first bucket
 
     verify(mockMetrics)
         .incrementMicrometer(
@@ -446,7 +446,7 @@ public class AspectSizePayloadValidatorTest {
             eq("aspectName"),
             anyString(),
             eq("sizeBucket"),
-            eq("1024B-1MB")); // 2KB -> second bucket
+            eq("1KB-1MB")); // 2KB -> second bucket
 
     verify(mockMetrics)
         .incrementMicrometer(

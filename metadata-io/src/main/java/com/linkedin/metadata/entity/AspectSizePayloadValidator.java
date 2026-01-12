@@ -100,13 +100,15 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
    * while metric labels should be simple identifiers without spaces.
    *
    * @param bytes size in bytes
-   * @return formatted string (e.g., "1MB", "5MB")
+   * @return formatted string (e.g., "512KB", "1MB", "5MB")
    */
   private static String formatBytes(long bytes) {
     if (bytes == 0) return "0";
     long mb = bytes / (1024 * 1024);
-    if (mb == 0) return bytes + "B";
-    return mb + "MB";
+    if (mb > 0) return mb + "MB";
+    long kb = bytes / 1024;
+    if (kb > 0) return kb + "KB";
+    return bytes + "B";
   }
 
   @Override

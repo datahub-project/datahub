@@ -382,6 +382,104 @@ public class AspectSizeValidatorTest {
     }
   }
 
+  @Test
+  public void testPrePatchConfigurableSizeBucketing() {
+    // Test custom bucket configuration for pre-patch validation
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig prePatchConfig = new AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setMaxSizeBytes(100_000_000L);
+    prePatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+
+    // Configure custom buckets: 512KB, 2MB, 8MB
+    AspectSizeValidationConfig.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfig.MetricsConfig();
+    metricsConfig.setSizeBuckets(List.of(524288L, 2097152L, 8388608L));
+    config.setMetrics(metricsConfig);
+
+    com.linkedin.metadata.utils.metrics.MetricUtils mockMetrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+
+    String metadata = generateLargeMetadata(1_500_000); // 1.5MB
+
+    // Should emit metric with correct bucket
+    AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config, null, mockMetrics);
+
+    // Verify metric was emitted with bucket between 512KB-2MB
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.prePatch.sizeDistribution"),
+            eq(1.0),
+            eq("aspectName"),
+            eq(ASPECT_NAME),
+            eq("sizeBucket"),
+            eq("512KB-2MB"));
+  }
+
+  @Test
+  public void testPrePatchDefaultBucketing() {
+    // Test default bucket configuration (no metrics config)
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig prePatchConfig = new AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setMaxSizeBytes(100_000_000L);
+    prePatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+    // No metrics config - uses defaults: 1MB, 5MB, 10MB, 15MB
+
+    com.linkedin.metadata.utils.metrics.MetricUtils mockMetrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+
+    String metadata = generateLargeMetadata(3_000_000); // 3MB
+
+    AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config, null, mockMetrics);
+
+    // Verify metric emitted with default bucket (1MB-5MB)
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.prePatch.sizeDistribution"),
+            eq(1.0),
+            eq("aspectName"),
+            eq(ASPECT_NAME),
+            eq("sizeBucket"),
+            eq("1MB-5MB"));
+  }
+
+  @Test
+  public void testPrePatchBucketingWithSmallSizes() {
+    // Test bucketing for sub-megabyte sizes
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig prePatchConfig = new AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setMaxSizeBytes(100_000_000L);
+    prePatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+
+    // Bucket at 512 bytes
+    AspectSizeValidationConfig.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfig.MetricsConfig();
+    metricsConfig.setSizeBuckets(List.of(512L));
+    config.setMetrics(metricsConfig);
+
+    com.linkedin.metadata.utils.metrics.MetricUtils mockMetrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+
+    String metadata = generateLargeMetadata(256); // 256 bytes
+
+    AspectSizeValidator.validatePrePatchSize(metadata, urn, ASPECT_NAME, config, null, mockMetrics);
+
+    // Verify bucket label uses bytes (not MB) for small sizes
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.prePatch.sizeDistribution"),
+            eq(1.0),
+            eq("aspectName"),
+            eq(ASPECT_NAME),
+            eq("sizeBucket"),
+            eq("0-512B"));
+  }
+
   private AspectSizeValidationConfig createEnabledConfig(
       long maxSizeBytes, OversizedAspectRemediation remediation) {
     AspectSizeValidationConfig config = new AspectSizeValidationConfig();
