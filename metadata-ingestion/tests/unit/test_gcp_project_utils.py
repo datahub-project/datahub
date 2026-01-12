@@ -21,6 +21,8 @@ from datahub.ingestion.source.common.gcp_project_utils import (
     _is_rate_limit_error,
     _search_projects_with_retry,
     _validate_and_filter_projects,
+    _validate_pattern_against_explicit_list,
+    _validate_pattern_before_discovery,
     get_projects,
     get_projects_by_labels,
     get_projects_from_explicit_list,
@@ -202,12 +204,14 @@ class TestEdgeCases:
         projects = get_projects_from_explicit_list([])
         assert projects == []
 
-    def test_explicit_list_all_filtered_returns_empty(self) -> None:
-        projects = get_projects_from_explicit_list(
-            ["dev-1", "dev-2"],
-            AllowDenyPattern(allow=["prod-.*"]),
-        )
-        assert projects == []
+    def test_explicit_list_all_filtered_raises_error(self) -> None:
+        with pytest.raises(
+            GCPProjectDiscoveryError, match="excludes ALL 2 explicitly configured"
+        ):
+            get_projects_from_explicit_list(
+                ["dev-1", "dev-2"],
+                AllowDenyPattern(allow=["prod-.*"]),
+            )
 
     def test_project_uses_id_as_name_fallback(self) -> None:
         mock_client = MagicMock()
@@ -268,3 +272,47 @@ class TestTemporaryCredentialsFile:
         with temporary_credentials_file(creds) as cred_path:
             os.unlink(cred_path)
         # Should not raise - cleanup handles FileNotFoundError
+
+
+class TestFailFastPatternValidation:
+    def test_deny_all_pattern_fails_fast(self) -> None:
+        pattern = AllowDenyPattern(deny=[".*"])
+        with pytest.raises(GCPProjectDiscoveryError, match="blocks ALL projects"):
+            _validate_pattern_before_discovery(pattern, "auto-discovery")
+
+    def test_deny_all_with_explicit_allow_passes(self) -> None:
+        pattern = AllowDenyPattern(allow=["prod-.*"], deny=[".*"])
+        # Should warn but not raise since explicit allow is provided
+        _validate_pattern_before_discovery(pattern, "auto-discovery")
+
+    def test_glob_syntax_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        pattern = AllowDenyPattern(allow=["prod-*"])
+        with caplog.at_level(logging.WARNING):
+            _validate_pattern_before_discovery(pattern, "auto-discovery")
+        assert "looks like glob syntax" in caplog.text
+        assert "Did you mean" in caplog.text
+
+    def test_explicit_list_all_filtered_fails_fast(self) -> None:
+        pattern = AllowDenyPattern(allow=["prod-.*"])
+        with pytest.raises(GCPProjectDiscoveryError, match="excludes ALL"):
+            _validate_pattern_against_explicit_list(pattern, ["dev-1", "dev-2"])
+
+    def test_explicit_list_partial_filter_warns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        pattern = AllowDenyPattern(allow=["prod-.*"])
+        with caplog.at_level(logging.WARNING):
+            _validate_pattern_against_explicit_list(
+                pattern, ["prod-app", "dev-1", "dev-2"]
+            )
+        assert "will exclude 2 of 3" in caplog.text
+
+    def test_explicit_list_no_filter_passes_silently(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        pattern = AllowDenyPattern.allow_all()
+        with caplog.at_level(logging.WARNING):
+            _validate_pattern_against_explicit_list(
+                pattern, ["prod-app", "dev-1", "dev-2"]
+            )
+        assert "will exclude" not in caplog.text

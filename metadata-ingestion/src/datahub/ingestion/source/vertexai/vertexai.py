@@ -2,14 +2,18 @@ import dataclasses
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
+from google.api_core import retry
 from google.api_core.exceptions import (
+    DeadlineExceeded,
     FailedPrecondition,
     GoogleAPICallError,
     InvalidArgument,
     NotFound,
     PermissionDenied,
+    ResourceExhausted,
+    ServiceUnavailable,
 )
 from google.cloud import aiplatform, resourcemanager_v3
 from google.cloud.aiplatform import (
@@ -114,6 +118,56 @@ logger = logging.getLogger(__name__)
 def _is_config_error(exc: GoogleAPICallError) -> bool:
     """Check if exception indicates a configuration error that should fail fast."""
     return isinstance(exc, (InvalidArgument, FailedPrecondition))
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    """Determine if a Vertex AI API error is retryable."""
+    if isinstance(exc, ResourceExhausted):
+        logger.debug("Rate limit hit, will retry: %s", exc)
+        return True
+    if isinstance(exc, (DeadlineExceeded, ServiceUnavailable)):
+        logger.debug("Transient error, will retry: %s", exc)
+        return True
+    if isinstance(exc, GoogleAPICallError):
+        code = getattr(exc, "code", None)
+        if code is not None and code >= 500:
+            logger.debug("Server error (5xx), will retry: %s", exc)
+            return True
+    return False
+
+
+def _vertex_ai_retry() -> retry.Retry:
+    """Create retry configuration for Vertex AI API calls."""
+    return retry.Retry(
+        predicate=_is_retryable_error,
+        initial=1.0,
+        maximum=60.0,
+        multiplier=2.0,
+        timeout=600.0,
+    )
+
+
+def _call_with_retry(
+    func: Callable[..., T],
+    *args: Any,
+    operation: str = "API call",
+    **kwargs: Any,
+) -> T:
+    """Execute a Vertex AI API call with retry for rate limits and transient errors."""
+    retry_decorator = _vertex_ai_retry()
+    try:
+        return retry_decorator(func)(*args, **kwargs)
+    except ResourceExhausted as e:
+        logger.error(
+            "Rate limit exceeded for %s after retries: %s. "
+            "Consider reducing project_ids scope or requesting quota increase.",
+            operation,
+            e,
+        )
+        raise
+    except GoogleAPICallError as e:
+        logger.error("Vertex AI API error for %s: %s", operation, e)
+        raise
 
 
 @dataclasses.dataclass
@@ -319,7 +373,10 @@ class VertexAISource(Source):
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """Fetch Vertex AI Pipeline Jobs and generate DataJob MCPs with lineage to tasks."""
-        pipeline_jobs = self.client.PipelineJob.list()
+        pipeline_jobs = _call_with_retry(
+            self.client.PipelineJob.list,
+            operation=f"list pipelines in {self._current_project_id}",
+        )
 
         for pipeline in pipeline_jobs:
             logger.info("Fetching pipeline: %s", pipeline.name)
@@ -564,7 +621,10 @@ class VertexAISource(Source):
         )
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.experiments = aiplatform.Experiment.list()
+        self.experiments = _call_with_retry(
+            aiplatform.Experiment.list,
+            operation=f"list experiments in {self._current_project_id}",
+        )
 
         logger.info("Fetching experiments from VertexAI server")
         for experiment in self.experiments:
@@ -572,10 +632,17 @@ class VertexAISource(Source):
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self.experiments is None:
-            self.experiments = aiplatform.Experiment.list()
+            self.experiments = _call_with_retry(
+                aiplatform.Experiment.list,
+                operation=f"list experiments in {self._current_project_id}",
+            )
         for experiment in self.experiments:
             logger.info("Fetching experiment runs for experiment: %s", experiment.name)
-            experiment_runs = aiplatform.ExperimentRun.list(experiment=experiment.name)
+            experiment_runs = _call_with_retry(
+                aiplatform.ExperimentRun.list,
+                experiment=experiment.name,
+                operation=f"list runs for experiment {experiment.name}",
+            )
             for run in experiment_runs:
                 yield from self._gen_experiment_run_mcps(experiment, run)
 
@@ -790,11 +857,17 @@ class VertexAISource(Source):
 
     def _get_ml_models_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """Fetch models from Vertex AI Model Registry and generate MLModelGroup + MLModel MCPs."""
-        registered_models = self.client.Model.list()
+        registered_models = _call_with_retry(
+            self.client.Model.list,
+            operation=f"list models in {self._current_project_id}",
+        )
         for model in registered_models:
             # create mcp for Model Group (= Model in VertexAI)
             yield from self._gen_ml_group_mcps(model)
-            model_versions = model.versioning_registry.list_versions()
+            model_versions = _call_with_retry(
+                model.versioning_registry.list_versions,
+                operation=f"list versions for model {model.name}",
+            )
             for model_version in model_versions:
                 # create mcp for Model (= Model Version in VertexAI)
                 logger.info(
@@ -836,7 +909,11 @@ class VertexAISource(Source):
         ]
         for class_name in class_names:
             logger.info("Fetching a list of %ss from VertexAI server", class_name)
-            for job in getattr(self.client, class_name).list():
+            jobs = _call_with_retry(
+                getattr(self.client, class_name).list,
+                operation=f"list {class_name} in {self._current_project_id}",
+            )
+            for job in jobs:
                 yield from self._get_training_job_mcps(job)
 
     def _get_training_job_mcps(
@@ -1032,7 +1109,11 @@ class VertexAISource(Source):
     def _search_model_version(
         self, model: Model, version_id: str
     ) -> Optional[VersionInfo]:
-        for version in model.versioning_registry.list_versions():
+        versions = _call_with_retry(
+            model.versioning_registry.list_versions,
+            operation=f"list versions for model {model.name}",
+        )
+        for version in versions:
             if version.version_id == version_id:
                 return version
         return None
@@ -1052,7 +1133,11 @@ class VertexAISource(Source):
 
             for dtype in dataset_types:
                 dataset_class = getattr(self.client.datasets, dtype)
-                for ds in dataset_class.list():
+                datasets = _call_with_retry(
+                    dataset_class.list,
+                    operation=f"list {dtype} in {self._current_project_id}",
+                )
+                for ds in datasets:
                     self.datasets[ds.name] = ds
 
         return self.datasets.get(dataset_id)
@@ -1295,7 +1380,11 @@ class VertexAISource(Source):
         """Find the Vertex AI Endpoints where this model is deployed, if any."""
         if self.endpoints is None:
             endpoint_dict: Dict[str, List[Endpoint]] = {}
-            for endpoint in self.client.Endpoint.list():
+            endpoints = _call_with_retry(
+                self.client.Endpoint.list,
+                operation=f"list endpoints in {self._current_project_id}",
+            )
+            for endpoint in endpoints:
                 for resource in endpoint.list_models():
                     if resource.model not in endpoint_dict:
                         endpoint_dict[resource.model] = []

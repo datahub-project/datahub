@@ -183,6 +183,84 @@ def _handle_discovery_error(
     return GCPProjectDiscoveryError.api_error(exc, context, debug_cmd)
 
 
+def _validate_pattern_before_discovery(
+    pattern: AllowDenyPattern,
+    discovery_method: str,
+) -> None:
+    """
+    Validate project_id_pattern for common mistakes BEFORE making API calls.
+    Raises GCPProjectDiscoveryError if pattern is obviously broken.
+    """
+    deny_all_patterns = {".*", ".+", "^.*$", "^.+$"}
+
+    if pattern.deny:
+        has_deny_all = any(d in deny_all_patterns for d in pattern.deny)
+        has_default_allow = pattern.allow == [".*"]
+        if has_deny_all and has_default_allow:
+            raise GCPProjectDiscoveryError(
+                f"Invalid project_id_pattern: deny pattern {pattern.deny} blocks ALL projects. "
+                f"Either remove the deny pattern or add explicit allow patterns. "
+                f"Failing fast to avoid expensive {discovery_method} API calls."
+            )
+
+    if pattern.allow and pattern.allow != [".*"]:
+        for allow_pattern in pattern.allow:
+            if "*" in allow_pattern and ".*" not in allow_pattern:
+                logger.warning(
+                    "project_id_pattern allow '%s' looks like glob syntax. "
+                    "AllowDenyPattern uses regex. Did you mean '%s'?",
+                    allow_pattern,
+                    allow_pattern.replace("*", ".*"),
+                )
+
+    if pattern.allow and pattern.allow != [".*"] and pattern.deny:
+        has_deny_all = any(d in deny_all_patterns for d in pattern.deny)
+        if has_deny_all:
+            logger.warning(
+                "project_id_pattern has deny pattern %s which overrides allow patterns %s. "
+                "Deny patterns take precedence - this may filter out all projects.",
+                pattern.deny,
+                pattern.allow,
+            )
+
+
+def _validate_pattern_against_explicit_list(
+    pattern: AllowDenyPattern,
+    project_ids: List[str],
+) -> None:
+    """
+    Validate pattern against explicit project ID list.
+    Fail fast if pattern will filter out ALL explicitly configured projects.
+    """
+    if not project_ids:
+        return
+
+    would_match = [pid for pid in project_ids if pattern.allowed(pid)]
+
+    if not would_match:
+        ids_preview = ", ".join(project_ids[:5])
+        if len(project_ids) > 5:
+            ids_preview += "..."
+        raise GCPProjectDiscoveryError(
+            f"project_id_pattern excludes ALL {len(project_ids)} explicitly configured project_ids: "
+            f"{ids_preview}. Pattern allow={pattern.allow}, deny={pattern.deny}. "
+            "Adjust your patterns or remove project_id_pattern to use all configured projects."
+        )
+
+    filtered_out = len(project_ids) - len(would_match)
+    if filtered_out > 0:
+        excluded = [pid for pid in project_ids if not pattern.allowed(pid)]
+        excluded_preview = ", ".join(excluded[:5])
+        if len(excluded) > 5:
+            excluded_preview += "..."
+        logger.warning(
+            "project_id_pattern will exclude %d of %d explicitly configured project_ids: %s",
+            filtered_out,
+            len(project_ids),
+            excluded_preview,
+        )
+
+
 def _validate_and_filter_projects(
     projects: List["GCPProject"],
     pattern: AllowDenyPattern,
@@ -294,6 +372,8 @@ def get_projects_from_explicit_list(
     project_id_pattern: Optional[AllowDenyPattern] = None,
 ) -> List[GCPProject]:
     pattern = project_id_pattern or AllowDenyPattern.allow_all()
+    _validate_pattern_against_explicit_list(pattern, project_ids)
+
     projects = [GCPProject(id=pid, name=pid) for pid in project_ids]
     filtered = _filter_projects_by_pattern(projects, pattern)
     logger.info(
@@ -318,6 +398,7 @@ def get_projects_by_labels(
         )
 
     pattern = project_id_pattern or AllowDenyPattern.allow_all()
+    _validate_pattern_before_discovery(pattern, "label search")
 
     label_queries = []
     for label in labels:
@@ -366,6 +447,8 @@ def get_projects(
 
     if project_labels:
         return get_projects_by_labels(project_labels, client, pattern)
+
+    _validate_pattern_before_discovery(pattern, "auto-discovery")
 
     logger.info(
         "No project_ids or project_labels specified. Discovering all accessible GCP projects..."
