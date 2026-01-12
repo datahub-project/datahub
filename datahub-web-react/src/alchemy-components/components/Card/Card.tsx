@@ -39,6 +39,7 @@ export const Card = ({
     noOfSubtitleLines,
     iconStyles,
     pillLabel,
+    pill,
 }: CardProps) => {
     const subtitleRef = useRef<HTMLDivElement>(null);
     const [showSubtitleTooltip, setShowSubtitleTooltip] = useState(false);
@@ -106,6 +107,7 @@ export const Card = ({
                                     {!!pillLabel && (
                                         <Pill label={pillLabel} size="sm" color="primary" clickable={false} />
                                     )}
+                                    {pill !== null && pill !== undefined && pill}
                                 </Title>
                                 <SubTitleContainer>
                                     {showSubtitleTooltip ? (

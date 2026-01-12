@@ -36,6 +36,10 @@ const ActionLink = styled(Text)<{ $color: string }>`
     }
 `;
 
+const IconWrapper = styled.div`
+    flex-shrink: 0;
+`;
+
 interface Props {
     content: React.ReactNode;
     icon?: React.ReactNode;
@@ -78,7 +82,7 @@ export default function PageBanner({
     return (
         <BannerWrapper $backgroundColor={backgroundColor}>
             <IconTextWrapper>
-                {icon}
+                <IconWrapper>{icon}</IconWrapper>
                 {content}
             </IconTextWrapper>
             {onAction && actionText ? (
