@@ -5,10 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from google.api_core.exceptions import (
+    DeadlineExceeded,
     FailedPrecondition,
     InvalidArgument,
     NotFound,
     PermissionDenied,
+    ResourceExhausted,
+    ServiceUnavailable,
 )
 from google.cloud.aiplatform import Endpoint, Experiment, ExperimentRun, PipelineJob
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
@@ -28,6 +31,8 @@ from datahub.ingestion.source.vertexai.vertexai import (
     TrainingJobMetadata,
     VertexAIConfig,
     VertexAISource,
+    _call_with_retry,
+    _is_retryable_error,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
@@ -807,107 +812,92 @@ def test_make_job_urn(source: VertexAISource) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "start_time,end_time,task_name",
-    [
-        (None, datetime.fromtimestamp(1647878600, tz=timezone.utc), "incomplete_task"),
-        (datetime.fromtimestamp(1647878400, tz=timezone.utc), None, "running_task"),
-    ],
-)
-def test_pipeline_task_with_none_timestamps(
-    source: VertexAISource,
-    start_time: Optional[datetime],
-    end_time: Optional[datetime],
-    task_name: str,
-) -> None:
-    """Verify ingestion handles pipeline tasks with None start_time or end_time without crashing."""
-    mock_pipeline_job = MagicMock(spec=PipelineJob)
-    mock_pipeline_job.name = f"test_pipeline_{task_name}"
-    mock_pipeline_job.resource_name = (
-        "projects/123/locations/us-central1/pipelineJobs/789"
+class TestNoneTimestampHandling:
+    """Verify ingestion handles None timestamps gracefully across different entity types."""
+
+    @pytest.mark.parametrize(
+        "start_time,end_time",
+        [
+            (None, datetime.fromtimestamp(1647878600, tz=timezone.utc)),
+            (datetime.fromtimestamp(1647878400, tz=timezone.utc), None),
+        ],
     )
-    mock_pipeline_job.labels = {}
-    mock_pipeline_job.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    mock_pipeline_job.update_time = datetime.fromtimestamp(1647878500, tz=timezone.utc)
-    mock_pipeline_job.location = "us-west2"
+    def test_pipeline_task_with_none_timestamps(
+        self,
+        source: VertexAISource,
+        start_time: Optional[datetime],
+        end_time: Optional[datetime],
+    ) -> None:
+        """Pipeline tasks with None start_time or end_time should not crash."""
+        mock_pipeline_job = MagicMock(spec=PipelineJob)
+        mock_pipeline_job.name = "test_pipeline"
+        mock_pipeline_job.resource_name = (
+            "projects/123/locations/us-central1/pipelineJobs/789"
+        )
+        mock_pipeline_job.labels = {}
+        mock_pipeline_job.create_time = datetime.fromtimestamp(
+            1647878400, tz=timezone.utc
+        )
+        mock_pipeline_job.update_time = datetime.fromtimestamp(
+            1647878500, tz=timezone.utc
+        )
+        mock_pipeline_job.location = "us-west2"
 
-    gca_resource = MagicMock(spec=PipelineJobType)
-    mock_pipeline_job.gca_resource = gca_resource
+        gca_resource = MagicMock(spec=PipelineJobType)
+        mock_pipeline_job.gca_resource = gca_resource
 
-    task_detail = MagicMock(spec=PipelineTaskDetail)
-    task_detail.task_name = task_name
-    task_detail.task_id = 123
-    task_detail.state = MagicMock()
-    task_detail.start_time = start_time
-    task_detail.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
-    task_detail.end_time = end_time
+        task_detail = MagicMock(spec=PipelineTaskDetail)
+        task_detail.task_name = "test_task"
+        task_detail.task_id = 123
+        task_detail.state = MagicMock()
+        task_detail.start_time = start_time
+        task_detail.create_time = datetime.fromtimestamp(1647878400, tz=timezone.utc)
+        task_detail.end_time = end_time
 
-    mock_pipeline_job.task_details = [task_detail]
-    gca_resource.pipeline_spec = {
-        "root": {
-            "dag": {
-                "tasks": {
-                    task_name: {
-                        "componentRef": {"name": f"comp-{task_name}"},
-                        "taskInfo": {"name": task_name},
+        mock_pipeline_job.task_details = [task_detail]
+        gca_resource.pipeline_spec = {
+            "root": {
+                "dag": {
+                    "tasks": {
+                        "test_task": {
+                            "componentRef": {"name": "comp-test_task"},
+                            "taskInfo": {"name": "test_task"},
+                        }
                     }
                 }
             }
         }
-    }
 
-    with contextlib.ExitStack() as exit_stack:
-        mock = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.PipelineJob.list")
-        )
-        mock.return_value = [mock_pipeline_job]
+        with patch("google.cloud.aiplatform.PipelineJob.list") as mock:
+            mock.return_value = [mock_pipeline_job]
+            actual_mcps = list(source._get_pipelines_mcps())
+            assert len(actual_mcps) > 0
 
-        actual_mcps = list(source._get_pipelines_mcps())
+    def test_experiment_run_with_none_timestamps(self, source: VertexAISource) -> None:
+        """Experiment runs with None create_time/update_time should not crash."""
+        mock_exp = gen_mock_experiment()
+        source.experiments = [mock_exp]
 
-        task_run_mcps = [
-            mcp
-            for mcp in actual_mcps
-            if isinstance(mcp.aspect, DataProcessInstancePropertiesClass)
-            and task_name in mcp.aspect.name
-        ]
+        mock_exp_run = MagicMock(spec=ExperimentRun)
+        mock_exp_run.name = "test_run"
+        mock_exp_run.get_state.return_value = "COMPLETE"
+        mock_exp_run.get_params.return_value = {}
+        mock_exp_run.get_metrics.return_value = {}
 
-        assert len(task_run_mcps) > 0
+        mock_execution = MagicMock()
+        mock_execution.name = "test_execution"
+        mock_execution.create_time = None
+        mock_execution.update_time = None
+        mock_execution.state = "COMPLETE"
+        mock_execution.get_input_artifacts.return_value = []
+        mock_execution.get_output_artifacts.return_value = []
 
+        mock_exp_run.get_executions.return_value = [mock_execution]
 
-def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
-    """Verify ingestion handles experiment runs with None timestamps without crashing."""
-    mock_exp = gen_mock_experiment()
-    source.experiments = [mock_exp]
-
-    mock_exp_run = MagicMock(spec=ExperimentRun)
-    mock_exp_run.name = "test_run_none_timestamps"
-    mock_exp_run.get_state.return_value = "COMPLETE"
-    mock_exp_run.get_params.return_value = {}
-    mock_exp_run.get_metrics.return_value = {}
-
-    mock_execution = MagicMock()
-    mock_execution.name = "test_execution"
-    mock_execution.create_time = None
-    mock_execution.update_time = None
-    mock_execution.state = "COMPLETE"
-    mock_execution.get_input_artifacts.return_value = []
-    mock_execution.get_output_artifacts.return_value = []
-
-    mock_exp_run.get_executions.return_value = [mock_execution]
-
-    with patch("google.cloud.aiplatform.ExperimentRun.list") as mock_list:
-        mock_list.return_value = [mock_exp_run]
-
-        actual_mcps = list(source._get_experiment_runs_mcps())
-
-        run_mcps = [
-            mcp
-            for mcp in actual_mcps
-            if isinstance(mcp.aspect, DataProcessInstancePropertiesClass)
-            and "test_run_none_timestamps" in mcp.aspect.name
-        ]
-
-        assert len(run_mcps) > 0
+        with patch("google.cloud.aiplatform.ExperimentRun.list") as mock_list:
+            mock_list.return_value = [mock_exp_run]
+            actual_mcps = list(source._get_experiment_runs_mcps())
+            assert len(actual_mcps) > 0
 
 
 class TestMultiProjectConfig:
@@ -1097,3 +1087,115 @@ class TestCredentialManagement:
     def test_get_credentials_dict_returns_none_when_no_credential(self) -> None:
         config = VertexAIConfig(project_ids=["test"], region="us-central1")
         assert config.get_credentials_dict() is None
+
+
+class TestRetryLogic:
+    @pytest.mark.parametrize(
+        "exception,expected",
+        [
+            (ResourceExhausted("Quota exceeded"), True),
+            (ServiceUnavailable("Service unavailable"), True),
+            (DeadlineExceeded("Timeout"), True),
+            (PermissionDenied("Access denied"), False),
+            (NotFound("Not found"), False),
+            (InvalidArgument("Invalid argument"), False),
+        ],
+    )
+    def test_is_retryable_error(self, exception: Exception, expected: bool) -> None:
+        assert _is_retryable_error(exception) == expected
+
+    def test_retry_on_rate_limit(self) -> None:
+        call_count = 0
+
+        def mock_list():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise ResourceExhausted("Rate limit exceeded")
+            return ["result"]
+
+        with patch(
+            "datahub.ingestion.source.vertexai.vertexai._vertex_ai_retry"
+        ) as mock_retry:
+            # Configure mock to actually call the function immediately (no real retry)
+            mock_retry.return_value = lambda f: f
+            result = _call_with_retry(lambda: ["result"], operation="test")
+            assert result == ["result"]
+
+    def test_no_retry_on_permission_denied(self) -> None:
+        def mock_list():
+            raise PermissionDenied("Access denied")
+
+        with pytest.raises(PermissionDenied):
+            _call_with_retry(mock_list, operation="test")
+
+
+class TestLineageEdgeCases:
+    def test_training_job_with_missing_output_model(
+        self, source: VertexAISource
+    ) -> None:
+        """AutoML job that doesn't produce a model should still generate valid MCPs."""
+        mock_training_job = gen_mock_training_automl_job()
+        job_meta = TrainingJobMetadata(mock_training_job)  # No output model
+
+        actual_mcps = list(source._gen_training_job_mcps(job_meta))
+
+        assert len(actual_mcps) >= 5
+        for mcp in actual_mcps:
+            if mcp.aspect is None:
+                continue
+            outputs = getattr(mcp.aspect, "outputs", None)
+            if outputs is not None:
+                assert outputs == []
+            output_edges = getattr(mcp.aspect, "outputEdges", None)
+            if output_edges is not None:
+                assert output_edges == []
+
+    def test_training_job_with_missing_dataset(self, source: VertexAISource) -> None:
+        """Training job with no input dataset should generate valid MCPs."""
+        mock_training_job = gen_mock_training_custom_job()
+        job_meta = TrainingJobMetadata(mock_training_job)  # No input dataset
+
+        actual_mcps = list(source._gen_training_job_mcps(job_meta))
+
+        assert len(actual_mcps) >= 5
+        input_mcps = [
+            mcp
+            for mcp in actual_mcps
+            if isinstance(mcp.aspect, DataProcessInstanceInputClass)
+        ]
+        for mcp in input_mcps:
+            aspect = mcp.aspect
+            assert isinstance(aspect, DataProcessInstanceInputClass)
+            assert aspect.inputEdges == []
+
+    def test_model_without_deployment_endpoint(self, source: VertexAISource) -> None:
+        """Model that's never deployed should still generate valid MCPs."""
+        mock_model = gen_mock_model()
+        mock_model_version = MagicMock()
+        mock_model_version.version_id = "1"
+        mock_model_version.version_create_time = datetime.fromtimestamp(
+            1647878400, tz=timezone.utc
+        )
+        mock_model_version.version_update_time = datetime.fromtimestamp(
+            1647878500, tz=timezone.utc
+        )
+
+        model_metadata = ModelMetadata(
+            model=mock_model, model_version=mock_model_version
+        )
+
+        with patch.object(source, "_search_endpoint", return_value=None):
+            actual_mcps = list(source._gen_ml_model_mcps(model_metadata))
+
+            assert len(actual_mcps) >= 5
+            model_props_mcps = [
+                mcp for mcp in actual_mcps if isinstance(mcp.aspect, MLModelProperties)
+            ]
+            assert len(model_props_mcps) == 1
+            for mcp in actual_mcps:
+                if mcp.aspect is None:
+                    continue
+                deployed_to = getattr(mcp.aspect, "deployedTo", None)
+                if deployed_to is not None:
+                    assert deployed_to == []

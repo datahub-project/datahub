@@ -2,8 +2,9 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import call, patch
 
 import pytest
-from google.api_core.exceptions import NotFound, PermissionDenied
+from google.api_core.exceptions import NotFound, PermissionDenied, ResourceExhausted
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.gcp_project_utils import GCPProject
 from datahub.ingestion.source.vertexai.vertexai import VertexAISource
@@ -106,6 +107,25 @@ class TestMultiProjectIntegration:
         mock_project_discovery.assert_called_once()
         assert mock_aiplatform["init"].call_count == 2
 
+    def test_auto_discovery_passes_pattern_to_get_projects(
+        self, mock_aiplatform, mock_project_discovery, pipeline_ctx
+    ):
+        """Verify project_id_pattern is passed to get_projects for filtering."""
+        mock_project_discovery.return_value = [GCPProject(id="prod-app", name="Prod")]
+        config = VertexAIConfig(
+            region="us-central1",
+            project_id_pattern={"deny": ["dev-.*"]},
+        )
+        source = VertexAISource(ctx=pipeline_ctx, config=config)
+        list(source.get_workunits())
+
+        mock_project_discovery.assert_called_once()
+        call_kwargs = mock_project_discovery.call_args.kwargs
+        assert "project_id_pattern" in call_kwargs
+        pattern = call_kwargs["project_id_pattern"]
+        assert isinstance(pattern, AllowDenyPattern)
+        assert pattern.deny == ["dev-.*"]
+
     def test_project_container_urn_generation(self, mock_aiplatform, pipeline_ctx):
         source = make_source(pipeline_ctx, project_ids=["my-test-project"])
         workunits = list(source.get_workunits())
@@ -180,3 +200,36 @@ class TestProjectErrorHandling:
 
         assert len(source.report.warnings) >= 1
         assert "fail-project" in str(source.report.warnings)
+
+
+class TestRateLimitHandling:
+    def test_rate_limit_on_single_project_reports_failure(
+        self, mock_aiplatform, pipeline_ctx
+    ):
+        """Rate limit errors on single project should be reported as failures."""
+        mock_aiplatform["init"].side_effect = ResourceExhausted("Quota exceeded")
+        source = make_source(pipeline_ctx, project_ids=["rate-limited-project"])
+
+        with pytest.raises(RuntimeError, match="All .* projects failed"):
+            list(source.get_workunits())
+
+        assert len(source.report.failures) >= 1
+        assert "rate-limited-project" in str(source.report.failures)
+
+    def test_rate_limit_on_multi_project_continues(self, mock_aiplatform, pipeline_ctx):
+        """Rate limit errors should not stop processing of other projects."""
+        call_count = {"project-a": 0, "project-b": 0}
+
+        def rate_limit_first_project(**kwargs):
+            project = kwargs["project"]
+            call_count[project] = call_count.get(project, 0) + 1
+            if project == "project-a":
+                raise ResourceExhausted("Quota exceeded")
+
+        mock_aiplatform["init"].side_effect = rate_limit_first_project
+        source = make_source(pipeline_ctx, project_ids=["project-a", "project-b"])
+        list(source.get_workunits())
+
+        assert mock_aiplatform["init"].call_count == 2
+        assert len(source.report.failures) >= 1
+        assert "project-a" in str(source.report.failures)
