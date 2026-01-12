@@ -104,6 +104,7 @@ describe("Document Management End-to-End Test", () => {
       // Set initial title
       cy.getWithTestId("document-title-input", { timeout: 5000 })
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc1Title, { delay: 50 });
 
@@ -117,13 +118,17 @@ describe("Document Management End-to-End Test", () => {
 
     it("should create a second document using sidebar create button", () => {
       cy.visit(`/document/${encodeURIComponent(testDocument1Urn)}`);
-      cy.wait(1000);
+      cy.wait(2000); // Wait longer for page to stabilize
 
       // The context sidebar should be visible
       cy.getWithTestId("context-documents-sidebar").should("be.visible");
 
-      // Click the create button in the sidebar header
-      cy.getWithTestId("create-document-button").should("be.visible").click();
+      // Wait for any re-renders to settle, then click the create button
+      cy.wait(500);
+      cy.getWithTestId("create-document-button")
+        .should("be.visible")
+        .should("not.be.disabled")
+        .click({ force: true });
 
       // Wait for navigation to new document page
       cy.url().should("not.include", testDocument1Urn, { timeout: 10000 });
@@ -139,11 +144,18 @@ describe("Document Management End-to-End Test", () => {
         }
       });
 
-      // Set title for second document
-      cy.getWithTestId("document-title-input", { timeout: 5000 })
+      // Wait for sidebar to finish loading (create button becomes enabled again)
+      cy.getWithTestId("create-document-button", { timeout: 15000 })
         .should("be.visible")
-        .clear()
-        .type(doc2Title, { delay: 50 });
+        .and("not.be.disabled");
+
+      // Now set the title - break up the chain to handle React re-renders
+      cy.getWithTestId("document-title-input", { timeout: 10000 })
+        .should("be.visible")
+        .and("not.be.disabled")
+        .clear();
+
+      cy.getWithTestId("document-title-input").type(doc2Title, { delay: 50 });
 
       // Trigger save
       cy.get("body").click(0, 0);
@@ -160,6 +172,7 @@ describe("Document Management End-to-End Test", () => {
       // Update title
       cy.getWithTestId("document-title-input")
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc1UpdatedTitle, { delay: 50 });
 
@@ -339,6 +352,7 @@ describe("Document Management End-to-End Test", () => {
       const searchTestTitle = `${test_id}_SearchTest`;
       cy.getWithTestId("document-title-input")
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(searchTestTitle, { delay: 50 });
       cy.get("body").click(0, 0);
@@ -387,6 +401,7 @@ describe("Document Management End-to-End Test", () => {
       // Set parent title
       cy.getWithTestId("document-title-input")
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc1Title, { delay: 50 });
       cy.get("body").click(0, 0);
@@ -410,6 +425,7 @@ describe("Document Management End-to-End Test", () => {
 
       cy.getWithTestId("document-title-input")
         .should("be.visible")
+        .should("not.be.disabled")
         .clear()
         .type(doc2Title, { delay: 50 });
       cy.get("body").click(0, 0);

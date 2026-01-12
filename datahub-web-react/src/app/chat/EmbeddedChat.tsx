@@ -1,4 +1,4 @@
-import { colors } from '@components';
+import { Pill, colors } from '@components';
 import { message as antMessage } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -159,6 +159,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
                                     <AskDataHubIcon size={28} />
                                 </div>
                                 <div>{contentPlaceholder}</div>
+                                <Pill size="sm" color="blue" label="BETA" clickable={false} />
                             </EmptyState>
                         )}
                         {suggestedQuestions && suggestedQuestions.length > 0 && (
