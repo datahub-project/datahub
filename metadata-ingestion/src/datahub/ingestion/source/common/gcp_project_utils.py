@@ -68,53 +68,119 @@ def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str
             )
 
 
-PERMISSION_DENIED_ERROR_MSG = (
-    "Permission denied when listing GCP projects. "
-    "Ensure the service account has the 'resourcemanager.projects.list' permission "
-    "(included in roles/browser or roles/viewer at organization/folder level), "
-    "or specify project_ids explicitly in the configuration."
-)
+class GCPProjectDiscoveryError(Exception):
+    """Exception for project discovery failures with rich context and debug commands."""
 
+    @classmethod
+    def permission_denied(cls, debug_cmd: str) -> "GCPProjectDiscoveryError":
+        """Permission denied when listing projects."""
+        return cls(
+            "Permission denied when listing GCP projects. "
+            "Ensure the service account has the 'resourcemanager.projects.list' permission "
+            "(included in roles/browser or roles/viewer at organization/folder level), "
+            f"or specify project_ids explicitly in the configuration. Debug: {debug_cmd}"
+        )
 
-def _format_transient_error(error_type: str, exc: Exception, debug_cmd: str) -> str:
-    if error_type == "timeout":
-        return (
+    @classmethod
+    def timeout(cls, exc: Exception, debug_cmd: str) -> "GCPProjectDiscoveryError":
+        """API request timed out."""
+        return cls(
             f"GCP API request timed out: {exc}. "
             "The Resource Manager API did not respond in time. "
             "Possible causes: (1) Network latency, (2) GCP service degradation, "
             "(3) Too many projects to list. "
             f"Action: Retry the ingestion or specify project_ids explicitly. Debug: {debug_cmd}"
         )
-    return (
-        f"GCP service temporarily unavailable: {exc}. "
-        "The Resource Manager API is experiencing issues. "
-        "Action: Wait a few minutes and retry the ingestion. "
-        f"Check GCP status: https://status.cloud.google.com. Debug: {debug_cmd}"
-    )
 
+    @classmethod
+    def service_unavailable(
+        cls, exc: Exception, debug_cmd: str
+    ) -> "GCPProjectDiscoveryError":
+        """GCP service temporarily unavailable."""
+        return cls(
+            f"GCP service temporarily unavailable: {exc}. "
+            "The Resource Manager API is experiencing issues. "
+            "Action: Wait a few minutes and retry the ingestion. "
+            f"Check GCP status: https://status.cloud.google.com. Debug: {debug_cmd}"
+        )
 
-class GCPProjectDiscoveryError(Exception):
-    pass
+    @classmethod
+    def rate_limit_exceeded(
+        cls, exc: Exception, debug_cmd: str
+    ) -> "GCPProjectDiscoveryError":
+        """Rate limit exceeded."""
+        return cls(
+            f"Rate limit exceeded: {exc}. "
+            "Too many API requests. Retry after a few minutes. "
+            f"Debug: {debug_cmd}"
+        )
+
+    @classmethod
+    def no_projects_found(
+        cls,
+        source: str,
+        debug_cmd: str,
+        include_label_check: bool = False,
+    ) -> "GCPProjectDiscoveryError":
+        """No projects discovered from the specified source."""
+        checks = []
+        if include_label_check:
+            checks.append("labels exist on target projects")
+        checks.extend(
+            [
+                "service account has 'resourcemanager.projects.list' permission",
+                "there are ACTIVE projects accessible to the service account",
+            ]
+        )
+        checks_str = ", ".join(f"({i + 1}) {check}" for i, check in enumerate(checks))
+        return cls(
+            f"No projects discovered via {source}. Verify: {checks_str}. Debug: {debug_cmd}"
+        )
+
+    @classmethod
+    def all_filtered_out(
+        cls,
+        total_found: int,
+        source: str,
+        pattern: AllowDenyPattern,
+    ) -> "GCPProjectDiscoveryError":
+        """All discovered projects were filtered out by pattern."""
+        return cls(
+            f"Found {total_found} project(s) via {source}, but all were "
+            f"excluded by project_id_pattern (allow: {pattern.allow}, deny: {pattern.deny}). "
+            "Adjust your allow/deny patterns."
+        )
+
+    @classmethod
+    def config_error(cls, message: str, debug_cmd: str) -> "GCPProjectDiscoveryError":
+        """Configuration validation error."""
+        return cls(f"Configuration error: {message}. Debug: {debug_cmd}")
+
+    @classmethod
+    def api_error(
+        cls, exc: Exception, context: str, debug_cmd: str
+    ) -> "GCPProjectDiscoveryError":
+        """Generic GCP API error."""
+        return cls(f"GCP API error {context}: {exc}. Debug: {debug_cmd}")
 
 
 def _handle_discovery_error(
-    exc: GoogleAPICallError,
+    exc: Exception,
     context: str,
     debug_cmd: str,
 ) -> GCPProjectDiscoveryError:
+    """Unified error handler for project discovery failures."""
     if isinstance(exc, PermissionDenied):
-        return GCPProjectDiscoveryError(PERMISSION_DENIED_ERROR_MSG)
+        return GCPProjectDiscoveryError.permission_denied(debug_cmd)
     if isinstance(exc, DeadlineExceeded):
-        return GCPProjectDiscoveryError(
-            _format_transient_error("timeout", exc, debug_cmd)
-        )
+        return GCPProjectDiscoveryError.timeout(exc, debug_cmd)
     if isinstance(exc, ServiceUnavailable):
-        return GCPProjectDiscoveryError(
-            _format_transient_error("unavailable", exc, debug_cmd)
-        )
-    return GCPProjectDiscoveryError(
-        f"GCP API error {context}: {exc}. Debug: {debug_cmd}"
-    )
+        return GCPProjectDiscoveryError.service_unavailable(exc, debug_cmd)
+    if isinstance(exc, ResourceExhausted):
+        return GCPProjectDiscoveryError.rate_limit_exceeded(exc, debug_cmd)
+    if isinstance(exc, ValueError):
+        return GCPProjectDiscoveryError.config_error(str(exc), debug_cmd)
+    return GCPProjectDiscoveryError.api_error(exc, context, debug_cmd)
 
 
 def _validate_and_filter_projects(
@@ -125,9 +191,10 @@ def _validate_and_filter_projects(
     filtered = _filter_projects_by_pattern(projects, pattern)
 
     if not filtered:
-        raise GCPProjectDiscoveryError(
-            f"Found {len(projects)} project(s) via {source_description}, but all were "
-            "excluded by project_id_pattern. Adjust your allow/deny patterns."
+        raise GCPProjectDiscoveryError.all_filtered_out(
+            total_found=len(projects),
+            source=source_description,
+            pattern=pattern,
         )
 
     logger.info(
@@ -242,9 +309,12 @@ def get_projects_by_labels(
     client: resourcemanager_v3.ProjectsClient,
     project_id_pattern: Optional[AllowDenyPattern] = None,
 ) -> List[GCPProject]:
+    first_label = labels[0] if labels else "LABEL"
+    debug_cmd = f"gcloud projects list --filter='labels.{first_label}:*'"
+
     if not labels:
-        raise GCPProjectDiscoveryError(
-            "project_labels cannot be empty. Provide at least one label."
+        raise GCPProjectDiscoveryError.config_error(
+            "project_labels cannot be empty. Provide at least one label", debug_cmd
         )
 
     pattern = project_id_pattern or AllowDenyPattern.allow_all()
@@ -259,19 +329,14 @@ def get_projects_by_labels(
 
     logger.debug("Discovering projects with labels query: %s", query)
 
-    first_label = labels[0] if labels else "LABEL"
-    debug_cmd = f"gcloud projects list --filter='labels.{first_label}:*'"
-
     try:
         projects = list(_search_projects_with_retry(client, query))
 
         if not projects:
-            raise GCPProjectDiscoveryError(
-                f"No projects match labels {labels}. Verify: "
-                "(1) labels exist on target projects, "
-                "(2) service account has 'resourcemanager.projects.list' permission, "
-                "(3) projects are in ACTIVE state. "
-                f"Debug: {debug_cmd}"
+            raise GCPProjectDiscoveryError.no_projects_found(
+                source=f"label search {labels}",
+                debug_cmd=debug_cmd,
+                include_label_check=True,
             )
 
         return _validate_and_filter_projects(
@@ -306,14 +371,13 @@ def get_projects(
         "No project_ids or project_labels specified. Discovering all accessible GCP projects..."
     )
 
+    debug_cmd = "gcloud projects list --filter='lifecycleState:ACTIVE'"
     discovered_projects = list(list_all_accessible_projects(client))
 
     if not discovered_projects:
-        raise GCPProjectDiscoveryError(
-            "No projects discovered via auto-discovery. Verify: "
-            "(1) service account has 'resourcemanager.projects.list' permission, "
-            "(2) there are ACTIVE projects accessible to the service account. "
-            "Debug: gcloud projects list --filter='lifecycleState:ACTIVE'"
+        raise GCPProjectDiscoveryError.no_projects_found(
+            source="auto-discovery",
+            debug_cmd=debug_cmd,
         )
 
     return _validate_and_filter_projects(discovered_projects, pattern, "auto-discovery")

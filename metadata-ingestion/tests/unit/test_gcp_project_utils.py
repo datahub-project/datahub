@@ -104,7 +104,9 @@ class TestLabelBasedDiscovery:
     def test_no_matches_raises_error(self) -> None:
         mock_client = MagicMock()
         mock_client.search_projects.return_value = iter([])
-        with pytest.raises(GCPProjectDiscoveryError, match="No projects match labels"):
+        with pytest.raises(
+            GCPProjectDiscoveryError, match="No projects discovered via label search"
+        ):
             get_projects_by_labels(["env:prod"], mock_client)
 
     @pytest.mark.parametrize(
