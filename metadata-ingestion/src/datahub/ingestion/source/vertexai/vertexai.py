@@ -147,27 +147,9 @@ def _vertex_ai_retry() -> retry.Retry:
     )
 
 
-def _call_with_retry(
-    func: Callable[..., T],
-    *args: Any,
-    operation: str = "API call",
-    **kwargs: Any,
-) -> T:
+def _call_with_retry(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """Execute a Vertex AI API call with retry for rate limits and transient errors."""
-    retry_decorator = _vertex_ai_retry()
-    try:
-        return retry_decorator(func)(*args, **kwargs)
-    except ResourceExhausted as e:
-        logger.error(
-            "Rate limit exceeded for %s after retries: %s. "
-            "Consider reducing project_ids scope or requesting quota increase.",
-            operation,
-            e,
-        )
-        raise
-    except GoogleAPICallError as e:
-        logger.error("Vertex AI API error for %s: %s", operation, e)
-        raise
+    return _vertex_ai_retry()(func)(*args, **kwargs)
 
 
 @dataclasses.dataclass
@@ -303,37 +285,36 @@ class VertexAISource(Source):
             f"deny: {self.config.project_id_pattern.deny}. {tips}"
         )
 
-    def _handle_permission_error(
+    def _handle_project_error(
         self,
         project_id: str,
         exc: Exception,
         failed_projects: List[str],
+        *,
+        is_config_error: bool = False,
     ) -> None:
-        if isinstance(exc, NotFound):
-            debug_cmd = f"gcloud projects describe {project_id}"
+        """Handle project-level errors consistently."""
+        failed_projects.append(project_id)
+
+        if is_config_error:
+            logger.warning(
+                "Config error for project %s - skipping: %s", project_id, exc
+            )
+            self.report.warning(
+                title=f"Config error: {project_id}",
+                message=f"Debug: gcloud services list --project={project_id} | grep aiplatform",
+            )
         else:
-            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
-
-        self.report.failure(
-            title=f"Project failed: {project_id}",
-            message=f"Debug: {debug_cmd}",
-            exc=exc,
-        )
-        failed_projects.append(project_id)
-
-    def _handle_config_error(
-        self,
-        project_id: str,
-        exc: Exception,
-        failed_projects: List[str],
-    ) -> None:
-        logger.warning("Config error for project %s - skipping: %s", project_id, exc)
-        self.report.warning(
-            title=f"Config error: {project_id}",
-            message=f"Project has configuration issues (API not enabled, invalid region, etc.). "
-            f"Debug: gcloud services list --project={project_id} | grep aiplatform",
-        )
-        failed_projects.append(project_id)
+            debug_cmd = (
+                f"gcloud projects describe {project_id}"
+                if isinstance(exc, NotFound)
+                else f"gcloud projects get-iam-policy {project_id}"
+            )
+            self.report.failure(
+                title=f"Project failed: {project_id}",
+                message=f"Debug: {debug_cmd}",
+                exc=exc,
+            )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -354,10 +335,12 @@ class VertexAISource(Source):
                 self._init_for_project(project)
                 yield from self._process_current_project()
                 successful_projects += 1
-            except (InvalidArgument, FailedPrecondition) as e:
-                self._handle_config_error(project.id, e, failed_projects)
-            except (NotFound, PermissionDenied, GoogleAPICallError) as e:
-                self._handle_permission_error(project.id, e, failed_projects)
+            except (InvalidArgument, FailedPrecondition) as config_err:
+                self._handle_project_error(
+                    project.id, config_err, failed_projects, is_config_error=True
+                )
+            except (NotFound, PermissionDenied, GoogleAPICallError) as api_err:
+                self._handle_project_error(project.id, api_err, failed_projects)
 
         if failed_projects:
             if successful_projects == 0:
@@ -380,10 +363,7 @@ class VertexAISource(Source):
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """Fetch Vertex AI Pipeline Jobs and generate DataJob MCPs with lineage to tasks."""
-        pipeline_jobs = _call_with_retry(
-            self.client.PipelineJob.list,
-            operation=f"list pipelines in {self._current_project_id}",
-        )
+        pipeline_jobs = _call_with_retry(self.client.PipelineJob.list)
 
         for pipeline in pipeline_jobs:
             logger.info("Fetching pipeline: %s", pipeline.name)
@@ -628,10 +608,7 @@ class VertexAISource(Source):
         )
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.experiments = _call_with_retry(
-            aiplatform.Experiment.list,
-            operation=f"list experiments in {self._current_project_id}",
-        )
+        self.experiments = _call_with_retry(aiplatform.Experiment.list)
 
         logger.info("Fetching experiments from VertexAI server")
         for experiment in self.experiments:
@@ -639,16 +616,11 @@ class VertexAISource(Source):
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self.experiments is None:
-            self.experiments = _call_with_retry(
-                aiplatform.Experiment.list,
-                operation=f"list experiments in {self._current_project_id}",
-            )
+            self.experiments = _call_with_retry(aiplatform.Experiment.list)
         for experiment in self.experiments:
             logger.info("Fetching experiment runs for experiment: %s", experiment.name)
             experiment_runs = _call_with_retry(
-                aiplatform.ExperimentRun.list,
-                experiment=experiment.name,
-                operation=f"list runs for experiment {experiment.name}",
+                aiplatform.ExperimentRun.list, experiment=experiment.name
             )
             for run in experiment_runs:
                 yield from self._gen_experiment_run_mcps(experiment, run)
@@ -864,17 +836,11 @@ class VertexAISource(Source):
 
     def _get_ml_models_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """Fetch models from Vertex AI Model Registry and generate MLModelGroup + MLModel MCPs."""
-        registered_models = _call_with_retry(
-            self.client.Model.list,
-            operation=f"list models in {self._current_project_id}",
-        )
+        registered_models = _call_with_retry(self.client.Model.list)
         for model in registered_models:
             # create mcp for Model Group (= Model in VertexAI)
             yield from self._gen_ml_group_mcps(model)
-            model_versions = _call_with_retry(
-                model.versioning_registry.list_versions,
-                operation=f"list versions for model {model.name}",
-            )
+            model_versions = _call_with_retry(model.versioning_registry.list_versions)
             for model_version in model_versions:
                 # create mcp for Model (= Model Version in VertexAI)
                 logger.info(
@@ -916,10 +882,7 @@ class VertexAISource(Source):
         ]
         for class_name in class_names:
             logger.info("Fetching a list of %ss from VertexAI server", class_name)
-            jobs = _call_with_retry(
-                getattr(self.client, class_name).list,
-                operation=f"list {class_name} in {self._current_project_id}",
-            )
+            jobs = _call_with_retry(getattr(self.client, class_name).list)
             for job in jobs:
                 yield from self._get_training_job_mcps(job)
 
@@ -1116,10 +1079,7 @@ class VertexAISource(Source):
     def _search_model_version(
         self, model: Model, version_id: str
     ) -> Optional[VersionInfo]:
-        versions = _call_with_retry(
-            model.versioning_registry.list_versions,
-            operation=f"list versions for model {model.name}",
-        )
+        versions = _call_with_retry(model.versioning_registry.list_versions)
         for version in versions:
             if version.version_id == version_id:
                 return version
@@ -1140,10 +1100,7 @@ class VertexAISource(Source):
 
             for dtype in dataset_types:
                 dataset_class = getattr(self.client.datasets, dtype)
-                datasets = _call_with_retry(
-                    dataset_class.list,
-                    operation=f"list {dtype} in {self._current_project_id}",
-                )
+                datasets = _call_with_retry(dataset_class.list)
                 for ds in datasets:
                     self.datasets[ds.name] = ds
 
@@ -1387,10 +1344,7 @@ class VertexAISource(Source):
         """Find the Vertex AI Endpoints where this model is deployed, if any."""
         if self.endpoints is None:
             endpoint_dict: Dict[str, List[Endpoint]] = {}
-            endpoints = _call_with_retry(
-                self.client.Endpoint.list,
-                operation=f"list endpoints in {self._current_project_id}",
-            )
+            endpoints = _call_with_retry(self.client.Endpoint.list)
             for endpoint in endpoints:
                 for resource in endpoint.list_models():
                     if resource.model not in endpoint_dict:
@@ -1423,51 +1377,45 @@ class VertexAISource(Source):
         return urn
 
     def _get_current_project_id(self) -> str:
-        if self._current_project_id is None:
-            raise RuntimeError(
-                "Internal error: attempted to access project ID before initialization. "
-                "This is a bug in the VertexAI source. Please report this issue."
-            )
+        assert self._current_project_id is not None, "Bug: project ID not initialized"
         return self._current_project_id
 
-    def _make_vertexai_model_group_name(
-        self,
-        entity_id: str,
-    ) -> str:
-        return f"{self._get_current_project_id()}.model_group.{entity_id}"
+    def _make_resource_name(self, resource_type: str, entity_id: Optional[str]) -> str:
+        """Generate a namespaced resource name: {project_id}.{resource_type}.{entity_id}"""
+        return f"{self._get_current_project_id()}.{resource_type}.{entity_id}"
+
+    def _make_vertexai_model_group_name(self, entity_id: str) -> str:
+        return self._make_resource_name("model_group", entity_id)
 
     def _make_vertexai_endpoint_name(self, entity_id: str) -> str:
-        return f"{self._get_current_project_id()}.endpoint.{entity_id}"
+        return self._make_resource_name("endpoint", entity_id)
 
     def _make_vertexai_model_name(self, entity_id: str) -> str:
-        return f"{self._get_current_project_id()}.model.{entity_id}"
+        return self._make_resource_name("model", entity_id)
 
     def _make_vertexai_dataset_name(self, entity_id: str) -> str:
-        return f"{self._get_current_project_id()}.dataset.{entity_id}"
+        return self._make_resource_name("dataset", entity_id)
 
-    def _make_vertexai_job_name(
-        self,
-        entity_id: Optional[str],
-    ) -> str:
-        return f"{self._get_current_project_id()}.job.{entity_id}"
+    def _make_vertexai_job_name(self, entity_id: Optional[str]) -> str:
+        return self._make_resource_name("job", entity_id)
 
     def _make_vertexai_experiment_id(self, entity_id: Optional[str]) -> str:
-        return f"{self._get_current_project_id()}.experiment.{entity_id}"
+        return self._make_resource_name("experiment", entity_id)
 
     def _make_vertexai_experiment_run_name(self, entity_id: Optional[str]) -> str:
-        return f"{self._get_current_project_id()}.experiment_run.{entity_id}"
+        return self._make_resource_name("experiment_run", entity_id)
 
     def _make_vertexai_run_execution_name(self, entity_id: Optional[str]) -> str:
-        return f"{self._get_current_project_id()}.execution.{entity_id}"
+        return self._make_resource_name("execution", entity_id)
 
     def _make_vertexai_pipeline_id(self, entity_id: Optional[str]) -> str:
-        return f"{self._get_current_project_id()}.pipeline.{entity_id}"
+        return self._make_resource_name("pipeline", entity_id)
 
     def _make_vertexai_pipeline_task_id(self, entity_id: Optional[str]) -> str:
-        return f"{self._get_current_project_id()}.pipeline_task.{entity_id}"
+        return self._make_resource_name("pipeline_task", entity_id)
 
     def _make_vertexai_pipeline_task_run_id(self, entity_id: Optional[str]) -> str:
-        return f"{self._get_current_project_id()}.pipeline_task_run.{entity_id}"
+        return self._make_resource_name("pipeline_task_run", entity_id)
 
     def _make_artifact_external_url(
         self, experiment: Experiment, run: ExperimentRun

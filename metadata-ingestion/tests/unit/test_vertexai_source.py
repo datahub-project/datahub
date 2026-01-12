@@ -1105,21 +1105,11 @@ class TestRetryLogic:
         assert _is_retryable_error(exception) == expected
 
     def test_retry_on_rate_limit(self) -> None:
-        call_count = 0
-
-        def mock_list():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 3:
-                raise ResourceExhausted("Rate limit exceeded")
-            return ["result"]
-
         with patch(
             "datahub.ingestion.source.vertexai.vertexai._vertex_ai_retry"
         ) as mock_retry:
-            # Configure mock to actually call the function immediately (no real retry)
             mock_retry.return_value = lambda f: f
-            result = _call_with_retry(lambda: ["result"], operation="test")
+            result = _call_with_retry(lambda: ["result"])
             assert result == ["result"]
 
     def test_no_retry_on_permission_denied(self) -> None:
@@ -1127,7 +1117,7 @@ class TestRetryLogic:
             raise PermissionDenied("Access denied")
 
         with pytest.raises(PermissionDenied):
-            _call_with_retry(mock_list, operation="test")
+            _call_with_retry(mock_list)
 
 
 class TestLineageEdgeCases:
