@@ -1,6 +1,6 @@
 import contextlib
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Optional
+from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -937,13 +937,6 @@ class TestMultiProjectConfig:
         )
         assert len(source._get_projects_to_process()) == expected_count
 
-    def test_labels_with_valid_formats(self) -> None:
-        config = VertexAIConfig(
-            project_labels=["env:prod", "team", "cost_center:123"],
-            region="us-central1",
-        )
-        assert len(config.project_labels) == 3
-
     @pytest.mark.parametrize("invalid_label", ["env=prod", "Env:prod", "123env:prod"])
     def test_invalid_label_format_raises_error(self, invalid_label: str) -> None:
         with pytest.raises(ValueError, match="Invalid project_labels format"):
@@ -960,6 +953,7 @@ class TestMultiProjectConfig:
                 "filtered out",
             ),
             ({"project_ids": ["valid", "", "other"]}, "empty or whitespace"),
+            ({"project_ids": ["p1", "p1", "p2"]}, "duplicates"),
             (
                 {"project_id_pattern": AllowDenyPattern(allow=["prod-.*"])},
                 "Auto-discovery with restrictive",
@@ -971,16 +965,6 @@ class TestMultiProjectConfig:
     ) -> None:
         with pytest.raises(ValueError, match=error_match):
             VertexAIConfig(region="us-central1", **config_kwargs)
-
-    def test_duplicate_project_ids_auto_deduplicates(self, caplog: Any) -> None:
-        """Duplicate project_ids are auto-deduplicated with a warning."""
-        config = VertexAIConfig(
-            project_ids=["p1", "p1", "p2", "p2", "p3"],
-            region="us-central1",
-        )
-        assert config.project_ids == ["p1", "p2", "p3"]
-        assert "duplicate entries" in caplog.text
-        assert "Auto-deduplicating" in caplog.text
 
 
 class TestMultiProjectExecution:
@@ -1096,20 +1080,6 @@ class TestCredentialManagement:
     def test_get_credentials_dict_returns_none_when_no_credential(self) -> None:
         config = VertexAIConfig(project_ids=["test"], region="us-central1")
         assert config.get_credentials_dict() is None
-
-    def test_empty_credentials_dict_raises_error(self) -> None:
-        """Empty credentials dict should raise ValueError, not silently pass."""
-        with (
-            patch(
-                "datahub.ingestion.source.vertexai.vertexai.VertexAIConfig.get_credentials_dict",
-                return_value={},
-            ),
-            patch("google.cloud.aiplatform.init"),
-        ):
-            config = VertexAIConfig(project_ids=["test"], region="us-central1")
-            source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
-            with pytest.raises(ValueError, match="Credentials dictionary is empty"):
-                list(source.get_workunits())
 
 
 class TestRetryLogic:

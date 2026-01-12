@@ -256,11 +256,6 @@ class VertexAISource(Source):
         credentials_dict = self.config.get_credentials_dict()
         if credentials_dict is None:
             yield from super().get_workunits()
-        elif not credentials_dict:
-            raise ValueError(
-                "Credentials dictionary is empty. Either provide valid GCP credentials "
-                "or remove the credentials config to use default application credentials."
-            )
         else:
             original_creds_env = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
             try:

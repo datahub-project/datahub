@@ -55,26 +55,20 @@ class VertexAIConfig(EnvConfigMixin):
             )
 
         seen: set[str] = set()
-        deduplicated: List[str] = []
-        duplicates_found: List[str] = []
-
+        duplicates: List[str] = []
         for pid in v:
             if pid in seen:
-                if pid not in duplicates_found:
-                    duplicates_found.append(pid)
+                duplicates.append(pid)
             else:
                 seen.add(pid)
-                deduplicated.append(pid)
 
-        if duplicates_found:
-            logger.warning(
-                "project_ids contained %d duplicate entries: %s. "
-                "Auto-deduplicating. Consider cleaning up your configuration.",
-                len(v) - len(deduplicated),
-                duplicates_found,
+        if duplicates:
+            raise ValueError(
+                f"project_ids contains duplicates: {duplicates}. "
+                "Remove duplicate entries from your configuration."
             )
 
-        return deduplicated
+        return v
 
     project_labels: List[str] = Field(
         default_factory=list,
@@ -150,36 +144,21 @@ class VertexAIConfig(EnvConfigMixin):
             )
         return values
 
-    def _is_using_default_allow_pattern(self) -> bool:
-        """Check if project_id_pattern is using default allow-all pattern."""
-        return self.project_id_pattern.allow == [".*"]
-
-    def _is_using_auto_discovery(self) -> bool:
-        """Check if configuration relies on auto-discovery (no explicit projects)."""
-        return not self.project_ids and not self.project_labels
-
-    def _validate_explicit_project_ids(self) -> None:
-        """Validate that explicit project_ids aren't entirely filtered by pattern."""
+    @model_validator(mode="after")
+    def validate_projects_config(self) -> "VertexAIConfig":
         if self.project_ids:
             _check_pattern_filters_all(self.project_ids, self.project_id_pattern)
 
-    def _validate_auto_discovery_with_restrictive_pattern(self) -> None:
-        """Prevent auto-discovery with restrictive patterns (fails fast)."""
-        if (
-            not self._is_using_default_allow_pattern()
-            and self._is_using_auto_discovery()
-        ):
+        is_default_allow = self.project_id_pattern.allow == [".*"]
+        uses_auto_discovery = not self.project_ids and not self.project_labels
+
+        if not is_default_allow and uses_auto_discovery:
             raise ValueError(
                 f"Auto-discovery with restrictive allow patterns ({self.project_id_pattern.allow}) "
                 "is not supported. Either specify project_ids explicitly, use project_labels, "
                 "or remove the allow pattern to discover all accessible projects."
             )
 
-    @model_validator(mode="after")
-    def validate_projects_config(self) -> "VertexAIConfig":
-        """Validate project configuration consistency."""
-        self._validate_explicit_project_ids()
-        self._validate_auto_discovery_with_restrictive_pattern()
         return self
 
     def has_explicit_project_ids(self) -> bool:
