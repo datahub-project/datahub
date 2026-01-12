@@ -475,6 +475,13 @@ def get_archive_info(archive_path: Path, password: str) -> Dict[str, Any]:
     archive = RecordingArchive(password)
     manifest = archive.read_manifest(archive_path)
 
+    files = list(manifest.checksums.keys())
+
+    # Check for HTTP cassette
+    has_http_cassette = any(f.startswith(f"{HTTP_DIR}/") for f in files)
+    # Check for DB queries
+    has_db_queries = any(f.startswith(f"{DB_DIR}/") for f in files)
+
     info = {
         "format_version": manifest.format_version,
         "run_id": manifest.run_id,
@@ -485,8 +492,10 @@ def get_archive_info(archive_path: Path, password: str) -> Dict[str, Any]:
         "created_at": manifest.created_at,
         "recording_start_time": manifest.recording_start_time,
         "file_count": len(manifest.checksums),
-        "files": list(manifest.checksums.keys()),
+        "files": files,
         "has_exception": manifest.has_exception,
+        "has_http_cassette": has_http_cassette,
+        "has_db_queries": has_db_queries,
     }
 
     # Include exception details if present

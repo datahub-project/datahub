@@ -81,16 +81,35 @@ def info(archive_path: str, password: Optional[str], output_json: bool) -> None:
         else:
             click.echo(f"Recording Archive: {archive_path}")
             click.echo("-" * 50)
-            click.echo(f"Run ID:          {archive_info['run_id']}")
-            click.echo(f"Source Type:     {archive_info['source_type'] or 'N/A'}")
-            click.echo(f"Sink Type:       {archive_info['sink_type'] or 'N/A'}")
-            click.echo(f"DataHub Version: {archive_info['datahub_version'] or 'N/A'}")
-            click.echo(f"Created At:      {archive_info['created_at']}")
+            click.echo(f"Run ID:          {archive_info.get('run_id', 'N/A')}")
+            click.echo(f"Source Type:     {archive_info.get('source_type') or 'N/A'}")
+            click.echo(f"Sink Type:       {archive_info.get('sink_type') or 'N/A'}")
+            click.echo(
+                f"DataHub Version: {archive_info.get('datahub_cli_version') or 'N/A'}"
+            )
+            click.echo(f"Created At:      {archive_info.get('created_at', 'N/A')}")
             click.echo(
                 f"Recording Start: {archive_info.get('recording_start_time') or 'N/A'}"
             )
-            click.echo(f"Format Version:  {archive_info['format_version']}")
-            click.echo(f"File Count:      {archive_info['file_count']}")
+            click.echo(f"Format Version:  {archive_info.get('format_version', 'N/A')}")
+            click.echo(f"File Count:      {archive_info.get('file_count', 0)}")
+
+            # Show recording content status
+            click.echo()
+            click.echo("Recording Content:")
+            has_http = archive_info.get("has_http_cassette", False)
+            has_db = archive_info.get("has_db_queries", False)
+            if has_http:
+                click.secho("  ✓ HTTP traffic recorded", fg="green")
+            else:
+                click.secho(
+                    "  ✗ No HTTP traffic (connection may have failed before requests)",
+                    fg="yellow",
+                )
+            if has_db:
+                click.secho("  ✓ Database queries recorded", fg="green")
+            else:
+                click.echo("  - No database queries (source may not use SQL)")
 
             # Show exception info if recording captured a failure
             if archive_info.get("has_exception"):
@@ -104,15 +123,16 @@ def info(archive_path: str, password: Optional[str], output_json: bool) -> None:
                     f"   Message: {archive_info.get('exception_message', 'N/A')}",
                     fg="yellow",
                 )
-                if archive_info.get("exception_traceback"):
+                traceback_str = archive_info.get("exception_traceback")
+                if traceback_str:
                     click.echo()
                     click.secho("   Traceback (truncated):", fg="yellow")
-                    for line in archive_info["exception_traceback"].split("\n")[:10]:
+                    for line in traceback_str.split("\n")[:10]:
                         click.echo(f"   {line}")
 
             click.echo()
             click.echo("Files:")
-            for file_path in sorted(archive_info["files"]):
+            for file_path in sorted(archive_info.get("files", [])):
                 click.echo(f"  - {file_path}")
 
     except Exception as e:

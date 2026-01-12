@@ -224,11 +224,20 @@ class HTTPRecorder:
             logger.debug("Thread-safe HTTP recording patch removed")
 
     @contextmanager
-    def replaying(self) -> Iterator["HTTPRecorder"]:
+    def replaying(
+        self, use_responses_library: bool = False
+    ) -> Iterator["HTTPRecorder"]:
         """Context manager for replaying HTTP traffic.
 
-        In replay mode, VCR serves recorded responses and raises an error
-        if an unrecorded request is made. This ensures true air-gapped operation.
+        In replay mode, recorded responses are served without making actual network calls.
+        This ensures true air-gapped operation.
+
+        Args:
+            use_responses_library: If True, use the 'responses' library for replay.
+                This provides better compatibility with SDKs that have custom transports
+                (e.g., Looker SDK). If False (default), use VCR.py which matches the
+                recording library. VCR.py may have issues with some SDKs that use super()
+                calls in urllib3's connection classes.
 
         Matching strategy:
         - Authentication requests (login endpoints): Match on URI and method only,
@@ -245,10 +254,155 @@ class HTTPRecorder:
         if not self.cassette_path.exists():
             raise FileNotFoundError(
                 f"HTTP cassette not found: {self.cassette_path}. "
-                "Cannot replay without a recorded cassette."
+                "Cannot replay without a recorded cassette.\n\n"
+                "This usually means the recording failed before any HTTP requests were made. "
+                "Common causes:\n"
+                "  - Connection failed during source initialization (check credentials/network)\n"
+                "  - Recording captured an exception before HTTP traffic occurred\n"
+                "  - Source uses a non-standard HTTP library not intercepted by VCR\n\n"
+                "Use 'datahub recording info <archive>' to check if the recording includes an exception."
             )
 
-        logger.info(f"Starting HTTP replay from {self.cassette_path}")
+        if use_responses_library:
+            # Use responses library for better compatibility
+            with self._replaying_with_responses() as recorder:
+                yield recorder
+        else:
+            # Fall back to VCR.py
+            with self._replaying_with_vcr() as recorder:
+                yield recorder
+
+    @contextmanager
+    def _replaying_with_responses(self) -> Iterator["HTTPRecorder"]:
+        """Replay HTTP traffic using the responses library.
+
+        The responses library patches at the requests adapter level rather than
+        urllib3's connection level, which avoids issues with SDKs that use
+        super() calls in custom transport implementations (e.g., Looker SDK).
+        """
+        try:
+            import responses
+            import yaml
+        except ImportError:
+            logger.warning(
+                "responses library not available, falling back to VCR.py for replay. "
+                "Install with: pip install responses"
+            )
+            with self._replaying_with_vcr() as recorder:
+                yield recorder
+            return
+
+        logger.info(
+            f"Starting HTTP replay from {self.cassette_path} (using responses library)"
+        )
+
+        # Load cassette data
+        with open(self.cassette_path, "r") as f:
+            cassette_data = yaml.safe_load(f)
+
+        interactions = cassette_data.get("interactions", [])
+
+        # Build a lookup for responses based on (method, uri, body)
+        # Store responses in order for each (method, uri) pair to handle
+        # requests with different bodies or sequential requests
+        response_map: dict[tuple[str, str], list[dict[str, Any]]] = {}
+
+        for interaction in interactions:
+            request = interaction.get("request", {})
+            response = interaction.get("response", {})
+
+            method = request.get("method", "GET").upper()
+            uri = request.get("uri", "")
+            body = request.get("body", "")
+
+            key = (method, uri)
+            if key not in response_map:
+                response_map[key] = []
+
+            response_map[key].append(
+                {
+                    "request_body": body,
+                    "response": response,
+                }
+            )
+
+        # Track which response index to use for each (method, uri) pair
+        response_indices: dict[tuple[str, str], int] = {}
+
+        def request_callback(request: Any) -> tuple[int, dict[str, str], bytes]:
+            """Callback to match request and return appropriate response."""
+            method = request.method.upper()
+            url = request.url
+
+            key = (method, url)
+            responses_list = response_map.get(key, [])
+
+            if not responses_list:
+                # Try to find a partial match (ignoring query params for some cases)
+                for (m, u), resps in response_map.items():
+                    if m == method and u.split("?")[0] == url.split("?")[0]:
+                        responses_list = resps
+                        key = (m, u)
+                        break
+
+            if not responses_list:
+                raise Exception(
+                    f"No recorded response for {method} {url}. "
+                    "This request was not captured during recording."
+                )
+
+            # Get the next response in sequence for this (method, uri)
+            idx = response_indices.get(key, 0)
+            if idx >= len(responses_list):
+                # Cycle back to the first response if we've exhausted the list
+                idx = 0
+
+            resp_data = responses_list[idx]
+            response_indices[key] = idx + 1
+
+            response = resp_data["response"]
+            status_code = response.get("status", {}).get("code", 200)
+            headers = {}
+            for header_name, header_values in response.get("headers", {}).items():
+                # responses library expects headers as dict[str, str]
+                if isinstance(header_values, list):
+                    headers[header_name] = header_values[0] if header_values else ""
+                else:
+                    headers[header_name] = str(header_values)
+
+            body = response.get("body", {}).get("string", b"")
+            if isinstance(body, str):
+                body = body.encode("utf-8")
+
+            return (status_code, headers, body)
+
+        import re
+
+        # Use responses library to mock HTTP calls
+        with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+            # Add callback for all HTTP methods using regex to match any URL
+            any_url = re.compile(r".*")
+            for method in ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]:
+                rsps.add_callback(
+                    getattr(responses, method),
+                    any_url,
+                    callback=request_callback,
+                )
+
+            self._cassette = None  # No VCR cassette in this mode
+            try:
+                yield self
+            finally:
+                logger.info("HTTP replay complete (responses library)")
+
+    @contextmanager
+    def _replaying_with_vcr(self) -> Iterator["HTTPRecorder"]:
+        """Replay HTTP traffic using VCR.py.
+
+        Note: This may have issues with some SDKs that use custom transport
+        implementations with super() calls in urllib3's connection classes.
+        """
+        logger.info(f"Starting HTTP replay from {self.cassette_path} (using VCR.py)")
 
         import vcr
 
@@ -304,7 +458,7 @@ class HTTPRecorder:
                 yield self
             finally:
                 self._cassette = None
-                logger.info("HTTP replay complete")
+                logger.info("HTTP replay complete (VCR.py)")
 
     @property
     def request_count(self) -> int:
@@ -412,7 +566,13 @@ class HTTPReplayerForLiveSink:
         if not self.cassette_path.exists():
             raise FileNotFoundError(
                 f"HTTP cassette not found: {self.cassette_path}. "
-                "Cannot replay without a recorded cassette."
+                "Cannot replay without a recorded cassette.\n\n"
+                "This usually means the recording failed before any HTTP requests were made. "
+                "Common causes:\n"
+                "  - Connection failed during source initialization (check credentials/network)\n"
+                "  - Recording captured an exception before HTTP traffic occurred\n"
+                "  - Source uses a non-standard HTTP library not intercepted by VCR\n\n"
+                "Use 'datahub recording info <archive>' to check if the recording includes an exception."
             )
 
         logger.info(

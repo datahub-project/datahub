@@ -213,8 +213,13 @@ class IngestionRecorder:
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmpfile:
                 archive_path = Path(tmpfile.name)
         elif self.output_path:
-            # Explicit local output path provided - takes precedence
-            archive_path = Path(self.output_path)
+            output_path = Path(self.output_path)
+            # If output_path is a directory, generate filename within it
+            if output_path.is_dir():
+                archive_path = output_path / f"recording-{self.run_id}.zip"
+            else:
+                # Explicit local output path provided - takes precedence
+                archive_path = output_path
         else:
             # Check INGESTION_ARTIFACT_DIR env var, fallback to temp
             import os

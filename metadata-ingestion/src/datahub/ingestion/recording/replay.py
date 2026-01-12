@@ -70,6 +70,7 @@ class IngestionReplayer:
         password: str,
         live_sink: bool = False,
         gms_server: Optional[str] = None,
+        use_responses_library: bool = False,
     ) -> None:
         """Initialize ingestion replayer.
 
@@ -78,6 +79,8 @@ class IngestionReplayer:
             password: Password for decrypting the archive.
             live_sink: If True, allow real HTTP calls to GMS server.
             gms_server: GMS server URL when using live_sink mode.
+            use_responses_library: If True, use responses library for HTTP replay
+                instead of VCR.py. Useful for sources with VCR compatibility issues.
         """
         check_recording_dependencies()
 
@@ -85,6 +88,7 @@ class IngestionReplayer:
         self.password = password
         self.live_sink = live_sink
         self.gms_server = gms_server
+        self.use_responses_library = use_responses_library
 
         # Internal state
         self._extracted_dir: Optional[Path] = None
@@ -180,7 +184,13 @@ class IngestionReplayer:
         else:
             # Full air-gapped mode
             self._http_recorder = HTTPRecorder(cassette_path)
-            self._http_context = self._http_recorder.replaying()
+            if self.use_responses_library:
+                logger.info(
+                    "Using responses library for HTTP replay (--use-responses-lib flag)"
+                )
+            self._http_context = self._http_recorder.replaying(
+                use_responses_library=self.use_responses_library
+            )
 
         # Setup database replay
         db_dir = self._extracted_dir / DB_DIR

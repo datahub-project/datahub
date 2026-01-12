@@ -881,6 +881,14 @@ def rollback(
     default=False,
     help="Turn off spinner",
 )
+@click.option(
+    "--use-responses-lib",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Use responses library for HTTP replay instead of VCR.py. "
+    "Useful for sources with known VCR compatibility issues (e.g., Looker).",
+)
 @telemetry.with_telemetry(capture_kwargs=["live_sink"])
 @upgrade.check_upgrade
 def replay(
@@ -890,6 +898,7 @@ def replay(
     server: Optional[str],
     report_to: Optional[str],
     no_spinner: bool,
+    use_responses_lib: bool,
 ) -> None:
     """
     Replay a recorded ingestion run for debugging.
@@ -937,40 +946,68 @@ def replay(
     logger.info(f"Replaying recording from: {archive_path}")
     logger.info(f"Mode: {'live sink' if live_sink else 'air-gapped'}")
 
-    with IngestionReplayer(
-        archive_path=archive_path,
-        password=password,
-        live_sink=live_sink,
-        gms_server=server,
-    ) as replayer:
-        recipe = replayer.get_recipe()
-        logger.info(f"Loaded recording: run_id={replayer.run_id}")
+    def run_replay_with_library(use_responses_lib: bool) -> int:
+        """Run replay with specified HTTP library. Returns exit code."""
+        with IngestionReplayer(
+            archive_path=archive_path,
+            password=password,
+            live_sink=live_sink,
+            gms_server=server,
+            use_responses_library=use_responses_lib,
+        ) as replayer:
+            recipe = replayer.get_recipe()
+            logger.info(f"Loaded recording: run_id={replayer.run_id}")
 
-        # Create and run pipeline
-        pipeline = Pipeline.create(recipe)
+            # Create and run pipeline
+            pipeline = Pipeline.create(recipe)
 
-        logger.info("Starting replay...")
-        with click_spinner.spinner(disable=no_spinner):
-            try:
-                pipeline.run()
-            except Exception as e:
-                logger.info(
-                    f"Source ({pipeline.source_type}) report:\n"
-                    f"{pipeline.source.get_report().as_string()}"
+            logger.info("Starting replay...")
+            with click_spinner.spinner(disable=no_spinner):
+                try:
+                    pipeline.run()
+                except Exception as e:
+                    logger.info(
+                        f"Source ({pipeline.source_type}) report:\n"
+                        f"{pipeline.source.get_report().as_string()}"
+                    )
+                    logger.info(
+                        f"Sink ({pipeline.sink_type}) report:\n"
+                        f"{pipeline.sink.get_report().as_string()}"
+                    )
+                    raise e
+                else:
+                    logger.info("Replay complete")
+                    pipeline.log_ingestion_stats()
+                    ret = pipeline.pretty_print_summary()
+
+                    if report_to:
+                        with open(report_to, "w") as f:
+                            f.write(pipeline.source.get_report().as_string())
+
+                    return ret or 0
+        return 0
+
+    if use_responses_lib:
+        # User explicitly requested responses library
+        ret = run_replay_with_library(use_responses_lib=True)
+        if ret:
+            sys.exit(ret)
+    else:
+        # Try VCR.py first, fallback to responses on failure
+        try:
+            ret = run_replay_with_library(use_responses_lib=False)
+            if ret:
+                # VCR.py replay had failures - retry with responses library
+                # This handles cases where VCR patching causes issues (e.g., Looker SDK)
+                logger.warning(
+                    "VCR.py replay had failures. Retrying with responses library..."
                 )
-                logger.info(
-                    f"Sink ({pipeline.sink_type}) report:\n"
-                    f"{pipeline.sink.get_report().as_string()}"
-                )
-                raise e
-            else:
-                logger.info("Replay complete")
-                pipeline.log_ingestion_stats()
-                ret = pipeline.pretty_print_summary()
-
-                if report_to:
-                    with open(report_to, "w") as f:
-                        f.write(pipeline.source.get_report().as_string())
-
+                ret = run_replay_with_library(use_responses_lib=True)
                 if ret:
                     sys.exit(ret)
+        except Exception as vcr_error:
+            logger.warning(f"VCR.py replay failed with exception: {vcr_error}")
+            logger.info("Retrying replay with responses library...")
+            ret = run_replay_with_library(use_responses_lib=True)
+            if ret:
+                sys.exit(ret)
