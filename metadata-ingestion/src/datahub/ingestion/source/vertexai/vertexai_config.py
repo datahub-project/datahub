@@ -46,26 +46,43 @@ class VertexAIConfig(EnvConfigMixin):
     def validate_project_ids_field(cls, v: List[str]) -> List[str]:
         if not v:
             return v
+
         empty_ids = [pid for pid in v if not pid.strip()]
         if empty_ids:
             raise ValueError(
-                f"project_ids contains {len(empty_ids)} empty or whitespace-only value(s). "
+                f"project_ids contains {len(empty_ids)} empty or whitespace-only values. "
                 "Remove empty strings from the list."
             )
-        duplicates = [pid for pid in v if v.count(pid) > 1]
-        if duplicates:
-            raise ValueError(
-                f"project_ids contains duplicates: {list(set(duplicates))}. "
-                "Remove duplicate entries from your configuration."
+
+        seen: set[str] = set()
+        deduplicated: List[str] = []
+        duplicates_found: List[str] = []
+
+        for pid in v:
+            if pid in seen:
+                if pid not in duplicates_found:
+                    duplicates_found.append(pid)
+            else:
+                seen.add(pid)
+                deduplicated.append(pid)
+
+        if duplicates_found:
+            logger.warning(
+                "project_ids contained %d duplicate entries: %s. "
+                "Auto-deduplicating. Consider cleaning up your configuration.",
+                len(v) - len(deduplicated),
+                duplicates_found,
             )
-        return v
+
+        return deduplicated
 
     project_labels: List[str] = Field(
         default_factory=list,
         description=(
-            "Discover projects by GCP labels. Format: 'key:value' or 'key' (for any value). "
+            "Ingests projects with the specified labels. Format: 'key:value' or 'key' (for any value). "
             "Example: ['env:prod', 'team:ml']. If project_ids is set, this is ignored. "
-            "The project_id_pattern is applied after label filtering."
+            "The ingestion process filters projects by label first, then applies project_id_pattern. "
+            "If no projects match both criteria, ingestion will fail at runtime."
         ),
     )
 
@@ -133,29 +150,36 @@ class VertexAIConfig(EnvConfigMixin):
             )
         return values
 
-    @model_validator(mode="after")
-    def validate_projects_config(self) -> "VertexAIConfig":
+    def _is_using_default_allow_pattern(self) -> bool:
+        """Check if project_id_pattern is using default allow-all pattern."""
+        return self.project_id_pattern.allow == [".*"]
+
+    def _is_using_auto_discovery(self) -> bool:
+        """Check if configuration relies on auto-discovery (no explicit projects)."""
+        return not self.project_ids and not self.project_labels
+
+    def _validate_explicit_project_ids(self) -> None:
+        """Validate that explicit project_ids aren't entirely filtered by pattern."""
         if self.project_ids:
             _check_pattern_filters_all(self.project_ids, self.project_id_pattern)
 
-        is_default_allow = self.project_id_pattern.allow == [".*"]
-        no_explicit_projects = not self.project_ids and not self.project_labels
-
-        if not is_default_allow and no_explicit_projects:
+    def _validate_auto_discovery_with_restrictive_pattern(self) -> None:
+        """Prevent auto-discovery with restrictive patterns (fails fast)."""
+        if (
+            not self._is_using_default_allow_pattern()
+            and self._is_using_auto_discovery()
+        ):
             raise ValueError(
                 f"Auto-discovery with restrictive allow patterns ({self.project_id_pattern.allow}) "
                 "is not supported. Either specify project_ids explicitly, use project_labels, "
                 "or remove the allow pattern to discover all accessible projects."
             )
 
-        if self.project_labels and not is_default_allow:
-            logger.warning(
-                "RISK: project_labels combined with restrictive project_id_pattern (allow=%s). "
-                "This filters AFTER expensive GCP API calls. If no projects match both, "
-                "ingestion WILL FAIL at runtime. Consider using project_ids explicitly instead.",
-                self.project_id_pattern.allow,
-            )
-
+    @model_validator(mode="after")
+    def validate_projects_config(self) -> "VertexAIConfig":
+        """Validate project configuration consistency."""
+        self._validate_explicit_project_ids()
+        self._validate_auto_discovery_with_restrictive_pattern()
         return self
 
     def has_explicit_project_ids(self) -> bool:

@@ -115,7 +115,7 @@ logger = logging.getLogger(__name__)
 
 
 def _is_config_error(exc: GoogleAPICallError) -> bool:
-    """Check if exception indicates a configuration error that should fail fast."""
+    """Check if exception indicates a configuration error (e.g., API not enabled)."""
     return isinstance(exc, (InvalidArgument, FailedPrecondition))
 
 
@@ -301,12 +301,11 @@ class VertexAISource(Source):
         failed_projects.append(project_id)
 
         if is_config_error:
-            logger.warning(
-                "Config error for project %s - skipping: %s", project_id, exc
-            )
-            self.report.warning(
-                title=f"Config error: {project_id}",
-                message=f"Debug: gcloud services list --project={project_id} | grep aiplatform",
+            debug_cmd = f"gcloud services enable aiplatform.googleapis.com --project={project_id}"
+            self.report.failure(
+                title=f"Configuration error: {project_id}",
+                message=f"Debug: {debug_cmd}",
+                exc=exc,
             )
         else:
             debug_cmd = (

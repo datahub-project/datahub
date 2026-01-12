@@ -1,6 +1,6 @@
 import contextlib
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -960,7 +960,6 @@ class TestMultiProjectConfig:
                 "filtered out",
             ),
             ({"project_ids": ["valid", "", "other"]}, "empty or whitespace"),
-            ({"project_ids": ["p1", "p1", "p2"]}, "duplicates"),
             (
                 {"project_id_pattern": AllowDenyPattern(allow=["prod-.*"])},
                 "Auto-discovery with restrictive",
@@ -972,6 +971,16 @@ class TestMultiProjectConfig:
     ) -> None:
         with pytest.raises(ValueError, match=error_match):
             VertexAIConfig(region="us-central1", **config_kwargs)
+
+    def test_duplicate_project_ids_auto_deduplicates(self, caplog: Any) -> None:
+        """Duplicate project_ids are auto-deduplicated with a warning."""
+        config = VertexAIConfig(
+            project_ids=["p1", "p1", "p2", "p2", "p3"],
+            region="us-central1",
+        )
+        assert config.project_ids == ["p1", "p2", "p3"]
+        assert "duplicate entries" in caplog.text
+        assert "Auto-deduplicating" in caplog.text
 
 
 class TestMultiProjectExecution:
@@ -1042,9 +1051,10 @@ class TestErrorHandling:
         ],
     )
     @patch("google.cloud.aiplatform.init")
-    def test_config_error_reports_warning(
+    def test_config_error_reports_failure(
         self, mock_init: MagicMock, exception: Exception
     ) -> None:
+        """Config errors (InvalidArgument, FailedPrecondition) are reported as failures."""
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(project_ids=["p1"], region="bad-region"),
@@ -1061,9 +1071,8 @@ class TestErrorHandling:
         ):
             list(source.get_workunits_internal())
 
-        # Config errors report warnings, not failures
-        assert len(source.report.warnings) >= 1
-        assert "Config error" in str(source.report.warnings)
+        assert len(source.report.failures) >= 1
+        assert "Configuration error" in str(source.report.failures)
 
 
 class TestCredentialManagement:
