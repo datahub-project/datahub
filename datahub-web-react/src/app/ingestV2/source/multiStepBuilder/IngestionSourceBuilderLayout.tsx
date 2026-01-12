@@ -12,6 +12,7 @@ import { MessageContext } from '@app/chat/hooks/useChatStream';
 import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { buildIngestionSourceChatContext } from '@app/ingestV2/source/multiStepBuilder/utils';
+import { CUSTOM_SOURCE_DISPLAY_NAME } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
@@ -124,7 +125,7 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
                         title={isEditing ? 'Ask DataHub - Edit Source' : 'Ask DataHub - Create Source'}
                         getMessageContext={getMessageContext}
                         chatLocation="ingestion_configure_source"
-                        contentPlaceholder={`Ask DataHub about ${state?.platformDisplayName || 'your data source'}`}
+                        contentPlaceholder={`Ask DataHub about ${state?.platformDisplayName === CUSTOM_SOURCE_DISPLAY_NAME ? 'this source' : state?.platformDisplayName || 'your data source'}`}
                     />
                 )
             }

@@ -1,7 +1,7 @@
 import { Input, spacing, transition } from '@components';
 import { Form } from 'antd';
 import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { AntdFormCompatibleCheckbox } from '@app/ingestV2/source/multiStepBuilder/components/AntdCompatibleCheckbox';
@@ -39,6 +39,7 @@ const ExtraPluginKey = 'extra_pip_plugins';
 
 export function AdvancedSection({ state, updateState }: Props) {
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
+    const sectionRef = useRef<HTMLDivElement | null>(null);
 
     const toggleIsExpanded = useCallback(() => {
         setIsExpanded((prev) => !prev);
@@ -81,9 +82,18 @@ export function AdvancedSection({ state, updateState }: Props) {
         [updateState, state],
     );
 
+    useEffect(() => {
+        if (isExpanded) {
+            sectionRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }
+    }, [isExpanded]);
+
     return (
         <Form form={form} layout="vertical" initialValues={initialState} onValuesChange={onValuesChange}>
-            <Container>
+            <Container ref={sectionRef}>
                 <SectionName
                     name="Advanced Settings"
                     topRowRightItems={<ExpandCollapseButton expanded={isExpanded} onToggle={toggleIsExpanded} />}
