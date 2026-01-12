@@ -1088,6 +1088,20 @@ class TestCredentialManagement:
         config = VertexAIConfig(project_ids=["test"], region="us-central1")
         assert config.get_credentials_dict() is None
 
+    def test_empty_credentials_dict_raises_error(self) -> None:
+        """Empty credentials dict should raise ValueError, not silently pass."""
+        with (
+            patch(
+                "datahub.ingestion.source.vertexai.vertexai.VertexAIConfig.get_credentials_dict",
+                return_value={},
+            ),
+            patch("google.cloud.aiplatform.init"),
+        ):
+            config = VertexAIConfig(project_ids=["test"], region="us-central1")
+            source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+            with pytest.raises(ValueError, match="Credentials dictionary is empty"):
+                list(source.get_workunits())
+
 
 class TestRetryLogic:
     @pytest.mark.parametrize(

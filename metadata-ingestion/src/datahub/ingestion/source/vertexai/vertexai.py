@@ -233,7 +233,7 @@ class VertexAISource(Source):
             client=client,
         )
 
-        logger.info("Will process %d project(s)", len(self._projects))
+        logger.info("Will process %d projects", len(self._projects))
         return self._projects
 
     def _init_for_project(self, project: GCPProject) -> None:
