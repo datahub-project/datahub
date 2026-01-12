@@ -18,6 +18,7 @@ import csv
 import json
 import os
 import sys
+import time
 import urllib.request
 import urllib.error
 from dataclasses import dataclass
@@ -66,7 +67,7 @@ class FlakyTest:
 
 def fetch_posthog_insight(config: PostHogConfig, insight_id: str) -> bytes:
     """
-    Fetch data from PostHog insight API.
+    Fetch data from PostHog insight API with cache refresh.
 
     Args:
         config: PostHog configuration
@@ -79,10 +80,11 @@ def fetch_posthog_insight(config: PostHogConfig, insight_id: str) -> bytes:
         urllib.error.HTTPError: If API request fails
         urllib.error.URLError: If network error occurs
     """
-    # Use insights list endpoint with short_id filter
+    # Use insights list endpoint with short_id filter and refresh parameter
+    # refresh=blocking: calculate synchronously unless there are very fresh results
     endpoint = (
         f"{config.host.rstrip('/')}/api/projects/{config.project_id}/"
-        f"insights/?short_id={insight_id}"
+        f"insights/?short_id={insight_id}&refresh=blocking"
     )
 
     print(f"Fetching data from PostHog: {endpoint}")
@@ -112,6 +114,60 @@ def fetch_posthog_insight(config: PostHogConfig, insight_id: str) -> bytes:
 
 
 
+def fetch_posthog_insight_with_retry(
+    config: PostHogConfig,
+    insight_id: str,
+    max_retries: int = 2,
+    retry_delay: int = 60
+) -> bytes:
+    """
+    Fetch PostHog insight with retry logic for null results.
+
+    Args:
+        config: PostHog configuration
+        insight_id: Insight short_id to fetch
+        max_retries: Maximum number of retry attempts if result is null
+        retry_delay: Seconds to wait between retries (default: 60)
+
+    Returns:
+        Raw response data (JSON)
+
+    Raises:
+        urllib.error.HTTPError: If API request fails
+        urllib.error.URLError: If network error occurs
+    """
+    for attempt in range(max_retries + 1):
+        json_data = fetch_posthog_insight(config, insight_id)
+
+        # Check if we got actual result data
+        data = json.loads(json_data.decode('utf-8'))
+        if 'results' in data and len(data['results']) > 0:
+            insight = data['results'][0]
+            result = insight.get('result')
+
+            if result is not None:
+                # Success - we have data
+                return json_data
+
+            # Result is null - check if we should retry
+            if attempt < max_retries:
+                is_cached = insight.get('is_cached', False)
+                last_refresh = insight.get('last_refresh')
+                print(f"⚠️  Attempt {attempt + 1}/{max_retries + 1}: Insight returned null result")
+                print(f"   (cached: {is_cached}, last_refresh: {last_refresh})")
+                print(f"   Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                # Final attempt failed, return the null result
+                print(f"⚠️  All {max_retries + 1} attempts returned null result")
+                return json_data
+        else:
+            # No results at all - return immediately
+            return json_data
+
+    return json_data
+
+
 def parse_posthog_json(json_data: bytes) -> List[FlakyTest]:
     """
     Parse PostHog insight JSON data into FlakyTest objects.
@@ -134,7 +190,16 @@ def parse_posthog_json(json_data: bytes) -> List[FlakyTest]:
 
     # Get the result data - array of arrays
     # Format: [workflow_name, test_name, runs_failed, branches_array, run_ids_array]
-    result_data = insight.get('result', [])
+    # Handle case where result is explicitly None (PostHog query returned no data)
+    result_data = insight.get('result')
+
+    if result_data is None:
+        # Insight hasn't been refreshed/cached in PostHog yet
+        is_cached = insight.get('is_cached', False)
+        last_refresh = insight.get('last_refresh')
+        print(f"⚠️  Warning: Insight has no result data (cached: {is_cached}, last_refresh: {last_refresh})")
+        print(f"   This usually means PostHog hasn't calculated this insight yet or the query failed.")
+        return tests
 
     for row in result_data:
         if len(row) < 5:
@@ -344,8 +409,8 @@ Examples:
             print(f"PostHog: {args.posthog_host}/project/{args.project_id}/insights/{insight.insight_id}")
             print(f"Repository: {insight.repository}")
 
-            # Fetch data from PostHog
-            json_data = fetch_posthog_insight(config, insight.insight_id)
+            # Fetch data from PostHog with retry logic
+            json_data = fetch_posthog_insight_with_retry(config, insight.insight_id)
 
             # Save raw JSON
             json_file = args.output_dir / f"flaky-tests-raw-{insight.label.lower().replace(' ', '-')}.json"
