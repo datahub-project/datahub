@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
@@ -157,22 +156,12 @@ def test_bigquery_uri_with_credential():
         }
     )
 
-    try:
-        assert config.get_sql_alchemy_url() == "bigquery://"
-        assert config._credentials_path
-
-        with open(config._credentials_path) as jsonFile:
-            json_credential = json.load(jsonFile)
-            jsonFile.close()
-
-        credential = json.dumps(json_credential, sort_keys=True)
-        expected_credential = json.dumps(expected_credential_json, sort_keys=True)
-        assert expected_credential == credential
-
-    except AssertionError as e:
-        if config._credentials_path:
-            os.unlink(str(config._credentials_path))
-        raise e
+    assert config.get_sql_alchemy_url() == "bigquery://"
+    creds_dict = config.get_credentials_dict()
+    assert creds_dict is not None
+    credential = json.dumps(creds_dict, sort_keys=True)
+    expected_credential = json.dumps(expected_credential_json, sort_keys=True)
+    assert expected_credential == credential
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")

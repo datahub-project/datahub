@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 from typing import List
 from unittest.mock import MagicMock
 
@@ -23,6 +25,7 @@ from datahub.ingestion.source.common.gcp_project_utils import (
     get_projects_by_labels,
     get_projects_from_explicit_list,
     list_all_accessible_projects,
+    temporary_credentials_file,
 )
 
 
@@ -213,3 +216,53 @@ class TestEdgeCases:
 
         projects = list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
         assert projects[0].name == "my-project"
+
+
+class TestTemporaryCredentialsFile:
+    def test_creates_and_cleans_up_file(self) -> None:
+        creds = {"type": "service_account", "project_id": "test-project"}
+
+        with temporary_credentials_file(creds) as cred_path:
+            assert os.path.exists(cred_path)
+            assert cred_path.endswith(".json")
+            with open(cred_path) as f:
+                saved_creds = json.load(f)
+            assert saved_creds == creds
+
+        assert not os.path.exists(cred_path)
+
+    def test_cleans_up_on_exception(self) -> None:
+        creds = {"type": "service_account"}
+        cred_path = None
+
+        with (
+            pytest.raises(ValueError),
+            temporary_credentials_file(creds) as path,
+        ):
+            cred_path = path
+            assert os.path.exists(cred_path)
+            raise ValueError("Simulated error")
+
+        assert cred_path is not None
+        assert not os.path.exists(cred_path)
+
+    def test_sets_environment_variable(self) -> None:
+        creds = {"type": "service_account", "client_email": "test@example.com"}
+        original_env = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+
+        try:
+            with temporary_credentials_file(creds) as cred_path:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
+                assert os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == cred_path
+        finally:
+            if original_env:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_env
+            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+
+    def test_handles_already_deleted_file(self) -> None:
+        creds = {"type": "service_account"}
+
+        with temporary_credentials_file(creds) as cred_path:
+            os.unlink(cred_path)
+        # Should not raise - cleanup handles FileNotFoundError

@@ -1,5 +1,4 @@
 import contextlib
-import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from unittest.mock import MagicMock, patch
@@ -437,7 +436,9 @@ def test_vertexai_config_init():
         == "https://www.googleapis.com/oauth2/v1/certs"
     )
 
-    assert config._credentials_path is not None
+    creds_dict = config.get_credentials_dict()
+    assert creds_dict is not None
+    assert creds_dict["private_key_id"] == "test-key-id"
 
 
 def test_get_input_dataset_mcps(source: VertexAISource) -> None:
@@ -909,14 +910,18 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
 
 class TestMultiProjectConfig:
     def test_backward_compatibility_project_id(self) -> None:
-        config = VertexAIConfig(project_id="my-project", region="us-central1")
+        config = VertexAIConfig.model_validate(
+            {"project_id": "my-project", "region": "us-central1"}
+        )
         assert config.project_ids == ["my-project"]
 
     def test_project_ids_takes_precedence(self) -> None:
-        config = VertexAIConfig(
-            project_id="old-project",
-            project_ids=["new-project-1", "new-project-2"],
-            region="us-central1",
+        config = VertexAIConfig.model_validate(
+            {
+                "project_id": "old-project",
+                "project_ids": ["new-project-1", "new-project-2"],
+                "region": "us-central1",
+            }
         )
         assert config.project_ids == ["new-project-1", "new-project-2"]
 
@@ -982,7 +987,7 @@ class TestMultiProjectExecution:
     def test_init_for_project_resets_caches(self, mock_init: MagicMock) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_id="test-project", region="us-west2"),
+            config=VertexAIConfig(project_ids=["test-project"], region="us-west2"),
         )
         source.endpoints = {"key": [MagicMock(spec=Endpoint)]}
         source.datasets = {"key": MagicMock()}
@@ -999,7 +1004,7 @@ class TestMultiProjectExecution:
     def test_entity_names_include_project(self, mock_init: MagicMock) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_id="my-project", region="us-west2"),
+            config=VertexAIConfig(project_ids=["my-project"], region="us-west2"),
         )
         source._current_project_id = "my-project"
 
@@ -1070,9 +1075,7 @@ class TestErrorHandling:
 
 
 class TestCredentialManagement:
-    @patch("google.cloud.aiplatform.init")
-    def test_credential_lifecycle(self, mock_init: MagicMock) -> None:
-        """Tests credential file creation, cleanup via close(), and idempotency."""
+    def test_get_credentials_dict_returns_dict_when_credential_set(self) -> None:
         config = VertexAIConfig(
             project_ids=["test"],
             region="us-central1",
@@ -1083,14 +1086,12 @@ class TestCredentialManagement:
                 client_id="123",
             ),
         )
-        temp_path = config._credentials_path
-        assert temp_path and os.path.exists(temp_path)
+        creds_dict = config.get_credentials_dict()
+        assert creds_dict is not None
+        assert creds_dict["private_key_id"] == "key-id"
+        assert creds_dict["client_email"] == "sa@project.iam.gserviceaccount.com"
+        assert creds_dict["type"] == "service_account"
 
-        source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
-        source.close()
-        assert not os.path.exists(temp_path)
-
-        # Idempotency - multiple cleanup calls should not raise
-        config._cleanup_credentials()
-        config._cleanup_credentials()
-        assert config._credentials_path is None
+    def test_get_credentials_dict_returns_none_when_no_credential(self) -> None:
+        config = VertexAIConfig(project_ids=["test"], region="us-central1")
+        assert config.get_credentials_dict() is None

@@ -1,11 +1,9 @@
-import atexit
 import logging
-import os
 import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, PrivateAttr, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
@@ -31,8 +29,6 @@ class VertexAIConfig(EnvConfigMixin):
     credential: Optional[GCPCredential] = Field(
         default=None, description="GCP credential information"
     )
-
-    _credentials_path: Optional[str] = PrivateAttr(None)
 
     project_ids: List[str] = Field(
         default_factory=list,
@@ -108,35 +104,10 @@ class VertexAIConfig(EnvConfigMixin):
         description="VertexAI Console base URL",
     )
 
-    _cleanup_registered: bool = PrivateAttr(False)
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-
+    def get_credentials_dict(self) -> Optional[Dict[str, Any]]:
         if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                "Creating temporary credential file at %s", self._credentials_path
-            )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-            # TODO: atexit won't run on SIGKILL, container force-termination, or OOM kills.
-            # Consider using tempfile with delete_on_close
-            # or a systemd-style cleanup mechanism for containerized environments.
-            atexit.register(self._cleanup_credentials)
-            self._cleanup_registered = True
-
-    def _cleanup_credentials(self) -> None:
-        if not self._credentials_path:
-            return
-        path_to_delete = self._credentials_path
-        self._credentials_path = None
-        try:
-            os.unlink(path_to_delete)
-            logger.debug("Cleaned up temp credentials file: %s", path_to_delete)
-        except FileNotFoundError:
-            pass
-        except OSError as e:
-            logger.warning("Failed to cleanup credentials %s: %s", path_to_delete, e)
+            return self.credential.to_dict()
+        return None
 
     @model_validator(mode="before")
     @classmethod

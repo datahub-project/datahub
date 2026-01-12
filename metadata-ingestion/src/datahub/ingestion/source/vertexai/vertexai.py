@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
@@ -55,6 +56,7 @@ from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
     get_projects,
     get_projects_client,
+    temporary_credentials_file,
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
@@ -215,9 +217,14 @@ class VertexAISource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def close(self) -> None:
-        self.config._cleanup_credentials()
-        super().close()
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        credentials_dict = self.config.get_credentials_dict()
+        if credentials_dict:
+            with temporary_credentials_file(credentials_dict) as cred_path:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
+                yield from super().get_workunits()
+        else:
+            yield from super().get_workunits()
 
     def _build_no_projects_error(self) -> str:
         if self.config.project_ids:

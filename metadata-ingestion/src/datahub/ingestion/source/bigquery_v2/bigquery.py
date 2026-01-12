@@ -1,4 +1,3 @@
-import atexit
 import functools
 import logging
 import os
@@ -45,6 +44,9 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractorConfig,
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.common.gcp_project_utils import (
+    temporary_credentials_file,
+)
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -63,12 +65,6 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-# We can't use close as it is not called if the ingestion is not successful
-def cleanup(config: BigQueryV2Config) -> None:
-    if config._credentials_path is not None:
-        os.unlink(config._credentials_path)
 
 
 @platform_name("BigQuery", doc_order=1)
@@ -207,7 +203,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.add_config_to_report()
-        atexit.register(cleanup, config)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":
@@ -276,6 +271,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 context="Config option deprecation warning",
                 title="Config option deprecation warning",
             )
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        credentials_dict = self.config.get_credentials_dict()
+        if credentials_dict:
+            with temporary_credentials_file(credentials_dict) as cred_path:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
+                yield from super().get_workunits()
+        else:
+            yield from super().get_workunits()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._warn_deprecated_configs()

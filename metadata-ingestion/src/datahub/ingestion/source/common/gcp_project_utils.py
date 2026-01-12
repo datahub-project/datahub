@@ -1,6 +1,10 @@
+import json
 import logging
+import os
+import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
+from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
 from google.api_core.exceptions import (
@@ -16,6 +20,53 @@ from google.oauth2.credentials import Credentials
 from datahub.configuration.common import AllowDenyPattern
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str]:
+    """
+    Context manager for temporary GCP credentials file.
+
+    Creates a temporary JSON credentials file that is automatically cleaned up
+    when exiting the context, even on exceptions. This is more reliable than
+    atexit for containerized environments where SIGKILL may bypass cleanup.
+
+    Args:
+        credentials_dict: Dictionary containing GCP service account credentials
+
+    Yields:
+        Path to the temporary credentials file
+
+    Example:
+        with temporary_credentials_file(creds_dict) as cred_path:
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = cred_path
+            # ... do work ...
+        # File is automatically deleted here
+    """
+    temp_file = tempfile.NamedTemporaryFile(
+        mode="w",
+        delete=False,
+        suffix=".json",
+        prefix="gcp_creds_",
+    )
+
+    try:
+        json.dump(credentials_dict, temp_file)
+        temp_file.flush()
+        temp_file.close()
+        logger.debug("Created temporary credentials file: %s", temp_file.name)
+        yield temp_file.name
+    finally:
+        try:
+            os.unlink(temp_file.name)
+            logger.debug("Cleaned up temporary credentials file: %s", temp_file.name)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logger.warning(
+                "Failed to cleanup credentials file %s: %s", temp_file.name, e
+            )
+
 
 PERMISSION_DENIED_ERROR_MSG = (
     "Permission denied when listing GCP projects. "
