@@ -26,6 +26,8 @@ class DeployOptions(ConfigModel):
     time_zone: str = "UTC"
     cli_version: Optional[str] = None
     executor_id: str = "default"
+    extra_pip: Optional[str] = None
+    extra_env: Optional[str] = None
 
 
 def deploy_source_vars(
@@ -70,6 +72,10 @@ def deploy_source_vars(
         deploy_options.cli_version = cli_version
     if executor_id:
         deploy_options.executor_id = executor_id
+    if extra_pip:
+        deploy_options.extra_pip = extra_pip
+    if extra_env:
+        deploy_options.extra_env = extra_env
 
     logger.info(f"Using {repr(deploy_options)}")
 
@@ -97,20 +103,22 @@ def deploy_source_vars(
             "interval": deploy_options.schedule,
             "timezone": deploy_options.time_zone,
         }
-    if extra_pip is not None:
+    if deploy_options.extra_pip is not None:
         extra_args_list = (
             variables.get("input", {}).get("config", {}).get("extraArgs", [])
         )
-        extra_args_list.append({"key": "extra_pip_requirements", "value": extra_pip})
+        extra_args_list.append(
+            {"key": "extra_pip_requirements", "value": deploy_options.extra_pip}
+        )
         variables["input"]["config"]["extraArgs"] = extra_args_list
 
-    if extra_env is not None:
+    if deploy_options.extra_env is not None:
         extra_args_list = (
             variables.get("input", {}).get("config", {}).get("extraArgs", [])
         )
         # Parse comma-separated KEY=VALUE pairs into a JSON object
         env_dict = {}
-        for pair in extra_env.split(","):
+        for pair in deploy_options.extra_env.split(","):
             key, value = pair.split("=", 1)
             env_dict[key] = value
         extra_args_list.append({"key": "extra_env_vars", "value": json.dumps(env_dict)})
