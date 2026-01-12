@@ -2151,23 +2151,10 @@ def test_dbt_core_load_exposures():
 
 
 def test_create_exposure_mcps_basic():
-    from unittest.mock import MagicMock
-
-    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
-    from datahub.metadata.schema_classes import (
-        DataPlatformInstanceClass,
-    )
-
-    # Create a mock source with required config
-    source = MagicMock(spec=DBTSourceBase)
-    source.config = MagicMock()
-    source.config.platform_instance = None
-    source.config.env = "PROD"
-
-    # Mock the _make_data_platform_instance_aspect method
-    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:dbt"
-    )
+    """Test create_exposure_mcps using real DBTCoreSource to get actual coverage."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
     exposure = DBTExposure(
         name="weekly_dashboard",
@@ -2176,8 +2163,8 @@ def test_create_exposure_mcps_basic():
         description="Weekly metrics",
     )
 
-    # Call the actual method
-    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+    # Call the actual method on real source
+    mcps = list(source.create_exposure_mcps([exposure], {}))
 
     # Should generate 4 MCPs: platform instance, dashboard info, status, subtypes
     assert len(mcps) == 4
@@ -2191,21 +2178,12 @@ def test_create_exposure_mcps_basic():
 
 
 def test_create_exposure_mcps_with_owner_email():
-    from unittest.mock import MagicMock
+    """Test create_exposure_mcps with owner email using real source."""
+    from datahub.metadata.schema_classes import OwnershipClass
 
-    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
-    from datahub.metadata.schema_classes import (
-        DataPlatformInstanceClass,
-        OwnershipClass,
-    )
-
-    source = MagicMock(spec=DBTSourceBase)
-    source.config = MagicMock()
-    source.config.platform_instance = None
-    source.config.env = "PROD"
-    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:dbt"
-    )
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
     exposure = DBTExposure(
         name="dashboard_with_owner",
@@ -2214,7 +2192,7 @@ def test_create_exposure_mcps_with_owner_email():
         owner_email="john.doe@company.com",
     )
 
-    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+    mcps = list(source.create_exposure_mcps([exposure], {}))
 
     # Should have 5 MCPs including ownership
     assert len(mcps) == 5
@@ -2227,21 +2205,12 @@ def test_create_exposure_mcps_with_owner_email():
 
 
 def test_create_exposure_mcps_with_owner_name():
-    from unittest.mock import MagicMock
+    """Test create_exposure_mcps with owner name using real source."""
+    from datahub.metadata.schema_classes import OwnershipClass
 
-    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
-    from datahub.metadata.schema_classes import (
-        DataPlatformInstanceClass,
-        OwnershipClass,
-    )
-
-    source = MagicMock(spec=DBTSourceBase)
-    source.config = MagicMock()
-    source.config.platform_instance = None
-    source.config.env = "PROD"
-    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:dbt"
-    )
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
     exposure = DBTExposure(
         name="dashboard_with_owner",
@@ -2250,7 +2219,7 @@ def test_create_exposure_mcps_with_owner_name():
         owner_name="John Doe",
     )
 
-    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+    mcps = list(source.create_exposure_mcps([exposure], {}))
 
     ownership_mcps = [m for m in mcps if isinstance(m.aspect, OwnershipClass)]
     assert len(ownership_mcps) == 1
@@ -2260,21 +2229,12 @@ def test_create_exposure_mcps_with_owner_name():
 
 
 def test_create_exposure_mcps_with_tags():
-    from unittest.mock import MagicMock
+    """Test create_exposure_mcps with tags using real source."""
+    from datahub.metadata.schema_classes import GlobalTagsClass
 
-    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
-    from datahub.metadata.schema_classes import (
-        DataPlatformInstanceClass,
-        GlobalTagsClass,
-    )
-
-    source = MagicMock(spec=DBTSourceBase)
-    source.config = MagicMock()
-    source.config.platform_instance = None
-    source.config.env = "PROD"
-    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:dbt"
-    )
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
     exposure = DBTExposure(
         name="tagged_dashboard",
@@ -2283,7 +2243,7 @@ def test_create_exposure_mcps_with_tags():
         tags=["important", "weekly"],
     )
 
-    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+    mcps = list(source.create_exposure_mcps([exposure], {}))
 
     # Should have 5 MCPs including tags
     assert len(mcps) == 5
@@ -2298,21 +2258,13 @@ def test_create_exposure_mcps_with_tags():
 
 
 def test_create_exposure_mcps_with_upstream_lineage():
-    from unittest.mock import MagicMock
+    """Test create_exposure_mcps with upstream lineage using real source."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTNode
+    from datahub.metadata.schema_classes import DashboardInfoClass
 
-    from datahub.ingestion.source.dbt.dbt_common import DBTNode, DBTSourceBase
-    from datahub.metadata.schema_classes import (
-        DashboardInfoClass,
-        DataPlatformInstanceClass,
-    )
-
-    source = MagicMock(spec=DBTSourceBase)
-    source.config = MagicMock()
-    source.config.platform_instance = None
-    source.config.env = "PROD"
-    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:dbt"
-    )
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
     # Create an upstream node with required fields only
     upstream_node = DBTNode(
@@ -2346,7 +2298,7 @@ def test_create_exposure_mcps_with_upstream_lineage():
 
     all_nodes_map = {"model.my_project.orders": upstream_node}
 
-    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], all_nodes_map))
+    mcps = list(source.create_exposure_mcps([exposure], all_nodes_map))
 
     # Find DashboardInfo MCP and check datasets
     dashboard_mcps = [m for m in mcps if isinstance(m.aspect, DashboardInfoClass)]
@@ -2358,21 +2310,12 @@ def test_create_exposure_mcps_with_upstream_lineage():
 
 
 def test_create_exposure_mcps_with_custom_properties():
-    from unittest.mock import MagicMock
+    """Test create_exposure_mcps with custom properties using real source."""
+    from datahub.metadata.schema_classes import DashboardInfoClass
 
-    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
-    from datahub.metadata.schema_classes import (
-        DashboardInfoClass,
-        DataPlatformInstanceClass,
-    )
-
-    source = MagicMock(spec=DBTSourceBase)
-    source.config = MagicMock()
-    source.config.platform_instance = None
-    source.config.env = "PROD"
-    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:dbt"
-    )
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
     exposure = DBTExposure(
         name="full_exposure",
@@ -2384,7 +2327,7 @@ def test_create_exposure_mcps_with_custom_properties():
         meta={"team": "analytics", "priority": "1"},
     )
 
-    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+    mcps = list(source.create_exposure_mcps([exposure], {}))
 
     dashboard_mcps = [m for m in mcps if isinstance(m.aspect, DashboardInfoClass)]
     assert len(dashboard_mcps) == 1
@@ -2403,21 +2346,12 @@ def test_create_exposure_mcps_with_custom_properties():
 
 
 def test_create_exposure_mcps_subtypes():
-    from unittest.mock import MagicMock
+    """Test create_exposure_mcps subtypes mapping using real source."""
+    from datahub.metadata.schema_classes import SubTypesClass
 
-    from datahub.ingestion.source.dbt.dbt_common import DBTSourceBase
-    from datahub.metadata.schema_classes import (
-        DataPlatformInstanceClass,
-        SubTypesClass,
-    )
-
-    source = MagicMock(spec=DBTSourceBase)
-    source.config = MagicMock()
-    source.config.platform_instance = None
-    source.config.env = "PROD"
-    source._make_data_platform_instance_aspect.return_value = DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:dbt"
-    )
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
     # Test ML type
     exposure = DBTExposure(
@@ -2426,7 +2360,7 @@ def test_create_exposure_mcps_subtypes():
         type="ml",
     )
 
-    mcps = list(DBTSourceBase.create_exposure_mcps(source, [exposure], {}))
+    mcps = list(source.create_exposure_mcps([exposure], {}))
 
     subtype_mcps = [m for m in mcps if isinstance(m.aspect, SubTypesClass)]
     assert len(subtype_mcps) == 1
