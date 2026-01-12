@@ -37,6 +37,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     isRequired?: boolean;
     showClear?: boolean;
     width?: number | 'full' | 'fit-content';
+    minWidth?: string;
     isMultiSelect?: boolean;
     placeholder?: string | React.ReactNode;
     disabledValues?: string[];
