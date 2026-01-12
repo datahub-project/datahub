@@ -275,6 +275,10 @@ class VertexAISource(Source):
         failed_projects.append(project_id)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Fetch MetadataWorkUnits for Vertex AI models, pipelines, training jobs, and experiments.
+        Supports multi-project scanning via project_ids config.
+        """
         projects = self._get_projects_to_process()
 
         if not projects:
@@ -314,6 +318,7 @@ class VertexAISource(Source):
         yield from auto_workunit(self._get_pipelines_mcps())
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        """Fetch Vertex AI Pipeline Jobs and generate DataJob MCPs with lineage to tasks."""
         pipeline_jobs = self.client.PipelineJob.list()
 
         for pipeline in pipeline_jobs:
@@ -784,6 +789,7 @@ class VertexAISource(Source):
         )
 
     def _get_ml_models_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        """Fetch models from Vertex AI Model Registry and generate MLModelGroup + MLModel MCPs."""
         registered_models = self.client.Model.list()
         for model in registered_models:
             # create mcp for Model Group (= Model in VertexAI)
@@ -816,6 +822,7 @@ class VertexAISource(Source):
         return model_meta
 
     def _get_training_jobs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        """Fetch Vertex AI training jobs (Custom and AutoML) and generate DataJob MCPs with lineage."""
         class_names = [
             "CustomJob",
             "CustomTrainingJob",
@@ -871,6 +878,7 @@ class VertexAISource(Source):
     def _gen_training_job_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Generate DataJob MCPs with input dataset and output model lineage."""
         job = job_meta.job
         job_id = self._make_vertexai_job_name(entity_id=job.name)
         job_urn = builder.make_data_process_instance_urn(job_id)
@@ -962,6 +970,7 @@ class VertexAISource(Source):
         self,
         model: Model,
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Generate MLModelGroup MCP (groups all versions of this model)."""
         ml_model_group_urn = self._make_ml_model_group_urn(model)
 
         yield from MetadataChangeProposalWrapper.construct_many(
@@ -1029,6 +1038,7 @@ class VertexAISource(Source):
         return None
 
     def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
+        """Search for a dataset by ID across all Vertex AI dataset types."""
         dataset_types = [
             "TextDataset",
             "TabularDataset",
@@ -1050,6 +1060,7 @@ class VertexAISource(Source):
     def _get_input_dataset_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Generate Dataset MCP with DatasetProperties."""
         ds = job_meta.input_dataset
 
         if ds:
@@ -1087,6 +1098,7 @@ class VertexAISource(Source):
     def _get_training_job_metadata(
         self, job: VertexAiResourceNoun
     ) -> TrainingJobMetadata:
+        """Extract input dataset IDs and output model names from training job metadata."""
         job_meta = TrainingJobMetadata(job=job)
         if self._is_automl_job(job):
             job_conf = job.to_dict()
@@ -1178,6 +1190,7 @@ class VertexAISource(Source):
     def _gen_ml_model_mcps(
         self, ModelMetadata: ModelMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Generate MLModel MCP with deployment endpoint lineage."""
         model: Model = ModelMetadata.model
         model_version: VersionInfo = ModelMetadata.model_version
         training_job_urn: Optional[str] = ModelMetadata.training_job_urn
@@ -1279,6 +1292,7 @@ class VertexAISource(Source):
         return version_set_urn
 
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
+        """Find the Vertex AI Endpoints where this model is deployed, if any."""
         if self.endpoints is None:
             endpoint_dict: Dict[str, List[Endpoint]] = {}
             for endpoint in self.client.Endpoint.list():
@@ -1362,6 +1376,9 @@ class VertexAISource(Source):
     def _make_artifact_external_url(
         self, experiment: Experiment, run: ExperimentRun
     ) -> str:
+        """
+        Example: https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/test-experiment/runs/test-run-3/artifacts?project=my-project
+        """
         project_id = self._get_current_project_id()
         return (
             f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}/runs/{experiment.name}-{run.name}/artifacts"
@@ -1369,6 +1386,9 @@ class VertexAISource(Source):
         )
 
     def _make_job_external_url(self, job: VertexAiResourceNoun) -> str:
+        """
+        Example: https://console.cloud.google.com/vertex-ai/training/training-pipelines?project=my-project&trainingPipelineId=5401695018589093888
+        """
         project_id = self._get_current_project_id()
         return (
             f"{self.config.vertexai_url}/training/training-pipelines?trainingPipelineId={job.name}"
@@ -1376,6 +1396,9 @@ class VertexAISource(Source):
         )
 
     def _make_model_external_url(self, model: Model) -> str:
+        """
+        Example: https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336?project=my-project
+        """
         project_id = self._get_current_project_id()
         return (
             f"{self.config.vertexai_url}/models/locations/{self.config.region}/models/{model.name}"
@@ -1383,6 +1406,9 @@ class VertexAISource(Source):
         )
 
     def _make_model_version_external_url(self, model: Model) -> str:
+        """
+        Example: https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336/versions/1?project=my-project
+        """
         project_id = self._get_current_project_id()
         return (
             f"{self.config.vertexai_url}/models/locations/{self.config.region}/models/{model.name}"
@@ -1391,6 +1417,9 @@ class VertexAISource(Source):
         )
 
     def _make_experiment_external_url(self, experiment: Experiment) -> str:
+        """
+        Example: https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/my-experiment/runs?project=my-project
+        """
         project_id = self._get_current_project_id()
         return (
             f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}"
@@ -1400,6 +1429,9 @@ class VertexAISource(Source):
     def _make_experiment_run_external_url(
         self, experiment: Experiment, run: ExperimentRun
     ) -> str:
+        """
+        Example: https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/my-experiment/runs/my-run-1/charts?project=my-project
+        """
         project_id = self._get_current_project_id()
         return (
             f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}"
@@ -1407,6 +1439,9 @@ class VertexAISource(Source):
         )
 
     def _make_pipeline_external_url(self, pipeline_name: str) -> str:
+        """
+        Example: https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/pipeline-example-tasks-20250320210739?project=my-project
+        """
         project_id = self._get_current_project_id()
         return (
             f"{self.config.vertexai_url}/pipelines/locations/{self.config.region}/runs/{pipeline_name}"

@@ -820,6 +820,7 @@ def test_pipeline_task_with_none_timestamps(
     end_time: Optional[datetime],
     task_name: str,
 ) -> None:
+    """Verify ingestion handles pipeline tasks with None start_time or end_time without crashing."""
     mock_pipeline_job = MagicMock(spec=PipelineJob)
     mock_pipeline_job.name = f"test_pipeline_{task_name}"
     mock_pipeline_job.resource_name = (
@@ -874,6 +875,7 @@ def test_pipeline_task_with_none_timestamps(
 
 
 def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
+    """Verify ingestion handles experiment runs with None timestamps without crashing."""
     mock_exp = gen_mock_experiment()
     source.experiments = [mock_exp]
 
