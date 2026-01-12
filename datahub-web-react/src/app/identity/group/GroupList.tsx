@@ -89,7 +89,14 @@ export const GroupList = () => {
         removeGroupFromListGroupsCache(urn, client, page, pageSize);
     };
 
-    const { roles: selectRoleOptions } = useRoleSelector();
+    const {
+        roles: selectRoleOptions,
+        loading: rolesLoading,
+        hasMore: rolesHasMore,
+        observerRef: rolesObserverRef,
+        searchQuery: rolesSearchQuery,
+        setSearchQuery: setRolesSearchQuery,
+    } = useRoleSelector();
 
     return (
         <>
@@ -133,6 +140,11 @@ export const GroupList = () => {
                             onDelete={() => handleDelete(item.urn)}
                             group={item as CorpGroup}
                             selectRoleOptions={selectRoleOptions}
+                            rolesLoading={rolesLoading}
+                            rolesHasMore={rolesHasMore}
+                            rolesObserverRef={rolesObserverRef}
+                            rolesSearchQuery={rolesSearchQuery}
+                            setRolesSearchQuery={setRolesSearchQuery}
                             refetch={groupRefetch}
                         />
                     )}
