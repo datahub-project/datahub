@@ -146,7 +146,7 @@ class GCPProjectDiscoveryError(Exception):
     ) -> "GCPProjectDiscoveryError":
         """All discovered projects were filtered out by pattern."""
         return cls(
-            f"Found {total_found} project(s) via {source}, but all were "
+            f"Found {total_found} projects via {source}, but all were "
             f"excluded by project_id_pattern (allow: {pattern.allow}, deny: {pattern.deny}). "
             "Adjust your allow/deny patterns."
         )
@@ -323,7 +323,7 @@ def _filter_projects_by_pattern(
             excluded.append(p.id)
     if excluded:
         logger.info(
-            "Filtered out %d project(s) by project_id_pattern: %s",
+            "Filtered out %d projects by project_id_pattern: %s",
             len(excluded),
             ", ".join(excluded[:10]) + ("..." if len(excluded) > 10 else ""),
         )
@@ -345,12 +345,10 @@ def _search_projects_with_retry(
     request = resourcemanager_v3.SearchProjectsRequest(query=query)
     for project in search_with_retry(request=request):
         if not project.project_id:
-            logger.error(
-                "GCP returned project without project_id (display_name=%s). "
-                "This is unexpected - please report this issue.",
-                project.display_name or "unknown",
+            raise GCPProjectDiscoveryError(
+                f"GCP API returned project without project_id (display_name={project.display_name or 'unknown'}). "
+                "This indicates a serious API issue. Please report this to the DataHub team."
             )
-            continue
         yield GCPProject(
             id=project.project_id,
             name=project.display_name or project.project_id,

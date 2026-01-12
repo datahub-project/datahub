@@ -11,7 +11,6 @@ from google.api_core.exceptions import (
     GoogleAPICallError,
     InvalidArgument,
     NotFound,
-    PermissionDenied,
     ResourceExhausted,
     ServiceUnavailable,
 )
@@ -255,7 +254,14 @@ class VertexAISource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         credentials_dict = self.config.get_credentials_dict()
-        if credentials_dict:
+        if credentials_dict is None:
+            yield from super().get_workunits()
+        elif not credentials_dict:
+            raise ValueError(
+                "Credentials dictionary is empty. Either provide valid GCP credentials "
+                "or remove the credentials config to use default application credentials."
+            )
+        else:
             original_creds_env = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
             try:
                 with temporary_credentials_file(credentials_dict) as cred_path:
@@ -266,8 +272,6 @@ class VertexAISource(Source):
                     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_creds_env
                 else:
                     os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
-        else:
-            yield from super().get_workunits()
 
     def _build_no_projects_error(self) -> str:
         if self.config.project_ids:
@@ -335,12 +339,11 @@ class VertexAISource(Source):
                 self._init_for_project(project)
                 yield from self._process_current_project()
                 successful_projects += 1
-            except (InvalidArgument, FailedPrecondition) as config_err:
+            except GoogleAPICallError as exc:
+                is_config = isinstance(exc, (InvalidArgument, FailedPrecondition))
                 self._handle_project_error(
-                    project.id, config_err, failed_projects, is_config_error=True
+                    project.id, exc, failed_projects, is_config_error=is_config
                 )
-            except (NotFound, PermissionDenied, GoogleAPICallError) as api_err:
-                self._handle_project_error(project.id, api_err, failed_projects)
 
         if failed_projects:
             if successful_projects == 0:

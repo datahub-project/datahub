@@ -181,9 +181,7 @@ class TestPatternFiltering:
 
 
 class TestEdgeCases:
-    def test_skips_project_with_missing_id(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_raises_on_project_with_missing_id(self) -> None:
         mock_client = MagicMock()
         mock_valid = MagicMock()
         mock_valid.project_id = "valid-project"
@@ -193,12 +191,8 @@ class TestEdgeCases:
         mock_invalid.display_name = "Invalid"
         mock_client.search_projects.return_value = iter([mock_valid, mock_invalid])
 
-        with caplog.at_level(logging.ERROR):
-            projects = list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
-
-        assert len(projects) == 1
-        assert projects[0].id == "valid-project"
-        assert "GCP returned project without project_id" in caplog.text
+        with pytest.raises(GCPProjectDiscoveryError, match="without project_id"):
+            list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
 
     def test_empty_explicit_list_returns_empty(self) -> None:
         projects = get_projects_from_explicit_list([])
