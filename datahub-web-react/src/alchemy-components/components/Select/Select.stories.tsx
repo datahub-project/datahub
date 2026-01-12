@@ -106,6 +106,12 @@ const meta: Meta = {
                 defaultValue: { summary: `${selectDefaults.width}` },
             },
         },
+        minWidth: {
+            description: 'Minimal width of the Select component.',
+            control: {
+                type: 'number',
+            },
+        },
         isMultiSelect: {
             description: 'Whether the Select component allows multiple values to be selected.',
             control: {
