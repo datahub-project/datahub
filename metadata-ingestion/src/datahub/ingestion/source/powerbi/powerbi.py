@@ -902,7 +902,8 @@ class Mapper:
 
         user_info = CorpUserInfoClass(
             displayName=user.displayName or user_id,  # Fallback to user_id if null
-            email=user.emailAddress or None,  # Convert empty string to None
+            email=user.emailAddress
+            or None,  # PowerBI API may return "" for missing email
             active=True,
         )
 
@@ -1406,13 +1407,12 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             ctx, config, self.reporter, self.dataplatform_instance_resolver
         )
 
-        # Warn if user has opted-in to user creation (may overwrite LDAP/Okta users)
+        # Log info if user has opted-in to user creation (may overwrite LDAP/Okta users)
         if self.source_config.ownership.create_corp_user:
-            logger.warning(
+            logger.info(
                 "PowerBI user creation is ENABLED (create_corp_user=True). "
-                "PowerBI will create user entities with displayName and email from PowerBI. "
-                "WARNING: This may overwrite existing user profiles from LDAP/Okta/SCIM. "
-                "If you have another user source, set create_corp_user=False (recommended)."
+                "User entities will be created with displayName and email from PowerBI. "
+                "Note: This may overwrite existing user profiles from LDAP/Okta/SCIM."
             )
 
         # Create and register the stateful ingestion use-case handler.

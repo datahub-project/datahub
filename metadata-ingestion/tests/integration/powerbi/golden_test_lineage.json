@@ -1660,37 +1660,5 @@
         "runId": "powerbi-lineage-test",
         "lastRunId": "no-run-id-provided"
     }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:User1@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-lineage-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:User2@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-lineage-test",
-        "lastRunId": "no-run-id-provided"
-    }
 }
 ]
