@@ -1,5 +1,7 @@
 # Ingestion Recording and Replay
 
+> **Beta Feature**: Recording and replay is currently in beta. The feature is stable for debugging purposes but the archive format may change in future releases.
+
 Debug ingestion issues by capturing all external I/O (HTTP requests and database queries) during ingestion runs, then replaying them locally in an air-gapped environment with full debugger support.
 
 ## Overview
@@ -44,9 +46,8 @@ pip install 'acryl-datahub[looker,debug-recording]'
 
 **Dependencies:**
 
-- `vcrpy>=7.0.0` - HTTP recording/replay
+- `vcrpy>=8.0.0` (Python 3.10+) or `vcrpy>=7.0.0,<8.0.0` (Python 3.9) - HTTP recording/replay
 - `pyzipper>=0.3.6` - AES-256 encrypted archives
-- `urllib3>=2.0.0` - HTTP client compatibility
 
 **Note:** The recording module uses lazy imports to avoid requiring optional dependencies (like `sqlalchemy`) when recording is not used. This means you can install the recording plugin without pulling in database connector dependencies unless you actually use them.
 
@@ -89,8 +90,8 @@ datahub recording info recording.zip --password mysecret
 # Extract archive contents
 datahub recording extract recording.zip --password mysecret --output-dir ./extracted
 
-# List available recordings
-datahub recording list
+# List contents of a recording archive
+datahub recording list recording.zip --password mysecret
 ```
 
 ## Configuration
@@ -107,10 +108,15 @@ source:
 recording:
   enabled: true
   password: ${DATAHUB_RECORDING_PASSWORD} # Or use --record-password CLI flag
-  s3_upload:
-    enabled: true # Upload to S3 after recording
-    # S3 bucket is auto-configured from DataHub server settings
+  s3_upload: true # Upload directly to S3 (default: false)
+  output_path: s3://my-bucket/recordings/ # Required when s3_upload=true
 ```
+
+When `s3_upload` is disabled (default), the recording is saved locally:
+
+- To `output_path` if specified
+- To `INGESTION_ARTIFACT_DIR` directory if set
+- To a temp directory otherwise
 
 ### Environment Variables
 
