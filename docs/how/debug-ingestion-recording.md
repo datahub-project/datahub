@@ -227,4 +227,4 @@ datahub ingest replay recording.zip --password mysecret --use-responses-lib
 - **Archive Size**: Large sources may produce 50-200MB archives
 - **Protocols**: gRPC and WebSocket not currently supported
 
-For detailed technical information, see the [Recording Module README](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/recording/README.md).
+For detailed technical information, see the [Recording Module README](../../metadata-ingestion/src/datahub/ingestion/recording/README.md).
