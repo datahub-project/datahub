@@ -299,9 +299,16 @@ class BigQuerySchemaApi:
                 )
             return result
 
+    # This method is not used anywhere
     def get_datasets_for_project_id_with_information_schema(
         self, project_id: str
     ) -> List[BigqueryDataset]:
+        """
+        This method is not used as of now, due to below limitation.
+        Current query only fetches datasets in US region.
+        We'll need region-wise separate queries to fetch all datasets.
+        https://cloud.google.com/bigquery/docs/information-schema-datasets-schemata
+        """
         schemas = self.get_query_result(
             BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
         )
