@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.billing;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.billing.BillingHandler;
 import com.linkedin.metadata.billing.BillingProvider;
@@ -77,22 +78,22 @@ public class BillingFactory {
   }
 
   /**
-   * Derive customer name (hostname) from base URL.
+   * Derive customer name from base URL.
+   *
+   * <p>Extracts the customer name from URL "https://<customer_name>.trials.acryl.io" ->
+   * "<customer_name>"
    *
    * @param baseUrl DataHub base URL
    * @return Customer name for billing provider
    */
-  private String deriveCustomerName(String baseUrl) {
-    try {
-      java.net.URL urlObj = new java.net.URL(baseUrl);
-      return urlObj.getHost();
-    } catch (java.net.MalformedURLException e) {
-      // Fallback to string manipulation
-      log.warn("Malformed base URL '{}', using fallback parsing", baseUrl);
-      String cleaned = baseUrl.replaceFirst("^https?://", "");
-      cleaned = cleaned.split(":")[0];
-      cleaned = cleaned.split("/")[0];
-      return cleaned;
-    }
+  @VisibleForTesting
+  String deriveCustomerName(String baseUrl) {
+    // Remove protocol and extract hostname
+    String cleaned = baseUrl.replaceFirst("^https?://", "");
+    String hostname = cleaned.split("/")[0]; // Remove path if present
+
+    // Extract customer name from hostname
+    int dotIndex = hostname.indexOf(".");
+    return dotIndex > 0 ? hostname.substring(0, dotIndex) : hostname;
   }
 }

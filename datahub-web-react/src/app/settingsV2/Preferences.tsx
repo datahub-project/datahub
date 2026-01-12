@@ -1,3 +1,5 @@
+import '@app/settingsV2/sample-data-notification.less';
+
 import { Card, Icon, PageTitle, Pill, Switch, Text, colors } from '@components';
 import { message, notification } from 'antd';
 import React, { useState } from 'react';
@@ -216,7 +218,16 @@ export const Preferences = () => {
                                                 color="violet"
                                             />
                                         ),
-                                        style: { backgroundColor: colors.violet[0], borderRadius: 8 },
+                                        closeIcon: (
+                                            <Icon
+                                                icon="X"
+                                                source="phosphor"
+                                                color="violet"
+                                                colorLevel={500}
+                                                size="lg"
+                                            />
+                                        ),
+                                        style: { backgroundColor: colors.violet[0], borderRadius: 8, width: 510 },
                                         duration: 4,
                                         placement: 'top',
                                     });
