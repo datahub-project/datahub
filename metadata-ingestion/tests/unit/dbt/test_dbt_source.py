@@ -2057,3 +2057,31 @@ def test_create_exposure_mcps_with_missing_upstream():
 
     # Should still generate MCPs, but without upstream lineage
     assert len(mcps) == 4  # No ownership or tags, so just 4 MCPs
+
+
+def test_create_exposure_mcps_with_owner_name_only():
+    """Test create_exposure_mcps when owner_name is set but owner_email is None."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_with_owner_name",
+        unique_id="exposure.my_project.dashboard_with_owner_name",
+        type="dashboard",
+        owner_name="John Doe",  # Only owner_name, no owner_email
+    )
+
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Should generate 5 MCPs: platform instance, dashboard info, status, subtypes, ownership
+    assert len(mcps) == 5
+
+    # Find ownership aspect
+    ownership_mcp = next(
+        (mcp for mcp in mcps if type(mcp.aspect).__name__ == "OwnershipClass"), None
+    )
+    assert ownership_mcp is not None
+    assert ownership_mcp.aspect is not None
+    # Owner URN should be derived from owner_name: "john_doe"
+    assert "john_doe" in ownership_mcp.aspect.owners[0].owner
