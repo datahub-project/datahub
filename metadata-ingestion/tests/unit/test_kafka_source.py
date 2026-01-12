@@ -239,7 +239,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         "topic1": (
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_2",
+                schema_id=2,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -249,7 +249,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             ),
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_1",
+                schema_id=1,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -262,7 +262,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         "topic2": (
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_3",
+                schema_id=3,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -272,7 +272,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             ),
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_4",
+                schema_id=4,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -285,7 +285,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         "topic3": (
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_4",
+                schema_id=4,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -295,7 +295,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             ),
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_5",
+                schema_id=5,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -438,7 +438,7 @@ def test_kafka_ignore_warnings_on_schema_type(
     # define the key and value schemas for topic1
     topic1_key_schema = RegisteredSchema(
         guid=None,
-        schema_id="schema_id_2",
+        schema_id=2,
         schema=Schema(
             schema_str="{}",
             schema_type="UNKNOWN_TYPE",
@@ -448,7 +448,7 @@ def test_kafka_ignore_warnings_on_schema_type(
     )
     topic1_value_schema = RegisteredSchema(
         guid=None,
-        schema_id="schema_id_1",
+        schema_id=1,
         schema=Schema(
             schema_str="{}",
             schema_type="UNKNOWN_TYPE",
@@ -574,7 +574,7 @@ def test_kafka_source_topic_meta_mappings(
         "topic1": (
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_2",
+                schema_id=2,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -584,7 +584,7 @@ def test_kafka_source_topic_meta_mappings(
             ),
             RegisteredSchema(
                 guid=None,
-                schema_id="schema_id_1",
+                schema_id=1,
                 schema=Schema(
                     schema_str=json.dumps(
                         {
