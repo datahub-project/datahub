@@ -2039,3 +2039,23 @@ def test_create_exposure_mcps_basic():
     assert "SubTypesClass" in aspect_types
 
 
+def test_create_exposure_mcps_with_missing_upstream():
+    """Test create_exposure_mcps handles missing upstream node gracefully."""
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    exposure = DBTExposure(
+        name="dashboard_with_missing_dep",
+        unique_id="exposure.my_project.dashboard_with_missing_dep",
+        type="dashboard",
+        depends_on=["model.my_project.nonexistent_model"],
+    )
+
+    # Call with empty nodes map - triggers warning branch for missing upstream
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+
+    # Should still generate MCPs, but without upstream lineage
+    assert len(mcps) == 4  # No ownership or tags, so just 4 MCPs
+
+
