@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,6 +29,9 @@ public class AspectSizeValidationConfig {
    */
   private AspectCheckpointConfig postPatch;
 
+  /** Metrics configuration for size distribution tracking. */
+  private MetricsConfig metrics;
+
   @Data
   @AllArgsConstructor
   @NoArgsConstructor
@@ -36,5 +40,16 @@ public class AspectSizeValidationConfig {
     private Long warnSizeBytes; // Optional: log warning without blocking write
     private long maxSizeBytes;
     private OversizedAspectRemediation oversizedRemediation;
+  }
+
+  @Data
+  @AllArgsConstructor
+  @NoArgsConstructor
+  public static class MetricsConfig {
+    /**
+     * Size bucket boundaries for distribution tracking (in bytes). Example: [1048576, 5242880,
+     * 10485760] creates buckets: 0-1MB, 1-5MB, 5-10MB, 10MB+
+     */
+    private List<Long> sizeBuckets;
   }
 }

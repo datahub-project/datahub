@@ -42,27 +42,71 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
 
   private final AspectSizeValidationConfig config;
   private final MetricUtils metricUtils;
+  private final long[] sizeBucketBoundaries; // Primitive array for performance
+  private final String[] sizeBucketLabels; // Pre-computed labels (cached)
 
   public AspectSizePayloadValidator(
       @Nonnull AspectSizeValidationConfig config, @Nullable MetricUtils metricUtils) {
     this.config = config;
     this.metricUtils = metricUtils;
+
+    // Use configured buckets or default to 1MB, 5MB, 10MB, 15MB
+    java.util.List<Long> buckets =
+        (config.getMetrics() != null && config.getMetrics().getSizeBuckets() != null)
+            ? config.getMetrics().getSizeBuckets()
+            : java.util.Arrays.asList(1048576L, 5242880L, 10485760L, 15728640L);
+
+    // Convert to primitive array for performance (avoids boxing)
+    this.sizeBucketBoundaries = new long[buckets.size()];
+    for (int i = 0; i < buckets.size(); i++) {
+      this.sizeBucketBoundaries[i] = buckets.get(i);
+    }
+
+    // Pre-compute bucket labels to avoid string allocation in hot path
+    this.sizeBucketLabels = new String[buckets.size() + 1];
+    long prevBoundary = 0;
+    for (int i = 0; i < buckets.size(); i++) {
+      long boundary = buckets.get(i);
+      this.sizeBucketLabels[i] = formatBytes(prevBoundary) + "-" + formatBytes(boundary);
+      prevBoundary = boundary;
+    }
+    // Last label for sizes exceeding all boundaries
+    this.sizeBucketLabels[buckets.size()] = formatBytes(prevBoundary) + "+";
   }
 
   /**
-   * Categorize aspect size into buckets for distribution tracking. Buckets are configured to align
-   * with typical validation thresholds.
+   * Categorize aspect size into buckets for distribution tracking. Optimized for hot path - uses
+   * pre-computed labels and primitive array to avoid allocations.
    *
    * @param bytes aspect size in bytes
-   * @return bucket label (e.g., "1-5MB", "10-15MB")
+   * @return bucket label (e.g., "0-1MB", "1MB-5MB", "10MB-15MB", "15MB+")
    */
-  private static String getSizeBucket(long bytes) {
+  private String getSizeBucket(long bytes) {
+    // Find first boundary that exceeds the size
+    for (int i = 0; i < sizeBucketBoundaries.length; i++) {
+      if (bytes < sizeBucketBoundaries[i]) {
+        return sizeBucketLabels[i];
+      }
+    }
+    // Size exceeds all boundaries - return last label
+    return sizeBucketLabels[sizeBucketBoundaries.length];
+  }
+
+  /**
+   * Format bytes as human-readable size for metric labels (e.g., 1048576 -> "1MB").
+   *
+   * <p>Note: We don't use {@link com.linkedin.metadata.search.utils.SizeUtils#formatBytes(long)}
+   * because its format ("2.5 MB" with spaces and decimals) is designed for user-facing output,
+   * while metric labels should be simple identifiers without spaces.
+   *
+   * @param bytes size in bytes
+   * @return formatted string (e.g., "1MB", "5MB")
+   */
+  private static String formatBytes(long bytes) {
+    if (bytes == 0) return "0";
     long mb = bytes / (1024 * 1024);
-    if (mb < 1) return "0-1MB";
-    if (mb < 5) return "1-5MB";
-    if (mb < 10) return "5-10MB";
-    if (mb < 15) return "10-15MB";
-    return "15MB+";
+    if (mb == 0) return bytes + "B";
+    return mb + "MB";
   }
 
   @Override
@@ -84,7 +128,7 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
     // Emit bucketed counter for size distribution tracking
     if (metricUtils != null) {
       metricUtils.incrementMicrometer(
-          "aspectSizeValidation.postPatch.aspectSize",
+          "aspectSizeValidation.postPatch.sizeDistribution",
           1,
           "aspectName",
           systemAspect.getAspectSpec().getName(),

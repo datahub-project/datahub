@@ -34,19 +34,48 @@ public class AspectSizeValidator {
   }
 
   /**
-   * Categorize aspect size into buckets for distribution tracking. Buckets are configured to align
-   * with typical validation thresholds.
+   * Categorize aspect size into buckets for distribution tracking. Simplified to reduce allocations
+   * - uses direct computation instead of pre-computed labels since AspectSizeValidator is a static
+   * utility.
    *
    * @param bytes aspect size in bytes
-   * @return bucket label (e.g., "1-5MB", "10-15MB")
+   * @param boundaries sorted list of bucket boundaries in bytes
+   * @return bucket label (e.g., "0-1MB", "1MB-5MB", "10MB-15MB", "15MB+")
    */
-  private static String getSizeBucket(long bytes) {
+  private static String getSizeBucket(long bytes, java.util.List<Long> boundaries) {
+    if (boundaries == null || boundaries.isEmpty()) {
+      return formatBytes(bytes);
+    }
+
+    // Find first boundary that exceeds the size (avoid boxing by using get(i))
+    long prevBoundary = 0;
+    for (int i = 0; i < boundaries.size(); i++) {
+      long boundary = boundaries.get(i);
+      if (bytes < boundary) {
+        return formatBytes(prevBoundary) + "-" + formatBytes(boundary);
+      }
+      prevBoundary = boundary;
+    }
+
+    // Size exceeds all boundaries
+    return formatBytes(prevBoundary) + "+";
+  }
+
+  /**
+   * Format bytes as human-readable size for metric labels (e.g., 1048576 -> "1MB").
+   *
+   * <p>Note: We don't use {@link com.linkedin.metadata.search.utils.SizeUtils#formatBytes(long)}
+   * because its format ("2.5 MB" with spaces and decimals) is designed for user-facing output,
+   * while metric labels should be simple identifiers without spaces.
+   *
+   * @param bytes size in bytes
+   * @return formatted string (e.g., "1MB", "5MB")
+   */
+  private static String formatBytes(long bytes) {
+    if (bytes == 0) return "0";
     long mb = bytes / (1024 * 1024);
-    if (mb < 1) return "0-1MB";
-    if (mb < 5) return "1-5MB";
-    if (mb < 10) return "5-10MB";
-    if (mb < 15) return "10-15MB";
-    return "15MB+";
+    if (mb == 0) return bytes + "B";
+    return mb + "MB";
   }
 
   /**
@@ -124,13 +153,19 @@ public class AspectSizeValidator {
 
     // Emit bucketed counter for size distribution tracking
     if (metricUtils != null) {
+      // Get size buckets from config or use defaults (1MB, 5MB, 10MB, 15MB)
+      java.util.List<Long> sizeBuckets =
+          (config.getMetrics() != null && config.getMetrics().getSizeBuckets() != null)
+              ? config.getMetrics().getSizeBuckets()
+              : java.util.Arrays.asList(1048576L, 5242880L, 10485760L, 15728640L);
+
       metricUtils.incrementMicrometer(
-          "aspectSizeValidation.prePatch.aspectSize",
+          "aspectSizeValidation.prePatch.sizeDistribution",
           1,
           "aspectName",
           aspectName,
           "sizeBucket",
-          getSizeBucket(actualSize));
+          getSizeBucket(actualSize, sizeBuckets));
     }
 
     if (actualSize > threshold) {
