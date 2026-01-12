@@ -2057,5 +2057,3 @@ def test_create_exposure_mcps_with_missing_upstream():
 
     # Should still generate MCPs, but without upstream lineage
     assert len(mcps) == 4  # No ownership or tags, so just 4 MCPs
-
-
