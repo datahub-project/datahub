@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.billing;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.billing.BillingHandler;
 import com.linkedin.metadata.billing.BillingProvider;
@@ -85,7 +86,8 @@ public class BillingFactory {
    * @param baseUrl DataHub base URL
    * @return Customer name for billing provider
    */
-  private String deriveCustomerName(String baseUrl) {
+  @VisibleForTesting
+  String deriveCustomerName(String baseUrl) {
     // Remove protocol and extract hostname
     String cleaned = baseUrl.replaceFirst("^https?://", "");
     String hostname = cleaned.split("/")[0]; // Remove path if present

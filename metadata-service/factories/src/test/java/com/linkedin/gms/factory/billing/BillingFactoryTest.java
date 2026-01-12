@@ -76,6 +76,50 @@ public class BillingFactoryTest extends AbstractTestNGSpringContextTests {
     assertTrue(billingHandler.isEnabled());
   }
 
+  @Test
+  public void testDeriveCustomerNameWithHttpsTrialUrl() {
+    BillingFactory factory = new BillingFactory();
+    String customerName = factory.deriveCustomerName("https://customer-name.trials.acryl.io");
+    assertEquals(
+        customerName, "customer-name", "Should extract customer name from HTTPS trial URL");
+  }
+
+  @Test
+  public void testDeriveCustomerNameWithHttpTrialUrl() {
+    BillingFactory factory = new BillingFactory();
+    String customerName = factory.deriveCustomerName("http://customer-name.trials.acryl.io");
+    assertEquals(customerName, "customer-name", "Should extract customer name from HTTP trial URL");
+  }
+
+  @Test
+  public void testDeriveCustomerNameWithoutProtocol() {
+    BillingFactory factory = new BillingFactory();
+    String customerName = factory.deriveCustomerName("customer-name.trials.acryl.io");
+    assertEquals(customerName, "customer-name", "Should extract customer name without protocol");
+  }
+
+  @Test
+  public void testDeriveCustomerNameWithPath() {
+    BillingFactory factory = new BillingFactory();
+    String customerName =
+        factory.deriveCustomerName("https://customer-name.trials.acryl.io/some/path");
+    assertEquals(customerName, "customer-name", "Should extract customer name and ignore path");
+  }
+
+  @Test
+  public void testDeriveCustomerNameWithUnderscores() {
+    BillingFactory factory = new BillingFactory();
+    String customerName = factory.deriveCustomerName("https://my_customer.trials.acryl.io");
+    assertEquals(customerName, "my_customer", "Should handle customer names with underscores");
+  }
+
+  @Test
+  public void testDeriveCustomerNameWithNoDot() {
+    BillingFactory factory = new BillingFactory();
+    String customerName = factory.deriveCustomerName("https://localhost");
+    assertEquals(customerName, "localhost", "Should return full hostname when no dot is present");
+  }
+
   @TestConfiguration
   @ComponentScan(basePackages = "com.linkedin.gms.factory.billing")
   static class BillingFactoryTestConfig {

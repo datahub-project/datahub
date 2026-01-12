@@ -4,6 +4,7 @@ import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import {
     CardDescription,
     CardTitle,
@@ -55,6 +56,7 @@ const FreeTrialContent = () => {
     const { educationSteps, setEducationSteps } = useContext(EducationStepsContext);
     const [menuOpen, setMenuOpen] = useState(false);
     const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
+    const { globalSettings } = useGlobalSettingsContext();
 
     // Query ingestion sources to check if user has connected any data sources
     const { data: ingestionSourcesData, loading: ingestionLoading } = useListIngestionSourcesQuery({
@@ -94,6 +96,8 @@ const FreeTrialContent = () => {
         const total = ingestionSourcesData?.listIngestionSources?.total || 0;
         return total > 0;
     }, [ingestionSourcesData]);
+
+    const sampleDataEnabled = globalSettings?.visualSettings?.sampleDataSettings?.enabled ?? false;
 
     const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
@@ -252,45 +256,46 @@ const FreeTrialContent = () => {
 
     return (
         <Container>
-            {hasSuccessfulIngestion ? (
-                <PageBanner
-                    icon={
-                        <Icon
-                            icon="CheckCircle"
-                            color="green"
-                            colorLevel={1000}
-                            size="lg"
-                            weight="fill"
-                            source="phosphor"
-                        />
-                    }
-                    content={
-                        <Text color="green" colorLevel={1000}>
-                            You&apos;ve successfully connected your data! Would you like to disable sample e-commerce
-                            data?
-                        </Text>
-                    }
-                    backgroundColor={colors.green[0]}
-                    actionText="Go to Settings"
-                    onAction={handleGoToSettings}
-                    actionColor={colors.green[1000]}
-                />
-            ) : (
-                <PageBanner
-                    icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
-                    content={
-                        <Text color="blue">
-                            Your free trial account has been loaded with sample data representing an imaginary
-                            e-commerce company. This sample data is meant to help you explore tool features, but you can
-                            connect your own company data as well.
-                        </Text>
-                    }
-                    backgroundColor={colors.blue[0]}
-                    actionText="Connect Your Data"
-                    onAction={handleConnectData}
-                    actionColor={colors.blue[1000]}
-                />
-            )}
+            {sampleDataEnabled &&
+                (hasSuccessfulIngestion ? (
+                    <PageBanner
+                        icon={
+                            <Icon
+                                icon="CheckCircle"
+                                color="green"
+                                colorLevel={1000}
+                                size="lg"
+                                weight="fill"
+                                source="phosphor"
+                            />
+                        }
+                        content={
+                            <Text color="green" colorLevel={1000}>
+                                You&apos;ve successfully connected your data! Would you like to disable sample
+                                e-commerce data?
+                            </Text>
+                        }
+                        backgroundColor={colors.green[0]}
+                        actionText="Go to Settings"
+                        onAction={handleGoToSettings}
+                        actionColor={colors.green[1000]}
+                    />
+                ) : (
+                    <PageBanner
+                        icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
+                        content={
+                            <Text color="blue">
+                                Your free trial account has been loaded with sample data representing an imaginary
+                                e-commerce company. This sample data is meant to help you explore tool features, but you
+                                can connect your own company data as well.
+                            </Text>
+                        }
+                        backgroundColor={colors.blue[0]}
+                        actionText="Connect Your Data"
+                        onAction={handleConnectData}
+                        actionColor={colors.blue[1000]}
+                    />
+                ))}
             {!isParentDismissed && (
                 <>
                     <Card
