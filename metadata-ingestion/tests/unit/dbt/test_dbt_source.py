@@ -2127,16 +2127,11 @@ def test_dbt_exposure_owner_from_name():
 
 def test_dbt_core_load_exposures():
     # Test that DBTCoreSource properly loads exposures
-    config = DBTCoreConfig.model_validate(
-        {
-            "manifest_path": "dummy_path",
-            "catalog_path": "dummy_path",
-            "target_platform": "postgres",
-        }
-    )
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.model_validate(create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
 
-    source = DBTCoreSource.__new__(DBTCoreSource)
-    source.config = config
+    # Manually set exposures to test load_exposures
     source._exposures = [
         DBTExposure(
             name="test_exposure",
@@ -2148,6 +2143,81 @@ def test_dbt_core_load_exposures():
     exposures = source.load_exposures()
     assert len(exposures) == 1
     assert exposures[0].name == "test_exposure"
+
+
+def test_dbt_cloud_load_exposures():
+    """Test that DBTCloudSource.load_exposures returns stored exposures."""
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    config_dict = {
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "999999",
+        "token": "test_token",
+        "target_platform": "postgres",
+    }
+    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
+
+    source = object.__new__(DBTCloudSource)
+    source.config = config
+    source._exposures = [
+        DBTExposure(
+            name="cloud_exposure",
+            unique_id="exposure.cloud.cloud_exposure",
+            type="dashboard",
+        )
+    ]
+
+    exposures = source.load_exposures()
+    assert len(exposures) == 1
+    assert exposures[0].name == "cloud_exposure"
+
+
+def test_dbt_exposure_dataclass_fields():
+    """Test DBTExposure dataclass with all optional fields."""
+    exposure = DBTExposure(
+        name="full_exposure",
+        unique_id="exposure.test.full_exposure",
+        type="ml",
+        owner_name="John Doe",
+        owner_email="john@example.com",
+        description="A test exposure",
+        url="https://example.com",
+        maturity="high",
+        depends_on=["model.test.upstream"],
+        tags=["tag1", "tag2"],
+        meta={"key": "value"},
+        dbt_package_name="test_package",
+        dbt_file_path="/path/to/exposure.yml",
+    )
+
+    assert exposure.name == "full_exposure"
+    assert exposure.type == "ml"
+    assert exposure.owner_name == "John Doe"
+    assert exposure.owner_email == "john@example.com"
+    assert exposure.description == "A test exposure"
+    assert exposure.url == "https://example.com"
+    assert exposure.maturity == "high"
+    assert exposure.depends_on == ["model.test.upstream"]
+    assert exposure.tags == ["tag1", "tag2"]
+    assert exposure.meta == {"key": "value"}
+    assert exposure.dbt_package_name == "test_package"
+    assert exposure.dbt_file_path == "/path/to/exposure.yml"
+
+
+def test_can_emit_exposures_property():
+    """Test can_emit_exposures property with different configs."""
+    # Test with exposures enabled (default)
+    config_enabled = DBTEntitiesEnabled()
+    assert config_enabled.can_emit_exposures is True
+
+    # Test with exposures disabled
+    config_disabled = DBTEntitiesEnabled(exposures=EmitDirective.NO)
+    assert config_disabled.can_emit_exposures is False
+
+    # Test with exposures set to ONLY
+    config_only = DBTEntitiesEnabled(exposures=EmitDirective.ONLY)
+    assert config_only.can_emit_exposures is True
 
 
 def test_create_exposure_mcps_basic():
