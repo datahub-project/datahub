@@ -295,7 +295,7 @@ For more information on setting up remote executors, see the [Remote Executor Se
 
 #### Using deployment section
 
-As an alternative to configuring settings from the CLI, all of these settings can also be set in the `deployment` field of the recipe.
+As an alternative to configuring settings from the CLI, they can also be set in the `deployment` field of the recipe.
 
 ```yml
 # deployment_recipe.yml
@@ -305,6 +305,8 @@ deployment:
   time_zone: "Europe/London"
   executor_id: "remote-executor-pool-1" # Optional: specify remote executor
   cli_version: "0.15.0.1" # Optional: specify CLI version
+  extra_pip: '["polars==1.35.2"]'
+  extra_env: "VAR1=value1,VAR2=value2"
 
 source: ...
 ```
@@ -317,7 +319,7 @@ CLI options will override corresponding values in the deployment section.
 
 #### Deployment Configuration Options
 
-All deployment options that can be specified via CLI flags can also be configured in the `deployment` section:
+These deployment options that can be specified via CLI flags can also be configured in the `deployment` section:
 
 | Field         | CLI Option      | Description                     | Default            |
 | ------------- | --------------- | ------------------------------- | ------------------ |
@@ -326,6 +328,8 @@ All deployment options that can be specified via CLI flags can also be configure
 | `time_zone`   | `--time-zone`   | Timezone for scheduled runs     | `"UTC"`            |
 | `executor_id` | `--executor-id` | Target executor for ingestion   | `"default"`        |
 | `cli_version` | `--cli-version` | CLI version for ingestion       | Server default     |
+| `extra_pip`   | `--extra-pip`   | Extra pip packages              | None               |
+| `extra_env`   | `--extra-env`   | Extra environment variables     | None               |
 
 #### Batch Deployment
 
