@@ -358,9 +358,6 @@ public class EntityAspectTest {
 
   @Test
   public void testPayloadValidatorInjection() {
-    // Test that SystemAspectValidators injected via payloadValidators list are actually invoked
-    // during withVersion() - addresses RyanHolstien feedback
-
     // Create mock validator
     com.linkedin.metadata.aspect.SystemAspectValidator mockValidator =
         mock(com.linkedin.metadata.aspect.SystemAspectValidator.class);
