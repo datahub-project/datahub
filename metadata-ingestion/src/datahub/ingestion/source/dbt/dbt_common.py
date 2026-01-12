@@ -1018,7 +1018,9 @@ class DBTExposure:
     description: Optional[str] = None
     url: Optional[str] = None
     maturity: Optional[str] = None  # high, medium, low
-    depends_on: List[str] = field(default_factory=list)  # list of upstream dbt node unique_ids
+    depends_on: List[str] = field(
+        default_factory=list
+    )  # list of upstream dbt node unique_ids
     tags: List[str] = field(default_factory=list)
     meta: Dict[str, Any] = field(default_factory=dict)
     dbt_package_name: Optional[str] = None

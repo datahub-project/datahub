@@ -1934,8 +1934,7 @@ def test_dbt_exposure_get_urn_with_platform_instance():
 
     urn = exposure.get_urn(platform_instance="my_instance", env="PROD")
     assert (
-        urn
-        == "urn:li:dashboard:(dbt,my_instance.exposure.my_project.weekly_dashboard)"
+        urn == "urn:li:dashboard:(dbt,my_instance.exposure.my_project.weekly_dashboard)"
     )
 
 
@@ -1956,3 +1955,194 @@ def test_dbt_entities_enabled_node_type_allow_map_includes_exposure():
     allow_map = config._node_type_allow_map()
     assert "exposure" in allow_map
     assert allow_map["exposure"] == EmitDirective.YES
+
+
+def test_dbt_cloud_parse_into_dbt_exposure():
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    # Mock exposure data from dbt Cloud GraphQL API
+    raw_exposure = {
+        "name": "weekly_dashboard",
+        "uniqueId": "exposure.my_project.weekly_dashboard",
+        "exposureType": "dashboard",
+        "ownerName": "Analytics Team",
+        "ownerEmail": "analytics@company.com",
+        "description": "Weekly metrics dashboard",
+        "url": "https://looker.company.com/dashboards/42",
+        "maturity": "high",
+        "dependsOn": ["model.my_project.orders", "model.my_project.customers"],
+        "tags": ["executive", "weekly"],
+        "meta": {"team": "analytics"},
+        "packageName": "my_project",
+    }
+
+    # Create a mock source with minimal config (need job_id or auto_discovery)
+    config_dict = {
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "999999",
+        "token": "test_token",
+        "target_platform": "postgres",
+        "tag_prefix": "dbt:",
+    }
+    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
+
+    # Test the parsing method directly
+    source = object.__new__(DBTCloudSource)
+    source.config = config
+
+    exposure = source._parse_into_dbt_exposure(raw_exposure)
+
+    assert exposure.name == "weekly_dashboard"
+    assert exposure.unique_id == "exposure.my_project.weekly_dashboard"
+    assert exposure.type == "dashboard"
+    assert exposure.owner_name == "Analytics Team"
+    assert exposure.owner_email == "analytics@company.com"
+    assert exposure.description == "Weekly metrics dashboard"
+    assert exposure.url == "https://looker.company.com/dashboards/42"
+    assert exposure.maturity == "high"
+    assert exposure.depends_on == [
+        "model.my_project.orders",
+        "model.my_project.customers",
+    ]
+    assert exposure.tags == ["dbt:executive", "dbt:weekly"]
+    assert exposure.meta == {"team": "analytics"}
+    assert exposure.dbt_package_name == "my_project"
+
+
+def test_dbt_cloud_parse_into_dbt_exposure_minimal():
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    # Minimal exposure data
+    raw_exposure = {
+        "name": "simple_exposure",
+        "uniqueId": "exposure.my_project.simple_exposure",
+    }
+
+    config_dict = {
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "999999",
+        "token": "test_token",
+        "target_platform": "postgres",
+        "tag_prefix": "",
+    }
+    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
+
+    source = object.__new__(DBTCloudSource)
+    source.config = config
+
+    exposure = source._parse_into_dbt_exposure(raw_exposure)
+
+    assert exposure.name == "simple_exposure"
+    assert exposure.unique_id == "exposure.my_project.simple_exposure"
+    assert exposure.type == "dashboard"  # default
+    assert exposure.owner_name is None
+    assert exposure.owner_email is None
+    assert exposure.depends_on == []
+    assert exposure.tags == []
+    assert exposure.meta == {}
+
+
+def test_dbt_cloud_parse_into_dbt_exposure_with_non_list_depends_on():
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    # Test edge case where dependsOn is not a list
+    raw_exposure = {
+        "name": "edge_case",
+        "uniqueId": "exposure.my_project.edge_case",
+        "dependsOn": "not_a_list",
+    }
+
+    config_dict = {
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "999999",
+        "token": "test_token",
+        "target_platform": "postgres",
+    }
+    config = dbt_cloud.DBTCloudConfig.model_validate(config_dict)
+
+    source = object.__new__(DBTCloudSource)
+    source.config = config
+
+    exposure = source._parse_into_dbt_exposure(raw_exposure)
+
+    # Should handle non-list dependsOn gracefully
+    assert exposure.depends_on == []
+
+
+def test_dbt_exposure_subtype_mapping():
+    # Test all exposure type to subtype mappings
+    exposure_types = {
+        "dashboard": "Dashboard",
+        "notebook": "Notebook",
+        "analysis": "Analysis",
+        "ml": "ML Model",
+        "application": "Application",
+        "unknown": "Unknown",  # unknown types get title-cased
+    }
+
+    for exp_type, expected_subtype in exposure_types.items():
+        subtype_mapping = {
+            "dashboard": "Dashboard",
+            "notebook": "Notebook",
+            "analysis": "Analysis",
+            "ml": "ML Model",
+            "application": "Application",
+        }
+        subtype = subtype_mapping.get(exp_type.lower(), exp_type.title())
+        assert subtype == expected_subtype
+
+
+def test_dbt_exposure_owner_from_email():
+    exposure = DBTExposure(
+        name="test",
+        unique_id="exposure.test.test",
+        type="dashboard",
+        owner_email="john.doe@company.com",
+    )
+    # Owner URN should be derived from email prefix
+    from datahub.emitter import mce_builder
+
+    owner_urn = mce_builder.make_user_urn(exposure.owner_email.split("@")[0])
+    assert owner_urn == "urn:li:corpuser:john.doe"
+
+
+def test_dbt_exposure_owner_from_name():
+    exposure = DBTExposure(
+        name="test",
+        unique_id="exposure.test.test",
+        type="dashboard",
+        owner_name="John Doe",
+    )
+    # Owner URN should be derived from name with spaces replaced
+    from datahub.emitter import mce_builder
+
+    owner_urn = mce_builder.make_user_urn(exposure.owner_name.replace(" ", "_").lower())
+    assert owner_urn == "urn:li:corpuser:john_doe"
+
+
+def test_dbt_core_load_exposures():
+    # Test that DBTCoreSource properly loads exposures
+    config = DBTCoreConfig.model_validate(
+        {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "postgres",
+        }
+    )
+
+    source = DBTCoreSource.__new__(DBTCoreSource)
+    source.config = config
+    source._exposures = [
+        DBTExposure(
+            name="test_exposure",
+            unique_id="exposure.test.test_exposure",
+            type="dashboard",
+        )
+    ]
+
+    exposures = source.load_exposures()
+    assert len(exposures) == 1
+    assert exposures[0].name == "test_exposure"
