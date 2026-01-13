@@ -282,6 +282,27 @@ class TestTemporaryCredentialsFile:
         with temporary_credentials_file(creds) as cred_path:
             os.unlink(cred_path)
 
+    def test_cleanup_failure_logs_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Cleanup should log warning when OSError occurs (e.g., permission denied)."""
+        creds = {"type": "service_account", "project_id": "test"}
+
+        with (
+            patch(
+                "datahub.ingestion.source.common.gcp_project_utils.os.unlink"
+            ) as mock_unlink,
+            caplog.at_level(logging.WARNING),
+        ):
+            mock_unlink.side_effect = OSError("Permission denied")
+            with temporary_credentials_file(creds):
+                pass
+
+        assert any(
+            "Failed to cleanup credentials file" in record.message
+            for record in caplog.records
+        )
+
 
 class TestFailFastPatternValidation:
     def test_deny_all_pattern_fails_fast(self) -> None:

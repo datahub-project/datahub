@@ -1100,6 +1100,87 @@ class TestErrorHandling:
         assert "Configuration error" in str(source.report.failures)
 
 
+class TestMixedProjectErrors:
+    """Test partial success scenarios with multiple projects."""
+
+    @patch("google.cloud.aiplatform.init")
+    def test_partial_success_with_mixed_error_types(self, mock_init: MagicMock) -> None:
+        """When some projects succeed and others fail with different errors."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(
+                project_ids=["project-ok", "project-denied", "project-notfound"],
+                region="us-west2",
+            ),
+        )
+        source._projects = [
+            GCPProject(id="project-ok", name="OK"),
+            GCPProject(id="project-denied", name="Denied"),
+            GCPProject(id="project-notfound", name="NotFound"),
+        ]
+
+        call_count = 0
+
+        def mock_process():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return
+                yield
+            elif call_count == 2:
+                raise PermissionDenied("Access denied")
+            else:
+                raise NotFound("Project not found")
+
+        with patch.object(source, "_process_current_project", side_effect=mock_process):
+            list(source.get_workunits_internal())
+
+        assert len(source.report.failures) == 2
+        assert len(source.report.warnings) >= 1
+        warning_msg = str(source.report.warnings)
+        assert "2" in warning_msg and "3" in warning_msg
+
+    @patch("google.cloud.aiplatform.init")
+    def test_all_projects_fail_with_different_errors(
+        self, mock_init: MagicMock
+    ) -> None:
+        """When all projects fail with different error types, error message includes all types."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(
+                project_ids=["proj-invalid", "proj-denied", "proj-notfound"],
+                region="us-west2",
+            ),
+        )
+        source._projects = [
+            GCPProject(id="proj-invalid", name="Invalid"),
+            GCPProject(id="proj-denied", name="Denied"),
+            GCPProject(id="proj-notfound", name="NotFound"),
+        ]
+
+        call_count = 0
+
+        def mock_process():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise InvalidArgument("Invalid config")
+            elif call_count == 2:
+                raise PermissionDenied("Access denied")
+            else:
+                raise NotFound("Not found")
+            yield
+
+        with (
+            patch.object(source, "_process_current_project", side_effect=mock_process),
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            list(source.get_workunits_internal())
+
+        assert "3 projects failed" in str(exc_info.value)
+        assert len(source.report.failures) == 3
+
+
 class TestCredentialManagement:
     def test_get_credentials_dict_returns_dict_when_credential_set(self) -> None:
         config = VertexAIConfig(
