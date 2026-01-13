@@ -114,8 +114,6 @@ logger = logging.getLogger(__name__)
 
 VERTEX_AI_RETRY_TIMEOUT = 600.0
 
-# Error context metadata for project-level errors
-# Maps exception type to (debug_cmd_template, troubleshooting_tips)
 _ERROR_CONTEXT: Dict[type, Tuple[str, str]] = {
     InvalidArgument: (
         "gcloud services enable aiplatform.googleapis.com --project={project_id}",

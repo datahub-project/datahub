@@ -58,7 +58,10 @@ class VertexAIConfig(EnvConfigMixin):
         if not v:
             return v
         if any(not p.strip() for p in v):
-            raise ValueError("project_ids contains empty values")
+            raise ValueError(
+                "project_ids contains empty values. "
+                "Remove empty strings or omit project_ids to use auto-discovery."
+            )
         if len(v) != len(set(v)):
             raise ValueError("project_ids contains duplicates")
         invalid = [p for p in v if not GCP_PROJECT_ID_PATTERN.match(p)]
@@ -154,6 +157,12 @@ class VertexAIConfig(EnvConfigMixin):
             project_id = values.pop("project_id", None)
             project_ids = values.get("project_ids")
             used_deprecated = False
+
+            if "project_ids" in values and project_ids == []:
+                raise ValueError(
+                    "project_ids cannot be an empty list. "
+                    "Either specify project IDs or omit the field to use auto-discovery."
+                )
 
             if not project_ids and project_id:
                 values["project_ids"] = [project_id]

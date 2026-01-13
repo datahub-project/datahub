@@ -963,6 +963,10 @@ class TestMultiProjectConfig:
                 "filtered out",
             ),
             (
+                {"project_ids": []},
+                "cannot be an empty list",
+            ),
+            (
                 {"project_ids": ["valid-project", "", "other-project"]},
                 "empty values",
             ),
