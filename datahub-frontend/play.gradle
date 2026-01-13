@@ -64,13 +64,12 @@ dependencies {
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
-  implementation externalDependency.akkaHttp
-  implementation externalDependency.akkaActor
-  implementation externalDependency.akkaStream
-  implementation externalDependency.akkaActorTyped
-  implementation externalDependency.akkaSlf4j
-  implementation externalDependency.akkaJackson
-  implementation externalDependency.akkaParsing
+  implementation externalDependency.pekkoHttp
+  implementation externalDependency.pekkoActor
+  implementation externalDependency.pekkoStream
+  implementation externalDependency.pekkoActorTyped
+  implementation externalDependency.pekkoSlf4j
+  implementation externalDependency.pekkoJackson
 
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava

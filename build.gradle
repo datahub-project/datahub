@@ -52,7 +52,7 @@ buildscript {
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
-  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.pekkoVersion = '1.0.2'
   ext.log4jVersion = '2.25.3'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.21'
@@ -113,13 +113,12 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
-    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:10.2.10", // akka-parsing is part of akka-http, so use akka http version
-    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
-    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
-    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
-    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
-    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'pekkoActor' : "org.apache.pekko:pekko-actor_$playScalaVersion:$pekkoVersion",
+    'pekkoStream' : "org.apache.pekko:pekko-stream_$playScalaVersion:$pekkoVersion",
+    'pekkoHttp' : "org.apache.pekko:pekko-http-core_$playScalaVersion:1.0.1",
+    'pekkoActorTyped' : "org.apache.pekko:pekko-actor-typed_$playScalaVersion:$pekkoVersion",
+    'pekkoSlf4j' : "org.apache.pekko:pekko-slf4j_$playScalaVersion:$pekkoVersion",
+    'pekkoJackson' : "org.apache.pekko:pekko-serialization-jackson_$playScalaVersion:$pekkoVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
