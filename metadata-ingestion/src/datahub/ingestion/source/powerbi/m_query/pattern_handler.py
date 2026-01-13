@@ -1358,6 +1358,8 @@ class OdbcLineage(AbstractLineage):
             current_platform = str(parsed.platform)
 
             # Parse database and table from URN name
+            # Athena has no schema level, so expect exactly 2 parts (database.table)
+            # Skip override if format is unexpected (e.g., unstripped catalog prefix)
             name_parts = urn_name.split(".")
             if len(name_parts) != 2:
                 return urn

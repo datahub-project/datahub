@@ -1086,28 +1086,10 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
 
 
 # Tests for athena_table_platform_override config validation
-def test_athena_table_platform_override_platform_with_spaces():
-    """Test that platform names with spaces raise validation error."""
+def test_athena_table_platform_override_unknown_platform_raises():
+    """Test that unknown platform names raise validation error."""
     with pytest.raises(ValueError) as exc_info:
         PowerBiDashboardSourceConfig(
-            tenant_id="test-tenant-id",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            athena_table_platform_override=[
-                AthenaPlatformOverride(
-                    database="database", table="table", platform="my sql"
-                ),
-            ],
-        )
-    assert "contains spaces" in str(exc_info.value)
-
-
-def test_athena_table_platform_override_unknown_platform_warns(caplog):
-    """Test that unknown platform names trigger a warning but don't fail."""
-    import logging
-
-    with caplog.at_level(logging.WARNING):
-        config = PowerBiDashboardSourceConfig(
             tenant_id="test-tenant-id",
             client_id="test-client-id",
             client_secret="test-client-secret",
@@ -1119,31 +1101,21 @@ def test_athena_table_platform_override_unknown_platform_warns(caplog):
                 ),
             ],
         )
-    # Config should be created successfully
-    assert len(config.athena_table_platform_override) == 1
-    assert config.athena_table_platform_override[0].platform == "mysq1"
-    # But a warning should be logged
-    assert "mysq1" in caplog.text
-    assert "not a recognized DataHub platform" in caplog.text
+    assert "mysq1" in str(exc_info.value)
+    assert "not a recognized DataHub platform" in str(exc_info.value)
 
 
-def test_athena_table_platform_override_known_platform_no_warning(caplog):
-    """Test that known platform names don't trigger warnings."""
-    import logging
-
-    with caplog.at_level(logging.WARNING):
-        config = PowerBiDashboardSourceConfig(
-            tenant_id="test-tenant-id",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            athena_table_platform_override=[
-                AthenaPlatformOverride(
-                    database="database", table="table", platform="mysql"
-                ),
-            ],
-        )
-    # Config should be created successfully
+def test_athena_table_platform_override_known_platform_valid():
+    """Test that known platform names are accepted."""
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="database", table="table", platform="mysql"
+            ),
+        ],
+    )
     assert len(config.athena_table_platform_override) == 1
     assert config.athena_table_platform_override[0].platform == "mysql"
-    # No warning should be logged for known platform
-    assert "not a recognized DataHub platform" not in caplog.text

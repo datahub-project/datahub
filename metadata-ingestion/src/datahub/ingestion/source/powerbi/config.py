@@ -301,11 +301,16 @@ class AthenaPlatformOverride(ConfigModel):
     """
 
     database: str = pydantic.Field(
-        description="The database name in the Athena query (after catalog stripping)."
+        min_length=1,
+        description="The database name in the Athena query (after catalog stripping).",
     )
-    table: str = pydantic.Field(description="The table name in the Athena query.")
+    table: str = pydantic.Field(
+        min_length=1,
+        description="The table name in the Athena query.",
+    )
     platform: str = pydantic.Field(
-        description="The target DataHub platform name (e.g., 'mysql', 'postgres')."
+        min_length=1,
+        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
     )
     dsn: Optional[str] = pydantic.Field(
         default=None,
@@ -693,21 +698,11 @@ class PowerBiDashboardSourceConfig(
         }
 
         for override in self.athena_table_platform_override:
-            # Validate platform format: no spaces allowed
-            if " " in override.platform:
+            if override.platform not in known_platforms:
                 raise ValueError(
                     f"athena_table_platform_override: platform '{override.platform}' "
-                    "contains spaces. Platform names should be lowercase without spaces "
-                    "(e.g., 'mysql', 'postgres', 'bigquery')."
-                )
-
-            # Warn if platform is not in the known list (custom platforms are allowed)
-            if override.platform not in known_platforms:
-                logger.warning(
-                    f"athena_table_platform_override: platform '{override.platform}' "
                     f"for {override.database}.{override.table} is not a recognized DataHub platform. "
-                    f"Known platforms: {sorted(known_platforms)}. "
-                    "If this is a custom platform, you can ignore this warning."
+                    f"Known platforms: {sorted(known_platforms)}."
                 )
 
         return self
