@@ -15,6 +15,7 @@ const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     justify-content: space-between;
     padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
     min-height: 38px;
+    height: 38px;
     cursor: pointer;
     border-radius: 6px;
     transition: background-color 0.15s ease;
@@ -57,19 +58,28 @@ const LeftContent = styled.div`
     overflow: hidden;
 `;
 
-const ExpandButton = styled.button<{ $hasChildren: boolean; $isExpanded: boolean }>`
-    display: ${(props) => (props.$hasChildren && props.$isExpanded ? 'flex' : 'none')};
+const IconSlot = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 20px;
+    margin-right: 8px;
+    flex-shrink: 0;
+`;
+
+const ExpandButton = styled.button<{ $isVisible: boolean }>`
+    display: flex;
     align-items: center;
     justify-content: center;
     width: 20px;
     height: 20px;
-    margin-right: 4px;
     padding: 0;
     border: none;
     background: transparent;
     cursor: pointer;
     color: inherit;
-    flex-shrink: 0;
+    visibility: ${(props) => (props.$isVisible ? 'visible' : 'hidden')};
 
     &:hover {
         opacity: 0.7;
@@ -79,7 +89,8 @@ const ExpandButton = styled.button<{ $hasChildren: boolean; $isExpanded: boolean
 const IconWrapper = styled.div<{ $isSelected: boolean }>`
     display: flex;
     align-items: center;
-    margin-right: 8px;
+    justify-content: center;
+    width: 20px;
     flex-shrink: 0;
 
     && svg {
@@ -156,6 +167,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     parentUrn,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
+    const [forceShowActions, setForceShowActions] = useState(false);
 
     const handleExpandClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -176,7 +188,34 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     };
 
     const showExpandButton = hasChildren && (isExpanded || isHovered);
-    const showIcon = !showExpandButton;
+
+    const renderIcon = () => {
+        if (showExpandButton) {
+            return (
+                <ExpandButton
+                    className="tree-item-expand-button"
+                    data-testid={`document-tree-expand-button-${urn}`}
+                    $isVisible
+                    onClick={handleExpandClick}
+                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                >
+                    {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
+                    {!isLoading && isExpanded && <CaretDown color={colors.gray[1800]} size={16} weight="bold" />}
+                    {!isLoading && !isExpanded && <CaretRight color={colors.gray[1800]} size={16} weight="bold" />}
+                </ExpandButton>
+            );
+        }
+
+        return (
+            <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
+                {hasChildren ? (
+                    <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
+                ) : (
+                    <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
+                )}
+            </IconWrapper>
+        );
+    };
 
     return (
         <TreeItemContainer
@@ -189,43 +228,21 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             onMouseLeave={() => setIsHovered(false)}
         >
             <LeftContent>
-                {showExpandButton && (
-                    <ExpandButton
-                        className="tree-item-expand-button"
-                        data-testid={`document-tree-expand-button-${urn}`}
-                        $hasChildren={hasChildren}
-                        $isExpanded={isExpanded || isHovered}
-                        onClick={handleExpandClick}
-                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                    >
-                        {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                        {!isLoading && isExpanded && <CaretDown color={colors.gray[1800]} size={16} weight="bold" />}
-                        {!isLoading && !isExpanded && <CaretRight color={colors.gray[1800]} size={16} weight="bold" />}
-                    </ExpandButton>
-                )}
-
-                {showIcon && (
-                    <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
-                        {hasChildren ? (
-                            <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
-                        ) : (
-                            <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
-                        )}
-                    </IconWrapper>
-                )}
+                <IconSlot>{renderIcon()}</IconSlot>
 
                 <Title $isSelected={isSelected} title={title}>
                     {title}
                 </Title>
             </LeftContent>
 
-            {!hideActions && isHovered && (
+            {!hideActions && (isHovered || forceShowActions) && (
                 <Actions className="tree-item-actions">
                     {!hideActionsMenu && (
                         <DocumentActionsMenu
                             documentUrn={urn}
                             currentParentUrn={parentUrn}
                             shouldNavigateOnDelete={isSelected}
+                            onMenuVisibilityChange={setForceShowActions}
                         />
                     )}
                     {!hideCreate && (

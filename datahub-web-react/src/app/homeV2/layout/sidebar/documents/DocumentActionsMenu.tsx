@@ -29,6 +29,7 @@ interface DocumentActionsMenuProps {
     shouldNavigateOnDelete?: boolean;
     onDelete?: (deletedNode: DocumentTreeNode | null) => void;
     onMove?: (documentUrn: string) => void;
+    onMenuVisibilityChange?: (open: boolean) => void;
 }
 
 export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
@@ -39,6 +40,7 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
     shouldNavigateOnDelete = false,
     onDelete,
     onMove,
+    onMenuVisibilityChange,
 }) => {
     const [showMoveDialog, setShowMoveDialog] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -90,7 +92,10 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                       type: 'item' as const,
                       key: 'move',
                       title: 'Move',
-                      onClick: () => setShowMoveDialog(true),
+                      onClick: () => {
+                          setShowMoveDialog(true);
+                          onMenuVisibilityChange?.(true);
+                      },
                   },
               ]
             : []),
@@ -135,12 +140,21 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
 
             <Popover
                 open={showMoveDialog}
-                onOpenChange={(visible) => !visible && setShowMoveDialog(false)}
+                trigger="click"
+                onOpenChange={(visible) => {
+                    setShowMoveDialog(visible);
+                    if (!visible) {
+                        onMenuVisibilityChange?.(false);
+                    }
+                }}
                 content={
                     <MoveDocumentPopover
                         documentUrn={documentUrn}
                         currentParentUrn={currentParentUrn}
-                        onClose={() => setShowMoveDialog(false)}
+                        onClose={() => {
+                            setShowMoveDialog(false);
+                            onMenuVisibilityChange?.(false);
+                        }}
                         onMove={onMove}
                     />
                 }
@@ -151,8 +165,10 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                     background: 'transparent',
                     boxShadow: 'none',
                 }}
+                getPopupContainer={() => document.body}
+                destroyTooltipOnHide
             >
-                <span style={{ position: 'absolute', pointerEvents: 'none' }} />
+                <span aria-hidden style={{ position: 'absolute', width: 0, height: 0 }} />
             </Popover>
 
             <ConfirmationModal
