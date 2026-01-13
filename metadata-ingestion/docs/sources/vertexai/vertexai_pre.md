@@ -82,6 +82,8 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 The Vertex AI source supports ingesting metadata from multiple GCP projects in a single run.
 
+> **💡 Tip**: For production deployments with multiple projects, see the [Multi-Project Configuration Best Practices](#-multi-project-configuration-best-practices) section below for performance tuning guidance.
+
 #### Project Selection Priority
 
 Projects are selected using the following priority:
@@ -212,6 +214,153 @@ The legacy `project_id` config is automatically converted to `project_ids`. No i
 - **Total failure**: If ALL projects fail, the ingestion run fails with an error
 - **Discovery failure**: If auto-discovery fails, the run fails immediately
 - **Rate limits**: API quota errors are automatically retried with exponential backoff
+
+#### ⚙️ Multi-Project Configuration Best Practices
+
+When enabling multi-project scanning, you're potentially going from ingesting 1 project to ingesting 10, 50, or even 100+ projects. This fundamentally changes the performance profile, quota usage, and operational characteristics of the connector.
+
+**Performance Implications:**
+
+- **API Call Multiplication**: For each project, the connector makes ~5-10 API calls to list Vertex AI resources. Scanning 50 projects results in 250-500 API calls per ingestion run.
+- **Memory & Metadata Volume**: Each project's metadata is held in memory during ingestion. Large projects with hundreds of models can result in significant memory usage.
+- **Ingestion Duration**:
+  - 10 projects: ~2-5 minutes
+  - 50 projects: ~10-20 minutes
+  - 100+ projects: 30+ minutes (approaches DataHub ingestion timeout limits)
+
+**GCP Rate Limiting & Quotas:**
+
+Vertex AI API quotas (typical defaults):
+
+- Read requests: 300 per minute per project
+- List operations: 60 per minute per project
+
+If scanning 50 projects in parallel, you could hit:
+
+- 50 projects × 5 API calls = 250 requests
+- Default quota: 300/min → easily exceeded if projects are busy
+
+**Start Small and Scale Gradually:**
+
+Recommended approach:
+
+1. Start with 5-10 projects - Test performance and monitor quota usage
+2. Monitor ingestion duration - Check DataHub logs for completion time
+3. Scale to 20-50 projects - Adjust schedule frequency based on duration
+4. For 100+ projects - Consider incremental ingestion or splitting into multiple connector instances
+
+**Project Count Guidelines:**
+
+| Project Count | Expected Duration | Recommended Schedule | Notes                            |
+| ------------- | ----------------- | -------------------- | -------------------------------- |
+| 1-10          | 2-5 minutes       | Hourly               | Good for real-time monitoring    |
+| 10-50         | 10-20 minutes     | Every 2-4 hours      | Balance freshness vs load        |
+| 50-100        | 20-40 minutes     | Every 6-12 hours     | Watch for quota issues           |
+| 100+          | 40+ minutes       | Daily + incremental  | Split across multiple connectors |
+
+**Use `project_labels` to Filter Relevant Projects:**
+
+Instead of scanning all projects:
+
+❌ **Bad**: Scans ALL projects in org (could be hundreds)
+
+```yaml
+# No project_ids or project_labels = auto-discover all
+region: us-central1
+```
+
+✅ **Good**: Filter to ML/AI projects only
+
+```yaml
+project_labels:
+  - "env:production"
+  - "team:ml-platform"
+region: us-central1
+```
+
+✅ **Better**: Explicit list for critical projects
+
+```yaml
+project_ids:
+  - "prod-ml-project-1"
+  - "prod-ml-project-2"
+  - "prod-recommendations"
+region: us-central1
+```
+
+**Monitor GCP API Quotas:**
+
+Check your quota usage:
+
+```bash
+# View Vertex AI API quotas
+gcloud services quotas list \
+  --service=aiplatform.googleapis.com \
+  --consumer=projects/YOUR_PROJECT \
+  --filter="metric.type=aiplatform.googleapis.com/quota/read_requests"
+```
+
+If hitting quota limits:
+
+1. Request quota increase from GCP (can take 24-48 hours)
+2. Reduce scan frequency - Switch from hourly to every 4-6 hours
+3. Split projects across connectors - Run multiple DataHub sources with different project subsets
+4. Enable incremental ingestion - Only fetch changed resources (requires DataHub 0.10.0+)
+
+**Performance Tuning:**
+
+If ingestion is slow (>30 minutes):
+
+1. Check project activity levels:
+   - Projects with 1000+ models → slower
+   - Empty/inactive projects → skip them with labels
+2. Reduce parallelism if hitting rate limits (DataHub 0.11.0+):
+   ```yaml
+   max_workers: 5 # Limit concurrent API calls
+   ```
+3. Consider incremental mode:
+   ```yaml
+   stateful_ingestion:
+     enabled: true
+     # Only fetch resources modified in last 24 hours
+   ```
+
+**Service Account Permissions Planning:**
+
+For multi-project scanning:
+
+- ✅ **Org-level permissions** (when using `project_labels` or auto-discovery):
+  - Requires `resourcemanager.projects.list` at org level
+  - Requires `aiplatform.models.list` on each project
+- ❌ **Project-level permissions won't work** with `project_labels`:
+  - You'll get "no projects detected" errors
+  - See troubleshooting section
+
+**Cost Considerations:**
+
+API costs (GCP charges for API calls):
+
+- Vertex AI List operations: ~$0.0001 per call
+- 50 projects × 10 calls × 24 runs/day = $0.12/day = $43/year
+- Not significant, but scales with project count
+
+**Error Handling Expectations:**
+
+Common scenarios:
+
+1. **Some projects fail**: Connector continues with other projects (logged as warnings)
+2. **Permission denied on 1 project**: Other projects still ingest successfully
+3. **Quota exceeded**: Entire run may fail - reduce frequency or request quota increase
+4. **Timeout errors**: Reduce project count or enable incremental ingestion
+
+**Monitoring & Alerting:**
+
+Set up alerts for:
+
+- Ingestion duration > 30 minutes (approaching timeout)
+- GCP quota usage > 80% (via GCP Monitoring)
+- Failed ingestion runs (via DataHub monitoring)
+- Increasing error rates in connector logs
 
 ### Troubleshooting
 
