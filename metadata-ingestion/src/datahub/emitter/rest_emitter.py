@@ -20,6 +20,7 @@ from typing import (
     Sequence,
     Tuple,
     Union,
+    cast,
     overload,
 )
 
@@ -28,6 +29,7 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 from typing_extensions import deprecated
+from urllib3 import HTTPResponse
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
@@ -116,17 +118,20 @@ BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
 
 
 class WeightedRetry(Retry):
+    _429_count: Optional[int]
+
     def increment(
         self,
-        method=None,
-        url=None,
-        response=None,
-        error=None,
-        _pool=None,
-        _stacktrace=None,
-    ):
-        handle_429 = response and response.status == 429 and isinstance(self.total, int)
-        if handle_429:
+        method: Optional[str] = None,
+        url: Optional[str] = None,
+        response: Optional[HTTPResponse] = None,
+        error: Optional[Exception] = None,
+        _pool: Any = None,
+        _stacktrace: Any = None,
+    ) -> WeightedRetry:
+        if handle_429 := (
+            response and response.status == 429 and isinstance(self.total, int)
+        ):
             _429_count = getattr(self, "_429_count", 0)
 
             num_retries_left = (self.total - 1) * _429_RETRY_MULTIPLIER + (
@@ -142,7 +147,10 @@ class WeightedRetry(Retry):
                 )
             )
 
-        r = super().increment(method, url, response, error, _pool, _stacktrace)
+        r = cast(
+            WeightedRetry,
+            super().increment(method, url, response, error, _pool, _stacktrace),
+        )
 
         if hasattr(self, "_429_count"):
             r._429_count = self._429_count

@@ -69,7 +69,7 @@ def get_rest_emitter_429_retry_multiplier() -> int:
 
     Number of retries will effectively be this value * get_rest_emitter_default_retry_max_times().
     """
-    return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2"))
+    return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
 
 
 def get_rest_emitter_batch_max_payload_bytes() -> int:

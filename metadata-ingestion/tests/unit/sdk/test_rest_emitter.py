@@ -1942,7 +1942,7 @@ class TestWeightedRetry:
             retry_count = 0
 
             # Count how many 429 retries we can do before exhausting retries
-            while result.total > 0:
+            while result.total:
                 result = result.increment(response=mock_response)
                 retry_count += 1
                 if retry_count > 10:  # Safety check
