@@ -436,3 +436,102 @@ If these conditions are not met, warnings will appear in the ingestion report:
 > **Note: Limitations**
 >
 > Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
+
+### Exposures
+
+DataHub supports ingesting [dbt exposures](https://docs.getdbt.com/docs/build/exposures) - downstream consumers of your dbt models such as dashboards, notebooks, ML models, and applications.
+
+#### What are dbt Exposures?
+
+Exposures define how your dbt models are used downstream. They help you understand the full picture of your data ecosystem by documenting:
+
+- **Dashboards** - BI tools like Looker, Tableau, or Metabase
+- **Notebooks** - Jupyter notebooks or other analysis tools
+- **ML Models** - Machine learning pipelines consuming your data
+- **Applications** - Apps or services that use your data
+- **Analysis** - Ad-hoc analysis or reports
+
+#### How Exposures Map to DataHub
+
+dbt exposures are ingested as **Dashboard** entities in DataHub, with the exposure type preserved as a subtype:
+
+| dbt Exposure Type | DataHub SubType |
+|-------------------|-----------------|
+| `dashboard`       | Dashboard       |
+| `notebook`        | Notebook        |
+| `ml`              | ML Model        |
+| `application`     | Application     |
+| `analysis`        | Analysis        |
+
+#### Configuration
+
+Exposures are enabled by default. You can control their emission using the `entities_enabled.exposures` config:
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: _path_to_manifest_json
+    catalog_path: _path_to_catalog_json
+    target_platform: postgres
+    entities_enabled:
+      exposures: Yes  # Default - emit exposures
+      # exposures: No  # Disable exposure ingestion
+      # exposures: Only  # Only emit exposures, skip other entities
+```
+
+#### Lineage
+
+Exposures automatically create lineage relationships to their upstream dbt models. The `depends_on` field in your exposure definition determines which models appear as upstreams:
+
+```yaml
+# models/exposures.yml
+exposures:
+  - name: weekly_metrics_dashboard
+    type: dashboard
+    owner:
+      email: analytics@company.com
+    depends_on:
+      - ref('orders')
+      - ref('customers')
+    url: https://bi.company.com/dashboards/weekly-metrics
+```
+
+This creates lineage: `orders` → `weekly_metrics_dashboard` and `customers` → `weekly_metrics_dashboard`.
+
+#### Owner Resolution
+
+Exposure owners are mapped to DataHub users:
+
+- **`owner.email`** (recommended): Uses the full email address for the user URN (e.g., `analytics@company.com` → `urn:li:corpuser:analytics@company.com`)
+- **`owner.name`** (fallback): Converts name to lowercase with underscores (e.g., `"John Doe"` → `urn:li:corpuser:john_doe`)
+
+:::note
+When only `owner.name` is provided (without email), the generated URN may not match existing users in DataHub. We recommend always providing `owner.email` for accurate user matching.
+:::
+
+#### Example Output
+
+An exposure like:
+
+```yaml
+exposures:
+  - name: weekly_metrics_dashboard
+    type: dashboard
+    description: Weekly business metrics for leadership
+    owner:
+      email: analytics@company.com
+    maturity: high
+    url: https://bi.company.com/dashboards/123
+    depends_on:
+      - ref('orders')
+```
+
+Will create a Dashboard entity in DataHub with:
+- **Title**: `weekly_metrics_dashboard`
+- **Description**: `Weekly business metrics for leadership`
+- **SubType**: `Dashboard`
+- **Owner**: `urn:li:corpuser:analytics@company.com`
+- **External URL**: `https://bi.company.com/dashboards/123`
+- **Upstream Lineage**: Link to the `orders` dbt model
+- **Custom Properties**: `exposure_type`, `maturity`, `dbt_unique_id`

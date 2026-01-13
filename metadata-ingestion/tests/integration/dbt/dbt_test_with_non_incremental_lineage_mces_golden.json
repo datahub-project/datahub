@@ -4369,7 +4369,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:analytics",
+                    "owner": "urn:li:corpuser:analytics@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -4508,7 +4508,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:ds",
+                    "owner": "urn:li:corpuser:ds@example.com",
                     "type": "DATAOWNER"
                 }
             ],

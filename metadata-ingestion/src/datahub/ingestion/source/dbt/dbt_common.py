@@ -1518,15 +1518,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             # Ownership aspect
+            # Use full email for better uniqueness and consistency
             if exposure.owner_email or exposure.owner_name:
                 owner_urn = None
                 if exposure.owner_email:
-                    owner_urn = mce_builder.make_user_urn(
-                        exposure.owner_email.split("@")[0]
-                    )
+                    # Use full email to avoid collisions (e.g., analytics@a.com vs analytics@b.com)
+                    owner_urn = mce_builder.make_user_urn(exposure.owner_email)
                 elif exposure.owner_name:
+                    # Fallback to name-based URN when email not available
+                    # Note: This may not match existing users in DataHub
                     owner_urn = mce_builder.make_user_urn(
                         exposure.owner_name.replace(" ", "_").lower()
+                    )
+                    logger.debug(
+                        f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
+                        f"without email - URN may not match existing users"
                     )
 
                 if owner_urn:
