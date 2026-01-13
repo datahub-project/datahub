@@ -23,6 +23,7 @@ from datahub.ingestion.source.common.gcp_project_utils import (
     _search_projects_with_retry,
     _validate_pattern_against_explicit_list,
     _validate_pattern_before_discovery,
+    gcp_credentials_context,
     get_projects,
     get_projects_by_labels,
     get_projects_from_explicit_list,
@@ -327,10 +328,6 @@ class TestFailFastPatternValidation:
 
 class TestGcpCredentialsContext:
     def test_with_credentials_sets_env_var(self) -> None:
-        from datahub.ingestion.source.common.gcp_project_utils import (
-            gcp_credentials_context,
-        )
-
         os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
         creds = {"type": "service_account", "project_id": "test"}
         with gcp_credentials_context(creds):
@@ -339,13 +336,53 @@ class TestGcpCredentialsContext:
         assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
 
     def test_without_credentials_uses_adc(self) -> None:
-        from datahub.ingestion.source.common.gcp_project_utils import (
-            gcp_credentials_context,
-        )
-
         os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
         with gcp_credentials_context(None):
             assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+
+    def test_cleans_up_temp_file_on_exit(self) -> None:
+        """Verify temporary credential file is deleted after context exits."""
+        creds = {"type": "service_account", "project_id": "test"}
+        temp_path = None
+        with gcp_credentials_context(creds):
+            temp_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+            assert os.path.exists(temp_path)
+        assert not os.path.exists(temp_path)
+
+    def test_cleans_up_on_exception(self) -> None:
+        """Verify cleanup happens even when exception is raised inside context."""
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+        creds = {"type": "service_account", "project_id": "test"}
+        temp_path = None
+
+        with pytest.raises(RuntimeError), gcp_credentials_context(creds):
+            temp_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+            raise RuntimeError("simulated failure")
+
+        assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+        assert temp_path is not None
+        assert not os.path.exists(temp_path)
+
+    def test_restores_original_env_var_on_exception(self) -> None:
+        """Verify original GOOGLE_APPLICATION_CREDENTIALS is restored after exception."""
+        original_path = "/original/credentials.json"
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_path
+        creds = {"type": "service_account", "project_id": "test"}
+
+        try:
+            with pytest.raises(RuntimeError), gcp_credentials_context(creds):
+                raise RuntimeError("simulated failure")
+
+            assert os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == original_path
+        finally:
+            os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+
+    def test_handles_externally_deleted_file(self) -> None:
+        """Verify graceful handling when temp file is deleted externally (container env)."""
+        creds = {"type": "service_account", "project_id": "test"}
+        with gcp_credentials_context(creds):
+            temp_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+            os.unlink(temp_path)
 
 
 class TestWithTemporaryCredentials:
