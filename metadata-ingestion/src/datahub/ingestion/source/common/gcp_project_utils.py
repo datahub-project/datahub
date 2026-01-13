@@ -252,10 +252,27 @@ def get_gcp_error_type(exc: Exception) -> str:
 def _handle_discovery_error(
     exc: GoogleAPICallError,
     debug_cmd: str,
+    discovery_method: str = "project discovery",
 ) -> GCPProjectDiscoveryError:
     error_type = get_gcp_error_type(exc)
     error_msg = f"{error_type}: {exc}. Debug: {debug_cmd}"
     if isinstance(exc, PermissionDenied):
+        if "label" in discovery_method.lower() or discovery_method == "auto-discovery":
+            return GCPProjectDiscoveryError(
+                f"Permission denied: {discovery_method} requires organization-level permissions.\n\n"
+                f"Your service account needs 'resourcemanager.projects.list' permission at the "
+                f"organization or folder level to list and filter projects.\n\n"
+                f"To fix:\n"
+                f"  1. Grant the 'Browser' role at org/folder level:\n"
+                f"     gcloud organizations add-iam-policy-binding ORGANIZATION_ID \\\n"
+                f"       --member='serviceAccount:SERVICE_ACCOUNT_EMAIL' \\\n"
+                f"       --role='roles/browser'\n\n"
+                f"  2. Or use explicit project_ids instead (doesn't require org-level permissions):\n"
+                f"     project_ids:\n"
+                f"       - your-project-1\n"
+                f"       - your-project-2\n\n"
+                f"Debug: {debug_cmd}"
+            )
         return GCPProjectDiscoveryError(
             f"Permission denied when listing GCP projects. {error_msg}"
         )
@@ -458,14 +475,22 @@ def get_projects_by_labels(
 
         if not projects:
             raise GCPProjectDiscoveryError(
-                f"No projects found with labels {labels}. "
-                f"Verify labels exist and service account has access. Debug: {debug_cmd}"
+                f"No projects found with labels {labels}.\n\n"
+                f"Possible causes:\n"
+                f"  1. No projects have these labels - Verify labels exist:\n"
+                f"     {debug_cmd}\n"
+                f"  2. Missing org-level permissions - Label-based discovery requires "
+                f"'resourcemanager.projects.list' at organization/folder level.\n"
+                f"     If you only have project-level permissions, use explicit project_ids instead.\n\n"
+                f"Debug: {debug_cmd}"
             )
 
         return _filter_and_validate(projects, pattern, f"label search {labels}")
 
     except GoogleAPICallError as e:
-        raise _handle_discovery_error(e, debug_cmd) from e
+        raise _handle_discovery_error(
+            e, debug_cmd, discovery_method="label-based discovery"
+        ) from e
 
 
 def get_projects(
@@ -493,7 +518,9 @@ def get_projects(
     try:
         discovered_projects = list(_search_projects_with_retry(client, "state:ACTIVE"))
     except GoogleAPICallError as e:
-        raise _handle_discovery_error(e, debug_cmd) from e
+        raise _handle_discovery_error(
+            e, debug_cmd, discovery_method="auto-discovery"
+        ) from e
 
     if not discovered_projects:
         raise GCPProjectDiscoveryError(

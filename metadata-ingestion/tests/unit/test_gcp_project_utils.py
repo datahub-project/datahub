@@ -54,7 +54,7 @@ class TestAutoDiscovery:
     @pytest.mark.parametrize(
         "exception,error_match",
         [
-            (PermissionDenied("No access"), "Permission denied"),
+            (PermissionDenied("No access"), "organization-level permissions"),
             (GoogleAPICallError("API error"), "API error"),
             (DeadlineExceeded("Timeout"), "API timeout"),
             (ServiceUnavailable("Down"), "Service unavailable"),
@@ -118,7 +118,7 @@ class TestLabelBasedDiscovery:
     @pytest.mark.parametrize(
         "exception,error_match",
         [
-            (PermissionDenied("No access"), "Permission denied"),
+            (PermissionDenied("No access"), "organization-level permissions"),
             (DeadlineExceeded("Timeout"), "API timeout"),
             (ServiceUnavailable("Down"), "Service unavailable"),
         ],
@@ -132,6 +132,23 @@ class TestLabelBasedDiscovery:
             mock_retry.return_value = lambda f: f
             with pytest.raises(GCPProjectDiscoveryError, match=error_match):
                 get_projects_by_labels(["env:prod"], mock_client)
+
+    def test_permission_denied_provides_targeted_error_message(self) -> None:
+        """Permission denied during label discovery should explain org-level permission requirement."""
+        mock_client = MagicMock()
+        mock_client.search_projects.side_effect = PermissionDenied("Permission denied")
+        with patch(
+            "datahub.ingestion.source.common.gcp_project_utils.gcp_api_retry"
+        ) as mock_retry:
+            mock_retry.return_value = lambda f: f
+            with pytest.raises(GCPProjectDiscoveryError) as exc_info:
+                get_projects_by_labels(["env:prod"], mock_client)
+
+            error_msg = str(exc_info.value)
+            assert "organization-level permissions" in error_msg
+            assert "resourcemanager.projects.list" in error_msg
+            assert "Browser" in error_msg or "roles/browser" in error_msg
+            assert "explicit project_ids" in error_msg or "project_ids" in error_msg
 
 
 class TestTransientErrorDetection:

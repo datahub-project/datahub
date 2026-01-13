@@ -67,7 +67,9 @@ class VertexAIConfig(EnvConfigMixin):
             "Ingests projects with the specified labels. Format: 'key:value' or 'key' (for any value). "
             "Example: ['env:prod', 'team:ml']. If project_ids is set, this is ignored. "
             "The ingestion process filters projects by label first, then applies project_id_pattern. "
-            "If no projects match both criteria, ingestion will fail at runtime."
+            "If no projects match both criteria, ingestion will fail at runtime. "
+            "Note: Label-based discovery requires organization-level 'resourcemanager.projects.list' "
+            "permission. If you only have project-level permissions, use explicit project_ids instead."
         ),
     )
 
