@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -24,28 +25,103 @@ from datahub.configuration.common import AllowDenyPattern
 
 logger = logging.getLogger(__name__)
 
+GCP_PROJECT_ID_PATTERN = re.compile(r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
+LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*(?::[a-z0-9_-]+)?$")
+
+RETRY_INITIAL_DELAY = 1.0
+RETRY_MAX_DELAY = 60.0
+RETRY_MULTIPLIER = 2.0
+RETRY_DEFAULT_TIMEOUT = 300.0
+
+
+class GCPValidationError(ValueError):
+    """Base exception for GCP validation errors."""
+
+    pass
+
+
+def validate_project_id_format(project_id: str) -> None:
+    if not GCP_PROJECT_ID_PATTERN.match(project_id):
+        raise GCPValidationError(
+            f"Invalid project ID format: '{project_id}'. "
+            "Must be 6-30 characters, lowercase letters, digits, and hyphens. "
+            "Must start with a letter and end with a letter or digit."
+        )
+
+
+def validate_project_id_list(
+    project_ids: List[str], *, allow_empty: bool = True
+) -> None:
+    if not project_ids:
+        if not allow_empty:
+            raise GCPValidationError(
+                "project_ids cannot be an empty list. "
+                "Either specify project IDs or omit the field to use auto-discovery."
+            )
+        return
+
+    empty_values = [pid for pid in project_ids if not pid.strip()]
+    if empty_values:
+        raise GCPValidationError(
+            "project_ids contains empty values. "
+            "Remove empty strings or omit project_ids to use auto-discovery."
+        )
+
+    seen: set[str] = set()
+    duplicates: List[str] = []
+    for pid in project_ids:
+        if pid in seen:
+            duplicates.append(pid)
+        else:
+            seen.add(pid)
+    if duplicates:
+        raise GCPValidationError(f"project_ids contains duplicates: {duplicates}")
+
+    invalid = [pid for pid in project_ids if not GCP_PROJECT_ID_PATTERN.match(pid)]
+    if invalid:
+        raise GCPValidationError(
+            f"Invalid project_ids format: {invalid}. "
+            "Must be 6-30 chars, lowercase letters/numbers/hyphens, "
+            "start with letter, end with letter or number."
+        )
+
+
+def validate_project_label_format(label: str) -> None:
+    if not LABEL_PATTERN.match(label):
+        raise GCPValidationError(
+            f"Invalid project_labels format: '{label}'. "
+            "Must be 'key' or 'key:value' format. Example: env:prod"
+        )
+
+
+def validate_project_label_list(project_labels: List[str]) -> None:
+    if not project_labels:
+        return
+
+    empty_values = [label for label in project_labels if not label.strip()]
+    if empty_values:
+        raise GCPValidationError("project_labels contains empty values")
+
+    seen: set[str] = set()
+    duplicates: List[str] = []
+    for label in project_labels:
+        if label in seen:
+            duplicates.append(label)
+        else:
+            seen.add(label)
+    if duplicates:
+        raise GCPValidationError(f"project_labels contains duplicates: {duplicates}")
+
+    invalid = [label for label in project_labels if not LABEL_PATTERN.match(label)]
+    if invalid:
+        raise GCPValidationError(
+            f"Invalid project_labels format: {invalid}. "
+            "Must be 'key' or 'key:value' format. Example: env:prod"
+        )
+
 
 @contextmanager
 def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str]:
-    """
-    Context manager for temporary GCP credentials file.
-
-    Creates a temporary JSON credentials file that is automatically cleaned up
-    when exiting the context, even on exceptions. This is more reliable than
-    atexit for containerized environments where SIGKILL may bypass cleanup.
-
-    Args:
-        credentials_dict: Dictionary containing GCP service account credentials
-
-    Yields:
-        Path to the temporary credentials file
-
-    Example:
-        with temporary_credentials_file(creds_dict) as cred_path:
-            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = cred_path
-            # ... do work ...
-        # File is automatically deleted here
-    """
     temp_file = tempfile.NamedTemporaryFile(
         mode="w",
         delete=False,
@@ -101,7 +177,6 @@ def gcp_credentials_context(
 
 @contextmanager
 def with_temporary_credentials(credentials_path: str) -> Iterator[None]:
-    """Temporarily set GOOGLE_APPLICATION_CREDENTIALS, restoring on exit."""
     original = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     try:
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
@@ -114,7 +189,6 @@ def with_temporary_credentials(credentials_path: str) -> Iterator[None]:
 
 
 def is_gcp_transient_error(exc: Exception) -> bool:
-    """Check if a GCP API error is transient and should be retried."""
     if isinstance(exc, ResourceExhausted):
         return True
     if isinstance(exc, (DeadlineExceeded, ServiceUnavailable)):
@@ -128,14 +202,8 @@ def is_gcp_transient_error(exc: Exception) -> bool:
 
 T = TypeVar("T")
 
-RETRY_INITIAL_DELAY = 1.0
-RETRY_MAX_DELAY = 60.0
-RETRY_MULTIPLIER = 2.0
-RETRY_DEFAULT_TIMEOUT = 300.0
-
 
 def _is_transient_error_predicate(exc: BaseException) -> bool:
-    """Retry predicate wrapper for is_gcp_transient_error."""
     if isinstance(exc, Exception) and is_gcp_transient_error(exc):
         logger.debug("Transient GCP error, retrying: %s", exc)
         return True
@@ -143,7 +211,6 @@ def _is_transient_error_predicate(exc: BaseException) -> bool:
 
 
 def gcp_api_retry(timeout: float = RETRY_DEFAULT_TIMEOUT) -> retry.Retry:
-    """Standard retry configuration for GCP API calls."""
     return retry.Retry(
         predicate=_is_transient_error_predicate,
         initial=RETRY_INITIAL_DELAY,
@@ -159,18 +226,14 @@ def call_with_retry(
     timeout: float = RETRY_DEFAULT_TIMEOUT,
     **kwargs: Any,
 ) -> T:
-    """Execute a GCP API call with standard retry logic."""
     return gcp_api_retry(timeout)(func)(*args, **kwargs)
 
 
 class GCPProjectDiscoveryError(Exception):
-    """Exception for project discovery failures."""
-
     pass
 
 
 def get_gcp_error_type(exc: Exception) -> str:
-    """Get a user-friendly error type name for a GCP exception."""
     if isinstance(exc, PermissionDenied):
         return "Permission denied"
     if isinstance(exc, DeadlineExceeded):
@@ -190,7 +253,6 @@ def _handle_discovery_error(
     exc: GoogleAPICallError,
     debug_cmd: str,
 ) -> GCPProjectDiscoveryError:
-    """Convert GoogleAPICallError to GCPProjectDiscoveryError."""
     error_type = get_gcp_error_type(exc)
     error_msg = f"{error_type}: {exc}. Debug: {debug_cmd}"
     if isinstance(exc, PermissionDenied):
@@ -283,7 +345,6 @@ def _filter_and_validate(
     pattern: AllowDenyPattern,
     source: str,
 ) -> List["GCPProject"]:
-    """Filter projects by pattern and raise if all filtered out."""
     filtered = _filter_projects_by_pattern(projects, pattern)
     if not filtered:
         raise GCPProjectDiscoveryError(

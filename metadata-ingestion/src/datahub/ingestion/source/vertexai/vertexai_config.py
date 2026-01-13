@@ -11,13 +11,13 @@ from pydantic.functional_validators import ModelWrapValidatorHandler
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_project_utils import (
+    GCPValidationError,
+    validate_project_id_list,
+    validate_project_label_list,
+)
 
 logger = logging.getLogger(__name__)
-
-LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*(?::[a-z0-9_-]+)?$")
-# GCP project IDs: 6-30 chars, lowercase letters, digits, hyphens
-# Must start with letter, end with letter or digit
-GCP_PROJECT_ID_PATTERN = re.compile(r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
 
 
 def _check_pattern_filters_all(
@@ -55,22 +55,10 @@ class VertexAIConfig(EnvConfigMixin):
     @field_validator("project_ids")
     @classmethod
     def validate_project_ids_field(cls, v: List[str]) -> List[str]:
-        if not v:
-            return v
-        if any(not p.strip() for p in v):
-            raise ValueError(
-                "project_ids contains empty values. "
-                "Remove empty strings or omit project_ids to use auto-discovery."
-            )
-        if len(v) != len(set(v)):
-            raise ValueError("project_ids contains duplicates")
-        invalid = [p for p in v if not GCP_PROJECT_ID_PATTERN.match(p)]
-        if invalid:
-            raise ValueError(
-                f"Invalid project_ids format: {invalid}. "
-                "Must be 6-30 chars, lowercase letters/numbers/hyphens, "
-                "start with letter, end with letter or number."
-            )
+        try:
+            validate_project_id_list(v, allow_empty=True)
+        except GCPValidationError as e:
+            raise ValueError(str(e)) from e
         return v
 
     project_labels: List[str] = Field(
@@ -86,18 +74,10 @@ class VertexAIConfig(EnvConfigMixin):
     @field_validator("project_labels")
     @classmethod
     def validate_project_labels_field(cls, v: List[str]) -> List[str]:
-        if not v:
-            return v
-        if any(not label.strip() for label in v):
-            raise ValueError("project_labels contains empty values")
-        if len(v) != len(set(v)):
-            raise ValueError("project_labels contains duplicates")
-        invalid = [label for label in v if not LABEL_PATTERN.match(label)]
-        if invalid:
-            raise ValueError(
-                f"Invalid project_labels format: {invalid}. "
-                "Must be 'key' or 'key:value' format. Example: env:prod"
-            )
+        try:
+            validate_project_label_list(v)
+        except GCPValidationError as e:
+            raise ValueError(str(e)) from e
         return v
 
     project_id_pattern: AllowDenyPattern = Field(
@@ -113,7 +93,6 @@ class VertexAIConfig(EnvConfigMixin):
     def validate_project_id_pattern_syntax(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
-        """Validate regex pattern syntax upfront to fail fast on config errors."""
         invalid_patterns = []
         for pattern in v.allow + v.deny:
             try:
@@ -152,7 +131,6 @@ class VertexAIConfig(EnvConfigMixin):
     def _migrate_project_id_to_project_ids(
         cls, values: Any, handler: ModelWrapValidatorHandler[VertexAIConfig]
     ) -> VertexAIConfig:
-        """Handle backward compatibility: project_id → project_ids."""
         if isinstance(values, dict):
             values = deepcopy(values)
             project_id = values.pop("project_id", None)
@@ -160,10 +138,10 @@ class VertexAIConfig(EnvConfigMixin):
             used_deprecated = False
 
             if "project_ids" in values and project_ids == []:
-                raise ValueError(
-                    "project_ids cannot be an empty list. "
-                    "Either specify project IDs or omit the field to use auto-discovery."
-                )
+                try:
+                    validate_project_id_list(project_ids, allow_empty=False)
+                except GCPValidationError as e:
+                    raise ValueError(str(e)) from e
 
             if not project_ids and project_id:
                 values["project_ids"] = [project_id]
@@ -191,7 +169,6 @@ class VertexAIConfig(EnvConfigMixin):
 
     @model_validator(mode="after")
     def _validate_pattern_filtering(self) -> VertexAIConfig:
-        """Validate that project_id_pattern doesn't filter out all configured projects."""
         if not self.project_ids:
             return self
 
@@ -209,7 +186,6 @@ class VertexAIConfig(EnvConfigMixin):
 
     @model_validator(mode="after")
     def _validate_auto_discovery_pattern(self) -> VertexAIConfig:
-        """Validate that auto-discovery is not used with restrictive patterns."""
         has_restrictive_pattern = self.project_id_pattern.allow != [".*"]
         relies_on_auto_discovery = not self.project_ids and not self.project_labels
 
