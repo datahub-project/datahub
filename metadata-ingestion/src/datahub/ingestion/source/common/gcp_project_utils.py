@@ -186,18 +186,13 @@ def get_gcp_error_type(exc: Exception) -> str:
     return "API error"
 
 
-def build_gcp_error_message(exc: Exception, debug_cmd: str) -> str:
-    """Build user-friendly error message with debug command."""
-    error_type = get_gcp_error_type(exc)
-    return f"{error_type}: {exc}. Debug: {debug_cmd}"
-
-
 def _handle_discovery_error(
     exc: GoogleAPICallError,
     debug_cmd: str,
 ) -> GCPProjectDiscoveryError:
     """Convert GoogleAPICallError to GCPProjectDiscoveryError."""
-    error_msg = build_gcp_error_message(exc, debug_cmd)
+    error_type = get_gcp_error_type(exc)
+    error_msg = f"{error_type}: {exc}. Debug: {debug_cmd}"
     if isinstance(exc, PermissionDenied):
         return GCPProjectDiscoveryError(
             f"Permission denied when listing GCP projects. {error_msg}"
