@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from typing import List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from google.api_core.exceptions import (
@@ -60,8 +60,6 @@ class TestAutoDiscovery:
         ],
     )
     def test_error_handling(self, exception: Exception, error_match: str) -> None:
-        from unittest.mock import patch
-
         mock_client = MagicMock()
         mock_client.search_projects.side_effect = exception
         with patch(
@@ -125,8 +123,6 @@ class TestLabelBasedDiscovery:
         ],
     )
     def test_error_handling(self, exception: Exception, error_match: str) -> None:
-        from unittest.mock import patch
-
         mock_client = MagicMock()
         mock_client.search_projects.side_effect = exception
         with patch(
