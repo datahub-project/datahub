@@ -100,6 +100,11 @@ def is_gcp_transient_error(exc: Exception) -> bool:
 
 T = TypeVar("T")
 
+RETRY_INITIAL_DELAY = 1.0
+RETRY_MAX_DELAY = 60.0
+RETRY_MULTIPLIER = 2.0
+RETRY_DEFAULT_TIMEOUT = 300.0
+
 
 def _is_transient_error_predicate(exc: BaseException) -> bool:
     """Retry predicate wrapper for is_gcp_transient_error."""
@@ -109,19 +114,22 @@ def _is_transient_error_predicate(exc: BaseException) -> bool:
     return False
 
 
-def gcp_api_retry(timeout: float = 300.0) -> retry.Retry:
+def gcp_api_retry(timeout: float = RETRY_DEFAULT_TIMEOUT) -> retry.Retry:
     """Standard retry configuration for GCP API calls."""
     return retry.Retry(
         predicate=_is_transient_error_predicate,
-        initial=1.0,
-        maximum=60.0,
-        multiplier=2.0,
+        initial=RETRY_INITIAL_DELAY,
+        maximum=RETRY_MAX_DELAY,
+        multiplier=RETRY_MULTIPLIER,
         timeout=timeout,
     )
 
 
 def call_with_retry(
-    func: Callable[..., T], *args: Any, timeout: float = 300.0, **kwargs: Any
+    func: Callable[..., T],
+    *args: Any,
+    timeout: float = RETRY_DEFAULT_TIMEOUT,
+    **kwargs: Any,
 ) -> T:
     """Execute a GCP API call with standard retry logic."""
     return gcp_api_retry(timeout)(func)(*args, **kwargs)
@@ -292,11 +300,11 @@ def _filter_projects_by_pattern(
 ) -> List[GCPProject]:
     filtered = []
     excluded = []
-    for p in projects:
-        if pattern.allowed(p.id):
-            filtered.append(p)
+    for project in projects:
+        if pattern.allowed(project.id):
+            filtered.append(project)
         else:
-            excluded.append(p.id)
+            excluded.append(project.id)
     if excluded:
         logger.info(
             "Filtered out %d projects by project_id_pattern: %s",

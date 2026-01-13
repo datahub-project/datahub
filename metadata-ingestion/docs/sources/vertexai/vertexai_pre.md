@@ -213,6 +213,114 @@ The legacy `project_id` config is automatically converted to `project_ids`. No i
 - **Discovery failure**: If auto-discovery fails, the run fails immediately
 - **Rate limits**: API quota errors are automatically retried with exponential backoff
 
+### Troubleshooting
+
+#### Permission Denied Errors
+
+**Symptom:** `Permission denied when listing GCP projects` or `Permission denied: {project-id}`
+
+**Causes & Solutions:**
+
+1. **Missing project-level permissions**
+
+   ```bash
+   # Verify service account has aiplatform.viewer role
+   gcloud projects get-iam-policy PROJECT_ID \
+     --flatten="bindings[].members" \
+     --filter="bindings.members:SERVICE_ACCOUNT_EMAIL"
+   ```
+
+2. **Missing org-level permissions for auto-discovery**
+
+   - Auto-discovery requires `resourcemanager.projects.list` permission
+   - Solution: Use explicit `project_ids` instead, or grant `roles/browser` at org/folder level
+
+3. **Vertex AI API not enabled**
+   ```bash
+   # Enable the API
+   gcloud services enable aiplatform.googleapis.com --project=PROJECT_ID
+   ```
+
+#### Rate Limit Errors
+
+**Symptom:** `Rate limit exceeded` or `Quota exceeded`
+
+**Causes & Solutions:**
+
+1. **Too many projects** - Reduce scope using `project_id_pattern` or split into multiple runs
+2. **Concurrent ingestion** - Avoid running multiple Vertex AI ingestion jobs simultaneously
+3. **Request quota increase** - Request higher quotas in GCP Console
+
+The source automatically retries with exponential backoff (1s → 2s → 4s... up to 60s max).
+
+#### Pattern Configuration Issues
+
+**Symptom:** `Found X projects but all were excluded by project_id_pattern`
+
+**Common mistakes:**
+
+1. **Glob syntax instead of regex**
+
+   ```yaml
+   # Wrong - glob syntax
+   project_id_pattern:
+     allow:
+       - "prod-*"      # Matches "prod-" followed by nothing or more dashes
+
+   # Correct - regex syntax
+   project_id_pattern:
+     allow:
+       - "prod-.*"     # Matches "prod-" followed by anything
+   ```
+
+2. **Deny pattern overrides allow**
+
+   ```yaml
+   # This denies everything!
+   project_id_pattern:
+     allow:
+       - "prod-.*"
+     deny:
+       - ".*" # Deny takes precedence
+   ```
+
+3. **Validate patterns before running**
+   ```bash
+   # Test your pattern against project IDs
+   echo "prod-ml-east" | grep -E "^prod-.*$"
+   ```
+
+#### Project Not Found Errors
+
+**Symptom:** `Not found: {project-id}`
+
+**Solutions:**
+
+1. Verify project ID spelling (check for typos)
+2. Confirm project exists and is active:
+   ```bash
+   gcloud projects describe PROJECT_ID
+   ```
+3. Ensure service account has access to the project
+
+#### Debug Commands
+
+Use these commands to diagnose issues:
+
+```bash
+# List all accessible projects
+gcloud projects list --filter='lifecycleState:ACTIVE'
+
+# List projects by label
+gcloud projects list --filter='labels.env:prod'
+
+# Check service account permissions
+gcloud projects get-iam-policy PROJECT_ID
+
+# Verify Vertex AI API is enabled
+gcloud services list --enabled --project=PROJECT_ID | grep aiplatform
+```
+
 ### Integration Details
 
 Ingestion Job extract Models, Datasets, Training Jobs, Endpoints, Experiment and Experiment Runs in a given project and region on Vertex AI.
