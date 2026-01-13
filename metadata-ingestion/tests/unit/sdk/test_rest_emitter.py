@@ -1804,7 +1804,7 @@ class TestWeightedRetry:
     def test_non_429_status_decrements_total_normally(self):
         """Non-429 responses should decrement retry count normally."""
         with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
-            retry = rest_emitter.WeightedRetry(total=5, status_forcelist=[500, 429])
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[500, 429])
 
             mock_response = Mock(headers={})
             mock_response.status = 500
@@ -1820,7 +1820,7 @@ class TestWeightedRetry:
     def test_429_weighted_retry_with_multiplier_2(self):
         """With multiplier=2, every second 429 should decrement the retry count."""
         with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
-            retry = rest_emitter.WeightedRetry(total=5, status_forcelist=[429])
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
 
             mock_response = Mock(headers={})
             mock_response.status = 429
@@ -1844,7 +1844,7 @@ class TestWeightedRetry:
     def test_429_weighted_retry_with_multiplier_3(self):
         """With multiplier=3, every third 429 should decrement the retry count."""
         with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 3):
-            retry = rest_emitter.WeightedRetry(total=5, status_forcelist=[429])
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
 
             mock_response = Mock(headers={})
             mock_response.status = 429
@@ -1876,7 +1876,7 @@ class TestWeightedRetry:
     def test_mixed_429_and_non_429_responses(self):
         """Mixed 429 and non-429 responses should handle counters correctly."""
         with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
-            retry = rest_emitter.WeightedRetry(total=10, status_forcelist=[500, 429])
+            retry = rest_emitter._WeightedRetry(total=10, status_forcelist=[500, 429])
 
             mock_429 = Mock(headers={})
             mock_429.status = 429
@@ -1911,7 +1911,7 @@ class TestWeightedRetry:
     def test_429_with_total_none(self):
         """When total is None (unlimited retries), should not modify total."""
         with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
-            retry = rest_emitter.WeightedRetry(total=None, status_forcelist=[429])
+            retry = rest_emitter._WeightedRetry(total=None, status_forcelist=[429])
 
             mock_response = Mock()
             mock_response.status = 429
@@ -1923,7 +1923,7 @@ class TestWeightedRetry:
     def test_429_without_response_object(self):
         """When response is None, should not apply weighted retry logic."""
         with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
-            retry = rest_emitter.WeightedRetry(total=5, status_forcelist=[429])
+            retry = rest_emitter._WeightedRetry(total=5, status_forcelist=[429])
 
             # No response means no status code to check, should decrement normally
             result = retry.increment(response=None)
@@ -1933,7 +1933,7 @@ class TestWeightedRetry:
         """Verify that 429s effectively get more retries than configured."""
         with patch("datahub.emitter.rest_emitter._429_RETRY_MULTIPLIER", 2):
             # With total=3 and multiplier=2, we should be able to retry 6 times for 429s
-            retry = rest_emitter.WeightedRetry(total=3, status_forcelist=[429])
+            retry = rest_emitter._WeightedRetry(total=3, status_forcelist=[429])
 
             mock_response = Mock(headers={})
             mock_response.status = 429

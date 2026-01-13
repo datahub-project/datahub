@@ -117,7 +117,7 @@ INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
 
 
-class WeightedRetry(Retry):
+class _WeightedRetry(Retry):
     _429_count: Optional[int]
 
     def increment(
@@ -128,7 +128,7 @@ class WeightedRetry(Retry):
         error: Optional[Exception] = None,
         _pool: Any = None,
         _stacktrace: Any = None,
-    ) -> WeightedRetry:
+    ) -> _WeightedRetry:
         if handle_429 := (
             response and response.status == 429 and isinstance(self.total, int)
         ):
@@ -148,7 +148,7 @@ class WeightedRetry(Retry):
             )
 
         r = cast(
-            WeightedRetry,
+            _WeightedRetry,
             super().increment(method, url, response, error, _pool, _stacktrace),
         )
 
@@ -256,7 +256,7 @@ class RequestsSessionConfig(ConfigModel):
             # Set raise_on_status to False to propagate errors:
             # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
             # Must call `raise_for_status` after making a request, which we do
-            retry_strategy = WeightedRetry(
+            retry_strategy = _WeightedRetry(
                 total=self.retry_max_times,
                 status_forcelist=self.retry_status_codes,
                 backoff_factor=2,
@@ -265,7 +265,7 @@ class RequestsSessionConfig(ConfigModel):
             )
         except TypeError:
             # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
-            retry_strategy = WeightedRetry(
+            retry_strategy = _WeightedRetry(
                 total=self.retry_max_times,
                 status_forcelist=self.retry_status_codes,
                 backoff_factor=2,
