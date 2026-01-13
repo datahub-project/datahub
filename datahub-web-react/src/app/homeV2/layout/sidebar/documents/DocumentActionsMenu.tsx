@@ -117,7 +117,13 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
             <Menu items={menuItems} placement="bottomRight">
                 <MenuButton
                     data-testid="document-actions-menu-button"
-                    icon={{ icon: 'DotsThreeVertical', source: 'phosphor', size: '2xl' }}
+                    icon={{
+                        icon: 'DotsThreeVertical',
+                        source: 'phosphor',
+                        size: '2xl',
+                        color: 'gray',
+                        colorLevel: 1800,
+                    }}
                     variant="text"
                     isCircle
                     size="md"
