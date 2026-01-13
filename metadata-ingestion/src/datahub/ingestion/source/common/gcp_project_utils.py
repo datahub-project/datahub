@@ -316,7 +316,7 @@ def _search_projects_with_retry(
         if not project.project_id:
             raise GCPProjectDiscoveryError(
                 f"GCP API returned project without project_id (display_name={project.display_name or 'unknown'}). "
-                "This indicates a serious API issue. Please report this to the DataHub team."
+                "This indicates a serious API issue. Please report at https://github.com/datahub-project/datahub/issues"
             )
         yield GCPProject(
             id=project.project_id,

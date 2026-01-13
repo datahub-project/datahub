@@ -233,3 +233,23 @@ class TestRateLimitHandling:
         assert mock_aiplatform["init"].call_count == 2
         assert len(source.report.failures) >= 1
         assert "project-a" in str(source.report.failures)
+
+    def test_mixed_success_and_transient_errors(self, mock_aiplatform, pipeline_ctx):
+        """Project A succeeds, project B hits transient error, project C succeeds."""
+
+        def mixed_outcomes(**kwargs):
+            project = kwargs["project"]
+            if project == "project-b":
+                raise ResourceExhausted("Quota exceeded for project-b")
+
+        mock_aiplatform["init"].side_effect = mixed_outcomes
+        source = make_source(
+            pipeline_ctx, project_ids=["project-a", "project-b", "project-c"]
+        )
+        workunits = list(source.get_workunits())
+
+        assert mock_aiplatform["init"].call_count == 3
+        assert len(source.report.failures) == 1
+        assert "project-b" in str(source.report.failures)
+        assert len(source.report.warnings) >= 1
+        assert len(workunits) > 0
