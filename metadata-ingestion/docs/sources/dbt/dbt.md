@@ -120,8 +120,8 @@ meta_mapping:
   case:
     match: "PLT-(.*)"
     operation: "add_tag"
-     config:
-       tag: "case_{{ $match }}"
+    config:
+      tag: "case_{{ $match }}"
 ```
 
 #### Nested meta properties
@@ -456,7 +456,7 @@ Exposures define how your dbt models are used downstream. They help you understa
 dbt exposures are ingested as **Dashboard** entities in DataHub, with the exposure type preserved as a subtype:
 
 | dbt Exposure Type | DataHub SubType |
-|-------------------|-----------------|
+| ----------------- | --------------- |
 | `dashboard`       | Dashboard       |
 | `notebook`        | Notebook        |
 | `ml`              | ML Model        |
@@ -475,7 +475,7 @@ source:
     catalog_path: _path_to_catalog_json
     target_platform: postgres
     entities_enabled:
-      exposures: Yes  # Default - emit exposures
+      exposures: Yes # Default - emit exposures
       # exposures: No  # Disable exposure ingestion
       # exposures: Only  # Only emit exposures, skip other entities
 ```
@@ -528,6 +528,7 @@ exposures:
 ```
 
 Will create a Dashboard entity in DataHub with:
+
 - **Title**: `weekly_metrics_dashboard`
 - **Description**: `Weekly business metrics for leadership`
 - **SubType**: `Dashboard`
