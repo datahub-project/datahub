@@ -38,6 +38,9 @@ beforeEach(function () {
       this.currentTest.title = `${testPath}`;
     }
   }
+
+  // Skip the introduce page for all tests
+  cy.skipIntroducePage();
 });
 
 afterEach(() => {
