@@ -4,11 +4,14 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from google.api_core.exceptions import (
+    DeadlineExceeded,
     FailedPrecondition,
     GoogleAPICallError,
     InvalidArgument,
     NotFound,
     PermissionDenied,
+    ResourceExhausted,
+    ServiceUnavailable,
 )
 from google.cloud import aiplatform, resourcemanager_v3
 from google.cloud.aiplatform import (
@@ -331,6 +334,40 @@ class VertexAISource(Source):
             )
 
         return debug_cmd, tips
+
+    def _handle_api_error(
+        self,
+        error: GoogleAPICallError,
+        operation: str,
+        resource_type: str,
+        resource_id: Optional[str] = None,
+    ) -> None:
+        """
+        Handle Google API errors with structured logging and reporting.
+
+        Args:
+            error: The caught exception
+            operation: What we were trying to do ("fetch model", "list endpoints")
+            resource_type: Type of resource ("model", "endpoint", "pipeline")
+            resource_id: Optional identifier for the resource
+        """
+        error_context = {
+            "operation": operation,
+            "resource_type": resource_type,
+            "error_type": type(error).__name__,
+            "error_code": getattr(error, "code", "unknown"),
+            "project_id": self._current_project_id,
+        }
+        if resource_id:
+            error_context["resource_id"] = resource_id
+
+        logger.error(
+            "API error during %s for %s: %s",
+            operation,
+            resource_type,
+            error,
+            extra=error_context,
+        )
 
     def _handle_project_error(
         self,
@@ -1231,11 +1268,56 @@ class VertexAISource(Source):
                         )
                         job_meta.output_model = model
                         job_meta.output_model_version = model_version
-                except GoogleAPICallError as e:
+                except PermissionDenied as e:
+                    logger.warning(
+                        "Permission denied accessing model '%s'. "
+                        "Ensure service account has 'aiplatform.models.get' permission. "
+                        "Error: %s",
+                        model_name,
+                        str(e),
+                    )
+                    self.report.warning(
+                        title=f"No permission to access model {model_name}",
+                        message=f"Check IAM permissions. Error: {str(e)}",
+                    )
+                except NotFound:
+                    logger.info(
+                        "Model '%s' or version '%s' not found. "
+                        "This may be expected if the model was deleted.",
+                        model_name,
+                        model_version_str,
+                    )
+                except ResourceExhausted as e:
+                    logger.error(
+                        "Rate limit exceeded for project %s. "
+                        "Consider reducing scan frequency or requesting quota increase. "
+                        "Error: %s",
+                        self._current_project_id,
+                        str(e),
+                    )
                     self.report.failure(
-                        title="Unable to fetch model and model version",
-                        message="Failed to fetch output model/version for training job",
-                        exc=e,
+                        title="Rate limit exceeded",
+                        message=f"GCP quota exhausted. Retry after cooldown. Details: {str(e)}",
+                    )
+                    raise
+                except (DeadlineExceeded, ServiceUnavailable) as e:
+                    logger.warning(
+                        "Transient API error fetching model '%s': %s. "
+                        "Will retry if retries configured. Error: %s",
+                        model_name,
+                        type(e).__name__,
+                        str(e),
+                    )
+                    raise
+                except GoogleAPICallError as e:
+                    self._handle_api_error(e, "fetch model", "model", model_name)
+                    error_code = getattr(e, "code", "unknown")
+                    self.report.failure(
+                        title=f"Unexpected API error: {type(e).__name__}",
+                        message=(
+                            f"Encountered unexpected error (status={error_code}): {str(e)}. "
+                            f"Please report this to the maintainers."
+                        ),
                     )
 
         return job_meta
