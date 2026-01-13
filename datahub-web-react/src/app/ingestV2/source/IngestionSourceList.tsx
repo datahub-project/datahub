@@ -172,8 +172,11 @@ export const IngestionSourceList = ({
         [params],
     ); // SaaS only
 
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    const [searchInput, setSearchInput] = useState('');
+    // Query inputs after redirect to restore initial state of query and sorting
+    const redirectQueryInputs = useMemo(() => location.state?.sourcesListQueryInputs, [location.state]);
+
+    const [query, setQuery] = useState<undefined | string>(redirectQueryInputs?.query);
+    const [searchInput, setSearchInput] = useState(redirectQueryInputs?.query ?? '');
     const previousSearchInput = usePrevious(searchInput);
     const searchInputRef = useRef<InputRef>(null);
 
@@ -223,7 +226,7 @@ export const IngestionSourceList = ({
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
-    const { sort, setSort } = useQueryParamSortCriterion();
+    const { sort, setSort } = useQueryParamSortCriterion(redirectQueryInputs?.sort);
 
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
     const prevSourceFilter = usePrevious(sourceFilter);
