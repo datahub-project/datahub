@@ -6,6 +6,7 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
+import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -178,6 +179,7 @@ export default function ContextSidebar({
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const { createDocument } = useCreateDocumentTreeMutation();
+    const { expandNode, getNode } = useDocumentTree();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
 
@@ -207,12 +209,26 @@ export default function ContextSidebar({
 
     const isSearching = debouncedQuery.trim().length > 0;
 
+    const expandAncestors = useCallback(
+        (parentUrn?: string | null) => {
+            let current = parentUrn || null;
+            while (current) {
+                expandNode(current);
+                current = getNode(current)?.parentUrn || null;
+            }
+        },
+        [expandNode, getNode],
+    );
+
     const handleCreateDocument = useCallback(
         async (parentDocumentUrn?: string) => {
             if (!canCreateDocuments) return;
 
             setCreating(true);
             try {
+                // Ensure ancestors are expanded so the new doc is visible
+                expandAncestors(parentDocumentUrn || null);
+
                 const newUrn = await createDocument({
                     title: 'New Document',
                     parentDocument: parentDocumentUrn || null,
@@ -226,7 +242,7 @@ export default function ContextSidebar({
                 setCreating(false);
             }
         },
-        [canCreateDocuments, createDocument, entityRegistry, history],
+        [canCreateDocuments, createDocument, entityRegistry, expandAncestors, history],
     );
 
     const handleDocumentClick = useCallback(
