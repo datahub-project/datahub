@@ -43,7 +43,6 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractorConfig,
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
-from datahub.ingestion.source.common.gcp_project_utils import gcp_credentials_context
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -269,9 +268,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 title="Config option deprecation warning",
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        with gcp_credentials_context(self.config.get_credentials_dict()):
-            yield from super().get_workunits()
+    # TODO: Migrate BigQuery to use gcp_credentials_context() for consistent
+    # credential handling. See VertexAI source for the pattern. This requires
+    # careful testing to ensure backwards compatibility with existing configs.
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._warn_deprecated_configs()
