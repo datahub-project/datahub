@@ -5,8 +5,8 @@ import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
+import pydantic
 from pydantic import Field, PrivateAttr, field_validator, model_validator
-from pydantic.functional_validators import ModelWrapValidatorHandler
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
@@ -131,7 +131,10 @@ class VertexAIConfig(EnvConfigMixin):
     @model_validator(mode="wrap")
     @classmethod
     def _migrate_project_id_to_project_ids(
-        cls, values: Any, handler: ModelWrapValidatorHandler[VertexAIConfig]
+        cls,
+        values: Any,
+        handler: pydantic.ValidatorFunctionWrapHandler,
+        info: pydantic.ValidationInfo,
     ) -> VertexAIConfig:
         if isinstance(values, dict):
             values = deepcopy(values)
