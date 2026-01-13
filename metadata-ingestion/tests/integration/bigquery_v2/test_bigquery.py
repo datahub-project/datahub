@@ -26,6 +26,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper impo
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
+    BigqueryProject,
     BigQuerySchemaApi,
     BigqueryTable,
     BigqueryTableSnapshot,
@@ -35,7 +36,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
     BigQueryV2Config,
 )
-from datahub.ingestion.source.common.gcp_project_utils import GCPProject
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
@@ -245,7 +245,7 @@ def test_bigquery_v2_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@patch("datahub.ingestion.source.bigquery_v2.bigquery_schema.gcp_get_projects")
+@patch.object(BigQuerySchemaApi, attribute="get_projects_with_labels")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
 @patch.object(BigQuerySchemaGenerator, "get_core_table_details")
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
@@ -263,7 +263,7 @@ def test_bigquery_v2_project_labels_ingest(
     get_datasets_for_project_id,
     get_core_table_details,
     get_tables_for_dataset,
-    mock_gcp_get_projects,
+    get_projects_with_labels,
     pytestconfig,
     tmp_path,
 ):
@@ -275,7 +275,9 @@ def test_bigquery_v2_project_labels_ingest(
         BigqueryDataset(name="bigquery-dataset-1")
     ]
 
-    mock_gcp_get_projects.return_value = [GCPProject(id="dev", name="development")]
+    get_projects_with_labels.return_value = [
+        BigqueryProject(id="dev", name="development")
+    ]
 
     table_list_item = TableListItem(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
