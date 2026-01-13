@@ -1,6 +1,7 @@
 import contextlib
+import logging
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1185,6 +1186,98 @@ class TestMixedProjectErrors:
         assert len(source.report.failures) == 3
 
 
+class TestErrorContextBuilding:
+    """Tests for _build_project_error_context() method."""
+
+    @patch("google.cloud.aiplatform.init")
+    def test_known_exception_types_return_specific_context(
+        self, mock_init: MagicMock
+    ) -> None:
+        """Each known GCP exception type should return appropriate context."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(project_ids=["test-project-123"], region="us-west2"),
+        )
+
+        debug_cmd, tips = source._build_project_error_context(
+            "my-project", PermissionDenied("Access denied")
+        )
+        assert "get-iam-policy" in debug_cmd
+        assert "Permission denied" in tips
+        assert "Vertex AI User" in tips
+
+        debug_cmd, tips = source._build_project_error_context(
+            "my-project", NotFound("Not found")
+        )
+        assert "describe" in debug_cmd
+        assert "not found" in tips.lower()
+
+        debug_cmd, tips = source._build_project_error_context(
+            "my-project", InvalidArgument("API not enabled")
+        )
+        assert "enable aiplatform" in debug_cmd
+        assert "not enabled" in tips.lower()
+
+    @patch("google.cloud.aiplatform.init")
+    def test_unknown_exception_falls_back_to_default(
+        self, mock_init: MagicMock
+    ) -> None:
+        """Unknown exception types should use default context with error type prefix."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(project_ids=["test-project-123"], region="us-west2"),
+        )
+
+        debug_cmd, tips = source._build_project_error_context(
+            "my-project", ResourceExhausted("Quota exceeded")
+        )
+        assert "my-project" in debug_cmd
+        assert "Rate limit exceeded" in tips
+
+    @patch("google.cloud.aiplatform.init")
+    def test_project_id_substituted_in_debug_command(
+        self, mock_init: MagicMock
+    ) -> None:
+        """Project ID should be substituted in debug command template."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(project_ids=["test-project-123"], region="us-west2"),
+        )
+
+        debug_cmd, _ = source._build_project_error_context(
+            "specific-project-id", PermissionDenied("Denied")
+        )
+        assert "specific-project-id" in debug_cmd
+
+
+class TestDeprecationWarnings:
+    """Tests for backward compatibility deprecation warnings."""
+
+    def test_project_id_emits_deprecation_warning(self, caplog: Any) -> None:
+        """Using deprecated project_id should emit a warning."""
+        with caplog.at_level(logging.WARNING):
+            config = VertexAIConfig.model_validate(
+                {"project_id": "legacy-project", "region": "us-central1"}
+            )
+
+        assert config.project_ids == ["legacy-project"]
+        assert any("deprecated" in record.message.lower() for record in caplog.records)
+
+    def test_both_fields_prefers_project_ids_with_warning(self, caplog: Any) -> None:
+        """When both fields provided, project_ids wins with a warning."""
+        with caplog.at_level(logging.WARNING):
+            config = VertexAIConfig.model_validate(
+                {
+                    "project_id": "old-project",
+                    "project_ids": ["new-project-one", "new-project-two"],
+                    "region": "us-central1",
+                }
+            )
+
+        assert config.project_ids == ["new-project-one", "new-project-two"]
+        assert any("ignoring" in record.message.lower() for record in caplog.records)
+
+
 class TestCredentialManagement:
     def test_get_credentials_dict_returns_dict_when_credential_set(self) -> None:
         config = VertexAIConfig(
@@ -1249,7 +1342,7 @@ class TestLineageEdgeCases:
     ) -> None:
         """AutoML job that doesn't produce a model should still generate valid MCPs."""
         mock_training_job = gen_mock_training_automl_job()
-        job_meta = TrainingJobMetadata(mock_training_job)  # No output model
+        job_meta = TrainingJobMetadata(mock_training_job)
 
         actual_mcps = list(source._gen_training_job_mcps(job_meta))
 
@@ -1267,7 +1360,7 @@ class TestLineageEdgeCases:
     def test_training_job_with_missing_dataset(self, source: VertexAISource) -> None:
         """Training job with no input dataset should generate valid MCPs."""
         mock_training_job = gen_mock_training_custom_job()
-        job_meta = TrainingJobMetadata(mock_training_job)  # No input dataset
+        job_meta = TrainingJobMetadata(mock_training_job)
 
         actual_mcps = list(source._gen_training_job_mcps(job_meta))
 
