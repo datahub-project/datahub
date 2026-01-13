@@ -57,6 +57,12 @@ flag_management:
     - name: metadata-integration
       paths:
         - "metadata-integration/**"
+    - name: executor
+      paths:
+        - "datahub-executor/**"
+    - name: integration-service
+      paths:
+        - "datahub-integrations-service/**"
 coverage:
   status:
     project: false
@@ -68,3 +74,5 @@ coverage:
 ignore:
   # No business logic; wiring only
   - "**/*Factory.java"
+  # Non-operational code (Streamlit UI and scripts)
+  - "datahub-executor/scripts/streamlit_explorer/**/*"

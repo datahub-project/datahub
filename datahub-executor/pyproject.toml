@@ -51,7 +51,7 @@ observe = [
   # Smart assertions / ML-based monitoring dependencies
   # These are heavy (~300MB+) and excluded from slim builds
   "prophet==1.1.5",
-  "observe-models>=0.1.0.dev21,<1.0.0",  # Private package from Cloudsmith (CPU-only by default)
+  "observe-models==0.1.0.dev21",  # Private package from Cloudsmith (CPU-only by default)
 ]
 dev = [
   # Dev/debugging tools
@@ -63,7 +63,7 @@ dev = [
   "boto3>=1.28.0",  # S3 access for time series explorer
   # Include observe dependencies for dev (prophet + observe-models with all extras)
   "prophet==1.1.5",
-  "observe-models[all]>=0.1.0.dev21,<1.0.0",  # Full observe-models extras for dev
+  "observe-models[all]==0.1.0.dev21",  # Full observe-models extras for dev
   # Lint/test dependencies
   "ruff==0.9.6",
   "pytest",
