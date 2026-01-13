@@ -1,7 +1,8 @@
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Iterable, List
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Iterable, List, Optional
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -18,6 +19,15 @@ from datahub.metadata.schema_classes import (
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
+
+
+@dataclass
+class _TruncationResult:
+    """Result of a field truncation operation."""
+
+    truncated_value: str
+    original_size: int
+    retained_length: int  # Length of the retained content (0 if removed entirely)
 
 
 # TODO: ordering
@@ -192,6 +202,44 @@ class EnsureAspectSizeProcessor:
                 title="Upstream lineage truncated due to size constraint",
                 message="Upstream lineage contained too much data and would have caused ingestion to fail",
                 context=f"Skipped {skipped_count} {item_type} for {entity_urn} due to aspect size constraints",
+            )
+
+    def _truncate_or_remove_field(
+        self, field_value: Optional[str], reduction_needed: int
+    ) -> Optional[_TruncationResult]:
+        """Truncate or remove a text field to reduce aspect size.
+
+        Args:
+            field_value: The current value of the field (may be None)
+            reduction_needed: Number of bytes to reduce
+
+        Returns:
+            _TruncationResult with the new value and whether it was removed entirely,
+            or None if field_value was None or empty.
+        """
+        if not field_value:
+            return None
+
+        field_size = len(field_value)
+
+        if field_size > reduction_needed > 0:
+            # Truncate to fit
+            retained_length = field_size - reduction_needed
+            truncated_content = field_value[:retained_length]
+            truncation_msg = (
+                f"... [truncated from {field_size} to {retained_length} chars]"
+            )
+            return _TruncationResult(
+                truncated_value=truncated_content + truncation_msg,
+                original_size=field_size,
+                retained_length=retained_length,
+            )
+        else:
+            # Cannot truncate enough - remove entirely
+            return _TruncationResult(
+                truncated_value=f"[removed due to size - original was {field_size} chars]",
+                original_size=field_size,
+                retained_length=0,
             )
 
     def ensure_upstream_lineage_size(  # noqa: C901
@@ -410,31 +458,14 @@ class EnsureAspectSizeProcessor:
         )
 
         # First try to truncate formattedViewLogic (usually less important than raw viewLogic)
-        if view_properties.formattedViewLogic:
-            formatted_size = len(view_properties.formattedViewLogic)
-            if formatted_size > reduction_needed > 0:
-                # Truncate to fit
-                new_length = formatted_size - reduction_needed
-                truncated = view_properties.formattedViewLogic[:new_length]
-                truncation_msg = (
-                    f"... [truncated from {formatted_size} to {new_length} chars]"
-                )
-                view_properties.formattedViewLogic = truncated + truncation_msg
-                self.report.warning(
-                    title="View properties truncated due to size constraint",
-                    message="View properties contained too much data and would have caused ingestion to fail",
-                    context=f"formattedViewLogic was truncated from {formatted_size} to {new_length} chars for {entity_urn}",
-                )
-            else:
-                # Cannot truncate enough from formattedViewLogic, remove it entirely
-                view_properties.formattedViewLogic = (
-                    f"[removed due to size - original was {formatted_size} chars]"
-                )
-                self.report.warning(
-                    title="View properties truncated due to size constraint",
-                    message="View properties contained too much data and would have caused ingestion to fail",
-                    context=f"formattedViewLogic was removed for {entity_urn} (original was {formatted_size} chars)",
-                )
+        result = self._truncate_or_remove_field(
+            view_properties.formattedViewLogic, reduction_needed
+        )
+        if result:
+            view_properties.formattedViewLogic = result.truncated_value
+            self._warn_view_properties_truncation(
+                entity_urn, "formattedViewLogic", result
+            )
 
         # Re-check size after handling formattedViewLogic
         current_size = len(json.dumps(pre_json_transform(view_properties.to_obj())))
@@ -450,42 +481,32 @@ class EnsureAspectSizeProcessor:
             current_size - self.payload_constraint + QUERY_STATEMENT_TRUNCATION_BUFFER
         )
 
-        if view_properties.viewLogic:
-            view_logic_size = len(view_properties.viewLogic)
-            if view_logic_size > reduction_needed > 0:
-                # Truncate to fit
-                new_length = view_logic_size - reduction_needed
-                truncated = view_properties.viewLogic[:new_length]
-                truncation_msg = (
-                    f"... [truncated from {view_logic_size} to {new_length} chars]"
-                )
-                view_properties.viewLogic = truncated + truncation_msg
-                self.report.warning(
-                    title="View properties truncated due to size constraint",
-                    message="View properties contained too much data and would have caused ingestion to fail",
-                    context=f"viewLogic was truncated from {view_logic_size} to {new_length} chars for {entity_urn}",
-                )
-            else:
-                # Cannot truncate enough - remove entirely and log warning
+        result = self._truncate_or_remove_field(
+            view_properties.viewLogic, reduction_needed
+        )
+        if result:
+            if result.retained_length == 0:
                 logger.warning(
                     f"Cannot truncate viewLogic for {entity_urn} as it is smaller than "
                     f"or equal to the required reduction size {reduction_needed}. "
                     f"Removing viewLogic entirely."
                 )
-                view_properties.viewLogic = (
-                    f"[removed due to size - original was {view_logic_size} chars]"
-                )
-                self.report.warning(
-                    title="View properties truncated due to size constraint",
-                    message="View properties contained too much data and would have caused ingestion to fail",
-                    context=f"viewLogic was removed for {entity_urn} (original was {view_logic_size} chars)",
-                )
+            view_properties.viewLogic = result.truncated_value
+            self._warn_view_properties_truncation(entity_urn, "viewLogic", result)
 
-        # Log final size after truncation
-        final_size = len(json.dumps(pre_json_transform(view_properties.to_obj())))
-        logger.info(
-            f"ViewProperties truncation complete for {entity_urn}: "
-            f"final size {final_size} bytes"
+    def _warn_view_properties_truncation(
+        self, entity_urn: str, field_name: str, result: _TruncationResult
+    ) -> None:
+        """Log warning for view properties field truncation."""
+        if result.retained_length == 0:
+            context = f"{field_name} was removed for {entity_urn} (original was {result.original_size} chars)"
+        else:
+            context = f"{field_name} was truncated from {result.original_size} to {result.retained_length} chars for {entity_urn}"
+
+        self.report.warning(
+            title="View properties truncated due to size constraint",
+            message="View properties contained too much data and would have caused ingestion to fail",
+            context=context,
         )
 
     def ensure_aspect_size(

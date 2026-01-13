@@ -847,6 +847,21 @@ def too_big_view_properties_with_formatted() -> ViewPropertiesClass:
     )
 
 
+def test_ensure_size_of_proper_view_properties(processor):
+    """Test that properly-sized view properties are not modified (no-op case)."""
+    view_properties = proper_view_properties()
+    orig_repr = json.dumps(view_properties.to_obj())
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, dummy_model, PROD)", view_properties
+    )
+
+    assert orig_repr == json.dumps(view_properties.to_obj()), (
+        "Aspect was modified in case where workunit processor should have been no-op"
+    )
+    assert len(processor.report.warnings) == 0
+
+
 def test_ensure_size_of_too_big_view_properties(processor):
     view_properties = too_big_view_properties()
     original_view_logic_size = len(view_properties.viewLogic)
@@ -969,3 +984,41 @@ def test_mce_workunit_checks_all_aspects_not_just_first_elif_regression(
     # CRITICAL: Both handlers should be called, not just the first one
     ensure_schema_metadata_size_mock.assert_called_once()
     ensure_view_properties_size_mock.assert_called_once()
+
+
+def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small():
+    """Test that formattedViewLogic is removed entirely when it's too small to truncate.
+
+    This tests the edge case where formattedViewLogic exists but is smaller than
+    the required reduction, so it must be removed entirely (not truncated).
+    """
+    # Use a smaller payload constraint to trigger the edge case more easily
+    small_constraint = 1000  # 1KB constraint
+    processor = EnsureAspectSizeProcessor(
+        SourceReport(), payload_constraint=small_constraint
+    )
+
+    # Create view properties where formattedViewLogic is small but total exceeds constraint
+    # viewLogic is much larger than formattedViewLogic
+    view_properties = ViewPropertiesClass(
+        materialized=False,
+        viewLogic="SELECT " + "a, " * 500 + "z FROM large_table",  # ~2KB
+        formattedViewLogic="SELECT * FROM t",  # Very small (~16 bytes)
+        viewLanguage="SQL",
+    )
+
+    assert view_properties.formattedViewLogic is not None
+    original_formatted_size = len(view_properties.formattedViewLogic)
+    assert original_formatted_size < 50  # Verify it's small
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, test_model, PROD)", view_properties
+    )
+
+    # formattedViewLogic should be removed entirely (not truncated) since it's too small
+    assert view_properties.formattedViewLogic is not None
+    assert "removed due to size" in view_properties.formattedViewLogic
+    assert (
+        f"original was {original_formatted_size} chars"
+        in view_properties.formattedViewLogic
+    )
