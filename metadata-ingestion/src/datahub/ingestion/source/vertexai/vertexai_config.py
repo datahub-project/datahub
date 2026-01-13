@@ -6,7 +6,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 import pydantic
-from pydantic import Field, PrivateAttr, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
@@ -39,7 +39,10 @@ class VertexAIConfig(EnvConfigMixin):
         default=None, description="GCP credential information"
     )
 
-    _used_deprecated_project_id: bool = PrivateAttr(default=False)
+    project_id: Optional[str] = Field(
+        default=None,
+        description="[DEPRECATED] Use 'project_ids' instead. Single GCP project ID.",
+    )
 
     project_ids: List[str] = Field(
         default_factory=list,
@@ -55,6 +58,11 @@ class VertexAIConfig(EnvConfigMixin):
     @field_validator("project_ids")
     @classmethod
     def validate_project_ids_field(cls, project_ids: List[str]) -> List[str]:
+        if project_ids == []:
+            raise ValueError(
+                "project_ids cannot be an empty list. "
+                "Either specify project IDs or omit the field to use auto-discovery."
+            )
         try:
             validate_project_id_list(project_ids, allow_empty=True)
         except GCPValidationError as e:
@@ -130,61 +138,86 @@ class VertexAIConfig(EnvConfigMixin):
 
     @model_validator(mode="wrap")
     @classmethod
-    def _migrate_project_id_to_project_ids(
+    def migrate_deprecated_project_id(
         cls,
         values: Any,
         handler: pydantic.ValidatorFunctionWrapHandler,
         info: pydantic.ValidationInfo,
     ) -> VertexAIConfig:
-        if isinstance(values, dict):
-            values = deepcopy(values)
-            project_id = values.pop("project_id", None)
-            project_ids = values.get("project_ids")
-            used_deprecated = False
+        """
+        Auto-migrate deprecated 'project_id' to 'project_ids'.
 
-            if "project_ids" in values and project_ids == []:
-                try:
-                    validate_project_id_list(project_ids, allow_empty=False)
-                except GCPValidationError as e:
-                    raise ValueError(str(e)) from e
+        This validator handles backward compatibility and emits deprecation warnings.
+        """
+        if not isinstance(values, dict):
+            return handler(values)
 
-            if not project_ids and project_id:
-                values["project_ids"] = [project_id]
-                used_deprecated = True
-                logger.warning(
-                    "Config field `project_id` is deprecated. "
-                    "Your config has been auto-converted to `project_ids: [%s]`. "
-                    "Please update your config file to use `project_ids` directly. "
-                    "See https://datahubproject.io/docs/generated/ingestion/sources/vertexai for details.",
-                    project_id,
-                )
-            elif project_ids and project_id:
-                logger.warning(
-                    "Both `project_id` and `project_ids` specified. "
-                    "Using `project_ids` and ignoring deprecated `project_id`. "
-                    "Please remove `project_id` from your config."
-                )
+        values = deepcopy(values)
+        project_id = values.get("project_id")
+        project_ids = values.get("project_ids")
 
-            model = handler(values)
-            model._used_deprecated_project_id = used_deprecated
+        if not project_id:
+            return handler(values)
+
+        if not project_ids:
+            logger.warning(
+                "Config field 'project_id' is deprecated and will be removed in a future release. "
+                "Please update your config to use 'project_ids: [\"%s\"]' instead. "
+                "Auto-migrating for now.",
+                project_id,
+            )
+            values["project_ids"] = [project_id]
+            values.pop("project_id", None)
+            return handler(values)
+
+        if project_id in project_ids:
+            logger.warning(
+                "Both 'project_id' (deprecated) and 'project_ids' are set with the same project. "
+                "Ignoring 'project_id' - please remove it from your config."
+            )
         else:
-            model = handler(values)
+            logger.warning(
+                "Both 'project_id' (deprecated) and 'project_ids' are set. "
+                "Using 'project_ids' and ignoring 'project_id'. "
+                "Please remove 'project_id' from your config."
+            )
+        values.pop("project_id", None)
+        return handler(values)
 
-        return model
+    @model_validator(mode="after")
+    def validate_project_selection(self) -> VertexAIConfig:
+        """
+        Ensure at least one project selection method is configured.
+
+        Users must specify projects via:
+        - project_ids (explicit list)
+        - project_labels (label-based discovery)
+        - project_id_pattern (regex-based discovery, but only if not using default allow-all)
+        """
+        has_project_ids = bool(self.project_ids)
+        has_project_labels = bool(self.project_labels)
+        has_custom_pattern = self.project_id_pattern.allow != [".*"] or (
+            self.project_id_pattern.deny and len(self.project_id_pattern.deny) > 0
+        )
+
+        if not any([has_project_ids, has_project_labels, has_custom_pattern]):
+            raise ValueError(
+                "No project selection configured. Please specify at least one of:\n"
+                "  - project_ids: ['my-project']  # Explicit list\n"
+                "  - project_labels: ['env:prod']  # Label-based discovery\n"
+                "  - project_id_pattern: {'allow': ['^ml-.*']}  # Regex pattern\n"
+                "\nSee docs: https://datahubproject.io/docs/generated/ingestion/sources/vertexai#multi-project"
+            )
+
+        return self
 
     @model_validator(mode="after")
     def _validate_pattern_filtering(self) -> VertexAIConfig:
         if not self.project_ids:
             return self
 
-        field_name = (
-            "project_id (deprecated)"
-            if self._used_deprecated_project_id
-            else "project_ids"
-        )
-
         _check_pattern_filters_all(
-            self.project_ids, self.project_id_pattern, field_name=field_name
+            self.project_ids, self.project_id_pattern, field_name="project_ids"
         )
 
         return self

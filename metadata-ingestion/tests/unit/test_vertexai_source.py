@@ -1000,10 +1000,8 @@ class TestMultiProjectConfig:
             VertexAIConfig(region="us-central1", **config_kwargs)
 
     def test_deprecated_project_id_with_pattern_shows_correct_field_name(self) -> None:
-        """When deprecated project_id is filtered out by pattern, error mentions project_id."""
-        with pytest.raises(
-            ValueError, match=r"project_id \(deprecated\).*filtered out"
-        ):
+        """When deprecated project_id is filtered out by pattern, error mentions project_ids."""
+        with pytest.raises(ValueError, match=r"project_ids.*filtered out"):
             VertexAIConfig.model_validate(
                 {
                     "project_id": "dev-project",
