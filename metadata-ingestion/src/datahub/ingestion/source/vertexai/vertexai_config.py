@@ -169,10 +169,10 @@ class VertexAIConfig(EnvConfigMixin):
                 model.project_ids, model.project_id_pattern, field_name=field_name
             )
 
-        is_default_allow = model.project_id_pattern.allow == [".*"]
-        uses_auto_discovery = not model.project_ids and not model.project_labels
+        has_restrictive_pattern = model.project_id_pattern.allow != [".*"]
+        relies_on_auto_discovery = not model.project_ids and not model.project_labels
 
-        if not is_default_allow and uses_auto_discovery:
+        if has_restrictive_pattern and relies_on_auto_discovery:
             raise ValueError(
                 f"Auto-discovery with restrictive allow patterns ({model.project_id_pattern.allow}) "
                 "is not supported. Either specify project_ids explicitly, use project_labels, "
