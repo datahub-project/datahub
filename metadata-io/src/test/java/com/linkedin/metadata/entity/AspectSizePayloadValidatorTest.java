@@ -481,4 +481,71 @@ public class AspectSizePayloadValidatorTest {
     // Should not throw - validation still works
     validator.validatePayload(systemAspect, aspect);
   }
+
+  @Test
+  public void testWarningThresholdWithMetrics() {
+    // Test warning threshold emission
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setWarnSizeBytes(1000L);
+    postPatchConfig.setMaxSizeBytes(10000L);
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPostPatch(postPatchConfig);
+
+    com.linkedin.metadata.utils.metrics.MetricUtils mockMetrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, mockMetrics);
+
+    EntityAspect aspect = new EntityAspect();
+    aspect.setMetadata(generateLargeMetadata(5000)); // Between warn and max
+
+    validator.validatePayload(systemAspect, aspect);
+
+    // Verify warning metric was emitted
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.postPatch.warning"), eq(1.0), eq("aspectName"), anyString());
+  }
+
+  @Test
+  public void testDeleteRemediationWithMetrics() {
+    // Test DELETE remediation path with OperationContext and metrics
+    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
+    postPatchConfig.setEnabled(true);
+    postPatchConfig.setMaxSizeBytes(1000L);
+    postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.DELETE);
+    config.setPostPatch(postPatchConfig);
+
+    com.linkedin.metadata.utils.metrics.MetricUtils mockMetrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, mockMetrics);
+
+    // Mock systemAspect to return mockOpContext
+    when(systemAspect.getOperationContext()).thenReturn(mockOpContext);
+
+    EntityAspect aspect = new EntityAspect();
+    aspect.setMetadata(generateLargeMetadata(5000)); // Oversized
+
+    try {
+      validator.validatePayload(systemAspect, aspect);
+      fail("Expected AspectSizeExceededException");
+    } catch (AspectSizeExceededException e) {
+      // Expected
+    }
+
+    // Verify oversized metric was emitted with DELETE remediation
+    verify(mockMetrics)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.postPatch.oversized"),
+            eq(1.0),
+            eq("aspectName"),
+            anyString(),
+            eq("remediation"),
+            eq("DELETE"));
+
+    // Verify deletion was added to OperationContext
+    verify(mockOpContext, times(1)).addPendingDeletion(any(AspectDeletionRequest.class));
+  }
 }
