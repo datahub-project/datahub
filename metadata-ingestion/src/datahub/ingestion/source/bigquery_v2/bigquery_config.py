@@ -531,6 +531,23 @@ class BigQueryV2Config(
         description="Profiling related configs",
     )
 
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "
+        "which will NOT be considered for lineage/usage/queries extraction. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'bot_%' matches 'Bot_User@example.com'). "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'analyst_%@company.com') "
+        "which WILL be considered for lineage/usage/queries extraction. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'analyst_%' matches 'Analyst_John@company.com'). "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
+    )
+
     _include_view_lineage = pydantic_removed_field("include_view_lineage")
     _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
     _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
@@ -603,6 +620,41 @@ class BigQueryV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
+        return self
+
+    @field_validator(
+        "pushdown_deny_usernames", "pushdown_allow_usernames", mode="after"
+    )
+    @classmethod
+    def validate_pushdown_username_patterns(cls, patterns: List[str]) -> List[str]:
+        """Validate and normalize pushdown username patterns.
+
+        - Strips leading/trailing whitespace from each pattern
+        - Rejects empty patterns (after stripping)
+
+        Note: Patterns use SQL LIKE syntax (% = any characters, _ = single character).
+        Invalid patterns will fail at runtime when the SQL query is executed.
+        """
+        validated = []
+        for i, pattern in enumerate(patterns):
+            stripped = pattern.strip()
+            if not stripped:
+                raise ValueError(
+                    f"Empty pattern at index {i}. "
+                    "Remove empty strings from pushdown username patterns."
+                )
+            validated.append(stripped)
+        return validated
+
+    @model_validator(mode="after")
+    def validate_pushdown_config(self) -> "BigQueryV2Config":
+        if (
+            self.pushdown_deny_usernames or self.pushdown_allow_usernames
+        ) and not self.use_queries_v2:
+            raise ValueError(
+                "pushdown_deny_usernames and pushdown_allow_usernames require use_queries_v2=True. "
+                "Either enable use_queries_v2 or remove the pushdown username filters."
+            )
         return self
 
     def get_table_pattern(self, pattern: List[str]) -> str:

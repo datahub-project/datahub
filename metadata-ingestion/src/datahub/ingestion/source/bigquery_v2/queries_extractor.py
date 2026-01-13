@@ -119,7 +119,20 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
 
     user_email_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for user emails to filter in usage.",
+        description="Regex patterns for user emails to filter in usage. Applied client-side.",
+    )
+
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns (SQL LIKE syntax, e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "
+        "to exclude from extraction. Uses case-insensitive LIKE for server-side filtering.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns (SQL LIKE syntax, e.g., 'analyst_%@company.com') "
+        "to include in extraction. Uses case-insensitive LIKE for server-side filtering. "
+        "If empty, all users not in deny list are included.",
     )
 
     top_n_queries: PositiveInt = Field(
@@ -418,12 +431,24 @@ class BigQueryQueriesExtractor(Closeable):
     def fetch_region_query_log(
         self, project: BigqueryProject, region: str
     ) -> Iterable[ObservedQuery]:
+        # Build user filter for pushdown if patterns are configured
+        if self.config.pushdown_deny_usernames or self.config.pushdown_allow_usernames:
+            user_filter = _build_user_filter(
+                allow_usernames=self.config.pushdown_allow_usernames,
+                deny_usernames=self.config.pushdown_deny_usernames,
+            )
+            logger.debug(f"Using pushdown user filter: {user_filter}")
+        else:
+            # No pushdown - filter client-side (existing behavior via SqlParsingAggregator)
+            user_filter = "TRUE"
+
         # Each region needs to be a different query
         query_log_query = _build_enriched_query_log_query(
             project_id=project.id,
             region=region,
             start_time=self.start_time,
             end_time=self.end_time,
+            user_filter=user_filter,
         )
 
         logger.info(f"Fetching query log from BQ Project {project.id} for {region}")
@@ -506,6 +531,98 @@ class BigQueryQueriesExtractor(Closeable):
         self.aggregator.close()
 
 
+def _is_allow_all_pattern(allow_usernames: List[str]) -> bool:
+    """
+    Check if allow patterns effectively match everything.
+
+    When detected, we skip adding the allow filter since it has no effect.
+
+    Design Choice - all() vs any():
+        Uses all() to be conservative: only treat as allow-all if ALL patterns
+        are allow-all. This preserves user intent for auditability, even if
+        logically redundant (e.g., ["%", "specific"] still generates SQL).
+
+    Recognized patterns: "%" (matches any string in SQL LIKE)
+    """
+    if not allow_usernames:
+        return True
+    allow_all_patterns = {"%"}
+    return all(pattern in allow_all_patterns for pattern in allow_usernames)
+
+
+def _escape_for_sql_like(pattern: str) -> str:
+    """
+    Escape a LIKE pattern for safe use in a BigQuery SQL string literal.
+
+    Security Note:
+        Escapes single quotes by doubling them (' → ''), which is the SQL
+        standard for escaping quotes in string literals. This prevents SQL
+        injection attacks.
+
+    Args:
+        pattern: The LIKE pattern to escape
+
+    Returns:
+        The escaped pattern safe for use in SQL LIKE clause
+    """
+    return pattern.replace("'", "''")
+
+
+def _build_user_filter(
+    allow_usernames: List[str],
+    deny_usernames: List[str],
+) -> str:
+    """
+    Convert allow/deny patterns to BigQuery SQL WHERE clause using LIKE.
+
+    Uses LOWER() for case-insensitive matching.
+    This allows pushing down user filtering to BigQuery for improved performance.
+
+    Security: Escapes single quotes by doubling them (' → '') to prevent SQL injection.
+
+    Args:
+        allow_usernames: List of LIKE patterns for users to include (% = any chars, _ = single char)
+        deny_usernames: List of LIKE patterns for users to exclude
+
+    Returns:
+        A SQL WHERE condition string, or "TRUE" if no filtering should be applied
+    """
+    conditions = []
+
+    logger.debug(
+        f"Building user filter: allow={allow_usernames}, deny={deny_usernames}"
+    )
+
+    # Handle ALLOW patterns (inclusions)
+    # Skip if it's the default "allow all" pattern
+    if allow_usernames and not _is_allow_all_pattern(allow_usernames):
+        allow_conditions = []
+        for pattern in allow_usernames:
+            # Lowercase in Python, escape for SQL safety (prevents SQL injection)
+            escaped = _escape_for_sql_like(pattern.lower())
+            logger.debug(f"Allow pattern '{pattern}' escaped to '{escaped}'")
+            # Use LOWER() on column for case-insensitive matching
+            allow_conditions.append(f"LOWER(user_email) LIKE '{escaped}'")
+        if allow_conditions:
+            conditions.append(f"({' OR '.join(allow_conditions)})")
+    elif allow_usernames:
+        logger.debug(
+            f"Skipping allow patterns {allow_usernames} - detected as 'allow all' pattern"
+        )
+
+    # Handle DENY patterns (exclusions)
+    for pattern in deny_usernames:
+        # Lowercase in Python, escape for SQL safety (prevents SQL injection)
+        escaped = _escape_for_sql_like(pattern.lower())
+        logger.debug(f"Deny pattern '{pattern}' escaped to '{escaped}'")
+        # Use LOWER() on column for case-insensitive matching
+        conditions.append(f"LOWER(user_email) NOT LIKE '{escaped}'")
+
+    result = " AND ".join(conditions) if conditions else "TRUE"
+    logger.debug(f"Generated SQL user filter: {result}")
+    return result
+
+
 def _extract_query_text(row: BigQueryJob) -> str:
     if (
         row.statement_type == "SELECT"
@@ -531,7 +648,23 @@ def _build_enriched_query_log_query(
     region: str,
     start_time: datetime,
     end_time: datetime,
+    user_filter: str = "TRUE",
 ) -> str:
+    """
+    Build the SQL query to fetch enriched query log from BigQuery INFORMATION_SCHEMA.JOBS.
+
+    Args:
+        project_id: The GCP project ID
+        region: The BigQuery region qualifier (e.g., "region-us", "region-eu")
+        start_time: Start of the time window for query log
+        end_time: End of the time window for query log
+        user_filter: SQL WHERE clause condition for filtering by user_email.
+                     Defaults to "TRUE" (no filtering). Use _build_user_filter()
+                     to generate this from allow/deny pattern lists.
+
+    Returns:
+        SQL query string to fetch query log
+    """
     audit_start_time = start_time.strftime(BQ_DATETIME_FORMAT)
     audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
 
@@ -583,6 +716,7 @@ def _build_enriched_query_log_query(
             creation_time <= '{audit_end_time}' AND
             error_result is null AND
             not CONTAINS_SUBSTR(query, '.INFORMATION_SCHEMA.') AND
-            statement_type not in ({unsupported_statement_types})
+            statement_type not in ({unsupported_statement_types}) AND
+            {user_filter}
         ORDER BY creation_time
     """

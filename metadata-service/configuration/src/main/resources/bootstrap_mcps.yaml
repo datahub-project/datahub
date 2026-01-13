@@ -7,13 +7,13 @@ bootstrap:
   templates:
     # Bootstrap
     - name: root-user
-      version: v4
+      version: v5
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/root-user.yaml"
 
     - name: data-platforms
-      version: v4
+      version: v5
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
@@ -37,7 +37,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/roles.yaml"
 
     - name: page-modules
-      version: v7
+      version: v8
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-modules.yaml"

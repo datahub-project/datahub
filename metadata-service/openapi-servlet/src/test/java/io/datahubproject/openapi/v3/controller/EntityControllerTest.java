@@ -678,6 +678,68 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollEntitiesWithMissingValueParam() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))));
+
+    // Capture the sort criteria passed to the SearchService
+    ArgumentCaptor<List> sortCriteriaCaptor = ArgumentCaptor.forClass(List.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            sortCriteriaCaptor.capture(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    // Execute request with sortCriteria containing missingValue parameter
+    String requestBody =
+        "{\n"
+            + "  \"entities\": [\"dataset\"],\n"
+            + "  \"sortCriteria\": [\n"
+            + "    {\n"
+            + "      \"field\": \"name\",\n"
+            + "      \"order\": \"ASCENDING\",\n"
+            + "      \"missingValue\": \"FIRST\"\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify missingValue is set on the pegasus SortCriterion
+    List capturedSortCriteria = sortCriteriaCaptor.getValue();
+    assertNotNull(capturedSortCriteria);
+    assertTrue(capturedSortCriteria.size() > 0);
+    com.linkedin.metadata.query.filter.SortCriterion captured =
+        (com.linkedin.metadata.query.filter.SortCriterion) capturedSortCriteria.get(0);
+    assertEquals("_first", captured.data().get("missingValue"));
+  }
+
+  @Test
   public void testScrollEntitiesWithPitKeepAlive() throws Exception {
     List<Urn> TEST_URNS =
         List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
