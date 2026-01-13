@@ -976,11 +976,11 @@ class TestMultiProjectConfig:
             ),
             (
                 {"project_ids": ["MY-PROJECT", "valid-project"]},
-                "Invalid GCP project ID format",
+                "Invalid project_ids format",
             ),
             (
                 {"project_ids": ["ab"]},
-                "Invalid GCP project ID format",
+                "Invalid project_ids format",
             ),
             (
                 {"project_id_pattern": AllowDenyPattern(allow=["[invalid"])},
