@@ -13,7 +13,6 @@ import {
 import { SecretsList } from '@app/ingest/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
 import { TabType } from '@app/ingest/types';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
@@ -174,7 +173,6 @@ export const ManageIngestionPage = () => {
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-            <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID]} />
             <PageHeaderContainer>
                 <TitleContainer>
                     <PageTitle
