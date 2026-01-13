@@ -149,9 +149,10 @@ class VertexAIConfig(EnvConfigMixin):
 
     @model_validator(mode="wrap")
     @classmethod
-    def project_id_backward_compatibility_and_validate(
+    def _migrate_project_id_to_project_ids(
         cls, values: Any, handler: ModelWrapValidatorHandler[VertexAIConfig]
     ) -> VertexAIConfig:
+        """Handle backward compatibility: project_id → project_ids."""
         if isinstance(values, dict):
             values = deepcopy(values)
             project_id = values.pop("project_id", None)
@@ -186,27 +187,39 @@ class VertexAIConfig(EnvConfigMixin):
         else:
             model = handler(values)
 
+        return model
+
+    @model_validator(mode="after")
+    def _validate_pattern_filtering(self) -> VertexAIConfig:
+        """Validate that project_id_pattern doesn't filter out all configured projects."""
+        if not self.project_ids:
+            return self
+
         field_name = (
             "project_id (deprecated)"
-            if model._used_deprecated_project_id
+            if self._used_deprecated_project_id
             else "project_ids"
         )
 
-        if model.project_ids:
-            _check_pattern_filters_all(
-                model.project_ids, model.project_id_pattern, field_name=field_name
-            )
+        _check_pattern_filters_all(
+            self.project_ids, self.project_id_pattern, field_name=field_name
+        )
 
-        has_restrictive_pattern = model.project_id_pattern.allow != [".*"]
-        relies_on_auto_discovery = not model.project_ids and not model.project_labels
+        return self
+
+    @model_validator(mode="after")
+    def _validate_auto_discovery_pattern(self) -> VertexAIConfig:
+        """Validate that auto-discovery is not used with restrictive patterns."""
+        has_restrictive_pattern = self.project_id_pattern.allow != [".*"]
+        relies_on_auto_discovery = not self.project_ids and not self.project_labels
 
         if has_restrictive_pattern and relies_on_auto_discovery:
             raise ValueError(
-                f"Auto-discovery with restrictive allow patterns ({model.project_id_pattern.allow}) "
+                f"Auto-discovery with restrictive allow patterns ({self.project_id_pattern.allow}) "
                 "is not supported. Specify project_ids, use project_labels, or remove the pattern."
             )
 
-        return model
+        return self
 
     def has_explicit_project_ids(self) -> bool:
         return bool(self.project_ids)
