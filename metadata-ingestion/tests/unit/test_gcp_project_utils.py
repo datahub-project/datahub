@@ -699,26 +699,37 @@ class TestTemporaryCredentialsFile:
         with temporary_credentials_file(creds) as cred_path:
             os.unlink(cred_path)
 
-    def test_cleanup_failure_logs_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Cleanup should log warning when OSError occurs (e.g., permission denied)."""
+    def test_cleanup_failure_logs_error(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Cleanup should log error when OSError occurs (e.g., permission denied)."""
         creds = {"type": "service_account", "project_id": "test"}
 
         with (
             patch(
                 "datahub.ingestion.source.common.gcp_project_utils.os.unlink"
             ) as mock_unlink,
-            caplog.at_level(logging.WARNING),
+            caplog.at_level(logging.ERROR),
         ):
             mock_unlink.side_effect = OSError("Permission denied")
             with temporary_credentials_file(creds):
                 pass
 
         assert any(
-            "Failed to cleanup credentials file" in record.message
+            "SECURITY: Failed to cleanup credentials file" in record.message
             for record in caplog.records
         )
+
+    def test_restricts_file_permissions(self) -> None:
+        """Temporary credentials file should have restrictive permissions (0600)."""
+        creds = {"type": "service_account", "project_id": "test"}
+        cred_path = None
+
+        with temporary_credentials_file(creds) as path:
+            cred_path = path
+            stat_info = os.stat(cred_path)
+            file_mode = stat_info.st_mode & 0o777
+            assert file_mode == 0o600, (
+                f"Expected 0600 permissions, got {oct(file_mode)}"
+            )
 
 
 class TestPatternValidation:

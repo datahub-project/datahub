@@ -133,6 +133,9 @@ def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str
         json.dump(credentials_dict, temp_file)
         temp_file.flush()
         temp_file.close()
+
+        os.chmod(temp_file.name, 0o600)
+
         logger.debug("Created temporary credentials file: %s", temp_file.name)
         yield temp_file.name
     finally:
@@ -142,8 +145,11 @@ def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str
         except FileNotFoundError:
             pass
         except OSError as e:
-            logger.warning(
-                "Failed to cleanup credentials file %s: %s", temp_file.name, e
+            logger.error(
+                "SECURITY: Failed to cleanup credentials file %s - credentials may be leaked on disk! Error: %s",
+                temp_file.name,
+                e,
+                exc_info=True,
             )
 
 
