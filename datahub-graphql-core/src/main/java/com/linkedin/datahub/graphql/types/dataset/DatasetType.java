@@ -296,7 +296,8 @@ public class DatasetType
 
     if (authorized && featureFlags.isDomainBasedAuthorizationEnabled()) {
       final Urn entityUrn = UrnUtils.getUrn(urn);
-      authorized = DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
+      authorized =
+          DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
     }
 
     return authorized;
