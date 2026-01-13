@@ -344,8 +344,7 @@ authorization:
 When domain-based authorization is enabled:
 
 1. For CREATE/UPDATE operations: The system checks authorization against both the entity's current domains AND any new domains being assigned
-2. For DELETE operations: The system checks authorization against the entity's current domains before deletion
-3. For READ operations: Standard entity-level authorization applies (domain authorization is handled by policy evaluation)
+2. For READ/DELETE operations: Standard entity-level authorization applies (domain authorization is handled by policy evaluation, which automatically fetches the entity's domains from the database)
 
 **Important Limitations:**
 
@@ -365,11 +364,8 @@ For CREATE/UPDATE operations:
 - This ensures domains are checked consistently within the transaction state
 - Prevents race conditions where domains could change between authorization and commit
 
-For DELETE operations:
-- Authorization happens **at the API layer** before any deletions
-- Entity's domains are fetched once before deletion starts
-- Prevents race conditions where the domain aspect could be deleted before other aspects are authorized
-
+For DELETE/READ operations:
+ - Standard entity-level authorization applies (domain authorization is handled by policy evaluation, which automatically fetches the entity's domains from the database) 
 **Example Policy:**
 
 To allow a user to edit entities within specific domains:
