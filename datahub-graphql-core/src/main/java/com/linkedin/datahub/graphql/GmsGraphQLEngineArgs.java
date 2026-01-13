@@ -16,6 +16,7 @@ import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
@@ -144,4 +145,5 @@ public class GmsGraphQLEngineArgs {
   MetadataTestClient metadataTestClient;
   AssertionMonitorsConfiguration assertionMonitorsConfiguration;
   UserService userService;
+  ThrottleSensor rateLimitThrottle;
 }

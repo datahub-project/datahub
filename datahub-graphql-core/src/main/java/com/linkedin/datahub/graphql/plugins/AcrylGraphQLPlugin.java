@@ -158,6 +158,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.integration.IntegrationsService;
@@ -234,6 +235,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private String baseUrl;
   private UserService userService;
   @Nullable private SampleDataService sampleDataService;
+  private ThrottleSensor rateLimitThrottle;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -284,6 +286,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.baseUrl = args.getBaseUrl();
     this.userService = args.getUserService();
     this.sampleDataService = args.getSampleDataService();
+    this.rateLimitThrottle = args.getRateLimitThrottle();
 
     // Initialize UserInvitationService after all dependencies are set
     this.userInvitationService =
@@ -651,7 +654,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                         this.entityClient, this.viewService, this.formService))
                 .dataFetcher(
                     "getExecutionRequestDownloadUrl",
-                    new GetExecutionRequestDownloadUrlResolver(this.entityClient, this.s3Util)));
+                    new GetExecutionRequestDownloadUrlResolver(this.entityClient, this.s3Util))
+                .dataFetcher(
+                    "getRateLimitInfo",
+                    new com.linkedin.datahub.graphql.resolvers.ingest.execution
+                        .RateLimitInfoResolver(rateLimitThrottle)));
   }
 
   private void configureContainerResolvers(final RuntimeWiring.Builder builder) {

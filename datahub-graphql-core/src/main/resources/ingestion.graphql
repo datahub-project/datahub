@@ -42,6 +42,11 @@ extend type Query {
   Get whether or not not a data connection for an entity exists
   """
   ingestionSourceForEntity(urn: String!): IngestionSource
+
+  """
+  Get the current rate limiting status
+  """
+  getRateLimitInfo: RateLimitInfo!
 }
 
 extend type Mutation {
@@ -158,6 +163,31 @@ type ExecutionRequestInput {
   The specific executor pool to route the request to. If none is provided, an embedded executor is used.
   """
   executorId: String
+}
+
+"""
+The rate limit throttling state
+"""
+enum RateLimitThrottledValue {
+  """
+  The system is currently being throttled due to rate limiting
+  """
+  THROTTLED
+
+  """
+  The system is not currently being throttled
+  """
+  NOT_THROTTLED
+}
+
+"""
+Information about the current rate limiting status
+"""
+type RateLimitInfo {
+  """
+  Whether the system is currently being throttled due to rate limiting
+  """
+  rateLimitThrottled: RateLimitThrottledValue!
 }
 
 """

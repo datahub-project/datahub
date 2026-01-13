@@ -153,3 +153,9 @@ query getExecutionRequestDownloadUrl($input: GetExecutionRequestDownloadUrlInput
         expiresIn
     }
 }
+
+query getRateLimitInfo {
+    getRateLimitInfo {
+        rateLimitThrottled
+    }
+}

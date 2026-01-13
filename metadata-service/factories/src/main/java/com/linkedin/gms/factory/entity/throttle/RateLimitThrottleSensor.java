@@ -141,6 +141,7 @@ public class RateLimitThrottleSensor implements ThrottleSensor {
     isCheckingThrottle.set(false);
   }
 
+  @Override
   public boolean getIsThrottled() {
     if (hazelcastInstance != null) {
       try {

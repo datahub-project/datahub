@@ -6,16 +6,17 @@ import YAML from 'yamljs';
 
 import { ScrollableDetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
-import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
+import { EXECUTION_REQUEST_STATUS_RUNNING, EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
 import { getExecutionRequestSummaryText, useExecutionLogsDownload } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
+import PageBanner from '@app/sharedV2/PageBanner';
+import { Button, Heading, Icon, Text, Tooltip, colors } from '@src/alchemy-components';
 
-import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
-import { ExecutionRequestResult } from '@types';
+import { GetIngestionExecutionRequestQuery, useGetRateLimitInfoQuery } from '@graphql/ingestion.generated';
+import { ExecutionRequestResult, RateLimitThrottledValue } from '@types';
 
 const Section = styled.div`
     display: flex;
@@ -55,6 +56,8 @@ export const SummaryTab = ({
     const logs = data?.executionRequest?.result?.report || 'No output found.';
     const downloadExecutionLogs = useExecutionLogsDownload();
 
+    const { data: rateLimitData } = useGetRateLimitInfoQuery();
+
     const downloadLogs = () => {
         downloadExecutionLogs(urn, `exec-${urn}.log`, logs);
     };
@@ -77,6 +80,10 @@ export const SummaryTab = ({
         downloadFile(recipe, `recipe-${urn}.yaml`);
     };
 
+    const isRateLimited = rateLimitData?.getRateLimitInfo?.rateLimitThrottled === RateLimitThrottledValue.Throttled;
+    const isRunning = status === EXECUTION_REQUEST_STATUS_RUNNING;
+    const showRateLimitBanner = isRateLimited && isRunning;
+
     return (
         <Section>
             {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
@@ -86,6 +93,18 @@ export const SummaryTab = ({
                     )}
                     {structuredReport && <StructuredReport report={structuredReport} />}
                 </SectionBase>
+            )}
+            {showRateLimitBanner && (
+                <PageBanner
+                    icon={<Icon icon="Warning" color="yellow" weight="fill" source="phosphor" />}
+                    backgroundColor={colors.yellow[50]}
+                    content={
+                        <Text>
+                            <strong>Rate limiting is active.</strong> Ingestion may be slower than usual and could
+                            experience issues. Please be patient while the system processes your data.
+                        </Text>
+                    }
+                />
             )}
             <SectionBase>
                 {data?.executionRequest?.id && (

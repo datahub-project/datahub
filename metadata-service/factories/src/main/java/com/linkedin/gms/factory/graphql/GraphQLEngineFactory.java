@@ -301,6 +301,10 @@ public class GraphQLEngineFactory {
   @Qualifier("sampleDataService")
   private com.linkedin.metadata.service.SampleDataService sampleDataService;
 
+  @Autowired(required = false)
+  @Qualifier("rateLimitThrottle")
+  private com.linkedin.metadata.dao.throttle.ThrottleSensor rateLimitThrottle;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -393,6 +397,7 @@ public class GraphQLEngineFactory {
     args.setSemanticSearchService(_semanticSearchService);
     args.setS3Util(s3Util);
     args.setSampleDataService(sampleDataService);
+    args.setRateLimitThrottle(rateLimitThrottle);
 
     // Saas Only
     try {
