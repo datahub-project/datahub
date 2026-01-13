@@ -13,6 +13,7 @@ import {
 import { SecretsList } from '@app/ingest/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
 import { TabType } from '@app/ingest/types';
+import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -183,6 +184,7 @@ export const ManageIngestionPage = () => {
                     {selectedTab === TabType.Sources && showIngestionTab && (
                         <Button
                             variant="filled"
+                            id={INGESTION_CREATE_SOURCE_ID}
                             onClick={handleCreateSource}
                             data-testid="create-ingestion-source-button"
                             disabled={!canManageIngestion}

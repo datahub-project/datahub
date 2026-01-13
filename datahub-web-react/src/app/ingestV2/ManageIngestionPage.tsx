@@ -16,6 +16,7 @@ import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngesti
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
+import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig, useIsFreeTrialInstance } from '@app/useAppConfig';
@@ -269,6 +270,7 @@ export const ManageIngestionPage = () => {
                             <div>
                                 <Button
                                     variant="filled"
+                                    id={INGESTION_CREATE_SOURCE_ID}
                                     onClick={handleCreateSource}
                                     data-testid="create-ingestion-source-button"
                                     icon={{ icon: 'Plus', source: 'phosphor' }}
