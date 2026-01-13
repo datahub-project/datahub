@@ -30,6 +30,7 @@ import {
 } from '@app/ingestV2/source/cacheUtils';
 import { usePoolActionsForIngestionSourceList } from '@app/ingestV2/source/hooks.saas';
 import {
+    DEFAULT_SOURCE_SORT_CRITERION,
     buildOwnerEntities,
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
@@ -290,7 +291,7 @@ export const IngestionSourceList = ({
             count: pageSize,
             query: query?.length ? query : undefined,
             filters: filtersWithPool.length ? filtersWithPool : undefined,
-            sort,
+            sort: !query && !sort ? DEFAULT_SOURCE_SORT_CRITERION : sort,
         }),
         [start, pageSize, query, filtersWithPool, sort],
     );
