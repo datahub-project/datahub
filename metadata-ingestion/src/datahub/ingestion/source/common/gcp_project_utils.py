@@ -24,6 +24,10 @@ from datahub.configuration.common import AllowDenyPattern
 
 logger = logging.getLogger(__name__)
 
+# Consistent help text for error messages
+EXPLICIT_PROJECT_IDS_HELP = "specify project_ids explicitly"
+PROJECT_LABELS_HELP = "use project_labels for label-based discovery"
+
 
 @contextmanager
 def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str]:
@@ -69,6 +73,34 @@ def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str
             logger.warning(
                 "Failed to cleanup credentials file %s: %s", temp_file.name, e
             )
+
+
+@contextmanager
+def gcp_credentials_context(
+    credentials_dict: Optional[Dict[str, Any]],
+) -> Iterator[None]:
+    """
+    Context manager for GCP credential setup/teardown.
+
+    Handles the common pattern of conditionally setting up credentials:
+    - If credentials_dict is None: yields immediately (uses ADC)
+    - If credentials_dict provided: creates temp file, sets env var, cleans up
+
+    Args:
+        credentials_dict: GCP service account credentials dict, or None for ADC
+
+    Example:
+        with gcp_credentials_context(config.get_credentials_dict()):
+            yield from super().get_workunits()
+    """
+    if credentials_dict is None:
+        yield
+    else:
+        with (
+            temporary_credentials_file(credentials_dict) as cred_path,
+            with_temporary_credentials(cred_path),
+        ):
+            yield
 
 
 @contextmanager
@@ -173,12 +205,12 @@ def _handle_discovery_error(
         return GCPProjectDiscoveryError(
             "Permission denied when listing GCP projects. "
             "Ensure the service account has 'resourcemanager.projects.list' permission, "
-            f"or specify project_ids explicitly. Debug: {debug_cmd}"
+            f"or {EXPLICIT_PROJECT_IDS_HELP}. Debug: {debug_cmd}"
         )
     base_msg = build_gcp_error_message(exc, debug_cmd)
     if isinstance(exc, (DeadlineExceeded, ServiceUnavailable)):
         return GCPProjectDiscoveryError(
-            f"{base_msg} Retry or specify project_ids explicitly."
+            f"{base_msg} Retry or {EXPLICIT_PROJECT_IDS_HELP}."
         )
     return GCPProjectDiscoveryError(base_msg)
 

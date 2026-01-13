@@ -53,11 +53,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
     call_with_retry,
+    gcp_credentials_context,
     get_gcp_error_type,
     get_projects,
     get_projects_client,
-    temporary_credentials_file,
-    with_temporary_credentials,
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
@@ -227,15 +226,8 @@ class VertexAISource(Source):
         return self.report
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        credentials_dict = self.config.get_credentials_dict()
-        if credentials_dict is None:
+        with gcp_credentials_context(self.config.get_credentials_dict()):
             yield from super().get_workunits()
-        else:
-            with (
-                temporary_credentials_file(credentials_dict) as cred_path,
-                with_temporary_credentials(cred_path),
-            ):
-                yield from super().get_workunits()
 
     def _build_no_projects_error(self) -> str:
         if self.config.project_ids:

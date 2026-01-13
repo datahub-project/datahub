@@ -8,6 +8,10 @@ from pydantic import Field, PrivateAttr, field_validator, model_validator
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_project_utils import (
+    EXPLICIT_PROJECT_IDS_HELP,
+    PROJECT_LABELS_HELP,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +179,7 @@ class VertexAIConfig(EnvConfigMixin):
         if has_restrictive_pattern and relies_on_auto_discovery:
             raise ValueError(
                 f"Auto-discovery with restrictive allow patterns ({model.project_id_pattern.allow}) "
-                "is not supported. Either specify project_ids explicitly, use project_labels, "
+                f"is not supported. Either {EXPLICIT_PROJECT_IDS_HELP}, {PROJECT_LABELS_HELP}, "
                 "or remove the allow pattern to discover all accessible projects."
             )
 

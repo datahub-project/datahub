@@ -325,6 +325,29 @@ class TestFailFastPatternValidation:
         assert "will exclude" not in caplog.text
 
 
+class TestGcpCredentialsContext:
+    def test_with_credentials_sets_env_var(self) -> None:
+        from datahub.ingestion.source.common.gcp_project_utils import (
+            gcp_credentials_context,
+        )
+
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+        creds = {"type": "service_account", "project_id": "test"}
+        with gcp_credentials_context(creds):
+            assert "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
+            assert os.path.exists(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
+        assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+
+    def test_without_credentials_uses_adc(self) -> None:
+        from datahub.ingestion.source.common.gcp_project_utils import (
+            gcp_credentials_context,
+        )
+
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+        with gcp_credentials_context(None):
+            assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+
+
 class TestWithTemporaryCredentials:
     def test_sets_and_restores_env_var(self) -> None:
         original = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")

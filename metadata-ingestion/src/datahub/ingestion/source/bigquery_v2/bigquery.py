@@ -43,10 +43,7 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractorConfig,
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
-from datahub.ingestion.source.common.gcp_project_utils import (
-    temporary_credentials_file,
-    with_temporary_credentials,
-)
+from datahub.ingestion.source.common.gcp_project_utils import gcp_credentials_context
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -273,15 +270,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        credentials_dict = self.config.get_credentials_dict()
-        if credentials_dict is None:
+        with gcp_credentials_context(self.config.get_credentials_dict()):
             yield from super().get_workunits()
-        else:
-            with (
-                temporary_credentials_file(credentials_dict) as cred_path,
-                with_temporary_credentials(cred_path),
-            ):
-                yield from super().get_workunits()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._warn_deprecated_configs()
