@@ -17,6 +17,9 @@ from datahub.ingestion.source.common.gcp_project_utils import (
 logger = logging.getLogger(__name__)
 
 LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*(?::[a-z0-9_-]+)?$")
+# GCP project IDs: 6-30 chars, lowercase letters, digits, hyphens
+# Must start with letter, end with letter or digit
+GCP_PROJECT_ID_PATTERN = re.compile(r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
 
 
 def _check_pattern_filters_all(
@@ -78,6 +81,15 @@ class VertexAIConfig(EnvConfigMixin):
                 "Remove duplicate entries from your configuration."
             )
 
+        invalid_format = [pid for pid in v if not GCP_PROJECT_ID_PATTERN.match(pid)]
+        if invalid_format:
+            raise ValueError(
+                f"Invalid GCP project ID format: {invalid_format}. "
+                "Project IDs must be 6-30 characters, contain only lowercase letters, "
+                "numbers, and hyphens, start with a letter, and end with a letter or number. "
+                "Example: my-project-123"
+            )
+
         return v
 
     project_labels: List[str] = Field(
@@ -110,6 +122,26 @@ class VertexAIConfig(EnvConfigMixin):
             "project_labels selection. Use 'allow' for whitelist, 'deny' for blacklist."
         ),
     )
+
+    @field_validator("project_id_pattern")
+    @classmethod
+    def validate_project_id_pattern_syntax(
+        cls, v: AllowDenyPattern
+    ) -> AllowDenyPattern:
+        """Validate regex pattern syntax upfront to fail fast on config errors."""
+        invalid_patterns = []
+        for pattern in v.allow + v.deny:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                invalid_patterns.append(f"'{pattern}': {e}")
+
+        if invalid_patterns:
+            raise ValueError(
+                f"Invalid regex in project_id_pattern: {', '.join(invalid_patterns)}. "
+                "Check your allow/deny patterns for syntax errors."
+            )
+        return v
 
     region: str = Field(
         description="Region of your project in Google Cloud Platform.",

@@ -922,8 +922,16 @@ class TestMultiProjectConfig:
     @pytest.mark.parametrize(
         "project_ids,pattern,expected_count",
         [
-            (["prod-p1", "dev-p1", "prod-p2"], AllowDenyPattern(allow=["prod-.*"]), 2),
-            (["p1", "p2-test", "p3"], AllowDenyPattern(deny=[".*-test$"]), 2),
+            (
+                ["prod-project-1", "dev-project-1", "prod-project-2"],
+                AllowDenyPattern(allow=["prod-.*"]),
+                2,
+            ),
+            (
+                ["project-alpha", "project-beta-test", "project-gamma"],
+                AllowDenyPattern(deny=[".*-test$"]),
+                2,
+            ),
         ],
     )
     def test_pattern_filtering(
@@ -949,16 +957,34 @@ class TestMultiProjectConfig:
         [
             (
                 {
-                    "project_ids": ["dev", "test"],
+                    "project_ids": ["dev-project-1", "test-project-2"],
                     "project_id_pattern": AllowDenyPattern(allow=["prod-.*"]),
                 },
                 "filtered out",
             ),
-            ({"project_ids": ["valid", "", "other"]}, "empty or whitespace"),
-            ({"project_ids": ["p1", "p1", "p2"]}, "duplicates"),
+            (
+                {"project_ids": ["valid-project", "", "other-project"]},
+                "empty or whitespace",
+            ),
+            (
+                {"project_ids": ["project-one", "project-one", "project-two"]},
+                "duplicates",
+            ),
             (
                 {"project_id_pattern": AllowDenyPattern(allow=["prod-.*"])},
                 "Auto-discovery with restrictive",
+            ),
+            (
+                {"project_ids": ["MY-PROJECT", "valid-project"]},
+                "Invalid GCP project ID format",
+            ),
+            (
+                {"project_ids": ["ab"]},
+                "Invalid GCP project ID format",
+            ),
+            (
+                {"project_id_pattern": AllowDenyPattern(allow=["[invalid"])},
+                "Invalid regex",
             ),
         ],
     )
@@ -1056,9 +1082,9 @@ class TestErrorHandling:
         """Config errors (InvalidArgument, FailedPrecondition) are reported as failures."""
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_ids=["p1"], region="bad-region"),
+            config=VertexAIConfig(project_ids=["project-one"], region="bad-region"),
         )
-        source._projects = [GCPProject(id="p1", name="P1")]
+        source._projects = [GCPProject(id="project-one", name="Project One")]
 
         def mock_process():
             raise exception
@@ -1077,7 +1103,7 @@ class TestErrorHandling:
 class TestCredentialManagement:
     def test_get_credentials_dict_returns_dict_when_credential_set(self) -> None:
         config = VertexAIConfig(
-            project_ids=["test"],
+            project_ids=["test-project-123"],
             region="us-central1",
             credential=GCPCredential(
                 private_key_id="key-id",
@@ -1093,7 +1119,7 @@ class TestCredentialManagement:
         assert creds_dict["type"] == "service_account"
 
     def test_get_credentials_dict_returns_none_when_no_credential(self) -> None:
-        config = VertexAIConfig(project_ids=["test"], region="us-central1")
+        config = VertexAIConfig(project_ids=["test-project-123"], region="us-central1")
         assert config.get_credentials_dict() is None
 
 
