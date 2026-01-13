@@ -126,7 +126,9 @@ def test_profiler_batch_kwargs_generation():
     profiler = BigqueryProfiler(config, report)
 
     # Mock partition discovery to avoid external dependencies
-    def mock_get_partition_filters(table, project, dataset, execute_func):
+    def mock_get_partition_filters(
+        table, project, dataset, execute_func, cached_partition_metadata=None
+    ):
         return ["`date` = '2023-12-25'"]
 
     # Use patch context manager to avoid mypy method assignment error
