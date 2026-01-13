@@ -54,12 +54,12 @@ class VertexAIConfig(EnvConfigMixin):
 
     @field_validator("project_ids")
     @classmethod
-    def validate_project_ids_field(cls, v: List[str]) -> List[str]:
+    def validate_project_ids_field(cls, project_ids: List[str]) -> List[str]:
         try:
-            validate_project_id_list(v, allow_empty=True)
+            validate_project_id_list(project_ids, allow_empty=True)
         except GCPValidationError as e:
             raise ValueError(str(e)) from e
-        return v
+        return project_ids
 
     project_labels: List[str] = Field(
         default_factory=list,
@@ -75,12 +75,12 @@ class VertexAIConfig(EnvConfigMixin):
 
     @field_validator("project_labels")
     @classmethod
-    def validate_project_labels_field(cls, v: List[str]) -> List[str]:
+    def validate_project_labels_field(cls, project_labels: List[str]) -> List[str]:
         try:
-            validate_project_label_list(v)
+            validate_project_label_list(project_labels)
         except GCPValidationError as e:
             raise ValueError(str(e)) from e
-        return v
+        return project_labels
 
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
