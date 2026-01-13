@@ -165,7 +165,7 @@ class VertexAIConfig(EnvConfigMixin):
     @model_validator(mode="wrap")
     @classmethod
     def project_id_backward_compatibility_and_validate(
-        cls, values: Any, handler: ModelWrapValidatorHandler
+        cls, values: Any, handler: "ModelWrapValidatorHandler[VertexAIConfig]"
     ) -> "VertexAIConfig":
         if isinstance(values, dict):
             values = deepcopy(values)
