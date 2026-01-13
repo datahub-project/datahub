@@ -325,7 +325,87 @@ These privileges are not generalizable.
 
 Support for Policy Constraints based on entity sub-resources (tags, glossary terms, domains, containers, etc.) is currently in development and in an experimental phase.
 
-Currently the only supported sub-resources are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
+#### Domain-Based Authorization
+
+Domain-Based Authorization allows you to enforce access control at the domain level. When enabled, users must have appropriate privileges on the domain(s) that an entity belongs to in order to perform operations on that entity.
+
+**Configuration:**
+
+To enable domain-based authorization, set the following configuration:
+
+```yaml
+authorization:
+  defaultAuthorizer:
+    domainBasedAuthorizationEnabled: true
+```
+
+**How It Works:**
+
+When domain-based authorization is enabled:
+
+1. For CREATE/UPDATE operations: The system checks authorization against both the entity's current domains AND any new domains being assigned
+2. For DELETE operations: The system checks authorization against the entity's current domains before deletion
+3. For READ operations: Standard entity-level authorization applies (domain authorization is handled by policy evaluation)
+
+**Important Limitations:**
+
+:::caution Sync-Only Support
+Domain-based authorization **only works with synchronous batch processing**. It does **NOT** support:
+- Asynchronous ingestion proposals (async=true)
+- Ingestion sources (unless specifically configured)
+- SDK operations (unless specifically configured)
+
+This is because async operations run under a system account context, and domain authorization requires the user's authentication context to be available during the validation phase.
+:::
+
+**Authorization Flow:**
+
+For CREATE/UPDATE operations:
+- Authorization happens **inside the database transaction** via `DomainBasedAuthorizationValidator`
+- This ensures domains are checked consistently within the transaction state
+- Prevents race conditions where domains could change between authorization and commit
+
+For DELETE operations:
+- Authorization happens **at the API layer** before any deletions
+- Entity's domains are fetched once before deletion starts
+- Prevents race conditions where the domain aspect could be deleted before other aspects are authorized
+
+**Example Policy:**
+
+To allow a user to edit entities within specific domains:
+
+```json
+{
+  "type": "METADATA",
+  "state": "ACTIVE",
+  "privileges": ["EDIT_ENTITY"],
+  "actors": {
+    "users": ["urn:li:corpuser:john.doe"],
+    "groups": [],
+    "allUsers": false,
+    "allGroups": false,
+    "resourceOwners": false
+  },
+  "resources": {
+    "allResources": false,
+    "filter": {
+      "criteria": [
+        {
+          "field": "DOMAIN",
+          "condition": "EQUALS",
+          "values": ["urn:li:domain:engineering", "urn:li:domain:marketing"]
+        }
+      ]
+    }
+  }
+}
+```
+
+In this example, john.doe can only edit entities that belong to the "engineering" or "marketing" domains.
+
+#### Tag-Based Privilege Constraints
+
+Currently the only supported sub-resources for privilege constraints are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
 option is `privilegeConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
 it applies to the subResource targeted in the action. For example, if the policy specifies it is constrained to tags that equal `urn:li:tag:tag1` or `urn:li:tag:tag2` for `EDIT_DATASET_TAGS` privilege, then assuming no other policies match,
 a user would only be able to apply those tags to the dataset. This is also supported with the `NOT_EQUALS` condition for preventing certain tags from being added/removed. These policies apply by default in the UI and can be configured to apply
