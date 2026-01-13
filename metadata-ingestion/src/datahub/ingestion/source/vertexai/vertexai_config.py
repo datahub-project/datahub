@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
+from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
@@ -143,7 +144,7 @@ class VertexAIConfig(EnvConfigMixin):
         values: Any,
         handler: pydantic.ValidatorFunctionWrapHandler,
         info: pydantic.ValidationInfo,
-    ) -> VertexAIConfig:
+    ) -> Self:
         """
         Auto-migrate deprecated 'project_id' to 'project_ids'.
 
