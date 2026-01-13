@@ -176,3 +176,16 @@ MAX_PARTITION_VALUES = 1000
 
 # Default number of strategic candidate dates to check (today, yesterday)
 DEFAULT_STRATEGIC_DATE_COUNT = 2
+
+# Query sampling constants for partition discovery
+SAMPLING_PERCENT = 0.001  # 0.1% sample rate for large tables
+SAMPLING_LIMIT_ROWS = 5  # Maximum rows to return when sampling
+TEST_QUERY_LIMIT_ROWS = 1  # Row limit for test queries (validation)
+
+# Default limits for partition discovery operations
+DEFAULT_POPULATED_PARTITIONS_LIMIT = (
+    5  # Max partitions from get_most_populated_partitions
+)
+DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT = 100  # Max partitions from INFORMATION_SCHEMA
+DEFAULT_PARTITION_STATS_LIMIT = 10  # Max results for partition statistics queries
+DEFAULT_MAX_PARTITION_VALUES = 3  # Max distinct values to discover per partition column

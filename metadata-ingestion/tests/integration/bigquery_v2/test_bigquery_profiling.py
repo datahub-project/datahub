@@ -6,7 +6,7 @@ import pytest
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
-from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery import (
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler

@@ -9,7 +9,7 @@ import pytest
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
-from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery import (
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
@@ -795,9 +795,14 @@ def test_partition_discovery_get_most_populated_partitions():
         table, "test-project", "test_dataset", ["event_date"], mock_execute_query
     )
 
-    # The method returns a PartitionResult dict with partition_values and row_count
-    assert isinstance(result, dict)
-    assert "partition_values" in result
+    # The method returns a PartitionResult Pydantic model with partition_values and row_count
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
+        PartitionResult,
+    )
+
+    assert isinstance(result, PartitionResult)
+    assert hasattr(result, "partition_values")
+    assert hasattr(result, "row_count")
 
 
 def test_partition_discovery_get_required_partition_filters():

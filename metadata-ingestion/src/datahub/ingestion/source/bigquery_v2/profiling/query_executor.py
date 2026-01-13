@@ -31,6 +31,17 @@ class QueryExecutor:
         """
         self.config = config
 
+    def _validate_query_security(self, query: str) -> None:
+        validate_sql_structure(query)
+
+        dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
+        for pattern in dangerous_patterns:
+            if pattern in query:
+                logger.error(
+                    f"Query contains potentially dangerous pattern '{pattern}'. Query rejected."
+                )
+                raise ValueError(f"Query contains dangerous pattern: {pattern}")
+
     def execute_query(self, query: str, context: str = "") -> List[Row]:
         """
         Execute a BigQuery query with timeout from configuration and enhanced security validation.
@@ -46,17 +57,7 @@ class QueryExecutor:
             ValueError: If query contains dangerous patterns
             Exception: For query execution errors
         """
-        # Enhanced security validation
-        validate_sql_structure(query)
-
-        # Additional basic pattern check for immediate threats
-        dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
-        for pattern in dangerous_patterns:
-            if pattern in query:
-                logger.error(
-                    f"Query contains potentially dangerous pattern '{pattern}'. Query rejected."
-                )
-                raise ValueError(f"Query contains dangerous pattern: {pattern}")
+        self._validate_query_security(query)
 
         try:
             timeout = self.config.profiling.partition_fetch_timeout
@@ -96,17 +97,7 @@ class QueryExecutor:
             ValueError: If query contains dangerous patterns
             Exception: For query execution errors
         """
-        # Enhanced security validation
-        validate_sql_structure(query)
-
-        # Additional basic pattern check
-        dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
-        for pattern in dangerous_patterns:
-            if pattern in query:
-                logger.error(
-                    f"Query contains potentially dangerous pattern '{pattern}'. Query rejected."
-                )
-                raise ValueError(f"Query contains dangerous pattern: {pattern}")
+        self._validate_query_security(query)
 
         try:
             timeout = self.config.profiling.partition_fetch_timeout
@@ -177,8 +168,8 @@ class QueryExecutor:
             True if query is valid and can be executed, False otherwise
         """
         try:
-            # Validate query structure first
-            validate_sql_structure(query)
+            # Validate query security first
+            self._validate_query_security(query)
 
             # Use dry run to test query validity
             job_config = QueryJobConfig(
@@ -215,8 +206,8 @@ class QueryExecutor:
             Estimated bytes to be processed, or None if estimation fails
         """
         try:
-            # Validate query structure first
-            validate_sql_structure(query)
+            # Validate query security first
+            self._validate_query_security(query)
 
             job_config = QueryJobConfig(
                 dry_run=True,

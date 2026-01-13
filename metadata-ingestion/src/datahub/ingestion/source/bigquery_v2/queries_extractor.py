@@ -3,10 +3,10 @@ import logging
 import pathlib
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Collection, Dict, Iterable, List, Optional, TypedDict
+from typing import Collection, Dict, Iterable, List, Optional
 
 from google.cloud.bigquery import Client
-from pydantic import Field, PositiveInt
+from pydantic import BaseModel, Field, PositiveInt, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
@@ -58,31 +58,52 @@ from datahub.utilities.time import datetime_to_ts_millis
 logger = logging.getLogger(__name__)
 
 
-class BigQueryTableReference(TypedDict):
+class BigQueryTableReference(BaseModel):
     project_id: str
     dataset_id: str
     table_id: str
 
+    @field_validator("project_id", "dataset_id", "table_id")
+    @classmethod
+    def validate_identifier(cls, v: str) -> str:
+        if not v or not isinstance(v, str):
+            raise ValueError(f"Invalid BigQuery identifier: {v}")
+        return v
 
-class DMLJobStatistics(TypedDict):
-    inserted_row_count: int
-    deleted_row_count: int
-    updated_row_count: int
+    class Config:
+        frozen = False
 
 
-class BigQueryJob(TypedDict):
+class DMLJobStatistics(BaseModel):
+    inserted_row_count: int = Field(ge=0)
+    deleted_row_count: int = Field(ge=0)
+    updated_row_count: int = Field(ge=0)
+
+    class Config:
+        frozen = False
+
+
+class BigQueryJob(BaseModel):
     job_id: str
     project_id: str
     creation_time: datetime
     user_email: str
     query: str
-    session_id: Optional[str]
-    query_hash: Optional[str]
-
+    session_id: Optional[str] = None
+    query_hash: Optional[str] = None
     statement_type: str
-    destination_table: Optional[BigQueryTableReference]
-    referenced_tables: List[BigQueryTableReference]
-    # NOTE: This does not capture referenced_view unlike GCP Logging Event
+    destination_table: Optional[BigQueryTableReference] = None
+    referenced_tables: List[BigQueryTableReference] = Field(default_factory=list)
+
+    @field_validator("job_id", "project_id", "user_email", "query", "statement_type")
+    @classmethod
+    def validate_non_empty_string(cls, v: str) -> str:
+        if not v or not isinstance(v, str):
+            raise ValueError(f"Invalid or empty string value: {v}")
+        return v
+
+    class Config:
+        frozen = False
 
 
 class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
@@ -412,7 +433,36 @@ class BigQueryQueriesExtractor(Closeable):
             if i > 0 and i % 1000 == 0:
                 logger.info(f"Processed {i} query log rows so far")
             try:
-                entry = self._parse_audit_log_row(row)
+                # Convert BigQuery Row to Pydantic model for validation
+                job_data = {
+                    "job_id": row.job_id,
+                    "project_id": row.project_id,
+                    "creation_time": row.creation_time,
+                    "user_email": row.user_email,
+                    "query": row.query,
+                    "session_id": row.session_id,
+                    "query_hash": row.query_hash,
+                    "statement_type": row.statement_type,
+                    "destination_table": (
+                        BigQueryTableReference(
+                            project_id=row.destination_table["project_id"],
+                            dataset_id=row.destination_table["dataset_id"],
+                            table_id=row.destination_table["table_id"],
+                        )
+                        if row.destination_table
+                        else None
+                    ),
+                    "referenced_tables": [
+                        BigQueryTableReference(
+                            project_id=table["project_id"],
+                            dataset_id=table["dataset_id"],
+                            table_id=table["table_id"],
+                        )
+                        for table in (row.referenced_tables or [])
+                    ],
+                }
+                validated_row = BigQueryJob(**job_data)
+                entry = self._parse_audit_log_row(validated_row)
             except Exception as e:
                 self.structured_report.warning(
                     "Error parsing query log row",
@@ -423,37 +473,30 @@ class BigQueryQueriesExtractor(Closeable):
                 yield entry
 
     def _parse_audit_log_row(self, row: BigQueryJob) -> ObservedQuery:
-        timestamp: datetime = row["creation_time"]
+        timestamp: datetime = row.creation_time
         timestamp = timestamp.astimezone(timezone.utc)
 
-        # Usually bigquery identifiers are always referred as <dataset>.<table> and only
-        # temporary tables are referred as <table> alone without project or dataset name.
-        # Note that temporary tables can also be referenced using _SESSION.<table>
-        # More details here - https://cloud.google.com/bigquery/docs/multi-statement-queries
-        # Also _ at start considers this as temp dataset as per `temp_table_dataset_prefix` config
         TEMP_TABLE_QUALIFIER = "_SESSION"
 
         query = _extract_query_text(row)
 
         entry = ObservedQuery(
             query=query,
-            session_id=row["session_id"],
-            timestamp=row["creation_time"],
+            session_id=row.session_id,
+            timestamp=row.creation_time,
             user=(
-                CorpUserUrn.from_string(
-                    self.identifiers.gen_user_urn(row["user_email"])
-                )
-                if row["user_email"]
+                CorpUserUrn.from_string(self.identifiers.gen_user_urn(row.user_email))
+                if row.user_email
                 else None
             ),
-            default_db=row["project_id"],
+            default_db=row.project_id,
             default_schema=TEMP_TABLE_QUALIFIER,
-            query_hash=row["query_hash"],
+            query_hash=row.query_hash,
             extra_info={
-                "job_id": row["job_id"],
-                "statement_type": row["statement_type"],
-                "destination_table": row["destination_table"],
-                "referenced_tables": row["referenced_tables"],
+                "job_id": row.job_id,
+                "statement_type": row.statement_type,
+                "destination_table": row.destination_table,
+                "referenced_tables": row.referenced_tables,
             },
         )
 
@@ -464,26 +507,22 @@ class BigQueryQueriesExtractor(Closeable):
 
 
 def _extract_query_text(row: BigQueryJob) -> str:
-    # We wrap select statements in a CTE to make them parseable as DML statement.
-    # This is a workaround to support the case where the user runs a query and inserts the result into a table.
-    # NOTE This will result in showing modified query instead of original query in DataHub UI
-    # Alternatively, this support needs to be added more natively in aggregator.add_observed_query
     if (
-        row["statement_type"] == "SELECT"
-        and row["destination_table"]
-        and not row["destination_table"]["table_id"].startswith("anon")
+        row.statement_type == "SELECT"
+        and row.destination_table
+        and not row.destination_table.table_id.startswith("anon")
     ):
         table_name = BigqueryTableIdentifier(
-            row["destination_table"]["project_id"],
-            row["destination_table"]["dataset_id"],
-            row["destination_table"]["table_id"],
+            row.destination_table.project_id,
+            row.destination_table.dataset_id,
+            row.destination_table.table_id,
         ).raw_table_name()
         query = f"""CREATE TABLE `{table_name}` AS
                 (
-                    {row["query"]}
+                    {row.query}
                 )"""
     else:
-        query = row["query"]
+        query = row.query
     return query
 
 

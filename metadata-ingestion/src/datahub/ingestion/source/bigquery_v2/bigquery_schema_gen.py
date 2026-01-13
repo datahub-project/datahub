@@ -2,6 +2,7 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
+from dataclasses import replace
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
@@ -669,12 +670,15 @@ class BigQuerySchemaGenerator:
 
         # If table has time partitioning, set the data type of the partitioning field
         if table.partition_info and table.partition_info.fields:
-            matching_columns = [
+            matching_columns = tuple(
                 column
                 for column in columns
                 if column.name in table.partition_info.fields
-            ]
-            table.partition_info.columns = matching_columns
+            )
+            if matching_columns:
+                table.partition_info = replace(
+                    table.partition_info, columns=matching_columns
+                )
         yield from self.gen_table_dataset_workunits(
             table, columns, project_id, dataset_name
         )

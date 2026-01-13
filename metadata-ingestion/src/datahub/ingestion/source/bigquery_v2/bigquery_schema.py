@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
+from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple
 
 from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
@@ -60,13 +60,21 @@ class BigqueryTableConstraint:
 RANGE_PARTITION_NAME: str = "RANGE"
 
 
-@dataclass
+@dataclass(frozen=True)
 class PartitionInfo:
-    fields: List[str]  # Changed from single field to list
-    columns: Optional[List[BigqueryColumn]] = None
+    fields: Tuple[str, ...]
+    columns: Optional[Tuple[BigqueryColumn, ...]] = None
     type: str = TimePartitioningType.DAY
     expiration_ms: Optional[int] = None
     require_partition_filter: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.fields:
+            raise ValueError("PartitionInfo must have at least one field")
+        if self.columns is not None and len(self.fields) != len(self.columns):
+            raise ValueError(
+                f"fields/columns length mismatch: {len(self.fields)} fields vs {len(self.columns)} columns"
+            )
 
     @classmethod
     def from_time_partitioning(
@@ -74,7 +82,7 @@ class PartitionInfo:
     ) -> "PartitionInfo":
         """Convert BigQuery time partitioning to PartitionInfo."""
         return cls(
-            fields=[time_partitioning.field or "_PARTITIONTIME"],  # Now a list
+            fields=(time_partitioning.field or "_PARTITIONTIME",),
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
@@ -89,7 +97,7 @@ class PartitionInfo:
             return None
 
         return cls(
-            fields=[field],
+            fields=(field,),
             type=RANGE_PARTITION_NAME,
         )
 

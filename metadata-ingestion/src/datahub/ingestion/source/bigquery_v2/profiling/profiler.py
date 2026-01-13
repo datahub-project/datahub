@@ -34,7 +34,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_LIKE_COLUMN_NAMES,
     STRFTIME_FORMATS,
 )
-from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery import (
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
@@ -104,6 +104,89 @@ class BigqueryProfiler(GenericProfiler):
         self._external_tables_processed = 0
         self._partition_discovery_calls = 0
 
+        # Dataset-level partition metadata cache to avoid redundant INFORMATION_SCHEMA queries
+        # Structure: {(project, dataset): {table_name: {partition_columns: [...], column_types: {...}}}}
+        self._partition_metadata_cache: Dict[Tuple[str, str], Dict[str, Dict]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def _populate_partition_metadata_cache(self, project: str, dataset: str) -> None:
+        cache_key = (project, dataset)
+
+        if cache_key in self._partition_metadata_cache:
+            return
+
+        try:
+            safe_info_schema_ref = build_safe_table_reference(
+                project, dataset, "INFORMATION_SCHEMA.COLUMNS"
+            )
+
+            query = f"""
+SELECT table_name, column_name, data_type
+FROM {safe_info_schema_ref}
+WHERE is_partitioning_column = 'YES'
+ORDER BY table_name, ordinal_position
+"""
+
+            from google.cloud.bigquery import QueryJobConfig
+
+            job_config = QueryJobConfig()
+
+            rows = self.query_executor.execute_query_safely(
+                query, job_config, f"partition metadata cache for {project}.{dataset}"
+            )
+
+            dataset_cache: Dict[str, Dict] = {}
+
+            for row in rows:
+                table_name = row.table_name
+                if table_name not in dataset_cache:
+                    dataset_cache[table_name] = {
+                        "partition_columns": [],
+                        "column_types": {},
+                    }
+                dataset_cache[table_name]["partition_columns"].append(row.column_name)
+                dataset_cache[table_name]["column_types"][row.column_name] = (
+                    row.data_type
+                )
+
+            self._partition_metadata_cache[cache_key] = dataset_cache
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to populate partition metadata cache for {project}.{dataset}: {e}"
+            )
+            self._partition_metadata_cache[cache_key] = {}
+
+    def _get_cached_partition_metadata(
+        self, project: str, dataset: str, table_name: str
+    ) -> Optional[Dict]:
+        cache_key = (project, dataset)
+
+        if cache_key not in self._partition_metadata_cache:
+            self._populate_partition_metadata_cache(project, dataset)
+
+        dataset_cache = self._partition_metadata_cache.get(cache_key, {})
+        table_metadata = dataset_cache.get(table_name)
+
+        if table_metadata:
+            self._cache_hits += 1
+        else:
+            self._cache_misses += 1
+
+        return table_metadata
+
+    def log_cache_statistics(self) -> None:
+        total_requests = self._cache_hits + self._cache_misses
+        if total_requests > 0:
+            hit_rate = (self._cache_hits / total_requests) * 100
+            logger.info(
+                f"Partition metadata cache statistics: "
+                f"{self._cache_hits} hits, {self._cache_misses} misses, "
+                f"{hit_rate:.1f}% hit rate, "
+                f"{len(self._partition_metadata_cache)} datasets cached"
+            )
+
     @staticmethod
     def get_partition_range_from_partition_id(
         partition_id: str, partition_datetime: Optional[datetime]
@@ -157,12 +240,19 @@ class BigqueryProfiler(GenericProfiler):
         if bq_table.external:
             base_kwargs["is_external"] = "true"
 
-        # STEP 3: Cost-optimized partition discovery
         logger.debug(f"Starting partition discovery for {table_ref}")
         self._partition_discovery_calls += 1
 
+        cached_metadata = self._get_cached_partition_metadata(
+            db_name, schema_name, bq_table.name
+        )
+
         partition_filters = self.partition_discovery.get_required_partition_filters(
-            bq_table, db_name, schema_name, self.query_executor.execute_query_safely
+            bq_table,
+            db_name,
+            schema_name,
+            self.query_executor.execute_query_safely,
+            cached_partition_metadata=cached_metadata,
         )
 
         if partition_filters is None:
@@ -709,6 +799,9 @@ WHERE {partition_where}"""
                 platform=platform,
                 profiler_args=profiler_args,
             )
+
+        # Log cache statistics for observability
+        self.log_cache_statistics()
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         return BigqueryTableIdentifier(
