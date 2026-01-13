@@ -1,5 +1,6 @@
-import { DocumentationAssociation } from '@types';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
+
+import { DocumentationAssociation } from '@types';
 
 function checkIsInferredDocumentation(documentation?: DocumentationAssociation) {
     return !!documentation?.attribution?.sourceDetail?.find(
