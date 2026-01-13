@@ -117,6 +117,7 @@ export function IngestionSourceUpdatePage() {
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
                     createdOrUpdatedSourceUrn: urn,
+                    sourcesListQueryInputs: ingestionSourcesListQueryInputs,
                     shouldRun,
                 });
             } catch (e: unknown) {
