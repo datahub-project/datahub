@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
@@ -156,12 +157,22 @@ def test_bigquery_uri_with_credential():
         }
     )
 
-    assert config.get_sql_alchemy_url() == "bigquery://"
-    creds_dict = config.get_credentials_dict()
-    assert creds_dict is not None
-    credential = json.dumps(creds_dict, sort_keys=True)
-    expected_credential = json.dumps(expected_credential_json, sort_keys=True)
-    assert expected_credential == credential
+    try:
+        assert config.get_sql_alchemy_url() == "bigquery://"
+        assert config._credentials_path
+
+        with open(config._credentials_path) as jsonFile:
+            json_credential = json.load(jsonFile)
+            jsonFile.close()
+
+        credential = json.dumps(json_credential, sort_keys=True)
+        expected_credential = json.dumps(expected_credential_json, sort_keys=True)
+        assert expected_credential == credential
+
+    except AssertionError as e:
+        if config._credentials_path:
+            os.unlink(str(config._credentials_path))
+        raise e
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
@@ -205,11 +216,10 @@ def test_get_projects_with_project_ids(
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_get_projects_with_project_ids_applies_project_id_pattern(
+def test_get_projects_with_project_ids_overrides_project_id_pattern(
     get_projects_client,
     get_bigquery_client,
 ):
-    """Test that project_id_pattern filters explicit project_ids."""
     config = BigQueryV2Config.model_validate(
         {
             "project_ids": ["test-project", "test-project-2"],
@@ -222,8 +232,8 @@ def test_get_projects_with_project_ids_applies_project_id_pattern(
         source.report,
         source.filters,
     )
-    # Pattern should filter out "test-project" (exact match), keeping only "test-project-2"
     assert projects == [
+        BigqueryProject(id="test-project", name="test-project"),
         BigqueryProject(id="test-project-2", name="test-project-2"),
     ]
 
@@ -1093,32 +1103,44 @@ def test_get_views_for_dataset(
     assert list(views) == [bigquery_view_1, bigquery_view_2]
 
 
-@pytest.mark.parametrize("view_fixture", ["bigquery_view_1", "bigquery_view_2"])
 @patch.object(
     BigQuerySchemaGenerator, "gen_dataset_workunits", lambda *args, **kwargs: []
 )
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_gen_view_dataset_workunits(
-    get_projects_client, get_bq_client_mock, view_fixture, request
+    get_projects_client, get_bq_client_mock, bigquery_view_1, bigquery_view_2
 ):
-    bigquery_view = request.getfixturevalue(view_fixture)
     project_id = "test-project"
     dataset_name = "test-dataset"
-    config = BigQueryV2Config.model_validate({"project_id": project_id})
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": project_id,
+        }
+    )
     source: BigqueryV2Source = BigqueryV2Source(
         config=config, ctx=PipelineContext(run_id="test")
     )
     schema_gen = source.bq_schema_extractor
 
     gen = schema_gen.gen_view_dataset_workunits(
-        bigquery_view, [], project_id, dataset_name
+        bigquery_view_1, [], project_id, dataset_name
     )
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
     assert mcp.aspect == ViewProperties(
-        materialized=bigquery_view.materialized,
+        materialized=bigquery_view_1.materialized,
         viewLanguage="SQL",
-        viewLogic=bigquery_view.view_definition,
+        viewLogic=bigquery_view_1.view_definition,
+    )
+
+    gen = schema_gen.gen_view_dataset_workunits(
+        bigquery_view_2, [], project_id, dataset_name
+    )
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert mcp.aspect == ViewProperties(
+        materialized=bigquery_view_2.materialized,
+        viewLanguage="SQL",
+        viewLogic=bigquery_view_2.view_definition,
     )
 
 

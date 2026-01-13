@@ -1,10 +1,11 @@
 import logging
+import os
 from typing import Any, Dict, Optional
 
 from google.api_core.client_info import ClientInfo
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from datahub._version import __version__
 from datahub.configuration.common import ConfigModel
@@ -27,6 +28,8 @@ class BigQueryConnectionConfig(ConfigModel):
         default=None, description="BigQuery credential informations"
     )
 
+    _credentials_path: Optional[str] = PrivateAttr(None)
+
     extra_client_options: Dict[str, Any] = Field(
         default={},
         description="Additional options to pass to google.cloud.logging_v2.client.Client.",
@@ -37,10 +40,15 @@ class BigQueryConnectionConfig(ConfigModel):
         description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
     )
 
-    def get_credentials_dict(self) -> Optional[Dict[str, Any]]:
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
         if self.credential:
-            return self.credential.to_dict()
-        return None
+            self._credentials_path = self.credential.create_credential_temp_file()
+            logger.debug(
+                f"Creating temporary credential file at {self._credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options

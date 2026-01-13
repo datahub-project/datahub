@@ -1,4 +1,5 @@
 import json
+import os
 
 from freezegun import freeze_time
 
@@ -46,11 +47,21 @@ def test_bigqueryv2_uri_with_credential():
         }
     )
 
-    creds_dict = config.get_credentials_dict()
-    assert creds_dict is not None
-    credential = json.dumps(creds_dict, sort_keys=True)
-    expected_credential = json.dumps(expected_credential_json, sort_keys=True)
-    assert expected_credential == credential
+    try:
+        assert config._credentials_path
+
+        with open(config._credentials_path) as jsonFile:
+            json_credential = json.load(jsonFile)
+            jsonFile.close()
+
+        credential = json.dumps(json_credential, sort_keys=True)
+        expected_credential = json.dumps(expected_credential_json, sort_keys=True)
+        assert expected_credential == credential
+
+    except AssertionError as e:
+        if config._credentials_path:
+            os.unlink(str(config._credentials_path))
+        raise e
 
 
 @freeze_time(FROZEN_TIME)

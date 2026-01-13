@@ -28,9 +28,6 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryQuery,
     BigqueryTableType,
 )
-from datahub.ingestion.source.common.gcp_project_utils import (
-    get_projects as gcp_get_projects,
-)
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
@@ -262,11 +259,23 @@ class BigQuerySchemaApi:
     @lru_cache(maxsize=1)
     def get_projects_with_labels(self, labels: FrozenSet[str]) -> List[BigqueryProject]:
         with self.report.list_projects_with_labels_timer:
-            gcp_projects = gcp_get_projects(
-                project_labels=list(labels),
-                client=self.projects_client,
-            )
-            return [BigqueryProject(id=p.id, name=p.name) for p in gcp_projects]
+            try:
+                projects = []
+                labels_query = " OR ".join([f"labels.{label}" for label in labels])
+                for project in self.projects_client.search_projects(query=labels_query):
+                    projects.append(
+                        BigqueryProject(
+                            id=project.project_id, name=project.display_name
+                        )
+                    )
+
+                return projects
+
+            except Exception as e:
+                logger.error(
+                    f"Error getting projects with labels: {labels}. {e}", exc_info=True
+                )
+                return []
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
@@ -299,14 +308,14 @@ class BigQuerySchemaApi:
                 )
             return result
 
-    # This method is not used anywhere
+    # This is not used anywhere
     def get_datasets_for_project_id_with_information_schema(
         self, project_id: str
     ) -> List[BigqueryDataset]:
         """
         This method is not used as of now, due to below limitation.
-        Current query only fetches datasets in US region.
-        We'll need region-wise separate queries to fetch all datasets.
+        Current query only fetches datasets in US region
+        We'll need Region wise separate queries to fetch all datasets
         https://cloud.google.com/bigquery/docs/information-schema-datasets-schemata
         """
         schemas = self.get_query_result(
@@ -751,14 +760,38 @@ def get_projects(
     filters: BigQueryFilter,
 ) -> List[BigqueryProject]:
     logger.info("Getting projects")
+    if filters.filter_config.project_ids:
+        return [
+            BigqueryProject(id=project_id, name=project_id)
+            for project_id in filters.filter_config.project_ids
+        ]
+    elif filters.filter_config.project_labels:
+        return list(query_project_list_from_labels(schema_api, report, filters))
+    else:
+        return list(query_project_list(schema_api, report, filters))
 
-    if filters.filter_config.project_ids or filters.filter_config.project_labels:
-        gcp_projects = gcp_get_projects(
-            project_ids=filters.filter_config.project_ids or None,
-            project_labels=filters.filter_config.project_labels or None,
-            project_id_pattern=filters.filter_config.project_id_pattern,
-            client=schema_api.projects_client,
+
+def query_project_list_from_labels(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> Iterable[BigqueryProject]:
+    projects = schema_api.get_projects_with_labels(
+        frozenset(filters.filter_config.project_labels)
+    )
+
+    if not projects:  # Report failure on exception and if empty list is returned
+        report.report_failure(
+            "metadata-extraction",
+            "Get projects didn't return any project with any of the specified label(s). "
+            "Maybe resourcemanager.projects.list permission is missing for the service account. "
+            "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
         )
-        return [BigqueryProject(id=p.id, name=p.name) for p in gcp_projects]
 
-    return list(query_project_list(schema_api, report, filters))
+    for project in projects:
+        if filters.filter_config.project_id_pattern.allowed(project.id):
+            yield project
+        else:
+            logger.debug(
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+            )
