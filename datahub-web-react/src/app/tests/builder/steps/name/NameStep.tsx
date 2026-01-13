@@ -68,13 +68,13 @@ export const NameStep = ({ state, updateState, prev, submit }: StepProps) => {
 
     const onClickCreate = () => {
         if (state.category?.length && state.name?.length) {
-            // Check for validation warnings before saving
+            // Show info message if there are validation warnings but allow saving
+            // This allows custom properties that may be valid but not mapped
             if (validationWarnings.length > 0) {
-                message.error(
-                    'Cannot save test with invalid configuration. Please fix the validation warnings before saving.',
+                message.info(
+                    'Saving test with validation warnings. Some properties may not be compatible with your selected entity types. You can edit the test later to fix any issues.',
                     5,
                 );
-                return;
             }
             submit();
         }
