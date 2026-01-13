@@ -186,33 +186,6 @@ class VertexAIConfig(EnvConfigMixin):
         return handler(values)
 
     @model_validator(mode="after")
-    def validate_project_selection(self) -> VertexAIConfig:
-        """
-        Ensure at least one project selection method is configured.
-
-        Users must specify projects via:
-        - project_ids (explicit list)
-        - project_labels (label-based discovery)
-        - project_id_pattern (regex-based discovery, but only if not using default allow-all)
-        """
-        has_project_ids = bool(self.project_ids)
-        has_project_labels = bool(self.project_labels)
-        has_custom_pattern = self.project_id_pattern.allow != [".*"] or (
-            self.project_id_pattern.deny and len(self.project_id_pattern.deny) > 0
-        )
-
-        if not any([has_project_ids, has_project_labels, has_custom_pattern]):
-            raise ValueError(
-                "No project selection configured. Please specify at least one of:\n"
-                "  - project_ids: ['my-project']  # Explicit list\n"
-                "  - project_labels: ['env:prod']  # Label-based discovery\n"
-                "  - project_id_pattern: {'allow': ['^ml-.*']}  # Regex pattern\n"
-                "\nSee docs: https://datahubproject.io/docs/generated/ingestion/sources/vertexai#multi-project"
-            )
-
-        return self
-
-    @model_validator(mode="after")
     def _validate_pattern_filtering(self) -> VertexAIConfig:
         if not self.project_ids:
             return self
