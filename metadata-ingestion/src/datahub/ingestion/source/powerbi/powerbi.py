@@ -13,7 +13,6 @@ import more_itertools
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -52,7 +51,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import parser, native_sql_parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -414,7 +413,6 @@ class Mapper:
             if table.expression:
                 # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual characters
                 # This is done after all parsing is complete to avoid interfering with M-Query parsing
-                from datahub.ingestion.source.powerbi.m_query import native_sql_parser
 
                 converted_expression = native_sql_parser.remove_special_characters(
                     table.expression
