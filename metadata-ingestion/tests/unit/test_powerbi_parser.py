@@ -3,6 +3,7 @@ from lark import Token, Tree
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    AthenaPlatformOverride,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -634,9 +635,11 @@ def test_athena_table_platform_override():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        athena_table_platform_override={
-            "my_schema.my_table": "mysql",
-        },
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema", table="my_table", platform="mysql"
+            ),
+        ],
     )
 
     table = Table(name="test_table", full_name="test_table")
@@ -700,9 +703,11 @@ def test_athena_table_platform_override_no_match():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        athena_table_platform_override={
-            "other_schema.other_table": "mysql",
-        },
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="other_schema", table="other_table", platform="mysql"
+            ),
+        ],
     )
 
     table = Table(name="test_table", full_name="test_table")
@@ -766,11 +771,20 @@ def test_athena_table_platform_override_dsn_scoped():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        athena_table_platform_override={
-            "ProdDSN:my_schema.my_table": "mysql",  # DSN-scoped
-            "DevDSN:my_schema.my_table": "postgres",  # Different DSN
-            "my_schema.my_table": "oracle",  # Global fallback
-        },
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema", table="my_table", platform="mysql", dsn="ProdDSN"
+            ),
+            AthenaPlatformOverride(
+                database="my_schema",
+                table="my_table",
+                platform="postgres",
+                dsn="DevDSN",
+            ),
+            AthenaPlatformOverride(
+                database="my_schema", table="my_table", platform="oracle"
+            ),  # Global fallback
+        ],
     )
 
     table = Table(name="test_table", full_name="test_table")
@@ -853,9 +867,11 @@ def test_athena_table_platform_override_column_lineage():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        athena_table_platform_override={
-            "my_schema.my_table": "mysql",
-        },
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema", table="my_table", platform="mysql"
+            ),
+        ],
     )
 
     table = Table(name="test_table", full_name="test_table")
@@ -942,9 +958,14 @@ def test_athena_table_platform_override_dsn_with_special_chars():
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
-        athena_table_platform_override={
-            "RDS MYSQL:normalized-data.users": "mysql",
-        },
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="normalized-data",
+                table="users",
+                platform="mysql",
+                dsn="RDS MYSQL",
+            ),
+        ],
     )
 
     table = Table(name="test_table", full_name="test_table")
@@ -1012,10 +1033,14 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
         dsn_to_platform_name={
             "ThreadProdDataLake": "athena",
         },
-        athena_table_platform_override={
-            # Key is 2-part name AFTER catalog stripping
-            "normalized-data.normalized_accounts": "mysql",
-        },
+        athena_table_platform_override=[
+            # Override uses 2-part name AFTER catalog stripping
+            AthenaPlatformOverride(
+                database="normalized-data",
+                table="normalized_accounts",
+                platform="mysql",
+            ),
+        ],
     )
 
     table = Table(name="test_table", full_name="test_table")
@@ -1061,59 +1086,64 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
 
 
 # Tests for athena_table_platform_override config validation
-def test_athena_table_platform_override_invalid_key_format():
-    """Test that keys must be in database.table format."""
-    # Single-part key (forgot database prefix)
+def test_athena_table_platform_override_platform_with_spaces():
+    """Test that platform names with spaces raise validation error."""
     with pytest.raises(ValueError) as exc_info:
         PowerBiDashboardSourceConfig(
             tenant_id="test-tenant-id",
             client_id="test-client-id",
             client_secret="test-client-secret",
-            athena_table_platform_override={"users": "mysql"},
+            athena_table_platform_override=[
+                AthenaPlatformOverride(
+                    database="database", table="table", platform="my sql"
+                ),
+            ],
         )
-    assert "expected format 'database.table'" in str(exc_info.value)
+    assert "contains spaces" in str(exc_info.value)
 
-    # Three-part key (used catalog.database.table instead of database.table)
-    with pytest.raises(ValueError) as exc_info:
-        PowerBiDashboardSourceConfig(
+
+def test_athena_table_platform_override_unknown_platform_warns(caplog):
+    """Test that unknown platform names trigger a warning but don't fail."""
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        config = PowerBiDashboardSourceConfig(
             tenant_id="test-tenant-id",
             client_id="test-client-id",
             client_secret="test-client-secret",
-            athena_table_platform_override={"catalog.database.table": "mysql"},
+            athena_table_platform_override=[
+                AthenaPlatformOverride(
+                    database="database",
+                    table="table",
+                    platform="mysq1",  # typo
+                ),
+            ],
         )
-    assert "expected format 'database.table'" in str(exc_info.value)
+    # Config should be created successfully
+    assert len(config.athena_table_platform_override) == 1
+    assert config.athena_table_platform_override[0].platform == "mysq1"
+    # But a warning should be logged
+    assert "mysq1" in caplog.text
+    assert "not a recognized DataHub platform" in caplog.text
 
 
-def test_athena_table_platform_override_dsn_scoped_invalid_table_format():
-    """Test that DSN-scoped keys also require database.table format after the colon."""
-    # DSN-scoped with single-part table
-    with pytest.raises(ValueError) as exc_info:
-        PowerBiDashboardSourceConfig(
+def test_athena_table_platform_override_known_platform_no_warning(caplog):
+    """Test that known platform names don't trigger warnings."""
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        config = PowerBiDashboardSourceConfig(
             tenant_id="test-tenant-id",
             client_id="test-client-id",
             client_secret="test-client-secret",
-            athena_table_platform_override={"MyDSN:users": "mysql"},
+            athena_table_platform_override=[
+                AthenaPlatformOverride(
+                    database="database", table="table", platform="mysql"
+                ),
+            ],
         )
-    assert "expected format 'database.table'" in str(exc_info.value)
-
-    # DSN-scoped with three-part table
-    with pytest.raises(ValueError) as exc_info:
-        PowerBiDashboardSourceConfig(
-            tenant_id="test-tenant-id",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            athena_table_platform_override={"MyDSN:catalog.database.table": "mysql"},
-        )
-    assert "expected format 'database.table'" in str(exc_info.value)
-
-
-def test_athena_table_platform_override_empty_platform():
-    """Test that empty platform value raises validation error."""
-    with pytest.raises(ValueError) as exc_info:
-        PowerBiDashboardSourceConfig(
-            tenant_id="test-tenant-id",
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            athena_table_platform_override={"database.table": ""},
-        )
-    assert "must be a non-empty platform name" in str(exc_info.value)
+    # Config should be created successfully
+    assert len(config.athena_table_platform_override) == 1
+    assert config.athena_table_platform_override[0].platform == "mysql"
+    # No warning should be logged for known platform
+    assert "not a recognized DataHub platform" not in caplog.text

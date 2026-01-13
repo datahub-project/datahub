@@ -292,6 +292,28 @@ class PowerBiProfilingConfig(ConfigModel):
     )
 
 
+class AthenaPlatformOverride(ConfigModel):
+    """
+    Configuration for overriding the platform of Athena federated tables.
+
+    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
+    and you want the lineage to point to the actual source platform instead of Athena.
+    """
+
+    database: str = pydantic.Field(
+        description="The database name in the Athena query (after catalog stripping)."
+    )
+    table: str = pydantic.Field(description="The table name in the Athena query.")
+    platform: str = pydantic.Field(
+        description="The target DataHub platform name (e.g., 'mysql', 'postgres')."
+    )
+    dsn: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional DSN to scope this override to a specific data source. "
+        "If specified, this override only applies when the query comes from this DSN.",
+    )
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
@@ -365,19 +387,16 @@ class PowerBiDashboardSourceConfig(
         "is 'prod' you would configure the mapping as 'database: prod'. "
         "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
     )
-    # Athena federated table platform override mapping
-    athena_table_platform_override: Dict[str, str] = pydantic.Field(
-        default={},
-        description="A mapping of table names to DataHub platform names for Athena federated queries. "
+    # Athena federated table platform override
+    athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
+        default=[],
+        description="List of platform overrides for Athena federated queries. "
         "Use this to override the platform when Athena queries data from federated sources "
         "(e.g., MySQL, PostgreSQL) via ODBC. The lineage will point to the actual source "
         "platform instead of Athena. "
         "This override is applied AFTER catalog stripping, so use 2-part names "
         "(database.table), not 3-part names (catalog.database.table). "
-        "Keys can optionally be prefixed with DSN to scope the override to a specific "
-        "data source (format: 'dsn:database.table'). DSN-scoped keys take precedence "
-        "over global keys. "
-        "Example: {'MyDSN:analytics.users': 'mysql', 'reporting.orders': 'postgres'}",
+        "Overrides with a DSN specified take precedence over those without.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -668,29 +687,27 @@ class PowerBiDashboardSourceConfig(
         if not self.athena_table_platform_override:
             return self
 
-        for key, value in self.athena_table_platform_override.items():
-            if not isinstance(value, str) or not value.strip():
+        # Build set of known DataHub platform names for validation
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+
+        for override in self.athena_table_platform_override:
+            # Validate platform format: no spaces allowed
+            if " " in override.platform:
                 raise ValueError(
-                    f"athena_table_platform_override: value for key '{key}' must be a non-empty platform name"
+                    f"athena_table_platform_override: platform '{override.platform}' "
+                    "contains spaces. Platform names should be lowercase without spaces "
+                    "(e.g., 'mysql', 'postgres', 'bigquery')."
                 )
 
-            # Check key format: either "database.table" or "dsn:database.table"
-            if ":" in key:
-                # DSN-scoped key format: "dsn:database.table"
-                dsn_part, table_part = key.split(":", 1)
-                if not dsn_part.strip():
-                    raise ValueError(
-                        f"athena_table_platform_override: invalid key '{key}' - DSN name cannot be empty"
-                    )
-                table_parts = table_part.split(".")
-            else:
-                # Global key format: "database.table"
-                table_parts = key.split(".")
-
-            if len(table_parts) != 2:
-                raise ValueError(
-                    f"athena_table_platform_override: invalid key '{key}' - "
-                    "expected format 'database.table' or 'dsn:database.table'"
+            # Warn if platform is not in the known list (custom platforms are allowed)
+            if override.platform not in known_platforms:
+                logger.warning(
+                    f"athena_table_platform_override: platform '{override.platform}' "
+                    f"for {override.database}.{override.table} is not a recognized DataHub platform. "
+                    f"Known platforms: {sorted(known_platforms)}. "
+                    "If this is a custom platform, you can ignore this warning."
                 )
 
         return self

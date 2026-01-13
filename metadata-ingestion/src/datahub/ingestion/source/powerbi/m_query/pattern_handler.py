@@ -1314,7 +1314,8 @@ class OdbcLineage(AbstractLineage):
             """Strip first part from 3-part table names in URN."""
             try:
                 parsed = DatasetUrn.from_string(urn)
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to parse URN for catalog stripping: {urn}: {e}")
                 return urn
 
             parts = parsed.name.split(".")
@@ -1338,9 +1339,9 @@ class OdbcLineage(AbstractLineage):
         This is used when Athena queries federated data sources (e.g., MySQL)
         and the lineage should point to the actual source platform entity.
 
-        Keys can be:
-        - DSN-scoped: "dsn:database.table" (takes precedence)
-        - Global: "database.table" (fallback)
+        Matching priority:
+        1. DSN-scoped overrides (where override.dsn matches the current DSN)
+        2. Global overrides (where override.dsn is None)
         """
         if not self.config.athena_table_platform_override:
             return lineage
@@ -1349,25 +1350,39 @@ class OdbcLineage(AbstractLineage):
             """Check if table matches override config and replace platform."""
             try:
                 parsed = DatasetUrn.from_string(urn)
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to parse URN for platform override: {urn}: {e}")
                 return urn
 
-            table_name = parsed.name
+            urn_name = parsed.name  # format: "database.table"
             current_platform = str(parsed.platform)
 
-            # Try DSN-scoped key first, then fall back to global key
-            dsn_scoped_key = f"{dsn}:{table_name}"
-            target_platform = self.config.athena_table_platform_override.get(
-                dsn_scoped_key
-            ) or self.config.athena_table_platform_override.get(table_name)
+            # Parse database and table from URN name
+            name_parts = urn_name.split(".")
+            if len(name_parts) != 2:
+                return urn
+            urn_database, urn_table = name_parts
+
+            # Find matching override: DSN-scoped first, then global
+            target_platform = None
+            for override in self.config.athena_table_platform_override:
+                if override.database == urn_database and override.table == urn_table:
+                    if override.dsn == dsn:
+                        # DSN-scoped match takes priority
+                        target_platform = override.platform
+                        break
+                    elif override.dsn is None and target_platform is None:
+                        # Global match (only if no DSN-scoped match found yet)
+                        target_platform = override.platform
+
             if not target_platform:
                 return urn
 
             overridden_urn = str(
-                DatasetUrn(platform=target_platform, name=table_name, env=parsed.env)
+                DatasetUrn(platform=target_platform, name=urn_name, env=parsed.env)
             )
             logger.debug(
-                f"Overriding platform for table {table_name}: {current_platform} -> {target_platform}"
+                f"Overriding platform for table {urn_name}: {current_platform} -> {target_platform}"
             )
             return overridden_urn
 
