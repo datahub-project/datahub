@@ -195,6 +195,7 @@ def run(
     "--name",
     type=str,
     help="Recipe Name",
+    required=False,
 )
 @click.option(
     "-c",

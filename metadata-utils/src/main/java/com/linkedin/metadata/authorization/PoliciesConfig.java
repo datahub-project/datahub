@@ -949,6 +949,14 @@ public class PoliciesConfig {
               DATA_MANAGE_NAMESPACES_PRIVILEGE,
               DATA_LIST_ENTITIES_PRIVILEGE));
 
+  // DataHub View Privileges
+  public static final ResourcePrivileges DATAHUB_VIEW_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.DATAHUB_VIEW_ENTITY_NAME,
+          "Views",
+          "DataHub Views",
+          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EXISTS_ENTITY_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -973,7 +981,8 @@ public class PoliciesConfig {
           INGESTION_SOURCE_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
-          APPLICATION_PRIVILEGES);
+          APPLICATION_PRIVILEGES,
+          DATAHUB_VIEW_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
@@ -1304,28 +1313,6 @@ public class PoliciesConfig {
                               DELETE_ENTITY_PRIVILEGE,
                               VIEW_ENTITY_PAGE_PRIVILEGE,
                               SEARCH_PRIVILEGE))
-                      .build())
-              .put(
-                  Constants.ASSERTION_ENTITY_NAME,
-                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
-                      .put(
-                          ApiOperation.CREATE,
-                          Disjunctive.disjoint(
-                              EDIT_ENTITY_ASSERTIONS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
-                      .put(
-                          ApiOperation.READ,
-                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
-                      .put(
-                          ApiOperation.UPDATE,
-                          Disjunctive.disjoint(
-                              EDIT_ENTITY_ASSERTIONS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
-                      .put(
-                          ApiOperation.DELETE,
-                          Disjunctive.disjoint(
-                              EDIT_ENTITY_ASSERTIONS_PRIVILEGE, DELETE_ENTITY_PRIVILEGE))
-                      .put(
-                          ApiOperation.EXISTS,
-                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
                       .build())
               .build();
 
