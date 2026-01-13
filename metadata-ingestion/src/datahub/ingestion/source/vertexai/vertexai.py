@@ -114,6 +114,42 @@ logger = logging.getLogger(__name__)
 
 VERTEX_AI_RETRY_TIMEOUT = 600.0
 
+# Error context metadata for project-level errors
+# Maps exception type to (debug_cmd_template, troubleshooting_tips)
+_ERROR_CONTEXT: Dict[type, Tuple[str, str]] = {
+    InvalidArgument: (
+        "gcloud services enable aiplatform.googleapis.com --project={project_id}",
+        "Vertex AI API is not enabled for this project. "
+        "Enable it via the Cloud Console or run the debug command above. "
+        "If you have multiple projects, consider using project_id_pattern to skip projects without Vertex AI.",
+    ),
+    FailedPrecondition: (
+        "gcloud services enable aiplatform.googleapis.com --project={project_id}",
+        "Vertex AI API is not enabled for this project. "
+        "Enable it via the Cloud Console or run the debug command above. "
+        "If you have multiple projects, consider using project_id_pattern to skip projects without Vertex AI.",
+    ),
+    NotFound: (
+        "gcloud projects describe {project_id}",
+        "Project not found or has been deleted. "
+        "Verify the project ID is correct and the project exists. "
+        "If using label-based discovery, the project may have been deleted after discovery.",
+    ),
+    PermissionDenied: (
+        "gcloud projects get-iam-policy {project_id}",
+        "Permission denied accessing Vertex AI resources. "
+        "Service account needs 'aiplatform.models.list', 'aiplatform.endpoints.list', etc. "
+        "Grant 'Vertex AI User' role (roles/aiplatform.user) or equivalent. "
+        "See: https://cloud.google.com/vertex-ai/docs/general/access-control",
+    ),
+}
+
+_DEFAULT_ERROR_CONTEXT = (
+    "gcloud projects get-iam-policy {project_id}",
+    "Check service account permissions and project configuration. "
+    "Run the debug command above to verify access.",
+)
+
 
 def _is_config_error(exc: Exception) -> bool:
     """Check if exception indicates a configuration error (e.g., API not enabled)."""
@@ -286,39 +322,14 @@ class VertexAISource(Source):
         Returns:
             Tuple of (debug_command, troubleshooting_tips)
         """
-        error_type = get_gcp_error_type(exc)
+        cmd_template, tips = _ERROR_CONTEXT.get(type(exc), _DEFAULT_ERROR_CONTEXT)
+        debug_cmd = cmd_template.format(project_id=project_id)
 
-        if _is_config_error(exc):
-            debug_cmd = f"gcloud services enable aiplatform.googleapis.com --project={project_id}"
+        # For unknown errors, prepend the error type to the tips
+        if type(exc) not in _ERROR_CONTEXT:
+            error_type = get_gcp_error_type(exc)
             tips = (
-                "Vertex AI API is not enabled for this project. "
-                "Enable it via the Cloud Console or run the debug command above. "
-                "If you have multiple projects, consider using project_id_pattern "
-                "to skip projects without Vertex AI."
-            )
-        elif isinstance(exc, NotFound):
-            debug_cmd = f"gcloud projects describe {project_id}"
-            tips = (
-                "Project not found or has been deleted. "
-                "Verify the project ID is correct and the project exists. "
-                "If using label-based discovery, the project may have been "
-                "deleted after discovery."
-            )
-        elif isinstance(exc, PermissionDenied):
-            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
-            tips = (
-                "Permission denied accessing Vertex AI resources. "
-                "Service account needs 'aiplatform.models.list', "
-                "'aiplatform.endpoints.list', etc. "
-                "Grant 'Vertex AI User' role (roles/aiplatform.user) or equivalent. "
-                "See: https://cloud.google.com/vertex-ai/docs/general/access-control"
-            )
-        else:
-            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
-            tips = (
-                f"{error_type} when accessing Vertex AI in project {project_id}. "
-                "Check service account permissions and project configuration. "
-                "Run the debug command above to verify access."
+                f"{error_type} when accessing Vertex AI in project {project_id}. {tips}"
             )
 
         return debug_cmd, tips
