@@ -30,9 +30,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class ManualThrottleSensor implements ThrottleSensor {
   private static final ThrottleEvent ENABLE =
-      ThrottleEvent.builder().throttled(Map.of(ThrottleType.MANUAL, true)).build();
+      ThrottleEvent.booleanThrottle(Map.of(ThrottleType.MANUAL, true));
   private static final ThrottleEvent DISABLE =
-      ThrottleEvent.builder().throttled(Map.of(ThrottleType.MANUAL, false)).build();
+      ThrottleEvent.booleanThrottle(Map.of(ThrottleType.MANUAL, false));
 
   /** A list of throttle event listeners to execute when throttling occurs and ceases */
   private final List<Function<ThrottleEvent, ThrottleControl>> throttleCallbacks =

@@ -371,6 +371,10 @@ public interface EntityService<U extends ChangeMCP> {
       final int start,
       @Nullable Integer count);
 
+  /**
+   * Note: expected to only be used internally. If this method is exposed externally, we need to
+   * count its usage for rate limit throttling.
+   */
   List<UpdateAspectResult> ingestAspects(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,

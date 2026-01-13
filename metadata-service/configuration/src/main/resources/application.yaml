@@ -1078,7 +1078,7 @@ systemUpdate:
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_REPROCESS:false}
   sendAdminInviteToken:
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_ENABLED:true}
+    enabled: ${IS_FREE_TRIAL_INSTANCE:false}
     retryCount: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_RETRY_COUNT:7}
     retryIntervalSeconds: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_RETRY_INTERVAL:2}
     reprocess:
@@ -1586,7 +1586,7 @@ metadataChangeProposal:
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 
-    # What component is throttled
+    # What components are throttled by Kafka lag or rate limiting
     components:
       mceConsumer:
         enabled: ${MCP_MCE_CONSUMER_THROTTLE_ENABLED:false}
@@ -1613,6 +1613,24 @@ metadataChangeProposal:
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+    rateLimit:
+      enabled: ${MCP_RATE_LIMIT_THROTTLE_ENABLED:false}
+      # Rate limit only activated if # events above quota within activation interval
+      # Activation is not a rolling window: count resets every interval
+      # Upon activation, reject events / pause consumers if exceeding the rate limit
+      # The rate limit interval is a rolling window
+      # This is per gms instance (sync) / mce consumer (async, separate consumers),
+      #   so rate limit scales linearly with the count of each
+      activationQuota: ${MCP_RATE_LIMIT_ACTIVATION_QUOTA:100000}
+      activationIntervalMinutes: ${MCP_RATE_LIMIT_ACTIVATION_INTERVAL_MINUTES:1440}
+      rateLimitIntervalSeconds: ${MCP_RATE_LIMIT_INTERVAL_SECONDS:300}
+      limitPerInterval: ${MCP_RATE_LIMIT_PER_INTERVAL:30000}
+      # How often to check whether to throttle
+      updateIntervalMs: ${MCP_RATE_LIMIT_UPDATE_INTERVAL_MS:5000}
+      # Used when calculating the Retry-After header
+      # How much potential extra time to wait, as a ratio of the minimum required wait time
+      jitterRatio: ${MCP_RATE_LIMIT_JITTER_RATIO:2}
 
 metadataChangeLog:
   consumer:

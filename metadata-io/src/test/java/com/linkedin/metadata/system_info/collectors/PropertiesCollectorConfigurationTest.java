@@ -188,6 +188,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.models.*.knnEngine",
           "elasticsearch.entityIndex.semanticSearch.models.*.efConstruction",
 
+          // Rate Limit Throttling
+          "metadataChangeProposal.throttle.rateLimit.*",
+
           // Billing configuration with dynamic indices
           "datahub.billing.metronome.contracts.freeTrial.rateCardId",
           "datahub.billing.metronome.contracts.freeTrial.recurringCredits[*].productName",

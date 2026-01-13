@@ -182,8 +182,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Map<String, Boolean> applySyncMclForSources;
 
-  @Getter
-  private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
+  @Getter private final Map<ThrottleType, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
+  @Getter private final Set<Consumer<Integer>> throttleEventConsumers = new HashSet<>();
 
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
@@ -398,14 +398,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.updateIndicesService = updateIndicesService;
   }
 
+  public void registerThrottleEventConsumer(@Nullable Consumer<Integer> consumer) {
+    if (consumer != null) {
+      throttleEventConsumers.add(consumer);
+    }
+  }
+
   public ThrottleControl handleThrottleEvent(ThrottleEvent throttleEvent) {
-    final Set<ThrottleType> activeEvents = throttleEvent.getActiveThrottles();
-    // store throttle event
-    throttleEvents.put(activeEvents, throttleEvent);
+    // store throttle events
+    throttleEvent.getActiveThrottles().forEach(type -> throttleEvents.put(type, throttleEvent));
 
     return ThrottleControl.builder()
         // clear throttle event
-        .callback(clearThrottle -> throttleEvents.remove(clearThrottle.getDisabledThrottles()))
+        .callback(
+            clearThrottle -> clearThrottle.getDisabledThrottles().forEach(throttleEvents::remove))
         .build();
   }
 
@@ -979,12 +985,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean overwrite) {
 
     // Skip DB timer for empty batch
-    if (aspectsBatch.getItems().size() == 0) {
+    int batchSize = aspectsBatch.getItems().size();
+    if (batchSize == 0) {
       return Collections.emptyList();
     }
 
     // Handle throttling
-    APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), false);
+    APIThrottle.evaluateSync(opContext, throttleEvents.values(), false);
 
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
 
@@ -1539,6 +1546,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    APIThrottle.evaluateProposal(opContext, throttleEvents.values());
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
@@ -1546,8 +1554,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             ? ingestProposalAsync(opContext, aspectsBatch)
             : ingestProposalSync(opContext, aspectsBatch);
 
-    return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
-        .collect(Collectors.toList());
+    List<IngestResult> results =
+        Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
+            .collect(Collectors.toList());
+    throttleEventConsumers.forEach(consumer -> consumer.accept(results.size()));
+    return results;
   }
 
   /**
@@ -1578,7 +1589,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         "ingestTimeseriesProposal",
         () -> {
           // Handle throttling
-          APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), true);
+          APIThrottle.evaluateSync(opContext, throttleEvents.values(), true);
 
           // Create default non-timeseries aspects for timeseries aspects
           // TODO: Assuming custom unvalidated aspects are non-timeseries.
@@ -2536,7 +2547,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .collect(Collectors.toList()))
             .build(opContext);
 
-    ingestAspects(opContext, aspectsBatch, true, true);
+    // Necessary (along with evaluating on ingestProposal) as this is exposed by ingest entity API
+    APIThrottle.evaluateProposal(opContext, throttleEvents.values());
+    List<UpdateAspectResult> results = ingestAspects(opContext, aspectsBatch, true, true);
+    throttleEventConsumers.forEach(consumer -> consumer.accept(results.size()));
   }
 
   protected RecordTemplate toSnapshotRecord(

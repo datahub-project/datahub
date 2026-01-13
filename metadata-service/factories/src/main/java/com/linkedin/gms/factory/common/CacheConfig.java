@@ -30,12 +30,16 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class CacheConfig {
   public static final String THROTTLE_MAP = "distributedThrottle";
+  public static final String IS_RATE_LIMIT_THROTTLED = "isRateLimitThrottled";
 
   @Value("${cache.primary.ttlSeconds:600}")
   private int cacheTtlSeconds;
 
   @Value("${cache.primary.maxSize:10000}")
   private int cacheMaxSize;
+
+  @Value("${metadataChangeProposal.throttle.rateLimit.rateLimitIntervalSeconds:0}")
+  private int rateLimitThrottleTtlSeconds;
 
   @Value("${searchService.cache.hazelcast.serviceName:hazelcast-service}")
   private String hazelcastServiceName;
@@ -136,6 +140,15 @@ public class CacheConfig {
             new MergePolicyConfig().setPolicy(LatestUpdateMergePolicy.class.getName()));
 
     return mapConfig;
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  public MapConfig rateLimitThrottleStatusMapConfig() {
+    return new MapConfig()
+        .setName(IS_RATE_LIMIT_THROTTLED)
+        .setTimeToLiveSeconds(
+            rateLimitThrottleTtlSeconds > 0 ? rateLimitThrottleTtlSeconds : cacheTtlSeconds);
   }
 
   @Bean

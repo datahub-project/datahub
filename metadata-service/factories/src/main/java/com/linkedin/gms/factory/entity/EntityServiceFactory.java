@@ -60,7 +60,11 @@ public class EntityServiceFactory {
             .getApiRequests()
             .isEnabled()) {
       log.info("API Requests Throttle Enabled");
-      throttleSensors.forEach(sensor -> sensor.addCallback(entityService::handleThrottleEvent));
+      throttleSensors.forEach(
+          sensor -> {
+            sensor.addCallback(entityService::handleThrottleEvent);
+            entityService.registerThrottleEventConsumer(sensor.eventRecorder());
+          });
     } else {
       log.info("API Requests Throttle Disabled");
     }

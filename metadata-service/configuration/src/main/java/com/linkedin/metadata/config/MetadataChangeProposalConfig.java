@@ -27,6 +27,7 @@ public class MetadataChangeProposalConfig {
     ComponentsThrottleConfig components;
     ThrottleConfig versioned;
     ThrottleConfig timeseries;
+    RateLimitConfig rateLimit;
   }
 
   @Data
@@ -69,6 +70,21 @@ public class MetadataChangeProposalConfig {
     Integer initialIntervalMs;
     Integer multiplier;
     Integer maxIntervalMs;
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder(toBuilder = true)
+  @Accessors(chain = true)
+  public static class RateLimitConfig {
+    boolean enabled;
+    Integer activationQuota;
+    Integer activationIntervalMinutes;
+    Integer rateLimitIntervalSeconds;
+    Integer limitPerInterval;
+    Integer updateIntervalMs;
+    Double jitterRatio;
   }
 
   @Data

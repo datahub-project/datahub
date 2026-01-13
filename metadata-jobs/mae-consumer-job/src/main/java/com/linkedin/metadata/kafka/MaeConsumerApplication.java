@@ -44,7 +44,8 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.change",
       "com.datahub.event.hook",
       "com.linkedin.gms.factory.notifications",
-      "com.linkedin.gms.factory.system_telemetry"
+      "com.linkedin.gms.factory.system_telemetry",
+      "com.linkedin.gms.factory.throttle"
     },
     excludeFilters = {
       @ComponentScan.Filter(
