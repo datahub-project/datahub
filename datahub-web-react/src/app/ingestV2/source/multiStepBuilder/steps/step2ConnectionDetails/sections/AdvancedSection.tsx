@@ -1,9 +1,11 @@
-import { Input, spacing, transition } from '@components';
+import { Input, colors, spacing, transition } from '@components';
 import { Form } from 'antd';
 import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
+import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { AntdFormCompatibleCheckbox } from '@app/ingestV2/source/multiStepBuilder/components/AntdCompatibleCheckbox';
 import { ExpandCollapseButton } from '@app/ingestV2/source/multiStepBuilder/components/ExpandCollapseButton';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
@@ -28,16 +30,31 @@ const FormContainer = styled(Container)<{ $expanded?: boolean }>`
         opacity ${transition.duration.normal} ${transition.easing['ease-in-out']};
 `;
 
+const RemoteExecutorSelectWrapper = styled.div`
+    &&& .ant-select-selector {
+        border: 1px solid ${colors.gray[100]};
+        border-radius: 8px;
+        height: 40px;
+        padding-top: 4px;
+        padding-right: 4px;
+        color: ${colors.gray[700]};
+
+        font-size: 14px;
+    }
+`;
+
 interface Props {
     state: MultiStepSourceBuilderState;
     updateState: (newState: Partial<MultiStepSourceBuilderState>) => void;
+    isEditing: boolean;
 }
 
 const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export function AdvancedSection({ state, updateState }: Props) {
+export function AdvancedSection({ state, updateState, isEditing }: Props) {
+    const [searchPoolQuery, setSearchPoolQuery] = useState('');
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const sectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -82,6 +99,17 @@ export function AdvancedSection({ state, updateState }: Props) {
         [updateState, state],
     );
 
+    const setExecutorId = (execId: string) => {
+        const newState = {
+            ...state,
+            config: {
+                ...state.config,
+                executorId: execId,
+            },
+        };
+        updateState(newState);
+    };
+
     useEffect(() => {
         if (isExpanded) {
             sectionRef.current?.scrollIntoView({
@@ -90,6 +118,13 @@ export function AdvancedSection({ state, updateState }: Props) {
             });
         }
     }, [isExpanded]);
+
+    const { pools, loading, total } = useExecutorPoolSelection({
+        searchQuery: searchPoolQuery,
+        currentExecutorId: state?.config?.executorId || '',
+        isEditing,
+        onSetExecutorId: setExecutorId,
+    });
 
     return (
         <Form form={form} layout="vertical" initialValues={initialState} onValuesChange={onValuesChange}>
@@ -100,16 +135,23 @@ export function AdvancedSection({ state, updateState }: Props) {
                 />
 
                 <FormContainer $expanded={isExpanded}>
-                    {/* NOTE: Executor ID is OSS-only, used by actions pod */}
+                    {/* NOTE: Executor Pool is SaaS-only, different than Executor ID in OSS */}
                     <CustomLabelFormItem
-                        label="Executor ID"
-                        help="Provide the ID of the executor that should execute this ingestion recipe. This ID is used to route
-                    execution requests of the recipe to the executor of the same ID. The built-in DataHub executor ID is
-                    'default'. Do not change this unless you have configured a custom executor via actions
-                    framework."
+                        label="Executor Pool"
+                        help="Choose an Executor Pool to execute this ingestion recipe."
                         name="executor_id"
                     >
-                        <Input placeholder="default" value={state.config?.executorId || ''} />
+                        <RemoteExecutorSelectWrapper>
+                            <RemoteExecutorPoolSelector
+                                value={state.config?.executorId || (isEditing ? '' : undefined)}
+                                onChange={(newPoolId) => setExecutorId(newPoolId)}
+                                onBlur={(newPoolId) => setExecutorId(newPoolId)}
+                                pools={pools || []}
+                                total={total}
+                                loading={loading}
+                                handleSearch={setSearchPoolQuery}
+                            />
+                        </RemoteExecutorSelectWrapper>
                     </CustomLabelFormItem>
 
                     <CustomLabelFormItem
