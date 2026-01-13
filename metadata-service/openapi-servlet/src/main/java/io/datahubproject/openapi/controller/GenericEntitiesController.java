@@ -513,15 +513,9 @@ public abstract class GenericEntitiesController<
             authorizationChain,
             authentication,
             true);
-
-    // Domain-based authorization (when enabled) is now handled inside the transaction
-    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
-    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      // Standard entity URN authorization when domain auth is disabled
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
-        throw new UnauthorizedException(
-            authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
-      }
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
@@ -636,6 +630,8 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
+    // Perform authorization at API layer BEFORE any deletions
+    // Standard auth will fetch entity domains during policy evaluation
     if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");

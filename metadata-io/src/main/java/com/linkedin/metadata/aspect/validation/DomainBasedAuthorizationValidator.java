@@ -65,6 +65,17 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
       @Nonnull RetrieverContext retrieverContext,
       @Nullable AuthorizationSession session) {
 
+    // Skip validation for DELETE operations - they are already authorized at API layer
+    // before any deletions start, preventing race conditions where domain aspect
+    // could be deleted before other aspects are authorized
+    boolean hasDeletes = changeMCPs.stream()
+        .anyMatch(mcp -> mcp.getChangeType() == ChangeType.DELETE);
+
+    if (hasDeletes) {
+      log.debug("Skipping domain-based authorization validator for DELETE operations - already authorized at API layer");
+      return Stream.empty();
+    }
+
     if (session == null) {
       log.warn("DomainBasedAuthorizationValidator: No authentication session provided");
       return Stream.of(

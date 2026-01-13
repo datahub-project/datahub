@@ -94,8 +94,6 @@ public class SearchUtils {
           EntityType.SCHEMA_FIELD,
           EntityType.APPLICATION);
 
-  // EntityType.DOCUMENT); // Disabled - index not created yet
-
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
       ImmutableList.of(
