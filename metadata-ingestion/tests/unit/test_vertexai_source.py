@@ -964,7 +964,7 @@ class TestMultiProjectConfig:
             ),
             (
                 {"project_ids": ["valid-project", "", "other-project"]},
-                "empty or whitespace",
+                "empty values",
             ),
             (
                 {"project_ids": ["project-one", "project-one", "project-two"]},

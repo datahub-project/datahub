@@ -1,7 +1,7 @@
 import logging
 import re
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Pattern, TypeVar
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 from pydantic.functional_validators import ModelWrapValidatorHandler
@@ -9,10 +9,6 @@ from pydantic.functional_validators import ModelWrapValidatorHandler
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
-from datahub.ingestion.source.common.gcp_project_utils import (
-    EXPLICIT_PROJECT_IDS_HELP,
-    PROJECT_LABELS_HELP,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -20,53 +16,6 @@ LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*(?::[a-z0-9_-]+)?$")
 # GCP project IDs: 6-30 chars, lowercase letters, digits, hyphens
 # Must start with letter, end with letter or digit
 GCP_PROJECT_ID_PATTERN = re.compile(r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
-
-T = TypeVar("T")
-
-
-def _validate_no_empty_strings(values: List[str], field_name: str) -> None:
-    """Validate that a list contains no empty or whitespace-only strings."""
-    empty_values = [v for v in values if not v.strip()]
-    if empty_values:
-        raise ValueError(
-            f"{field_name} contains {len(empty_values)} empty or whitespace-only values. "
-            "Remove empty strings from the list."
-        )
-
-
-def _validate_no_duplicates(
-    values: List[T], field_name: str, key_func: Callable[[T], str] = lambda x: str(x)
-) -> None:
-    """Validate that a list contains no duplicate values."""
-    seen: set[str] = set()
-    duplicates: List[T] = []
-    for value in values:
-        key = key_func(value)
-        if key in seen:
-            duplicates.append(value)
-        else:
-            seen.add(key)
-    if duplicates:
-        raise ValueError(
-            f"{field_name} contains duplicates: {duplicates}. "
-            "Remove duplicate entries from your configuration."
-        )
-
-
-def _validate_format_with_pattern(
-    values: List[str],
-    field_name: str,
-    pattern: Pattern[str],
-    format_description: str,
-    example: str = "",
-) -> None:
-    """Validate that all values match a regex pattern."""
-    invalid = [v for v in values if not pattern.match(v)]
-    if invalid:
-        error_msg = f"Invalid {field_name} format: {invalid}. {format_description}"
-        if example:
-            error_msg += f" Example: {example}"
-        raise ValueError(error_msg)
 
 
 def _check_pattern_filters_all(
@@ -106,18 +55,17 @@ class VertexAIConfig(EnvConfigMixin):
     def validate_project_ids_field(cls, v: List[str]) -> List[str]:
         if not v:
             return v
-        _validate_no_empty_strings(v, "project_ids")
-        _validate_no_duplicates(v, "project_ids")
-        _validate_format_with_pattern(
-            v,
-            field_name="project_ids",
-            pattern=GCP_PROJECT_ID_PATTERN,
-            format_description=(
-                "Project IDs must be 6-30 characters, contain only lowercase letters, "
-                "numbers, and hyphens, start with a letter, and end with a letter or number."
-            ),
-            example="my-project-123",
-        )
+        if any(not p.strip() for p in v):
+            raise ValueError("project_ids contains empty values")
+        if len(v) != len(set(v)):
+            raise ValueError("project_ids contains duplicates")
+        invalid = [p for p in v if not GCP_PROJECT_ID_PATTERN.match(p)]
+        if invalid:
+            raise ValueError(
+                f"Invalid project_ids format: {invalid}. "
+                "Must be 6-30 chars, lowercase letters/numbers/hyphens, "
+                "start with letter, end with letter or number."
+            )
         return v
 
     project_labels: List[str] = Field(
@@ -135,15 +83,16 @@ class VertexAIConfig(EnvConfigMixin):
     def validate_project_labels_field(cls, v: List[str]) -> List[str]:
         if not v:
             return v
-        _validate_no_empty_strings(v, "project_labels")
-        _validate_no_duplicates(v, "project_labels")
-        _validate_format_with_pattern(
-            v,
-            field_name="project_labels",
-            pattern=LABEL_PATTERN,
-            format_description="Labels must be 'key' or 'key:value' format.",
-            example="env:prod",
-        )
+        if any(not label.strip() for label in v):
+            raise ValueError("project_labels contains empty values")
+        if len(v) != len(set(v)):
+            raise ValueError("project_labels contains duplicates")
+        invalid = [label for label in v if not LABEL_PATTERN.match(label)]
+        if invalid:
+            raise ValueError(
+                f"Invalid project_labels format: {invalid}. "
+                "Must be 'key' or 'key:value' format. Example: env:prod"
+            )
         return v
 
     project_id_pattern: AllowDenyPattern = Field(
@@ -243,8 +192,7 @@ class VertexAIConfig(EnvConfigMixin):
         if has_restrictive_pattern and relies_on_auto_discovery:
             raise ValueError(
                 f"Auto-discovery with restrictive allow patterns ({model.project_id_pattern.allow}) "
-                f"is not supported. Either {EXPLICIT_PROJECT_IDS_HELP}, {PROJECT_LABELS_HELP}, "
-                "or remove the allow pattern to discover all accessible projects."
+                "is not supported. Specify project_ids, use project_labels, or remove the pattern."
             )
 
         return model

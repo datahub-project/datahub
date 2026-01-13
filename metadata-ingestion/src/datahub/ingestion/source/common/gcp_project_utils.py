@@ -24,10 +24,6 @@ from datahub.configuration.common import AllowDenyPattern
 
 logger = logging.getLogger(__name__)
 
-# Consistent help text for error messages
-EXPLICIT_PROJECT_IDS_HELP = "specify project_ids explicitly"
-PROJECT_LABELS_HELP = "use project_labels for label-based discovery"
-
 
 @contextmanager
 def temporary_credentials_file(credentials_dict: Dict[str, Any]) -> Iterator[str]:
@@ -200,19 +196,13 @@ def _handle_discovery_error(
     exc: GoogleAPICallError,
     debug_cmd: str,
 ) -> GCPProjectDiscoveryError:
-    """Convert GoogleAPICallError to GCPProjectDiscoveryError with helpful context."""
+    """Convert GoogleAPICallError to GCPProjectDiscoveryError."""
+    error_msg = build_gcp_error_message(exc, debug_cmd)
     if isinstance(exc, PermissionDenied):
         return GCPProjectDiscoveryError(
-            "Permission denied when listing GCP projects. "
-            "Ensure the service account has 'resourcemanager.projects.list' permission, "
-            f"or {EXPLICIT_PROJECT_IDS_HELP}. Debug: {debug_cmd}"
+            f"Permission denied when listing GCP projects. {error_msg}"
         )
-    base_msg = build_gcp_error_message(exc, debug_cmd)
-    if isinstance(exc, (DeadlineExceeded, ServiceUnavailable)):
-        return GCPProjectDiscoveryError(
-            f"{base_msg} Retry or {EXPLICIT_PROJECT_IDS_HELP}."
-        )
-    return GCPProjectDiscoveryError(base_msg)
+    return GCPProjectDiscoveryError(error_msg)
 
 
 def _validate_pattern_before_discovery(
