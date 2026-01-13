@@ -151,7 +151,7 @@ export function SelectSourceStep() {
                                 cardsPerRow,
                             );
 
-                            const isOpen = expanded[category] ?? true;
+                            const isOpen = !!searchQuery || (expanded[category] ?? true);
                             const showAll = showAllByCategory[category] ?? false;
 
                             const visible = showAll || searchQuery ? [...popular, ...nonPopular] : computedVisible;
