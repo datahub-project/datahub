@@ -101,6 +101,7 @@ The DataHub Team will provide a [Cloudformation Template](https://raw.githubuser
 - Deployment Location (VPC and subnet)
 - DataHub Personal Access Token
 - DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
+- Executor Pool ID you set in the Datahub UI
 - Optional: DataHub Cloud Remote Executor Version; defaults to latest
 
 Optional parameters:
@@ -346,6 +347,7 @@ The following environment variables can be configured to manage memory-intensive
 
    - Verify network connectivity
    - Check DataHub URL configuration
+   - Validate Executor Pool ID
    - Validate access token
 
 2. **Secret Access Failed**

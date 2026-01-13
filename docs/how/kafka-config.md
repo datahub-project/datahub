@@ -90,7 +90,7 @@ the System Update container for topic setup:
 #### Topic Setup
 
 - `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have DataHub create them.
-- `DATAHUB_AUTO_INCREASE_PARTITIONS`: Defaults to true, controls whether DataHub automatically increases partition counts for existing topics when configured partition count exceeds current count. Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled. Note that Kafka does not support decreasing partition counts.
+- `DATAHUB_AUTO_INCREASE_PARTITIONS`: Defaults to false, controls whether DataHub automatically increases partition counts for existing topics when configured partition count exceeds current count. Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled. Note that Kafka does not support decreasing partition counts and attempting to do so is treated as an error when this setting is enabled.
 
 ### MCE Consumer (datahub-mce-consumer)
 
