@@ -3,12 +3,14 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { OwnershipTypeEntity } from '@src/types.generated';
+import { colors } from '@src/alchemy-components/theme';
 
 const StyledSelect = styled(Select)`
     .ant-select-selection-placeholder {
         font-size: 12px;
     }
-`;
+    color: ${colors.gray[600]};
+`;  
 
 interface Props {
     selectedOwnerTypeUrn?: string;

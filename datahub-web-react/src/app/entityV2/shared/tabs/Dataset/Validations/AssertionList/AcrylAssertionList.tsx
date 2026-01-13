@@ -19,6 +19,7 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 import { Assertion, DataContract } from '@src/types.generated';
+import { colors } from '@src/alchemy-components/theme';
 
 const AssertionListContainer = styled.div`
     display: flex;
@@ -27,6 +28,15 @@ const AssertionListContainer = styled.div`
     margin: 0px 20px;
     flex: 1;
     overflow: hidden;
+`;
+
+const StyledEmpty = styled(Empty)`
+    .ant-empty-description {
+        color: ${colors.gray[600]};
+    }
+    .ant-empty-image > svg {
+        color: ${colors.gray[600]};
+    }
 `;
 
 /**
@@ -98,7 +108,7 @@ export const AcrylAssertionList = () => {
                 />
             );
         }
-        return <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <StyledEmpty description="No assertions have run." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (

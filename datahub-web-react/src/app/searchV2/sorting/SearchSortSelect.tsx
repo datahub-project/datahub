@@ -49,7 +49,7 @@ export default function SearchSortSelect({ selectedSortOption, setSelectedSortOp
                     onChange={(option) => setSelectedSortOption(option)}
                     dropdownStyle={{ minWidth: 'max-content' }}
                     placement="bottomRight"
-                    suffixIcon={<CaretDownFilled color={colors.gray[600]} />}
+                    suffixIcon={<CaretDownFilled style={{ color: colors.gray[600] }} />}
                 />
             </SelectWrapper>
         </Tooltip>

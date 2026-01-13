@@ -1,6 +1,7 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
+import styled from '@mui/material/styles/styled';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -18,6 +19,16 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 
 import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityPrivileges, Incident } from '@types';
+import { colors } from '@src/alchemy-components/theme';
+
+const StyledEmpty = styled(Empty)`
+    .ant-empty-description {
+        color: ${colors.gray[600]};
+    }
+    .ant-empty-image > svg {
+        color: ${colors.gray[600]};
+    }
+`;
 
 export const IncidentList = () => {
     const { urn, entityType } = useEntityData();
@@ -108,7 +119,7 @@ export const IncidentList = () => {
                 />
             );
         }
-        return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <StyledEmpty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (

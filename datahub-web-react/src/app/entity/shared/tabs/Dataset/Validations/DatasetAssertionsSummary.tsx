@@ -55,15 +55,15 @@ const getSummaryIcon = (summary: AssertionsSummary) => {
 
 const getSummaryMessage = (summary: AssertionsSummary) => {
     if (summary.totalRuns === 0) {
-        return 'No assertions have run';
+        return 'No assertions have run.';
     }
     if (summary.succeededRuns === summary.totalRuns) {
-        return 'All assertions have passed';
+        return 'All assertions have passed.';
     }
     if (summary.failedRuns === summary.totalRuns) {
-        return 'All assertions have failed';
+        return 'All assertions have failed.';
     }
-    return 'Some assertions have failed';
+    return 'Some assertions have failed.';
 };
 
 export const DatasetAssertionsSummary = ({ summary }: Props) => {

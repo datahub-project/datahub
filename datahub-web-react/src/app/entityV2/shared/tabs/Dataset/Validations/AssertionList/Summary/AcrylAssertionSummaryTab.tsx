@@ -14,6 +14,7 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 import { Assertion } from '@src/types.generated';
+import { colors } from '@src/alchemy-components/theme';
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
@@ -23,6 +24,16 @@ const AcrylAssertionSummaryContainer = styled.div`
     column-gap: 24px;
     overflow: auto;
 `;
+
+const StyledEmpty = styled(Empty)`
+    .ant-empty-description {
+        color: ${colors.gray[600]};
+    }
+    .ant-empty-image > svg {
+        color: ${colors.gray[600]};
+    }
+`;
+
 export const AcrylAssertionSummaryTab = () => {
     const { urn } = useEntityData();
 
@@ -58,7 +69,7 @@ export const AcrylAssertionSummaryTab = () => {
                 </AcrylAssertionSummaryContainer>
             );
         }
-        return <Empty description="No assertions created yet." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <StyledEmpty description="No assertions created yet." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
     return <>{renderSummaryTab()}</>;
 };

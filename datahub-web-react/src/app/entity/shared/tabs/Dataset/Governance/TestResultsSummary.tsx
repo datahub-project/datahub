@@ -74,7 +74,7 @@ export const TestResultsSummary = ({ summary }: Props) => {
                         {summaryIcon}
                         <SummaryMessage>
                             <SummaryTitle level={5}>{summaryMessage}</SummaryTitle>
-                            <Typography.Text type="secondary">{subtitleMessage}</Typography.Text>
+                            <Typography.Text>{subtitleMessage}</Typography.Text>
                         </SummaryMessage>
                     </div>
                 </Tooltip>

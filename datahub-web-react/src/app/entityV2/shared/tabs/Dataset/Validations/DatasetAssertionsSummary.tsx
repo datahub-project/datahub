@@ -59,18 +59,18 @@ const getSummaryIcon = (summary: AssertionsSummary) => {
 
 const getSummaryMessage = (summary: AssertionsSummary) => {
     if (summary.totalRuns === 0) {
-        return 'No assertions have run';
+        return 'No assertions have run.';
     }
     if (summary.succeededRuns === summary.totalRuns) {
-        return 'All assertions are passing';
+        return 'All assertions are passing.';
     }
     if (summary.erroredRuns > 0) {
-        return 'An error is preventing some assertions from running';
+        return 'An error is preventing some assertions from running.';
     }
     if (summary.failedRuns === summary.totalRuns) {
-        return 'All assertions are failing';
+        return 'All assertions are failing.';
     }
-    return 'Some assertions are failing';
+    return 'Some assertions are failing.';
 };
 
 export const DatasetAssertionsSummary = ({ summary }: Props) => {

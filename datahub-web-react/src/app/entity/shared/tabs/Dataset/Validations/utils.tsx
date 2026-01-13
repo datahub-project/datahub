@@ -272,18 +272,18 @@ export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) =>
 
 export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
     if (summary.total === 0) {
-        return 'No assertions have run';
+        return 'No assertions have run.';
     }
     if (summary.passing === summary.total) {
-        return 'All assertions are passing';
+        return 'All assertions are passing.';
     }
     if (summary.erroring > 0) {
-        return 'An error is preventing some assertions from running';
+        return 'An error is preventing some assertions from running.';
     }
     if (summary.failing === summary.total) {
-        return 'All assertions are failing';
+        return 'All assertions are failing.';
     }
-    return 'Some assertions are failing';
+    return 'Some assertions are failing.';
 };
 
 export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {

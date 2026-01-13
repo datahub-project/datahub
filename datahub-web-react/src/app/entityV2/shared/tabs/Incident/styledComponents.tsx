@@ -4,13 +4,17 @@ import styled from 'styled-components';
 import { Button, colors } from '@src/alchemy-components';
 import radius from '@src/alchemy-components/theme/foundations/radius';
 import spacing from '@src/alchemy-components/theme/foundations/spacing';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 
 export const StyledTableContainer = styled.div`
     table tr.acryl-selected-table-row {
         background-color: ${ANTD_GRAY[4]};
     }
     margin: 0px 12px 12px 12px;
+
+    table td div {
+        color: ${colors.gray[700]};
+    }
 `;
 
 export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: string }>(({ hasButton, theme }) => ({
@@ -143,7 +147,7 @@ export const AssigneeAvatarStackContainer = styled.div`
 `;
 
 export const CategoryType = styled.div`
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${colors.gray[600]};
     text-transform: capitalize;
     white-space: nowrap;
     overflow: hidden;

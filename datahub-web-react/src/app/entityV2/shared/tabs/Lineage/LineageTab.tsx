@@ -24,7 +24,7 @@ const LineageTabWrapper = styled.div`
 `;
 
 const LineageSwitchWrapper = styled.div`
-    border: 1px solid ${colors.violet[600]};
+    border: 1px solid ${colors.primary[600]};
     border-radius: 4.5px;
     display: flex;
     margin: 13px 11px;

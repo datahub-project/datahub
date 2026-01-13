@@ -65,13 +65,13 @@ export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
                 <SummaryDescription>
                     <SummaryMessage>
                         <SummaryTitle level={5}>
-                            No contract found
-                            <div>
-                                <Typography.Text type="secondary">
-                                    A contract does not yet exist for this dataset
-                                </Typography.Text>
-                            </div>
+                            No contract found.
                         </SummaryTitle>
+                        <div>
+                            <Typography.Text>
+                                A contract does not yet exist for this dataset.
+                            </Typography.Text>
+                        </div>
                     </SummaryMessage>
                 </SummaryDescription>
                 <Actions>
