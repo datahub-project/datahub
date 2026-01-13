@@ -144,25 +144,6 @@ class TestMultiProjectIntegration:
 
         pytest.fail("Container properties with project ID not found")
 
-    def test_partial_failure_continues_processing(
-        self, mock_aiplatform, mock_project_discovery, pipeline_ctx
-    ):
-        mock_project_discovery.return_value = [
-            GCPProject(id="project-a", name="A"),
-            GCPProject(id="project-b", name="B"),
-        ]
-
-        def init_side_effect(**kwargs):
-            if kwargs["project"] == "project-a":
-                raise PermissionDenied("No access")
-
-        mock_aiplatform["init"].side_effect = init_side_effect
-        source = make_source(pipeline_ctx, project_labels=["env:prod"])
-        list(source.get_workunits())
-
-        assert mock_aiplatform["init"].call_count == 2
-        assert len(source.report.failures) >= 1
-
 
 class TestProjectErrorHandling:
     @pytest.mark.parametrize(
@@ -188,18 +169,6 @@ class TestProjectErrorHandling:
 
         with pytest.raises(RuntimeError, match="All .* projects failed"):
             list(source.get_workunits())
-
-    def test_partial_failure_reports_warning(self, mock_aiplatform, pipeline_ctx):
-        def selective_fail(**kwargs):
-            if kwargs["project"] == "fail-project":
-                raise PermissionDenied("No access")
-
-        mock_aiplatform["init"].side_effect = selective_fail
-        source = make_source(pipeline_ctx, project_ids=["fail-project", "ok-project"])
-        list(source.get_workunits())
-
-        assert len(source.report.warnings) >= 1
-        assert "fail-project" in str(source.report.warnings)
 
 
 class TestRateLimitHandling:
@@ -233,23 +202,3 @@ class TestRateLimitHandling:
         assert mock_aiplatform["init"].call_count == 2
         assert len(source.report.failures) >= 1
         assert "project-a" in str(source.report.failures)
-
-    def test_mixed_success_and_transient_errors(self, mock_aiplatform, pipeline_ctx):
-        """Project A succeeds, project B hits transient error, project C succeeds."""
-
-        def mixed_outcomes(**kwargs):
-            project = kwargs["project"]
-            if project == "project-b":
-                raise ResourceExhausted("Quota exceeded for project-b")
-
-        mock_aiplatform["init"].side_effect = mixed_outcomes
-        source = make_source(
-            pipeline_ctx, project_ids=["project-a", "project-b", "project-c"]
-        )
-        workunits = list(source.get_workunits())
-
-        assert mock_aiplatform["init"].call_count == 3
-        assert len(source.report.failures) == 1
-        assert "project-b" in str(source.report.failures)
-        assert len(source.report.warnings) >= 1
-        assert len(workunits) > 0

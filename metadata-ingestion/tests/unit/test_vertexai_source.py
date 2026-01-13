@@ -1,5 +1,7 @@
 import contextlib
 import logging
+import os
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
@@ -27,6 +29,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
+    GCPProjectDiscoveryError,
+    _validate_pattern_before_discovery,
+    gcp_credentials_context,
+    get_projects_from_explicit_list,
     is_gcp_transient_error,
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
@@ -1403,3 +1409,287 @@ class TestLineageEdgeCases:
                 deployed_to = getattr(mcp.aspect, "deployedTo", None)
                 if deployed_to is not None:
                     assert deployed_to == []
+
+
+class TestRegexVsGlobPatternConfusion:
+    """Tests for detecting common regex vs glob pattern confusion."""
+
+    @pytest.mark.parametrize(
+        "pattern,should_warn",
+        [
+            (AllowDenyPattern(allow=["prod-*"]), True),
+            (AllowDenyPattern(allow=["prod-.*"]), False),
+            (AllowDenyPattern(allow=["test-???"]), True),
+            (AllowDenyPattern(allow=["test-.{3}"]), False),
+            (AllowDenyPattern(allow=["^prod-.*$"]), False),
+        ],
+    )
+    def test_glob_pattern_warning(
+        self,
+        caplog: pytest.LogCaptureFixture,
+        pattern: AllowDenyPattern,
+        should_warn: bool,
+    ) -> None:
+        """Warns when patterns look like glob syntax instead of regex."""
+        with caplog.at_level(logging.WARNING):
+            _validate_pattern_before_discovery(pattern, "auto-discovery")
+
+        if should_warn:
+            assert (
+                "looks like glob syntax" in caplog.text or "Did you mean" in caplog.text
+            )
+        else:
+            assert "looks like glob syntax" not in caplog.text
+
+    def test_glob_pattern_warning_with_asterisk(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Specifically test prod-* pattern (common glob confusion)."""
+        pattern = AllowDenyPattern(allow=["prod-*"])
+
+        with caplog.at_level(logging.WARNING):
+            _validate_pattern_before_discovery(pattern, "auto-discovery")
+
+        assert "prod-*" in caplog.text
+        assert "prod-.*" in caplog.text or "Did you mean" in caplog.text
+
+    def test_glob_pattern_no_warning_for_valid_regex(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Valid regex patterns should not trigger false warnings."""
+        valid_patterns = [
+            AllowDenyPattern(allow=["^prod-.*"]),
+            AllowDenyPattern(allow=["prod-.+"]),
+            AllowDenyPattern(allow=["^ml-[0-9]+$"]),
+        ]
+
+        for pattern in valid_patterns:
+            with caplog.at_level(logging.WARNING):
+                _validate_pattern_before_discovery(pattern, "auto-discovery")
+            assert "looks like glob syntax" not in caplog.text
+
+
+class TestEmptyStringValidation:
+    """Tests for empty string and whitespace validation in project configs."""
+
+    def test_empty_string_in_project_ids_rejected(self) -> None:
+        """Empty strings in project_ids should be rejected."""
+        with pytest.raises(ValueError, match="empty"):
+            VertexAIConfig(
+                project_ids=["valid-project-123", "", "another-project-456"],
+                region="us-west2",
+            )
+
+    def test_whitespace_only_in_project_ids_rejected(self) -> None:
+        """Whitespace-only strings in project_ids should be rejected."""
+        with pytest.raises(ValueError, match="empty"):
+            VertexAIConfig(
+                project_ids=["valid-project-123", "   ", "\t\n"],
+                region="us-west2",
+            )
+
+    def test_empty_project_ids_list_is_valid(self) -> None:
+        """Empty list [] is valid for auto-discovery."""
+        config = VertexAIConfig(project_ids=[], region="us-west2")
+        assert config.project_ids == []
+
+    def test_empty_string_in_project_labels_rejected(self) -> None:
+        """Empty strings in project_labels should be rejected."""
+        with pytest.raises(ValueError, match="empty"):
+            VertexAIConfig(
+                project_labels=["env:prod", "", "team:ml"],
+                region="us-west2",
+            )
+
+    def test_malformed_label_format_rejected(self) -> None:
+        """Labels without proper key:value format should be rejected."""
+        with pytest.raises(ValueError, match="Invalid project_labels format"):
+            VertexAIConfig(
+                project_labels=["env:prod", "invalid_label", "team:ml"],
+                region="us-west2",
+            )
+
+
+class TestPatternsThatMatchNothing:
+    """Tests for patterns that can never match or are contradictory."""
+
+    def test_contradictory_allow_deny_patterns_warns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When deny-all pattern overrides allow patterns, should warn."""
+        pattern = AllowDenyPattern(allow=["^prod-.*"], deny=[".*"])
+
+        with caplog.at_level(logging.WARNING):
+            _validate_pattern_before_discovery(pattern, "auto-discovery")
+
+        assert (
+            "deny pattern" in caplog.text.lower() or "override" in caplog.text.lower()
+        )
+
+    def test_deny_all_with_allow_all_raises_error(self) -> None:
+        """Deny all with default allow should raise error."""
+        pattern = AllowDenyPattern(allow=[".*"], deny=[".*"])
+
+        with pytest.raises(GCPProjectDiscoveryError, match="blocks ALL"):
+            _validate_pattern_before_discovery(pattern, "auto-discovery")
+
+    @patch("google.cloud.aiplatform.init")
+    def test_pattern_matching_zero_projects_raises_error(
+        self, mock_init: MagicMock
+    ) -> None:
+        """When pattern filters out all projects, should raise informative error."""
+        with pytest.raises(GCPProjectDiscoveryError, match="excludes ALL"):
+            get_projects_from_explicit_list(
+                ["dev-1", "dev-2"],
+                AllowDenyPattern(allow=["^prod-.*"]),
+            )
+
+
+class TestConcurrentProjectProcessing:
+    """Tests for concurrent/parallel project processing edge cases."""
+
+    @patch("google.cloud.aiplatform.init")
+    def test_concurrent_project_processing_isolation(
+        self, mock_init: MagicMock
+    ) -> None:
+        """Project state should not leak between concurrent processing."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(
+                project_ids=["project-a", "project-b"], region="us-west2"
+            ),
+        )
+
+        source._projects = [
+            GCPProject(id="project-a", name="Project A"),
+            GCPProject(id="project-b", name="Project B"),
+        ]
+
+        project_a_id = None
+        project_b_id = None
+
+        def mock_process_a():
+            source._init_for_project(GCPProject(id="project-a", name="Project A"))
+            nonlocal project_a_id
+            project_a_id = source._current_project_id
+            yield MetadataWorkUnit(id="a", mcp=MagicMock())
+
+        def mock_process_b():
+            source._init_for_project(GCPProject(id="project-b", name="Project B"))
+            nonlocal project_b_id
+            project_b_id = source._current_project_id
+            yield MetadataWorkUnit(id="b", mcp=MagicMock())
+
+        with patch.object(
+            source,
+            "_process_current_project",
+            side_effect=[mock_process_a(), mock_process_b()],
+        ):
+            list(source.get_workunits_internal())
+
+        assert project_a_id == "project-a"
+        assert project_b_id == "project-b"
+        assert project_a_id != project_b_id
+
+    @patch("google.cloud.aiplatform.init")
+    def test_concurrent_project_processing_error_isolation(
+        self, mock_init: MagicMock
+    ) -> None:
+        """Errors in one project should not affect other projects."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(
+                project_ids=["project-a", "project-b"], region="us-west2"
+            ),
+        )
+
+        source._projects = [
+            GCPProject(id="project-a", name="Project A"),
+            GCPProject(id="project-b", name="Project B"),
+        ]
+
+        def mock_process_a():
+            raise PermissionDenied("Access denied for project-a")
+            yield
+
+        def mock_process_b():
+            yield MetadataWorkUnit(id="b", mcp=MagicMock())
+
+        with patch.object(
+            source,
+            "_process_current_project",
+            side_effect=[mock_process_a(), mock_process_b()],
+        ):
+            workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 1
+        assert workunits[0].id == "b"
+        assert len(source.report.failures) == 1
+
+    @patch("google.cloud.aiplatform.init")
+    def test_shared_credential_state_thread_safety(self, mock_init: MagicMock) -> None:
+        """Credentials should be thread-safe during concurrent access."""
+        creds = {"type": "service_account", "project_id": "test"}
+        env_vars = []
+
+        def access_credentials():
+            with gcp_credentials_context(creds):
+                env_vars.append(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
+
+        threads = [threading.Thread(target=access_credentials) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(env_vars) == 3
+        assert all(v is not None for v in env_vars)
+
+    @patch("google.cloud.aiplatform.init")
+    def test_project_processing_result_aggregation(self, mock_init: MagicMock) -> None:
+        """MCPs from all projects should be correctly collected."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(
+                project_ids=["project-a", "project-b"], region="us-west2"
+            ),
+        )
+
+        source._projects = [
+            GCPProject(id="project-a", name="Project A"),
+            GCPProject(id="project-b", name="Project B"),
+        ]
+
+        def mock_process_a():
+            yield MetadataWorkUnit(id="a1", mcp=MagicMock())
+            yield MetadataWorkUnit(id="a2", mcp=MagicMock())
+
+        def mock_process_b():
+            yield MetadataWorkUnit(id="b1", mcp=MagicMock())
+
+        with patch.object(
+            source,
+            "_process_current_project",
+            side_effect=[mock_process_a(), mock_process_b()],
+        ):
+            workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 3
+        workunit_ids = [w.id for w in workunits]
+        assert "a1" in workunit_ids
+        assert "a2" in workunit_ids
+        assert "b1" in workunit_ids
+
+    @patch("google.cloud.aiplatform.init")
+    def test_pattern_validation_with_real_projects(self, mock_init: MagicMock) -> None:
+        """Integration test with realistic project filtering."""
+        projects = get_projects_from_explicit_list(
+            ["prod-ml-1", "prod-data-2", "dev-test-1"],
+            AllowDenyPattern(allow=["^prod-.*"]),
+        )
+
+        assert len(projects) == 2
+        project_ids = [p.id for p in projects]
+        assert "prod-ml-1" in project_ids
+        assert "prod-data-2" in project_ids
+        assert "dev-test-1" not in project_ids
