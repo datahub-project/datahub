@@ -3,7 +3,7 @@ import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
@@ -15,12 +15,15 @@ LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*(?::[a-z0-9_-]+)?$")
 
 
 def _check_pattern_filters_all(
-    project_ids: List[str], pattern: AllowDenyPattern
+    project_ids: List[str],
+    pattern: AllowDenyPattern,
+    *,
+    field_name: str = "project_ids",
 ) -> None:
     filtered = [pid for pid in project_ids if pattern.allowed(pid)]
     if not filtered:
         raise ValueError(
-            f"All {len(project_ids)} configured project_ids were filtered out "
+            f"All {len(project_ids)} configured {field_name} were filtered out "
             "by project_id_pattern. Check your allow/deny patterns."
         )
 
@@ -29,6 +32,8 @@ class VertexAIConfig(EnvConfigMixin):
     credential: Optional[GCPCredential] = Field(
         default=None, description="GCP credential information"
     )
+
+    _used_deprecated_project_id: bool = PrivateAttr(default=False)
 
     project_ids: List[str] = Field(
         default_factory=list,
@@ -120,46 +125,61 @@ class VertexAIConfig(EnvConfigMixin):
             return self.credential.to_dict()
         return None
 
-    @model_validator(mode="before")
+    @model_validator(mode="wrap")
     @classmethod
-    def project_id_backward_compatibility(cls, values: Dict) -> Dict:
-        values = deepcopy(values)
-        project_id = values.pop("project_id", None)
-        project_ids = values.get("project_ids")
+    def project_id_backward_compatibility_and_validate(
+        cls, values: Any, handler: Any
+    ) -> "VertexAIConfig":
+        if isinstance(values, dict):
+            values = deepcopy(values)
+            project_id = values.pop("project_id", None)
+            project_ids = values.get("project_ids")
+            used_deprecated = False
 
-        if not project_ids and project_id:
-            values["project_ids"] = [project_id]
-            logger.warning(
-                "Config field `project_id` is deprecated. "
-                "Your config has been auto-converted to `project_ids: [%s]`. "
-                "Please update your config file to use `project_ids` directly. "
-                "See https://datahubproject.io/docs/generated/ingestion/sources/vertexai for details.",
-                project_id,
+            if not project_ids and project_id:
+                values["project_ids"] = [project_id]
+                used_deprecated = True
+                logger.warning(
+                    "Config field `project_id` is deprecated. "
+                    "Your config has been auto-converted to `project_ids: [%s]`. "
+                    "Please update your config file to use `project_ids` directly. "
+                    "See https://datahubproject.io/docs/generated/ingestion/sources/vertexai for details.",
+                    project_id,
+                )
+            elif project_ids and project_id:
+                logger.warning(
+                    "Both `project_id` and `project_ids` specified. "
+                    "Using `project_ids` and ignoring deprecated `project_id`. "
+                    "Please remove `project_id` from your config."
+                )
+
+            model = handler(values)
+            model._used_deprecated_project_id = used_deprecated
+        else:
+            model = handler(values)
+
+        field_name = (
+            "project_id (deprecated)"
+            if model._used_deprecated_project_id
+            else "project_ids"
+        )
+
+        if model.project_ids:
+            _check_pattern_filters_all(
+                model.project_ids, model.project_id_pattern, field_name=field_name
             )
-        elif project_ids and project_id:
-            logger.warning(
-                "Both `project_id` and `project_ids` specified. "
-                "Using `project_ids` and ignoring deprecated `project_id`. "
-                "Please remove `project_id` from your config."
-            )
-        return values
 
-    @model_validator(mode="after")
-    def validate_projects_config(self) -> "VertexAIConfig":
-        if self.project_ids:
-            _check_pattern_filters_all(self.project_ids, self.project_id_pattern)
-
-        is_default_allow = self.project_id_pattern.allow == [".*"]
-        uses_auto_discovery = not self.project_ids and not self.project_labels
+        is_default_allow = model.project_id_pattern.allow == [".*"]
+        uses_auto_discovery = not model.project_ids and not model.project_labels
 
         if not is_default_allow and uses_auto_discovery:
             raise ValueError(
-                f"Auto-discovery with restrictive allow patterns ({self.project_id_pattern.allow}) "
+                f"Auto-discovery with restrictive allow patterns ({model.project_id_pattern.allow}) "
                 "is not supported. Either specify project_ids explicitly, use project_labels, "
                 "or remove the allow pattern to discover all accessible projects."
             )
 
-        return self
+        return model
 
     def has_explicit_project_ids(self) -> bool:
         return bool(self.project_ids)

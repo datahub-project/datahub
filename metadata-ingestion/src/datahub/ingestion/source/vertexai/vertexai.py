@@ -115,7 +115,7 @@ logger = logging.getLogger(__name__)
 VERTEX_AI_RETRY_TIMEOUT = 600.0
 
 
-def _is_config_error(exc: GoogleAPICallError) -> bool:
+def _is_config_error(exc: Exception) -> bool:
     """Check if exception indicates a configuration error (e.g., API not enabled)."""
     return isinstance(exc, (InvalidArgument, FailedPrecondition))
 
@@ -258,14 +258,14 @@ class VertexAISource(Source):
         project_id: str,
         exc: Exception,
         failed_projects: List[str],
-        *,
-        is_config_error: bool = False,
+        failed_exceptions: Dict[str, Exception],
     ) -> None:
         """Handle project-level errors consistently."""
         failed_projects.append(project_id)
+        failed_exceptions[project_id] = exc
         error_type = get_gcp_error_type(exc)
 
-        if is_config_error:
+        if _is_config_error(exc):
             debug_cmd = f"gcloud services enable aiplatform.googleapis.com --project={project_id}"
         elif isinstance(exc, NotFound):
             debug_cmd = f"gcloud projects describe {project_id}"
@@ -290,6 +290,7 @@ class VertexAISource(Source):
 
         successful_projects = 0
         failed_projects: List[str] = []
+        failed_exceptions: Dict[str, Exception] = {}
 
         for project in projects:
             logger.info("Processing Vertex AI resources for project: %s", project.id)
@@ -298,17 +299,20 @@ class VertexAISource(Source):
                 yield from self._process_current_project()
                 successful_projects += 1
             except GoogleAPICallError as exc:
-                is_config = isinstance(exc, (InvalidArgument, FailedPrecondition))
                 self._handle_project_error(
-                    project.id, exc, failed_projects, is_config_error=is_config
+                    project.id, exc, failed_projects, failed_exceptions
                 )
 
         if failed_projects:
             if successful_projects == 0:
+                error_types = {
+                    get_gcp_error_type(e) for e in failed_exceptions.values()
+                }
+                first_exception = next(iter(failed_exceptions.values()))
                 raise RuntimeError(
-                    f"All {len(failed_projects)} projects failed. "
-                    f"Check failure reports for details. Projects: {failed_projects}"
-                )
+                    f"All {len(failed_projects)} projects failed ({', '.join(error_types)}). "
+                    f"Projects: {failed_projects}"
+                ) from first_exception
             self.report.warning(
                 title=f"Partial ingestion: {len(failed_projects)}/{len(projects)} projects failed",
                 message=f"Failed: {', '.join(failed_projects)}",
