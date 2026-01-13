@@ -8,6 +8,7 @@ from google.api_core.exceptions import (
     GoogleAPICallError,
     InvalidArgument,
     NotFound,
+    PermissionDenied,
 )
 from google.cloud import aiplatform, resourcemanager_v3
 from google.cloud.aiplatform import (
@@ -230,20 +231,97 @@ class VertexAISource(Source):
             yield from super().get_workunits()
 
     def _build_no_projects_error(self) -> str:
+        """Build detailed error message for 'no projects to process' scenario."""
+        pattern_info = (
+            f"allow: {self.config.project_id_pattern.allow}, "
+            f"deny: {self.config.project_id_pattern.deny}"
+        )
+
         if self.config.project_ids:
-            mode = f"project_ids: {self.config.project_ids}"
-            tips = "Verify IDs exist; check project_id_pattern"
-        elif self.config.project_labels:
-            mode = f"project_labels: {self.config.project_labels}"
-            tips = "Verify labels exist; check permissions and project_id_pattern"
-        else:
-            mode = "auto-discovery"
-            tips = "Check resourcemanager.projects.list permission; check project_id_pattern"
+            project_list = ", ".join(self.config.project_ids[:3])
+            if len(self.config.project_ids) > 3:
+                project_list += f"... ({len(self.config.project_ids)} total)"
+            first_project = self.config.project_ids[0]
+            return (
+                f"No projects to process from project_ids: [{project_list}]. "
+                f"Pattern: {pattern_info}.\n\n"
+                "Troubleshooting:\n"
+                f"  1. Verify project exists: gcloud projects describe {first_project}\n"
+                "  2. Check if project_id_pattern filtered all projects (try removing it)\n"
+                f"  3. Verify credentials: gcloud projects list --filter='projectId:{first_project}'"
+            )
+
+        if self.config.project_labels:
+            label_preview = ", ".join(self.config.project_labels[:3])
+            first_label = self.config.project_labels[0]
+            label_filter = (
+                f"labels.{first_label}"
+                if ":" in first_label
+                else f"labels.{first_label}:*"
+            )
+            return (
+                f"No projects found with labels: [{label_preview}]. "
+                f"Pattern: {pattern_info}.\n\n"
+                "Troubleshooting:\n"
+                f"  1. Verify labeled projects exist: gcloud projects list --filter='{label_filter}'\n"
+                "  2. Check permissions: service account needs resourcemanager.projects.list\n"
+                "  3. Check if project_id_pattern filtered all matches (try removing it)\n"
+                "  4. Alternative: use explicit project_ids instead of labels"
+            )
 
         return (
-            f"No projects to process. Mode: {mode}, allow: {self.config.project_id_pattern.allow}, "
-            f"deny: {self.config.project_id_pattern.deny}. {tips}"
+            f"No projects discovered via auto-discovery. Pattern: {pattern_info}.\n\n"
+            "Troubleshooting:\n"
+            "  1. Verify access: gcloud projects list --filter='lifecycleState:ACTIVE'\n"
+            "  2. Check permissions: service account needs resourcemanager.projects.list\n"
+            "  3. Check if project_id_pattern filtered all projects (try removing it)\n"
+            "  4. Alternative: use explicit project_ids or project_labels"
         )
+
+    def _build_project_error_context(
+        self, project_id: str, exc: Exception
+    ) -> Tuple[str, str]:
+        """Build detailed context for project-level errors.
+
+        Returns:
+            Tuple of (debug_command, troubleshooting_tips)
+        """
+        error_type = get_gcp_error_type(exc)
+
+        if _is_config_error(exc):
+            debug_cmd = f"gcloud services enable aiplatform.googleapis.com --project={project_id}"
+            tips = (
+                "Vertex AI API is not enabled for this project. "
+                "Enable it via the Cloud Console or run the debug command above. "
+                "If you have multiple projects, consider using project_id_pattern "
+                "to skip projects without Vertex AI."
+            )
+        elif isinstance(exc, NotFound):
+            debug_cmd = f"gcloud projects describe {project_id}"
+            tips = (
+                "Project not found or has been deleted. "
+                "Verify the project ID is correct and the project exists. "
+                "If using label-based discovery, the project may have been "
+                "deleted after discovery."
+            )
+        elif isinstance(exc, PermissionDenied):
+            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
+            tips = (
+                "Permission denied accessing Vertex AI resources. "
+                "Service account needs 'aiplatform.models.list', "
+                "'aiplatform.endpoints.list', etc. "
+                "Grant 'Vertex AI User' role (roles/aiplatform.user) or equivalent. "
+                "See: https://cloud.google.com/vertex-ai/docs/general/access-control"
+            )
+        else:
+            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
+            tips = (
+                f"{error_type} when accessing Vertex AI in project {project_id}. "
+                "Check service account permissions and project configuration. "
+                "Run the debug command above to verify access."
+            )
+
+        return debug_cmd, tips
 
     def _handle_project_error(
         self,
@@ -257,16 +335,11 @@ class VertexAISource(Source):
         failed_exceptions[project_id] = exc
         error_type = get_gcp_error_type(exc)
 
-        if _is_config_error(exc):
-            debug_cmd = f"gcloud services enable aiplatform.googleapis.com --project={project_id}"
-        elif isinstance(exc, NotFound):
-            debug_cmd = f"gcloud projects describe {project_id}"
-        else:
-            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
+        debug_cmd, tips = self._build_project_error_context(project_id, exc)
 
         self.report.failure(
             title=f"{error_type}: {project_id}",
-            message=f"Debug: {debug_cmd}",
+            message=f"{tips}\n\nDebug: {debug_cmd}",
             exc=exc,
         )
 
