@@ -420,6 +420,9 @@ public class OpenLineageToDataHub {
     }
 
     OpenLineage.ColumnLineageDatasetFacet columnLineage = dataset.getFacets().getColumnLineage();
+    if (columnLineage.getFields() == null) {
+      return null;
+    }
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
         columnLineage.getFields().getAdditionalProperties().entrySet();
     for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
@@ -1278,6 +1281,8 @@ public class OpenLineageToDataHub {
         orchestrator = matcher.group(1);
       } else if (producer.startsWith("https://github.com/apache/airflow/")) {
         orchestrator = "airflow";
+      } else if (producer.startsWith("https://github.com/trinodb/trino")) {
+        orchestrator = "trino";
       }
     }
     if (orchestrator == null) {
@@ -1306,7 +1311,9 @@ public class OpenLineageToDataHub {
   public static SchemaMetadata getSchemaMetadata(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
     SchemaFieldArray schemaFieldArray = new SchemaFieldArray();
-    if ((dataset.getFacets() == null) || (dataset.getFacets().getSchema() == null)) {
+    if ((dataset.getFacets() == null)
+        || (dataset.getFacets().getSchema() == null)
+        || (dataset.getFacets().getSchema().getFields() == null)) {
       return null;
     }
     dataset
