@@ -63,12 +63,6 @@ class PartitionDiscovery:
     """
 
     def __init__(self, config: BigQueryV2Config):
-        """
-        Initialize the partition discovery helper.
-
-        Args:
-            config: BigQuery configuration containing profiling settings
-        """
         self.config = config
 
         # Thread-local storage for cached partition metadata during a single discovery operation
@@ -128,18 +122,6 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Dict[str, str]:
-        """
-        Get partition columns from INFORMATION_SCHEMA using parameterized queries.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: BigQuery dataset name
-            execute_query_func: Function to execute queries safely
-
-        Returns:
-            Dictionary mapping column names to data types
-        """
         return InfoSchemaQueries.get_partition_columns_from_info_schema(
             table, project, schema, execute_query_func
         )
@@ -172,10 +154,8 @@ class PartitionDiscovery:
             return partition_cols_with_types
 
         try:
-            # Parse the DDL using sqlglot with BigQuery dialect
             parsed = sqlglot.parse_one(table.ddl, dialect="bigquery")
 
-            # Find the PARTITION BY clause
             partition_by_expr = None
             for prop in parsed.find_all(Property):
                 if isinstance(prop, PartitionedByProperty):
@@ -188,7 +168,6 @@ class PartitionDiscovery:
                 )
                 return partition_cols_with_types
 
-            # Extract column names from the partition expressions
             column_names = self._extract_column_names_from_sqlglot_partition(
                 partition_by_expr
             )
@@ -203,7 +182,6 @@ class PartitionDiscovery:
                 f"Extracted partition columns from DDL: {column_names} for table {table.name}"
             )
 
-            # Get data types for the extracted columns
             return self._get_partition_column_types(
                 table, project, schema, column_names, execute_query_func
             )
@@ -244,7 +222,6 @@ class PartitionDiscovery:
             logger.debug(
                 f"Using INFORMATION_SCHEMA approach for regular table {table.name}"
             )
-            # Try INFORMATION_SCHEMA first (more efficient)
             result = self._get_partition_info_from_information_schema(
                 table,
                 project,
@@ -254,7 +231,6 @@ class PartitionDiscovery:
                 max_results * 10,  # Query more partitions from info schema
             )
 
-            # If INFORMATION_SCHEMA didn't work, fall back to table query
             if not result:
                 logger.debug(
                     f"INFORMATION_SCHEMA approach failed, falling back to table query for {table.name}"
@@ -278,31 +254,11 @@ class PartitionDiscovery:
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         cached_partition_metadata: Optional[Dict] = None,
     ) -> Optional[List[str]]:
-        """
-        Get partition filters for all required partition columns.
-
-        Args:
-            table: BigqueryTable instance containing table metadata
-            project: The BigQuery project ID
-            schema: The dataset/schema name
-            execute_query_func: Function to execute queries safely
-            cached_partition_metadata: Pre-fetched partition metadata from dataset-level cache
-                                     Format: {"partition_columns": [...], "column_types": {...}}
-
-        Returns:
-            List of partition filter strings if partition columns found and filters could be constructed
-            Empty list if no partitions found
-            None if partition filters could not be determined and profiling should be skipped
-        """
         current_time = datetime.now(timezone.utc)
 
-        # Store cached metadata for use by helper methods during this call
-        # Use try/finally to ensure cleanup
         self._current_cached_metadata = cached_partition_metadata
 
         try:
-            # First try sampling approach, but only as a fallback for very large tables
-            # We want to discover actual partitions, not just sample a few values
             logger.info(
                 f"Starting partition discovery for table {table.name} (may try multiple date formats to find data)"
             )
@@ -310,32 +266,27 @@ class PartitionDiscovery:
                 "Attempting comprehensive partition discovery before falling back to sampling"
             )
 
-            # Get required partition columns from table info
             required_partition_columns = self._get_partition_columns_from_table_info(
                 table
             )
 
-            # OPTIMIZATION: Use cached partition metadata if available (avoids INFORMATION_SCHEMA query)
             if not required_partition_columns and cached_partition_metadata:
                 logger.debug(f"Using cached partition metadata for {table.name}")
                 required_partition_columns = set(
                     cached_partition_metadata.get("partition_columns", [])
                 )
 
-            # If no partition columns found from partition_info or cache, query INFORMATION_SCHEMA
             if not required_partition_columns:
                 required_partition_columns = self._get_partition_columns_from_schema(
                     table, project, schema, execute_query_func
                 )
 
-            # If we still don't have partition columns, try to trigger a partition error to detect them
             if not required_partition_columns:
                 try:
                     safe_table_ref = build_safe_table_reference(
                         project, schema, table.name
                     )
 
-                    # Run a simple query to trigger partition error
                     test_query = (
                         f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT @limit_rows"""
                     )
@@ -348,12 +299,10 @@ class PartitionDiscovery:
                     )
                     execute_query_func(test_query, job_config, "partition detection")
 
-                    # If the query succeeds, table is not partitioned
                     logger.debug(f"Table {table.name} is not partitioned")
                     return []
 
                 except Exception as e:
-                    # Extract partition requirements from error message
                     error_info = self._extract_partition_info_from_error(str(e))
                     required_partition_columns = set(error_info.required_columns)
 
@@ -367,7 +316,6 @@ class PartitionDiscovery:
                         )
                         return []
 
-            # If still no partition columns found, check for external table partitioning
             if not required_partition_columns:
                 logger.debug(f"No partition columns found for table {table.name}")
                 return self._handle_external_table_partitioning(
@@ -391,7 +339,6 @@ class PartitionDiscovery:
                 )
                 return filters_from_metadata
 
-            # For internal tables, try INFORMATION_SCHEMA approach first (much more efficient)
             if not table.external:
                 partition_filters = self._get_partition_filters_from_information_schema(
                     table,
@@ -410,7 +357,6 @@ class PartitionDiscovery:
                         f"INFORMATION_SCHEMA approach failed for internal table {table.name}, falling back to strategic dates"
                     )
 
-            # Try to find REAL partition values that exist in the table (strategic date approach)
             partition_filters = self._find_real_partition_values(
                 table,
                 project,
@@ -423,7 +369,6 @@ class PartitionDiscovery:
                 logger.debug(f"Found valid partition filters: {partition_filters}")
                 return partition_filters
             else:
-                # If comprehensive partition discovery failed, try sampling as fallback
                 logger.info(
                     f"Comprehensive partition discovery failed for table {table.name}. "
                     f"Attempting sampling-based approach as fallback."
@@ -445,7 +390,6 @@ class PartitionDiscovery:
                     return None
 
         finally:
-            # Clean up cached metadata to prevent leakage to other calls
             self._current_cached_metadata = None
 
     def _get_partition_column_types(
@@ -506,7 +450,6 @@ class PartitionDiscovery:
             table, project, schema, partition_columns, execute_query_func
         )
 
-        # Categorize columns by type
         date_columns, date_component_columns, non_date_columns = (
             self._categorize_partition_columns(partition_columns, column_types)
         )
@@ -514,7 +457,6 @@ class PartitionDiscovery:
         result_values: Dict[str, Any] = {}
         latest_date_filters = []
 
-        # Process regular date columns
         latest_date_filters.extend(
             self._process_regular_date_columns(
                 date_columns,
@@ -537,7 +479,6 @@ class PartitionDiscovery:
             )
         )
 
-        # Process non-date columns within latest date constraints
         self._process_non_date_columns(
             non_date_columns,
             safe_table_ref,
@@ -559,13 +500,10 @@ class PartitionDiscovery:
 
         for col_name in partition_columns:
             col_data_type = column_types.get(col_name, "")
-            # Primary check: Use data type (most reliable)
             if self._is_date_type_column(col_data_type):
                 date_columns.append(col_name)
-            # Secondary check: Date component columns (year/month/day) - handle specially
             elif col_name.lower() in ["year", "month", "day"]:
                 date_component_columns[col_name.lower()] = col_name
-            # Tertiary check: Column name patterns (fallback for date columns with non-date types like STRING)
             elif self._is_date_like_column(col_name):
                 date_columns.append(col_name)
                 if col_data_type:
@@ -657,7 +595,6 @@ class PartitionDiscovery:
 
         component_filters = []
 
-        # Step 1: Find max year
         if "year" in active_date_components:
             component_filters.extend(
                 self._find_max_year(
@@ -668,7 +605,6 @@ class PartitionDiscovery:
                 )
             )
 
-        # Step 2: Find max month within max year
         if "month" in active_date_components and component_filters:
             component_filters.extend(
                 self._find_max_month_within_year(
@@ -680,7 +616,6 @@ class PartitionDiscovery:
                 )
             )
 
-        # Step 3: Find max day within max year/month
         if "day" in active_date_components and component_filters:
             component_filters.extend(
                 self._find_max_day_within_year_month(
@@ -803,9 +738,7 @@ SELECT val, record_count FROM PartitionStats"""
                     logger.warning(f"Invalid column name: {col_name}")
                     continue
 
-                # Create constrained query that only looks within the latest date(s)
                 if latest_date_filters:
-                    # Query with date constraints to ensure valid combinations
                     date_constraint = " AND ".join(latest_date_filters)
                     constrained_query = f"""WITH PartitionStats AS (
     SELECT `{col_name}` as val, COUNT(*) as record_count
@@ -824,7 +757,6 @@ SELECT val, record_count FROM PartitionStats"""
                         ]
                     )
                 else:
-                    # No date constraints, use regular query
                     constrained_query, job_config = self._create_partition_stats_query(
                         safe_table_ref,
                         col_name,
@@ -962,7 +894,6 @@ SELECT val, record_count FROM PartitionStats"""
         column_names = []
 
         try:
-            # Handle case where partition_expr has expressions (multiple partitions)
             expressions = []
             if hasattr(partition_expr, "expressions") and partition_expr.expressions:
                 expressions = partition_expr.expressions
@@ -972,12 +903,10 @@ SELECT val, record_count FROM PartitionStats"""
             for expr in expressions:
                 column_name = None
 
-                # Handle DATE(column_name), DATETIME_TRUNC
                 if isinstance(expr, (Date, DatetimeTrunc)):
                     if hasattr(expr, "this") and expr.this:
                         column_name = str(expr.this)
 
-                # Handle generic function calls (Anonymous expressions)
                 elif isinstance(expr, Anonymous):
                     # Try to extract the first argument (usually the column)
                     if hasattr(expr, "expressions") and expr.expressions:
@@ -987,11 +916,9 @@ SELECT val, record_count FROM PartitionStats"""
                         elif hasattr(first_arg, "this"):
                             column_name = str(first_arg.this)
 
-                # Handle simple column identifiers
                 elif isinstance(expr, Identifier):
                     column_name = str(expr)
 
-                # Handle expressions with "this" attribute (common sqlglot pattern)
                 elif hasattr(expr, "this") and expr.this:
                     if isinstance(expr.this, Identifier):
                         column_name = str(expr.this)
@@ -999,7 +926,6 @@ SELECT val, record_count FROM PartitionStats"""
                         # Try to extract column from nested expression
                         column_name = str(expr.this)
 
-                # Clean up column name (remove quotes, backticks, whitespace)
                 if column_name:
                     column_name = column_name.strip().strip("`").strip('"').strip("'")
                     if column_name and column_name not in column_names:

@@ -23,12 +23,6 @@ class QueryExecutor:
     """
 
     def __init__(self, config: BigQueryV2Config):
-        """
-        Initialize the query executor.
-
-        Args:
-            config: BigQuery configuration containing client and profiling settings
-        """
         self.config = config
 
     def _validate_query_security(self, query: str) -> None:
@@ -43,20 +37,7 @@ class QueryExecutor:
                 raise ValueError(f"Query contains dangerous pattern: {pattern}")
 
     def execute_query(self, query: str, context: str = "") -> List[Row]:
-        """
-        Execute a BigQuery query with timeout from configuration and enhanced security validation.
-
-        Args:
-            query: SQL query to execute
-            context: Optional context for logging and error reporting
-
-        Returns:
-            List of row results
-
-        Raises:
-            ValueError: If query contains dangerous patterns
-            Exception: For query execution errors
-        """
+        """Execute BigQuery query with timeout and security validation."""
         self._validate_query_security(query)
 
         try:
@@ -66,7 +47,6 @@ class QueryExecutor:
 
             job_config = QueryJobConfig(
                 job_timeout_ms=timeout * 1000,
-                # Additional security: disable query caching for sensitive operations
                 use_query_cache=False,
             )
 
@@ -82,21 +62,7 @@ class QueryExecutor:
     def execute_query_with_config(
         self, query: str, job_config: QueryJobConfig, context: str = ""
     ) -> List[Row]:
-        """
-        Execute a BigQuery query with custom job configuration including timeout and enhanced security validation.
-
-        Args:
-            query: SQL query to execute
-            job_config: QueryJobConfig with custom parameters
-            context: Optional context for logging and error reporting
-
-        Returns:
-            List of row results
-
-        Raises:
-            ValueError: If query contains dangerous patterns
-            Exception: For query execution errors
-        """
+        """Execute query with custom job configuration and parameters."""
         self._validate_query_security(query)
 
         try:
@@ -106,15 +72,12 @@ class QueryExecutor:
                 f"Executing query{context_info} with {timeout}s timeout and custom config"
             )
 
-            # Ensure timeout is set even with custom config
             job_config.job_timeout_ms = timeout * 1000
-            # Additional security settings
             job_config.use_query_cache = False
 
             query_job = self.config.get_bigquery_client().query(
                 query, job_config=job_config
             )
-            # Convert to list to ensure consistent return type
             return list(query_job.result())
         except Exception as e:
             context_info = f" in {context}" if context else ""
@@ -124,23 +87,7 @@ class QueryExecutor:
     def execute_query_safely(
         self, query: str, job_config: Optional[QueryJobConfig] = None, context: str = ""
     ) -> List[Row]:
-        """
-        Execute a query with consistent error handling and logging.
-
-        This is a convenience method that provides unified error handling
-        for both parameterized and non-parameterized queries.
-
-        Args:
-            query: SQL query to execute
-            job_config: Optional query job configuration with parameters
-            context: Context for logging (optional)
-
-        Returns:
-            Query results as list
-
-        Raises:
-            Exception: For query execution errors
-        """
+        """Execute query with unified error handling."""
         try:
             context_info = f" for {context}" if context else ""
             logger.debug(f"Executing query{context_info}: {query}")
@@ -155,23 +102,10 @@ class QueryExecutor:
             raise
 
     def test_query_execution(self, query: str, context: str = "") -> bool:
-        """
-        Test if a query can be executed without actually running it.
-
-        This uses BigQuery's dry run feature to validate queries.
-
-        Args:
-            query: SQL query to test
-            context: Optional context for logging
-
-        Returns:
-            True if query is valid and can be executed, False otherwise
-        """
+        """Test query execution without running it."""
         try:
-            # Validate query security first
             self._validate_query_security(query)
 
-            # Use dry run to test query validity
             job_config = QueryJobConfig(
                 dry_run=True,
                 use_query_cache=False,
@@ -180,10 +114,8 @@ class QueryExecutor:
             context_info = f" for {context}" if context else ""
             logger.debug(f"Testing query{context_info} with dry run")
 
-            # Execute dry run to validate query syntax (result not needed)
             self.config.get_bigquery_client().query(query, job_config=job_config)
 
-            # If we get here without exception, query is valid
             logger.debug(f"Query test successful{context_info}")
             return True
 
@@ -193,20 +125,8 @@ class QueryExecutor:
             return False
 
     def get_query_cost_estimate(self, query: str, context: str = "") -> Optional[int]:
-        """
-        Get an estimate of bytes that will be processed by a query.
-
-        This uses BigQuery's dry run feature to get query statistics.
-
-        Args:
-            query: SQL query to analyze
-            context: Optional context for logging
-
-        Returns:
-            Estimated bytes to be processed, or None if estimation fails
-        """
+        """Estimate bytes to be processed by query."""
         try:
-            # Validate query security first
             self._validate_query_security(query)
 
             job_config = QueryJobConfig(
@@ -221,7 +141,6 @@ class QueryExecutor:
                 query, job_config=job_config
             )
 
-            # Get the bytes that would be processed
             bytes_processed = query_job.total_bytes_processed
             if bytes_processed:
                 logger.debug(
@@ -277,7 +196,6 @@ class QueryExecutor:
             except Exception as e:
                 last_exception = e
 
-                # Check if this is a retryable error
                 if not self._is_retryable_error(e):
                     logger.debug(f"Non-retryable error, not retrying: {e}")
                     raise
@@ -289,25 +207,14 @@ class QueryExecutor:
                     context_info = f" in {context}" if context else ""
                     logger.warning(f"All retry attempts failed{context_info}: {e}")
 
-        # If we get here, all retries failed
         if last_exception:
             raise last_exception
         else:
             raise RuntimeError(f"All retry attempts failed{context_info}")
 
     def _is_retryable_error(self, error: Exception) -> bool:
-        """
-        Determine if an error is retryable.
-
-        Args:
-            error: Exception to check
-
-        Returns:
-            True if the error is likely transient and retryable
-        """
         error_str = str(error).lower()
 
-        # Common retryable error patterns
         retryable_patterns = [
             "timeout",
             "deadline exceeded",
@@ -353,17 +260,14 @@ class QueryExecutor:
             build_safe_table_reference,
         )
 
-        # Build safe table reference (this validates the identifiers)
         safe_table_ref = build_safe_table_reference(project, schema, table)
 
-        # Build the query
         query_parts = ["SELECT *", f"FROM {safe_table_ref}"]
 
         if where_clause:
             query_parts.append(f"WHERE {where_clause}")
 
         if limit is not None and limit > 0:
-            # Validate limit is reasonable
             safe_limit = max(1, min(int(limit), 10_000_000))  # Cap at 10M rows
             query_parts.append(f"LIMIT {safe_limit}")
 
@@ -407,35 +311,18 @@ class QueryExecutor:
             logger.debug(f"Could not log query stats: {e}")
 
     def get_effective_timeout(self) -> int:
-        """
-        Get the effective timeout for query operations.
-
-        Returns:
-            Timeout in seconds
-        """
+        """Get effective timeout for query operations in seconds."""
         return self.config.profiling.partition_fetch_timeout
 
     def is_query_too_expensive(
         self, query: str, max_bytes: int = 1_000_000_000
     ) -> bool:
-        """
-        Check if a query would process too much data.
-
-        Args:
-            query: SQL query to check
-            max_bytes: Maximum allowed bytes to process
-
-        Returns:
-            True if query would exceed the byte limit
-        """
         try:
             estimated_bytes = self.get_query_cost_estimate(query)
             if estimated_bytes is None:
-                # If we can't estimate, err on the side of caution
                 return True
 
             return estimated_bytes > max_bytes
 
         except Exception:
-            # If estimation fails, assume it's too expensive
             return True
