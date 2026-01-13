@@ -15,7 +15,7 @@ const Container = styled.div`
     flex-wrap: wrap;
 `;
 
-const CONTACT_SALES_LINK = 'https://datahub.com/demo';
+const CONTACT_SALES_LINK = 'https://datahub.com/talk-to-sales/';
 
 export default function FreeTrialDaysLeft() {
     const appConfig = useAppConfig();
