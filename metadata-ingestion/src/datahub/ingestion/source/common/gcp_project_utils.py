@@ -4,12 +4,13 @@ import os
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, TypeVar
 
 from google.api_core import retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
+    NotFound,
     PermissionDenied,
     ResourceExhausted,
     ServiceUnavailable,
@@ -82,15 +83,77 @@ def with_temporary_credentials(credentials_path: str) -> Iterator[None]:
             os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
 
 
+def is_gcp_transient_error(exc: Exception) -> bool:
+    """Check if a GCP API error is transient and should be retried."""
+    if isinstance(exc, ResourceExhausted):
+        return True
+    if isinstance(exc, (DeadlineExceeded, ServiceUnavailable)):
+        return True
+    if isinstance(exc, GoogleAPICallError):
+        code = getattr(exc, "code", None)
+        if code is not None and code >= 500:
+            return True
+    return False
+
+
+T = TypeVar("T")
+
+
+def _is_transient_error_predicate(exc: BaseException) -> bool:
+    """Retry predicate wrapper for is_gcp_transient_error."""
+    if isinstance(exc, Exception) and is_gcp_transient_error(exc):
+        logger.debug("Transient GCP error, retrying: %s", exc)
+        return True
+    return False
+
+
+def gcp_api_retry(timeout: float = 300.0) -> retry.Retry:
+    """Standard retry configuration for GCP API calls."""
+    return retry.Retry(
+        predicate=_is_transient_error_predicate,
+        initial=1.0,
+        maximum=60.0,
+        multiplier=2.0,
+        timeout=timeout,
+    )
+
+
+def call_with_retry(
+    func: Callable[..., T], *args: Any, timeout: float = 300.0, **kwargs: Any
+) -> T:
+    """Execute a GCP API call with standard retry logic."""
+    return gcp_api_retry(timeout)(func)(*args, **kwargs)
+
+
 class GCPProjectDiscoveryError(Exception):
     """Exception for project discovery failures."""
 
     pass
 
 
+def get_gcp_error_type(exc: Exception) -> str:
+    """Get a user-friendly error type name for a GCP exception."""
+    if isinstance(exc, PermissionDenied):
+        return "Permission denied"
+    if isinstance(exc, DeadlineExceeded):
+        return "API timeout"
+    if isinstance(exc, ServiceUnavailable):
+        return "Service unavailable"
+    if isinstance(exc, ResourceExhausted):
+        return "Rate limit exceeded"
+    if isinstance(exc, NotFound):
+        return "Not found"
+    return "API error"
+
+
+def build_gcp_error_message(exc: Exception, debug_cmd: str) -> str:
+    """Build user-friendly error message with debug command."""
+    error_type = get_gcp_error_type(exc)
+    return f"{error_type}: {exc}. Debug: {debug_cmd}"
+
+
 def _handle_discovery_error(
     exc: GoogleAPICallError,
-    context: str,
     debug_cmd: str,
 ) -> GCPProjectDiscoveryError:
     """Convert GoogleAPICallError to GCPProjectDiscoveryError with helpful context."""
@@ -100,21 +163,12 @@ def _handle_discovery_error(
             "Ensure the service account has 'resourcemanager.projects.list' permission, "
             f"or specify project_ids explicitly. Debug: {debug_cmd}"
         )
-    if isinstance(exc, DeadlineExceeded):
+    base_msg = build_gcp_error_message(exc, debug_cmd)
+    if isinstance(exc, (DeadlineExceeded, ServiceUnavailable)):
         return GCPProjectDiscoveryError(
-            f"GCP API timeout: {exc}. Retry or specify project_ids explicitly. Debug: {debug_cmd}"
+            f"{base_msg} Retry or specify project_ids explicitly."
         )
-    if isinstance(exc, ServiceUnavailable):
-        return GCPProjectDiscoveryError(
-            f"GCP service unavailable: {exc}. Retry later. Debug: {debug_cmd}"
-        )
-    if isinstance(exc, ResourceExhausted):
-        return GCPProjectDiscoveryError(
-            f"Rate limit exceeded: {exc}. Retry after a few minutes. Debug: {debug_cmd}"
-        )
-    return GCPProjectDiscoveryError(
-        f"GCP API error {context}: {exc}. Debug: {debug_cmd}"
-    )
+    return GCPProjectDiscoveryError(base_msg)
 
 
 def _validate_pattern_before_discovery(
@@ -228,20 +282,6 @@ def get_projects_client(
     return resourcemanager_v3.ProjectsClient(credentials=credentials)
 
 
-def _is_rate_limit_error(exc: BaseException) -> bool:
-    if isinstance(exc, ResourceExhausted):
-        logger.debug("Rate limit hit for projects API, retrying...")
-        return True
-
-    if isinstance(exc, GoogleAPICallError):
-        message = str(exc).lower()
-        if "quota" in message or "rate limit" in message:
-            logger.debug("Rate limit hit (via error message), retrying...")
-            return True
-
-    return False
-
-
 def _filter_projects_by_pattern(
     projects: List[GCPProject],
     pattern: AllowDenyPattern,
@@ -266,14 +306,7 @@ def _search_projects_with_retry(
     client: resourcemanager_v3.ProjectsClient,
     query: str,
 ) -> Iterable[GCPProject]:
-    search_with_retry = retry.Retry(
-        predicate=_is_rate_limit_error,
-        initial=1.0,
-        maximum=60.0,
-        multiplier=2.0,
-        timeout=300.0,
-    )(client.search_projects)
-
+    search_with_retry = gcp_api_retry()(client.search_projects)
     request = resourcemanager_v3.SearchProjectsRequest(query=query)
     for project in search_with_retry(request=request):
         if not project.project_id:
@@ -342,9 +375,7 @@ def get_projects_by_labels(
         return _filter_and_validate(projects, pattern, f"label search {labels}")
 
     except GoogleAPICallError as e:
-        raise _handle_discovery_error(
-            e, f"when searching projects by labels {labels}", debug_cmd
-        ) from e
+        raise _handle_discovery_error(e, debug_cmd) from e
 
 
 def get_projects(
@@ -372,7 +403,7 @@ def get_projects(
     try:
         discovered_projects = list(_search_projects_with_retry(client, "state:ACTIVE"))
     except GoogleAPICallError as e:
-        raise _handle_discovery_error(e, "when listing all projects", debug_cmd) from e
+        raise _handle_discovery_error(e, debug_cmd) from e
 
     if not discovered_projects:
         raise GCPProjectDiscoveryError(

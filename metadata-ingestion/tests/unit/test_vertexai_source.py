@@ -24,7 +24,10 @@ from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
-from datahub.ingestion.source.common.gcp_project_utils import GCPProject
+from datahub.ingestion.source.common.gcp_project_utils import (
+    GCPProject,
+    is_gcp_transient_error,
+)
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai import (
     ModelMetadata,
@@ -32,7 +35,6 @@ from datahub.ingestion.source.vertexai.vertexai import (
     VertexAIConfig,
     VertexAISource,
     _call_with_retry,
-    _is_retryable_error,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
@@ -1095,11 +1097,11 @@ class TestRetryLogic:
         ],
     )
     def test_is_retryable_error(self, exception: Exception, expected: bool) -> None:
-        assert _is_retryable_error(exception) == expected
+        assert is_gcp_transient_error(exception) == expected
 
     def test_retry_on_rate_limit(self) -> None:
         with patch(
-            "datahub.ingestion.source.vertexai.vertexai._vertex_ai_retry"
+            "datahub.ingestion.source.common.gcp_project_utils.gcp_api_retry"
         ) as mock_retry:
             mock_retry.return_value = lambda f: f
             result = _call_with_retry(lambda: ["result"])
@@ -1109,8 +1111,12 @@ class TestRetryLogic:
         def mock_list():
             raise PermissionDenied("Access denied")
 
-        with pytest.raises(PermissionDenied):
-            _call_with_retry(mock_list)
+        with patch(
+            "datahub.ingestion.source.common.gcp_project_utils.gcp_api_retry"
+        ) as mock_retry:
+            mock_retry.return_value = lambda f: f
+            with pytest.raises(PermissionDenied):
+                _call_with_retry(mock_list)
 
 
 class TestLineageEdgeCases:

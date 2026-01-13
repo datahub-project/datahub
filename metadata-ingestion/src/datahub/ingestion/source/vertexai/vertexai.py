@@ -3,15 +3,11 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
-from google.api_core import retry
 from google.api_core.exceptions import (
-    DeadlineExceeded,
     FailedPrecondition,
     GoogleAPICallError,
     InvalidArgument,
     NotFound,
-    ResourceExhausted,
-    ServiceUnavailable,
 )
 from google.cloud import aiplatform, resourcemanager_v3
 from google.cloud.aiplatform import (
@@ -56,6 +52,8 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
+    call_with_retry,
+    get_gcp_error_type,
     get_projects,
     get_projects_client,
     temporary_credentials_file,
@@ -114,41 +112,17 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
+VERTEX_AI_RETRY_TIMEOUT = 600.0
+
+
 def _is_config_error(exc: GoogleAPICallError) -> bool:
     """Check if exception indicates a configuration error (e.g., API not enabled)."""
     return isinstance(exc, (InvalidArgument, FailedPrecondition))
 
 
-def _is_retryable_error(exc: Exception) -> bool:
-    """Determine if a Vertex AI API error is retryable."""
-    if isinstance(exc, ResourceExhausted):
-        logger.debug("Rate limit hit, will retry: %s", exc)
-        return True
-    if isinstance(exc, (DeadlineExceeded, ServiceUnavailable)):
-        logger.debug("Transient error, will retry: %s", exc)
-        return True
-    if isinstance(exc, GoogleAPICallError):
-        code = getattr(exc, "code", None)
-        if code is not None and code >= 500:
-            logger.debug("Server error (5xx), will retry: %s", exc)
-            return True
-    return False
-
-
-def _vertex_ai_retry() -> retry.Retry:
-    """Create retry configuration for Vertex AI API calls."""
-    return retry.Retry(
-        predicate=_is_retryable_error,
-        initial=1.0,
-        maximum=60.0,
-        multiplier=2.0,
-        timeout=600.0,
-    )
-
-
 def _call_with_retry(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """Execute a Vertex AI API call with retry for rate limits and transient errors."""
-    return _vertex_ai_retry()(func)(*args, **kwargs)
+    return call_with_retry(func, *args, timeout=VERTEX_AI_RETRY_TIMEOUT, **kwargs)
 
 
 @dataclasses.dataclass
@@ -289,25 +263,20 @@ class VertexAISource(Source):
     ) -> None:
         """Handle project-level errors consistently."""
         failed_projects.append(project_id)
+        error_type = get_gcp_error_type(exc)
 
         if is_config_error:
             debug_cmd = f"gcloud services enable aiplatform.googleapis.com --project={project_id}"
-            self.report.failure(
-                title=f"Configuration error: {project_id}",
-                message=f"Debug: {debug_cmd}",
-                exc=exc,
-            )
+        elif isinstance(exc, NotFound):
+            debug_cmd = f"gcloud projects describe {project_id}"
         else:
-            debug_cmd = (
-                f"gcloud projects describe {project_id}"
-                if isinstance(exc, NotFound)
-                else f"gcloud projects get-iam-policy {project_id}"
-            )
-            self.report.failure(
-                title=f"Project failed: {project_id}",
-                message=f"Debug: {debug_cmd}",
-                exc=exc,
-            )
+            debug_cmd = f"gcloud projects get-iam-policy {project_id}"
+
+        self.report.failure(
+            title=f"{error_type}: {project_id}",
+            message=f"Debug: {debug_cmd}",
+            exc=exc,
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

@@ -19,13 +19,14 @@ from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProjectDiscoveryError,
     _filter_and_validate,
     _filter_projects_by_pattern,
-    _is_rate_limit_error,
+    _is_transient_error_predicate,
     _search_projects_with_retry,
     _validate_pattern_against_explicit_list,
     _validate_pattern_before_discovery,
     get_projects,
     get_projects_by_labels,
     get_projects_from_explicit_list,
+    is_gcp_transient_error,
     temporary_credentials_file,
     with_temporary_credentials,
 )
@@ -53,9 +54,9 @@ class TestAutoDiscovery:
         "exception,error_match",
         [
             (PermissionDenied("No access"), "Permission denied"),
-            (GoogleAPICallError("API error"), "GCP API error"),
-            (DeadlineExceeded("Timeout"), "timeout"),
-            (ServiceUnavailable("Down"), "unavailable"),
+            (GoogleAPICallError("API error"), "API error"),
+            (DeadlineExceeded("Timeout"), "API timeout"),
+            (ServiceUnavailable("Down"), "Service unavailable"),
         ],
     )
     def test_error_handling(self, exception: Exception, error_match: str) -> None:
@@ -113,8 +114,8 @@ class TestLabelBasedDiscovery:
         "exception,error_match",
         [
             (PermissionDenied("No access"), "Permission denied"),
-            (DeadlineExceeded("Timeout"), "timeout"),
-            (ServiceUnavailable("Down"), "unavailable"),
+            (DeadlineExceeded("Timeout"), "API timeout"),
+            (ServiceUnavailable("Down"), "Service unavailable"),
         ],
     )
     def test_error_handling(self, exception: Exception, error_match: str) -> None:
@@ -124,20 +125,30 @@ class TestLabelBasedDiscovery:
             get_projects_by_labels(["env:prod"], mock_client)
 
 
-class TestRateLimitDetection:
+class TestTransientErrorDetection:
     @pytest.mark.parametrize(
         "exception,expected",
         [
             (ResourceExhausted("Quota exceeded"), True),
-            (GoogleAPICallError("quota limits"), True),
-            (GoogleAPICallError("rate limit exceeded"), True),
-            (GoogleAPICallError("Invalid argument"), False),
+            (DeadlineExceeded("Timeout"), True),
+            (ServiceUnavailable("Service down"), True),
+            (GoogleAPICallError("Server error"), False),
             (PermissionDenied("Access denied"), False),
             (ValueError("Other error"), False),
         ],
     )
     def test_detection(self, exception: Exception, expected: bool) -> None:
-        assert _is_rate_limit_error(exception) == expected
+        assert _is_transient_error_predicate(exception) == expected
+
+    def test_5xx_error_code_is_transient(self) -> None:
+        exc = GoogleAPICallError("Internal server error")
+        exc.code = 500
+        assert is_gcp_transient_error(exc) is True
+
+    def test_4xx_error_code_is_not_transient(self) -> None:
+        exc = GoogleAPICallError("Bad request")
+        exc.code = 400
+        assert is_gcp_transient_error(exc) is False
 
 
 class TestPatternFiltering:
