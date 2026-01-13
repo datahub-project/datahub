@@ -82,8 +82,7 @@ public class DataHubAuthorizer implements Authorizer {
     this.systemOpContext = systemOpContext;
     this.mode = Objects.requireNonNull(mode);
     this.domainBasedAuthorizationEnabled = domainBasedAuthorizationEnabled;
-    policyEngine =
-        new PolicyEngine(Objects.requireNonNull(entityClient), domainBasedAuthorizationEnabled);
+    policyEngine = new PolicyEngine(Objects.requireNonNull(entityClient), domainBasedAuthorizationEnabled);
     if (refreshIntervalSeconds > 0) {
       policyRefreshRunnable =
           new PolicyRefreshRunnable(

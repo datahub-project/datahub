@@ -142,7 +142,9 @@ public class PolicyEngine {
     }
 
     // If the resource is not in scope, deny the request.
-    // Pass subResources for fallback when resource is empty (e.g., entity creation)
+    // Note: SubResources are passed for domain-based authorization during entity creation.
+    // When creating an entity, the entity doesn't have a domain in its DOMAIN field yet,
+    // but we need to authorize based on the domain being assigned (passed as subResource).
     if (!isResourceMatch(policy.getType(), policy.getResources(), resource, subResources)) {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Resource does not match");
     }
@@ -205,27 +207,18 @@ public class PolicyEngine {
   }
 
   /**
-   * Returns true if the resource portion of a DataHub policy matches a the resource being
+   * Returns true if the resource portion of a DataHub policy matches the resource being
    * evaluated, false otherwise.
+   *
+   * <p>This is a convenience method that delegates to the full isResourceMatch method
+   * with an empty subResources list.
    */
   private boolean isResourceMatch(
       final String policyType,
       final @Nullable DataHubResourceFilter policyResourceFilter,
       final Optional<ResolvedEntitySpec> requestResource) {
-    if (PoliciesConfig.PLATFORM_POLICY_TYPE.equals(policyType)) {
-      // Currently, platform policies have no associated resource.
-      return true;
-    }
-    if (policyResourceFilter == null) {
-      log.debug("No resource defined on the policy.");
-      return true;
-    }
-    if (requestResource.isEmpty()) {
-      log.debug("Resource filter present in policy, but no resource spec provided.");
-      return false;
-    }
-    final PolicyMatchFilter filter = getFilter(policyResourceFilter);
-    return checkFilter(filter, requestResource.get());
+    // Delegate to the full method with empty subResources list
+    return isResourceMatch(policyType, policyResourceFilter, requestResource, Collections.emptyList());
   }
 
   /**
@@ -271,11 +264,14 @@ public class PolicyEngine {
   /**
    * Determines if UNION logic should be applied for domain validation.
    *
-   * <p>Conditions for UNION logic: 1. Resource has NO domain metadata (empty domain field) 2.
-   * Policy HAS domain criteria (requires domain filtering) 3. Domain subResources are provided
-   * (domain being assigned)
+   * <p>Conditions for UNION logic:
+   * 1. Domain-based authorization is enabled
+   * 2. Policy HAS domain criteria (requires domain filtering)
+   * 3. Domain subResources are provided (domain being assigned/modified)
    *
-   * @return true if should use subResource domains instead of resource's domain
+   * <p>Note: This applies to both CREATE (entity has no domain) and UPDATE (entity domain is changing)
+   *
+   * @return true if should use subResource domains for validation
    */
   private boolean shouldUseSubResourceDomains(
       ResolvedEntitySpec resource,
@@ -288,26 +284,16 @@ public class PolicyEngine {
       return false;
     }
 
-    // Condition 1: Resource must have NO domain
-    if (!resource.getFieldValues(EntityFieldType.DOMAIN).isEmpty()) {
-      return false;
-    }
-
-    // Condition 2: Policy must have domain criteria
+    // Condition 1: Policy must have domain criteria
     if (filter.getCriteria().stream()
         .noneMatch(criterion -> EntityFieldType.DOMAIN.name().equals(criterion.getField()))) {
       return false;
     }
 
-    // Condition 3: Domain subResources must exist
+    // Condition 2: Domain subResources must exist (domains being assigned/modified)
     boolean hasDomainSubResources =
         subResources.stream()
             .anyMatch(subResource -> "domain".equals(subResource.getSpec().getType()));
-
-    if (hasDomainSubResources) {
-      log.debug(
-          "Using subResource domains for authorization (resource has no domain but subResources have domains)");
-    }
 
     return hasDomainSubResources;
   }
@@ -398,32 +384,17 @@ public class PolicyEngine {
       return true;
     }
 
-    // Check privilege constraints (e.g., which tags can be modified)
-    // Exclude domain subResources from privilege constraints check as they are validated separately
+    // Check privilege constraints (e.g., which tags or domains can be modified)
     if (policyResourceFilter.getPrivilegeConstraints() != null) {
       PolicyMatchFilter filter = policyResourceFilter.getPrivilegeConstraints();
-      boolean privilegeConstraintsMatch =
-          subResources.stream()
-              .filter(subResource -> !"domain".equals(subResource.getSpec().getType()))
-              .allMatch(
-                  subResource ->
-                      WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
-                          || checkFilter(filter, subResource));
-      if (!privilegeConstraintsMatch) {
-        return false;
-      }
+      return subResources.stream()
+          .allMatch(
+              subResource ->
+                  WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
+                      || checkFilter(filter, subResource));
     }
 
-    // Domain-based authorization: Only validate if feature is enabled
-    if (domainBasedAuthorizationEnabled) {
-      log.debug("Domain-based authorization is ENABLED - validating domains in subResources");
-      PolicyMatchFilter mainFilter = getFilter(policyResourceFilter);
-      return validateDomainsInSubResources(mainFilter, subResources);
-    } else {
-      log.debug(
-          "Domain-based authorization is DISABLED - skipping domain validation in subResources");
-    }
-
+    log.debug("No privilege constraints specified.");
     return true;
   }
 

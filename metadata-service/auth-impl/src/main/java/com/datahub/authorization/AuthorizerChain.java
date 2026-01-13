@@ -159,10 +159,9 @@ public class AuthorizerChain implements Authorizer {
   }
 
   /**
-   * Checks if domain-based authorization is enabled by inspecting the authorizer instance. Handles
-   * both direct DataHubAuthorizer and AuthorizerChain cases.
+   * Check if domain-based authorization is enabled in the authorizer chain.
    *
-   * @param authorizer the authorizer instance to check (can be null)
+   * @param authorizer the authorizer to check (can be null)
    * @return true if domain-based authorization is enabled, false otherwise
    */
   public static boolean isDomainBasedAuthorizationEnabled(@Nullable Authorizer authorizer) {

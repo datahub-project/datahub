@@ -693,28 +693,29 @@ public class AuthUtil {
    * When domainsByEntity is provided and non-empty, uses domain-aware authorization.
    * Otherwise uses standard authorization without domain context.
    *
-   * 1. Check if domain-based auth is enabled via isDomainBasedAuthorizationEnabled()
-   * 2. Extract domains if enabled using helper methods
-   * 3. Pass the extracted domains to this method
+   * This method groups MCPs by operation type for efficient batch authorization.
    *
    * @param session Authorization session (from OperationContext)
    * @param apiGroup API group for authorization
    * @param entityRegistry Entity registry for URN resolution
    * @param mcps Collection of MCPs to authorize
    * @param domainsByEntity Optional map of entity URN to their domain URNs (pass null or empty for standard auth)
-   * @return List of (MCP, HTTP status code) pairs - 200 for authorized, 403 for denied, 400 for bad request
+   * @return Map of MCP to authorization result (true if authorized, false otherwise)
    */
-  public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorizedMCPsWithDomains(
+  public static Map<MetadataChangeProposal, Boolean> isAPIAuthorizedMCPsWithDomains(
       @Nonnull final AuthorizationSession session,
       @Nonnull final ApiGroup apiGroup,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Collection<MetadataChangeProposal> mcps,
       @Nullable final Map<Urn, Set<Urn>> domainsByEntity) {
-    
+
     boolean useDomainAuth = domainsByEntity != null && !domainsByEntity.isEmpty();
-    
-    List<Pair<MetadataChangeProposal, Integer>> results = new ArrayList<>();
-    
+
+    Map<MetadataChangeProposal, Boolean> results = new HashMap<>();
+
+    // Group MCPs by operation type for batch processing
+    Map<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> mcpsByOperation = new HashMap<>();
+
     for (MetadataChangeProposal mcp : mcps) {
       Urn urn = mcp.getEntityUrn();
       if (urn == null) {
@@ -722,13 +723,7 @@ public class AuthUtil {
             entityRegistry.getEntitySpec(mcp.getEntityType());
         urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
       }
-      
-      if (urn == null) {
-        log.warn("Unable to extract URN from MCP during authorization");
-        results.add(Pair.of(mcp, HttpStatus.SC_BAD_REQUEST));
-        continue;
-      }
-      
+
       // Determine operation type based on change type
       ApiOperation operation;
       switch (mcp.getChangeType()) {
@@ -747,30 +742,51 @@ public class AuthUtil {
           operation = UPDATE;
           break;
       }
-      
-      boolean authorized;
+
+      mcpsByOperation
+          .computeIfAbsent(operation, k -> new ArrayList<>())
+          .add(Pair.of(mcp, urn));
+    }
+
+    // Process each operation group
+    for (Map.Entry<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> entry :
+        mcpsByOperation.entrySet()) {
+      ApiOperation operation = entry.getKey();
+      List<Pair<MetadataChangeProposal, Urn>> mcpUrnPairs = entry.getValue();
+
       if (useDomainAuth) {
-        // Domain-based authorization: use domains as subresources
-        Set<Urn> domains = domainsByEntity.getOrDefault(urn, Collections.emptySet());
-        if (!domains.isEmpty()) {
-          // Entity has domains - use domain-based authorization
-          authorized = isAPIAuthorizedEntityUrnsWithSubResources(
-              session, operation, List.of(urn), domains);
-        } else {
-          // Entity has no domains - fall back to standard authorization
-          // This allows entities without domain assignments (like ingestion sources)
-          // to be authorized by non-domain-based policies
-          authorized = isAPIAuthorizedEntityUrns(session, operation, List.of(urn));
+        // Domain-based authorization: Check each entity with its domains
+        for (Pair<MetadataChangeProposal, Urn> pair : mcpUrnPairs) {
+          MetadataChangeProposal mcp = pair.getFirst();
+          Urn urn = pair.getSecond();
+
+          Set<Urn> domains = domainsByEntity.getOrDefault(urn, Collections.emptySet());
+          boolean authorized;
+
+          if (!domains.isEmpty()) {
+            // Entity has domains - use domain-based authorization
+            authorized =
+                isAPIAuthorizedEntityUrnsWithSubResources(session, operation, List.of(urn), domains);
+          } else {
+            // Entity has no domains - fall back to standard authorization
+            authorized = isAPIAuthorizedEntityUrns(session, operation, List.of(urn));
+          }
+
+          results.put(mcp, authorized);
         }
       } else {
-        // Standard authorization: no domain context
-        authorized = isAPIAuthorizedEntityUrns(session, operation, List.of(urn));
+        // Standard authorization: Batch authorize all URNs for this operation
+        List<Urn> urns =
+            mcpUrnPairs.stream().map(Pair::getSecond).collect(Collectors.toList());
+        boolean authorized = isAPIAuthorizedEntityUrns(session, operation, urns);
+
+        // Apply result to all MCPs in this batch
+        for (Pair<MetadataChangeProposal, Urn> pair : mcpUrnPairs) {
+          results.put(pair.getFirst(), authorized);
+        }
       }
-      
-      int statusCode = authorized ? HttpStatus.SC_OK : HttpStatus.SC_FORBIDDEN;
-      results.add(Pair.of(mcp, statusCode));
     }
-    
+
     return results;
   }
 

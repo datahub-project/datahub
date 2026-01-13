@@ -289,22 +289,17 @@ public class DatasetType
   private boolean isAuthorized(
       @Nonnull String urn, @Nonnull DatasetUpdateInput update, @Nonnull QueryContext context) {
     // Decide whether the current principal should be allowed to update the Dataset.
-    // First check entity-level authorization
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
-    boolean entityLevelAuthorized =
+    boolean authorized =
         AuthorizationUtils.isAuthorized(
             context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
 
-    if (!entityLevelAuthorized) {
-      return false;
-    }
-
-    if (!featureFlags.isDomainBasedAuthorizationEnabled()) {
+    if (authorized && featureFlags.isDomainBasedAuthorizationEnabled()) {
       final Urn entityUrn = UrnUtils.getUrn(urn);
-      return DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
+      authorized = DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
     }
 
-    return true;
+    return authorized;
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DatasetUpdateInput updateInput) {

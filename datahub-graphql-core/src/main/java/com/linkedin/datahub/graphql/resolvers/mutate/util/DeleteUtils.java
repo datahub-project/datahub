@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
-import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 
@@ -9,7 +8,6 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -25,20 +23,7 @@ public class DeleteUtils {
 
   private DeleteUtils() {}
 
-  public static boolean isAuthorizedToDeleteEntity(
-      @Nonnull QueryContext context,
-      @Nonnull Urn entityUrn,
-      @Nonnull EntityClient entityClient,
-      @Nonnull EntityService<?> entityService) {
-
-    // Domain-based authorization (when enabled) is now handled inside the transaction
-    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
-    // Only perform standard authorization here when domain-based auth is disabled
-    if (isDomainBasedAuthorizationEnabled(context.getAuthorizer())) {
-      return true;
-    }
-
-    // Fall back to standard authorization when domain-based auth is disabled
+  public static boolean isAuthorizedToDeleteEntity(@Nonnull QueryContext context, Urn entityUrn) {
     return AuthUtil.isAuthorizedEntityUrns(
         context.getOperationContext(), DELETE, List.of(entityUrn));
   }

@@ -37,6 +37,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -48,7 +49,6 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
-import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -329,25 +329,36 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                         log.info("Skipping authorization for {} system entities (e.g., dataHubExecutionRequest)",
                             metadataChangeProposals.size() - mcpsToAuthorize.size());
                     }
-                    
-                    // Only perform authorization if there are MCPs that require it
-                    // Note: Domain-based authorization (when enabled) is now handled inside the transaction
-                    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
-                    if (!mcpsToAuthorize.isEmpty() && !isDomainBasedAuthorizationEnabled(_authorizer)) {
-                        // Standard authorization (without domains) for when domain-based auth is disabled
-                        log.info("Using standard authorization (domain-based auth disabled) for {} proposals.",
-                            mcpsToAuthorize.size());
-                        List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
-                            opContext, ENTITY, opContext.getEntityRegistry(), mcpsToAuthorize, null);
+
+                    // Perform API-layer authorization for all MCPs (critical for async mode)
+                    // In async mode, the transaction runs under system account, so we must authorize here
+                    if (!mcpsToAuthorize.isEmpty()) {
+                        // Extract domains when domain-based authorization is enabled
+                        final Map<Urn, Set<Urn>> domainsByEntity;
+                        if (isDomainBasedAuthorizationEnabled(_authorizer)) {
+                            log.info("Domain-based authorization is ENABLED. Extracting domains for {} proposals.",
+                                mcpsToAuthorize.size());
+                            domainsByEntity = DomainExtractionUtils.extractEntityDomainsForAuthorization(
+                                opContext, _entityService, mcpsToAuthorize);
+                        } else {
+                            log.info("Domain-based authorization is DISABLED. Using standard authorization for {} proposals.",
+                                mcpsToAuthorize.size());
+                            domainsByEntity = null;
+                        }
+
+                        // Authorize all MCPs with unified method (handles both domain-based and standard auth)
+                        Map<MetadataChangeProposal, Boolean> authResults = isAPIAuthorizedMCPsWithDomains(
+                            opContext, ENTITY, opContext.getEntityRegistry(), mcpsToAuthorize, domainsByEntity);
 
                         // Check for authorization failures
-                        List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
-                            .filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+                        List<MetadataChangeProposal> failures = authResults.entrySet().stream()
+                            .filter(entry -> !entry.getValue())
+                            .map(Map.Entry::getKey)
                             .collect(Collectors.toList());
 
                         if (!failures.isEmpty()) {
                             String errorMessages = failures.stream()
-                                .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+                                .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
                                 .collect(Collectors.joining(", "));
                             throw new RestLiServiceException(
                                 HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entities: " + errorMessages);

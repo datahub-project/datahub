@@ -44,7 +44,6 @@ import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGe
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -344,12 +343,9 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
       havingValue = "true")
-  public AspectPayloadValidator privilegeConstraintsValidator(
-      @Value("${authorization.defaultAuthorizer.domainBasedAuthorizationEnabled:false}")
-          boolean domainBasedAuthorizationEnabled) {
+  public AspectPayloadValidator privilegeConstraintsValidator() {
     // Supports tag constraints only for now
     return new PrivilegeConstraintsValidator()
-        .setDomainBasedAuthorizationEnabled(domainBasedAuthorizationEnabled)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(PrivilegeConstraintsValidator.class.getName())
@@ -380,10 +376,6 @@ public class SpringStandardPluginConfiguration {
   public AspectPayloadValidator domainBasedAuthorizationValidator(
       @Value("${authorization.defaultAuthorizer.domainBasedAuthorizationEnabled:false}")
           boolean domainBasedAuthorizationEnabled) {
-    // This validator performs domain-based authorization checks inside the transaction
-    // ensuring consistent reads and preventing race conditions
-    log.info("Initialized {} with domain-based authorization enabled={}",
-        DomainBasedAuthorizationValidator.class.getName(), domainBasedAuthorizationEnabled);
     return new DomainBasedAuthorizationValidator()
         .setConfig(
             AspectPluginConfig.builder()

@@ -116,8 +116,16 @@ public class ESSearchDAO {
         () -> {
           try {
             return client.count(countRequest, RequestOptions.DEFAULT).getCount();
-          } catch (IOException e) {
-            log.error("Count query failed:" + e.getMessage());
+          } catch (Exception e) {
+            // Check if it's an index_not_found_exception
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+            if (errorMsg.contains("index_not_found_exception") ||
+                errorMsg.contains("no such index")) {
+              log.warn("Index not found for entity: {}, returning count 0", entityName);
+              return 0L;
+            }
+
+            log.error("Count query failed for entity: {}, message: {}", entityName, e.getMessage());
             throw new ESQueryException("Count query failed:", e);
           }
         },
@@ -160,7 +168,7 @@ public class ESSearchDAO {
                         from,
                         ConfigUtils.applyLimit(searchServiceConfig, size)));
           } catch (Exception e) {
-            log.error("Search query failed", e);
+            log.error("Search query failed {}", e.getMessage());
             log.error("Response to the failed search query: {}", searchResponse);
             throw new ESQueryException("Search query failed:", e);
           } finally {
@@ -348,7 +356,6 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entityNames.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-            .distinct()
             .collect(Collectors.toList());
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
@@ -520,7 +527,6 @@ public class ESSearchDAO {
       entitySpecs =
           entityNames.stream()
               .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-              .distinct()
               .collect(Collectors.toList());
     }
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
@@ -629,7 +635,6 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entities.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-            .distinct()
             .collect(Collectors.toList());
 
     String[] indexArray =

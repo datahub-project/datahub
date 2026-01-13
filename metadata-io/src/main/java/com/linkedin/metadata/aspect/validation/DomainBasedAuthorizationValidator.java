@@ -100,17 +100,20 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
               Set<Urn> allDomains = new HashSet<>();
 
               if (operation == ApiOperation.DELETE) {
-                 allDomains.addAll(getEntityDomains(entityUrn, aspectRetriever));
+                allDomains.addAll(getEntityDomains(entityUrn, aspectRetriever));
               } else {
-
                 Set<Urn> domainsFromMCPs = getDomainsFromMCPs(entityChanges);
                 Set<Urn> domainsFromDB = getEntityDomains(entityUrn, aspectRetriever);
                 allDomains.addAll(domainsFromMCPs);
                 allDomains.addAll(domainsFromDB);
               }
 
-              if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                  session, operation, List.of(entityUrn), allDomains)) {
+              boolean isAuthorized = AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                  session, operation, List.of(entityUrn), allDomains);
+
+              if (!isAuthorized) {
+                log.warn("DomainBasedAuthorizationValidator: BLOCKED - Unauthorized to {} entity {} with domains {}",
+                    operation, entityUrn, allDomains);
                 return Stream.of(
                     AspectValidationException.forAuth(
                         entityChanges.get(0),

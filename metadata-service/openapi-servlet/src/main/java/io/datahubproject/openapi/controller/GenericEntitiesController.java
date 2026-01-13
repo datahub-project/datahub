@@ -577,23 +577,27 @@ public abstract class GenericEntitiesController<
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
 
-    // Domain-based authorization (when enabled) is now handled inside the transaction
-    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
-    // Only perform standard authorization here when domain-based auth is disabled
-    if (!isDomainBasedAuthorizationEnabled(authorizationChain)) {
-      log.info("Using standard authorization (domain-based auth disabled) for {} proposals.", mcps.size());
-      // Authorize all MCPs with standard authorization (no domains)
-      List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
-          opContext, ENTITY, entityRegistry, mcps, null);
+    // Perform authorization at API layer for all MCPs (both sync and async modes)
+    // This is critical for async mode where transactions run under system account
+    if (!mcps.isEmpty()) {
+      // Extract domains when domain-based authorization is enabled
+      Map<Urn, Set<Urn>> domainsByEntity =
+          configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()
+              ? DomainExtractionUtils.extractEntityDomainsForAuthorization(opContext, entityService, mcps)
+              : null;
+
+      Map<MetadataChangeProposal, Boolean> authResults = isAPIAuthorizedMCPsWithDomains(
+          opContext, ENTITY, entityRegistry, mcps, domainsByEntity);
 
       // Check for authorization failures
-      List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
-          .filter(p -> p.getSecond() != 200)
+      List<MetadataChangeProposal> failures = authResults.entrySet().stream()
+          .filter(entry -> !entry.getValue())
+          .map(Map.Entry::getKey)
           .collect(Collectors.toList());
 
       if (!failures.isEmpty()) {
         String errorMessages = failures.stream()
-            .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+            .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
             .collect(Collectors.joining(", "));
         throw new UnauthorizedException(
             "User " + authentication.getActor().toUrnStr() + " is unauthorized to modify entities: " + errorMessages);
