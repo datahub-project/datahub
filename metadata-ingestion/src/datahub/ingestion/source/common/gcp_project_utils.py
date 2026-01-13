@@ -9,7 +9,9 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Type
 from google.api_core import retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
+    FailedPrecondition,
     GoogleAPICallError,
+    InvalidArgument,
     NotFound,
     PermissionDenied,
     ResourceExhausted,
@@ -143,6 +145,8 @@ def get_gcp_error_type(exc: Exception) -> str:
         return "Rate limit exceeded"
     if isinstance(exc, NotFound):
         return "Not found"
+    if isinstance(exc, (InvalidArgument, FailedPrecondition)):
+        return "Configuration error"
     return "API error"
 
 

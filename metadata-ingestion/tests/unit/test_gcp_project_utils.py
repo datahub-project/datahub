@@ -60,10 +60,16 @@ class TestAutoDiscovery:
         ],
     )
     def test_error_handling(self, exception: Exception, error_match: str) -> None:
+        from unittest.mock import patch
+
         mock_client = MagicMock()
         mock_client.search_projects.side_effect = exception
-        with pytest.raises(GCPProjectDiscoveryError, match=error_match):
-            get_projects(client=mock_client)
+        with patch(
+            "datahub.ingestion.source.common.gcp_project_utils.gcp_api_retry"
+        ) as mock_retry:
+            mock_retry.return_value = lambda f: f
+            with pytest.raises(GCPProjectDiscoveryError, match=error_match):
+                get_projects(client=mock_client)
 
     def test_empty_result_raises_error(self) -> None:
         mock_client = MagicMock()
@@ -119,10 +125,16 @@ class TestLabelBasedDiscovery:
         ],
     )
     def test_error_handling(self, exception: Exception, error_match: str) -> None:
+        from unittest.mock import patch
+
         mock_client = MagicMock()
         mock_client.search_projects.side_effect = exception
-        with pytest.raises(GCPProjectDiscoveryError, match=error_match):
-            get_projects_by_labels(["env:prod"], mock_client)
+        with patch(
+            "datahub.ingestion.source.common.gcp_project_utils.gcp_api_retry"
+        ) as mock_retry:
+            mock_retry.return_value = lambda f: f
+            with pytest.raises(GCPProjectDiscoveryError, match=error_match):
+                get_projects_by_labels(["env:prod"], mock_client)
 
 
 class TestTransientErrorDetection:
