@@ -191,18 +191,5 @@ class VertexAIConfig(EnvConfigMixin):
 
         return self
 
-    @model_validator(mode="after")
-    def _validate_auto_discovery_pattern(self) -> VertexAIConfig:
-        has_restrictive_pattern = self.project_id_pattern.allow != [".*"]
-        relies_on_auto_discovery = not self.project_ids and not self.project_labels
-
-        if has_restrictive_pattern and relies_on_auto_discovery:
-            raise ValueError(
-                f"Auto-discovery with restrictive allow patterns ({self.project_id_pattern.allow}) "
-                "is not supported. Specify project_ids, use project_labels, or remove the pattern."
-            )
-
-        return self
-
     def has_explicit_project_ids(self) -> bool:
         return bool(self.project_ids)

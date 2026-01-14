@@ -984,10 +984,6 @@ class TestMultiProjectConfig:
                 "duplicates",
             ),
             (
-                {"project_id_pattern": AllowDenyPattern(allow=["prod-.*"])},
-                "Auto-discovery with restrictive",
-            ),
-            (
                 {"project_ids": ["MY-PROJECT", "valid-project"]},
                 "Invalid project_ids format",
             ),
