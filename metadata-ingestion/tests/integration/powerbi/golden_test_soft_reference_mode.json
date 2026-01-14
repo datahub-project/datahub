@@ -96,7 +96,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "let\n    Source = Odbc.DataSource(\"driver={MySQL ODBC 9.2 Unicode Driver};server=18.222.189.189;database=employees;dsn=testdb01\", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name=\"employees\",Kind=\"Database\"]}[Data],\n    employees_Table = employees_Database{[Name=\"employees\",Kind=\"Table\"]}[Data]\nin\n    employees_Table",
+            "viewLogic": "let\n    Source = MySQL.Database(\"127.0.0.1\", \"employees\", [ReturnSingleDatabase=true]),\n    employees_employees = Source{[Schema=\"employees\",Item=\"employees\"]}[Data]\nin\n    employees_employees",
             "viewLanguage": "m_query"
         }
     },
@@ -390,42 +390,6 @@
                     "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserKey",
-    "aspect": {
-        "json": {
-            "username": "john.doe@acryldata.io"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "active": true,
-            "displayName": "John Doe",
-            "email": "john.doe@acryldata.io",
-            "system": false
         }
     },
     "systemMetadata": {
