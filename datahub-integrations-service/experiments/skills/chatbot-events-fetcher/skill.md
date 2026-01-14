@@ -25,19 +25,26 @@ This skill helps fetch and analyze ChatbotInteraction events from DataHub SaaS d
    ```
 2. If credentials are not set, use the `datahub-token-generator` skill first to generate a token for the target instance.
 
-3. Python 3.10+ with `requests` and `pyyaml` packages (standard in most environments)
-
 ## The Script
 
 Location: `/Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py`
+
+## Python Environment
+
+The script requires `requests` and `pyyaml` packages. Use the **datahub-apps virtual environment** which has these dependencies:
+
+```bash
+/Users/alex/work/datahub-apps/venv/bin/python
+```
+
+All examples below use this venv python path.
 
 ## Usage Examples
 
 ### Fetch Recent Events (Last 7 Days)
 
 ```bash
-cd /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot
-python fetch_chatbot_events.py
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py
 ```
 
 Output: `~/Downloads/chatbot_events_YYYY-MM-DD.jsonl`
@@ -45,13 +52,13 @@ Output: `~/Downloads/chatbot_events_YYYY-MM-DD.jsonl`
 ### Fetch Events with Errors Only
 
 ```bash
-python fetch_chatbot_events.py --errors-only --days-back 30
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --errors-only --days-back 30
 ```
 
 ### Search for Specific Keywords in Messages
 
 ```bash
-python fetch_chatbot_events.py --search "error problem issue not working"
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --search "error problem issue not working"
 ```
 
 Note: This searches `message_contents` and `response_contents` fields using OpenSearch. For searching inside `full_history`, use `--grep` instead.
@@ -59,8 +66,8 @@ Note: This searches `message_contents` and `response_contents` fields using Open
 ### Local Grep Through Full History
 
 ```bash
-python fetch_chatbot_events.py --grep "confidence.*low"
-python fetch_chatbot_events.py --grep "tool_call_error"
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --grep "confidence.*low"
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --grep "tool_call_error"
 ```
 
 The `--grep` option fetches all events first, then filters locally using regex across `full_history`, `message_contents`, `response_contents`, and `response_error`.
@@ -68,27 +75,27 @@ The `--grep` option fetches all events first, then filters locally using regex a
 ### Custom Date Range
 
 ```bash
-python fetch_chatbot_events.py --start-date 2024-12-01 --end-date 2024-12-31
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --start-date 2024-12-01 --end-date 2024-12-31
 ```
 
 ### Filter by Chatbot Source
 
 ```bash
-python fetch_chatbot_events.py --chatbot slack
-python fetch_chatbot_events.py --chatbot teams
-python fetch_chatbot_events.py --chatbot datahub_ui
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --chatbot slack
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --chatbot teams
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --chatbot datahub_ui
 ```
 
 ### Human-Readable Summary
 
 ```bash
-python fetch_chatbot_events.py --format summary --output /tmp/events.txt
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --format summary --output /tmp/events.txt
 ```
 
 ### Exclude Full History (Smaller Files)
 
 ```bash
-python fetch_chatbot_events.py --no-full-history
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --no-full-history
 ```
 
 ## Command Line Options
@@ -151,7 +158,7 @@ After fetching events, you can:
 2. **Fetch events**:
 
    ```bash
-   python fetch_chatbot_events.py --days-back 30 --search "error issue problem"
+   /Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py --days-back 30 --search "error issue problem"
    ```
 
 3. **Review output**:
@@ -164,6 +171,14 @@ After fetching events, you can:
    Ask Claude to read the output file and identify patterns or specific issues.
 
 ## Troubleshooting
+
+### "ModuleNotFoundError: No module named 'requests'" (or 'pyyaml')
+
+You're not using the correct Python environment. Use the datahub-apps venv:
+
+```bash
+/Users/alex/work/datahub-apps/venv/bin/python /Users/alex/work/datahub-fork/datahub-integrations-service/experiments/chatbot/fetch_chatbot_events.py
+```
 
 ### "DataHub credentials not found"
 

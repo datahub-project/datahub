@@ -274,9 +274,6 @@ class ChatSessionManager:
         # Queue for progress updates (None signals completion)
         progress_q: queue.Queue[Optional[ChatMessageEvent]] = queue.Queue()
 
-        # Flag to track if conversation stream completed successfully
-        is_active = True
-
         # Yield initial user message immediately for minimal latency
         user_message_timestamp = int(time.time() * 1000)
 
@@ -304,7 +301,6 @@ class ChatSessionManager:
         # Progress callback that enqueues structured updates and saves THINKING messages
         def progress_callback(updates: List[ProgressUpdate]) -> None:
             nonlocal sent_update_count
-            nonlocal is_active
 
             # Only emit new updates that haven't been sent yet
             new_updates = updates[sent_update_count:]
@@ -320,7 +316,7 @@ class ChatSessionManager:
                 )
 
                 # Save THINKING messages to backend
-                if is_active and update.message_type == "THINKING":
+                if update.message_type == "THINKING":
                     self.conversation_manager.save_message_to_conversation(
                         conversation_urn=conversation_urn,
                         actor_urn="urn:li:corpuser:datahub-ai",
@@ -354,105 +350,78 @@ class ChatSessionManager:
         generation_thread.start()
 
         # Yield progress updates as they arrive
-        # Track completion to know if we should save the final message
-        completed_successfully = False
-        try:
-            while True:
-                try:
-                    event = progress_q.get(timeout=CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS)
-                    if event is None:  # None signals completion
-                        completed_successfully = True
-                        break
-                    yield event
-                except queue.Empty:
-                    # Timeout expired - send keepalive to prevent connection timeout
-                    yield ChatMessageEvent.keepalive(conversation_urn)
-        finally:
-            # Mark as inactive if stream didn't complete successfully
-            if not completed_successfully:
-                is_active = False
+        while True:
+            try:
+                event = progress_q.get(timeout=CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS)
+                if event is None:  # None signals completion
+                    break
+                yield event
+            except queue.Empty:
+                # Timeout expired - send keepalive to prevent connection timeout
+                yield ChatMessageEvent.keepalive(conversation_urn)
 
         # Wait for thread to complete
         generation_thread.join(timeout=1.0)
 
-        # Check for errors
-        if error_container[0]:
-            error = error_container[0]
-            error_timestamp = str(int(time.time() * 1000))
-            yield ChatMessageEvent(
-                message_type="TEXT",
-                text="",
-                conversation_urn=conversation_urn,
-                timestamp=int(error_timestamp),
-                error=str(error),
-            )
+        # Determine response text and error based on outcome
+        error = error_container[0]
+        next_message = next_message_container[0]
 
-            # EMIT ERROR EVENT
-            event_data = ChatbotInteractionEvent(
-                user_urn=user_urn,
-                chat_id=ui_chat_id(conversation_urn, error_timestamp),
-                message_id=ui_message_id(conversation_urn, error_timestamp),
-                chatbot="datahub_ui",
-                ui_user_urn=user_urn,
-                ui_conversation_urn=conversation_urn,
-                message_contents=message_text,
-                response_error=f"{type(error).__name__}: {str(error)}",
-                response_generation_duration_sec=timer.elapsed_seconds(),
-                chat_session_id=None,
-            )
-
-            # Update with agent data if available
-            enrich_event_with_agent_data(event_data, agent)
-            track_saas_event(event_data)
+        if error:
+            # Use the same error message that the frontend displays for consistency
+            # TODO: Ideally the frontend should read the error message from SSE payload
+            # instead of hardcoding it, then we could customize messages per error type
+            response_text = "Oops! An unexpected error occurred. 🥹 Please try again in a little while."
+        elif next_message:
+            response_text = next_message.text
+        else:
+            # No message to save (shouldn't happen normally)
             return
 
-        # Save and yield final assistant message
-        next_message = next_message_container[0]
-        if next_message:
-            ai_message_timestamp = int(time.time() * 1000)
+        response_timestamp = int(time.time() * 1000)
 
-            # Only save AI message if stream completed successfully
-            if is_active:
-                self.conversation_manager.save_message_to_conversation(
-                    conversation_urn=conversation_urn,
-                    actor_urn="urn:li:corpuser:datahub-ai",
-                    actor_type=DataHubAiConversationActorTypeClass.AGENT,  # type: ignore[arg-type]
-                    message_type=DataHubAiConversationMessageTypeClass.TEXT,  # type: ignore[arg-type]
-                    text=next_message.text,
-                    timestamp=ai_message_timestamp,
-                    agent_name=agent_type,
-                )
+        # Save message to backend
+        self.conversation_manager.save_message_to_conversation(
+            conversation_urn=conversation_urn,
+            actor_urn="urn:li:corpuser:datahub-ai",
+            actor_type=DataHubAiConversationActorTypeClass.AGENT,  # type: ignore[arg-type]
+            message_type=DataHubAiConversationMessageTypeClass.TEXT,  # type: ignore[arg-type]
+            text=response_text,
+            timestamp=response_timestamp,
+            agent_name=agent_type,
+        )
 
-            yield ChatMessageEvent(
-                message_type="TEXT",
-                text=next_message.text,
-                conversation_urn=conversation_urn,
-                timestamp=ai_message_timestamp,
-            )
+        # Yield the message event
+        yield ChatMessageEvent(
+            message_type="TEXT",
+            text=response_text,
+            conversation_urn=conversation_urn,
+            timestamp=response_timestamp,
+            error=str(error) if error else None,
+        )
 
-            # Determine if this is a follow-up question
-            is_followup_question = (
-                agent.history.is_followup_datahub_ask_question
-                if agent and agent.history
-                else False
-            )
-            timestamp = str(ai_message_timestamp)
+        # Emit analytics event
+        is_followup_question = (
+            agent.history.is_followup_datahub_ask_question
+            if agent and agent.history and not error
+            else False
+        )
+        timestamp_str = str(response_timestamp)
 
-            # EMIT SUCCESS EVENT
-            event_data = ChatbotInteractionEvent(
-                user_urn=user_urn,
-                chat_id=ui_chat_id(conversation_urn, timestamp),
-                message_id=ui_message_id(conversation_urn, timestamp),
-                chatbot="datahub_ui",
-                ui_user_urn=user_urn,
-                ui_conversation_urn=conversation_urn,
-                message_contents=message_text,
-                response_contents=next_message.text,
-                response_length=len(next_message.text),
-                response_generation_duration_sec=timer.elapsed_seconds(),
-                is_followup_question=is_followup_question,
-            )
+        event_data = ChatbotInteractionEvent(
+            user_urn=user_urn,
+            chat_id=ui_chat_id(conversation_urn, timestamp_str),
+            message_id=ui_message_id(conversation_urn, timestamp_str),
+            chatbot="datahub_ui",
+            ui_user_urn=user_urn,
+            ui_conversation_urn=conversation_urn,
+            message_contents=message_text,
+            response_error=f"{type(error).__name__}: {str(error)}" if error else None,
+            response_contents=response_text if not error else None,
+            response_length=len(response_text) if not error else None,
+            response_generation_duration_sec=timer.elapsed_seconds(),
+            is_followup_question=is_followup_question,
+        )
 
-            # Update with agent data if available
-            enrich_event_with_agent_data(event_data, agent)
-            track_saas_event(event_data)
+        enrich_event_with_agent_data(event_data, agent)
+        track_saas_event(event_data)

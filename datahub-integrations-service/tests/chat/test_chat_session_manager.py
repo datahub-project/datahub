@@ -366,6 +366,257 @@ def test_send_message_handles_errors_gracefully(mock_datahub_client: Mock) -> No
             assert "Test error during generation" in error_event.error
 
 
+def test_send_message_saves_error_to_conversation(mock_datahub_client: Mock) -> None:
+    """Test that error messages are saved to GMS so users see them after refresh."""
+
+    def mock_generate_error(session, progress_callback=None):
+        raise ValueError("Test error during generation")
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        # Create manager AFTER patching so it uses the mock conversation_manager
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(
+            manager, "_generate_with_progress", side_effect=mock_generate_error
+        ):
+            urn = "urn:li:dataHubAiConversation:123"
+            list(
+                manager.send_message(
+                    text="Test",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                )
+            )
+
+            # Should have saved: 1 user TEXT + 1 error TEXT = 2 saves
+            assert mock_instance.save_message_to_conversation.call_count == 2
+
+            # Find the error message save call (the second TEXT message from agent)
+            save_calls = mock_instance.save_message_to_conversation.call_args_list
+            error_save_call = save_calls[-1]  # Last save should be the error
+
+            # Verify it's saved as a TEXT message from the agent
+            assert "TEXT" in str(error_save_call[1]["message_type"])
+            assert error_save_call[1]["actor_urn"] == "urn:li:corpuser:datahub-ai"
+
+            # Verify the error text matches what frontend displays
+            expected_error_text = (
+                "Oops! An unexpected error occurred. 🥹 "
+                "Please try again in a little while."
+            )
+            assert error_save_call[1]["text"] == expected_error_text
+
+
+def test_send_message_error_event_has_user_friendly_text(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that error events include user-friendly text AND the original error."""
+
+    def mock_generate_error(session, progress_callback=None):
+        raise ValueError("Original error message from LLM")
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(
+            manager, "_generate_with_progress", side_effect=mock_generate_error
+        ):
+            urn = "urn:li:dataHubAiConversation:123"
+            events = list(
+                manager.send_message(
+                    text="Test",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                )
+            )
+
+            # Find the error event (last event)
+            error_event = events[-1]
+
+            # Should have user-friendly text for display
+            expected_text = (
+                "Oops! An unexpected error occurred. 🥹 "
+                "Please try again in a little while."
+            )
+            assert error_event.text == expected_text
+
+            # Should also have original error for debugging/logging
+            assert error_event.error is not None
+            assert "Original error message from LLM" in error_event.error
+
+
+def test_send_message_returns_early_when_no_message(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that send_message returns early if generation returns None (edge case)."""
+
+    def mock_generate_returns_none(session, progress_callback=None):
+        return None  # Simulate no message generated (shouldn't happen normally)
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(
+            manager, "_generate_with_progress", side_effect=mock_generate_returns_none
+        ):
+            urn = "urn:li:dataHubAiConversation:123"
+            events = list(
+                manager.send_message(
+                    text="Test",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                )
+            )
+
+            # Should only have the user message (no AI response)
+            assert len(events) == 1
+            assert events[0].user_urn == "urn:li:corpuser:test"
+
+            # Should only have saved the user message (1 save, not 2)
+            assert mock_instance.save_message_to_conversation.call_count == 1
+
+
+def test_send_message_error_sets_correct_analytics_fields(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that error analytics event has response_error but not response_contents."""
+
+    def mock_generate_error(session, progress_callback=None):
+        raise ValueError("Test error")
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(
+            manager, "_generate_with_progress", side_effect=mock_generate_error
+        ):
+            with patch(
+                "datahub_integrations.chat.chat_session_manager.track_saas_event"
+            ) as mock_track:
+                urn = "urn:li:dataHubAiConversation:123"
+                list(
+                    manager.send_message(
+                        text="Test",
+                        user_urn="urn:li:corpuser:test",
+                        conversation_urn=urn,
+                    )
+                )
+
+                # Verify track_saas_event was called
+                assert mock_track.call_count == 1
+
+                # Get the event data
+                event_data = mock_track.call_args[0][0]
+
+                # Error fields should be set
+                assert event_data.response_error is not None
+                assert "ValueError" in event_data.response_error
+                assert "Test error" in event_data.response_error
+
+                # Success fields should NOT be set for errors
+                assert event_data.response_contents is None
+                assert event_data.response_length is None
+                assert event_data.is_followup_question is False
+
+
+def test_send_message_success_sets_correct_analytics_fields(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that success analytics event has response_contents but not response_error."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(manager, "_generate_with_progress") as mock_generate:
+            mock_generate.return_value = NextMessage(
+                text="Here is your answer!", suggestions=[]
+            )
+
+            with patch(
+                "datahub_integrations.chat.chat_session_manager.track_saas_event"
+            ) as mock_track:
+                urn = "urn:li:dataHubAiConversation:123"
+                list(
+                    manager.send_message(
+                        text="Test",
+                        user_urn="urn:li:corpuser:test",
+                        conversation_urn=urn,
+                    )
+                )
+
+                # Verify track_saas_event was called
+                assert mock_track.call_count == 1
+
+                # Get the event data
+                event_data = mock_track.call_args[0][0]
+
+                # Success fields should be set
+                assert event_data.response_contents == "Here is your answer!"
+                assert event_data.response_length == len("Here is your answer!")
+
+                # Error fields should NOT be set for success
+                assert event_data.response_error is None
+
+
 def test_send_message_avoids_duplicate_progress_updates(
     mock_datahub_client: Mock,
 ) -> None:
@@ -1247,6 +1498,439 @@ def test_keepalive_resets_timer_on_real_events(mock_datahub_client: Mock) -> Non
                 assert len(keepalive_events) <= len(thinking_events), (
                     "Keepalives should not exceed real events when updates are frequent"
                 )
+
+
+def test_create_session_with_invalid_agent_type(mock_datahub_client: Mock) -> None:
+    """Test that create_session raises ValueError for unknown agent types."""
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        manager.create_session(agent_type="NonExistentAgent")
+
+    assert "Unknown agent type: NonExistentAgent" in str(exc_info.value)
+    assert "Available types:" in str(exc_info.value)
+
+
+def test_load_session_with_invalid_agent_type(mock_datahub_client: Mock) -> None:
+    """Test that load_session raises ValueError for unknown agent types."""
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        manager.load_session(
+            conversation_urn="urn:li:dataHubAiConversation:123",
+            agent_type="InvalidAgent",
+        )
+
+    assert "Unknown agent type: InvalidAgent" in str(exc_info.value)
+    assert "Available types:" in str(exc_info.value)
+
+
+def test_chat_message_event_keepalive_classmethod() -> None:
+    """Test the ChatMessageEvent.keepalive() factory method."""
+    urn = "urn:li:dataHubAiConversation:test123"
+    event = ChatMessageEvent.keepalive(urn)
+
+    assert event.message_type == "KEEPALIVE"
+    assert event.text == ""
+    assert event.conversation_urn == urn
+    assert event.is_keepalive is True
+    assert event.timestamp > 0
+    assert event.user_urn is None
+    assert event.error is None
+
+
+def test_send_message_with_custom_agent_name(mock_datahub_client: Mock) -> None:
+    """Test send_message uses custom agent_name parameter."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(manager, "load_session") as mock_load:
+            mock_session = Mock()
+            mock_session.history = ChatHistory(messages=[])
+            mock_session.generate_formatted_message = Mock(
+                return_value=NextMessage(text="Response", suggestions=[])
+            )
+            mock_session.set_progress_callback = Mock(
+                return_value=Mock(__enter__=Mock(), __exit__=Mock())
+            )
+            mock_load.return_value = mock_session
+
+            urn = "urn:li:dataHubAiConversation:123"
+            list(
+                manager.send_message(
+                    text="Hello",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                    agent_name="IngestionTroubleshooter",
+                )
+            )
+
+            # Verify load_session was called with custom agent_name
+            mock_load.assert_called_once_with(urn, "IngestionTroubleshooter", None)
+
+
+def test_send_message_yields_user_message_first(mock_datahub_client: Mock) -> None:
+    """Test that send_message yields user message as the first event."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(manager, "_generate_with_progress") as mock_generate:
+            mock_generate.return_value = NextMessage(text="Response", suggestions=[])
+
+            urn = "urn:li:dataHubAiConversation:123"
+            user_urn = "urn:li:corpuser:testuser"
+            message_text = "Hello, AI!"
+
+            events = list(
+                manager.send_message(
+                    text=message_text,
+                    user_urn=user_urn,
+                    conversation_urn=urn,
+                )
+            )
+
+            # First event should be the user message
+            first_event = events[0]
+            assert first_event.message_type == "TEXT"
+            assert first_event.text == message_text
+            assert first_event.user_urn == user_urn
+            assert first_event.conversation_urn == urn
+            assert first_event.timestamp > 0
+
+
+def test_send_message_saves_user_message_correctly(mock_datahub_client: Mock) -> None:
+    """Test that send_message saves user message with correct parameters."""
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(manager, "_generate_with_progress") as mock_generate:
+            mock_generate.return_value = NextMessage(text="Response", suggestions=[])
+
+            urn = "urn:li:dataHubAiConversation:123"
+            user_urn = "urn:li:corpuser:testuser"
+            message_text = "User question"
+
+            list(
+                manager.send_message(
+                    text=message_text,
+                    user_urn=user_urn,
+                    conversation_urn=urn,
+                )
+            )
+
+            # First save call should be for user message
+            save_calls = mock_instance.save_message_to_conversation.call_args_list
+            user_save = save_calls[0]
+
+            assert user_save[1]["conversation_urn"] == urn
+            assert user_save[1]["actor_urn"] == user_urn
+            assert user_save[1]["text"] == message_text
+            assert "USER" in str(user_save[1]["actor_type"])
+            assert "TEXT" in str(user_save[1]["message_type"])
+
+
+def test_send_message_non_thinking_progress_not_saved(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that non-THINKING progress messages (e.g., TOOL_CALL) are NOT saved to conversation."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        # Mock _generate_with_progress to emit both THINKING and TOOL_CALL updates
+        def mock_generate_mixed_progress(session, progress_callback=None):
+            if progress_callback:
+                progress_callback(
+                    [
+                        ProgressUpdate(message_type="THINKING", text="Analyzing..."),
+                        ProgressUpdate(
+                            message_type="TOOL_CALL", text="Calling tool..."
+                        ),
+                        ProgressUpdate(
+                            message_type="TOOL_RESULT", text="Tool result..."
+                        ),
+                    ]
+                )
+            return NextMessage(text="Done", suggestions=[])
+
+        with patch.object(
+            manager, "_generate_with_progress", side_effect=mock_generate_mixed_progress
+        ):
+            urn = "urn:li:dataHubAiConversation:123"
+            list(
+                manager.send_message(
+                    text="Test",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                )
+            )
+
+            # Should have: 1 user TEXT + 1 THINKING + 1 AI TEXT = 3 saves
+            # TOOL_CALL and TOOL_RESULT should NOT be saved
+            assert mock_instance.save_message_to_conversation.call_count == 3
+
+            # Verify only THINKING was saved (not TOOL_CALL or TOOL_RESULT)
+            save_calls = mock_instance.save_message_to_conversation.call_args_list
+            message_types = [str(call[1]["message_type"]) for call in save_calls]
+
+            assert any("THINKING" in mt for mt in message_types)
+            assert not any("TOOL_CALL" in mt for mt in message_types)
+            assert not any("TOOL_RESULT" in mt for mt in message_types)
+
+
+def test_send_message_is_followup_question_true(mock_datahub_client: Mock) -> None:
+    """Test that is_followup_question is correctly detected from agent history."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        # Create a mock session with history that indicates followup
+        mock_session = Mock()
+        mock_session.history = Mock()
+        mock_session.history.messages = []
+        mock_session.history.is_followup_datahub_ask_question = True
+
+        with patch.object(manager, "load_session", return_value=mock_session):
+            with patch.object(manager, "_generate_with_progress") as mock_generate:
+                mock_generate.return_value = NextMessage(
+                    text="Response", suggestions=[]
+                )
+
+                with patch(
+                    "datahub_integrations.chat.chat_session_manager.track_saas_event"
+                ) as mock_track:
+                    urn = "urn:li:dataHubAiConversation:123"
+                    list(
+                        manager.send_message(
+                            text="Follow up question",
+                            user_urn="urn:li:corpuser:test",
+                            conversation_urn=urn,
+                        )
+                    )
+
+                    # Get the event data
+                    event_data = mock_track.call_args[0][0]
+                    assert event_data.is_followup_question is True
+
+
+def test_send_message_enrich_event_with_agent_data_called(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that enrich_event_with_agent_data is called with correct parameters."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        mock_session = Mock()
+        mock_session.history = ChatHistory(messages=[])
+
+        with patch.object(manager, "load_session", return_value=mock_session):
+            with patch.object(manager, "_generate_with_progress") as mock_generate:
+                mock_generate.return_value = NextMessage(
+                    text="Response", suggestions=[]
+                )
+
+                with patch(
+                    "datahub_integrations.chat.chat_session_manager.enrich_event_with_agent_data"
+                ) as mock_enrich:
+                    urn = "urn:li:dataHubAiConversation:123"
+                    list(
+                        manager.send_message(
+                            text="Test",
+                            user_urn="urn:li:corpuser:test",
+                            conversation_urn=urn,
+                        )
+                    )
+
+                    # Verify enrich_event_with_agent_data was called
+                    mock_enrich.assert_called_once()
+                    call_args = mock_enrich.call_args
+                    # First argument should be the event data
+                    assert call_args[0][0] is not None
+                    # Second argument should be the agent
+                    assert call_args[0][1] == mock_session
+
+
+def test_send_message_saves_ai_response_with_agent_name(
+    mock_datahub_client: Mock,
+) -> None:
+    """Test that AI response is saved with the correct agent_name."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(manager, "_generate_with_progress") as mock_generate:
+            mock_generate.return_value = NextMessage(text="AI Response", suggestions=[])
+
+            urn = "urn:li:dataHubAiConversation:123"
+            list(
+                manager.send_message(
+                    text="Test",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                    agent_name="IngestionTroubleshooter",
+                )
+            )
+
+            # Last save call should be the AI response
+            save_calls = mock_instance.save_message_to_conversation.call_args_list
+            ai_response_save = save_calls[-1]
+
+            assert ai_response_save[1]["agent_name"] == "IngestionTroubleshooter"
+            assert ai_response_save[1]["actor_urn"] == "urn:li:corpuser:datahub-ai"
+
+
+def test_send_message_default_agent_name(mock_datahub_client: Mock) -> None:
+    """Test that default agent_name is DataCatalogExplorer when not specified."""
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        with patch.object(manager, "load_session") as mock_load:
+            mock_session = Mock()
+            mock_session.history = ChatHistory(messages=[])
+            mock_session.generate_formatted_message = Mock(
+                return_value=NextMessage(text="Response", suggestions=[])
+            )
+            mock_session.set_progress_callback = Mock(
+                return_value=Mock(__enter__=Mock(), __exit__=Mock())
+            )
+            mock_load.return_value = mock_session
+
+            urn = "urn:li:dataHubAiConversation:123"
+            list(
+                manager.send_message(
+                    text="Hello",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                    # agent_name not specified
+                )
+            )
+
+            # Verify load_session was called with default agent type
+            mock_load.assert_called_once_with(urn, "DataCatalogExplorer", None)
+
+
+def test_create_session_with_chat_type(mock_datahub_client: Mock) -> None:
+    """Test that create_session passes chat_type to agent factory."""
+    with (
+        patch(
+            "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES"
+        ) as mock_factories,
+        patch("datahub_integrations.chat.chat_session_manager.mcp") as mock_mcp,
+    ):
+        mock_agent = Mock()
+        mock_factory = Mock(return_value=mock_agent)
+        mock_factories.__contains__ = Mock(return_value=True)
+        mock_factories.__getitem__ = Mock(return_value=mock_factory)
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        manager.create_session(
+            agent_type="DataCatalogExplorer", chat_type=ChatType.SLACK
+        )
+
+        mock_factory.assert_called_with(
+            client=mock_datahub_client, chat_type=ChatType.SLACK, tools=[mock_mcp]
+        )
 
 
 if __name__ == "__main__":
