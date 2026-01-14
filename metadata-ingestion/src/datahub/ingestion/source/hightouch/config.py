@@ -20,18 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class Constant:
-    """
-    Constants used in the Hightouch plugin
-    """
-
     ORCHESTRATOR = "hightouch"
     # Threshold for warning about excessive sync run ingestion
     MAX_SYNC_RUNS_WARNING_THRESHOLD = 100
 
 
 class HightouchAPIConfig(ConfigModel):
-    """Configuration for connecting to the Hightouch API"""
-
     api_key: SecretStr = Field(description="Hightouch API key for authentication")
     base_url: str = Field(
         default="https://api.hightouch.com/api/v1",
@@ -43,8 +37,6 @@ class HightouchAPIConfig(ConfigModel):
 
 
 class PlatformDetail(ConfigModel):
-    """Platform details for source/destination mapping"""
-
     platform: Optional[str] = Field(
         default=None,
         description="Override the platform type detection.",
@@ -69,8 +61,6 @@ class PlatformDetail(ConfigModel):
 
 @dataclasses.dataclass
 class HightouchSourceReport(StaleEntityRemovalSourceReport):
-    """Report for Hightouch source"""
-
     syncs_scanned: int = 0
     models_scanned: int = 0
     models_emitted: int = 0
@@ -92,6 +82,16 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     model_schemas_skip_reasons: LossyDict[str, int] = dataclasses.field(
         default_factory=LossyDict
     )
+    model_schemas_from_datahub: int = 0
+    model_schemas_datahub_not_found: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
+    destination_schemas_from_datahub: int = 0
+    destinations_emitted: int = 0
+    schemas_from_referenced_columns: int = 0
+    column_lineage_emitted: int = 0
+    tags_emitted: int = 0
+    folders_processed: int = 0
 
     def report_syncs_scanned(self, count: int = 1) -> None:
         self.syncs_scanned += count
@@ -141,10 +141,20 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
             self.model_schemas_skip_reasons.get(reason, 0) + 1
         )
 
+    def report_model_schema_from_datahub(self, count: int = 1) -> None:
+        self.model_schemas_from_datahub += count
+
+    def report_model_schema_datahub_not_found(self, model_name: str) -> None:
+        self.model_schemas_datahub_not_found.append(model_name)
+
+    def report_destination_schema_from_datahub(self, count: int = 1) -> None:
+        self.destination_schemas_from_datahub += count
+
+    def report_destinations_emitted(self, count: int = 1) -> None:
+        self.destinations_emitted += count
+
 
 class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
-    """Configuration for Hightouch source"""
-
     model_config = ConfigDict(protected_namespaces=())
 
     api_config: HightouchAPIConfig = Field(description="Hightouch API configuration")
@@ -166,12 +176,6 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         "and lineage is created from source tables to models, and from models to syncs.",
     )
 
-    include_model_lineage: bool = Field(
-        default=True,
-        description="Whether to include lineage from source tables to Hightouch models. "
-        "Only relevant when emit_models_as_datasets is enabled.",
-    )
-
     include_sync_runs: bool = Field(
         default=True,
         description="Whether to ingest sync run history as DataProcessInstances.",
@@ -180,12 +184,6 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
     max_sync_runs_per_sync: int = Field(
         default=10,
         description="Maximum number of sync runs to ingest per sync.",
-    )
-
-    include_column_lineage: bool = Field(
-        default=True,
-        description="Whether to extract field mappings and emit fine-grained (column-level) lineage. "
-        "This extracts field mappings from sync configurations and creates column-to-column lineage.",
     )
 
     parse_model_sql: bool = Field(
@@ -218,6 +216,15 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
     destinations_to_platform_instance: dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
+    )
+
+    emit_models_on_source_platform: bool = Field(
+        default=True,
+        description="Whether to emit Hightouch models as datasets on the source platform (e.g., Snowflake, Redshift) "
+        "rather than as separate 'hightouch' platform datasets. When enabled (default), models appear as siblings of "
+        "their source tables, similar to how Trino/Presto views are represented, creating more natural lineage. "
+        "Set to false to emit models on a separate 'hightouch' platform if you prefer namespace isolation. "
+        "When enabled, ensure sources_to_platform_instance is configured to match your warehouse connector settings.",
     )
 
     # Configuration for stateful ingestion

@@ -1,5 +1,3 @@
-"""Client for interacting with the Hightouch REST API"""
-
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -26,8 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 class HightouchAPIClient:
-    """Client for the Hightouch REST API"""
-
     def __init__(self, config: HightouchAPIConfig):
         self.config = config
         self.session = self._create_session()
@@ -66,10 +62,7 @@ class HightouchAPIClient:
             )
             response.raise_for_status()
             result = response.json()
-
-            # Log full response for debugging (no truncation)
             logger.debug(f"API response from {endpoint}: {json.dumps(result)}")
-
             return result
         except requests.exceptions.RequestException as e:
             logger.error(f"Error making request to {url}: {e}")
@@ -147,25 +140,6 @@ class HightouchAPIClient:
             try:
                 model = HightouchModel.model_validate(model_data)
                 models.append(model)
-                # Log model details for debugging
-                logger.debug(
-                    f"Model {model.id} ({model.slug}): "
-                    f"query_type={model.query_type}, "
-                    f"has_raw_sql={model.raw_sql is not None}, "
-                    f"has_query_schema={model.query_schema is not None}"
-                )
-                if model.query_schema:
-                    schema_type = type(model.query_schema).__name__
-                    if isinstance(model.query_schema, list):
-                        logger.debug(
-                            f"Model {model.id} query_schema is list with {len(model.query_schema)} items"
-                        )
-                    elif isinstance(model.query_schema, dict):
-                        logger.debug(
-                            f"Model {model.id} query_schema is dict with keys: {list(model.query_schema.keys())}"
-                        )
-                    else:
-                        logger.debug(f"Model {model.id} query_schema is {schema_type}")
             except ValidationError as e:
                 logger.warning(f"Failed to parse model: {e}, data: {model_data}")
                 continue
@@ -212,12 +186,6 @@ class HightouchAPIClient:
             try:
                 sync = HightouchSync.model_validate(sync_data)
                 syncs.append(sync)
-                # Log sync configuration keys for debugging
-                if sync.configuration:
-                    config_keys = list(sync.configuration.keys())
-                    logger.debug(
-                        f"Sync {sync.id} ({sync.slug}) configuration keys: {config_keys}"
-                    )
             except ValidationError as e:
                 logger.warning(f"Failed to parse sync: {e}, data: {sync_data}")
                 continue
@@ -257,11 +225,6 @@ class HightouchAPIClient:
             return None
 
     def get_contracts(self) -> List[HightouchContract]:
-        """Get all event contracts (data quality validation rules)
-
-        Note: This endpoint may not be available for all Hightouch accounts/plans.
-        Returns empty list if endpoint returns 404.
-        """
         try:
             all_data = self._make_paginated_request("events/contracts")
         except requests.exceptions.HTTPError as e:
@@ -279,13 +242,6 @@ class HightouchAPIClient:
             try:
                 contract = HightouchContract.model_validate(contract_data)
                 contracts.append(contract)
-                # Log contract details for debugging
-                logger.debug(
-                    f"Contract {contract.id} ({contract.name}): "
-                    f"source_id={contract.source_id}, "
-                    f"model_id={contract.model_id}, "
-                    f"enabled={contract.enabled}"
-                )
             except ValidationError as e:
                 logger.warning(f"Failed to parse contract: {e}, data: {contract_data}")
                 continue
@@ -293,7 +249,6 @@ class HightouchAPIClient:
         return contracts
 
     def get_contract_by_id(self, contract_id: str) -> Optional[HightouchContract]:
-        """Get a specific contract by ID"""
         try:
             response = self._make_request("GET", f"events/contracts/{contract_id}")
             return HightouchContract.model_validate(response)
@@ -304,7 +259,6 @@ class HightouchAPIClient:
     def get_contract_runs(
         self, contract_id: str, limit: int = 10
     ) -> List[HightouchContractRun]:
-        """Get validation run history for a contract"""
         response = self._make_request(
             "GET", f"events/contracts/{contract_id}/runs", params={"limit": limit}
         )

@@ -33,10 +33,9 @@ def hightouch_config():
         ),
         env="PROD",
         emit_models_as_datasets=True,
-        include_model_lineage=True,
+        emit_models_on_source_platform=False,
         include_sync_runs=True,
         max_sync_runs_per_sync=5,
-        include_column_lineage=True,
     )
 
 
@@ -615,7 +614,7 @@ def test_get_assertion_dataset_urn_with_no_model_id(
         enabled=True,
     )
 
-    result = source_instance._get_assertion_dataset_urn(contract)
+    result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
     assert result is None
 
 
@@ -641,7 +640,7 @@ def test_get_assertion_dataset_urn_with_missing_model(
         enabled=True,
     )
 
-    result = source_instance._get_assertion_dataset_urn(contract)
+    result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
     assert result is None
 
 
@@ -680,7 +679,7 @@ def test_get_assertion_dataset_urn_with_missing_source(
         enabled=True,
     )
 
-    result = source_instance._get_assertion_dataset_urn(contract)
+    result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
     assert result is None
 
 
@@ -688,7 +687,7 @@ def test_get_assertion_dataset_urn_with_missing_source(
 def test_get_assertion_dataset_urn_with_no_platform_mapping(
     mock_api_client_class, pipeline_context
 ):
-    """Test early return when no platform mapping exists for source."""
+    """Test that models are emitted on source platform even without explicit mapping."""
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         sources_to_platform_instance={},  # No mappings
@@ -734,8 +733,10 @@ def test_get_assertion_dataset_urn_with_no_platform_mapping(
         enabled=True,
     )
 
-    result = source_instance._get_assertion_dataset_urn(contract)
-    assert result is None
+    result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
+    assert result is not None
+    assert "snowflake" in result
+    assert "test-model" in result
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -797,11 +798,11 @@ def test_get_assertion_dataset_urn_success_with_schema(
         enabled=True,
     )
 
-    result = source_instance._get_assertion_dataset_urn(contract)
+    result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
 
     assert result is not None
     assert "snowflake" in result
-    assert "analytics.public.customer_model" in result
+    assert "analytics.customer-model" in result
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -863,11 +864,11 @@ def test_get_assertion_dataset_urn_success_without_schema(
         enabled=True,
     )
 
-    result = source_instance._get_assertion_dataset_urn(contract)
+    result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
 
     assert result is not None
     assert "bigquery" in result
-    assert "my_project.orders_model" in result
+    assert "my_project.orders-model" in result
     assert "analytics" not in result  # Schema should not be included
 
 
@@ -930,7 +931,9 @@ def test_generate_assertion_from_contract(mock_api_client_class, pipeline_contex
         description="Validates email addresses",
     )
 
-    workunits = list(source_instance._generate_assertion_from_contract(contract))
+    workunits = list(
+        source_instance._assertions_handler._generate_assertion_from_contract(contract)
+    )
 
     assert len(workunits) > 0
 
@@ -1016,7 +1019,9 @@ def test_generate_assertion_results_from_contract_runs_success(
     )
 
     workunits = list(
-        source_instance._generate_assertion_results_from_contract_runs(contract, [run])
+        source_instance._assertions_handler._generate_assertion_results_from_contract_runs(
+            contract, [run]
+        )
     )
 
     assert len(workunits) == 1
@@ -1095,7 +1100,9 @@ def test_generate_assertion_results_from_contract_runs_failure(
     )
 
     workunits = list(
-        source_instance._generate_assertion_results_from_contract_runs(contract, [run])
+        source_instance._assertions_handler._generate_assertion_results_from_contract_runs(
+            contract, [run]
+        )
     )
 
     assert len(workunits) == 1
@@ -1173,13 +1180,17 @@ def test_get_contract_workunits(mock_api_client_class, pipeline_context):
 
     source_instance = HightouchIngestionSource(config, pipeline_context)
 
-    workunits = list(source_instance._get_contract_workunits(contract))
+    workunits = list(
+        source_instance._assertions_handler._get_contract_workunits(contract)
+    )
 
     # Should have assertion definition + run result
     assert len(workunits) >= 2
     assert source_instance.report.contracts_scanned == 1
     assert source_instance.report.contracts_emitted == 1
-    mock_client.get_contract_runs.assert_called_once_with("contract_1", limit=5)
+    mock_client.get_contract_runs.assert_called_once_with(
+        contract_id="contract_1", limit=5
+    )
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -1268,7 +1279,7 @@ def test_parse_model_schema_with_no_schema(
         query_schema=None,
     )
 
-    result = source_instance._parse_model_schema(model)
+    result = source_instance._schema_handler._parse_model_schema(model)
     assert result is None
 
 
@@ -1295,13 +1306,25 @@ def test_parse_model_schema_with_list_format(
         ],
     )
 
-    result = source_instance._parse_model_schema(model)
+    result = source_instance._schema_handler._parse_model_schema(model)
 
     assert result is not None
     assert len(result) == 3
-    assert result[0] == ("user_id", "INTEGER", None)
-    assert result[1] == ("email", "STRING", "User email address")
-    assert result[2] == ("created_at", "TIMESTAMP", None)
+    assert (
+        result[0].name == "user_id"
+        and result[0].type == "INTEGER"
+        and result[0].description is None
+    )
+    assert (
+        result[1].name == "email"
+        and result[1].type == "STRING"
+        and result[1].description == "User email address"
+    )
+    assert (
+        result[2].name == "created_at"
+        and result[2].type == "TIMESTAMP"
+        and result[2].description is None
+    )
     assert source_instance.report.model_schemas_emitted == 1
 
 
@@ -1329,12 +1352,20 @@ def test_parse_model_schema_with_dict_format(
         },
     )
 
-    result = source_instance._parse_model_schema(model)
+    result = source_instance._schema_handler._parse_model_schema(model)
 
     assert result is not None
     assert len(result) == 2
-    assert result[0] == ("order_id", "BIGINT", None)
-    assert result[1] == ("amount", "DECIMAL", None)
+    assert (
+        result[0].name == "order_id"
+        and result[0].type == "BIGINT"
+        and result[0].description is None
+    )
+    assert (
+        result[1].name == "amount"
+        and result[1].type == "DECIMAL"
+        and result[1].description is None
+    )
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -1356,12 +1387,20 @@ def test_parse_model_schema_with_json_string(
         query_schema='{"columns": [{"name": "id", "type": "INT"}, {"name": "name", "type": "VARCHAR"}]}',
     )
 
-    result = source_instance._parse_model_schema(model)
+    result = source_instance._schema_handler._parse_model_schema(model)
 
     assert result is not None
     assert len(result) == 2
-    assert result[0] == ("id", "INT", None)
-    assert result[1] == ("name", "VARCHAR", None)
+    assert (
+        result[0].name == "id"
+        and result[0].type == "INT"
+        and result[0].description is None
+    )
+    assert (
+        result[1].name == "name"
+        and result[1].type == "VARCHAR"
+        and result[1].description is None
+    )
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -1383,7 +1422,7 @@ def test_parse_model_schema_with_invalid_json_string(
         query_schema='{"invalid json',
     )
 
-    result = source_instance._parse_model_schema(model)
+    result = source_instance._schema_handler._parse_model_schema(model)
     assert result is None
     assert source_instance.report.model_schemas_skipped >= 1
 
@@ -1415,13 +1454,25 @@ def test_parse_model_schema_with_field_variations(
         ],
     )
 
-    result = source_instance._parse_model_schema(model)
+    result = source_instance._schema_handler._parse_model_schema(model)
 
     assert result is not None
     assert len(result) == 3
-    assert result[0] == ("col1", "INT", None)
-    assert result[1] == ("col2", "VARCHAR", None)
-    assert result[2] == ("col3", "BOOLEAN", "Boolean flag")
+    assert (
+        result[0].name == "col1"
+        and result[0].type == "INT"
+        and result[0].description is None
+    )
+    assert (
+        result[1].name == "col2"
+        and result[1].type == "VARCHAR"
+        and result[1].description is None
+    )
+    assert (
+        result[2].name == "col3"
+        and result[2].type == "BOOLEAN"
+        and result[2].description == "Boolean flag"
+    )
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -1448,12 +1499,20 @@ def test_parse_model_schema_with_incomplete_columns(
         ],
     )
 
-    result = source_instance._parse_model_schema(model)
+    result = source_instance._schema_handler._parse_model_schema(model)
 
     assert result is not None
     assert len(result) == 2  # Only 2 valid columns
-    assert result[0] == ("valid_col", "INT", None)
-    assert result[1] == ("another_valid", "VARCHAR", None)
+    assert (
+        result[0].name == "valid_col"
+        and result[0].type == "INT"
+        and result[0].description is None
+    )
+    assert (
+        result[1].name == "another_valid"
+        and result[1].type == "VARCHAR"
+        and result[1].description is None
+    )
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -1640,10 +1699,10 @@ def test_outlet_urn_fallback_when_no_config_key(
 def test_outlet_urn_priority_of_config_keys(
     mock_api_client_class, hightouch_config, pipeline_context
 ):
-    """Test that config keys are tried in priority order."""
+    """Test that type-specific config keys take priority over fallback keys."""
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
 
-    # destinationTable should take priority over other keys
+    # For Salesforce, "object" key should take priority as it's the type-specific key
     sync = HightouchSync(
         id="1",
         slug="my-sync",
@@ -1654,8 +1713,8 @@ def test_outlet_urn_priority_of_config_keys(
         updated_at=datetime(2023, 1, 2),
         configuration={
             "tableName": "wrong_table",
-            "object": "wrong_object",
-            "destinationTable": "correct_table",
+            "object": "correct_object",
+            "destinationTable": "wrong_destination_table",
         },
     )
 
@@ -1673,9 +1732,9 @@ def test_outlet_urn_priority_of_config_keys(
     outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
 
     assert outlet_urn is not None
-    assert "correct_table" in str(outlet_urn)
+    assert "correct_object" in str(outlet_urn)
     assert "wrong_table" not in str(outlet_urn)
-    assert "wrong_object" not in str(outlet_urn)
+    assert "wrong_destination_table" not in str(outlet_urn)
 
 
 def test_model_raw_sql_extraction_from_nested_object():
