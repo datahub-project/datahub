@@ -1,18 +1,30 @@
-Ingesting metadata from VertexAI requires using the **Vertex AI** module.
+### Quick Start
 
-#### Prerequisites
+```yaml
+source:
+  type: vertexai
+  config:
+    project_ids: [my-project] # Or omit for auto-discovery
+    region: us-central1
+    credential: # Or use GOOGLE_APPLICATION_CREDENTIALS env var
+      private_key_id: "..."
+      private_key: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+      client_email: "sa@project.iam.gserviceaccount.com"
+      client_id: "123456789"
+```
 
-Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai/docs) for basic information on Vertex AI.
+**Required role:** `roles/aiplatform.viewer` on each project.
 
-#### Credentials to access to GCP
+---
 
-Please read the section to understand how to set up application default Credentials to [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+### Prerequisites
 
-##### Permissions
+- [Vertex AI basics](https://cloud.google.com/vertex-ai/docs)
+- [GCP Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to)
 
-- Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+### Permissions
 
-Default GCP Role which contains these permissions [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
+Grant [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer) to your service account:
 
 | Permission                          | Description                                                                                                       |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -80,247 +92,79 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 ### Multi-Project Configuration
 
-Scan Vertex AI resources across multiple GCP projects using one of three approaches:
+| Method              | Config                         | Use Case                   | Requires Org Permission |
+| ------------------- | ------------------------------ | -------------------------- | ----------------------- |
+| **Explicit list**   | `project_ids: [proj1, proj2]`  | Fixed list (3-10 projects) | No                      |
+| **Label discovery** | `project_labels: ["env:prod"]` | Tagged projects (10-100+)  | Yes                     |
+| **Auto-discovery**  | _(omit both)_                  | All accessible projects    | Yes                     |
 
-**Project Selection Priority:**
+Priority: `project_ids` > `project_labels` > auto-discovery. The `project_id_pattern` filter always applies after selection.
 
-1. `project_ids` (highest priority) - Explicit list of project IDs
-2. `project_labels` - Discover projects by GCP labels
-3. Auto-discovery - Find all accessible projects
-
-The `project_id_pattern` filter is always applied after project selection.
-
-#### Option 1: Explicit Project List
+#### Examples
 
 ```yaml
-source:
-  type: vertexai
-  config:
-    project_ids:
-      - project-prod
-      - project-staging
-      - project-dev
-    region: us-central1
-```
+# Explicit list (no org permissions needed)
+project_ids: [project-prod, project-staging]
 
-**Use when:** You have a fixed list of projects (3-10 projects).  
-**Note:** Does not require org-level `resourcemanager.projects.list` permission.
+# Label-based discovery
+project_labels: ["env:production", "team:ml"]
 
-#### Option 2: Label-Based Discovery
-
-```yaml
-source:
-  type: vertexai
-  config:
-    project_labels:
-      - "env:production"
-      - "team:ml-platform"
-    region: us-central1
-```
-
-**Use when:** Projects are tagged consistently (10-100+ projects).  
-**Requirements:**
-
-- `resourcemanager.projects.list` permission at organization/folder level
-- Projects must have matching labels
-
-**Label format:** `key:value` for exact match, or `key` to match any value.
-
-**Debug:**
-
-```bash
-gcloud projects list --filter='labels.env:production'
-```
-
-#### Option 3: Auto-Discovery
-
-```yaml
-source:
-  type: vertexai
-  config:
-    # No project_ids or project_labels = auto-discover all accessible projects
-    region: us-central1
-```
-
-**Use when:** You want to scan all accessible projects.  
-**Requirements:** `resourcemanager.projects.list` permission at organization/folder level.
-
-#### Pattern Filtering
-
-Filter projects using regex patterns with `project_id_pattern`:
-
-```yaml
-source:
-  type: vertexai
-  config:
-    project_ids:
-      - prod-ml-east
-      - prod-ml-west
-      - dev-ml-sandbox
-    project_id_pattern:
-      allow:
-        - "prod-.*"
-      deny:
-        - ".*-sandbox$"
-    region: us-central1
-```
-
-**Note:** When using auto-discovery, pattern filtering is applied at runtime. Invalid patterns that filter out all projects will cause ingestion to fail at runtime.
-
-#### Combining Options
-
-All three fields can be combined - results are deduplicated:
-
-```yaml
-project_ids: ["critical-project"]
-project_labels: ["team:ml"]
+# Pattern filtering (regex, not glob!)
 project_id_pattern:
-  allow: ["^ml-prod-.*"]
+  allow: ["prod-.*"] # Include projects matching regex
+  deny: [".*-sandbox$"] # Exclude projects matching regex
 ```
 
 #### Permissions
 
-Each project needs:
-
-- `aiplatform.models.list`
-- `aiplatform.endpoints.list`
-- `aiplatform.featurestores.list`
-
-**Grant across projects:**
-
-**Option A: Organization-level (recommended for label-based discovery)**
-
-```bash
-gcloud organizations add-iam-policy-binding ORG_ID \
-  --member="serviceAccount:SA_EMAIL" \
-  --role="roles/aiplatform.viewer"
-```
-
-**Option B: Per-project (for explicit project_ids)**
-
-```bash
-for PROJECT in project1 project2; do
-  gcloud projects add-iam-policy-binding $PROJECT \
-    --member="serviceAccount:SA_EMAIL" \
-    --role="roles/aiplatform.viewer"
-done
-```
+| Scope                               | Command                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Org-level** (for discovery)       | `gcloud organizations add-iam-policy-binding ORG_ID --member="serviceAccount:SA" --role="roles/aiplatform.viewer"` |
+| **Per-project** (for explicit list) | `gcloud projects add-iam-policy-binding PROJECT --member="serviceAccount:SA" --role="roles/aiplatform.viewer"`     |
 
 #### Error Handling
 
-- **Partial failures:** If some projects fail (e.g., permission denied), ingestion continues with remaining projects and logs warnings
-- **Total failure:** If ALL projects fail, the ingestion run fails with an error
-- **Discovery failure:** If auto-discovery fails, the run fails immediately
-- **Rate limits:** API quota errors are automatically retried with exponential backoff
+| Scenario           | Behavior                                |
+| ------------------ | --------------------------------------- |
+| Some projects fail | Continues with remaining, logs warnings |
+| All projects fail  | Run fails with error                    |
+| Discovery fails    | Run fails immediately                   |
+| Rate limits        | Auto-retry with exponential backoff     |
 
-#### Migration from project_id
-
-Old configs auto-migrate with a warning:
+#### Migration from `project_id`
 
 ```yaml
-# Old (still works)
-project_id: my-project
-
-# New (recommended)
-project_ids: [my-project]
+# Old (deprecated, still works)     →    # New (recommended)
+project_id: my-project                    project_ids: [my-project]
 ```
-
-If both `project_id` and `project_ids` are specified, `project_id` is ignored with a warning.
 
 ### Troubleshooting
 
-#### Permission Denied Errors
+| Error                                     | Cause                        | Fix                                                               |
+| ----------------------------------------- | ---------------------------- | ----------------------------------------------------------------- |
+| `Permission denied when listing projects` | Missing org-level permission | Use explicit `project_ids` or grant `roles/browser` at org level  |
+| `Permission denied: {project}`            | Missing project permission   | Grant `roles/aiplatform.viewer` on project                        |
+| `Rate limit exceeded`                     | API quota                    | Reduce scope with `project_id_pattern`, or request quota increase |
+| `All projects excluded by pattern`        | Wrong pattern syntax         | Use regex (`prod-.*`) not glob (`prod-*`)                         |
+| `Not found: {project}`                    | Typo or deleted project      | Verify with `gcloud projects describe PROJECT_ID`                 |
 
-**Symptom:** `Permission denied when listing GCP projects` or `Permission denied: {project-id}`
+**Common pattern mistakes:**
 
-**Solutions:**
+```yaml
+# ❌ Wrong (glob)          # ✅ Correct (regex)
+allow: ["prod-*"]          allow: ["prod-.*"]
 
-1. **Missing project-level permissions**
+# ❌ Denies everything!
+allow: ["prod-.*"]
+deny: [".*"]               # Deny takes precedence
+```
 
-   ```bash
-   gcloud projects get-iam-policy PROJECT_ID \
-     --flatten="bindings[].members" \
-     --filter="bindings.members:SERVICE_ACCOUNT_EMAIL"
-   ```
-
-2. **Missing org-level permissions for label-based discovery**
-
-   - Label-based discovery requires `resourcemanager.projects.list` at org/folder level
-   - Solution: Use explicit `project_ids` instead, or grant `roles/browser` at org/folder level
-
-3. **Vertex AI API not enabled**
-   ```bash
-   gcloud services enable aiplatform.googleapis.com --project=PROJECT_ID
-   ```
-
-#### Rate Limit Errors
-
-**Symptom:** `Rate limit exceeded` or `Quota exceeded`
-
-**Solutions:**
-
-- Reduce scope using `project_id_pattern` or split into multiple runs
-- Avoid running multiple Vertex AI ingestion jobs simultaneously
-- Request quota increase in GCP Console
-
-The source automatically retries with exponential backoff (1s → 2s → 4s... up to 60s max).
-
-#### Pattern Configuration Issues
-
-**Symptom:** `Found X projects but all were excluded by project_id_pattern`
-
-**Common mistakes:**
-
-1. **Glob syntax instead of regex**
-
-   ```yaml
-   # Wrong - glob syntax
-   project_id_pattern:
-     allow: ["prod-*"]
-
-   # Correct - regex syntax
-   project_id_pattern:
-     allow: ["prod-.*"]
-   ```
-
-2. **Deny pattern overrides allow**
-
-   ```yaml
-   # This denies everything!
-   project_id_pattern:
-     allow: ["prod-.*"]
-     deny: [".*"] # Deny takes precedence
-   ```
-
-3. **Validate patterns before running**
-   ```bash
-   echo "prod-ml-east" | grep -E "^prod-.*$"
-   ```
-
-#### Project Not Found Errors
-
-**Symptom:** `Not found: {project-id}`
-
-**Solutions:**
-
-- Verify project ID spelling (check for typos)
-- Confirm project exists and is active: `gcloud projects describe PROJECT_ID`
-- Ensure service account has access to the project
-
-#### Debug Commands
+**Debug commands:**
 
 ```bash
-# List all accessible projects
-gcloud projects list --filter='lifecycleState:ACTIVE'
-
-# List projects by label
-gcloud projects list --filter='labels.env:prod'
-
-# Check service account permissions
-gcloud projects get-iam-policy PROJECT_ID
-
-# Verify Vertex AI API is enabled
-gcloud services list --enabled --project=PROJECT_ID | grep aiplatform
+gcloud projects list --filter='lifecycleState:ACTIVE'          # List accessible projects
+gcloud projects list --filter='labels.env:prod'                # Find by label
+gcloud services list --enabled --project=PROJECT | grep ai     # Check API enabled
 ```
 
 ### Integration Details
