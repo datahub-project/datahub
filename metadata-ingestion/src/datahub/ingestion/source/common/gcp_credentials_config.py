@@ -122,21 +122,27 @@ class GCPCredential(ConfigModel):
             )
         return self
 
-    # TODO: To be deprecated in favor of temporary_credentials_file
-    def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
+    def _get_serializable_config(
+        self, project_id: Optional[str] = None
+    ) -> Dict[str, str]:
+        """Get config dict with SecretStr values converted to strings."""
         configs = self.model_dump()
+        if hasattr(self.private_key, "get_secret_value"):
+            configs["private_key"] = self.private_key.get_secret_value()
         if project_id:
             configs["project_id"] = project_id
+        return configs
+
+    # TODO: To be deprecated in favor of temporary_credentials_file
+    def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
+        configs = self._get_serializable_config(project_id)
         with tempfile.NamedTemporaryFile(delete=False) as fp:
             cred_json = json.dumps(configs, indent=4, separators=(",", ": "))
             fp.write(cred_json.encode())
             return fp.name
 
     def to_dict(self, project_id: Optional[str] = None) -> Dict[str, str]:
-        configs = self.model_dump()
-        if project_id:
-            configs["project_id"] = project_id
-        return configs
+        return self._get_serializable_config(project_id)
 
     @contextmanager
     def as_context(self, project_id: Optional[str] = None) -> Iterator[None]:
