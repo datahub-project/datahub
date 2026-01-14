@@ -4,14 +4,11 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from google.api_core.exceptions import (
-    DeadlineExceeded,
     FailedPrecondition,
     GoogleAPICallError,
     InvalidArgument,
     NotFound,
     PermissionDenied,
-    ResourceExhausted,
-    ServiceUnavailable,
 )
 from google.cloud import aiplatform, resourcemanager_v3
 from google.cloud.aiplatform import (
@@ -1259,7 +1256,7 @@ class VertexAISource(Source):
                 model_name = job_conf["modelToUpload"]["name"]
                 model_version_str = job_conf["modelToUpload"]["versionId"]
                 try:
-                    model = Model(model_name=model_name)
+                    model = _call_with_retry(Model, model_name=model_name)
                     model_version = self._search_model_version(model, model_version_str)
                     if model and model_version:
                         logger.info(
@@ -1289,37 +1286,15 @@ class VertexAISource(Source):
                         model_name,
                         model_version_str,
                     )
-                except ResourceExhausted as e:
-                    logger.error(
-                        "Rate limit exceeded for project %s. "
-                        "Consider reducing scan frequency or requesting quota increase. "
-                        "Error: %s",
-                        self._current_project_id,
-                        str(e),
-                    )
-                    self.report.failure(
-                        title="Rate limit exceeded",
-                        message=f"GCP quota exhausted. Retry after cooldown. Details: {str(e)}",
-                    )
-                    raise
-                except (DeadlineExceeded, ServiceUnavailable) as e:
-                    logger.warning(
-                        "Transient API error fetching model '%s': %s. "
-                        "Will retry if retries configured. Error: %s",
-                        model_name,
-                        type(e).__name__,
-                        str(e),
-                    )
-                    raise
                 except GoogleAPICallError as e:
+                    # Transient errors (ResourceExhausted, DeadlineExceeded, ServiceUnavailable)
+                    # are already retried by _call_with_retry above. If we get here, retries
+                    # were exhausted or it's a non-transient error.
                     self._handle_api_error(e, "fetch model", "model", model_name)
                     error_code = getattr(e, "code", "unknown")
                     self.report.failure(
-                        title=f"Unexpected API error: {type(e).__name__}",
-                        message=(
-                            f"Encountered unexpected error (status={error_code}): {str(e)}. "
-                            f"Please report this to the maintainers."
-                        ),
+                        title=f"API error fetching model: {type(e).__name__}",
+                        message=f"Error (status={error_code}): {str(e)}",
                     )
 
         return job_meta
