@@ -1,9 +1,9 @@
 import MDEditor from '@uiw/react-md-editor';
+import 'katex/dist/katex.min.css';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getKatexPlugins } from '@app/shared/markdown/katexConfig';
-import 'katex/dist/katex.min.css';
 
 const StyledMDEditor = styled(MDEditor)`
     height: calc(100% - 46px) !important;

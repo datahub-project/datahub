@@ -1,11 +1,11 @@
 import { EditOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
 import { Button } from 'antd';
+import 'katex/dist/katex.min.css';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { getKatexPlugins } from '@app/shared/markdown/katexConfig';
-import 'katex/dist/katex.min.css';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
