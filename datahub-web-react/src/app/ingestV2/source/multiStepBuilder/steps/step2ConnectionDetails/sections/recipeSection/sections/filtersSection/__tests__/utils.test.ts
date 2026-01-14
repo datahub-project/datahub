@@ -36,38 +36,6 @@ describe('Filters utils', () => {
                 value: '',
             });
         });
-
-        it('should apply defaults when provided', () => {
-            const defaults: Partial<Filter> = {
-                rule: 'include',
-                subtype: 'database',
-                value: 'test-value',
-            };
-
-            const result = getEmptyFilter(defaults);
-
-            expect(result).toEqual({
-                key: 'mocked-uuid',
-                rule: 'include',
-                subtype: 'database',
-                value: 'test-value',
-            });
-        });
-
-        it('should merge defaults with existing properties', () => {
-            const defaults: Partial<Filter> = {
-                rule: 'exclude',
-            };
-
-            const result = getEmptyFilter(defaults);
-
-            expect(result).toEqual({
-                key: 'mocked-uuid',
-                rule: 'exclude',
-                subtype: undefined,
-                value: '',
-            });
-        });
     });
 
     describe('getInitialFilters', () => {
@@ -148,29 +116,6 @@ source:
                 key: 'mocked-uuid',
                 rule: undefined,
                 subtype: undefined,
-                value: '',
-            });
-        });
-
-        it('should return a single empty filter with defaults when no values are found in recipe and defaults are provided', () => {
-            const recipe = `
-source:
-  config:
-    other_config: true
-            `.trim();
-
-            const defaults = {
-                rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
-            };
-
-            const result = getInitialFilters(mockFields, recipe, defaults);
-
-            expect(result).toHaveLength(1);
-            expect(result[0]).toEqual({
-                key: 'mocked-uuid',
-                rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
                 value: '',
             });
         });

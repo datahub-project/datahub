@@ -55,39 +55,12 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
     const ruleSelectOptions = useMemo(() => getOptionsForTypeSelect(), []);
     // FYI: assuming that each filter has both allow and deny version
     const subtypeSelectOptions = useMemo(() => getSubtypeOptions(supportedFields), [supportedFields]);
-    const defaultRule = useMemo(() => {
-        return 'exclude';
-    }, []);
 
-    const defaultSubtype = useMemo(() => {
-        if (subtypeSelectOptions.length > 0) {
-            return subtypeSelectOptions[0].value;
-        }
-        return undefined;
-    }, [subtypeSelectOptions]);
-
-    const defaultSubtypeSelectValues = useMemo(() => {
-        if (defaultSubtype) {
-            return [defaultSubtype];
-        }
-        return [];
-    }, [defaultSubtype]);
-
-    const defaultsForEmptyFilter = useMemo(
-        () => ({
-            rule: defaultRule,
-            subtype: defaultSubtype,
-        }),
-        [defaultRule, defaultSubtype],
-    );
-
-    const [filters, setFilters] = useState<Filter[]>(() =>
-        getInitialFilters(supportedFields, recipe, defaultsForEmptyFilter),
-    );
+    const [filters, setFilters] = useState<Filter[]>(() => getInitialFilters(supportedFields, recipe));
 
     const addFilter = useCallback(() => {
-        setFilters((prev) => [...prev, getEmptyFilter(defaultsForEmptyFilter)]);
-    }, [defaultsForEmptyFilter]);
+        setFilters((prev) => [...prev, getEmptyFilter()]);
+    }, []);
 
     const onAddFilterClick = useCallback(
         (e: React.MouseEvent) => {
@@ -110,13 +83,13 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
         (key: string) => {
             const updatedFilters = filters.filter((filter) => filter.key !== key);
             if (updatedFilters.length === 0) {
-                setFilters([getEmptyFilter(defaultsForEmptyFilter)]);
+                setFilters([getEmptyFilter()]);
             } else {
                 setFilters(updatedFilters);
             }
             updateRecipeByFilters(updatedFilters);
         },
-        [filters, updateRecipeByFilters, defaultsForEmptyFilter],
+        [filters, updateRecipeByFilters],
     );
 
     const updateFilters = useCallback(
@@ -157,6 +130,8 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
 
     if (fields.length === 0) return null;
 
+    const showDeleteButton = filters.length > 1 || filters[0]?.rule || filters[0]?.subtype || filters[0]?.value;
+
     return (
         <>
             <SectionName
@@ -189,24 +164,24 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                         <FilterCell>
                             <SimpleSelect
                                 options={ruleSelectOptions}
-                                values={filter.rule ? [filter.rule] : [defaultRule]}
+                                values={filter.rule ? [filter.rule] : []}
                                 onUpdate={(values) => updateFilterRule(filter.key, values?.[0])}
                                 showClear={false}
                                 width="full"
                                 minWidth="fit-content"
-                                placeholder="Rule"
+                                placeholder="Filter Type"
                                 size="lg"
                             />
                         </FilterCell>
                         <FilterCell>
                             <SimpleSelect
                                 options={subtypeSelectOptions}
-                                values={filter.subtype ? [filter.subtype] : defaultSubtypeSelectValues}
+                                values={filter.subtype ? [filter.subtype] : []}
                                 onUpdate={(values) => updateFilterSubtype(filter.key, values?.[0])}
                                 showClear={false}
                                 width="full"
                                 minWidth="fit-content"
-                                placeholder={filter.subtype ? `[${filter.subtype}]` : '[Table]'}
+                                placeholder={filter.subtype ? `[${filter.subtype}]` : 'Asset Type'}
                                 size="lg"
                             />
                         </FilterCell>
@@ -217,9 +192,11 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                                 placeholder="^my_db$"
                             />
                         </FilterCell>
-                        <RemoveIconCell>
-                            <RemoveIcon onClick={() => removeFilter(filter.key)} />
-                        </RemoveIconCell>
+                        {showDeleteButton && (
+                            <RemoveIconCell>
+                                <RemoveIcon onClick={() => removeFilter(filter.key)} />
+                            </RemoveIconCell>
+                        )}
                     </React.Fragment>
                 ))}
             </FiltersGridContainer>
