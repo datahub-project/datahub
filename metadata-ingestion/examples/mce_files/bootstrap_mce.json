@@ -2179,6 +2179,29 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+            "urn": "urn:li:dataPlatform:gdrive",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+                        "name": "gdrive",
+                        "displayName": "Google Drive",
+                        "type": "FILE_SYSTEM",
+                        "datasetNameDelimiter": "/",
+                        "logoUrl": "https://developers.google.com/drive/images/drive_icon.png"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1758537741923,
+        "runId": "demo-data-2025_09_22-16_12_20-modc1r",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
             "urn": "urn:li:dataPlatform:sagemaker",
             "aspects": [
                 {
