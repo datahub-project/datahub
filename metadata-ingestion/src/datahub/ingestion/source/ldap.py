@@ -154,6 +154,12 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Use email for users' usernames instead of username (disabled by default). \
             If enabled, the user and group urn would be having email as the id part of the urn.",
     )
+
+    tls_verify: bool = Field(
+        default=False,
+        description="If True, verify server certificates for secure LDAP connections.",
+    )
+
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
@@ -221,7 +227,13 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         self.report = LDAPSourceReport()
 
-        ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
+        # Configure TLS certificate validation
+        # Default behavior (tls_verify=False) maintains backwards compatibility
+        # Setting tls_verify=True enforces certificate validation (recommended for production)
+        if self.config.tls_verify:
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+        else:
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
 
         self.ldap_client = ldap.initialize(self.config.ldap_server)

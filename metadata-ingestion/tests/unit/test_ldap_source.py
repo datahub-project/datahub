@@ -1,6 +1,11 @@
 import pytest
 
-from datahub.ingestion.source.ldap import parse_groups, parse_ldap_dn, parse_users
+from datahub.ingestion.source.ldap import (
+    LDAPSourceConfig,
+    parse_groups,
+    parse_ldap_dn,
+    parse_users,
+)
 
 
 @pytest.mark.parametrize(
@@ -86,3 +91,26 @@ def test_parse_groups(input, expected):
         )
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "tls_verify_value, expected",
+    [
+        (None, False),  # Default value should be False for backwards compatibility
+        (False, False),  # Explicitly set to False
+        (True, True),  # Explicitly set to True for secure connections
+    ],
+)
+def test_ldap_config_tls_verify(tls_verify_value, expected):
+    """Test that tls_verify config option works correctly."""
+    config_dict = {
+        "ldap_server": "ldaps://example.com",
+        "ldap_user": "cn=admin,dc=example,dc=com",
+        "ldap_password": "password",
+        "base_dn": "dc=example,dc=com",
+    }
+    if tls_verify_value is not None:
+        config_dict["tls_verify"] = tls_verify_value
+
+    config = LDAPSourceConfig.model_validate(config_dict)
+    assert config.tls_verify is expected
