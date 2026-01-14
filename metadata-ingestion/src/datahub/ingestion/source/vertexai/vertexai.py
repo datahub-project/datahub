@@ -331,39 +331,41 @@ class VertexAISource(Source):
 
         return f"Error: {exc}\nAction: {guidance.action}\nDebug: {debug_cmd}"
 
-    def _handle_api_error(
+    def _handle_resource_error(
         self,
-        error: GoogleAPICallError,
-        operation: str,
+        exc: Exception,
         resource_type: str,
         resource_id: Optional[str] = None,
     ) -> None:
         """
-        Handle Google API errors with structured logging and reporting.
+        Handle resource-level errors with appropriate log level and reporting.
 
-        Args:
-            error: The caught exception
-            operation: What we were trying to do ("fetch model", "list endpoints")
-            resource_type: Type of resource ("model", "endpoint", "pipeline")
-            resource_id: Optional identifier for the resource
+        GoogleAPICallError → error log + failure report
+        Other exceptions → warning log + warning report
         """
-        error_context = {
-            "operation": operation,
-            "resource_type": resource_type,
-            "error_type": type(error).__name__,
-            "error_code": getattr(error, "code", "unknown"),
-            "project_id": self._current_project_id,
-        }
+        is_api_error = isinstance(exc, GoogleAPICallError)
+        title = f"Failed to process {resource_type}"
         if resource_id:
-            error_context["resource_id"] = resource_id
+            title = f"{title}: {resource_id}"
 
-        logger.error(
-            "API error during %s for %s: %s",
-            operation,
-            resource_type,
-            error,
-            extra=error_context,
-        )
+        message = f"Project: {self._current_project_id}. Error: {exc}"
+
+        if is_api_error:
+            logger.error(
+                "API error processing %s %s: %s",
+                resource_type,
+                resource_id or "",
+                exc,
+            )
+            self.report.failure(title=title, message=message, exc=exc)
+        else:
+            logger.warning(
+                "Failed to process %s %s: %s",
+                resource_type,
+                resource_id or "",
+                exc,
+            )
+            self.report.warning(title=title, message=message, exc=exc)
 
     def _handle_project_error(
         self,
@@ -443,17 +445,7 @@ class VertexAISource(Source):
             try:
                 yield from fetch_func()
             except Exception as e:
-                logger.warning(
-                    "Failed to fetch %s for project %s: %s",
-                    resource_type,
-                    self._current_project_id,
-                    e,
-                )
-                self.report.warning(
-                    title=f"Failed to fetch {resource_type}",
-                    message=f"Project: {self._current_project_id}. Error: {e}",
-                    exc=e,
-                )
+                self._handle_resource_error(e, resource_type)
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """Fetch Vertex AI Pipeline Jobs and generate DataJob MCPs with lineage to tasks."""
@@ -466,12 +458,7 @@ class VertexAISource(Source):
                 yield from self._get_pipeline_mcps(pipeline_meta)
                 yield from self._gen_pipeline_task_mcps(pipeline_meta)
             except Exception as e:
-                logger.warning("Failed to process pipeline %s: %s", pipeline.name, e)
-                self.report.warning(
-                    title=f"Failed to process pipeline {pipeline.name}",
-                    message=str(e),
-                    exc=e,
-                )
+                self._handle_resource_error(e, "pipeline", pipeline.name)
 
     def _get_pipeline_tasks_metadata(
         self, pipeline: PipelineJob, pipeline_urn: DataFlowUrn
@@ -717,14 +704,7 @@ class VertexAISource(Source):
             try:
                 yield from self._gen_experiment_workunits(experiment)
             except Exception as e:
-                logger.warning(
-                    "Failed to process experiment %s: %s", experiment.name, e
-                )
-                self.report.warning(
-                    title=f"Failed to process experiment {experiment.name}",
-                    message=str(e),
-                    exc=e,
-                )
+                self._handle_resource_error(e, "experiment", experiment.name)
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self.experiments is None:
@@ -740,14 +720,7 @@ class VertexAISource(Source):
                 for run in experiment_runs:
                     yield from self._gen_experiment_run_mcps(experiment, run)
             except Exception as e:
-                logger.warning(
-                    "Failed to fetch runs for experiment %s: %s", experiment.name, e
-                )
-                self.report.warning(
-                    title=f"Failed to fetch runs for experiment {experiment.name}",
-                    message=str(e),
-                    exc=e,
-                )
+                self._handle_resource_error(e, "experiment_runs", experiment.name)
 
     def _gen_experiment_workunits(
         self, experiment: Experiment
@@ -977,12 +950,7 @@ class VertexAISource(Source):
                         model=model, model_version=model_version
                     )
             except Exception as e:
-                logger.warning("Failed to process model %s: %s", model.display_name, e)
-                self.report.warning(
-                    title=f"Failed to process model {model.display_name}",
-                    message=str(e),
-                    exc=e,
-                )
+                self._handle_resource_error(e, "model", model.display_name)
 
     def _get_ml_model_mcps(
         self, model: Model, model_version: VersionInfo
@@ -1019,17 +987,7 @@ class VertexAISource(Source):
                 for job in jobs:
                     yield from self._get_training_job_mcps(job)
             except Exception as e:
-                logger.warning(
-                    "Failed to fetch %s for project %s: %s",
-                    class_name,
-                    self._current_project_id,
-                    e,
-                )
-                self.report.warning(
-                    title=f"Failed to fetch {class_name}",
-                    message=f"Project: {self._current_project_id}. Error: {e}",
-                    exc=e,
-                )
+                self._handle_resource_error(e, class_name)
 
     def _get_training_job_mcps(
         self, job: VertexAiResourceNoun
@@ -1357,15 +1315,9 @@ class VertexAISource(Source):
                         model_version_str,
                     )
                 except GoogleAPICallError as e:
-                    # Transient errors (ResourceExhausted, DeadlineExceeded, ServiceUnavailable)
-                    # are already retried by _call_with_retry above. If we get here, retries
-                    # were exhausted or it's a non-transient error.
-                    self._handle_api_error(e, "fetch model", "model", model_name)
-                    error_code = getattr(e, "code", "unknown")
-                    self.report.failure(
-                        title=f"API error fetching model: {type(e).__name__}",
-                        message=f"Error (status={error_code}): {str(e)}",
-                    )
+                    # Transient errors are already retried by _call_with_retry above.
+                    # If we get here, retries were exhausted or it's a non-transient error.
+                    self._handle_resource_error(e, "model", model_name)
 
         return job_meta
 
