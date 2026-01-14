@@ -735,7 +735,6 @@ public class DocumentMapperTest {
     docAssociation.setAttribution(attribution);
     docAssociations.add(docAssociation);
     documentation.setDocumentations(docAssociations);
-    documentation.setLastModified(createdStamp);
     addAspectToResponse(entityResponse, DOCUMENTATION_ASPECT_NAME, documentation);
 
     // Mock authorization
