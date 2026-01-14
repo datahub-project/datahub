@@ -11,6 +11,8 @@ from urllib3.util.retry import Retry
 from datahub.ingestion.source.hightouch.config import HightouchAPIConfig
 from datahub.ingestion.source.hightouch.models import (
     FieldMapping,
+    HightouchContract,
+    HightouchContractRun,
     HightouchDestination,
     HightouchModel,
     HightouchSourceConnection,
@@ -66,11 +68,53 @@ class HightouchAPIClient:
             logger.error(f"Error making request to {url}: {e}")
             raise
 
+    def _make_paginated_request(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Make paginated GET requests to Hightouch API.
+
+        Handles pagination using offset-based approach and hasMore indicator.
+        Returns all items from all pages combined.
+        """
+        all_items = []
+        offset = 0
+        limit = params.get("limit", 100) if params else 100
+
+        request_params = params.copy() if params else {}
+        request_params["limit"] = limit
+
+        while True:
+            request_params["offset"] = offset
+
+            logger.debug(f"Fetching {endpoint} with offset={offset}, limit={limit}")
+
+            response = self._make_request("GET", endpoint, params=request_params)
+
+            items = response.get("data", [])
+            all_items.extend(items)
+
+            logger.debug(
+                f"Fetched {len(items)} items from {endpoint} (total so far: {len(all_items)})"
+            )
+
+            has_more = response.get("hasMore", False)
+
+            if not has_more or len(items) == 0:
+                logger.info(
+                    f"Completed fetching {endpoint}: {len(all_items)} total items"
+                )
+                break
+
+            offset += len(items)
+
+        return all_items
+
     def get_sources(self) -> List[HightouchSourceConnection]:
-        response = self._make_request("GET", "sources")
+        all_data = self._make_paginated_request("sources")
         sources = []
 
-        for source_data in response.get("data", []):
+        for source_data in all_data:
             try:
                 source = HightouchSourceConnection.model_validate(source_data)
                 sources.append(source)
@@ -89,10 +133,10 @@ class HightouchAPIClient:
             return None
 
     def get_models(self) -> List[HightouchModel]:
-        response = self._make_request("GET", "models")
+        all_data = self._make_paginated_request("models")
         models = []
 
-        for model_data in response.get("data", []):
+        for model_data in all_data:
             try:
                 model = HightouchModel.model_validate(model_data)
                 models.append(model)
@@ -111,10 +155,10 @@ class HightouchAPIClient:
             return None
 
     def get_destinations(self) -> List[HightouchDestination]:
-        response = self._make_request("GET", "destinations")
+        all_data = self._make_paginated_request("destinations")
         destinations = []
 
-        for dest_data in response.get("data", []):
+        for dest_data in all_data:
             try:
                 destination = HightouchDestination.model_validate(dest_data)
                 destinations.append(destination)
@@ -135,10 +179,10 @@ class HightouchAPIClient:
             return None
 
     def get_syncs(self) -> List[HightouchSync]:
-        response = self._make_request("GET", "syncs")
+        all_data = self._make_paginated_request("syncs")
         syncs = []
 
-        for sync_data in response.get("data", []):
+        for sync_data in all_data:
             try:
                 sync = HightouchSync.model_validate(sync_data)
                 syncs.append(sync)
@@ -179,6 +223,49 @@ class HightouchAPIClient:
         except ValidationError as e:
             logger.warning(f"Failed to parse user {user_id}: {e}")
             return None
+
+    def get_contracts(self) -> List[HightouchContract]:
+        """Get all event contracts (data quality validation rules)"""
+        all_data = self._make_paginated_request("contracts")
+        contracts = []
+
+        for contract_data in all_data:
+            try:
+                contract = HightouchContract.model_validate(contract_data)
+                contracts.append(contract)
+            except ValidationError as e:
+                logger.warning(f"Failed to parse contract: {e}, data: {contract_data}")
+                continue
+
+        return contracts
+
+    def get_contract_by_id(self, contract_id: str) -> Optional[HightouchContract]:
+        """Get a specific contract by ID"""
+        try:
+            response = self._make_request("GET", f"contracts/{contract_id}")
+            return HightouchContract.model_validate(response)
+        except ValidationError as e:
+            logger.warning(f"Failed to parse contract {contract_id}: {e}")
+            return None
+
+    def get_contract_runs(
+        self, contract_id: str, limit: int = 10
+    ) -> List[HightouchContractRun]:
+        """Get validation run history for a contract"""
+        response = self._make_request(
+            "GET", f"contracts/{contract_id}/runs", params={"limit": limit}
+        )
+        runs = []
+
+        for run_data in response.get("data", []):
+            try:
+                run = HightouchContractRun.model_validate(run_data)
+                runs.append(run)
+            except ValidationError as e:
+                logger.warning(f"Failed to parse contract run: {e}, data: {run_data}")
+                continue
+
+        return runs
 
     def extract_field_mappings(self, sync: HightouchSync) -> List[FieldMapping]:
         """Extract field mappings from sync configuration.

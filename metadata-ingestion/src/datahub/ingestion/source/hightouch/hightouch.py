@@ -1,5 +1,6 @@
+import json
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -7,6 +8,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     InstanceRunResult,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -30,6 +32,8 @@ from datahub.ingestion.source.hightouch.config import (
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.models import (
+    HightouchContract,
+    HightouchContractRun,
     HightouchDestination,
     HightouchModel,
     HightouchSourceConnection,
@@ -44,6 +48,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
+    AssertionStdOperatorClass,
+    AssertionTypeClass,
+    DatasetAssertionInfoClass,
+    DatasetAssertionScopeClass,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -51,7 +64,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+from datahub.metadata.urns import AssertionUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
@@ -382,6 +395,135 @@ class HightouchSource(StatefulIngestionSourceBase):
             )
             return None
 
+    def _parse_model_schema(
+        self, model: HightouchModel
+    ) -> Optional[List[Tuple[str, str, Optional[str]]]]:
+        """Parse schema from Hightouch model and convert to DataHub format.
+
+        Handles multiple possible schema formats from the Hightouch API:
+        - JSON string that needs parsing
+        - List of column dictionaries
+        - Dict with 'columns' or 'fields' key
+        - Various field name variations (name/fieldName, type/dataType/data_type)
+
+        Returns:
+            List of tuples (field_name, field_type, description) or None if no schema available
+        """
+        if not model.query_schema:
+            return None
+
+        try:
+            schema_data = model.query_schema
+
+            if isinstance(schema_data, str):
+                logger.debug(f"Model {model.id}: Parsing query_schema from JSON string")
+                try:
+                    schema_data = json.loads(schema_data)
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        f"Model {model.id}: query_schema is a string but not valid JSON: {e}"
+                    )
+                    self.report.report_model_schemas_skipped("invalid_json")
+                    return None
+
+            columns = None
+            if isinstance(schema_data, list):
+                columns = schema_data
+                logger.debug(
+                    f"Model {model.id}: Schema is a direct list with {len(columns)} columns"
+                )
+            elif isinstance(schema_data, dict):
+                columns = (
+                    schema_data.get("columns")
+                    or schema_data.get("fields")
+                    or schema_data.get("schema")
+                    or schema_data.get("properties")
+                )
+                if columns:
+                    logger.debug(
+                        f"Model {model.id}: Extracted {len(columns) if isinstance(columns, list) else '?'} "
+                        f"columns from dict"
+                    )
+                else:
+                    logger.debug(
+                        f"Model {model.id}: Schema dict keys: {list(schema_data.keys())}"
+                    )
+            else:
+                logger.warning(
+                    f"Model {model.id}: Unexpected query_schema type: {type(schema_data).__name__}"
+                )
+                return None
+
+            if not columns:
+                logger.debug(f"Model {model.id}: No columns found in schema")
+                return None
+
+            if not isinstance(columns, list):
+                logger.warning(
+                    f"Model {model.id}: Columns is not a list: {type(columns).__name__}"
+                )
+                return None
+
+            schema_fields = []
+            for idx, col in enumerate(columns):
+                if not isinstance(col, dict):
+                    logger.debug(
+                        f"Model {model.id}: Skipping non-dict column at index {idx}"
+                    )
+                    continue
+
+                name = (
+                    col.get("name")
+                    or col.get("fieldName")
+                    or col.get("field_name")
+                    or col.get("columnName")
+                    or col.get("column_name")
+                )
+
+                data_type = (
+                    col.get("type")
+                    or col.get("dataType")
+                    or col.get("data_type")
+                    or col.get("fieldType")
+                    or col.get("field_type")
+                    or col.get("columnType")
+                    or col.get("column_type")
+                )
+
+                description = (
+                    col.get("description")
+                    or col.get("comment")
+                    or col.get("doc")
+                    or None
+                )
+
+                if name and data_type:
+                    schema_fields.append((str(name), str(data_type), description))
+                else:
+                    logger.debug(
+                        f"Model {model.id}: Skipping incomplete column at index {idx} "
+                        f"(name={name}, type={data_type})"
+                    )
+
+            if schema_fields:
+                logger.info(
+                    f"Model {model.id} ({model.name}): Successfully parsed {len(schema_fields)} schema fields"
+                )
+                self.report.report_model_schemas_emitted()
+                return schema_fields
+            else:
+                logger.debug(f"Model {model.id}: No valid schema fields found")
+                self.report.report_model_schemas_skipped("no_valid_fields")
+                return None
+
+        except Exception as e:
+            logger.warning(
+                f"Model {model.id}: Unexpected error parsing schema: {e}",
+                exc_info=True,
+            )
+            self.report.report_model_schemas_skipped(f"parse_error: {str(e)}")
+            return None
+
     def _generate_model_dataset(
         self, model: HightouchModel, source: Optional[HightouchSourceConnection]
     ) -> Dataset:
@@ -417,6 +559,17 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         dataset.set_custom_properties(custom_properties)
 
+        schema_fields = self._parse_model_schema(model)
+        if schema_fields:
+            # Convert to format expected by _set_schema (no None descriptions)
+            formatted_fields = [
+                (name, data_type)
+                if description is None
+                else (name, data_type, description)
+                for name, data_type, description in schema_fields
+            ]
+            dataset._set_schema(formatted_fields)
+
         if (
             self.config.parse_model_sql
             and model.raw_sql
@@ -438,7 +591,68 @@ class HightouchSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
         )
 
-    def _generate_datajob_from_sync(self, sync: HightouchSync) -> DataJob:  # noqa: C901
+    def _get_inlet_urn_for_model(
+        self, model: HightouchModel, sync: HightouchSync
+    ) -> Union[str, DatasetUrn, None]:
+        """Get the inlet URN for a model, either as Hightouch dataset or source platform dataset"""
+        if self.config.emit_models_as_datasets:
+            return DatasetUrn.create_from_ids(
+                platform_id=HIGHTOUCH_PLATFORM,
+                table_name=model.slug,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
+
+        source = self._get_source(model.source_id)
+        if not source:
+            self.report.warning(
+                title="Failed to get source for model",
+                message="Could not retrieve source information for lineage creation.",
+                context=f"sync_slug: {sync.slug} (model_id: {model.source_id})",
+            )
+            return None
+
+        source_details = self._get_platform_for_source(source)
+        if not source_details.platform:
+            return None
+
+        model_table_name = model.slug
+        if source_details.database:
+            model_table_name = f"{source_details.database.lower()}.{model_table_name}"
+
+        return DatasetUrn.create_from_ids(
+            platform_id=source_details.platform,
+            table_name=model_table_name,
+            env=source_details.env,
+            platform_instance=source_details.platform_instance,
+        )
+
+    def _get_outlet_urn_for_sync(
+        self, sync: HightouchSync, destination: HightouchDestination
+    ) -> Union[str, DatasetUrn, None]:
+        """Get the outlet URN for a sync based on destination configuration"""
+        dest_details = self._get_platform_for_destination(destination)
+        if not dest_details.platform:
+            return None
+
+        dest_table = (
+            sync.configuration.get("destinationTable") if sync.configuration else None
+        )
+        if not dest_table:
+            dest_table = sync.slug
+
+        dest_table_name = dest_table
+        if dest_details.database:
+            dest_table_name = f"{dest_details.database.lower()}.{dest_table_name}"
+
+        return DatasetUrn.create_from_ids(
+            platform_id=dest_details.platform,
+            table_name=dest_table_name,
+            env=dest_details.env,
+            platform_instance=dest_details.platform_instance,
+        )
+
+    def _generate_datajob_from_sync(self, sync: HightouchSync) -> DataJob:
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
             flow_id=sync.id,
@@ -458,120 +672,47 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         inlets: List[Union[str, DatasetUrn]] = []
         if model:
-            if self.config.emit_models_as_datasets:
-                model_dataset_urn = DatasetUrn.create_from_ids(
-                    platform_id=HIGHTOUCH_PLATFORM,
-                    table_name=model.slug,
-                    env=self.config.env,
-                    platform_instance=self.config.platform_instance,
-                )
-                inlets.append(model_dataset_urn)
-            else:
-                source = self._get_source(model.source_id)
-                if source:
-                    source_details = self._get_platform_for_source(source)
-                    if source_details.platform:
-                        model_table_name = model.slug
-                        if source_details.database:
-                            model_table_name = (
-                                f"{source_details.database.lower()}.{model_table_name}"
-                            )
-
-                        input_dataset_urn = DatasetUrn.create_from_ids(
-                            platform_id=source_details.platform,
-                            table_name=model_table_name,
-                            env=source_details.env,
-                            platform_instance=source_details.platform_instance,
-                        )
-                        inlets.append(input_dataset_urn)
-                else:
-                    self.report.warning(
-                        title="Failed to get source for model",
-                        message="Could not retrieve source information for lineage creation.",
-                        context=f"sync_slug: {sync.slug} (model_id: {model.source_id})",
-                    )
+            inlet_urn = self._get_inlet_urn_for_model(model, sync)
+            if inlet_urn:
+                inlets.append(inlet_urn)
 
         datajob.set_inlets(inlets)
 
         fine_grained_lineages = []
-        if self.config.include_column_lineage and model and destination:
+        outlet_urn = None
+
+        if destination:
+            outlet_urn = self._get_outlet_urn_for_sync(sync, destination)
+
+        if self.config.include_column_lineage and model and destination and outlet_urn:
             field_mappings = self.api_client.extract_field_mappings(sync)
+            inlet_urn = inlets[0] if inlets else None
 
-            if field_mappings:
-                inlet_urn = inlets[0] if inlets else None
-
-                dest_details = self._get_platform_for_destination(destination)
-                outlet_urn = None
-                if dest_details.platform:
-                    dest_table = (
-                        sync.configuration.get("destinationTable")
-                        if sync.configuration
-                        else None
-                    )
-                    if not dest_table:
-                        dest_table = sync.slug
-
-                    dest_table_name = dest_table
-                    if dest_details.database:
-                        dest_table_name = (
-                            f"{dest_details.database.lower()}.{dest_table_name}"
-                        )
-
-                    outlet_urn = DatasetUrn.create_from_ids(
-                        platform_id=dest_details.platform,
-                        table_name=dest_table_name,
-                        env=dest_details.env,
-                        platform_instance=dest_details.platform_instance,
-                    )
-
+            if field_mappings and inlet_urn:
                 for mapping in field_mappings:
-                    if inlet_urn and outlet_urn:
-                        fine_grained_lineages.append(
-                            FineGrainedLineageClass(
-                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                upstreams=[
-                                    make_schema_field_urn(
-                                        str(inlet_urn), mapping.source_field
-                                    )
-                                ],
-                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                downstreams=[
-                                    make_schema_field_urn(
-                                        str(outlet_urn), mapping.destination_field
-                                    )
-                                ],
-                            )
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(
+                                    str(inlet_urn), mapping.source_field
+                                )
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                make_schema_field_urn(
+                                    str(outlet_urn), mapping.destination_field
+                                )
+                            ],
                         )
+                    )
 
                 if fine_grained_lineages:
                     datajob.set_fine_grained_lineages(fine_grained_lineages)
 
-                if outlet_urn:
-                    datajob.set_outlets([outlet_urn])
-        elif destination:
-            dest_details = self._get_platform_for_destination(destination)
-            if dest_details.platform:
-                dest_table = (
-                    sync.configuration.get("destinationTable")
-                    if sync.configuration
-                    else None
-                )
-                if not dest_table:
-                    dest_table = sync.slug
+        if outlet_urn:
+            datajob.set_outlets([outlet_urn])
 
-                dest_table_name = dest_table
-                if dest_details.database:
-                    dest_table_name = (
-                        f"{dest_details.database.lower()}.{dest_table_name}"
-                    )
-
-                output_dataset_urn = DatasetUrn.create_from_ids(
-                    platform_id=dest_details.platform,
-                    table_name=dest_table_name,
-                    env=dest_details.env,
-                    platform_instance=dest_details.platform_instance,
-                )
-                datajob.set_outlets([output_dataset_urn])
         custom_properties: Dict[str, str] = {
             "sync_id": sync.id,
             "model_id": sync.model_id,
@@ -755,6 +896,160 @@ class HightouchSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
+    def _make_assertion_urn(self, contract_id: str) -> str:
+        """Generate assertion URN from contract ID"""
+        return AssertionUrn(f"hightouch_contract_{contract_id}").urn()
+
+    def _get_assertion_dataset_urn(self, contract: HightouchContract) -> Optional[str]:
+        """Get the dataset URN that this contract validates"""
+        if not contract.model_id:
+            return None
+
+        model = self._get_model(contract.model_id)
+        if not model:
+            logger.debug(
+                f"Model {contract.model_id} not found for contract {contract.id}"
+            )
+            return None
+
+        source = self._get_source(model.source_id)
+        if not source:
+            logger.debug(f"Source {model.source_id} not found for model {model.id}")
+            return None
+
+        platform_detail = self.config.sources_to_platform_instance.get(source.id)
+        if not platform_detail or not platform_detail.platform:
+            logger.debug(
+                f"No platform mapping found for source {source.id}. "
+                f"Add to sources_to_platform_instance config to enable lineage."
+            )
+            return None
+
+        platform = platform_detail.platform
+        env = platform_detail.env
+        database = platform_detail.database or source.configuration.get("database", "")
+        schema = source.configuration.get("schema", "")
+        table_name = model.name
+
+        if platform_detail.include_schema_in_urn and schema:
+            table = f"{database}.{schema}.{table_name}"
+        else:
+            table = f"{database}.{table_name}" if database else table_name
+
+        return DatasetUrn.create_from_ids(
+            platform_id=platform,
+            table_name=table,
+            env=env,
+            platform_instance=platform_detail.platform_instance,
+        ).urn()
+
+    def _generate_assertion_from_contract(
+        self, contract: HightouchContract
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate DataHub assertion from Hightouch contract"""
+        assertion_urn = self._make_assertion_urn(contract.id)
+        dataset_urn = self._get_assertion_dataset_urn(contract)
+
+        if not dataset_urn:
+            logger.warning(
+                f"Could not determine dataset for contract {contract.id} ({contract.name}), skipping assertion"
+            )
+            return
+
+        assertion_info = AssertionInfoClass(
+            type=AssertionTypeClass.DATA_SCHEMA,
+            datasetAssertion=DatasetAssertionInfoClass(
+                dataset=dataset_urn,
+                scope=DatasetAssertionScopeClass.DATASET_ROWS,
+                operator=AssertionStdOperatorClass._NATIVE_,
+                nativeType="hightouch_contract",
+            ),
+            description=contract.description
+            or f"Hightouch Event Contract: {contract.name}",
+            externalUrl=None,
+            customProperties={
+                "platform": "hightouch",
+                "contract_id": contract.id,
+                "contract_name": contract.name,
+                "enabled": str(contract.enabled),
+                "severity": contract.severity or "unknown",
+                "workspace_id": contract.workspace_id,
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=assertion_info,
+        ).as_workunit()
+
+        self.report.report_contracts_emitted()
+
+    def _generate_assertion_results_from_contract_runs(
+        self, contract: HightouchContract, runs: List[HightouchContractRun]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate assertion run results from contract validation runs"""
+        assertion_urn = self._make_assertion_urn(contract.id)
+
+        for run in runs:
+            if run.status == "passed":
+                result_type = AssertionResultTypeClass.SUCCESS
+                native_results = {"status": "passed"}
+            elif run.status == "failed":
+                result_type = AssertionResultTypeClass.FAILURE
+                native_results = {"status": "failed"}
+            else:
+                result_type = AssertionResultTypeClass.ERROR
+                native_results = {"status": run.status}
+
+            if run.total_rows_checked is not None:
+                native_results["total_rows_checked"] = str(run.total_rows_checked)
+            if run.rows_passed is not None:
+                native_results["rows_passed"] = str(run.rows_passed)
+            if run.rows_failed is not None:
+                native_results["rows_failed"] = str(run.rows_failed)
+
+            if run.error:
+                if isinstance(run.error, str):
+                    native_results["error"] = run.error
+                else:
+                    native_results["error"] = str(run.error.get("message", run.error))
+
+            assertion_result = AssertionRunEventClass(
+                timestampMillis=int(run.created_at.timestamp() * 1000),
+                assertionUrn=assertion_urn,
+                asserteeUrn=self._get_assertion_dataset_urn(contract) or "",
+                runId=run.id,
+                status=AssertionRunStatusClass.COMPLETE,
+                result=AssertionResultClass(
+                    type=result_type,
+                    nativeResults=native_results,
+                ),
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=assertion_urn,
+                aspect=assertion_result,
+            ).as_workunit()
+
+            self.report.report_contract_runs_scanned()
+
+    def _get_contract_workunits(
+        self, contract: HightouchContract
+    ) -> Iterable[MetadataWorkUnit]:
+        """Get work units for a single contract and its runs"""
+        self.report.report_contracts_scanned()
+
+        yield from self._generate_assertion_from_contract(contract)
+
+        if self.config.max_contract_runs_per_contract > 0:
+            self.report.report_api_call()
+            contract_runs = self.api_client.get_contract_runs(
+                contract.id, limit=self.config.max_contract_runs_per_contract
+            )
+            yield from self._generate_assertion_results_from_contract_runs(
+                contract, contract_runs
+            )
+
     def _get_model_workunits(
         self, model: HightouchModel
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
@@ -821,6 +1116,33 @@ class HightouchSource(StatefulIngestionSourceBase):
                         title="Failed to process model",
                         message=f"An error occurred while processing model: {str(e)}",
                         context=f"model_name: {model.name} (model_id: {model.id})",
+                        exc=e,
+                    )
+
+        if self.config.include_contracts:
+            logger.info("Fetching event contracts")
+            self.report.report_api_call()
+            contracts = self.api_client.get_contracts()
+            logger.info(f"Found {len(contracts)} contracts")
+
+            filtered_contracts = [
+                contract
+                for contract in contracts
+                if self.config.contract_patterns.allowed(contract.name)
+            ]
+
+            logger.info(
+                f"Processing {len(filtered_contracts)} contracts after filtering"
+            )
+
+            for contract in filtered_contracts:
+                try:
+                    yield from self._get_contract_workunits(contract)
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to process contract",
+                        message=f"An error occurred while processing contract: {str(e)}",
+                        context=f"contract: {contract.name} (contract_id: {contract.id})",
                         exc=e,
                     )
 

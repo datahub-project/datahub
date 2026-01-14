@@ -14,7 +14,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -77,12 +77,21 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     sources_scanned: int = 0
     destinations_scanned: int = 0
     sync_runs_scanned: int = 0
+    contracts_scanned: int = 0
+    contracts_emitted: int = 0
+    contract_runs_scanned: int = 0
     filtered_syncs: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_models: LossyList[str] = dataclasses.field(default_factory=LossyList)
+    filtered_contracts: LossyList[str] = dataclasses.field(default_factory=LossyList)
     api_calls_count: int = 0
     sql_parsing_attempts: int = 0
     sql_parsing_successes: int = 0
     sql_parsing_failures: int = 0
+    model_schemas_emitted: int = 0
+    model_schemas_skipped: int = 0
+    model_schemas_skip_reasons: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
 
     def report_syncs_scanned(self, count: int = 1) -> None:
         self.syncs_scanned += count
@@ -102,14 +111,35 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     def report_sync_runs_scanned(self, count: int = 1) -> None:
         self.sync_runs_scanned += count
 
+    def report_contracts_scanned(self, count: int = 1) -> None:
+        self.contracts_scanned += count
+
+    def report_contracts_emitted(self, count: int = 1) -> None:
+        self.contracts_emitted += count
+
+    def report_contract_runs_scanned(self, count: int = 1) -> None:
+        self.contract_runs_scanned += count
+
     def report_syncs_dropped(self, sync: str) -> None:
         self.filtered_syncs.append(sync)
 
     def report_models_dropped(self, model: str) -> None:
         self.filtered_models.append(model)
 
+    def report_contracts_dropped(self, contract: str) -> None:
+        self.filtered_contracts.append(contract)
+
     def report_api_call(self) -> None:
         self.api_calls_count += 1
+
+    def report_model_schemas_emitted(self, count: int = 1) -> None:
+        self.model_schemas_emitted += count
+
+    def report_model_schemas_skipped(self, reason: str) -> None:
+        self.model_schemas_skipped += 1
+        self.model_schemas_skip_reasons[reason] = (
+            self.model_schemas_skip_reasons.get(reason, 0) + 1
+        )
 
 
 class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -162,6 +192,22 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         default=True,
         description="Whether to parse raw SQL from models to extract upstream table lineage. "
         "When enabled, SQL queries in models are parsed to identify source tables and create lineage.",
+    )
+
+    include_contracts: bool = Field(
+        default=True,
+        description="Whether to ingest Event Contracts as DataHub Assertions. "
+        "Event Contracts are data quality validation rules that Hightouch enforces.",
+    )
+
+    max_contract_runs_per_contract: int = Field(
+        default=10,
+        description="Maximum number of contract validation runs to ingest per contract.",
+    )
+
+    contract_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filtering regex patterns for contract names.",
     )
 
     sources_to_platform_instance: dict[str, PlatformDetail] = Field(

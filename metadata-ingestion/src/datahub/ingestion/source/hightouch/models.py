@@ -1,7 +1,7 @@
 """Hightouch API entities"""
 
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -45,7 +45,9 @@ class HightouchModel(_HightouchBaseModel):
     is_schema: bool = Field(default=False, alias="isSchema")
     tags: Optional[Dict[str, str]] = None
     raw_sql: Optional[str] = Field(default=None, alias="rawSql")
-    query_schema: Optional[str] = Field(default=None, alias="querySchema")
+    query_schema: Optional[Union[str, Dict[str, Any], List[Any]]] = Field(
+        default=None, alias="querySchema"
+    )
 
 
 class HightouchDestination(_HightouchBaseModel):
@@ -118,3 +120,37 @@ class FieldMapping(BaseModel):
     source_field: str
     destination_field: str
     is_primary_key: bool = False
+
+
+class HightouchContract(_HightouchBaseModel):
+    """Represents a Hightouch Event Contract (data quality validation rule)"""
+
+    id: str
+    name: str
+    workspace_id: str = Field(alias="workspaceId")
+    source_id: Optional[str] = Field(default=None, alias="sourceId")
+    model_id: Optional[str] = Field(default=None, alias="modelId")
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")
+    description: Optional[str] = None
+    enabled: bool = True
+    # Contract validation rules
+    rules: Optional[Dict[str, Any]] = None
+    # Contract enforcement level (error, warn, etc.)
+    severity: Optional[str] = None
+
+
+class HightouchContractRun(_HightouchBaseModel):
+    """Represents a Contract validation run result"""
+
+    id: str
+    contract_id: str = Field(alias="contractId")
+    status: str  # passed, failed, error
+    created_at: datetime = Field(alias="createdAt")
+    started_at: Optional[datetime] = Field(default=None, alias="startedAt")
+    finished_at: Optional[datetime] = Field(default=None, alias="finishedAt")
+    error: Optional[Union[str, Dict[str, Any]]] = None
+    # Validation results
+    total_rows_checked: Optional[int] = Field(default=None, alias="totalRowsChecked")
+    rows_passed: Optional[int] = Field(default=None, alias="rowsPassed")
+    rows_failed: Optional[int] = Field(default=None, alias="rowsFailed")

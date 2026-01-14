@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hightouch.config import (
     HightouchAPIConfig,
@@ -13,11 +14,14 @@ from datahub.ingestion.source.hightouch.hightouch import (
     HightouchSource as HightouchIngestionSource,
 )
 from datahub.ingestion.source.hightouch.models import (
+    HightouchContract,
+    HightouchContractRun,
     HightouchDestination,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
 )
+from datahub.metadata.schema_classes import AssertionInfoClass
 
 
 @pytest.fixture
@@ -581,3 +585,858 @@ def test_sql_parsing_disabled(mock_api_client_class, pipeline_context):
 
     assert dataset.urn.name == "test-model"
     assert source_instance.report.sql_parsing_attempts == 0
+
+
+# Tests for Event Contracts → Assertions Feature
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_get_assertion_dataset_urn_with_no_model_id(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test early return when contract has no model_id."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Test Contract",
+        slug="test-contract",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id=None,
+        enabled=True,
+    )
+
+    result = source_instance._get_assertion_dataset_urn(contract)
+    assert result is None
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_get_assertion_dataset_urn_with_missing_model(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test early return when model is not found."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+    mock_client.get_model_by_id.return_value = None
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Test Contract",
+        slug="test-contract",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="missing_model",
+        enabled=True,
+    )
+
+    result = source_instance._get_assertion_dataset_urn(contract)
+    assert result is None
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_get_assertion_dataset_urn_with_missing_source(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test early return when source is not found."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="missing_source",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = None
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Test Contract",
+        slug="test-contract",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+    )
+
+    result = source_instance._get_assertion_dataset_urn(contract)
+    assert result is None
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_get_assertion_dataset_urn_with_no_platform_mapping(
+    mock_api_client_class, pipeline_context
+):
+    """Test early return when no platform mapping exists for source."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        sources_to_platform_instance={},  # No mappings
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Test Source",
+        slug="test-source",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = mock_source
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Test Contract",
+        slug="test-contract",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+    )
+
+    result = source_instance._get_assertion_dataset_urn(contract)
+    assert result is None
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_get_assertion_dataset_urn_success_with_schema(
+    mock_api_client_class, pipeline_context
+):
+    """Test successful URN generation with schema included."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        sources_to_platform_instance={
+            "1": PlatformDetail(
+                platform="snowflake",
+                platform_instance="prod",
+                env="PROD",
+                database="analytics",
+                include_schema_in_urn=True,
+            )
+        },
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="customer_model",
+        slug="customer-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"schema": "public"},
+    )
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = mock_source
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Test Contract",
+        slug="test-contract",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+    )
+
+    result = source_instance._get_assertion_dataset_urn(contract)
+
+    assert result is not None
+    assert "snowflake" in result
+    assert "analytics.public.customer_model" in result
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_get_assertion_dataset_urn_success_without_schema(
+    mock_api_client_class, pipeline_context
+):
+    """Test successful URN generation without schema."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        sources_to_platform_instance={
+            "1": PlatformDetail(
+                platform="bigquery",
+                platform_instance="prod",
+                env="PROD",
+                database="my_project",
+                include_schema_in_urn=False,
+            )
+        },
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="orders_model",
+        slug="orders-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="BigQuery Prod",
+        slug="bigquery-prod",
+        type="bigquery",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"schema": "analytics"},
+    )
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = mock_source
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Test Contract",
+        slug="test-contract",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+    )
+
+    result = source_instance._get_assertion_dataset_urn(contract)
+
+    assert result is not None
+    assert "bigquery" in result
+    assert "my_project.orders_model" in result
+    assert "analytics" not in result  # Schema should not be included
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_generate_assertion_from_contract(mock_api_client_class, pipeline_context):
+    """Test assertion generation from contract."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=True,
+        sources_to_platform_instance={
+            "1": PlatformDetail(
+                platform="snowflake",
+                platform_instance="prod",
+                env="PROD",
+                database="analytics",
+            )
+        },
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="customer_model",
+        slug="customer-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "analytics"},
+    )
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = mock_source
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Email Validation",
+        slug="email-validation",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+        severity="high",
+        description="Validates email addresses",
+    )
+
+    workunits = list(source_instance._generate_assertion_from_contract(contract))
+
+    assert len(workunits) > 0
+
+    # Check that assertion info was created
+    mcp = workunits[0].metadata
+    assert isinstance(mcp, MetadataChangeProposalWrapper)
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    # Description comes from contract.description field
+    assert "Validates email addresses" in str(mcp.aspect.description)
+    # Contract name should be in custom properties
+    assert mcp.aspect.customProperties["contract_name"] == "Email Validation"
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_generate_assertion_results_from_contract_runs_success(
+    mock_api_client_class, pipeline_context
+):
+    """Test assertion result generation from successful contract runs."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=True,
+        sources_to_platform_instance={
+            "1": PlatformDetail(
+                platform="snowflake",
+                platform_instance="prod",
+                env="PROD",
+                database="analytics",
+            )
+        },
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="customer_model",
+        slug="customer-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "analytics"},
+    )
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = mock_source
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Email Validation",
+        slug="email-validation",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+    )
+
+    # Successful run
+    run = HightouchContractRun(
+        id="run_1",
+        contract_id="contract_1",
+        status="passed",
+        created_at=datetime(2023, 1, 5),
+        total_rows_checked=1000,
+        rows_passed=1000,
+        rows_failed=0,
+    )
+
+    workunits = list(
+        source_instance._generate_assertion_results_from_contract_runs(contract, [run])
+    )
+
+    assert len(workunits) == 1
+    assert source_instance.report.contract_runs_scanned == 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_generate_assertion_results_from_contract_runs_failure(
+    mock_api_client_class, pipeline_context
+):
+    """Test assertion result generation from failed contract runs."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=True,
+        sources_to_platform_instance={
+            "1": PlatformDetail(
+                platform="snowflake",
+                platform_instance="prod",
+                env="PROD",
+                database="analytics",
+            )
+        },
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="customer_model",
+        slug="customer-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "analytics"},
+    )
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = mock_source
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Email Validation",
+        slug="email-validation",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+    )
+
+    # Failed run with string error
+    run = HightouchContractRun(
+        id="run_2",
+        contract_id="contract_1",
+        status="failed",
+        created_at=datetime(2023, 1, 6),
+        total_rows_checked=1000,
+        rows_passed=950,
+        rows_failed=50,
+        error="Invalid email format detected",
+    )
+
+    workunits = list(
+        source_instance._generate_assertion_results_from_contract_runs(contract, [run])
+    )
+
+    assert len(workunits) == 1
+    assert source_instance.report.contract_runs_scanned == 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_get_contract_workunits(mock_api_client_class, pipeline_context):
+    """Test full contract workunit generation flow."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=True,
+        max_contract_runs_per_contract=5,
+        sources_to_platform_instance={
+            "1": PlatformDetail(
+                platform="snowflake",
+                platform_instance="prod",
+                env="PROD",
+                database="analytics",
+            )
+        },
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="customer_model",
+        slug="customer-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "analytics"},
+    )
+
+    contract = HightouchContract(
+        id="contract_1",
+        name="Email Validation",
+        slug="email-validation",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        model_id="10",
+        enabled=True,
+    )
+
+    runs = [
+        HightouchContractRun(
+            id="run_1",
+            contract_id="contract_1",
+            status="passed",
+            created_at=datetime(2023, 1, 5),
+            total_rows_checked=1000,
+            rows_passed=1000,
+            rows_failed=0,
+        )
+    ]
+
+    mock_client.get_model_by_id.return_value = mock_model
+    mock_client.get_source_by_id.return_value = mock_source
+    mock_client.get_contract_runs.return_value = runs
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    workunits = list(source_instance._get_contract_workunits(contract))
+
+    # Should have assertion definition + run result
+    assert len(workunits) >= 2
+    assert source_instance.report.contracts_scanned == 1
+    assert source_instance.report.contracts_emitted == 1
+    mock_client.get_contract_runs.assert_called_once_with("contract_1", limit=5)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_contracts_disabled_by_default_behavior(
+    mock_api_client_class, pipeline_context
+):
+    """Test that contracts can be disabled via config."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=False,  # Explicitly disabled
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+    mock_client.get_syncs.return_value = []
+    mock_client.get_models.return_value = []
+    mock_client.get_contracts.return_value = []
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+    list(source_instance.get_workunits_internal())  # Execute the generator
+
+    # Contracts should not be fetched if disabled
+    mock_client.get_contracts.assert_not_called()
+
+
+# Tests for Schema Emission Feature
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_parse_model_schema_with_no_schema(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test schema parsing when query_schema is None."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema=None,
+    )
+
+    result = source_instance._parse_model_schema(model)
+    assert result is None
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_parse_model_schema_with_list_format(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test schema parsing with direct list format."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema=[
+            {"name": "user_id", "type": "INTEGER"},
+            {"name": "email", "type": "STRING", "description": "User email address"},
+            {"name": "created_at", "type": "TIMESTAMP"},
+        ],
+    )
+
+    result = source_instance._parse_model_schema(model)
+
+    assert result is not None
+    assert len(result) == 3
+    assert result[0] == ("user_id", "INTEGER", None)
+    assert result[1] == ("email", "STRING", "User email address")
+    assert result[2] == ("created_at", "TIMESTAMP", None)
+    assert source_instance.report.model_schemas_emitted == 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_parse_model_schema_with_dict_format(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test schema parsing with dict containing 'columns' key."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema={
+            "columns": [
+                {"name": "order_id", "dataType": "BIGINT"},
+                {"fieldName": "amount", "type": "DECIMAL"},
+            ]
+        },
+    )
+
+    result = source_instance._parse_model_schema(model)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0] == ("order_id", "BIGINT", None)
+    assert result[1] == ("amount", "DECIMAL", None)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_parse_model_schema_with_json_string(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test schema parsing when query_schema is a JSON string."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema='{"columns": [{"name": "id", "type": "INT"}, {"name": "name", "type": "VARCHAR"}]}',
+    )
+
+    result = source_instance._parse_model_schema(model)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0] == ("id", "INT", None)
+    assert result[1] == ("name", "VARCHAR", None)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_parse_model_schema_with_invalid_json_string(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test schema parsing with invalid JSON string."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema='{"invalid json',
+    )
+
+    result = source_instance._parse_model_schema(model)
+    assert result is None
+    assert source_instance.report.model_schemas_skipped >= 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_parse_model_schema_with_field_variations(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test schema parsing handles various field name variations."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema=[
+            {"fieldName": "col1", "fieldType": "INT"},  # fieldName, fieldType
+            {"column_name": "col2", "data_type": "VARCHAR"},  # snake_case
+            {
+                "name": "col3",
+                "columnType": "BOOLEAN",
+                "comment": "Boolean flag",
+            },  # comment
+        ],
+    )
+
+    result = source_instance._parse_model_schema(model)
+
+    assert result is not None
+    assert len(result) == 3
+    assert result[0] == ("col1", "INT", None)
+    assert result[1] == ("col2", "VARCHAR", None)
+    assert result[2] == ("col3", "BOOLEAN", "Boolean flag")
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_parse_model_schema_with_incomplete_columns(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test schema parsing skips incomplete column definitions."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema=[
+            {"name": "valid_col", "type": "INT"},
+            {"name": "no_type_col"},  # Missing type
+            {"type": "STRING"},  # Missing name
+            {"name": "another_valid", "type": "VARCHAR"},
+        ],
+    )
+
+    result = source_instance._parse_model_schema(model)
+
+    assert result is not None
+    assert len(result) == 2  # Only 2 valid columns
+    assert result[0] == ("valid_col", "INT", None)
+    assert result[1] == ("another_valid", "VARCHAR", None)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_schema_emission_enabled_and_applied(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test that schema is actually applied to dataset when enabled."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema=[
+            {"name": "user_id", "type": "BIGINT"},
+            {"name": "email", "type": "VARCHAR"},
+        ],
+    )
+
+    dataset = source_instance._generate_model_dataset(model, None)
+
+    # Check that schema was emitted
+    assert source_instance.report.model_schemas_emitted == 1
+
+    # Check that dataset has schema
+    schema_fields = dataset.schema
+    assert len(schema_fields) == 2
+    assert schema_fields[0].field_path == "user_id"
+    assert schema_fields[1].field_path == "email"
