@@ -259,19 +259,29 @@ class BigQueryQueriesExtractor(Closeable):
             #   2. we have a list of discovered tables, and
             #   3. it's not in the discovered tables list
 
-            if (
-                self.filters.is_allowed(table)
-                and self.discovered_tables
-                and self.identifiers.standardize_identifier_case(
-                    str(BigQueryTableRef(table))
-                )
-                not in self.discovered_tables
-            ):
-                logger.debug(
-                    f"Inferred as temp table {name} (is_allowed?{self.filters.is_allowed(table)})"
-                )
-                self.report.inferred_temp_tables.add(name)
-                return True
+            if self.filters.is_allowed(table) and self.discovered_tables:
+                table_ref_raw = str(BigQueryTableRef(table))
+                lookup_key = self.identifiers.standardize_identifier_case(table_ref_raw)
+                
+                if lookup_key not in self.discovered_tables:
+                    # DEBUG: Case sensitivity investigation - show both keys
+                    if table_ref_raw != lookup_key:
+                        # Find similar entries in discovered_tables for comparison
+                        similar = [
+                            dt for dt in list(self.discovered_tables)[:5]
+                            if table.dataset.lower() in dt.lower()
+                        ][:2]
+                        logger.debug(
+                            f"[CASE-DEBUG] is_temp_table MISMATCH for '{name}': "
+                            f"raw_ref='{table_ref_raw}' lookup_key='{lookup_key}' "
+                            f"similar_in_discovered={similar}"
+                        )
+                    else:
+                        logger.debug(
+                            f"Inferred as temp table {name} (is_allowed?{self.filters.is_allowed(table)})"
+                        )
+                    self.report.inferred_temp_tables.add(name)
+                    return True
 
         except Exception:
             logger.warning(f"Error parsing table name {name} ")
@@ -280,15 +290,23 @@ class BigQueryQueriesExtractor(Closeable):
     def is_allowed_table(self, name: str) -> bool:
         try:
             table = BigqueryTableIdentifier.from_string_name(name)
-            if (
-                self.discovered_tables
-                and self.identifiers.standardize_identifier_case(
-                    str(BigQueryTableRef(table))
-                )
-                not in self.discovered_tables
-            ):
-                logger.debug(f"not allowed table {name}")
-                return False
+            if self.discovered_tables:
+                table_ref_raw = str(BigQueryTableRef(table))
+                lookup_key = self.identifiers.standardize_identifier_case(table_ref_raw)
+                
+                if lookup_key not in self.discovered_tables:
+                    # DEBUG: Case sensitivity investigation
+                    if table_ref_raw != lookup_key:
+                        # Check if the original case version exists
+                        original_exists = table_ref_raw in self.discovered_tables
+                        logger.debug(
+                            f"[CASE-DEBUG] is_allowed_table MISMATCH for '{name}': "
+                            f"raw_ref='{table_ref_raw}' lookup_key='{lookup_key}' "
+                            f"original_in_discovered={original_exists}"
+                        )
+                    else:
+                        logger.debug(f"not allowed table {name}")
+                    return False
             return self.filters.is_allowed(table)
         except Exception:
             logger.warning(f"Error parsing table name {name} ")
@@ -297,6 +315,30 @@ class BigQueryQueriesExtractor(Closeable):
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
+        # DEBUG: Case sensitivity investigation - log config and sample of discovered_tables
+        convert_lowercase = getattr(
+            self.identifiers.identifier_config, "convert_urns_to_lowercase", False
+        )
+        discovered_count = len(self.discovered_tables) if self.discovered_tables else 0
+        sample_discovered = list(self.discovered_tables)[:5] if self.discovered_tables else []
+        
+        # Check if any discovered tables have mixed case
+        mixed_case_count = 0
+        if self.discovered_tables:
+            mixed_case_count = sum(
+                1 for dt in self.discovered_tables if dt != dt.lower()
+            )
+        
+        logger.info(
+            f"[CASE-DEBUG] Queries extraction starting: "
+            f"convert_urns_to_lowercase={convert_lowercase}, "
+            f"discovered_tables_count={discovered_count}, "
+            f"mixed_case_tables_count={mixed_case_count}"
+        )
+        logger.debug(
+            f"[CASE-DEBUG] Sample discovered_tables (first 5): {sample_discovered}"
+        )
+        
         # TODO: Add some logic to check if the cached audit log is stale or not.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()

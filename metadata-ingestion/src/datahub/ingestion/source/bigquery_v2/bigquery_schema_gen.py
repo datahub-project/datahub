@@ -552,7 +552,15 @@ class BigQuerySchemaGenerator:
                         BigQueryTableRef(identifier).get_sanitized_table_ref()
                     )
                     self.table_refs.add(table_ref)
-                    logger.debug(f"Added to table_refs: {table_ref}")
+                    # DEBUG: Case sensitivity investigation
+                    table_ref_lower = table_ref.lower()
+                    if table_ref != table_ref_lower:
+                        logger.debug(
+                            f"[CASE-DEBUG] Added to table_refs (MIXED CASE): "
+                            f"original='{table_ref}' lowercase='{table_ref_lower}'"
+                        )
+                    else:
+                        logger.debug(f"Added to table_refs: {table_ref}")
                 except Exception as e:
                     logger.warning(
                         f"Could not create table ref for {table_item.path}: {e}"
@@ -657,9 +665,17 @@ class BigQuerySchemaGenerator:
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
             self.table_refs.add(table_ref)
-            logger.debug(
-                f"Full schema processing - Added TABLE to table_refs: {table_ref}"
-            )
+            # DEBUG: Case sensitivity investigation
+            table_ref_lower = table_ref.lower()
+            if table_ref != table_ref_lower:
+                logger.debug(
+                    f"[CASE-DEBUG] Full schema - Added TABLE (MIXED CASE): "
+                    f"original='{table_ref}' lowercase='{table_ref_lower}'"
+                )
+            else:
+                logger.debug(
+                    f"Full schema processing - Added TABLE to table_refs: {table_ref}"
+                )
         table.column_count = len(columns)
 
         if not table.column_count:
@@ -704,7 +720,15 @@ class BigQuerySchemaGenerator:
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
-        logger.debug(f"Full schema processing - Added VIEW to table_refs: {table_ref}")
+        # DEBUG: Case sensitivity investigation
+        table_ref_lower = table_ref.lower()
+        if table_ref != table_ref_lower:
+            logger.debug(
+                f"[CASE-DEBUG] Full schema - Added VIEW (MIXED CASE): "
+                f"original='{table_ref}' lowercase='{table_ref_lower}'"
+            )
+        else:
+            logger.debug(f"Full schema processing - Added VIEW to table_refs: {table_ref}")
         if view.view_definition:
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
@@ -750,9 +774,17 @@ class BigQuerySchemaGenerator:
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
-        logger.debug(
-            f"Full schema processing - Added SNAPSHOT to table_refs: {table_ref}"
-        )
+        # DEBUG: Case sensitivity investigation
+        table_ref_lower = table_ref.lower()
+        if table_ref != table_ref_lower:
+            logger.debug(
+                f"[CASE-DEBUG] Full schema - Added SNAPSHOT (MIXED CASE): "
+                f"original='{table_ref}' lowercase='{table_ref_lower}'"
+            )
+        else:
+            logger.debug(
+                f"Full schema processing - Added SNAPSHOT to table_refs: {table_ref}"
+            )
         if snapshot.base_table_identifier:
             self.snapshot_refs_by_project[project_id].add(table_ref)
             self.snapshots_by_ref[table_ref] = snapshot
