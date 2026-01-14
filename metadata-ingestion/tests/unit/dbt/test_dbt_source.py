@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
@@ -23,7 +23,17 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreSource,
     parse_dbt_timestamp,
 )
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessCriteria,
+    DBTFreshnessInfo,
+    make_assertion_from_freshness,
+    make_assertion_result_from_freshness,
+)
 from datahub.metadata.schema_classes import (
+    AssertionResultTypeClass,
+    AssertionTypeClass,
+    CalendarIntervalClass,
+    FreshnessAssertionTypeClass,
     OwnerClass,
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
@@ -1697,3 +1707,118 @@ def test_semantic_view_cll_empty_results() -> None:
 
     # Should return empty set when no patterns match
     assert len(cll_info) == 0
+
+
+def test_freshness_criteria_to_calendar_interval() -> None:
+    assert (
+        DBTFreshnessCriteria(count=30, period="minute").to_calendar_interval()
+        == CalendarIntervalClass.MINUTE
+    )
+    assert (
+        DBTFreshnessCriteria(count=12, period="hour").to_calendar_interval()
+        == CalendarIntervalClass.HOUR
+    )
+    assert (
+        DBTFreshnessCriteria(count=2, period="day").to_calendar_interval()
+        == CalendarIntervalClass.DAY
+    )
+
+
+def test_make_assertion_from_freshness() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="source.test.raw.users",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="source",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status="pass",
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
+        error_after=DBTFreshnessCriteria(count=24, period="hour"),
+    )
+
+    mcp = make_assertion_from_freshness(
+        {}, node, "urn:li:assertion:test", "urn:li:dataset:test"
+    )
+
+    assert mcp.aspect.type == AssertionTypeClass.FRESHNESS
+    assert (
+        mcp.aspect.freshnessAssertion.type == FreshnessAssertionTypeClass.DATASET_CHANGE
+    )
+    assert mcp.aspect.freshnessAssertion.schedule.fixedInterval.multiple == 24
+    assert (
+        mcp.aspect.freshnessAssertion.schedule.fixedInterval.unit
+        == CalendarIntervalClass.HOUR
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "warnings_are_errors", "expected_success"),
+    [
+        ("pass", False, True),
+        ("warn", False, True),
+        ("warn", True, False),
+        ("error", False, False),
+    ],
+)
+def test_make_assertion_result_from_freshness(
+    status: str, warnings_are_errors: bool, expected_success: bool
+) -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="source.test.raw.users",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="source",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status=status,
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
+        error_after=DBTFreshnessCriteria(count=24, period="hour"),
+    )
+
+    mcp = make_assertion_result_from_freshness(
+        node, "urn:li:assertion:test", "urn:li:dataset:test", warnings_are_errors
+    )
+
+    expected = (
+        AssertionResultTypeClass.SUCCESS
+        if expected_success
+        else AssertionResultTypeClass.FAILURE
+    )
+    assert mcp.aspect.result.type == expected

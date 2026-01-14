@@ -58,9 +58,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    make_assertion_from_freshness,
     make_assertion_from_test,
+    make_assertion_result_from_freshness,
     make_assertion_result_from_test,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
@@ -792,6 +795,9 @@ class DBTNode:
 
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
     test_results: List["DBTTestResult"] = field(default_factory=list)
+    freshness_info: Optional["DBTFreshnessInfo"] = (
+        None  # only populated for sources with freshness
+    )
 
     model_performances: List["DBTModelPerformance"] = field(default_factory=list)
 
@@ -1182,6 +1188,81 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
                         )
 
+    def create_freshness_assertion_mcps(
+        self,
+        source_nodes: List[DBTNode],
+        extra_custom_props: Dict[str, str],
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Create assertions for dbt freshness tests on source nodes."""
+        for node in sorted(source_nodes, key=lambda n: n.dbt_name):
+            # Only process source nodes that have freshness info
+            if node.node_type != "source" or not node.freshness_info:
+                continue
+
+            upstream_urn = node.get_urn(
+                target_platform=self.config.target_platform,
+                data_platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            assertion_urn = mce_builder.make_assertion_urn(
+                mce_builder.datahub_guid(
+                    {
+                        k: v
+                        for k, v in {
+                            "platform": DBT_PLATFORM,
+                            "name": f"{node.dbt_name}_freshness",
+                            "instance": self.config.platform_instance,
+                            # Ideally we'd include the env unconditionally. However, we started out
+                            # not including env in the guid, so we need to maintain backwards compatibility
+                            # with existing PROD assertions.
+                            **(
+                                {"env": self.config.env}
+                                if self.config.env != mce_builder.DEFAULT_ENV
+                                and self.config.include_env_in_assertion_guid
+                                else {}
+                            ),
+                        }.items()
+                        if v is not None
+                    }
+                )
+            )
+
+            custom_props = {
+                "dbt_unique_id": node.dbt_name,
+                "dbt_freshness_test": "true",
+                **extra_custom_props,
+            }
+
+            if self.config.entities_enabled.can_emit_test_definitions:
+                assertion_mcp = make_assertion_from_freshness(
+                    custom_props,
+                    node,
+                    assertion_urn,
+                    upstream_urn,
+                )
+                if assertion_mcp is None:
+                    # No criteria found, skip this source's freshness assertion
+                    continue
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=assertion_urn,
+                    aspect=self._make_data_platform_instance_aspect(),
+                )
+                yield assertion_mcp
+
+            if self.config.entities_enabled.can_emit_test_results:
+                yield make_assertion_result_from_freshness(
+                    node,
+                    assertion_urn,
+                    upstream_urn,
+                    test_warnings_are_errors=self.config.test_warnings_are_errors,
+                )
+            else:
+                logger.debug(
+                    f"Skipping freshness result for {node.name} emission since it is turned off."
+                )
+
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
         # return dbt nodes (including semantic models) + global custom properties
@@ -1251,6 +1332,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             test_nodes,
             additional_custom_props_filtered,
             all_nodes_map,
+        )
+
+        yield from self.create_freshness_assertion_mcps(
+            non_test_nodes,
+            additional_custom_props_filtered,
         )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:

@@ -1376,7 +1376,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1581759930000,
+                            "time": 1623751200000,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -1672,7 +1672,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1581759987000,
+                            "time": 1623319200000,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -2075,7 +2075,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1581759840000,
+                            "time": 1624033800000,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -2256,7 +2256,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1581760640000,
+                            "time": 1624032000000,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -4208,6 +4208,1218 @@
                 }
             }
         ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:eb0aa22f582225797d3792545b691833",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:eb0aa22f582225797d3792545b691833",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.actor",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:eb0aa22f582225797d3792545b691833",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2020-02-15T09:34:33+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:eb0aa22f582225797d3792545b691833",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9b755da945f53077e504038135bb69bd",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9b755da945f53077e504038135bb69bd",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.address",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9b755da945f53077e504038135bb69bd",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "warn",
+                    "max_loaded_at": "2021-06-15T10:00:00+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "259200.0"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:9b755da945f53077e504038135bb69bd",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:491ada896ecb9230502025d51a12872a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:491ada896ecb9230502025d51a12872a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.category",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:491ada896ecb9230502025d51a12872a",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "status": "error",
+                    "max_loaded_at": "2021-06-10T10:00:00+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "691200.0"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:491ada896ecb9230502025d51a12872a",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ce9dd15d0bd20b99be69a94aeaf55088",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ce9dd15d0bd20b99be69a94aeaf55088",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.city",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "DAY",
+                        "multiple": 1
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ce9dd15d0bd20b99be69a94aeaf55088",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2020-02-15T09:45:25+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:ce9dd15d0bd20b99be69a94aeaf55088",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:651e6c588fd0e337ea96b16361b8f8cb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:651e6c588fd0e337ea96b16361b8f8cb",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.country",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "MINUTE",
+                        "multiple": 30
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:651e6c588fd0e337ea96b16361b8f8cb",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2021-06-18T16:30:00+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "2335.925443"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:651e6c588fd0e337ea96b16361b8f8cb",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:8f608f7b939427c2e497cc3b4a54a916",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:8f608f7b939427c2e497cc3b4a54a916",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.customer",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "DAY",
+                        "multiple": 2
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:8f608f7b939427c2e497cc3b4a54a916",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2021-06-18T16:00:00+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "4085.925443"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:8f608f7b939427c2e497cc3b4a54a916",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ef37eda03c06a3968d18d24f4ca2d29e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ef37eda03c06a3968d18d24f4ca2d29e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_01",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "DAY",
+                        "multiple": 7
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ef37eda03c06a3968d18d24f4ca2d29e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2020-01-31T21:16:11.996577+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:ef37eda03c06a3968d18d24f4ca2d29e",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:94b5cdcd00175242b32bb1edf826b173",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:94b5cdcd00175242b32bb1edf826b173",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_02",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:94b5cdcd00175242b32bb1edf826b173",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2020-02-21T21:17:25.996577+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:94b5cdcd00175242b32bb1edf826b173",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc178c606c9d627638da55fffd49c273",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc178c606c9d627638da55fffd49c273",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_03",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc178c606c9d627638da55fffd49c273",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2020-03-23T21:18:38.996577+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:bc178c606c9d627638da55fffd49c273",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9483a77996aca6855668b76f3ff37c69",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9483a77996aca6855668b76f3ff37c69",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_04",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9483a77996aca6855668b76f3ff37c69",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2020-04-30T22:53:48.996577+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:9483a77996aca6855668b76f3ff37c69",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0e897847a1cf3f322dd0774acf483399",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0e897847a1cf3f322dd0774acf483399",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_05",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0e897847a1cf3f322dd0774acf483399",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "2020-05-14T12:44:29.996577+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:0e897847a1cf3f322dd0774acf483399",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b58a6548515bc0fa0309129856118759",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b58a6548515bc0fa0309129856118759",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_06",
+                "dbt_freshness_test": "true",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                "manifest_version": "0.19.1",
+                "manifest_adapter": "postgres",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 24
+                    }
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b58a6548515bc0fa0309129856118759",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1624036135925,
+            "runId": "just-some-random-id",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "pass",
+                    "max_loaded_at": "0001-01-01T00:00:00+00:00",
+                    "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
+                    "max_loaded_at_time_ago_in_s": "42276862.910052"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:b58a6548515bc0fa0309129856118759",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0e897847a1cf3f322dd0774acf483399",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:491ada896ecb9230502025d51a12872a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:651e6c588fd0e337ea96b16361b8f8cb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:8f608f7b939427c2e497cc3b4a54a916",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9483a77996aca6855668b76f3ff37c69",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:94b5cdcd00175242b32bb1edf826b173",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9b755da945f53077e504038135bb69bd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b58a6548515bc0fa0309129856118759",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bc178c606c9d627638da55fffd49c273",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ce9dd15d0bd20b99be69a94aeaf55088",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:eb0aa22f582225797d3792545b691833",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-database-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ef37eda03c06a3968d18d24f4ca2d29e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,

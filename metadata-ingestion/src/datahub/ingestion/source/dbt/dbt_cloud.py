@@ -35,7 +35,12 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceBase,
     DBTSourceReport,
 )
-from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessCriteria,
+    DBTFreshnessInfo,
+    DBTTest,
+    DBTTestResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -260,9 +265,20 @@ _DBT_FIELDS_BY_TYPE = {
     sourceDescription
     maxLoadedAt
     snapshottedAt
+    maxLoadedAtTimeAgoInS
     state
     freshnessChecked
     loader
+    criteria {{
+      warnAfter {{
+        count
+        period
+      }}
+      errorAfter {{
+        count
+        period
+      }}
+    }}
 """,
     "snapshots": f"""
     {_DBT_GRAPHQL_COMMON_FIELDS}
@@ -779,12 +795,51 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         raw_code, compiled_code = self._extract_code_fields(node, materialization)
 
         max_loaded_at = None
+        freshness_info = None
         if resource_type == "source":
             max_loaded_at_str = node["maxLoadedAt"]
             if max_loaded_at_str:
                 max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
+
+            freshness_state = node.get("state")
+            if freshness_state and node.get("freshnessChecked"):
+                snapshotted_at_str = node.get("snapshottedAt")
+                criteria = node.get("criteria", {})
+
+                snapshotted_at = None
+                if snapshotted_at_str:
+                    snapshotted_at = dateutil.parser.parse(snapshotted_at_str)
+
+                warn_after = None
+                warn_after_data = criteria.get("warnAfter") if criteria else None
+                if warn_after_data:
+                    warn_after = DBTFreshnessCriteria(
+                        count=warn_after_data.get("count", 0),
+                        period=warn_after_data.get("period", "hour"),
+                    )
+
+                error_after = None
+                error_after_data = criteria.get("errorAfter") if criteria else None
+                if error_after_data:
+                    error_after = DBTFreshnessCriteria(
+                        count=error_after_data.get("count", 0),
+                        period=error_after_data.get("period", "hour"),
+                    )
+
+                if max_loaded_at and snapshotted_at:
+                    freshness_info = DBTFreshnessInfo(
+                        invocation_id=f"job{node['jobId']}-run{node['runId']}",
+                        status=freshness_state.lower(),
+                        max_loaded_at=max_loaded_at,
+                        snapshotted_at=snapshotted_at,
+                        max_loaded_at_time_ago_in_s=node.get(
+                            "maxLoadedAtTimeAgoInS", 0.0
+                        ),
+                        warn_after=warn_after,
+                        error_after=error_after,
+                    )
 
         columns: List[DBTColumn] = []
         if "columns" in node and node["columns"] is not None:
@@ -830,6 +885,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_info=test_info,
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
+            freshness_info=freshness_info,
         )
 
     def _parse_into_dbt_column(
