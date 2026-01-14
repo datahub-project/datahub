@@ -16,6 +16,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
@@ -902,7 +903,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             query -> {
               try {
                 AutoCompleteResults result =
-                    autocomplete(getOperationContext(), new DatasetType(getEntityClient()), query);
+                    autocomplete(getOperationContext(), new DatasetType(getEntityClient(), new FeatureFlags()), query);
                 assertTrue(
                     result.getEntities().size() >= 1,
                     String.format(

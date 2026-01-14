@@ -9,6 +9,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.Domains;
@@ -60,6 +61,8 @@ public class DomainBasedAuthorizationValidatorTest {
     validator.setConfig(TEST_PLUGIN_CONFIG);
     authUtilMock = mockStatic(AuthUtil.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
+    // Default: mock auth session to be present
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(mockAuthSession);
   }
 
   @AfterMethod
@@ -77,7 +80,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Act
     Stream<AspectValidationException> result =
         validator.validatePreCommitAspects(
-            Collections.singletonList(mockChangeMCP), mockRetrieverContext, mockAuthSession);
+            Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
     assertEquals(result.collect(Collectors.toList()).size(), 0, "DELETE operations should skip validation");
@@ -93,11 +96,13 @@ public class DomainBasedAuthorizationValidatorTest {
     Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,test,PROD)");
     when(mockChangeMCP.getUrn()).thenReturn(entityUrn);
     when(mockChangeMCP.getChangeType()).thenReturn(ChangeType.CREATE);
+    // Override default mock to return null for this test
+    when(mockRetrieverContext.getAuthorizationSession()).thenReturn(null);
 
     // Act
     Stream<AspectValidationException> result =
         validator.validatePreCommitAspects(
-            Collections.singletonList(mockChangeMCP), mockRetrieverContext, null);
+            Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
@@ -120,7 +125,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Mock domain aspect
     Domains domainsAspect = new Domains();
     domainsAspect.setDomains(Collections.singletonList(domainUrn).stream()
-        .collect(Collectors.toCollection(com.linkedin.common.urn.UrnArray::new)));
+        .collect(Collectors.toCollection(UrnArray::new)));
     Aspect domainAspectData = mock(Aspect.class);
     when(domainAspectData.data()).thenReturn(domainsAspect.data());
     when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
@@ -137,7 +142,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Act
     Stream<AspectValidationException> result =
         validator.validatePreCommitAspects(
-            Collections.singletonList(mockChangeMCP), mockRetrieverContext, mockAuthSession);
+            Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
     assertEquals(result.collect(Collectors.toList()).size(), 0, "Should pass validation when authorized");
@@ -156,7 +161,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Mock domain aspect
     Domains domainsAspect = new Domains();
     domainsAspect.setDomains(Collections.singletonList(domainUrn).stream()
-        .collect(Collectors.toCollection(com.linkedin.common.urn.UrnArray::new)));
+        .collect(Collectors.toCollection(UrnArray::new)));
     when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
 
     // Mock authorization - unauthorized
@@ -171,7 +176,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Act
     Stream<AspectValidationException> result =
         validator.validatePreCommitAspects(
-            Collections.singletonList(mockChangeMCP), mockRetrieverContext, mockAuthSession);
+            Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
@@ -194,7 +199,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Mock existing domain aspect
     Domains existingDomains = new Domains();
     existingDomains.setDomains(Collections.singletonList(domainUrn).stream()
-        .collect(Collectors.toCollection(com.linkedin.common.urn.UrnArray::new)));
+        .collect(Collectors.toCollection(UrnArray::new)));
     Aspect domainAspectData = mock(Aspect.class);
     when(domainAspectData.data()).thenReturn(existingDomains.data());
     when(mockAspectRetriever.getLatestAspectObject(entityUrn, DOMAINS_ASPECT_NAME))
@@ -212,7 +217,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Act
     Stream<AspectValidationException> result =
         validator.validatePreCommitAspects(
-            Collections.singletonList(mockChangeMCP), mockRetrieverContext, mockAuthSession);
+            Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
     assertEquals(result.collect(Collectors.toList()).size(), 0, "Should pass validation");
@@ -245,7 +250,7 @@ public class DomainBasedAuthorizationValidatorTest {
     // Act
     Stream<AspectValidationException> result =
         validator.validatePreCommitAspects(
-            Collections.singletonList(mockChangeMCP), mockRetrieverContext, mockAuthSession);
+            Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
     assertEquals(result.collect(Collectors.toList()).size(), 0, "Should pass validation when no domains");

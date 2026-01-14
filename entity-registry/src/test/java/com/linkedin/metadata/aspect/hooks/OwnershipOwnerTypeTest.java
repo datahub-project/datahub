@@ -79,6 +79,11 @@ public class OwnershipOwnerTypeTest {
           public SearchRetriever getSearchRetriever() {
             return mock(SearchRetriever.class);
           }
+
+          @Override
+          public com.datahub.authorization.AuthorizationSession getAuthorizationSession() {
+            return null;
+          }
         };
 
     final AspectPluginConfig aspectPluginConfig =

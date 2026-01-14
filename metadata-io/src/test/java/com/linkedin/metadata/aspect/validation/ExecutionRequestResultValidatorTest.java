@@ -108,7 +108,7 @@ public class ExecutionRequestResultValidatorTest {
             .toList());
 
     List<AspectValidationException> result =
-        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class), null).toList();
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
 
     assertTrue(result.isEmpty(), "Did not expect any validation errors.");
   }
@@ -157,7 +157,7 @@ public class ExecutionRequestResultValidatorTest {
                 .toList());
 
     List<AspectValidationException> result =
-        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class), null).toList();
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
 
     assertEquals(
         result.size(),
@@ -199,7 +199,7 @@ public class ExecutionRequestResultValidatorTest {
                 .toList());
 
     List<AspectValidationException> result =
-        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class), null).toList();
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
 
     assertTrue(result.isEmpty(), "Expected all transitions to ROLLING_BACK to be allowed");
   }
@@ -242,7 +242,7 @@ public class ExecutionRequestResultValidatorTest {
                 .toList());
 
     List<AspectValidationException> result =
-        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class), null).toList();
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
 
     assertEquals(result.size(), 0, "Expected all transitions to ROLLING_BACK to be allowed");
   }
@@ -279,7 +279,7 @@ public class ExecutionRequestResultValidatorTest {
                 .toList());
 
     List<AspectValidationException> result =
-        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class), null).toList();
+        test.validatePreCommitAspects(testItems, mock(RetrieverContext.class)).toList();
 
     assertEquals(
         result.size(), immutableStates.size(), "Expected all same-status updates to be filtered");
