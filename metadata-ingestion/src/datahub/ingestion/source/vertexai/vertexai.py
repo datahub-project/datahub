@@ -427,21 +427,51 @@ class VertexAISource(Source):
 
     def _process_current_project(self) -> Iterable[MetadataWorkUnit]:
         yield from self._gen_project_workunits()
-        yield from auto_workunit(self._get_ml_models_mcps())
-        yield from auto_workunit(self._get_training_jobs_mcps())
-        yield from self._get_experiments_workunits()
-        yield from auto_workunit(self._get_experiment_runs_mcps())
-        yield from auto_workunit(self._get_pipelines_mcps())
+
+        resource_fetchers = [
+            ("models", lambda: auto_workunit(self._get_ml_models_mcps())),
+            ("training_jobs", lambda: auto_workunit(self._get_training_jobs_mcps())),
+            ("experiments", self._get_experiments_workunits),
+            (
+                "experiment_runs",
+                lambda: auto_workunit(self._get_experiment_runs_mcps()),
+            ),
+            ("pipelines", lambda: auto_workunit(self._get_pipelines_mcps())),
+        ]
+
+        for resource_type, fetch_func in resource_fetchers:
+            try:
+                yield from fetch_func()
+            except Exception as e:
+                logger.warning(
+                    "Failed to fetch %s for project %s: %s",
+                    resource_type,
+                    self._current_project_id,
+                    e,
+                )
+                self.report.warning(
+                    title=f"Failed to fetch {resource_type}",
+                    message=f"Project: {self._current_project_id}. Error: {e}",
+                    exc=e,
+                )
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         """Fetch Vertex AI Pipeline Jobs and generate DataJob MCPs with lineage to tasks."""
         pipeline_jobs = _call_with_retry(self.client.PipelineJob.list)
 
         for pipeline in pipeline_jobs:
-            logger.info("Fetching pipeline: %s", pipeline.name)
-            pipeline_meta = self._get_pipeline_metadata(pipeline)
-            yield from self._get_pipeline_mcps(pipeline_meta)
-            yield from self._gen_pipeline_task_mcps(pipeline_meta)
+            try:
+                logger.info("Fetching pipeline: %s", pipeline.name)
+                pipeline_meta = self._get_pipeline_metadata(pipeline)
+                yield from self._get_pipeline_mcps(pipeline_meta)
+                yield from self._gen_pipeline_task_mcps(pipeline_meta)
+            except Exception as e:
+                logger.warning("Failed to process pipeline %s: %s", pipeline.name, e)
+                self.report.warning(
+                    title=f"Failed to process pipeline {pipeline.name}",
+                    message=str(e),
+                    exc=e,
+                )
 
     def _get_pipeline_tasks_metadata(
         self, pipeline: PipelineJob, pipeline_urn: DataFlowUrn
@@ -684,18 +714,40 @@ class VertexAISource(Source):
 
         logger.info("Fetching experiments from VertexAI server")
         for experiment in self.experiments:
-            yield from self._gen_experiment_workunits(experiment)
+            try:
+                yield from self._gen_experiment_workunits(experiment)
+            except Exception as e:
+                logger.warning(
+                    "Failed to process experiment %s: %s", experiment.name, e
+                )
+                self.report.warning(
+                    title=f"Failed to process experiment {experiment.name}",
+                    message=str(e),
+                    exc=e,
+                )
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self.experiments is None:
             self.experiments = _call_with_retry(aiplatform.Experiment.list)
         for experiment in self.experiments:
-            logger.info("Fetching experiment runs for experiment: %s", experiment.name)
-            experiment_runs = _call_with_retry(
-                aiplatform.ExperimentRun.list, experiment=experiment.name
-            )
-            for run in experiment_runs:
-                yield from self._gen_experiment_run_mcps(experiment, run)
+            try:
+                logger.info(
+                    "Fetching experiment runs for experiment: %s", experiment.name
+                )
+                experiment_runs = _call_with_retry(
+                    aiplatform.ExperimentRun.list, experiment=experiment.name
+                )
+                for run in experiment_runs:
+                    yield from self._gen_experiment_run_mcps(experiment, run)
+            except Exception as e:
+                logger.warning(
+                    "Failed to fetch runs for experiment %s: %s", experiment.name, e
+                )
+                self.report.warning(
+                    title=f"Failed to fetch runs for experiment {experiment.name}",
+                    message=str(e),
+                    exc=e,
+                )
 
     def _gen_experiment_workunits(
         self, experiment: Experiment
@@ -910,18 +962,26 @@ class VertexAISource(Source):
         """Fetch models from Vertex AI Model Registry and generate MLModelGroup + MLModel MCPs."""
         registered_models = _call_with_retry(self.client.Model.list)
         for model in registered_models:
-            # create mcp for Model Group (= Model in VertexAI)
-            yield from self._gen_ml_group_mcps(model)
-            model_versions = _call_with_retry(model.versioning_registry.list_versions)
-            for model_version in model_versions:
-                # create mcp for Model (= Model Version in VertexAI)
-                logger.info(
-                    "Ingesting a model (name: %s id:%s)",
-                    model.display_name,
-                    model.name,
+            try:
+                yield from self._gen_ml_group_mcps(model)
+                model_versions = _call_with_retry(
+                    model.versioning_registry.list_versions
                 )
-                yield from self._get_ml_model_mcps(
-                    model=model, model_version=model_version
+                for model_version in model_versions:
+                    logger.info(
+                        "Ingesting a model (name: %s id:%s)",
+                        model.display_name,
+                        model.name,
+                    )
+                    yield from self._get_ml_model_mcps(
+                        model=model, model_version=model_version
+                    )
+            except Exception as e:
+                logger.warning("Failed to process model %s: %s", model.display_name, e)
+                self.report.warning(
+                    title=f"Failed to process model {model.display_name}",
+                    message=str(e),
+                    exc=e,
                 )
 
     def _get_ml_model_mcps(
@@ -953,10 +1013,23 @@ class VertexAISource(Source):
             "AutoMLForecastingTrainingJob",
         ]
         for class_name in class_names:
-            logger.info("Fetching a list of %ss from VertexAI server", class_name)
-            jobs = _call_with_retry(getattr(self.client, class_name).list)
-            for job in jobs:
-                yield from self._get_training_job_mcps(job)
+            try:
+                logger.info("Fetching a list of %ss from VertexAI server", class_name)
+                jobs = _call_with_retry(getattr(self.client, class_name).list)
+                for job in jobs:
+                    yield from self._get_training_job_mcps(job)
+            except Exception as e:
+                logger.warning(
+                    "Failed to fetch %s for project %s: %s",
+                    class_name,
+                    self._current_project_id,
+                    e,
+                )
+                self.report.warning(
+                    title=f"Failed to fetch {class_name}",
+                    message=f"Project: {self._current_project_id}. Error: {e}",
+                    exc=e,
+                )
 
     def _get_training_job_mcps(
         self, job: VertexAiResourceNoun
