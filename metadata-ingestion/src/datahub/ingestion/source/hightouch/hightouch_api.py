@@ -259,9 +259,20 @@ class HightouchAPIClient:
     def get_contract_runs(
         self, contract_id: str, limit: int = 10
     ) -> List[HightouchContractRun]:
-        response = self._make_request(
-            "GET", f"events/contracts/{contract_id}/runs", params={"limit": limit}
-        )
+        try:
+            response = self._make_request(
+                "GET", f"events/contracts/{contract_id}/runs", params={"limit": limit}
+            )
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                logger.warning(
+                    f"Contract runs endpoint not found (404) for contract {contract_id}. "
+                    "This contract may not exist or the feature may not be available. "
+                    "Returning empty list."
+                )
+                return []
+            raise
+
         runs = []
 
         for run_data in response.get("data", []):

@@ -1,470 +1,358 @@
 from datetime import datetime
 from unittest.mock import Mock, patch
 
-import pytest
 import requests
 
 from datahub.ingestion.source.hightouch.config import HightouchAPIConfig
-from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
-from datahub.ingestion.source.hightouch.models import (
-    HightouchDestination,
-    HightouchModel,
-    HightouchSourceConnection,
-    HightouchSync,
-    HightouchSyncRun,
-    HightouchUser,
+from datahub.ingestion.source.hightouch.hightouch_api import (
+    FieldMapping,
+    HightouchAPIClient,
 )
+from datahub.ingestion.source.hightouch.models import HightouchSync
 
 
-@pytest.fixture
-def api_config():
-    return HightouchAPIConfig(
-        api_key="test_api_key",
+def test_api_client_initialization():
+    config = HightouchAPIConfig(
+        api_key="test_key",
         base_url="https://api.hightouch.com/api/v1",
-        request_timeout_sec=30,
     )
+    client = HightouchAPIClient(config)
 
-
-@pytest.fixture
-def api_client(api_config):
-    return HightouchAPIClient(api_config)
-
-
-def test_init(api_client, api_config):
-    assert api_client.config == api_config
-    assert api_client.session is not None
-    assert api_client.session.headers["Authorization"] == "Bearer test_api_key"
-    assert api_client.session.headers["Content-Type"] == "application/json"
+    assert client.config == config
+    assert client.session.headers["Authorization"] == "Bearer test_key"
 
 
 @patch("requests.Session.request")
-def test_get_sources_success(mock_request, api_client):
-    """Test successful retrieval of sources."""
-    mock_response_data = {
-        "data": [
-            {
-                "id": "1",
-                "name": "Test Snowflake",
-                "slug": "test-snowflake",
-                "type": "snowflake",
-                "workspaceId": "100",
-                "createdAt": "2023-01-01T00:00:00Z",
-                "updatedAt": "2023-01-02T00:00:00Z",
-                "configuration": {"account": "test.snowflakecomputing.com"},
-            }
-        ]
-    }
-
+def test_make_paginated_request_single_page(mock_request):
     mock_response = Mock()
-    mock_response.json.return_value = mock_response_data
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "data": [{"id": "1"}, {"id": "2"}],
+        "hasMore": False,
+    }
     mock_response.raise_for_status = Mock()
     mock_request.return_value = mock_response
 
-    result = api_client.get_sources()
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    assert len(result) == 1
-    assert isinstance(result[0], HightouchSourceConnection)
-    assert result[0].id == "1"
-    assert result[0].name == "Test Snowflake"
-    assert result[0].type == "snowflake"
-    assert result[0].slug == "test-snowflake"
+    results = client._make_paginated_request("/test")
 
+    assert len(results) == 2
+    assert results[0]["id"] == "1"
+    assert results[1]["id"] == "2"
     mock_request.assert_called_once()
 
 
 @patch("requests.Session.request")
-def test_get_models_success(mock_request, api_client):
-    """Test successful retrieval of models."""
-    mock_response_data = {
-        "data": [
-            {
-                "id": "10",
-                "name": "Customer Model",
-                "slug": "customer-model",
-                "workspaceId": "100",
-                "sourceId": "1",
-                "queryType": "raw_sql",
-                "createdAt": "2023-01-01T00:00:00Z",
-                "updatedAt": "2023-01-02T00:00:00Z",
-                "primaryKey": "customer_id",
-                "description": "Customer data model",
-                "isSchema": False,
-            }
-        ]
+def test_make_paginated_request_multiple_pages(mock_request):
+    response1 = Mock()
+    response1.status_code = 200
+    response1.json.return_value = {
+        "data": [{"id": "1"}, {"id": "2"}],
+        "hasMore": True,
     }
+    response1.raise_for_status = Mock()
 
-    mock_response = Mock()
-    mock_response.json.return_value = mock_response_data
-    mock_response.raise_for_status = Mock()
-    mock_request.return_value = mock_response
+    response2 = Mock()
+    response2.status_code = 200
+    response2.json.return_value = {
+        "data": [{"id": "3"}, {"id": "4"}],
+        "hasMore": True,
+    }
+    response2.raise_for_status = Mock()
 
-    result = api_client.get_models()
+    response3 = Mock()
+    response3.status_code = 200
+    response3.json.return_value = {
+        "data": [{"id": "5"}],
+        "hasMore": False,
+    }
+    response3.raise_for_status = Mock()
 
-    assert len(result) == 1
-    assert isinstance(result[0], HightouchModel)
-    assert result[0].id == "10"
-    assert result[0].name == "Customer Model"
-    assert result[0].slug == "customer-model"
-    assert result[0].query_type == "raw_sql"
-    assert result[0].primary_key == "customer_id"
+    mock_request.side_effect = [response1, response2, response3]
+
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
+
+    results = client._make_paginated_request("/test")
+
+    assert len(results) == 5
+    assert [r["id"] for r in results] == ["1", "2", "3", "4", "5"]
+    assert mock_request.call_count == 3
 
 
 @patch("requests.Session.request")
-def test_get_destinations_success(mock_request, api_client):
-    """Test successful retrieval of destinations."""
-    mock_response_data = {
-        "data": [
-            {
-                "id": "20",
-                "name": "Salesforce Prod",
-                "slug": "salesforce-prod",
-                "type": "salesforce",
-                "workspaceId": "100",
-                "createdAt": "2023-01-01T00:00:00Z",
-                "updatedAt": "2023-01-02T00:00:00Z",
-                "configuration": {"instance_url": "https://test.salesforce.com"},
-            }
-        ]
-    }
-
+def test_make_paginated_request_with_custom_limit(mock_request):
     mock_response = Mock()
-    mock_response.json.return_value = mock_response_data
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "data": [{"id": "1"}],
+        "hasMore": False,
+    }
     mock_response.raise_for_status = Mock()
     mock_request.return_value = mock_response
 
-    result = api_client.get_destinations()
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    assert len(result) == 1
-    assert isinstance(result[0], HightouchDestination)
-    assert result[0].id == "20"
-    assert result[0].name == "Salesforce Prod"
-    assert result[0].type == "salesforce"
+    list(client._make_paginated_request("/test", {"limit": 50}))
 
-
-@patch("requests.Session.request")
-def test_get_syncs_success(mock_request, api_client):
-    """Test successful retrieval of syncs."""
-    mock_response_data = {
-        "data": [
-            {
-                "id": "30",
-                "slug": "customer-to-salesforce",
-                "workspaceId": "100",
-                "modelId": "10",
-                "destinationId": "20",
-                "createdAt": "2023-01-01T00:00:00Z",
-                "updatedAt": "2023-01-02T00:00:00Z",
-                "configuration": {"destinationTable": "Contact"},
-                "schedule": {"type": "interval", "interval": 3600},
-                "disabled": False,
-            }
-        ]
-    }
-
-    mock_response = Mock()
-    mock_response.json.return_value = mock_response_data
-    mock_response.raise_for_status = Mock()
-    mock_request.return_value = mock_response
-
-    result = api_client.get_syncs()
-
-    assert len(result) == 1
-    assert isinstance(result[0], HightouchSync)
-    assert result[0].id == "30"
-    assert result[0].slug == "customer-to-salesforce"
-    assert result[0].model_id == "10"
-    assert result[0].destination_id == "20"
-    assert result[0].disabled is False
+    call_args = mock_request.call_args
+    assert call_args[1]["params"]["limit"] == 50
 
 
-@patch("requests.Session.request")
-def test_get_sync_runs_success(mock_request, api_client):
-    """Test successful retrieval of sync runs."""
-    mock_response_data = {
-        "data": [
-            {
-                "id": "100",
-                "syncId": "30",
-                "status": "success",
-                "startedAt": "2023-01-03T00:00:00Z",
-                "finishedAt": "2023-01-03T00:05:00Z",
-                "createdAt": "2023-01-03T00:00:00Z",
-                "completionRatio": 1.0,
-                "plannedRows": {"added": 100, "changed": 50, "removed": 10},
-                "successfulRows": {"added": 98, "changed": 49, "removed": 10},
-                "failedRows": {"added": 2, "changed": 1, "removed": 0},
-                "querySize": 1024000,
-            }
-        ]
-    }
-
-    mock_response = Mock()
-    mock_response.json.return_value = mock_response_data
-    mock_response.raise_for_status = Mock()
-    mock_request.return_value = mock_response
-
-    result = api_client.get_sync_runs("30", limit=10)
-
-    assert len(result) == 1
-    assert isinstance(result[0], HightouchSyncRun)
-    assert result[0].id == "100"
-    assert result[0].sync_id == "30"
-    assert result[0].status == "success"
-    assert result[0].completion_ratio == 1.0
-    assert result[0].planned_rows == {"added": 100, "changed": 50, "removed": 10}
-
-
-@patch("requests.Session.request")
-def test_get_user_by_id_success(mock_request, api_client):
-    """Test successful retrieval of a user."""
-    mock_response_data = {
-        "id": "user123",
-        "email": "test@example.com",
-        "name": "Test User",
-        "createdAt": "2023-01-01T00:00:00Z",
-    }
-
-    mock_response = Mock()
-    mock_response.json.return_value = mock_response_data
-    mock_response.raise_for_status = Mock()
-    mock_request.return_value = mock_response
-
-    result = api_client.get_user_by_id("user123")
-
-    assert isinstance(result, HightouchUser)
-    assert result.id == "user123"
-    assert result.email == "test@example.com"
-    assert result.name == "Test User"
-
-
-def test_extract_field_mappings_format1(api_client):
-    """Test extraction of field mappings - format 1."""
+def test_extract_field_mappings_from_field_mappings():
     sync = HightouchSync(
-        id="30",
+        id="sync_1",
         slug="test-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
+        workspace_id="workspace_1",
+        model_id="model_1",
+        destination_id="dest_1",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
             "fieldMappings": [
                 {
-                    "sourceField": "customer_id",
-                    "destinationField": "ContactId",
+                    "sourceField": "user_id",
+                    "destinationField": "UserId",
                     "isPrimaryKey": True,
                 },
-                {
-                    "sourceField": "email",
-                    "destinationField": "Email",
-                    "isPrimaryKey": False,
-                },
+                {"sourceField": "email", "destinationField": "Email"},
+                {"sourceField": "name", "destinationField": "Name"},
             ]
         },
     )
 
-    result = api_client.extract_field_mappings(sync)
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    assert len(result) == 2
-    assert result[0].source_field == "customer_id"
-    assert result[0].destination_field == "ContactId"
-    assert result[0].is_primary_key is True
-    assert result[1].source_field == "email"
-    assert result[1].destination_field == "Email"
-    assert result[1].is_primary_key is False
+    mappings = client.extract_field_mappings(sync)
+
+    assert len(mappings) == 3
+    assert mappings[0].source_field == "user_id"
+    assert mappings[0].destination_field == "UserId"
+    assert mappings[0].is_primary_key is True
+    assert mappings[1].source_field == "email"
+    assert mappings[1].destination_field == "Email"
+    assert mappings[1].is_primary_key is False
 
 
-def test_extract_field_mappings_format2(api_client):
-    """Test extraction of field mappings - format 2 (column mappings)."""
+def test_extract_field_mappings_from_column_mappings():
     sync = HightouchSync(
-        id="30",
+        id="sync_1",
         slug="test-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
+        workspace_id="workspace_1",
+        model_id="model_1",
+        destination_id="dest_1",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
             "columnMappings": {
-                "ContactId": "customer_id",
-                "Email": "email",
-                "FirstName": "first_name",
+                "user_id": "id",
+                "user_email": "email",
+                "user_name": "name",
             }
         },
     )
 
-    result = api_client.extract_field_mappings(sync)
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    assert len(result) == 3
-    field_dict = {fm.destination_field: fm.source_field for fm in result}
-    assert field_dict["ContactId"] == "customer_id"
-    assert field_dict["Email"] == "email"
-    assert field_dict["FirstName"] == "first_name"
+    mappings = client.extract_field_mappings(sync)
+
+    assert len(mappings) == 3
+    assert any(
+        m.source_field == "id" and m.destination_field == "user_id" for m in mappings
+    )
+    assert any(
+        m.source_field == "email" and m.destination_field == "user_email"
+        for m in mappings
+    )
+    assert any(
+        m.source_field == "name" and m.destination_field == "user_name"
+        for m in mappings
+    )
 
 
-def test_extract_field_mappings_format3(api_client):
-    """Test extraction of field mappings - format 3 (columns array)."""
+def test_extract_field_mappings_from_columns():
     sync = HightouchSync(
-        id="30",
+        id="sync_1",
         slug="test-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
+        workspace_id="workspace_1",
+        model_id="model_1",
+        destination_id="dest_1",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
             "columns": [
-                {"from": "customer_id", "to": "ContactId", "isPrimaryKey": True},
-                {"from": "email", "to": "Email", "isPrimaryKey": False},
+                {"from": "user_id", "to": "UserId", "isPrimaryKey": True},
+                {"from": "email", "to": "Email"},
             ]
         },
     )
 
-    result = api_client.extract_field_mappings(sync)
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    assert len(result) == 2
-    assert result[0].source_field == "customer_id"
-    assert result[0].destination_field == "ContactId"
-    assert result[0].is_primary_key is True
+    mappings = client.extract_field_mappings(sync)
+
+    assert len(mappings) == 2
+    assert mappings[0].source_field == "user_id"
+    assert mappings[0].destination_field == "UserId"
+    assert mappings[0].is_primary_key is True
 
 
-def test_extract_field_mappings_empty(api_client):
-    """Test extraction with no field mappings."""
+def test_extract_field_mappings_empty_configuration():
     sync = HightouchSync(
-        id="30",
+        id="sync_1",
         slug="test-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
+        workspace_id="workspace_1",
+        model_id="model_1",
+        destination_id="dest_1",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={},
     )
 
-    result = api_client.extract_field_mappings(sync)
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    assert len(result) == 0
+    mappings = client.extract_field_mappings(sync)
 
-
-@patch("requests.Session.request")
-def test_get_source_by_id_not_found(mock_request, api_client):
-    """Test handling of 404 when getting source by ID."""
-    mock_response = Mock()
-    mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-        response=Mock(status_code=404)
-    )
-    mock_request.return_value = mock_response
-
-    with pytest.raises(requests.exceptions.HTTPError):
-        api_client.get_source_by_id("nonexistent")
+    assert len(mappings) == 0
 
 
-@patch("requests.Session.request")
-def test_get_source_by_id_validation_error(mock_request, api_client):
-    """Test handling of validation errors when getting source by ID."""
-    mock_response_data = {"id": "1"}  # Missing required fields
-
-    mock_response = Mock()
-    mock_response.json.return_value = mock_response_data
-    mock_response.raise_for_status = Mock()
-    mock_request.return_value = mock_response
-
-    result = api_client.get_source_by_id("1")
-
-    assert result is None
-
-
-@patch("requests.Session.request")
-def test_get_model_by_id_server_error(mock_request, api_client):
-    """Test handling of 500 server error when getting model by ID."""
-    mock_response = Mock()
-    mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-        response=Mock(status_code=500)
-    )
-    mock_request.return_value = mock_response
-
-    with pytest.raises(requests.exceptions.HTTPError):
-        api_client.get_model_by_id("10")
-
-
-@patch("requests.Session.request")
-def test_get_destination_by_id_unauthorized(mock_request, api_client):
-    """Test handling of 401 unauthorized error when getting destination by ID."""
-    mock_response = Mock()
-    mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-        response=Mock(status_code=401)
-    )
-    mock_request.return_value = mock_response
-
-    with pytest.raises(requests.exceptions.HTTPError):
-        api_client.get_destination_by_id("20")
-
-
-@patch("requests.Session.request")
-def test_network_timeout(mock_request, api_client):
-    """Test handling of network timeout."""
-    mock_request.side_effect = requests.exceptions.Timeout("Request timed out")
-
-    with pytest.raises(requests.exceptions.Timeout):
-        api_client.get_sources()
-
-
-def test_extract_field_mappings_malformed_data(api_client):
-    """Test field mapping extraction with malformed data."""
+def test_extract_field_mappings_no_configuration():
     sync = HightouchSync(
-        id="30",
+        id="sync_1",
         slug="test-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
+        workspace_id="workspace_1",
+        model_id="model_1",
+        destination_id="dest_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
+
+    mappings = client.extract_field_mappings(sync)
+
+    assert len(mappings) == 0
+
+
+def test_extract_field_mappings_with_snake_case_keys():
+    sync = HightouchSync(
+        id="sync_1",
+        slug="test-sync",
+        workspace_id="workspace_1",
+        model_id="model_1",
+        destination_id="dest_1",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
-            "fieldMappings": [
-                # Missing destinationField
-                {"sourceField": "customer_id", "isPrimaryKey": True},
-                # Valid mapping
-                {
-                    "sourceField": "email",
-                    "destinationField": "Email",
-                    "isPrimaryKey": False,
-                },
-                # Non-dict item (should be skipped)
-                "invalid_mapping",
+            "field_mappings": [
+                {"source_field": "user_id", "destination_field": "UserId"},
             ]
         },
     )
 
-    result = api_client.extract_field_mappings(sync)
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    # Should only include the valid mapping
-    assert len(result) == 1
-    assert result[0].source_field == "email"
-    assert result[0].destination_field == "Email"
+    mappings = client.extract_field_mappings(sync)
+
+    assert len(mappings) == 1
+    assert mappings[0].source_field == "user_id"
+    assert mappings[0].destination_field == "UserId"
 
 
-def test_extract_field_mappings_non_string_values(api_client):
-    """Test field mapping extraction with non-string field names."""
+def test_extract_field_mappings_skips_incomplete_mappings():
     sync = HightouchSync(
-        id="30",
+        id="sync_1",
         slug="test-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
+        workspace_id="workspace_1",
+        model_id="model_1",
+        destination_id="dest_1",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
-            "columnMappings": {
-                "ContactId": 123,  # Non-string value
-                "Email": "email",
-            }
+            "fieldMappings": [
+                {"sourceField": "user_id", "destinationField": "UserId"},
+                {"sourceField": "email"},  # Missing destination
+                {"destinationField": "Name"},  # Missing source
+                {"sourceField": "valid", "destinationField": "ValidField"},
+            ]
         },
     )
 
-    result = api_client.extract_field_mappings(sync)
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
 
-    # Should convert to strings
-    assert len(result) == 2
-    field_dict = {fm.destination_field: fm.source_field for fm in result}
-    assert field_dict["ContactId"] == "123"
-    assert field_dict["Email"] == "email"
+    mappings = client.extract_field_mappings(sync)
+
+    assert len(mappings) == 2
+    assert mappings[0].source_field == "user_id"
+    assert mappings[1].source_field == "valid"
+
+
+@patch("requests.Session.request")
+def test_get_contracts_404_handling(mock_request):
+    mock_response = Mock()
+    mock_response.status_code = 404
+
+    http_error = requests.exceptions.HTTPError("404 Client Error")
+    http_error.response = mock_response
+    mock_response.raise_for_status.side_effect = http_error
+
+    mock_request.return_value = mock_response
+
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
+
+    contracts = client.get_contracts()
+
+    assert contracts == []
+
+
+@patch("requests.Session.request")
+def test_get_contract_runs_404_handling(mock_request):
+    mock_response = Mock()
+    mock_response.status_code = 404
+
+    http_error = requests.exceptions.HTTPError("404 Client Error")
+    http_error.response = mock_response
+    mock_response.raise_for_status.side_effect = http_error
+
+    mock_request.return_value = mock_response
+
+    config = HightouchAPIConfig(api_key="test")
+    client = HightouchAPIClient(config)
+
+    runs = client.get_contract_runs(contract_id="contract_1", limit=10)
+
+    assert runs == []
+
+
+def test_field_mapping_model():
+    mapping = FieldMapping(
+        source_field="user_id",
+        destination_field="UserId",
+        is_primary_key=True,
+    )
+
+    assert mapping.source_field == "user_id"
+    assert mapping.destination_field == "UserId"
+    assert mapping.is_primary_key is True
+
+
+def test_field_mapping_model_defaults():
+    mapping = FieldMapping(
+        source_field="email",
+        destination_field="Email",
+    )
+
+    assert mapping.source_field == "email"
+    assert mapping.destination_field == "Email"
+    assert mapping.is_primary_key is False

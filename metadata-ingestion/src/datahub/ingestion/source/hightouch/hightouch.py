@@ -8,6 +8,11 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
+    ContainerKey,
+    add_dataset_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -24,7 +29,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.hightouch.config import (
     Constant,
     HightouchSourceConfig,
@@ -83,6 +91,23 @@ from datahub.sql_parsing.sqlglot_lineage import (
 logger = logging.getLogger(__name__)
 
 
+class WorkspaceKey(ContainerKey):
+    workspace_id: str
+
+
+class FolderKey(ContainerKey):
+    folder_id: str
+    workspace_id: str
+
+
+def normalize_column_name(name: str) -> str:
+    """
+    Normalize column name for fuzzy matching.
+    Converts to lowercase and removes underscores/hyphens.
+    """
+    return name.lower().replace("_", "").replace("-", "")
+
+
 @platform_name("Hightouch")
 @config_class(HightouchSourceConfig)
 @support_status(SupportStatus.TESTING)
@@ -130,6 +155,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         self._models_cache: Dict[str, HightouchModel] = {}
         self._destinations_cache: Dict[str, HightouchDestination] = {}
         self._users_cache: Dict[str, HightouchUser] = {}
+        self._emitted_containers: set = set()
 
         self._urn_builder = HightouchUrnBuilder(self)
 
@@ -232,6 +258,84 @@ class HightouchSource(StatefulIngestionSourceBase):
             destination_details.env = self.config.env
 
         return destination_details
+
+    def _generate_workspace_container(
+        self, workspace_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.extract_workspaces_to_containers:
+            return
+
+        container_key = WorkspaceKey(
+            workspace_id=workspace_id,
+            platform=HIGHTOUCH_PLATFORM,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        if container_key.guid() in self._emitted_containers:
+            return
+
+        container_workunits = gen_containers(
+            container_key=container_key,
+            name=f"Workspace {workspace_id}",
+            sub_types=[str(BIContainerSubTypes.HIGHTOUCH_WORKSPACE)],
+            extra_properties={
+                "workspace_id": workspace_id,
+                "platform": HIGHTOUCH_PLATFORM,
+            },
+        )
+
+        for workunit in container_workunits:
+            self._emitted_containers.add(container_key.guid())
+            self.report.workspaces_emitted += 1
+            yield workunit
+
+    def _generate_folder_container(
+        self,
+        folder_id: str,
+        workspace_id: str,
+        parent_container_key: Optional[ContainerKey] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.extract_workspaces_to_containers:
+            return
+
+        container_key = FolderKey(
+            folder_id=folder_id,
+            workspace_id=workspace_id,
+            platform=HIGHTOUCH_PLATFORM,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        if container_key.guid() in self._emitted_containers:
+            return
+
+        container_workunits = gen_containers(
+            container_key=container_key,
+            name=f"Folder {folder_id}",
+            sub_types=[str(BIContainerSubTypes.HIGHTOUCH_FOLDER)],
+            parent_container_key=parent_container_key,
+            extra_properties={
+                "folder_id": folder_id,
+                "workspace_id": workspace_id,
+                "platform": HIGHTOUCH_PLATFORM,
+            },
+        )
+
+        for workunit in container_workunits:
+            self._emitted_containers.add(container_key.guid())
+            self.report.folders_emitted += 1
+            yield workunit
+
+    def _add_entity_to_container(
+        self, entity_urn: str, container_key: ContainerKey
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.extract_workspaces_to_containers:
+            return
+
+        container_workunits = add_dataset_to_container(container_key, entity_urn)
+        for workunit in container_workunits:
+            yield workunit
 
     def _parse_model_sql_lineage(
         self,
@@ -466,27 +570,31 @@ class HightouchSource(StatefulIngestionSourceBase):
                     custom_properties["sql_parsed"] = "true"
                     custom_properties["upstream_tables_count"] = "0"
             elif model.query_type == "table" and model.name:
-                table_name = model.name
+                if not self.config.emit_models_on_source_platform:
+                    table_name = model.name
 
-                if source.configuration:
-                    database = source.configuration.get("database", "")
-                    schema = source.configuration.get("schema", "")
+                    if source.configuration:
+                        database = source.configuration.get("database", "")
+                        schema = source.configuration.get("schema", "")
 
-                    source_details = self._urn_builder._get_cached_source_details(
-                        source
+                        source_details = self._urn_builder._get_cached_source_details(
+                            source
+                        )
+
+                        if source_details.include_schema_in_urn and schema:
+                            table_name = f"{database}.{schema}.{table_name}"
+                        elif database and "." not in table_name:
+                            table_name = f"{database}.{table_name}"
+
+                    upstream_urn = self._urn_builder.make_upstream_table_urn(
+                        table_name, source
                     )
-
-                    if source_details.include_schema_in_urn and schema:
-                        table_name = f"{database}.{schema}.{table_name}"
-                    elif database and "." not in table_name:
-                        table_name = f"{database}.{table_name}"
-
-                upstream_urn = self._urn_builder.make_upstream_table_urn(
-                    table_name, source
-                )
-                dataset.set_upstreams([upstream_urn])
-                custom_properties["table_lineage"] = "true"
-                custom_properties["upstream_table"] = table_name
+                    dataset.set_upstreams([upstream_urn])
+                    custom_properties["table_lineage"] = "true"
+                    custom_properties["upstream_table"] = table_name
+                else:
+                    custom_properties["sibling_of_table"] = model.name
+                    custom_properties["model_type"] = "table_reference"
 
         dataset.set_custom_properties(custom_properties)
 
@@ -500,6 +608,46 @@ class HightouchSource(StatefulIngestionSourceBase):
             display_name=sync.slug,
             platform_instance=self.config.platform_instance,
         )
+
+    def _normalize_and_match_column(
+        self,
+        source_field: str,
+        destination_field: str,
+        model_schema: Optional[List[str]] = None,
+        dest_schema: Optional[List[str]] = None,
+    ) -> tuple[str, str]:
+        """
+        Normalize and validate column names for lineage, attempting fuzzy matching.
+
+        Returns: (validated_source_field, validated_destination_field)
+        """
+        if not model_schema and not dest_schema:
+            return (source_field, destination_field)
+
+        validated_source = source_field
+        validated_dest = destination_field
+
+        if model_schema:
+            normalized_source = normalize_column_name(source_field)
+            for schema_field in model_schema:
+                if normalize_column_name(schema_field) == normalized_source:
+                    validated_source = schema_field
+                    logger.debug(
+                        f"Fuzzy matched source field '{source_field}' to schema field '{schema_field}'"
+                    )
+                    break
+
+        if dest_schema:
+            normalized_dest = normalize_column_name(destination_field)
+            for schema_field in dest_schema:
+                if normalize_column_name(schema_field) == normalized_dest:
+                    validated_dest = schema_field
+                    logger.debug(
+                        f"Fuzzy matched destination field '{destination_field}' to schema field '{schema_field}'"
+                    )
+                    break
+
+        return (validated_source, validated_dest)
 
     def _get_inlet_urn_for_model(
         self, model: HightouchModel, sync: HightouchSync
@@ -595,20 +743,53 @@ class HightouchSource(StatefulIngestionSourceBase):
             inlet_urn = inlets[0] if inlets else None
 
             if field_mappings and inlet_urn:
+                model_schema_fields = None
+                dest_schema_fields = None
+
+                if self.graph:
+                    try:
+                        model_schema_metadata = self.graph.get_schema_metadata(
+                            str(inlet_urn)
+                        )
+                        if model_schema_metadata and model_schema_metadata.fields:
+                            model_schema_fields = [
+                                f.fieldPath for f in model_schema_metadata.fields
+                            ]
+                    except Exception as e:
+                        logger.debug(
+                            f"Could not fetch model schema for column matching: {e}"
+                        )
+
+                    try:
+                        dest_schema_metadata = self.graph.get_schema_metadata(
+                            str(outlet_urn)
+                        )
+                        if dest_schema_metadata and dest_schema_metadata.fields:
+                            dest_schema_fields = [
+                                f.fieldPath for f in dest_schema_metadata.fields
+                            ]
+                    except Exception as e:
+                        logger.debug(
+                            f"Could not fetch destination schema for column matching: {e}"
+                        )
+
                 for mapping in field_mappings:
+                    source_field, dest_field = self._normalize_and_match_column(
+                        mapping.source_field,
+                        mapping.destination_field,
+                        model_schema_fields,
+                        dest_schema_fields,
+                    )
+
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
-                                make_schema_field_urn(
-                                    str(inlet_urn), mapping.source_field
-                                )
+                                make_schema_field_urn(str(inlet_urn), source_field)
                             ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[
-                                make_schema_field_urn(
-                                    str(outlet_urn), mapping.destination_field
-                                )
+                                make_schema_field_urn(str(outlet_urn), dest_field)
                             ],
                         )
                     )
@@ -777,6 +958,52 @@ class HightouchSource(StatefulIngestionSourceBase):
         ):
             yield mcp.as_workunit()
 
+    def _emit_model_aspects(
+        self, model: HightouchModel, model_dataset: Dataset
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit all aspects for a model dataset (subtypes, view properties, tags).
+        This ensures consistency whether the model is emitted standalone or as part of a sync.
+        """
+        dataset_urn = str(model_dataset.urn)
+
+        subtypes: List[str] = [str(DatasetSubTypes.HIGHTOUCH_MODEL)]
+        if model.raw_sql:
+            subtypes.append(str(DatasetSubTypes.VIEW))
+        elif model.query_type == "table":
+            subtypes.append(str(DatasetSubTypes.TABLE))
+        else:
+            subtypes.append(str(DatasetSubTypes.VIEW))
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=subtypes),
+        ).as_workunit()
+
+        if model.raw_sql:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage="SQL",
+                    viewLogic=model.raw_sql,
+                ),
+            ).as_workunit()
+
+        if model.tags:
+            tags_to_emit = [
+                TagAssociationClass(tag=f"urn:li:tag:ht_{key}_{value}")
+                for key, value in model.tags.items()
+                if key and value
+            ]
+            if tags_to_emit:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=GlobalTagsClass(tags=tags_to_emit),
+                ).as_workunit()
+                self.report.tags_emitted += len(tags_to_emit)
+                logger.debug(f"Emitted {len(tags_to_emit)} tags for model {model.slug}")
+
     def _get_sync_workunits(
         self, sync: HightouchSync
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
@@ -791,6 +1018,7 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
                 self.report.report_models_emitted()
                 yield model_dataset
+                yield from self._emit_model_aspects(model, model_dataset)
 
         destination = self._get_destination(sync.destination_id)
         if destination:
@@ -834,41 +1062,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         self.report.report_models_emitted()
         yield model_dataset
 
-        if model.raw_sql:
-            dataset_urn = str(model_dataset.urn)
-
-            subtypes: List[str] = [str(DatasetSubTypes.VIEW)]
-            if model.query_type != "raw_sql":
-                subtypes.append(f"Hightouch {model.query_type}")
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=subtypes),
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=ViewPropertiesClass(
-                    materialized=False,
-                    viewLanguage="SQL",
-                    viewLogic=model.raw_sql,
-                ),
-            ).as_workunit()
-
-        if model.tags:
-            dataset_urn = str(model_dataset.urn)
-            tags_to_emit = [
-                TagAssociationClass(tag=f"urn:li:tag:ht_{key}_{value}")
-                for key, value in model.tags.items()
-                if key and value
-            ]
-            if tags_to_emit:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=GlobalTagsClass(tags=tags_to_emit),
-                ).as_workunit()
-                self.report.tags_emitted += len(tags_to_emit)
-                logger.debug(f"Emitted {len(tags_to_emit)} tags for model {model.slug}")
+        yield from self._emit_model_aspects(model, model_dataset)
 
     def get_workunits_internal(
         self,

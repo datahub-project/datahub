@@ -92,6 +92,8 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     column_lineage_emitted: int = 0
     tags_emitted: int = 0
     folders_processed: int = 0
+    workspaces_emitted: int = 0
+    folders_emitted: int = 0
 
     def report_syncs_scanned(self, count: int = 1) -> None:
         self.syncs_scanned += count
@@ -225,6 +227,13 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         "their source tables, similar to how Trino/Presto views are represented, creating more natural lineage. "
         "Set to false to emit models on a separate 'hightouch' platform if you prefer namespace isolation. "
         "When enabled, ensure sources_to_platform_instance is configured to match your warehouse connector settings.",
+    )
+
+    extract_workspaces_to_containers: bool = Field(
+        default=True,
+        description="Whether to extract Hightouch workspaces as DataHub containers. "
+        "When enabled, models and syncs are organized under workspace containers, providing hierarchical navigation. "
+        "Models with folder assignments are nested under folder containers within their workspace.",
     )
 
     # Configuration for stateful ingestion
