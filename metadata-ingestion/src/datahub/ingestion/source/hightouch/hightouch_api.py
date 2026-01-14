@@ -1,5 +1,6 @@
 """Client for interacting with the Hightouch REST API"""
 
+import json
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -66,14 +67,8 @@ class HightouchAPIClient:
             response.raise_for_status()
             result = response.json()
 
-            # Log response for debugging (truncate if very large)
-            result_str = str(result)
-            if len(result_str) > 1000:
-                logger.debug(
-                    f"API response from {endpoint}: {result_str[:1000]}... (truncated, total length: {len(result_str)})"
-                )
-            else:
-                logger.debug(f"API response from {endpoint}: {result_str}")
+            # Log full response for debugging (no truncation)
+            logger.debug(f"API response from {endpoint}: {json.dumps(result)}")
 
             return result
         except requests.exceptions.RequestException as e:

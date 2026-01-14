@@ -1676,3 +1676,71 @@ def test_outlet_urn_priority_of_config_keys(
     assert "correct_table" in str(outlet_urn)
     assert "wrong_table" not in str(outlet_urn)
     assert "wrong_object" not in str(outlet_urn)
+
+
+def test_model_raw_sql_extraction_from_nested_object():
+    """Test that raw_sql is correctly extracted from nested 'raw' object"""
+    # This is the actual format returned by Hightouch API
+    model_data = {
+        "id": "123",
+        "name": "Test Model",
+        "slug": "test-model",
+        "workspaceId": "456",
+        "sourceId": "789",
+        "queryType": "raw_sql",
+        "createdAt": "2023-01-01T00:00:00Z",
+        "updatedAt": "2023-01-02T00:00:00Z",
+        "primaryKey": "id",
+        "isSchema": False,
+        "raw": {"sql": "SELECT * FROM table WHERE id = 1"},
+    }
+
+    model = HightouchModel.model_validate(model_data)
+
+    assert model.raw_sql is not None
+    assert model.raw_sql == "SELECT * FROM table WHERE id = 1"
+    assert model.query_type == "raw_sql"
+
+
+def test_model_raw_sql_direct_field():
+    """Test that raw_sql works with direct rawSql field (if API ever returns it that way)"""
+    model_data = {
+        "id": "123",
+        "name": "Test Model",
+        "slug": "test-model",
+        "workspaceId": "456",
+        "sourceId": "789",
+        "queryType": "raw_sql",
+        "createdAt": "2023-01-01T00:00:00Z",
+        "updatedAt": "2023-01-02T00:00:00Z",
+        "primaryKey": "id",
+        "isSchema": False,
+        "rawSql": "SELECT * FROM table WHERE id = 2",
+    }
+
+    model = HightouchModel.model_validate(model_data)
+
+    assert model.raw_sql is not None
+    assert model.raw_sql == "SELECT * FROM table WHERE id = 2"
+
+
+def test_model_without_raw_sql():
+    """Test that models without SQL (e.g., table type) work correctly"""
+    model_data = {
+        "id": "123",
+        "name": "Test Model",
+        "slug": "test-model",
+        "workspaceId": "456",
+        "sourceId": "789",
+        "queryType": "table",
+        "createdAt": "2023-01-01T00:00:00Z",
+        "updatedAt": "2023-01-02T00:00:00Z",
+        "primaryKey": "id",
+        "isSchema": False,
+        "table": {"name": "my_table"},
+    }
+
+    model = HightouchModel.model_validate(model_data)
+
+    assert model.raw_sql is None
+    assert model.query_type == "table"

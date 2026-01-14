@@ -24,6 +24,7 @@ from datahub.ingestion.api.source import (
     StructuredLogCategory,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.hightouch.config import (
     Constant,
     HightouchSourceConfig,
@@ -61,8 +62,10 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import AssertionUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
@@ -1120,6 +1123,32 @@ class HightouchSource(StatefulIngestionSourceBase):
         model_dataset = self._generate_model_dataset(model, source)
         self.report.report_models_emitted()
         yield model_dataset
+
+        # For models with raw SQL, emit view properties and subtypes
+        # This enables the SQL definition tab in the DataHub UI
+        if model.raw_sql:
+            dataset_urn = str(model_dataset.urn)
+
+            # Emit SubTypes aspect - mark as VIEW (and include query_type as secondary subtype)
+            subtypes: List[str] = [str(DatasetSubTypes.VIEW)]
+            # Add query_type as a secondary subtype for context (e.g., "View", "Hightouch raw_sql")
+            if model.query_type != "raw_sql":
+                subtypes.append(f"Hightouch {model.query_type}")
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(typeNames=subtypes),
+            ).as_workunit()
+
+            # Emit ViewProperties aspect with SQL definition
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage="SQL",
+                    viewLogic=model.raw_sql,
+                ),
+            ).as_workunit()
 
     def get_workunits_internal(
         self,

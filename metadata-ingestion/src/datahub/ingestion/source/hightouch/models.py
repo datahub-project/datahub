@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class _HightouchBaseModel(BaseModel):
@@ -48,6 +48,23 @@ class HightouchModel(_HightouchBaseModel):
     query_schema: Optional[Union[str, Dict[str, Any], List[Any]]] = Field(
         default=None, alias="querySchema"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_raw_sql(cls, data: Any) -> Any:
+        """Extract SQL from nested 'raw' object if not already present in rawSql"""
+        if not isinstance(data, dict):
+            return data
+
+        # If rawSql is already present, no need to extract
+        if "rawSql" in data or "raw_sql" in data:
+            return data
+
+        # Extract SQL from nested 'raw' object
+        if "raw" in data and isinstance(data["raw"], dict) and "sql" in data["raw"]:
+            data["rawSql"] = data["raw"]["sql"]
+
+        return data
 
 
 class HightouchDestination(_HightouchBaseModel):
