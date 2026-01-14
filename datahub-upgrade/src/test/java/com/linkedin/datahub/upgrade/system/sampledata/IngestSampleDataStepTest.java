@@ -103,8 +103,8 @@ public class IngestSampleDataStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    // Verify ingestProposal was called with async=true
-    verify(mockEntityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), eq(true));
+    // Verify ingestProposal was called with async=false to ensure synchronous writes
+    verify(mockEntityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), eq(false));
   }
 
   @Test

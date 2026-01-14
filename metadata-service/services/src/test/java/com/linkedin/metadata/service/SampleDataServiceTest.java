@@ -13,6 +13,10 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.GlobalVisualSettings;
@@ -29,14 +33,39 @@ import org.testng.annotations.Test;
 public class SampleDataServiceTest {
 
   private SystemEntityClient mockEntityClient;
+  private EntitySearchService mockSearchService;
   private OperationContext mockOpContext;
   private SampleDataService service;
 
   @BeforeMethod
   public void setup() {
     mockEntityClient = mock(SystemEntityClient.class);
+    mockSearchService = mock(EntitySearchService.class);
     mockOpContext = mock(OperationContext.class);
-    service = new SampleDataService(mockEntityClient);
+
+    // Mock EntityRegistry to return empty entity specs (no URNs have status support)
+    // This makes getSampleDataUrnsWithStatus() return an empty set,
+    // which causes the ES sync check to pass immediately (no URNs to verify)
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec(anyString())).thenReturn(null);
+
+    // Mock EntitySearchService - still needed for other operations
+    ScrollResult emptyScrollResult = new ScrollResult();
+    emptyScrollResult.setEntities(new SearchEntityArray());
+    emptyScrollResult.setNumEntities(0);
+    when(mockSearchService.structuredScroll(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anyInt()))
+        .thenReturn(emptyScrollResult);
+
+    service = new SampleDataService(mockEntityClient, mockSearchService, null, null);
   }
 
   @Test

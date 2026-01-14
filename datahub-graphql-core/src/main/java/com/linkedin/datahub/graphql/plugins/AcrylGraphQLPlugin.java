@@ -400,7 +400,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureAssertionResolvers(builder, baseEngine);
     configureActionWorkflowResolvers(builder, baseEngine);
     configureAiConversationResolvers(builder, baseEngine);
-    configureSampleDataResolvers(builder);
+    configureSampleDataMutationResolver(builder);
   }
 
   private void configureMutationResolvers(
@@ -1384,7 +1384,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     agentConversationResolvers.configureResolvers(builder);
   }
 
-  private void configureSampleDataResolvers(final RuntimeWiring.Builder builder) {
+  private void configureSampleDataMutationResolver(final RuntimeWiring.Builder builder) {
     if (sampleDataService != null) {
       builder.type(
           "Mutation",

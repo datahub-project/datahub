@@ -36,10 +36,15 @@ type Props = {
 };
 
 export const LogoCountCard = ({ logoUrl, logoComponent, name, count, onClick }: Props) => {
+    // Ensure logo URL is absolute (starts with /) for correct resolution on all pages
+    const absoluteLogoUrl =
+        logoUrl && !logoUrl.startsWith('/') && !logoUrl.startsWith('http') ? `/${logoUrl}` : logoUrl;
+
     return (
         <HomePageButton type="link" onClick={onClick}>
             <LogoContainer>
-                {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
+                {(absoluteLogoUrl && <PlatformLogo preview={false} src={absoluteLogoUrl} alt={name} />) ||
+                    logoComponent}
             </LogoContainer>
             <TitleContainer>
                 <Title

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.system.sampledata;
 
-import static com.linkedin.gms.factory.statistics.OrderDetailsStatisticsGenerator.ORDER_DETAILS_DATASET_URN;
 import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
@@ -100,20 +99,6 @@ public class GenerateOrderDetailsStatisticsStep implements UpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
-    // Check if dataset exists (more robust than checking upgrade record)
-    try {
-      Urn datasetUrn = Urn.createFromString(ORDER_DETAILS_DATASET_URN);
-      if (!entityService.exists(systemOpContext, datasetUrn, true)) {
-        log.info(
-            "order_details dataset not found ({}). Skipping stats generation.",
-            ORDER_DETAILS_DATASET_URN);
-        return true;
-      }
-    } catch (Exception e) {
-      log.warn("Failed to check if order_details dataset exists: {}", e.getMessage());
-      return true;
-    }
-
     if (reprocessEnabled) {
       log.info("GenerateOrderDetailsStatistics reprocess enabled. Running.");
       return false;

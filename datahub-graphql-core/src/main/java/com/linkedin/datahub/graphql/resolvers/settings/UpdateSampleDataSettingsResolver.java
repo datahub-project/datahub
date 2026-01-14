@@ -55,15 +55,13 @@ public class UpdateSampleDataSettingsResolver implements DataFetcher<Completable
             // Only take action if the value is actually changing
             if (newEnabledValue != currentEnabledValue) {
               log.info(
-                  "Updating sample data setting from {} to {}",
+                  "Attempting to update sample data setting from {} to {}",
                   currentEnabledValue,
                   newEnabledValue);
 
-              // Update the setting immediately
-              _sampleDataService.updateSampleDataSetting(
-                  context.getOperationContext(), newEnabledValue);
-
-              // Trigger async soft-delete or restore
+              // Trigger async soft-delete or restore FIRST
+              // If this throws IllegalStateException (operation in progress),
+              // we don't update the setting, keeping toggle state accurate
               if (newEnabledValue) {
                 log.info("Triggering async restore of sample data entities");
                 _sampleDataService.restoreSampleDataAsync(context.getOperationContext());
@@ -71,6 +69,11 @@ public class UpdateSampleDataSettingsResolver implements DataFetcher<Completable
                 log.info("Triggering async soft-delete of sample data entities");
                 _sampleDataService.softDeleteSampleDataAsync(context.getOperationContext());
               }
+
+              // Update the setting AFTER successfully kicking off async operation
+              _sampleDataService.updateSampleDataSetting(
+                  context.getOperationContext(), newEnabledValue);
+              log.info("Updated sample data setting to {}", newEnabledValue);
             } else {
               log.info("Sample data setting unchanged (already {}), skipping", newEnabledValue);
             }

@@ -1,6 +1,6 @@
 import '@app/settingsV2/sample-data-notification.less';
 
-import { Card, Icon, PageTitle, Pill, Switch, Text, colors } from '@components';
+import { Card, Icon, Loader, PageTitle, Pill, Switch, Text, colors } from '@components';
 import { message, notification } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -121,6 +121,7 @@ export const Preferences = () => {
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
     const [updateSampleDataSettingsMutation] = useUpdateSampleDataSettingsMutation();
+    const [isSampleDataToggleLoading, setIsSampleDataToggleLoading] = useState(false);
 
     const showSimplifiedHomepageSetting = !isThemeV2;
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -191,49 +192,71 @@ export const Preferences = () => {
                                     Ask DataHub, and everywhere else.
                                 </DescriptionText>
                             </TextContainer>
-                            <Switch
-                                label=""
-                                checked={sampleDataEnabled}
-                                onChange={async () => {
-                                    const newEnabled = !sampleDataEnabled;
-                                    await updateSampleDataSettingsMutation({
-                                        variables: {
-                                            input: {
-                                                enabled: newEnabled,
-                                            },
-                                        },
-                                    });
-                                    notification.open({
-                                        message: (
-                                            <Text color="violet" colorLevel={500} weight="semiBold">
-                                                Sample data {newEnabled ? 'enabled' : 'disabled'}. Changes may take a
-                                                few minutes.
-                                            </Text>
-                                        ),
-                                        icon: (
-                                            <Icon
-                                                icon="MegaphoneSimple"
-                                                weight="fill"
-                                                source="phosphor"
-                                                color="violet"
-                                            />
-                                        ),
-                                        closeIcon: (
-                                            <Icon
-                                                icon="X"
-                                                source="phosphor"
-                                                color="violet"
-                                                colorLevel={500}
-                                                size="lg"
-                                            />
-                                        ),
-                                        style: { backgroundColor: colors.violet[0], borderRadius: 8, width: 510 },
-                                        duration: 4,
-                                        placement: 'top',
-                                    });
-                                    refetchGlobalSettings?.();
-                                }}
-                            />
+                            {isSampleDataToggleLoading ? (
+                                <div style={{ width: '44px', display: 'flex', justifyContent: 'center' }}>
+                                    <Loader size="sm" />
+                                </div>
+                            ) : (
+                                <Switch
+                                    label=""
+                                    checked={sampleDataEnabled}
+                                    onChange={async () => {
+                                        const newEnabled = !sampleDataEnabled;
+                                        setIsSampleDataToggleLoading(true);
+                                        try {
+                                            await updateSampleDataSettingsMutation({
+                                                variables: {
+                                                    input: {
+                                                        enabled: newEnabled,
+                                                    },
+                                                },
+                                            });
+                                            notification.open({
+                                                message: (
+                                                    <Text color="violet" colorLevel={500} weight="semiBold">
+                                                        Sample data {newEnabled ? 'enabled' : 'disabled'}. Changes may
+                                                        take a few minutes.
+                                                    </Text>
+                                                ),
+                                                icon: (
+                                                    <Icon
+                                                        icon="MegaphoneSimple"
+                                                        weight="fill"
+                                                        source="phosphor"
+                                                        color="violet"
+                                                    />
+                                                ),
+                                                closeIcon: (
+                                                    <Icon
+                                                        icon="X"
+                                                        source="phosphor"
+                                                        color="violet"
+                                                        colorLevel={500}
+                                                        size="lg"
+                                                    />
+                                                ),
+                                                style: {
+                                                    backgroundColor: colors.violet[0],
+                                                    borderRadius: 8,
+                                                    width: 510,
+                                                },
+                                                duration: 4,
+                                                placement: 'top',
+                                            });
+                                            refetchGlobalSettings?.();
+                                        } catch (error: any) {
+                                            notification.error({
+                                                message: 'Failed to update sample data setting',
+                                                description: error?.message || 'Please try again in a few moments.',
+                                                duration: 5,
+                                                placement: 'top',
+                                            });
+                                        } finally {
+                                            setIsSampleDataToggleLoading(false);
+                                        }
+                                    }}
+                                />
+                            )}
                         </UserSettingRow>
                     </StyledCard>
                 )}

@@ -169,7 +169,12 @@ public class IngestSampleDataStep implements UpgradeStep {
                             .mcps(batch, auditStamp, context.opContext().getRetrieverContext())
                             .build(context.opContext());
 
-                    entityService.ingestProposal(context.opContext(), aspectsBatch, true);
+                    // Use async=false to ensure data is written to MySQL before returning
+                    // This is critical so GenerateOrderDetailsStatisticsStep can immediately find
+                    // the data
+                    // With async=true, data goes to Kafka but MySQL write happens later via MAE
+                    // consumer
+                    entityService.ingestProposal(context.opContext(), aspectsBatch, false);
 
                     batchesProcessed.incrementAndGet();
                     log.info(
