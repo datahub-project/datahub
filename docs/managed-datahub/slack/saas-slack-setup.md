@@ -29,7 +29,7 @@ The following steps should be performed by a Slack Workspace Admin.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_3.png"/>
 </p>
-5. Navigate back to your DataHub [Slack Integration setup page](https://longtailcompanions.acryl.io/settings/integrations/slack), and paste the tokens into their respective boxes, and click **'Connect'**.
+5. Navigate back to your DataHub Slack Integration setup page, and paste the tokens into their respective boxes, and click **'Connect'**.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_4.png"/>
 </p>

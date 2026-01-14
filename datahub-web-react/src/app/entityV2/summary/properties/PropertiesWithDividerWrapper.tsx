@@ -12,7 +12,9 @@ export default function PropertiesWithDividerWrapper() {
 
     // Do not show properties section at all when there are no properties
     // and the current user has no permissions to manage properties.
-    if (!summaryElements?.length && !isTemplateEditable) return null;
+    if (!summaryElements?.length && !isTemplateEditable) {
+        return null;
+    }
 
     return (
         <>

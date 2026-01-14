@@ -239,6 +239,34 @@ When you delete a Test, it may take up to 2 minutes for changes to be reflected.
 - [createTest](../../graphql/mutations.md#createtest)
 - [deleteTest](../../graphql/mutations.md#deletetest)
 
+## Performance Tuning for Batch Evaluation
+
+This section covers performance considerations for scheduled batch evaluation of Metadata Tests.
+
+### Batch Processing Architecture
+
+The batch evaluation job runs in the `datahub-upgrade` container with direct local access to `EntityService` and `EntitySearchService`. Test results and actions are written asynchronously to Kafka, then processed by the MCE Consumer (embedded in GMS by default) which writes to the database.
+
+### When ElasticSearch Executor is Used
+
+- Enabled by default (`METADATA_TESTS_ELASTICSEARCH_EXECUTOR_ENABLED=true`)
+- Used when test selection criteria and rules can be expressed as ElasticSearch queries
+- Provides faster evaluation for large entity counts
+- Falls back to SQL queries via local EntityService for unsupported predicates
+
+### Key Configuration Variable
+
+The primary performance tuning parameter is **`METADATA_TESTS_ACTIONS_CONCURRENCY`** (default: `2`), which controls the number of threads generating action MCPs. Increasing this value allows more actions to be produced in parallel, improving throughput when processing large numbers of test results.
+
+### Scaling Recommendations
+
+Since test evaluation uses local services, the bottleneck is MCE Consumer throughput processing async writes from Kafka. To scale effectively:
+
+- Adequate Kafka partition count on `MetadataChangeProposal_v1` topic
+- Sufficient MCE consumer capacity (embedded or standalone)
+
+For standalone MCE/MAE consumer deployment and Kafka configuration, see [Configuring Kafka](../how/kafka-config.md). For complete environment variable reference, see [Environment Variables](../deploy/environment-vars.md#component-configuration).
+
 ## FAQ and Troubleshooting
 
 **When are Metadata Tests evaluated?**

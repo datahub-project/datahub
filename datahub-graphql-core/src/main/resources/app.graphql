@@ -835,6 +835,11 @@ type FeatureFlagsConfig {
   datasetSummaryPageV1: Boolean!
 
   """
+  Enables displaying the ingestion onboarding redesign
+  """
+  ingestionOnboardingRedesignV1: Boolean!
+
+  """
   If enabled, allows uploading of files for documentation.
   """
   documentationFileUploadV1: Boolean!

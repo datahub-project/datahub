@@ -30,14 +30,20 @@ import {
     COLUMN_PROFILING_ENABLED,
     DATABASE_ALLOW,
     DATABASE_DENY,
+    ENV,
     EXTRACT_OWNERS,
     EXTRACT_USAGE_HISTORY,
+    FieldType,
+    FilterRecipeField,
     INCLUDE_LINEAGE,
     INCLUDE_TABLES,
     INCLUDE_TABLE_LINEAGE,
     INCLUDE_VIEWS,
     INGEST_OWNER,
     INGEST_TAGS,
+    PROFILING_ENABLED,
+    PROFILING_TABLE_LEVEL_ONLY,
+    REMOVE_STALE_METADATA_ENABLED,
     RecipeField,
     SCHEMA_ALLOW,
     SCHEMA_DENY,
@@ -83,6 +89,40 @@ import {
     NAMESPACE_ALLOW,
     NAMESPACE_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/hbase';
+import {
+    DREMIO,
+    DREMIO_AUTHENTICATION_METHOD,
+    DREMIO_DREMIO_CLOUD_PROJECT_ID,
+    DREMIO_DREMIO_CLOUD_REGION,
+    DREMIO_HOSTNAME,
+    DREMIO_INCLUDE_QUERY_LINEAGE,
+    DREMIO_INGEST_OWNER,
+    DREMIO_IS_DREMIO_CLOUD,
+    DREMIO_PASSWORD,
+    DREMIO_PLATFORM_INSTANCE,
+    DREMIO_PORT,
+    DREMIO_PROFILE_ALLOW,
+    DREMIO_PROFILE_DENY,
+    DREMIO_TLS,
+    DREMIO_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/dremio';
+import {
+    GLUE,
+    GLUE_AWS_ACCESS_KEY_ID,
+    GLUE_AWS_AUTHORIZATION_METHOD,
+    GLUE_AWS_REGION,
+    GLUE_AWS_ROLE,
+    GLUE_AWS_SECRET_ACCESS_KEY,
+    GLUE_AWS_SESSION_TOKEN,
+    GLUE_CATALOG_ID,
+    GLUE_EMIT_S3_LINEAGE,
+    GLUE_EXTRACT_OWNERS,
+    GLUE_EXTRACT_TRANSFORMS,
+    GLUE_INCLUDE_COLUMN_LINEAGE,
+    GLUE_PLATFORM_INSTANCE,
+    GLUE_PROFILING_ENABLED,
+    GLUE_REMOVE_STALE_METADATA_ENABLED,
+} from '@app/ingestV2/source/builder/RecipeForm/glue';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
@@ -143,14 +183,31 @@ import {
     INGEST_USERS,
     OKTA_API_TOKEN,
     OKTA_DOMAIN_URL,
-    POFILE_TO_GROUP,
-    POFILE_TO_GROUP_REGX_ALLOW,
-    POFILE_TO_GROUP_REGX_DENY,
-    POFILE_TO_USER,
-    POFILE_TO_USER_REGX_ALLOW,
-    POFILE_TO_USER_REGX_DENY,
+    PROFILE_TO_GROUP,
+    PROFILE_TO_GROUP_REGX_ALLOW,
+    PROFILE_TO_GROUP_REGX_DENY,
+    PROFILE_TO_USER,
+    PROFILE_TO_USER_REGEX_DENY,
+    PROFILE_TO_USER_REGX_ALLOW,
     SKIP_USERS_WITHOUT_GROUP,
 } from '@app/ingestV2/source/builder/RecipeForm/okta';
+import {
+    ORACLE,
+    ORACLE_CONVERT_URNS_TO_LOWERCASE,
+    ORACLE_DATABASE,
+    ORACLE_EXTRACT_USAGE_HISTORY,
+    ORACLE_HOST_PORT,
+    ORACLE_IDENTIFIER,
+    ORACLE_INCLUDE_TABLES,
+    ORACLE_INCLUDE_VIEWS,
+    ORACLE_INCLUDE_VIEW_COLUMN_LINEAGE,
+    ORACLE_INCLUDE_VIEW_LINEAGE,
+    ORACLE_PASSWORD,
+    ORACLE_PLATFORM_INSTANCE,
+    ORACLE_PROFILING_ENABLED,
+    ORACLE_SERVICE_NAME,
+    ORACLE_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/oracle';
 import {
     POSTGRES_DATABASE,
     POSTGRES_HOST_PORT,
@@ -271,14 +328,37 @@ export enum RecipeSections {
 interface RecipeFields {
     [key: string]: {
         fields: RecipeField[];
-        filterFields: RecipeField[];
+        filterFields: FilterRecipeField[];
         advancedFields: RecipeField[];
         connectionSectionTooltip?: string;
         filterSectionTooltip?: string;
         advancedSectionTooltip?: string;
         defaultOpenSections?: RecipeSections[];
+        hasDynamicFields?: boolean;
     };
 }
+
+export const PLATFORM: RecipeField = {
+    name: 'platform',
+    label: 'Platform',
+    helper: 'Data Platform ID in DataHub',
+    tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
+    type: FieldType.TEXT,
+    fieldPath: 'platform',
+    placeholder: 'snowflake',
+    rules: [{ required: true, message: 'Platform is required' }],
+};
+
+export const DEFAULT_DB: RecipeField = {
+    name: 'default_db',
+    label: 'Default Database',
+    helper: 'Database for assets from connection',
+    tooltip: 'The Database associated with assets from the Looker connection.',
+    type: FieldType.TEXT,
+    fieldPath: 'default_db',
+    placeholder: 'default_db',
+    rules: [{ required: true, message: 'Default Database is required' }],
+};
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
@@ -564,12 +644,12 @@ export const RECIPE_FIELDS: RecipeFields = {
         advancedFields: [CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_WRITE_SEMANTICS],
     },
     [OKTA]: {
-        fields: [OKTA_DOMAIN_URL, OKTA_API_TOKEN, POFILE_TO_USER, POFILE_TO_GROUP],
+        fields: [OKTA_DOMAIN_URL, OKTA_API_TOKEN, PROFILE_TO_USER, PROFILE_TO_GROUP],
         filterFields: [
-            POFILE_TO_USER_REGX_ALLOW,
-            POFILE_TO_USER_REGX_DENY,
-            POFILE_TO_GROUP_REGX_ALLOW,
-            POFILE_TO_GROUP_REGX_DENY,
+            PROFILE_TO_USER_REGX_ALLOW,
+            PROFILE_TO_USER_REGEX_DENY,
+            PROFILE_TO_GROUP_REGX_ALLOW,
+            PROFILE_TO_GROUP_REGX_DENY,
         ],
         advancedFields: [
             INGEST_USERS,
@@ -596,8 +676,6 @@ export const RECIPE_FIELDS: RecipeFields = {
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],
         filterFields: [
-            INGEST_STORIES,
-            INGEST_APPLICATIONS,
             RESOURCE_ID_ALLOW,
             RESOURCE_ID_DENY,
             RESOURCE_NAME_ALLOW,
@@ -605,8 +683,92 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_ALLOW,
             FOLDER_DENY,
         ],
-        advancedFields: [STATEFUL_INGESTION_ENABLED],
+        advancedFields: [INGEST_STORIES, INGEST_APPLICATIONS, STATEFUL_INGESTION_ENABLED],
+    },
+    [GLUE]: {
+        fields: [
+            GLUE_AWS_REGION,
+            GLUE_AWS_AUTHORIZATION_METHOD,
+            GLUE_AWS_ACCESS_KEY_ID,
+            GLUE_AWS_SECRET_ACCESS_KEY,
+            GLUE_AWS_SESSION_TOKEN,
+            GLUE_AWS_ROLE,
+            GLUE_CATALOG_ID,
+        ],
+        filterFields: [DATABASE_ALLOW, DATABASE_DENY, TABLE_ALLOW, TABLE_DENY],
+        advancedFields: [
+            GLUE_PLATFORM_INSTANCE,
+            ENV,
+            GLUE_EXTRACT_OWNERS,
+            GLUE_EXTRACT_TRANSFORMS,
+            GLUE_EMIT_S3_LINEAGE,
+            GLUE_INCLUDE_COLUMN_LINEAGE,
+            GLUE_PROFILING_ENABLED,
+            PROFILING_TABLE_LEVEL_ONLY,
+            GLUE_REMOVE_STALE_METADATA_ENABLED,
+        ],
+        hasDynamicFields: true,
+    },
+    [ORACLE]: {
+        fields: [
+            ORACLE_HOST_PORT,
+            ORACLE_USERNAME,
+            ORACLE_PASSWORD,
+            ORACLE_IDENTIFIER,
+            ORACLE_DATABASE,
+            ORACLE_SERVICE_NAME,
+        ],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            ORACLE_PLATFORM_INSTANCE,
+            ENV,
+            ORACLE_INCLUDE_TABLES,
+            ORACLE_INCLUDE_VIEWS,
+            ORACLE_INCLUDE_VIEW_LINEAGE,
+            ORACLE_INCLUDE_VIEW_COLUMN_LINEAGE,
+            ORACLE_PROFILING_ENABLED,
+            PROFILING_TABLE_LEVEL_ONLY,
+            ORACLE_EXTRACT_USAGE_HISTORY,
+            ORACLE_CONVERT_URNS_TO_LOWERCASE,
+            REMOVE_STALE_METADATA_ENABLED,
+        ],
+        hasDynamicFields: true,
+    },
+    [DREMIO]: {
+        fields: [
+            DREMIO_IS_DREMIO_CLOUD,
+            DREMIO_DREMIO_CLOUD_REGION,
+            DREMIO_DREMIO_CLOUD_PROJECT_ID,
+            DREMIO_HOSTNAME,
+            DREMIO_PORT,
+            DREMIO_TLS,
+            DREMIO_AUTHENTICATION_METHOD,
+            DREMIO_USERNAME,
+            DREMIO_PASSWORD,
+        ],
+        filterFields: [
+            SCHEMA_ALLOW,
+            SCHEMA_DENY,
+            DATASET_ALLOW,
+            DATASET_DENY,
+            DREMIO_PROFILE_ALLOW,
+            DREMIO_PROFILE_DENY,
+        ],
+        advancedFields: [
+            DREMIO_PLATFORM_INSTANCE,
+            ENV,
+            DREMIO_INGEST_OWNER,
+            DREMIO_INCLUDE_QUERY_LINEAGE,
+            PROFILING_ENABLED,
+            PROFILING_TABLE_LEVEL_ONLY,
+            REMOVE_STALE_METADATA_ENABLED,
+        ],
+        hasDynamicFields: true,
     },
 };
 
-export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
+const ALL_CONNECTORS_WITH_FORM = Object.keys(RECIPE_FIELDS);
+export const CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS = new Set(ALL_CONNECTORS_WITH_FORM);
+export const CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS = new Set(
+    ALL_CONNECTORS_WITH_FORM.filter((sourceType) => !RECIPE_FIELDS[sourceType].hasDynamicFields),
+);
