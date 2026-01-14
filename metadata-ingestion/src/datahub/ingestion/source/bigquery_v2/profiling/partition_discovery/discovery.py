@@ -476,6 +476,7 @@ class PartitionDiscovery:
                 safe_table_ref,
                 execute_query_func,
                 result_values,
+                column_types,
             )
         )
 
@@ -565,7 +566,7 @@ class PartitionDiscovery:
 
                 result_values[col_name] = chosen_result.val
                 latest_date_filters.append(
-                    self._create_safe_filter(col_name, chosen_result.val)
+                    self._create_safe_filter(col_name, chosen_result.val, col_data_type)
                 )
                 self._log_partition_attempt(
                     "table query", table.name, [col_name], success=True
@@ -580,7 +581,12 @@ class PartitionDiscovery:
         return latest_date_filters
 
     def _process_date_components_hierarchically(
-        self, date_component_columns, safe_table_ref, execute_query_func, result_values
+        self,
+        date_component_columns,
+        safe_table_ref,
+        execute_query_func,
+        result_values,
+        column_types,
     ):
         """Process year/month/day components hierarchically to avoid invalid future dates."""
         active_date_components = {
@@ -602,6 +608,7 @@ class PartitionDiscovery:
                     safe_table_ref,
                     execute_query_func,
                     result_values,
+                    column_types,
                 )
             )
 
@@ -613,6 +620,7 @@ class PartitionDiscovery:
                     component_filters,
                     execute_query_func,
                     result_values,
+                    column_types,
                 )
             )
 
@@ -624,21 +632,28 @@ class PartitionDiscovery:
                     component_filters,
                     execute_query_func,
                     result_values,
+                    column_types,
                 )
             )
 
         return component_filters
 
     def _find_max_year(
-        self, year_col, safe_table_ref, execute_query_func, result_values
+        self,
+        year_col,
+        safe_table_ref,
+        execute_query_func,
+        result_values,
+        column_types=None,
     ):
         """Find the maximum year value."""
         try:
+            col_type = column_types.get(year_col, "INT64") if column_types else "INT64"
             query, job_config = self._create_partition_stats_query(
                 safe_table_ref,
                 year_col,
                 1,
-                "",  # Get top 1 year
+                col_type,  # Get top 1 year
             )
             partition_values_results = execute_query_func(
                 query, job_config, f"partition component {year_col}"
@@ -646,7 +661,7 @@ class PartitionDiscovery:
             if partition_values_results and partition_values_results[0].val is not None:
                 max_year = partition_values_results[0].val
                 result_values[year_col] = max_year
-                filter_expr = self._create_safe_filter(year_col, max_year)
+                filter_expr = self._create_safe_filter(year_col, max_year, col_type)
                 logger.info(f"Found latest year: {max_year}")
                 return [filter_expr]
         except Exception as e:
@@ -654,10 +669,17 @@ class PartitionDiscovery:
         return []
 
     def _find_max_month_within_year(
-        self, month_col, safe_table_ref, year_filters, execute_query_func, result_values
+        self,
+        month_col,
+        safe_table_ref,
+        year_filters,
+        execute_query_func,
+        result_values,
+        column_types=None,
     ):
         """Find the maximum month value within the maximum year."""
         try:
+            col_type = column_types.get(month_col, "INT64") if column_types else "INT64"
             year_constraint = " AND ".join(year_filters)
             constrained_query = f"""WITH PartitionStats AS (
     SELECT `{month_col}` as val, COUNT(*) as record_count
@@ -677,7 +699,7 @@ SELECT val, record_count FROM PartitionStats"""
             if partition_values_results and partition_values_results[0].val is not None:
                 max_month = partition_values_results[0].val
                 result_values[month_col] = max_month
-                filter_expr = self._create_safe_filter(month_col, max_month)
+                filter_expr = self._create_safe_filter(month_col, max_month, col_type)
                 logger.info(f"Found latest month within max year: {max_month}")
                 return [filter_expr]
         except Exception as e:
@@ -691,9 +713,11 @@ SELECT val, record_count FROM PartitionStats"""
         year_month_filters,
         execute_query_func,
         result_values,
+        column_types=None,
     ):
         """Find the maximum day value within the maximum year/month."""
         try:
+            col_type = column_types.get(day_col, "INT64") if column_types else "INT64"
             year_month_constraint = " AND ".join(year_month_filters)
             constrained_query = f"""WITH PartitionStats AS (
     SELECT `{day_col}` as val, COUNT(*) as record_count
@@ -713,7 +737,7 @@ SELECT val, record_count FROM PartitionStats"""
             if partition_values_results and partition_values_results[0].val is not None:
                 max_day = partition_values_results[0].val
                 result_values[day_col] = max_day
-                filter_expr = self._create_safe_filter(day_col, max_day)
+                filter_expr = self._create_safe_filter(day_col, max_day, col_type)
                 logger.info(f"Found latest day within max year/month: {max_day}")
                 return [filter_expr]
         except Exception as e:
@@ -1166,19 +1190,14 @@ LIMIT @limit_rows"""
         """
         Create a safe partition filter string for a column value with upstream validation.
         """
-        return self._create_safe_filter(col_name, val)
+        return self._create_safe_filter(col_name, val, data_type)
 
     def _create_safe_filter(
         self, col_name: str, val: Union[str, int, float], col_type: Optional[str] = None
     ) -> str:
         """
         Create a safe partition filter with upstream validation of inputs.
-
-        This ensures we only create filters with safe, validated inputs before
-        they reach the downstream validation. Always uses string quoting for all values
-        to rely on BigQuery's implicit type casting, which handles most type
-        conversions automatically and avoids type mismatch errors between
-        schema-declared types and actual stored values.
+        Uses appropriate quoting based on column type to avoid type mismatch errors.
         """
         return FilterBuilder.create_safe_filter(col_name, val, col_type)
 

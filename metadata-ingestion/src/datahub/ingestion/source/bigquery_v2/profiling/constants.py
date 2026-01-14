@@ -189,3 +189,27 @@ DEFAULT_POPULATED_PARTITIONS_LIMIT = (
 DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT = 100  # Max partitions from INFORMATION_SCHEMA
 DEFAULT_PARTITION_STATS_LIMIT = 10  # Max results for partition statistics queries
 DEFAULT_MAX_PARTITION_VALUES = 3  # Max distinct values to discover per partition column
+
+
+# ============================================================================
+# BigQuery Data Types
+# ============================================================================
+
+# Numeric types requiring unquoted literals in SQL WHERE clauses
+BIGQUERY_NUMERIC_TYPES: Set[str] = {
+    "INT64",
+    "INTEGER",
+    "INT",
+    "SMALLINT",
+    "BIGINT",
+    "TINYINT",
+    "BYTEINT",
+    "NUMERIC",
+    "DECIMAL",
+    "BIGNUMERIC",
+    "BIGDECIMAL",
+    "FLOAT64",
+    "FLOAT",
+    "BOOL",
+    "BOOLEAN",
+}
