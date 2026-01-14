@@ -32,9 +32,8 @@ New Features:
 - [placeholder] Semantic Search
 - [placeholder] Support AI Features for Google Cloud Platform (AI Platform)
 
-<!-- Maggie -->
-
-- [placeholder] AI-assisted Ingestion Configuration with embedded Ask Datahub
+- **Ask DataHub for Ingestion:** Streamline your ingestion setup and troubleshooting with AI-powered assistance. Get step-by-step configuration guidance, instant error interpretation, performance tuning recommendations, and advanced configuration help—all through conversational chat embedded directly in the ingestion UI.
+- **Ingestion Configuration Redesign:** Refreshed UI/UX for a more intuitive ingestion setup experience.
 
 <!-- Jay -->
 
