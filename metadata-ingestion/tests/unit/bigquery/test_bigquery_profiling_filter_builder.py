@@ -257,3 +257,33 @@ class TestFilterBuilderPartitionIdConversion:
         assert filters is not None
         assert len(filters) == 1
         assert filters[0] == "`col` = ''"
+
+    def test_convert_hive_style_with_numeric_columns(self):
+        """Test Hive-style partition with numeric column types (unquoted)."""
+        column_types = {
+            "venue": "STRING",
+            "product_type": "STRING",
+            "date": "INT64",
+        }
+        filters = FilterBuilder.convert_partition_id_to_filters(
+            "venue=okx$product_type=swap$date=20251201",
+            ["venue", "product_type", "date"],
+            column_types,
+        )
+        assert filters is not None
+        assert len(filters) == 3
+        assert "`venue` = 'okx'" in filters
+        assert "`product_type` = 'swap'" in filters
+        assert "`date` = 20251201" in filters
+
+    def test_convert_hive_style_without_column_types(self):
+        """Test Hive-style partition without column types defaults to quoted."""
+        filters = FilterBuilder.convert_partition_id_to_filters(
+            "venue=okx$product_type=swap$date=20251201",
+            ["venue", "product_type", "date"],
+        )
+        assert filters is not None
+        assert len(filters) == 3
+        assert "`venue` = 'okx'" in filters
+        assert "`product_type` = 'swap'" in filters
+        assert "`date` = '20251201'" in filters

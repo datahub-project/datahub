@@ -322,6 +322,15 @@ class PartitionDiscovery:
                     table, project, schema, current_time, execute_query_func
                 )
 
+            # Get column types once for all optimization paths
+            column_types = self._get_partition_column_types(
+                table,
+                project,
+                schema,
+                list(required_partition_columns),
+                execute_query_func,
+            )
+
             # OPTIMIZATION: Try using table.max_partition_id first (zero-cost metadata)
             filters_from_metadata = None
             if table.max_partition_id:
@@ -330,7 +339,7 @@ class PartitionDiscovery:
                 )
                 filters_from_metadata = (
                     self._get_partition_filters_from_max_partition_id(
-                        table, list(required_partition_columns)
+                        table, list(required_partition_columns), column_types
                     )
                 )
             if filters_from_metadata:
@@ -346,6 +355,7 @@ class PartitionDiscovery:
                     schema,
                     list(required_partition_columns),
                     execute_query_func,
+                    column_types,
                 )
                 if partition_filters:
                     logger.info(
@@ -1586,7 +1596,10 @@ LIMIT 1"""
             return f"`{col_name}` IS NOT NULL"
 
     def _get_partition_filters_from_max_partition_id(
-        self, table: BigqueryTable, required_columns: List[str]
+        self,
+        table: BigqueryTable,
+        required_columns: List[str],
+        column_types: Dict[str, str],
     ) -> Optional[List[str]]:
         if not table.max_partition_id or table.max_partition_id in (
             "__NULL__",
@@ -1597,7 +1610,7 @@ LIMIT 1"""
 
         try:
             filters = FilterBuilder.convert_partition_id_to_filters(
-                table.max_partition_id, required_columns
+                table.max_partition_id, required_columns, column_types
             )
             if filters:
                 logger.debug(
@@ -1618,6 +1631,7 @@ LIMIT 1"""
         schema: str,
         required_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        column_types: Dict[str, str],
     ) -> Optional[List[str]]:
         """
         Get comprehensive partition filters using INFORMATION_SCHEMA.PARTITIONS.
@@ -1634,6 +1648,7 @@ LIMIT 1"""
             schema: Dataset name
             required_columns: Partition columns that need values
             execute_query_func: Function to execute queries safely
+            column_types: Mapping of column names to BigQuery types
 
         Returns:
             List of partition filter strings, or None if method fails
@@ -1645,6 +1660,7 @@ LIMIT 1"""
             required_columns,
             execute_query_func,
             self._verify_partition_has_data,
+            column_types,
         )
 
     def _convert_partition_id_to_filters(

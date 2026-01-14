@@ -238,6 +238,7 @@ LIMIT @max_results"""
         required_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         verify_partition_has_data: Callable,
+        column_types: Dict[str, str],
     ) -> Optional[List[str]]:
         """
         Get comprehensive partition filters using INFORMATION_SCHEMA.PARTITIONS.
@@ -327,7 +328,7 @@ LIMIT @max_results"""
                 try:
                     filters_for_partition = (
                         FilterBuilder.convert_partition_id_to_filters(
-                            partition_id, required_columns
+                            partition_id, required_columns, column_types
                         )
                     )
 

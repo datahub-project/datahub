@@ -872,7 +872,12 @@ def test_partition_discovery_get_partition_filters_from_information_schema():
         return []
 
     result = discovery._get_partition_filters_from_information_schema(
-        table, "test-project", "test_dataset", ["_PARTITIONDATE"], mock_execute_query
+        table,
+        "test-project",
+        "test_dataset",
+        ["_PARTITIONDATE"],
+        mock_execute_query,
+        {"_PARTITIONDATE": "DATE"},
     )
 
     # Should return list (could be None if no valid partitions found)
@@ -1188,7 +1193,7 @@ def test_partition_discovery_information_schema_without_restrictive_windowing():
 
     # Test that discovery doesn't apply restrictive windowing
     result = discovery._get_partition_filters_from_information_schema(
-        table, "test-project", "dataset", ["date"], mock_execute_query
+        table, "test-project", "dataset", ["date"], mock_execute_query, {"date": "DATE"}
     )
 
     # Should return partition filters without restrictive windowing

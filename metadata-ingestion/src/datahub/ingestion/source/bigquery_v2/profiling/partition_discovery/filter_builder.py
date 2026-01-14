@@ -1,7 +1,7 @@
 """Filter creation and validation utilities for partition queries."""
 
 import logging
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BIGQUERY_NUMERIC_TYPES,
@@ -49,7 +49,9 @@ class FilterBuilder:
 
     @staticmethod
     def convert_partition_id_to_filters(
-        partition_id: str, required_columns: List[str]
+        partition_id: str,
+        required_columns: List[str],
+        column_types: Optional[Dict[str, str]] = None,
     ) -> Optional[List[str]]:
         """
         Convert partition_id from INFORMATION_SCHEMA.PARTITIONS to filter expressions.
@@ -58,6 +60,7 @@ class FilterBuilder:
         """
         try:
             filters = []
+            column_types = column_types or {}
 
             if "$" in partition_id:
                 parts = partition_id.split("$")
@@ -65,7 +68,10 @@ class FilterBuilder:
                     if "=" in part:
                         col, val = part.split("=", 1)
                         if col in required_columns:
-                            filters.append(FilterBuilder.create_safe_filter(col, val))
+                            col_type = column_types.get(col)
+                            filters.append(
+                                FilterBuilder.create_safe_filter(col, val, col_type)
+                            )
 
             else:
                 if len(required_columns) == 1:
