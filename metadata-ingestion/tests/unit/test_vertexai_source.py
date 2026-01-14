@@ -1488,10 +1488,10 @@ class TestEmptyStringValidation:
                 region="us-west2",
             )
 
-    def test_empty_project_ids_list_is_valid(self) -> None:
-        """Empty list [] is valid for auto-discovery."""
-        config = VertexAIConfig(project_ids=[], region="us-west2")
-        assert config.project_ids == []
+    def test_empty_project_ids_list_is_rejected(self) -> None:
+        """Empty list [] should be rejected - omit field for auto-discovery."""
+        with pytest.raises(ValueError, match="cannot be an empty list"):
+            VertexAIConfig(project_ids=[], region="us-west2")
 
     def test_empty_string_in_project_labels_rejected(self) -> None:
         """Empty strings in project_labels should be rejected."""

@@ -60,7 +60,7 @@ class VertexAIConfig(EnvConfigMixin):
     @classmethod
     def validate_project_ids_field(cls, project_ids: List[str]) -> List[str]:
         try:
-            validate_project_id_list(project_ids, allow_empty=True)
+            validate_project_id_list(project_ids, allow_empty=False)
         except GCPValidationError as e:
             raise ValueError(str(e)) from e
         return project_ids
