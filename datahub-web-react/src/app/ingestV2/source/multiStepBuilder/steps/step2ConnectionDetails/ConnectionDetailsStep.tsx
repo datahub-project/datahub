@@ -37,7 +37,6 @@ export function ConnectionDetailsStep() {
     const isEditing = !!state.isEditing;
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
-    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(isEditing || !!state.isConnectionDetailsValid);
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
@@ -91,14 +90,14 @@ export function ConnectionDetailsStep() {
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
 
     useEffect(() => {
-        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0) {
+        if (state.name) {
             setCurrentStepCompleted();
             updateState({ isConnectionDetailsValid: true });
         } else {
             setCurrentStepUncompleted();
             updateState({ isConnectionDetailsValid: false });
         }
-    }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+    }, [updateState, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     useEffect(() => {
         if (analyticsRef.current) return;
@@ -162,7 +161,6 @@ export function ConnectionDetailsStep() {
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
-                    setIsRecipeValid={setIsRecipeValid}
                 />
 
                 <AdvancedSection state={state} updateState={updateState} />
