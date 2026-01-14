@@ -2,7 +2,7 @@
 
 :::info
 
-<!-- This contains detailed release notes, but there is also an [announcement blog post](https://datahub.com/blog/next/) that covers the highlights. -->
+This contains detailed release notes. Read the highlights in this [blog post](https://datahub.com/blog/datahub-cloud-v0-3-16/).
 
 :::
 
@@ -21,11 +21,13 @@ TBD
 
 ## Release Changelog
 
-### Next
+### v0.3.16-acryl
 
 New Features:
 
-- TODO
+- [placeholder] Ask DataHub - Chat, Asset sidebar; metadata mutations
+- [placeholder] Context Documents
+- [placeholder] AI-assisted Ingestion Configuration with embedded Ask Datahub
 
 Fixes:
 
