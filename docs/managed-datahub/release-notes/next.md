@@ -25,13 +25,31 @@ TBD
 
 New Features:
 
+<!-- John -->
+
 - [placeholder] Ask DataHub - Chat, Asset sidebar; metadata mutations
 - [placeholder] Context Documents
+- [placeholder] Semantic Search
+- [placeholder] Support AI Features for Google Cloud Platform (AI Platform)
+
+<!-- Maggie -->
+
 - [placeholder] AI-assisted Ingestion Configuration with embedded Ask Datahub
+
+<!-- Jay -->
+
+- [placeholder] Observe Python SDK
+- [placeholder] On-demand assertions with parameters
+- [placeholder] Smart Assertion Tuning V2
+
+<!-- David -->
+
+- [placeholder] MVP: Anomaly detection algorithm quality
+- [placeholder] Observe Data Consistency
 
 Fixes:
 
-- TODO
+- Snowflake - introduces support for private key auth
 
 ## Known Issues
 
