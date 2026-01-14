@@ -2,7 +2,7 @@
 
 :::info
 
-This contains detailed release notes. Read the highlights in this [blog post](https://datahub.com/blog/datahub-cloud-v0-3-16/).
+<!-- This contains detailed release notes, but there is also an [announcement blog post](https://datahub.com/blog/next/) that covers the highlights. -->
 
 :::
 
@@ -21,34 +21,15 @@ TBD
 
 ## Release Changelog
 
-### v0.3.16-acryl
+### Next
 
 New Features:
 
-<!-- John -->
-
-- [placeholder] Ask DataHub - Chat, Asset sidebar; metadata mutations
-- [placeholder] Context Documents
-- [placeholder] Semantic Search
-- [placeholder] Support AI Features for Google Cloud Platform (AI Platform)
-
-- **Ask DataHub for Ingestion:** Streamline your ingestion setup and troubleshooting with AI-powered assistance. Get step-by-step configuration guidance, instant error interpretation, performance tuning recommendations, and advanced configuration help—all through conversational chat embedded directly in the ingestion UI.
-- **Ingestion Configuration Redesign:** Refreshed UI/UX for a more intuitive ingestion setup experience.
-
-<!-- Jay -->
-
-- [placeholder] Observe Python SDK
-- [placeholder] On-demand assertions with parameters
-- [placeholder] Smart Assertion Tuning V2
-
-<!-- David -->
-
-- [placeholder] MVP: Anomaly detection algorithm quality
-- [placeholder] Observe Data Consistency
+- TODO
 
 Fixes:
 
-- Snowflake - introduces support for private key auth
+- TODO
 
 ## Known Issues
 
