@@ -653,7 +653,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
-    "hightouch": {"requests"} | sqlglot_lib,
+    "hightouch": {"requests"} | usage_common | sqlglot_lib,
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
