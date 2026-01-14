@@ -9,6 +9,7 @@ from google.api_core.exceptions import (
     InvalidArgument,
     NotFound,
     PermissionDenied,
+    ResourceExhausted,
 )
 from google.cloud import aiplatform, resourcemanager_v3
 from google.cloud.aiplatform import (
@@ -116,38 +117,41 @@ logger = logging.getLogger(__name__)
 
 VERTEX_AI_RETRY_TIMEOUT = 600.0
 
-_ERROR_CONTEXT: Dict[type, Tuple[str, str]] = {
-    InvalidArgument: (
-        "gcloud services enable aiplatform.googleapis.com --project={project_id}",
-        "Vertex AI API is not enabled for this project. "
-        "Enable it via the Cloud Console or run the debug command above. "
-        "If you have multiple projects, consider using project_id_pattern to skip projects without Vertex AI.",
+
+@dataclasses.dataclass
+class _ErrorGuidance:
+    """Guidance for a specific error type."""
+
+    action: str
+    debug_cmd: str
+
+
+_ERROR_GUIDANCE: Dict[type, _ErrorGuidance] = {
+    InvalidArgument: _ErrorGuidance(
+        action="Enable Vertex AI API or use project_id_pattern to skip this project",
+        debug_cmd="gcloud services enable aiplatform.googleapis.com --project={project_id}",
     ),
-    FailedPrecondition: (
-        "gcloud services enable aiplatform.googleapis.com --project={project_id}",
-        "Vertex AI API is not enabled for this project. "
-        "Enable it via the Cloud Console or run the debug command above. "
-        "If you have multiple projects, consider using project_id_pattern to skip projects without Vertex AI.",
+    FailedPrecondition: _ErrorGuidance(
+        action="Enable Vertex AI API or use project_id_pattern to skip this project",
+        debug_cmd="gcloud services enable aiplatform.googleapis.com --project={project_id}",
     ),
-    NotFound: (
-        "gcloud projects describe {project_id}",
-        "Project not found or has been deleted. "
-        "Verify the project ID is correct and the project exists. "
-        "If using label-based discovery, the project may have been deleted after discovery.",
+    NotFound: _ErrorGuidance(
+        action="Verify project ID is correct and project exists",
+        debug_cmd="gcloud projects describe {project_id}",
     ),
-    PermissionDenied: (
-        "gcloud projects get-iam-policy {project_id}",
-        "Permission denied accessing Vertex AI resources. "
-        "Service account needs 'aiplatform.models.list', 'aiplatform.endpoints.list', etc. "
-        "Grant 'Vertex AI User' role (roles/aiplatform.user) or equivalent. "
-        "See: https://cloud.google.com/vertex-ai/docs/general/access-control",
+    PermissionDenied: _ErrorGuidance(
+        action="Grant roles/aiplatform.viewer to service account",
+        debug_cmd="gcloud projects get-iam-policy {project_id}",
+    ),
+    ResourceExhausted: _ErrorGuidance(
+        action="Wait and retry, or request quota increase",
+        debug_cmd="gcloud compute project-info describe --project={project_id}",
     ),
 }
 
-_DEFAULT_ERROR_CONTEXT = (
-    "gcloud projects get-iam-policy {project_id}",
-    "Check service account permissions and project configuration. "
-    "Run the debug command above to verify access.",
+_DEFAULT_GUIDANCE = _ErrorGuidance(
+    action="Check service account permissions and project configuration",
+    debug_cmd="gcloud projects describe {project_id}",
 )
 
 
@@ -314,25 +318,18 @@ class VertexAISource(Source):
             "  4. Alternative: use explicit project_ids or project_labels"
         )
 
-    def _build_project_error_context(
-        self, project_id: str, exc: Exception
-    ) -> Tuple[str, str]:
-        """Build detailed context for project-level errors.
-
-        Returns:
-            Tuple of (debug_command, troubleshooting_tips)
+    def _build_project_error_context(self, project_id: str, exc: Exception) -> str:
+        """Build consistent error context for project-level errors.
+        Returns a uniformly formatted message:
+        1. What failed (project)
+        2. Error details
+        3. Actionable next step
+        4. Debug command
         """
-        cmd_template, tips = _ERROR_CONTEXT.get(type(exc), _DEFAULT_ERROR_CONTEXT)
-        debug_cmd = cmd_template.format(project_id=project_id)
+        guidance = _ERROR_GUIDANCE.get(type(exc), _DEFAULT_GUIDANCE)
+        debug_cmd = guidance.debug_cmd.format(project_id=project_id)
 
-        # For unknown errors, prepend the error type to the tips
-        if type(exc) not in _ERROR_CONTEXT:
-            error_type = get_gcp_error_type(exc)
-            tips = (
-                f"{error_type} when accessing Vertex AI in project {project_id}. {tips}"
-            )
-
-        return debug_cmd, tips
+        return f"Error: {exc}\nAction: {guidance.action}\nDebug: {debug_cmd}"
 
     def _handle_api_error(
         self,
@@ -380,11 +377,11 @@ class VertexAISource(Source):
         failed_exceptions[project_id] = exc
         error_type = get_gcp_error_type(exc)
 
-        debug_cmd, tips = self._build_project_error_context(project_id, exc)
+        error_context = self._build_project_error_context(project_id, exc)
 
         self.report.failure(
             title=f"{error_type}: {project_id}",
-            message=f"{tips}\n\nDebug: {debug_cmd}",
+            message=error_context,
             exc=exc,
         )
 

@@ -1192,49 +1192,52 @@ class TestErrorContextBuilding:
     """Tests for _build_project_error_context() method."""
 
     @patch("google.cloud.aiplatform.init")
-    def test_known_exception_types_return_specific_context(
+    def test_known_exception_types_return_consistent_format(
         self, mock_init: MagicMock
     ) -> None:
-        """Each known GCP exception type should return appropriate context."""
+        """All exception types should return consistent format with Error, Action, Debug."""
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(project_ids=["test-project-123"], region="us-west2"),
         )
 
-        debug_cmd, tips = source._build_project_error_context(
+        context = source._build_project_error_context(
             "my-project", PermissionDenied("Access denied")
         )
-        assert "get-iam-policy" in debug_cmd
-        assert "Permission denied" in tips
-        assert "Vertex AI User" in tips
+        assert "Error: 403 Access denied" in context
+        assert "Action: Grant roles/aiplatform.viewer" in context
+        assert "Debug: gcloud projects get-iam-policy my-project" in context
 
-        debug_cmd, tips = source._build_project_error_context(
+        context = source._build_project_error_context(
             "my-project", NotFound("Not found")
         )
-        assert "describe" in debug_cmd
-        assert "not found" in tips.lower()
+        assert "Error:" in context
+        assert "Action: Verify project ID" in context
+        assert "Debug: gcloud projects describe my-project" in context
 
-        debug_cmd, tips = source._build_project_error_context(
+        context = source._build_project_error_context(
             "my-project", InvalidArgument("API not enabled")
         )
-        assert "enable aiplatform" in debug_cmd
-        assert "not enabled" in tips.lower()
+        assert "Error:" in context
+        assert "Action: Enable Vertex AI API" in context
+        assert "Debug: gcloud services enable aiplatform" in context
 
     @patch("google.cloud.aiplatform.init")
-    def test_unknown_exception_falls_back_to_default(
+    def test_unknown_exception_uses_default_guidance(
         self, mock_init: MagicMock
     ) -> None:
-        """Unknown exception types should use default context with error type prefix."""
+        """Unknown exception types should use default guidance with same format."""
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(project_ids=["test-project-123"], region="us-west2"),
         )
 
-        debug_cmd, tips = source._build_project_error_context(
-            "my-project", ResourceExhausted("Quota exceeded")
+        context = source._build_project_error_context(
+            "my-project", ValueError("Unknown error")
         )
-        assert "my-project" in debug_cmd
-        assert "Rate limit exceeded" in tips
+        assert "Error: Unknown error" in context
+        assert "Action:" in context
+        assert "Debug: gcloud projects describe my-project" in context
 
     @patch("google.cloud.aiplatform.init")
     def test_project_id_substituted_in_debug_command(
@@ -1246,10 +1249,25 @@ class TestErrorContextBuilding:
             config=VertexAIConfig(project_ids=["test-project-123"], region="us-west2"),
         )
 
-        debug_cmd, _ = source._build_project_error_context(
+        context = source._build_project_error_context(
             "specific-project-id", PermissionDenied("Denied")
         )
-        assert "specific-project-id" in debug_cmd
+        assert "specific-project-id" in context
+
+    @patch("google.cloud.aiplatform.init")
+    def test_resource_exhausted_has_quota_guidance(self, mock_init: MagicMock) -> None:
+        """ResourceExhausted should include quota-specific guidance."""
+        source = VertexAISource(
+            ctx=PipelineContext(run_id="test"),
+            config=VertexAIConfig(project_ids=["test-project-123"], region="us-west2"),
+        )
+
+        context = source._build_project_error_context(
+            "my-project", ResourceExhausted("Quota exceeded")
+        )
+        assert "Error:" in context
+        assert "Action: Wait and retry, or request quota increase" in context
+        assert "Debug:" in context
 
 
 class TestDeprecationWarnings:
