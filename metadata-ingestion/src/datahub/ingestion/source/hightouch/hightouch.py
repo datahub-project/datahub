@@ -598,7 +598,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         return datajob
 
     def _generate_dpi_from_sync_run(
-        self, sync_run: HightouchSyncRun, datajob: DataJob
+        self, sync_run: HightouchSyncRun, datajob: DataJob, sync_id: str
     ) -> DataProcessInstance:
         datajob_v1 = DataJobV1(
             id=datajob.name,
@@ -618,7 +618,7 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         custom_props = {
             "sync_run_id": sync_run.id,
-            "sync_id": sync_run.sync_id,
+            "sync_id": sync_id,
             "status": sync_run.status,
         }
         if sync_run.planned_rows:
@@ -668,11 +668,14 @@ class HightouchSource(StatefulIngestionSourceBase):
         if sync_run.completion_ratio is not None:
             custom_props["completion_ratio"] = f"{sync_run.completion_ratio * 100:.1f}%"
         if sync_run.error:
-            custom_props["error_message"] = sync_run.error.get(
-                "message", "Unknown error"
-            )
-            if "code" in sync_run.error:
-                custom_props["error_code"] = sync_run.error["code"]
+            if isinstance(sync_run.error, str):
+                custom_props["error_message"] = sync_run.error
+            else:
+                custom_props["error_message"] = sync_run.error.get(
+                    "message", "Unknown error"
+                )
+                if "code" in sync_run.error:
+                    custom_props["error_code"] = sync_run.error["code"]
 
         dpi.properties.update(custom_props)
 
@@ -741,7 +744,7 @@ class HightouchSource(StatefulIngestionSourceBase):
 
             for sync_run in sync_runs:
                 self.report.report_sync_runs_scanned()
-                dpi = self._generate_dpi_from_sync_run(sync_run, datajob)
+                dpi = self._generate_dpi_from_sync_run(sync_run, datajob, sync.id)
                 yield from self._get_dpi_workunits(sync_run, dpi)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

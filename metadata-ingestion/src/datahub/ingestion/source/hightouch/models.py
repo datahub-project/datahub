@@ -1,7 +1,7 @@
 """Hightouch API entities"""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -81,12 +81,12 @@ class HightouchSyncRun(_HightouchBaseModel):
     """Represents a Hightouch Sync Run"""
 
     id: str
-    sync_id: str = Field(alias="syncId")
+    sync_id: Optional[str] = Field(default=None, alias="syncId")
     status: str
     started_at: datetime = Field(alias="startedAt")
     finished_at: Optional[datetime] = Field(default=None, alias="finishedAt")
     created_at: datetime = Field(alias="createdAt")
-    error: Optional[Dict[str, Any]] = None
+    error: Optional[Union[str, Dict[str, Any]]] = None
     completion_ratio: Optional[float] = Field(default=None, alias="completionRatio")
     planned_rows: Optional[Dict[str, int]] = Field(default=None, alias="plannedRows")
     successful_rows: Optional[Dict[str, int]] = Field(
