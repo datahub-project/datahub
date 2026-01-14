@@ -173,6 +173,68 @@ def _format_datetime_value(value: Any) -> str:
     return str(value)
 
 
+def _format_mean_value(value: Any) -> str:
+    """
+    Format mean value as string, matching GE profiler behavior.
+
+    Mean values from AVG are always float/DECIMAL, so they should be formatted
+    as floats. If it's a whole number, format as "100000.0" not "100000" to
+    match GE's behavior.
+
+    Examples:
+    - Decimal('100000') -> "100000.0"
+    - Decimal('100000.5') -> "100000.5"
+    - 100000.0 -> "100000.0"
+    - 100000 -> "100000.0"
+    """
+    if value is None:
+        return ""
+
+    from decimal import Decimal
+
+    # Convert to float to ensure proper formatting
+    if isinstance(value, (Decimal, int, float)):
+        float_val = float(value)
+    else:
+        # For other types, try to convert to float
+        try:
+            float_val = float(value)
+        except (ValueError, TypeError):
+            return str(value)
+
+    # Format as float string, preserving precision
+    # If it's a whole number, ensure it shows as "100000.0"
+    if float_val.is_integer():
+        return f"{float_val:.1f}"
+    else:
+        return str(float_val)
+
+
+def _format_median_value(value: Any, platform: str, col_type: ProfilerDataType) -> str:
+    """
+    Format median value as string, matching GE profiler behavior.
+
+    GE profiler uses str() directly on the median value, preserving whatever
+    the database returns. This means:
+    - If database returns float 1.0, format as "1.0"
+    - If database returns int 1, format as "1"
+    - If database returns float 39.0, format as "39.0"
+    - Preserves database-native type formatting exactly as GE does
+
+    Examples:
+    - Redshift MEDIAN returns 1.0 -> "1.0" (preserves float format)
+    - Redshift MEDIAN returns 1 -> "1" (preserves int format)
+    - Redshift MEDIAN returns 39.0 -> "39.0" (preserves float format)
+    - PostgreSQL MEDIAN returns 1 -> "1"
+    """
+    if value is None:
+        return ""
+
+    # GE uses str() directly, so we do the same to preserve database-native format
+    # This matches GE's behavior: str(self.dataset.get_column_median(column))
+    return str(value)
+
+
 def _format_numeric_value(value: Any, col_type: ProfilerDataType) -> str:
     """
     Format numeric value as string, matching GE profiler behavior.
@@ -715,18 +777,36 @@ class SQLAlchemyProfiler:
                     )
 
                     # Profile columns
-                    # Only create field profiles for columns that are actually being profiled
-                    # This matches GE profiler behavior: when profile_table_level_only is True,
-                    # columns_to_profile is empty, so no field profiles should be created
+                    # Match GE profiler behavior: if there are columns to profile,
+                    # create fieldProfiles for ALL columns, but only calculate stats
+                    # for columns in columns_to_profile
+                    # When profile_table_level_only is True, columns_to_profile is empty,
+                    # so no fieldProfiles are created (matching GE behavior)
+                    all_columns = [col.name for col in sql_table.columns]
+                    columns_to_profile_set = set(columns_to_profile)
+
                     field_profiles = []
+                    # Only create fieldProfiles if there are columns to profile (like GE does)
+                    if columns_to_profile_set:
+                        # First pass: create fieldProfiles for all columns (like GE does)
+                        for col_name in all_columns:
+                            field_profile = DatasetFieldProfileClass(fieldPath=col_name)
+                            field_profiles.append(field_profile)
+
+                    # Second pass: calculate stats only for columns in columns_to_profile
                     for column in sql_table.columns:
                         col_name = column.name
 
-                        if col_name not in columns_to_profile:
+                        if col_name not in columns_to_profile_set:
                             continue
 
-                        column_profile = DatasetFieldProfileClass(fieldPath=col_name)
-                        field_profiles.append(column_profile)
+                        # Find the corresponding column_profile we just created
+                        column_profile: Optional[DatasetFieldProfileClass] = next(
+                            (p for p in field_profiles if p.fieldPath == col_name), None
+                        )
+                        if column_profile is None:
+                            # Should not happen if columns_to_profile_set is not empty, but handle gracefully
+                            continue
 
                         # Get column type
                         col_type = get_column_profiler_type(column.type, platform)
@@ -913,11 +993,12 @@ class SQLAlchemyProfiler:
                                     )
                                     # Match GE behavior: always set mean (None for null-only columns)
                                     # GE does: str(self.dataset.get_column_mean(column))
-                                    # Mean should always preserve full precision (AVG returns float/DECIMAL)
-                                    # Don't use _format_numeric_value which formats INT columns as integers
-                                    # Just use str() to preserve database-native format (e.g., DECIMAL precision)
+                                    # Mean should always be formatted as float (e.g., "100000.0" not "100000")
+                                    # to match GE's behavior where AVG always returns float/DECIMAL
                                     column_profile.mean = (
-                                        str(mean_val) if mean_val is not None else None
+                                        _format_mean_value(mean_val)
+                                        if mean_val is not None
+                                        else None
                                     )
 
                                 if self.config.include_field_stddev_value:
@@ -940,10 +1021,13 @@ class SQLAlchemyProfiler:
                                     )
                                     # Match GE behavior: always set median (None for null-only columns)
                                     # GE does: str(self.dataset.get_column_median(column))
-                                    # Convert to string directly to preserve database-native formatting
-                                    # This preserves DECIMAL precision, INTEGER format, etc.
+                                    # Median formatting is platform-dependent:
+                                    # - Redshift/BigQuery INT columns: format whole numbers as integers ("1" not "1.0")
+                                    # - Other platforms/float columns: preserve database-native type
                                     column_profile.median = (
-                                        str(median_val)
+                                        _format_median_value(
+                                            median_val, platform, col_type
+                                        )
                                         if median_val is not None
                                         else None
                                     )

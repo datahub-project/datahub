@@ -14,13 +14,13 @@
 
 ## Executive Summary
 
-DataHub currently uses a forked, legacy version of Great Expectations (`acryl-great-expectations==0.15.50.1`) for data profiling. This dependency blocks upgrades to Pydantic v2+ and other critical libraries.
+DataHub currently uses a forked, legacy version of Great Expectations (`acryl-great-expectations==0.15.50.1`) for data profiling.
 
 This plan outlines a migration strategy to **remove Great Expectations entirely** and replace it with a custom SQLAlchemy-based profiler. The custom profiler will:
 
 - ✅ Provide **functional parity** with current GE profiler
 - ✅ Use **database-specific optimizations** (approximate aggregations)
-- ✅ **Unblock dependency upgrades** (Pydantic v2+)
+- ✅ **Remove Great Expectations dependency** (eliminate legacy `acryl-great-expectations` package)
 - ✅ Reduce code complexity (~1,500 lines vs 1,698 lines + GE overhead)
 - ✅ Eliminate ongoing GE maintenance burden
 
@@ -68,7 +68,7 @@ DataHub uses **TWO separate GE integrations**:
 2. **Assertions/Validation** (`gx-plugin` - 904 lines)
    - **Version:** `great-expectations>=0.17.15, <1.0.0` (modern!)
    - **Purpose:** Convert GE validation results → DataHub assertions
-   - **Status:** ✅ Already on modern GE with Pydantic v2 support!
+   - **Status:** ✅ Already on modern GE version
    - **Note:** This is SEPARATE from profiling - not affected by migration
 
 **Key Insight:** Profiling and assertions use DIFFERENT GE versions. Only profiling needs migration.
@@ -548,7 +548,28 @@ metadata-ingestion/src/datahub/ingestion/source/sql_profiler/
    - **Fix:** Use `_format_numeric_value()` helper to preserve database-native formatting and precision
    - **Location:** `sqlalchemy_profiler.py` lines 873-944
 
-10. **Serialization Differences** ✅
+10. **Mean Value Formatting** ✅
+
+    - **Issue:** Mean values were formatted as `"100000"` instead of `"100000.0"` (missing decimal point for whole numbers)
+    - **Root Cause:** `str()` on Decimal/int values doesn't preserve float format for whole numbers
+    - **Fix:** Created `_format_mean_value()` helper to format mean values as floats (e.g., `"100000.0"` not `"100000"`)
+    - **Location:** `sqlalchemy_profiler.py` lines 176-210, 938-940
+
+11. **Median Value Formatting** ✅
+
+    - **Issue:** Median value formatting needed to match GE profiler behavior (preserve database-native format)
+    - **Root Cause:** GE profiler uses `str()` directly on median values, preserving whatever type the database returns
+    - **Fix:** Use `str()` directly on median values to preserve database-native formatting (e.g., `1.0` → `"1.0"`, `1` → `"1"`)
+    - **Location:** `sqlalchemy_profiler.py` lines 213-233
+
+12. **Complex Types (ARRAY/STRUCT/GEOGRAPHY/JSON) in fieldProfiles** ✅
+
+    - **Issue:** SQLAlchemy profiler excluded ARRAY/STRUCT/GEOGRAPHY/JSON columns from `fieldProfiles`, but GE profiler includes them (with no stats)
+    - **Root Cause:** Only created `fieldProfiles` for columns in `columns_to_profile`, which excludes complex types
+    - **Fix:** Match GE behavior: create `fieldProfiles` for ALL columns when `columns_to_profile` is not empty, but only calculate stats for columns in `columns_to_profile`. This ensures complex types appear in `fieldProfiles` (with no stats) matching GE's behavior.
+    - **Location:** `sqlalchemy_profiler.py` lines 760-787
+
+13. **Serialization Differences** ✅
     - **Issue:** Some differences between custom profiler and GE profiler were due to DataHub serialization omitting `None` values
     - **Fix:** Updated golden files to match current serialization behavior (removed `None` fields that are omitted)
     - **Examples:** Redshift golden file updated to remove `median: None` for null-only columns
@@ -559,6 +580,10 @@ metadata-ingestion/src/datahub/ingestion/source/sql_profiler/
 - Database-specific behavior matters (e.g., Redshift INTEGER casting, PostgreSQL vs Redshift stdev)
 - DataHub serialization omits `None` values, which affects golden file comparisons
 - Query combiner can cause issues with sampled tables, requiring direct method calls
+- Mean values from AVG should be formatted as floats (e.g., `"100000.0"` not `"100000"`) using `_format_mean_value()` helper
+- Median values preserve database-native format using `str()` directly (matching GE's `str(self.dataset.get_column_median(column))` behavior)
+- GE profiler includes complex types (ARRAY/STRUCT/GEOGRAPHY/JSON) in `fieldProfiles` even though they don't calculate stats for them
+- Formatting helpers (`_format_mean_value()`, `_format_numeric_value()`) ensure consistent string representation matching GE output
 
 ### 4E: Performance Benchmarking ⚠️ TODO
 
@@ -619,7 +644,7 @@ metadata-ingestion/src/datahub/ingestion/source/sql_profiler/
 
 ## Implementation Status
 
-**Current Status:** Core implementation, unit tests, PostgreSQL integration tests, and bug fixes complete. The profiler has been refined to match GE profiler behavior across multiple edge cases and database-specific scenarios. Ready for performance benchmarking and gradual rollout.
+**Current Status:** Core implementation, unit tests, PostgreSQL integration tests, and bug fixes complete. The profiler has been refined to match GE profiler behavior across multiple edge cases and database-specific scenarios. All connector tests (Redshift, BigQuery) are passing. Ready for performance benchmarking and gradual rollout.
 
 **Files Created:**
 
@@ -651,8 +676,12 @@ metadata-ingestion/src/datahub/ingestion/source/sql_profiler/
 
 **Golden Files Updated:**
 
-- `connector-tests/smoke-test/integration/golden/redshift_golden.json` (serialization differences)
-- `connector-tests/smoke-test/integration/golden/snowflake_standard.json` (serialization differences)
+- `connector-tests/smoke-test/integration/golden/redshift_golden.json`
+  - Serialization differences: removed `median: None` for null-only columns
+  - Median formatting: code now preserves database-native format (e.g., `"1.0"` for float, `"1"` for int)
+- `connector-tests/smoke-test/integration/golden/snowflake_standard.json`
+  - Removed `datasetProfile` for `table_from_s3_stage` (table in deny pattern)
+  - Reverted `sampleValues: []` for empty tables (now handled by code fix)
 
 ---
 
@@ -661,16 +690,16 @@ metadata-ingestion/src/datahub/ingestion/source/sql_profiler/
 1. ✅ **Unit tests** - Complete and passing
 2. ✅ **Integration tests** - PostgreSQL integration tests complete (10 tests passing)
 3. ✅ **Golden file tests** - Skipped in favor of independent validation
-4. ✅ **Bug fixes & refinements** - 10 critical bugs fixed to ensure parity with GE profiler
+4. ✅ **Bug fixes & refinements** - 13 critical bugs fixed to ensure parity with GE profiler
 5. **Performance benchmarking** - Compare profiling time, memory usage, and query count vs GE profiler
 6. **Gradual rollout** - Internal testing → Beta customers → Full rollout
 
 ## Code Statistics
 
-- **Total lines:** ~2,000+ (vs 1,698 in GE wrapper)
-  - `sqlalchemy_profiler.py`: ~1,150 lines
+- **Total lines:** ~2,100+ (vs 1,698 in GE wrapper)
+  - `sqlalchemy_profiler.py`: ~1,210 lines
   - `stats_calculator.py`: ~410 lines
-  - Other modules: ~440 lines
+  - Other modules: ~480 lines
 - **Files created:** 7 (implementation) + 4 (unit tests) + 1 (integration tests) = 12 total
 - **Files modified:** 4
 - **Golden files updated:** 2 (Redshift, Snowflake)
