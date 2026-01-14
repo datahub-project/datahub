@@ -90,7 +90,12 @@ def validate_project_label_format(label: str) -> None:
     if not LABEL_PATTERN.match(label):
         raise GCPValidationError(
             f"Invalid project_labels format: '{label}'. "
-            "Must be 'key' or 'key:value' format. Example: env:prod"
+            "Must be 'key:value' format. Example: env:prod"
+        )
+    if ":" not in label:
+        raise GCPValidationError(
+            f"Invalid project_labels format: '{label}'. "
+            "Must be 'key:value' format. Example: env:prod"
         )
 
 
@@ -307,12 +312,21 @@ def _validate_pattern_before_discovery(
 
     if pattern.allow and pattern.allow != [".*"]:
         for allow_pattern in pattern.allow:
-            if "*" in allow_pattern and ".*" not in allow_pattern:
+            has_glob_star = "*" in allow_pattern and ".*" not in allow_pattern
+            has_glob_question = (
+                "?" in allow_pattern
+                and ".?" not in allow_pattern
+                and "\\?" not in allow_pattern
+                and "[?" not in allow_pattern
+                and "??" in allow_pattern
+            )
+            if has_glob_star or has_glob_question:
+                suggested = allow_pattern.replace("*", ".*").replace("?", ".?")
                 logger.warning(
                     "project_id_pattern allow '%s' looks like glob syntax. "
                     "AllowDenyPattern uses regex. Did you mean '%s'?",
                     allow_pattern,
-                    allow_pattern.replace("*", ".*"),
+                    suggested,
                 )
 
     if pattern.allow and pattern.allow != [".*"] and pattern.deny:

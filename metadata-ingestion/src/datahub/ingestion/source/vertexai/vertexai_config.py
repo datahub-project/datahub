@@ -59,11 +59,6 @@ class VertexAIConfig(EnvConfigMixin):
     @field_validator("project_ids")
     @classmethod
     def validate_project_ids_field(cls, project_ids: List[str]) -> List[str]:
-        if project_ids == []:
-            raise ValueError(
-                "project_ids cannot be an empty list. "
-                "Either specify project IDs or omit the field to use auto-discovery."
-            )
         try:
             validate_project_id_list(project_ids, allow_empty=True)
         except GCPValidationError as e:
