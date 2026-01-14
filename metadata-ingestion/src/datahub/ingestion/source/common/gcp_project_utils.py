@@ -117,12 +117,8 @@ def validate_project_label_list(project_labels: List[str]) -> None:
     if duplicates:
         raise GCPValidationError(f"project_labels contains duplicates: {duplicates}")
 
-    invalid = [label for label in project_labels if not LABEL_PATTERN.match(label)]
-    if invalid:
-        raise GCPValidationError(
-            f"Invalid project_labels format: {invalid}. "
-            "Must be 'key' or 'key:value' format. Example: env:prod"
-        )
+    for label in project_labels:
+        validate_project_label_format(label)
 
 
 @contextmanager
