@@ -1,7 +1,9 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Set
 
 import pydantic
@@ -90,6 +92,27 @@ class SnowflakeShareConfig(ConfigModel):
         return DatabaseId(self.database, self.platform_instance)
 
 
+class SemanticViewsConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="If enabled, semantic views will be ingested as datasets. Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+    )
+
+    column_lineage: bool = Field(
+        default=False,
+        description="If enabled, column-level lineage will be generated for semantic views, mapping dimensions, facts, and metrics to their source columns in base tables. Only applicable when enabled is True.",
+    )
+
+    @model_validator(mode="after")
+    def validate_column_lineage_requires_enabled(self) -> "SemanticViewsConfig":
+        if self.column_lineage and not self.enabled:
+            logger.warning(
+                "semantic_views.column_lineage is set to True but semantic_views.enabled is False. "
+                "Column lineage will not be generated. Set semantic_views.enabled to True to enable column lineage."
+            )
+        return self
+
+
 class SnowflakeFilterConfig(SQLFilterConfig):
     database_pattern: AllowDenyPattern = Field(
         AllowDenyPattern(
@@ -123,6 +146,14 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         "Specify regex to match the entire Streamlit app name in database.schema.streamlit format. "
         "e.g. to match all Streamlit apps starting with dashboard in Analytics database and public schema,"
         " use the regex 'Analytics.public.dashboard.*'",
+    )
+
+    semantic_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for semantic views to filter in ingestion. "
+        "Specify regex to match the entire semantic view name in database.schema.semantic_view format. "
+        "e.g. to match all semantic views starting with sales in Analytics database and public schema,"
+        " use the regex 'Analytics.public.sales.*'",
     )
 
     match_fully_qualified_names: bool = Field(
@@ -330,6 +361,11 @@ class SnowflakeV2Config(
         description="If enabled, Streamlit apps will be ingested as dashboards.",
     )
 
+    semantic_views: SemanticViewsConfig = Field(
+        default_factory=SemanticViewsConfig,
+        description="Configuration for semantic views ingestion.",
+    )
+
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -403,6 +439,13 @@ class SnowflakeV2Config(
         "These databases will be included in the filter being pushed down regardless of database_pattern settings."
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
+
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
 
     @field_validator("convert_urns_to_lowercase", mode="after")
     @classmethod
@@ -508,6 +551,22 @@ class SnowflakeV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def validate_semantic_views_edition(self) -> "SnowflakeV2Config":
+        if self.semantic_views.enabled:
+            if (
+                self.known_snowflake_edition is not None
+                and self.known_snowflake_edition == SnowflakeEdition.STANDARD
+            ):
+                logger.warning(
+                    "semantic_views.enabled is set to True, but known_snowflake_edition is set to STANDARD. "
+                    "Semantic views require Snowflake Enterprise Edition or above (they are part of Cortex Analyst). "
+                    "Automatically disabling semantic_views.enabled and semantic_views.column_lineage."
+                )
+                self.semantic_views.enabled = False
+                self.semantic_views.column_lineage = False
         return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:

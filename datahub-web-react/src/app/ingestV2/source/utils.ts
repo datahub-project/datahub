@@ -539,6 +539,11 @@ export function getSortInput(field: string, order: SortingState): SortCriterion 
     };
 }
 
+export const DEFAULT_SOURCE_SORT_CRITERION: SortCriterion = {
+    sortOrder: SortOrder.Ascending,
+    field: 'type',
+};
+
 export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
     return hideSystemSources
         ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
@@ -706,4 +711,9 @@ export const getIngestionSourceMutationInput = (data: SourceBuilderState, source
               }
             : undefined,
     };
+};
+
+export const getSourceDisplayName = (sourceType: string, ingestionSources: SourceConfig[]) => {
+    const sourceConfigs = getSourceConfigs(ingestionSources, sourceType as string);
+    return sourceConfigs?.displayName;
 };

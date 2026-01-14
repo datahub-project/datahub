@@ -10,6 +10,7 @@ from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
+from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -115,6 +116,20 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             for (key, value) in producers_config.items()
             if key in self.config.topic_routes
         }
+
+        # If OAuth callback is configured, call poll() to trigger OAuth callback execution
+        # This is required for OAuth authentication mechanisms like AWS MSK IAM
+        # Note: poll(0) is non-blocking - just triggers the OAuth callback without waiting
+        # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
+        if KafkaOAuthCallbackResolver.is_callable_config(
+            self.config.connection.producer_config
+        ):
+            logger.debug(
+                "OAuth callback detected, triggering OAuth callbacks for Kafka producers"
+            )
+            for producer in self.producers.values():
+                producer.poll(0)  # Non-blocking - just triggers OAuth callback
+            logger.debug("OAuth callbacks triggered for Kafka producers")
 
     def emit(
         self,
