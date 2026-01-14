@@ -315,6 +315,63 @@ public class DocumentChangeHistoryResolverTest {
   }
 
   @Test
+  public void testGetChangeHistoryWithRelatedAssetChange() throws Exception {
+    List<ChangeTransaction> transactions = new ArrayList<>();
+
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(System.currentTimeMillis());
+    auditStamp.setActor(TEST_USER_URN);
+
+    // Related asset change event with modifier (the entity URN)
+    ChangeEvent relatedAssetEvent =
+        ChangeEvent.builder()
+            .category(ChangeCategory.RELATED_ENTITIES)
+            .operation(ChangeOperation.ADD)
+            .entityUrn(TEST_DOCUMENT_URN.toString())
+            .modifier("urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)")
+            .description(
+                "Related asset urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD) was added")
+            .auditStamp(auditStamp)
+            .build();
+
+    ChangeTransaction transaction =
+        ChangeTransaction.builder()
+            .changeEvents(List.of(relatedAssetEvent))
+            .timestamp(auditStamp.getTime())
+            .build();
+    transactions.add(transaction);
+
+    when(mockTimelineService.getTimeline(
+            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+        .thenReturn(transactions);
+
+    List<DocumentChange> result = resolver.get(mockEnv).get();
+
+    assertNotNull(result);
+    assertEquals(result.size(), 1);
+    DocumentChange change = result.get(0);
+    assertEquals(change.getChangeType(), DocumentChangeType.RELATED_ASSETS_CHANGED);
+    assertNotNull(change.getDetails());
+
+    // Verify entityUrn and operation are included in details
+    boolean hasEntityUrn = false;
+    boolean hasOperation = false;
+    for (var detail : change.getDetails()) {
+      if ("entityUrn".equals(detail.getKey())) {
+        assertEquals(
+            detail.getValue(), "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)");
+        hasEntityUrn = true;
+      }
+      if ("operation".equals(detail.getKey())) {
+        assertEquals(detail.getValue(), "ADD");
+        hasOperation = true;
+      }
+    }
+    assertTrue(hasEntityUrn, "Details should contain entityUrn");
+    assertTrue(hasOperation, "Details should contain operation");
+  }
+
+  @Test
   public void testGetChangeHistoryRespectsLimit() throws Exception {
     // Create more changes than the limit
     List<ChangeTransaction> transactions = new ArrayList<>();

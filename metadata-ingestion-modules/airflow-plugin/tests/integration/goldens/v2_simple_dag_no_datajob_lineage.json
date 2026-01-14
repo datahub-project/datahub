@@ -7,15 +7,15 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "_access_control": "None",
-                "catchup": "False",
-                "description": "'A simple DAG that runs a few fake data tasks.'",
-                "doc_md": "None",
+                "_access_control": "",
+                "catchup": "false",
+                "description": "A simple DAG that runs a few fake data tasks.",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
-                "timezone": "Timezone('UTC')"
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
             "name": "simple_dag",
@@ -242,26 +242,26 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "<duration>",
                 "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "running",
+                "task_id": "task_1",
+                "dag_id": "simple_dag",
+                "duration": "<duration>",
                 "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
-                "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
-                "state": "running",
                 "operator": "BashOperator",
                 "priority_weight": "2",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=task_1&dag_id=simple_dag&map_index=-1",
-                "orchestrator": "airflow",
-                "dag_id": "simple_dag",
-                "task_id": "task_1"
+                "log_url": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=task_1&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+                "orchestrator": "airflow"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=task_1&dag_id=simple_dag&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=task_1&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1744380570011,
+                "time": 1760963173410,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -298,7 +298,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1744380570011,
+            "timestampMillis": 1760963173410,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -402,7 +402,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1744380570147,
+            "timestampMillis": 1760963173535,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -511,26 +511,26 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "<duration>",
                 "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "running",
+                "task_id": "run_another_data_task",
+                "dag_id": "simple_dag",
+                "duration": "<duration>",
                 "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
-                "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
-                "state": "running",
                 "operator": "BashOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_another_data_task&dag_id=simple_dag&map_index=-1",
-                "orchestrator": "airflow",
-                "dag_id": "simple_dag",
-                "task_id": "run_another_data_task"
+                "log_url": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=run_another_data_task&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+                "orchestrator": "airflow"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_another_data_task&dag_id=simple_dag&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag/grid?dag_run_id=manual_run_test&task_id=run_another_data_task&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1744380573217,
+                "time": 1760963177009,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -567,7 +567,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1744380573217,
+            "timestampMillis": 1760963177009,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -671,7 +671,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1744380573438,
+            "timestampMillis": 1760963177165,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

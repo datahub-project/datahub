@@ -1,10 +1,17 @@
 #import "./preview.graphql"
+#import "./fragments.graphql"
 
 query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
     document(urn: $urn) {
         urn
         type
         subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         settings {
             showInGlobalContext
         }
@@ -23,11 +30,25 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
             }
             created {
                 time
-                actor
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
             }
             lastModified {
                 time
-                actor
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
             }
             relatedAssets {
                 asset {
@@ -40,11 +61,6 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
                 }
             }
             parentDocument {
-                document {
-                    ...documentPreviewFields
-                }
-            }
-            draftOf {
                 document {
                     ...documentPreviewFields
                 }
@@ -75,9 +91,6 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
             ...entityPrivileges
         }
         exists
-        drafts {
-            ...documentPreviewFields
-        }
         parentDocuments @include(if: $includeParentDocuments) {
             count
             documents {
@@ -99,11 +112,25 @@ fragment documentPreviewFields on Document {
         title
         created {
             time
-            actor
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
         }
         lastModified {
             time
-            actor
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
         }
         parentDocument {
             document {
@@ -124,11 +151,25 @@ fragment documentSidebarFields on Document {
         }
         created {
             time
-            actor
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
         }
         lastModified {
             time
-            actor
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+                editableProperties {
+                    pictureLink
+                }
+            }
         }
         parentDocument {
             document {
@@ -193,10 +234,6 @@ mutation deleteDocument($urn: String!) {
     deleteDocument(urn: $urn)
 }
 
-mutation mergeDraft($input: MergeDraftInput!) {
-    mergeDraft(input: $input)
-}
-
 mutation updateDocumentSettings($input: UpdateDocumentSettingsInput!) {
     updateDocumentSettings(input: $input)
 }
@@ -223,6 +260,117 @@ query getDocumentChangeHistory($urn: String!, $startTimeMillis: Long, $endTimeMi
             details {
                 key
                 value
+            }
+        }
+    }
+}
+
+fragment relatedDocumentsFields on RelatedDocumentsResult {
+    start
+    count
+    total
+    documents {
+        urn
+        type
+        info {
+            title
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on Dataset {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Dashboard {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Chart {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataJob {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataFlow {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Container {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLModel {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLModelGroup {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLPrimaryKey {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLFeature {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLFeatureTable {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataProduct {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Domain {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on GlossaryTerm {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on GlossaryNode {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Application {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
             }
         }
     }
