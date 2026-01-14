@@ -50,46 +50,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
-- (Ingestion) The Vertex AI source config `project_id` is deprecated in favor of `project_ids` (plural) to support multi-project ingestion. **Existing configs will continue to work** - the value is automatically converted and a warning is logged. No action required immediately, but we recommend updating your config.
-
-  **Migration Examples:**
-
-  ```yaml
-  # Before (deprecated - single project)
-  source:
-    type: vertexai
-    config:
-      project_id: my-project
-      region: us-central1
-
-  # After - Single project
-  source:
-    type: vertexai
-    config:
-      project_ids:
-        - my-project
-      region: us-central1
-
-  # After - Multiple projects (new capability!)
-  source:
-    type: vertexai
-    config:
-      project_ids:
-        - ml-project-prod
-        - ml-project-staging
-      region: us-central1
-
-  # After - Auto-discover projects by label
-  source:
-    type: vertexai
-    config:
-      project_labels:
-        - env:prod
-        - team:ml
-      region: us-central1
-  ```
-
-  **What happens if you don't migrate:** Your existing config continues to work. The system auto-converts `project_id: X` to `project_ids: [X]` and logs a deprecation warning. Update at your convenience.
+- (Ingestion) The Vertex AI source config `project_id` is deprecated in favor of `project_ids` (plural) to support multi-project ingestion. **Existing configs will continue to work** - the value is automatically converted and a warning is logged. No action required immediately, but we recommend updating your config. See the [Vertex AI source documentation](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/docs/sources/vertexai/vertexai_recipe.yml) for configuration examples and migration details.
 
 ### Other Notable Changes
 
