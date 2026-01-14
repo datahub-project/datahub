@@ -68,7 +68,7 @@ jobs:
           "swaroopjagadish",
           "treff7es",
           "v-tarasevich-blitz-brain",
-          "yoonhyejin",
+          "yoonhyejin"
           ]'),
           github.actor
           )
