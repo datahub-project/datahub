@@ -1,14 +1,35 @@
 source:
   type: vertexai
   config:
-    project_id: "acryl-poc"
-    region:  "us-west2"
-# You must either set GOOGLE_APPLICATION_CREDENTIALS or provide credential as shown below
-#   credential:
-#      private_key: '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'
-#      private_key_id: "project_key_id"
-#      client_email: "client_email"
-#      client_id: "client_id"
+    # Option 1: Explicit project list (recommended for 1-10 projects)
+    project_ids:
+      - "acryl-poc"
+    region: "us-west2"
+    
+    # Option 2: Label-based discovery (for 10+ projects with consistent labels)
+    # project_labels:
+    #   - "env:production"
+    #   - "team:ml-platform"
+    
+    # Option 3: Auto-discovery (discovers all accessible projects)
+    # Omit both project_ids and project_labels to auto-discover
+    
+    # Optional: Filter projects using regex patterns
+    # project_id_pattern:
+    #   allow:
+    #     - "prod-.*"
+    #   deny:
+    #     - ".*-sandbox$"
+    
+    # You must either set GOOGLE_APPLICATION_CREDENTIALS or provide credential as shown below
+    # credential:
+    #   private_key: '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'
+    #   private_key_id: "project_key_id"
+    #   client_email: "client_email"
+    #   client_id: "client_id"
+    
+    # Note: The deprecated 'project_id' field is still supported but will be removed in a future release.
+    # Use 'project_ids: [project-name]' instead of 'project_id: project-name'
 
 sink:
   type: "datahub-rest"
