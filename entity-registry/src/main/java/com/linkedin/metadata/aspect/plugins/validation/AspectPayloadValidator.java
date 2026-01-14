@@ -23,34 +23,12 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext,
       @Nullable AuthorizationSession session) {
-    // Keep original batch for cross-aspect lookups (e.g., domain lookups in
-    // getEntityDomainsFromBatchOrDB)
-    Collection<? extends BatchItem> originalBatch = mcpItems;
-
-    // Filter to only items this validator should actually process
-    // Domains are NOT included here - they're only used for lookups via originalBatch
-    Collection<? extends BatchItem> filteredBatch =
+    return validateProposedAspects(
         mcpItems.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
-            .collect(Collectors.toList());
-
-    return validateProposedAspectsWithOriginalBatch(
-        filteredBatch, originalBatch, retrieverContext, session);
-  }
-
-  /**
-   * Validate aspects with access to both filtered and original batch. The filtered batch contains
-   * only aspects this validator should process. The original batch contains ALL aspects for
-   * cross-aspect lookups (e.g., domain lookups).
-   *
-   * <p>Default implementation delegates to existing method for backward compatibility.
-   */
-  protected Stream<AspectValidationException> validateProposedAspectsWithOriginalBatch(
-      @Nonnull Collection<? extends BatchItem> filteredBatch,
-      @Nonnull Collection<? extends BatchItem> originalBatch,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
-    return validateProposedAspects(filteredBatch, retrieverContext, session);
+            .collect(Collectors.toList()),
+        retrieverContext,
+        session);
   }
 
   /**
@@ -60,15 +38,12 @@ public abstract class AspectPayloadValidator extends PluginSpec {
    * @return whether the aspect proposal is valid
    */
   public final Stream<AspectValidationException> validatePreCommit(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return validatePreCommitAspects(
         changeMCPs.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
-        retrieverContext,
-        session);
+        retrieverContext);
   }
 
   protected abstract Stream<AspectValidationException> validateProposedAspects(
@@ -92,7 +67,5 @@ public abstract class AspectPayloadValidator extends PluginSpec {
   }
 
   protected abstract Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session);
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext);
 }

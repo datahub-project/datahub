@@ -304,9 +304,7 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

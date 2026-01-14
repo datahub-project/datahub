@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ONE;
 import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ZERO;
 
-import com.datahub.authorization.AuthorizationSession;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
@@ -90,9 +89,7 @@ public class SystemPolicyValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

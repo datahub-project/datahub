@@ -3,7 +3,6 @@ package com.linkedin.metadata.structuredproperties.validation;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.structured.PropertyCardinality.*;
 
-import com.datahub.authorization.AuthorizationSession;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -64,9 +63,7 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return validateDefinitionUpserts(
         changeMCPs.stream()
             .filter(i -> STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(i.getAspectName()))

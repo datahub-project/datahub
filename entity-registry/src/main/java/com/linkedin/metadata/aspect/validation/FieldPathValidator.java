@@ -2,7 +2,6 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -18,7 +17,6 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -58,9 +56,7 @@ public class FieldPathValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return Stream.of();
   }
 

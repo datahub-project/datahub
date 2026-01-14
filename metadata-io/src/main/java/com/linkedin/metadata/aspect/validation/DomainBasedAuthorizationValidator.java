@@ -9,7 +9,6 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -27,7 +26,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -62,19 +60,9 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
       @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull RetrieverContext retrieverContext) {
 
-    // Skip validation for DELETE operations - they are already authorized at API layer
-    // before any deletions start, preventing race conditions where domain aspect
-    // could be deleted before other aspects are authorized
-    boolean hasDeletes = changeMCPs.stream()
-        .anyMatch(mcp -> mcp.getChangeType() == ChangeType.DELETE);
-
-    if (hasDeletes) {
-      log.debug("Skipping domain-based authorization validator for DELETE operations - already authorized at API layer");
-      return Stream.empty();
-    }
+    AuthorizationSession session = retrieverContext.getAuthorizationSession();
 
     if (session == null) {
       log.warn("DomainBasedAuthorizationValidator: No authentication session provided");

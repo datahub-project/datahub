@@ -6,7 +6,6 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_DUPLICATE
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_ROLLING_BACK;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_SUCCESS;
 
-import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -19,7 +18,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -49,9 +47,7 @@ public class ExecutionRequestResultValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return changeMCPs.stream()
         .filter(item -> item.getPreviousRecordTemplate() != null)
         .map(

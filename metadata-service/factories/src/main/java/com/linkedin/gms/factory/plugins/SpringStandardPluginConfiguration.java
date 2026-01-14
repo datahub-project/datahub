@@ -65,6 +65,9 @@ public class SpringStandardPluginConfiguration {
   // Authentication validation should consider all change types as best practice
   private static final List<String> AUTH_CHANGE_TYPE_OPERATIONS =
       List.of(CREATE, CREATE_ENTITY, UPDATE, UPSERT, PATCH, DELETE, RESTATE);
+  // Domain-based authorization excludes DELETE (already authorized at API layer)
+  private static final List<String> DOMAIN_AUTH_CHANGE_TYPE_OPERATIONS =
+      List.of(CREATE, CREATE_ENTITY, UPDATE, UPSERT, PATCH, RESTATE);
 
   @Value("${metadataChangeProposal.validation.ignoreUnknown}")
   private boolean ignoreUnknownEnabled;
@@ -381,7 +384,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(DomainBasedAuthorizationValidator.class.getName())
                 .enabled(domainBasedAuthorizationEnabled)
-                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                .supportedOperations(DOMAIN_AUTH_CHANGE_TYPE_OPERATIONS)
                 .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
                 .build());
   }

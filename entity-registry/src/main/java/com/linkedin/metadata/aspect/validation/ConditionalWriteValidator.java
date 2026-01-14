@@ -1,6 +1,5 @@
 package com.linkedin.metadata.aspect.validation;
 
-import com.datahub.authorization.AuthorizationSession;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.common.urn.Urn;
@@ -25,7 +24,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -71,9 +69,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext,
-      @Nullable AuthorizationSession session) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
 
