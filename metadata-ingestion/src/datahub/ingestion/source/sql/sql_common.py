@@ -130,8 +130,8 @@ if TYPE_CHECKING:
         DatahubGEProfiler,
         GEProfilerRequest,
     )
-    from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
-        DatahubSQLProfiler,
+    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
     )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -1274,14 +1274,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_profiler_instance(
         self, inspector: Inspector
-    ) -> Union["DatahubGEProfiler", "DatahubSQLProfiler"]:
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
         # Import custom profiler first (no GE dependency)
-        from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
-            DatahubSQLProfiler,
+        from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
         )
 
-        if self.config.profiling.profiling_use_custom_profiler:
-            return DatahubSQLProfiler(
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,
@@ -1292,6 +1295,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             # Only import GE profiler if we're actually using it
             from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
             return DatahubGEProfiler(
                 conn=inspector.bind,
                 report=self.report,
@@ -1440,7 +1446,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
-        profiler: Union["DatahubGEProfiler", "DatahubSQLProfiler"],
+        profiler: Union["DatahubGEProfiler", "SQLAlchemyProfiler"],
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(

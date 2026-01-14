@@ -47,7 +47,7 @@ def postgres_source(postgres_runner):
         "database": "testdb",
         "profiling": {
             "enabled": True,
-            "profiling_use_custom_profiler": True,
+            "method": "sqlalchemy",
             "include_field_null_count": True,
             "include_field_distinct_count": True,
             "include_field_min_value": True,
@@ -140,18 +140,26 @@ def test_mathematical_correctness(postgres_source):
         if field_profile.fieldPath == "id":
             continue  # Skip ID column
 
-        # Check min <= max
+        # Check min <= max (only for numeric fields)
         if field_profile.min is not None and field_profile.max is not None:
-            assert float(field_profile.min) <= float(field_profile.max)
+            try:
+                assert float(field_profile.min) <= float(field_profile.max)
+            except (ValueError, TypeError):
+                # Skip non-numeric fields (e.g., DATETIME, STRING)
+                pass
 
-        # Check min <= mean <= max
+        # Check min <= mean <= max (only for numeric fields)
         if (
             field_profile.min is not None
             and field_profile.mean is not None
             and field_profile.max is not None
         ):
-            assert float(field_profile.min) <= float(field_profile.mean)
-            assert float(field_profile.mean) <= float(field_profile.max)
+            try:
+                assert float(field_profile.min) <= float(field_profile.mean)
+                assert float(field_profile.mean) <= float(field_profile.max)
+            except (ValueError, TypeError):
+                # Skip non-numeric fields (e.g., DATETIME, STRING)
+                pass
 
         # Check null_count + non_null_count = row_count
         if field_profile.nullCount is not None and profile.rowCount is not None:
@@ -372,7 +380,7 @@ def test_row_count_estimation(postgres_source):
         "database": "testdb",
         "profiling": {
             "enabled": True,
-            "profiling_use_custom_profiler": True,
+            "method": "sqlalchemy",
             "profile_table_row_count_estimate_only": True,
         },
     }

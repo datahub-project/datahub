@@ -1,4 +1,4 @@
-"""Unit tests for DatahubSQLProfiler."""
+"""Unit tests for SQLAlchemyProfiler."""
 
 from unittest.mock import MagicMock, patch
 
@@ -9,8 +9,8 @@ from sqlalchemy import Column, Float, Integer, String, create_engine
 from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
-    DatahubSQLProfiler,
+from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+    SQLAlchemyProfiler,
 )
 
 
@@ -73,8 +73,8 @@ def mock_report():
 
 @pytest.fixture
 def profiler(sqlite_engine, profiler_config, mock_report):
-    """Create a DatahubSQLProfiler instance."""
-    return DatahubSQLProfiler(
+    """Create a SQLAlchemyProfiler instance."""
+    return SQLAlchemyProfiler(
         conn=sqlite_engine,
         report=mock_report,
         config=profiler_config,
@@ -83,8 +83,8 @@ def profiler(sqlite_engine, profiler_config, mock_report):
     )
 
 
-class TestDatahubSQLProfiler:
-    """Test cases for DatahubSQLProfiler."""
+class TestSQLAlchemyProfiler:
+    """Test cases for SQLAlchemyProfiler."""
 
     def test_init(self, profiler, sqlite_engine):
         """Test profiler initialization."""
@@ -116,7 +116,7 @@ class TestDatahubSQLProfiler:
         assert not profiler._should_ignore_column(sa.String(), "name")
         assert not profiler._should_ignore_column(sa.Float(), "value")
 
-    @patch("datahub.ingestion.source.sql_profiler.datahub_sql_profiler.StatsCalculator")
+    @patch("datahub.ingestion.source.sql_profiler.sqlalchemy_profiler.StatsCalculator")
     def test_generate_single_profile(
         self, mock_stats_calc, profiler, sqlite_engine, test_table
     ):

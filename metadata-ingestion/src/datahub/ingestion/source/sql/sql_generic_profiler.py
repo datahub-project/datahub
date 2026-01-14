@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union, cast
 from sqlalchemy import create_engine, inspect
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
-        DatahubSQLProfiler,
+    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
     )
 from sqlalchemy.engine.reflection import Inspector
 
@@ -208,9 +208,9 @@ class GenericProfiler:
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> Union["DatahubGEProfiler", "DatahubSQLProfiler"]:
-        from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
-            DatahubSQLProfiler,
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
         )
 
         logger.debug(f"Getting profiler instance from {self.platform}")
@@ -222,8 +222,11 @@ class GenericProfiler:
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        if self.config.profiling.profiling_use_custom_profiler:
-            return DatahubSQLProfiler(
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,
@@ -231,6 +234,9 @@ class GenericProfiler:
                 env=self.config.env,
             )
         else:
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
             return DatahubGEProfiler(
                 conn=inspector.bind,
                 report=self.report,

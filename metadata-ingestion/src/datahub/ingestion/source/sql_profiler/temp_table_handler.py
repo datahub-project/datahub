@@ -5,15 +5,15 @@ import uuid
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
-        DatahubSQLProfiler,
+    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
     )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 def create_athena_temp_table(
-    instance: "DatahubSQLProfiler",
+    instance: "SQLAlchemyProfiler",
     sql: str,
     table_pretty_name: str,
     raw_connection: Any,
@@ -47,7 +47,7 @@ def create_athena_temp_table(
 
 
 def create_bigquery_temp_table(
-    instance: "DatahubSQLProfiler",
+    instance: "SQLAlchemyProfiler",
     bq_sql: str,
     table_pretty_name: str,
     raw_connection: Any,
@@ -113,12 +113,14 @@ def create_bigquery_temp_table(
             raise e
         logger.exception(f"Failed to create BigQuery temp table: {e}")
         return None
-    finally:
-        raw_connection.close()
+    # Note: We do NOT close raw_connection here because:
+    # 1. The raw connection is obtained from base_engine.raw_connection() which manages its own lifecycle
+    # 2. Closing it here can invalidate the SQLAlchemy connection used for profiling
+    # 3. The connection will be properly closed when the context manager exits
 
 
 def drop_temp_table(
-    instance: "DatahubSQLProfiler",
+    instance: "SQLAlchemyProfiler",
     table_name: str,
     schema: Optional[str] = None,
 ) -> None:

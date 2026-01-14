@@ -227,14 +227,25 @@ WHERE
             db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )
 
-        # For partitioned tables, if it has a row count but not a valid partition, that means something went wrong with the partition detection.
-        if partition is None and bq_table.partition_info and bq_table.rows_count:
+        # For partitioned tables, if it has a row count but not a valid partition, that means
+        # something went wrong with the partition detection. However, if it's a pseudo-partition
+        # (column=None), we should allow profiling to proceed.
+        # Note: If partition is None but partition_info exists and it's a pseudo-partition or
+        # the table has no rows, we still profile the entire table (matching GE profiler behavior).
+        if (
+            partition is None
+            and bq_table.partition_info
+            and bq_table.rows_count
+            and bq_table.partition_info.column
+            is not None  # Only skip if it's a real partitioned column, not a pseudo-partition
+        ):
             self.report.report_warning(
                 title="Profile skipped for partitioned table",
                 message="profile skipped as partition id or type was invalid",
                 context=profile_request.pretty_name,
             )
             return None
+
         if (
             partition is not None
             and not self.config.profiling.partition_profiling_enabled

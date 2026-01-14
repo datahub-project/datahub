@@ -115,8 +115,120 @@ ATHENA = "athena"
 TRINO = "trino"
 
 
+def _format_datetime_value(value: Any) -> str:
+    """
+    Format datetime value as string, matching GE profiler behavior.
+
+    GE uses ISO format with 'T' separator for datetime values.
+    Examples:
+    - datetime(2000, 1, 1, 10, 30, 0) -> "2000-01-01T10:30:00"
+    - date(2000, 1, 1) -> "2000-01-01"
+    - timestamp with timezone -> "2000-01-01T10:30:00+00:00"
+
+    Uses Python's datetime parsing instead of regex for better format handling.
+    """
+    if value is None:
+        return ""
+
+    # Check if it's a datetime-like object (datetime, date, time)
+    if hasattr(value, "isoformat"):
+        # Use isoformat() which produces ISO 8601 format with 'T' separator
+        return value.isoformat()
+
+    # For string values, try to parse as datetime
+    if isinstance(value, str):
+        from datetime import datetime as dt
+
+        from dateutil import parser as date_parser
+
+        # Check if it's a date-only string (YYYY-MM-DD) - preserve as-is
+        if len(value) == 10 and value.count("-") == 2:
+            try:
+                # Validate it's a valid date format
+                dt.strptime(value, "%Y-%m-%d")
+                return value  # Return date-only string as-is
+            except ValueError:
+                pass  # Not a valid date, continue to parsing
+
+        # Try parsing with dateutil (handles many formats automatically)
+        try:
+            parsed_dt = date_parser.parse(value)
+            return parsed_dt.isoformat()
+        except (ValueError, TypeError, AttributeError):
+            # Fallback: try Python's fromisoformat for common ISO-like formats
+            try:
+                # Handle space separator by replacing with T
+                iso_str = value.replace(" ", "T", 1)
+                parsed = dt.fromisoformat(iso_str)
+                return parsed.isoformat()
+            except (ValueError, AttributeError):
+                # Final fallback: simple space-to-T replacement for common formats
+                if " " in value and len(value) >= 10:
+                    # Replace first space with T (handles "YYYY-MM-DD HH:MM:SS")
+                    return value.replace(" ", "T", 1)
+                # For date-only values (YYYY-MM-DD), return as-is
+                return value
+
+    # For other types, convert to string
+    return str(value)
+
+
+def _format_numeric_value(value: Any, col_type: ProfilerDataType) -> str:
+    """
+    Format numeric value as string, matching GE profiler behavior.
+
+    GE profiler uses str() directly on the value. For INT columns, if BigQuery
+    returns integer values as floats (e.g., 0.0, 200000.0), we format them as
+    integers. For FLOAT columns, we preserve the float format (e.g., "0.0").
+
+    Examples:
+    - INT column with value 0.0 -> "0" (not "0.0")
+    - INT column with value 200000.0 -> "200000" (not "200000.0")
+    - FLOAT column with value 0.0 -> "0.0" (preserve float format)
+    - FLOAT column with value 3.14 -> "3.14"
+    - FLOAT column with Decimal(0) -> "0.0" (format as float)
+    """
+    if value is None:
+        return ""
+
+    # Handle Decimal types (common in BigQuery for NUMERIC columns)
+    from decimal import Decimal
+
+    if isinstance(value, Decimal):
+        # For FLOAT columns, format Decimal integers as "0.0" to match GE
+        if col_type == ProfilerDataType.FLOAT:
+            # Check if it's an integer value
+            if value == value.to_integral_value():
+                # Format as float: "0.0" instead of "0"
+                return f"{float(value):.1f}"
+            # For non-integer decimals, use string representation
+            return str(value)
+        elif col_type == ProfilerDataType.INT:
+            # For INT columns, format as integer
+            return str(int(value))
+
+    # Convert to string first to see what we're working with
+    str_value = str(value)
+
+    if isinstance(value, (int, float)):
+        # For INT columns, format integer-like floats as integers
+        if col_type == ProfilerDataType.INT:
+            # Check if it's a float that's actually an integer
+            if isinstance(value, float) and value.is_integer():
+                return str(int(value))
+            # If it's already an integer, just convert to string
+            return str(int(value))
+        elif col_type == ProfilerDataType.FLOAT:
+            # For FLOAT columns, preserve the float format (GE keeps "0.0" as "0.0")
+            # Just use str() directly to preserve the database's native format
+            return str_value
+
+    # For other types, convert to string
+    return str_value
+
+
 @dataclasses.dataclass
-class DatahubSQLProfiler:
+class SQLAlchemyProfiler:
     """Custom SQLAlchemy-based profiler replacing Great Expectations."""
 
     report: SQLSourceReport
@@ -351,7 +463,6 @@ class DatahubSQLProfiler:
         logger.debug(
             f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
         )
-
         platform = platform or self.platform
         bigquery_temp_table: Optional[str] = None
         temp_view: Optional[str] = None
@@ -387,18 +498,25 @@ class DatahubSQLProfiler:
                                 bq_sql += f" LIMIT {self.config.limit}"
                             if self.config.offset:
                                 bq_sql += f" OFFSET {self.config.offset}"
-                        # Get raw DBAPI connection
-                        raw_conn = getattr(conn, "connection", None)
-                        if raw_conn is None:
-                            raw_conn = getattr(conn, "dbapi_connection", None)
-                        if raw_conn is None:
-                            raw_conn = conn  # Fallback to connection itself
+                        # For BigQuery, use base_engine.raw_connection() like GE profiler does
+                        # This is required because BigQuery's DBAPI connection needs to be
+                        # obtained from the engine, not from the SQLAlchemy Connection object
                         bigquery_temp_table = create_bigquery_temp_table(
-                            self, bq_sql, pretty_name, raw_conn
+                            self, bq_sql, pretty_name, self.base_engine.raw_connection()
                         )
                         if bigquery_temp_table:
                             table = bigquery_temp_table
                             schema = None
+                            custom_sql = (
+                                None  # Clear custom_sql after temp table creation
+                            )
+                        else:
+                            # Temp table creation failed - cannot profile with custom_sql
+                            logger.warning(
+                                f"Failed to create BigQuery temp table for {pretty_name}. "
+                                "Cannot profile partitioned table without temp table."
+                            )
+                            return None
 
                     # Create SQLAlchemy table object
                     # Note: custom_sql should already be handled via temp tables for Athena/BigQuery
@@ -523,13 +641,9 @@ class DatahubSQLProfiler:
                             f"TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
                         )
                         # Get raw DBAPI connection
-                        raw_conn = getattr(conn, "connection", None)
-                        if raw_conn is None:
-                            raw_conn = getattr(conn, "dbapi_connection", None)
-                        if raw_conn is None:
-                            raw_conn = conn  # Fallback to connection itself
+                        # For BigQuery, use base_engine.raw_connection() like GE profiler does
                         bigquery_sample_table = create_bigquery_temp_table(
-                            self, sql, pretty_name, raw_conn
+                            self, sql, pretty_name, self.base_engine.raw_connection()
                         )
                         if bigquery_sample_table:
                             # Update table reference to use sampled table
@@ -561,7 +675,18 @@ class DatahubSQLProfiler:
                             # Recalculate row count for sampled table
                             # Note: We can't just use the original row_count because the actual
                             # sample size may differ from the configured sample_size
-                            sampled_row_count = stats_calc.get_row_count(sql_table)
+                            # IMPORTANT: BigQuery TABLESAMPLE may return the entire table for small tables
+                            # or tables written as a single data block (see comment in test file)
+                            # Use internal implementation directly to avoid query combiner issues
+                            sampled_row_count = stats_calc._get_row_count_impl(
+                                sql_table
+                            )
+                            # Ensure we have a valid row count (should never be None from _get_row_count_impl)
+                            if sampled_row_count is None:
+                                logger.warning(
+                                    f"Sampled row count returned None for {pretty_name}, using original row_count {row_count}"
+                                )
+                                sampled_row_count = row_count
                             row_count = sampled_row_count
                             profile.rowCount = sampled_row_count
                             if profile.partitionSpec:
@@ -590,14 +715,18 @@ class DatahubSQLProfiler:
                     )
 
                     # Profile columns
+                    # Only create field profiles for columns that are actually being profiled
+                    # This matches GE profiler behavior: when profile_table_level_only is True,
+                    # columns_to_profile is empty, so no field profiles should be created
                     field_profiles = []
                     for column in sql_table.columns:
                         col_name = column.name
-                        column_profile = DatasetFieldProfileClass(fieldPath=col_name)
-                        field_profiles.append(column_profile)
 
                         if col_name not in columns_to_profile:
                             continue
+
+                        column_profile = DatasetFieldProfileClass(fieldPath=col_name)
+                        field_profiles.append(column_profile)
 
                         # Get column type
                         col_type = get_column_profiler_type(column.type, platform)
@@ -605,7 +734,6 @@ class DatahubSQLProfiler:
                             col_type = resolve_profiler_type_with_fallback(
                                 column.type, platform, str(column.type)
                             )
-
                         # Get non-null count and null count - following GE profiler pattern
                         # Queue the query, then flush to execute
                         non_null_count_container: Dict[str, Optional[int]] = {
@@ -633,9 +761,19 @@ class DatahubSQLProfiler:
                             _get_non_null_count_wrapper()
 
                         non_null_count = non_null_count_container["value"]
+                        # Calculate null_count: use row_count variable (set from profile.rowCount)
+                        # This matches GE profiler behavior which uses row_count directly
+                        # If row_count is None, try profile.rowCount as fallback
+                        effective_row_count = row_count
+                        if effective_row_count is None:
+                            try:
+                                effective_row_count = profile.rowCount
+                            except (AttributeError, TypeError):
+                                effective_row_count = None
                         null_count = (
-                            max(0, row_count - non_null_count)
-                            if row_count is not None and non_null_count is not None
+                            max(0, effective_row_count - non_null_count)
+                            if effective_row_count is not None
+                            and non_null_count is not None
                             else None
                         )
                         if self.config.include_field_null_count:
@@ -681,9 +819,10 @@ class DatahubSQLProfiler:
                                 and non_null_count > 0
                                 and unique_count is not None
                             ):
-                                column_profile.uniqueProportion = min(
+                                unique_proportion = min(
                                     1, unique_count / non_null_count
                                 )
+                                column_profile.uniqueProportion = unique_proportion
                             cardinality = convert_to_cardinality(
                                 unique_count,
                                 float(unique_count) / non_null_count
@@ -703,57 +842,111 @@ class DatahubSQLProfiler:
                             and col_name not in columns_list_to_ignore_sampling
                         ):
                             # Add sample values for all types
+                            # GE profiler uses expect_column_values_to_be_in_set with empty set
+                            # which returns actual sample rows (with duplicates), not distinct values
                             if self.config.include_field_sample_values:
-                                sample_values = stats_calc.get_column_value_frequencies(
+                                sample_values = stats_calc.get_column_sample_values(
                                     sql_table,
                                     col_name,
-                                    top_k=self.config.field_sample_values_limit,
+                                    limit=self.config.field_sample_values_limit,
                                 )
-                                # Filter out None values and convert to strings
-                                column_profile.sampleValues = [
+                                # Convert to strings (GE does: str(v) for v in partial_unexpected_list)
+                                sample_list = [
                                     str(value)
-                                    for value, _ in sample_values
+                                    for value in sample_values
                                     if value is not None
                                 ]
+                                # Only set sampleValues if there are actual values (match GE behavior)
+                                if sample_list:
+                                    column_profile.sampleValues = sample_list
+                                # For null-only columns (rows exist but all null), set empty list to match GE behavior
+                                # But don't set it for empty tables (row_count == 0) - GE doesn't set it in that case
+                                elif (
+                                    non_null_count == 0
+                                    and row_count is not None
+                                    and row_count > 0
+                                ):
+                                    column_profile.sampleValues = []
 
                             if col_type in (
                                 ProfilerDataType.INT,
                                 ProfilerDataType.FLOAT,
                             ):
+                                # Match GE behavior: catch exceptions and log debug messages
+                                # GE always sets these fields, even when None (for null-only columns)
+                                # We need to set them even when non_null_count == 0 to match GE behavior
                                 if self.config.include_field_min_value:
-                                    min_val = stats_calc._get_column_min_impl(
-                                        sql_table, col_name
-                                    )
-                                    if min_val is not None:
-                                        column_profile.min = str(min_val)
-
+                                    try:
+                                        min_val = stats_calc._get_column_min_impl(
+                                            sql_table, col_name
+                                        )
+                                        # GE does: str(self.dataset.get_column_min(column))
+                                        # For null-only columns, this returns None, which becomes "None" string
+                                        # But in JSON serialization, None becomes null
+                                        column_profile.min = (
+                                            _format_numeric_value(min_val, col_type)
+                                            if min_val is not None
+                                            else None
+                                        )
+                                    except Exception as e:
+                                        logger.debug(
+                                            f"Caught exception while attempting to get column min for column {col_name}. {e}"
+                                        )
                                 if self.config.include_field_max_value:
-                                    max_val = stats_calc._get_column_max_impl(
-                                        sql_table, col_name
-                                    )
-                                    if max_val is not None:
-                                        column_profile.max = str(max_val)
-
+                                    try:
+                                        max_val = stats_calc._get_column_max_impl(
+                                            sql_table, col_name
+                                        )
+                                        # GE does: str(self.dataset.get_column_max(column))
+                                        column_profile.max = (
+                                            _format_numeric_value(max_val, col_type)
+                                            if max_val is not None
+                                            else None
+                                        )
+                                    except Exception as e:
+                                        logger.debug(
+                                            f"Caught exception while attempting to get column max for column {col_name}. {e}"
+                                        )
                                 if self.config.include_field_mean_value:
                                     mean_val = stats_calc._get_column_mean_impl(
                                         sql_table, col_name
                                     )
-                                    if mean_val is not None:
-                                        column_profile.mean = str(mean_val)
+                                    # Match GE behavior: always set mean (None for null-only columns)
+                                    # GE does: str(self.dataset.get_column_mean(column))
+                                    # Mean should always preserve full precision (AVG returns float/DECIMAL)
+                                    # Don't use _format_numeric_value which formats INT columns as integers
+                                    # Just use str() to preserve database-native format (e.g., DECIMAL precision)
+                                    column_profile.mean = (
+                                        str(mean_val) if mean_val is not None else None
+                                    )
 
                                 if self.config.include_field_stddev_value:
                                     stdev_val = stats_calc._get_column_stdev_impl(
                                         sql_table, col_name
                                     )
-                                    if stdev_val is not None:
-                                        column_profile.stdev = str(stdev_val)
+                                    # Match GE behavior: always set stdev
+                                    # GE does: str(self.dataset.get_column_stdev(column))
+                                    # For all-null columns, database returns NULL, which becomes None
+                                    # (PostgreSQL test expects None, but some databases/GE might show '0.0')
+                                    column_profile.stdev = (
+                                        str(stdev_val)
+                                        if stdev_val is not None
+                                        else None
+                                    )
 
                                 if self.config.include_field_median_value:
                                     median_val = stats_calc._get_column_median_impl(
                                         sql_table, col_name
                                     )
-                                    if median_val is not None:
-                                        column_profile.median = str(median_val)
+                                    # Match GE behavior: always set median (None for null-only columns)
+                                    # GE does: str(self.dataset.get_column_median(column))
+                                    # Convert to string directly to preserve database-native formatting
+                                    # This preserves DECIMAL precision, INTEGER format, etc.
+                                    column_profile.median = (
+                                        str(median_val)
+                                        if median_val is not None
+                                        else None
+                                    )
 
                                 if self.config.include_field_quantiles:
                                     quantiles = stats_calc.get_column_quantiles(
@@ -847,20 +1040,36 @@ class DatahubSQLProfiler:
 
                             elif col_type == ProfilerDataType.DATETIME:
                                 # For datetime columns, add min/max
+                                # Match GE behavior: catch exceptions and log debug messages
+                                # Use _get_column_min_impl directly to avoid query combiner issues
                                 if self.config.include_field_min_value:
-                                    min_val = stats_calc.get_column_min(
-                                        sql_table, col_name
-                                    )
-                                    if min_val is not None:
-                                        column_profile.min = str(min_val)
-
+                                    try:
+                                        min_val = stats_calc._get_column_min_impl(
+                                            sql_table, col_name
+                                        )
+                                        if min_val is not None:
+                                            # Format datetime values to match GE's ISO format
+                                            column_profile.min = _format_datetime_value(
+                                                min_val
+                                            )
+                                    except Exception as e:
+                                        logger.debug(
+                                            f"Caught exception while attempting to get column min for column {col_name}. {e}"
+                                        )
                                 if self.config.include_field_max_value:
-                                    max_val = stats_calc.get_column_max(
-                                        sql_table, col_name
-                                    )
-                                    if max_val is not None:
-                                        column_profile.max = str(max_val)
-
+                                    try:
+                                        max_val = stats_calc._get_column_max_impl(
+                                            sql_table, col_name
+                                        )
+                                        if max_val is not None:
+                                            # Format datetime values to match GE's ISO format
+                                            column_profile.max = _format_datetime_value(
+                                                max_val
+                                            )
+                                    except Exception as e:
+                                        logger.debug(
+                                            f"Caught exception while attempting to get column max for column {col_name}. {e}"
+                                        )
                                 # Add distinct value frequencies for low cardinality datetime columns
                                 if (
                                     self.config.include_field_distinct_value_frequencies
@@ -913,7 +1122,6 @@ class DatahubSQLProfiler:
                         f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                     )
                     self.times_taken.append(time_taken)
-
                     return profile
 
             except Exception as e:

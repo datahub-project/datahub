@@ -235,7 +235,9 @@ redshift_common = {
 }
 
 snowflake_common = {
-    # Lower bound due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    # Lower bound >=1.4.6: Versions 1.4.3-1.4.5 require snowflake-connector-python<3.0.0,
+    # but we need snowflake-connector-python>=3.4.0. Version 1.4.6+ supports connector 3.x.
+    # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
     # table column name reflection for non-uppercase table names. While we do not
@@ -253,7 +255,7 @@ snowflake_common = {
     #
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
-    "snowflake-sqlalchemy>=1.4.3, <1.7.4",
+    "snowflake-sqlalchemy>=1.4.6, <1.7.4",
     "snowflake-connector-python>=3.4.0",
     "pandas",
     "cryptography",
