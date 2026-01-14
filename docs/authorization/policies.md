@@ -350,6 +350,7 @@ When domain-based authorization is enabled:
 
 :::caution Sync-Only Support
 Domain-based authorization **only works with synchronous batch processing**. It does **NOT** support:
+
 - Asynchronous ingestion proposals (async=true)
 - Ingestion sources (unless specifically configured)
 - SDK operations (unless specifically configured)
@@ -360,13 +361,15 @@ This is because async operations run under a system account context, and domain 
 **Authorization Flow:**
 
 For CREATE/UPDATE operations:
+
 - Authorization happens **inside the database transaction** via `DomainBasedAuthorizationValidator`
 - This ensures domains are checked consistently within the transaction state
 - Prevents race conditions where domains could change between authorization and commit
 
 For DELETE/READ operations:
- - Standard entity-level authorization applies (domain authorization is handled by policy evaluation, which automatically fetches the entity's domains from the database) 
-**Example Policy:**
+
+- Standard entity-level authorization applies (domain authorization is handled by policy evaluation, which automatically fetches the entity's domains from the database)
+  **Example Policy:**
 
 To allow a user to edit entities within specific domains:
 
