@@ -545,6 +545,16 @@ class HightouchSource(StatefulIngestionSourceBase):
             for key, value in model.tags.items():
                 custom_properties[f"tag_{key}"] = value
 
+        # Include raw SQL in custom properties (truncate if very long)
+        if model.raw_sql:
+            sql_truncated = (
+                model.raw_sql[:2000] if len(model.raw_sql) > 2000 else model.raw_sql
+            )
+            custom_properties["raw_sql"] = sql_truncated
+            if len(model.raw_sql) > 2000:
+                custom_properties["raw_sql_truncated"] = "true"
+                custom_properties["raw_sql_length"] = str(len(model.raw_sql))
+
         dataset = Dataset(
             name=model.slug,
             platform=HIGHTOUCH_PLATFORM,
@@ -557,8 +567,6 @@ class HightouchSource(StatefulIngestionSourceBase):
             custom_properties=custom_properties,
         )
 
-        dataset.set_custom_properties(custom_properties)
-
         schema_fields = self._parse_model_schema(model)
         if schema_fields:
             # Convert to format expected by _set_schema (no None descriptions)
@@ -570,15 +578,52 @@ class HightouchSource(StatefulIngestionSourceBase):
             ]
             dataset._set_schema(formatted_fields)
 
-        if (
-            self.config.parse_model_sql
-            and model.raw_sql
-            and model.query_type == "raw_sql"
-            and source
-        ):
-            upstream_lineage = self._parse_model_sql_lineage(model, source)
-            if upstream_lineage:
-                dataset.set_upstreams(upstream_lineage)
+        # Add upstream lineage based on model type
+        if source:
+            if (
+                self.config.parse_model_sql
+                and model.raw_sql
+                and model.query_type == "raw_sql"
+            ):
+                # For raw_sql models, parse SQL to extract upstream tables
+                upstream_lineage = self._parse_model_sql_lineage(model, source)
+                if upstream_lineage:
+                    dataset.set_upstreams(upstream_lineage)
+                    custom_properties["sql_parsed"] = "true"
+                    custom_properties["upstream_tables_count"] = str(
+                        len(upstream_lineage.upstreams)
+                    )
+                else:
+                    custom_properties["sql_parsed"] = "true"
+                    custom_properties["upstream_tables_count"] = "0"
+            elif model.query_type == "table" and model.name:
+                # For table models, create direct lineage to the source table
+                source_details = self._get_platform_for_source(source)
+                if source_details.platform:
+                    table_name = model.name
+
+                    # Add database/schema prefix if available
+                    if source.configuration:
+                        database = source.configuration.get("database", "")
+                        schema = source.configuration.get("schema", "")
+
+                        if source_details.include_schema_in_urn and schema:
+                            table_name = f"{database}.{schema}.{table_name}"
+                        elif database:
+                            table_name = f"{database}.{table_name}"
+
+                    upstream_urn = DatasetUrn.create_from_ids(
+                        platform_id=source_details.platform,
+                        table_name=table_name,
+                        env=source_details.env,
+                        platform_instance=source_details.platform_instance,
+                    )
+                    dataset.set_upstreams([upstream_urn])
+                    custom_properties["table_lineage"] = "true"
+                    custom_properties["upstream_table"] = table_name
+
+        # Update custom properties after adding lineage info
+        dataset.set_custom_properties(custom_properties)
 
         return dataset
 
@@ -635,11 +680,27 @@ class HightouchSource(StatefulIngestionSourceBase):
         if not dest_details.platform:
             return None
 
-        dest_table = (
-            sync.configuration.get("destinationTable") if sync.configuration else None
-        )
+        dest_table = None
+        if sync.configuration:
+            # Try multiple common configuration keys for destination table name
+            for key in [
+                "destinationTable",
+                "object",
+                "tableName",
+                "table",
+                "objectName",
+            ]:
+                dest_table = sync.configuration.get(key)
+                if dest_table:
+                    break
+
         if not dest_table:
-            dest_table = sync.slug
+            # Last resort: use sync name with a prefix to distinguish from job name
+            dest_table = f"{sync.slug}_destination"
+            logger.warning(
+                f"Could not find destination table name in sync configuration for sync {sync.slug} (id: {sync.id}). "
+                f"Using fallback name: {dest_table}"
+            )
 
         dest_table_name = dest_table
         if dest_details.database:

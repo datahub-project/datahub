@@ -473,6 +473,13 @@ def test_sql_parsing_with_no_raw_sql(
     assert dataset.urn.name == "table-model"
     assert source_instance.report.sql_parsing_attempts == 0
 
+    # Table-type models should have upstream lineage to the source table
+    upstream_lineage = dataset.upstreams
+    assert upstream_lineage is not None
+    assert len(upstream_lineage.upstreams) == 1
+    # The upstream should be the table name from the model
+    assert "Table Model" in str(upstream_lineage.upstreams[0].dataset)
+
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
 def test_sql_parsing_with_unknown_platform(
@@ -1176,10 +1183,8 @@ def test_get_contract_workunits(mock_api_client_class, pipeline_context):
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_contracts_disabled_by_default_behavior(
-    mock_api_client_class, pipeline_context
-):
-    """Test that contracts can be disabled via config."""
+def test_contracts_can_be_disabled(mock_api_client_class, pipeline_context):
+    """Test that contracts can be explicitly disabled."""
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         include_contracts=False,  # Explicitly disabled
@@ -1196,6 +1201,49 @@ def test_contracts_disabled_by_default_behavior(
 
     # Contracts should not be fetched if disabled
     mock_client.get_contracts.assert_not_called()
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_contracts_404_handling(mock_api_client_class, pipeline_context):
+    """Test that 404 errors from contracts endpoint are handled gracefully."""
+    from unittest.mock import Mock
+
+    import requests
+
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        include_contracts=True,  # Explicitly enabled to test 404 handling
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+    mock_client.get_syncs.return_value = []
+    mock_client.get_models.return_value = []
+
+    # Simulate 404 error from contracts endpoint
+    mock_response = Mock()
+    mock_response.status_code = 404
+    http_error = requests.exceptions.HTTPError()
+    http_error.response = mock_response
+    mock_client.get_contracts.side_effect = lambda: (_ for _ in ()).throw(http_error)
+
+    # Actually call the real method that handles 404
+    from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
+
+    real_client = HightouchAPIClient(config.api_config)
+
+    # Patch _make_paginated_request to raise 404
+    def raise_404(*args, **kwargs):
+        response = Mock()
+        response.status_code = 404
+        error = requests.exceptions.HTTPError()
+        error.response = response
+        raise error
+
+    with patch.object(real_client, "_make_paginated_request", side_effect=raise_404):
+        # This should return empty list, not raise exception
+        contracts = real_client.get_contracts()
+        assert contracts == []
 
 
 # Tests for Schema Emission Feature
@@ -1440,3 +1488,191 @@ def test_schema_emission_enabled_and_applied(
     assert len(schema_fields) == 2
     assert schema_fields[0].field_path == "user_id"
     assert schema_fields[1].field_path == "email"
+
+
+# Tests for Outlet URN Generation with Various Configuration Keys
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_outlet_urn_with_destination_table(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test outlet URN generation when destinationTable is in configuration."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    sync = HightouchSync(
+        id="1",
+        slug="my-sync",
+        workspace_id="100",
+        model_id="10",
+        destination_id="20",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"destinationTable": "contacts_table"},
+    )
+
+    destination = HightouchDestination(
+        id="20",
+        name="Salesforce",
+        slug="salesforce",
+        type="salesforce",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={},
+    )
+
+    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
+
+    assert outlet_urn is not None
+    assert "contacts_table" in str(outlet_urn)
+    assert "my-sync" not in str(outlet_urn)  # Should not use sync slug
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_outlet_urn_with_object_key(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test outlet URN generation when 'object' key is used (common for Salesforce)."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    sync = HightouchSync(
+        id="1",
+        slug="my-sync",
+        workspace_id="100",
+        model_id="10",
+        destination_id="20",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"object": "Account"},
+    )
+
+    destination = HightouchDestination(
+        id="20",
+        name="Salesforce",
+        slug="salesforce",
+        type="salesforce",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={},
+    )
+
+    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
+
+    assert outlet_urn is not None
+    assert "Account" in str(outlet_urn)
+    assert "my-sync" not in str(outlet_urn)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_outlet_urn_with_table_name_key(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test outlet URN generation when 'tableName' key is used."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    sync = HightouchSync(
+        id="1",
+        slug="my-sync",
+        workspace_id="100",
+        model_id="10",
+        destination_id="20",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"tableName": "users_table"},
+    )
+
+    destination = HightouchDestination(
+        id="20",
+        name="PostgreSQL",
+        slug="postgres",
+        type="postgres",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={},
+    )
+
+    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
+
+    assert outlet_urn is not None
+    assert "users_table" in str(outlet_urn)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_outlet_urn_fallback_when_no_config_key(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test outlet URN generation falls back to sync slug with suffix when no config key found."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    sync = HightouchSync(
+        id="1",
+        slug="my-sync",
+        workspace_id="100",
+        model_id="10",
+        destination_id="20",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"someOtherKey": "value"},  # No destination table key
+    )
+
+    destination = HightouchDestination(
+        id="20",
+        name="Salesforce",
+        slug="salesforce",
+        type="salesforce",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={},
+    )
+
+    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
+
+    assert outlet_urn is not None
+    # Should use sync slug with _destination suffix to distinguish from job name
+    assert "my-sync_destination" in str(outlet_urn)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_outlet_urn_priority_of_config_keys(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test that config keys are tried in priority order."""
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    # destinationTable should take priority over other keys
+    sync = HightouchSync(
+        id="1",
+        slug="my-sync",
+        workspace_id="100",
+        model_id="10",
+        destination_id="20",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={
+            "tableName": "wrong_table",
+            "object": "wrong_object",
+            "destinationTable": "correct_table",
+        },
+    )
+
+    destination = HightouchDestination(
+        id="20",
+        name="Salesforce",
+        slug="salesforce",
+        type="salesforce",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={},
+    )
+
+    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
+
+    assert outlet_urn is not None
+    assert "correct_table" in str(outlet_urn)
+    assert "wrong_table" not in str(outlet_urn)
+    assert "wrong_object" not in str(outlet_urn)
