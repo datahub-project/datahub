@@ -28,11 +28,17 @@ class TestObservabilityConfigDefaults:
         config = ObservabilityConfig()
         assert config.otlp_enabled is False
 
-    def test_tracing_enabled_by_default(self) -> None:
+    def test_tracing_enabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Clear test env vars to verify actual defaults
+        monkeypatch.delenv("OTEL_TRACING_ENABLED", raising=False)
         config = ObservabilityConfig()
         assert config.tracing_enabled is True
 
-    def test_system_metrics_enabled_by_default(self) -> None:
+    def test_system_metrics_enabled_by_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Clear test env vars to verify actual defaults
+        monkeypatch.delenv("OTEL_SYSTEM_METRICS_ENABLED", raising=False)
         config = ObservabilityConfig()
         assert config.system_metrics_enabled is True
 

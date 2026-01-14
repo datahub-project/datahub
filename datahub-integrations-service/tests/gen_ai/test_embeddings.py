@@ -1,20 +1,15 @@
 """Tests for the query embeddings endpoint."""
 
 import math
-import os
 from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
 
 from datahub_integrations.server import app
+from tests.conftest import integration_test
 
-# Skip these integration tests in CI environments since they require AWS credentials
-# Note: GitHub Actions automatically sets CI=true (since April 2020)
-pytestmark = pytest.mark.skipif(
-    os.environ.get("CI", "").lower() == "true",
-    reason="Integration tests requiring AWS credentials are skipped in CI",
-)
+pytestmark = integration_test
 
 
 @pytest.mark.integration
@@ -23,16 +18,16 @@ class TestEmbeddingsEndpoint:
     Integration test cases for the /ai/embeddings/query endpoint.
 
     These tests require AWS credentials to be configured since they make actual
-    calls to AWS Bedrock services. They are automatically skipped in CI environments.
+    calls to AWS Bedrock services. They are skipped by default both locally and in CI.
 
-    To run locally, ensure you have AWS credentials configured (via AWS_PROFILE or
+    To run these tests, ensure you have AWS credentials configured (via AWS_PROFILE or
     standard AWS credential chain) and run:
 
-        pytest tests/gen_ai/test_embeddings.py -m integration
+        RUN_INTEGRATION_TESTS=true pytest tests/gen_ai/test_embeddings.py -m integration
 
     Or to run all tests including these:
 
-        CI=false pytest tests/gen_ai/test_embeddings.py
+        RUN_INTEGRATION_TESTS=true pytest tests/gen_ai/test_embeddings.py
     """
 
     def test_embed_query_success(self) -> None:

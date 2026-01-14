@@ -6,18 +6,13 @@ These tests verify that:
 3. Cache tokens are extracted and tracked when available
 """
 
-import os
-
 import pytest
 from fastapi.testclient import TestClient
 
 from datahub_integrations.server import app
+from tests.conftest import integration_test
 
-# Skip these integration tests in CI environments since they require AWS credentials
-pytestmark = pytest.mark.skipif(
-    os.environ.get("CI", "").lower() == "true",
-    reason="Integration tests requiring AWS credentials are skipped in CI",
-)
+pytestmark = integration_test
 
 
 @pytest.mark.integration
@@ -29,8 +24,10 @@ class TestDescriptionCostTracking:
     - AWS credentials configured (via AWS_PROFILE or standard credential chain)
     - Access to AWS Bedrock with InvokeModel permissions
 
-    To run locally:
-        AWS_PROFILE=acryl-read-write pytest tests/gen_ai/test_description_cost_tracking.py -m integration
+    These tests are skipped by default both locally and in CI.
+
+    To run these tests:
+        RUN_INTEGRATION_TESTS=true AWS_PROFILE=acryl-read-write pytest tests/gen_ai/test_description_cost_tracking.py -m integration
     """
 
     def test_suggest_description_records_cost_metrics(self) -> None:

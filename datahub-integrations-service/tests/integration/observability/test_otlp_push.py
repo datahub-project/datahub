@@ -151,6 +151,9 @@ class TestOTLPPushIntegration:
         # Force flush to ensure all metrics exported
         provider.force_flush()
 
+        # Shutdown provider to stop background threads cleanly
+        provider.shutdown()
+
         # Verify metrics were pushed to collector
         assert collector.export_count > 0, "No metrics were exported to OTLP collector"
 
@@ -217,6 +220,9 @@ class TestOTLPPushIntegration:
 
         await bridge.stop()
 
+        # Shutdown provider to stop background threads cleanly
+        provider.shutdown()
+
     @pytest.mark.anyio
     @pytest.mark.integration
     async def test_metric_attributes_preserved_in_otlp(
@@ -242,6 +248,9 @@ class TestOTLPPushIntegration:
         await asyncio.sleep(2.5)
         await bridge.stop()
         provider.force_flush()
+
+        # Shutdown provider to stop background threads cleanly
+        provider.shutdown()
 
         # Find kafka_consumer_lag metric and verify attributes
         for request in collector.export_requests:
@@ -304,6 +313,9 @@ class TestOTLPExportTiming:
         final_count = collector.export_count
 
         await bridge.stop()
+
+        # Shutdown provider to stop background threads cleanly
+        provider.shutdown()
 
         # Should have multiple exports
         assert mid_count > initial_count, "No exports in first interval"

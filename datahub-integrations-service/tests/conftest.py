@@ -71,6 +71,19 @@ except ImportError:
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 os.environ["KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX"] = "test"
 
+# Disable OTLP export in tests to prevent connection errors to missing collector
+# Keep Prometheus enabled for tests that check /metrics endpoint
+os.environ["OTEL_OTLP_ENABLED"] = "false"
+os.environ["OTEL_TRACING_ENABLED"] = "false"
+os.environ["OTEL_SYSTEM_METRICS_ENABLED"] = "false"
+
+
+# Integration test marker for tests requiring external services
+integration_test = pytest.mark.skipif(
+    os.environ.get("RUN_INTEGRATION_TESTS", "").lower() != "true",
+    reason="Integration tests requiring external credentials are skipped by default. Set RUN_INTEGRATION_TESTS=true to run them.",
+)
+
 
 @pytest.fixture(scope="module")
 def anyio_backend() -> str:
