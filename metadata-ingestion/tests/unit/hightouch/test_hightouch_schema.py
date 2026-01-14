@@ -48,7 +48,7 @@ def test_mark_primary_key_in_schema(report, mock_graph, mock_urn_builder):
 
     assert len(result) == 3
     assert result[0].is_primary_key is True
-    assert result[0].description == "User ID (Primary Key)"
+    assert result[0].description == "User ID"
     assert result[1].is_primary_key is False
     assert result[2].is_primary_key is False
 
@@ -68,7 +68,7 @@ def test_mark_primary_key_in_schema_no_description(
     result = handler._mark_primary_key_in_schema(schema_fields, "id")
 
     assert result[0].is_primary_key is True
-    assert result[0].description == "Primary Key"
+    assert result[0].description is None
 
 
 def test_mark_primary_key_case_insensitive(report, mock_graph, mock_urn_builder):
@@ -84,7 +84,7 @@ def test_mark_primary_key_case_insensitive(report, mock_graph, mock_urn_builder)
     result = handler._mark_primary_key_in_schema(schema_fields, "user_id")
 
     assert result[0].is_primary_key is True
-    assert result[0].description == "Primary Key"
+    assert result[0].description is None
 
 
 def test_schema_from_referenced_columns(report, mock_graph, mock_urn_builder):
@@ -120,7 +120,7 @@ def test_schema_from_referenced_columns_with_primary_key(
     assert len(result) == 3
     assert result[0].name == "user_id"
     assert result[0].is_primary_key is True
-    assert result[0].description == "Primary Key"
+    assert result[0].description is None
     assert result[1].is_primary_key is False
 
 
@@ -327,7 +327,7 @@ def test_resolve_schema_with_primary_key_marking(report, mock_urn_builder):
     assert result is not None
     assert len(result) == 2
     assert result[0].is_primary_key is True
-    assert result[0].description == "Primary Key"
+    assert result[0].description is None
     assert result[1].is_primary_key is False
 
 

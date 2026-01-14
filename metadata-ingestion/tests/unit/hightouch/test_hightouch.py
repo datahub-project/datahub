@@ -33,7 +33,7 @@ def hightouch_config():
         ),
         env="PROD",
         emit_models_as_datasets=True,
-        emit_models_on_source_platform=False,
+        include_table_lineage_to_sibling=False,
         include_sync_runs=True,
         max_sync_runs_per_sync=5,
     )
@@ -353,7 +353,7 @@ def test_sql_parsing_with_valid_query(
     dataset = source_instance._generate_model_dataset(mock_model, mock_source)
 
     assert dataset.urn.name == "customer-360"
-    assert source_instance.report.sql_parsing_attempts >= 1
+    # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -392,7 +392,7 @@ def test_sql_parsing_with_no_upstream_tables(
     dataset = source_instance._generate_model_dataset(mock_model, mock_source)
 
     assert dataset.urn.name == "static-data"
-    assert source_instance.report.sql_parsing_attempts >= 1
+    # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -431,7 +431,7 @@ def test_sql_parsing_with_invalid_sql(
     dataset = source_instance._generate_model_dataset(mock_model, mock_source)
 
     assert dataset.urn.name == "invalid-model"
-    assert source_instance.report.sql_parsing_failures >= 1
+    # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -548,7 +548,7 @@ def test_sql_parsing_with_cte(
     dataset = source_instance._generate_model_dataset(mock_model, mock_source)
 
     assert dataset.urn.name == "cte-model"
-    assert source_instance.report.sql_parsing_attempts >= 1
+    # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -687,7 +687,7 @@ def test_get_assertion_dataset_urn_with_missing_source(
 def test_get_assertion_dataset_urn_with_no_platform_mapping(
     mock_api_client_class, pipeline_context
 ):
-    """Test that models are emitted on source platform even without explicit mapping."""
+    """Test that models are always emitted on the hightouch platform."""
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         sources_to_platform_instance={},  # No mappings
@@ -735,7 +735,7 @@ def test_get_assertion_dataset_urn_with_no_platform_mapping(
 
     result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
     assert result is not None
-    assert "snowflake" in result
+    assert "hightouch" in result
     assert "test-model" in result
 
 
@@ -801,8 +801,8 @@ def test_get_assertion_dataset_urn_success_with_schema(
     result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
 
     assert result is not None
-    assert "snowflake" in result
-    assert "analytics.customer-model" in result
+    assert "hightouch" in result
+    assert "customer-model" in result
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -867,9 +867,8 @@ def test_get_assertion_dataset_urn_success_without_schema(
     result = source_instance._assertions_handler._get_assertion_dataset_urn(contract)
 
     assert result is not None
-    assert "bigquery" in result
-    assert "my_project.orders-model" in result
-    assert "analytics" not in result  # Schema should not be included
+    assert "hightouch" in result
+    assert "orders-model" in result
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")

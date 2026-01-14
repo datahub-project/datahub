@@ -30,7 +30,7 @@ def hightouch_config():
         ),
         env="PROD",
         platform_instance="prod-instance",
-        emit_models_on_source_platform=True,
+        include_table_lineage_to_sibling=True,
     )
 
 
@@ -58,7 +58,7 @@ def test_urn_builder_make_model_urn_on_hightouch_platform(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
         platform_instance="prod-instance",
-        emit_models_on_source_platform=False,
+        include_table_lineage_to_sibling=False,
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
@@ -102,7 +102,7 @@ def test_urn_builder_make_model_urn_on_source_platform(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
         platform_instance="prod-instance",
-        emit_models_on_source_platform=True,
+        include_table_lineage_to_sibling=True,
         sources_to_platform_instance={
             "source_1": PlatformDetail(
                 platform="snowflake",
@@ -141,8 +141,8 @@ def test_urn_builder_make_model_urn_on_source_platform(
 
     assert isinstance(urn, (str, DatasetUrn))
     urn_str = str(urn)
-    assert "snowflake" in urn_str
-    assert "analytics.customer-model" in urn_str
+    assert "hightouch" in urn_str
+    assert "customer-model" in urn_str
     assert "PROD" in urn_str
 
 

@@ -21,6 +21,7 @@ from datahub.ingestion.source.hightouch.models import (
 )
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
+    SiblingsClass,
     SubTypesClass,
     ViewPropertiesClass,
 )
@@ -743,3 +744,202 @@ def test_column_lineage_with_fuzzy_matching_integration(
         ]
         assert "user_id" in upstream_fields
         assert "email_address" in upstream_fields
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_siblings_emission_for_table_models(mock_api_client_class, pipeline_context):
+    """
+    Test that siblings are properly emitted when include_table_lineage_to_sibling=True
+    for table-type models.
+    """
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        emit_models_as_datasets=True,
+        include_table_lineage_to_sibling=True,
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_1",
+        name="customers",
+        slug="customers-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="table",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Production",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "production"},
+    )
+    mock_client.get_source_by_id.return_value = source_connection
+
+    workunits = list(source_instance._get_model_workunits(model))
+
+    siblings_workunits = [
+        wu.metadata
+        for wu in workunits
+        if hasattr(wu, "metadata")
+        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, SiblingsClass)
+    ]
+
+    assert len(siblings_workunits) == 2
+
+    # Extract the actual URNs from the workunits
+    siblings_dict = {mcp.entityUrn: mcp for mcp in siblings_workunits}
+
+    assert len(siblings_dict) == 2
+
+    # Find model and source table URNs
+    model_siblings_mcp = None
+    source_siblings_mcp = None
+
+    for urn, mcp in siblings_dict.items():
+        if urn and "customers-model" in urn:
+            model_siblings_mcp = mcp
+        elif urn and "production.customers" in urn and "customers-model" not in urn:
+            source_siblings_mcp = mcp
+
+    assert model_siblings_mcp is not None, (
+        f"Model siblings workunit not found in {list(siblings_dict.keys())}"
+    )
+    assert source_siblings_mcp is not None, (
+        f"Source table siblings workunit not found in {list(siblings_dict.keys())}"
+    )
+
+    model_urn = model_siblings_mcp.entityUrn
+    source_table_urn = source_siblings_mcp.entityUrn
+
+    assert isinstance(model_siblings_mcp.aspect, SiblingsClass)
+    assert model_siblings_mcp.aspect.primary is False
+    assert source_table_urn in model_siblings_mcp.aspect.siblings
+
+    assert isinstance(source_siblings_mcp.aspect, SiblingsClass)
+    assert source_siblings_mcp.aspect.primary is True
+    assert model_urn in source_siblings_mcp.aspect.siblings
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_no_siblings_emission_for_raw_sql_models(
+    mock_api_client_class, pipeline_context
+):
+    """
+    Test that siblings are NOT emitted for raw_sql models, even with
+    include_table_lineage_to_sibling=True, because they don't directly map to a source table.
+    """
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        emit_models_as_datasets=True,
+        include_table_lineage_to_sibling=True,
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_1",
+        name="Customer Aggregation",
+        slug="customer-agg",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        raw_sql="SELECT * FROM customers WHERE status = 'active'",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Production",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "production"},
+    )
+    mock_client.get_source_by_id.return_value = source_connection
+
+    workunits = list(source_instance._get_model_workunits(model))
+
+    siblings_workunits = [
+        wu
+        for wu in workunits
+        if hasattr(wu, "metadata")
+        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, SiblingsClass)
+    ]
+
+    assert len(siblings_workunits) == 0
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_no_siblings_when_include_table_lineage_to_sibling_false(
+    mock_api_client_class, pipeline_context
+):
+    """
+    Test that siblings are NOT emitted when include_table_lineage_to_sibling=False.
+    """
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        emit_models_as_datasets=True,
+        include_table_lineage_to_sibling=False,
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_1",
+        name="customers",
+        slug="customers-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="table",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Production",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "production"},
+    )
+    mock_client.get_source_by_id.return_value = source_connection
+
+    workunits = list(source_instance._get_model_workunits(model))
+
+    siblings_workunits = [
+        wu
+        for wu in workunits
+        if hasattr(wu, "metadata")
+        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, SiblingsClass)
+    ]
+
+    assert len(siblings_workunits) == 0

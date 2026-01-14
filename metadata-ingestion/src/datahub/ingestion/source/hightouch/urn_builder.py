@@ -42,20 +42,6 @@ class HightouchUrnBuilder:
         model: HightouchModel,
         source: Optional[HightouchSourceConnection] = None,
     ) -> Union[str, DatasetUrn]:
-        if self.source.config.emit_models_on_source_platform and source:
-            source_details = self._get_cached_source_details(source)
-            if source_details.platform:
-                table_name = model.slug
-                if source_details.database:
-                    table_name = f"{source_details.database}.{model.slug}"
-
-                return DatasetUrn.create_from_ids(
-                    platform_id=source_details.platform,
-                    table_name=table_name,
-                    env=source_details.env,
-                    platform_instance=source_details.platform_instance,
-                )
-
         return DatasetUrn.create_from_ids(
             platform_id=HIGHTOUCH_PLATFORM,
             table_name=model.slug,

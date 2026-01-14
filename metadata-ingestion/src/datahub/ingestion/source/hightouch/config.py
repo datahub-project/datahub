@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator
 
@@ -86,7 +86,6 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     model_schemas_datahub_not_found: LossyList[str] = dataclasses.field(
         default_factory=LossyList
     )
-    destination_schemas_from_datahub: int = 0
     destinations_emitted: int = 0
     schemas_from_referenced_columns: int = 0
     column_lineage_emitted: int = 0
@@ -149,9 +148,6 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     def report_model_schema_datahub_not_found(self, model_name: str) -> None:
         self.model_schemas_datahub_not_found.append(model_name)
 
-    def report_destination_schema_from_datahub(self, count: int = 1) -> None:
-        self.destination_schemas_from_datahub += count
-
     def report_destinations_emitted(self, count: int = 1) -> None:
         self.destinations_emitted += count
 
@@ -210,22 +206,23 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         description="Filtering regex patterns for contract names.",
     )
 
-    sources_to_platform_instance: dict[str, PlatformDetail] = Field(
+    sources_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping from source id to its platform/instance/env/database details.",
     )
 
-    destinations_to_platform_instance: dict[str, PlatformDetail] = Field(
+    destinations_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
-    emit_models_on_source_platform: bool = Field(
+    include_table_lineage_to_sibling: bool = Field(
         default=True,
-        description="Whether to emit Hightouch models as datasets on the source platform (e.g., Snowflake, Redshift) "
-        "rather than as separate 'hightouch' platform datasets. When enabled (default), models appear as siblings of "
-        "their source tables, similar to how Trino/Presto views are represented, creating more natural lineage. "
-        "Set to false to emit models on a separate 'hightouch' platform if you prefer namespace isolation. "
+        description="For table-type models, whether to create lineage to the underlying source table "
+        "and establish a sibling relationship. When enabled (default), the Hightouch model (emitted on 'hightouch' platform) "
+        "becomes a sibling of the source table (e.g., Snowflake table), with the source table as primary. "
+        "The source table URN is used in lineage/inputOutput instead of the Hightouch model URN. "
+        "Similar to Trino's 'trino_as_primary' relationship with Hive tables. "
         "When enabled, ensure sources_to_platform_instance is configured to match your warehouse connector settings.",
     )
 

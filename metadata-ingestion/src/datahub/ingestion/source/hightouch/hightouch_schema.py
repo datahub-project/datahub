@@ -180,17 +180,11 @@ class HightouchSchemaHandler:
         updated_fields = []
         for field in schema_fields:
             if field.name.upper() == primary_key.upper():
-                updated_description = field.description or ""
-                if updated_description:
-                    updated_description = f"{updated_description} (Primary Key)"
-                else:
-                    updated_description = "Primary Key"
-
                 updated_fields.append(
                     HightouchSchemaField(
                         name=field.name,
                         type=field.type,
-                        description=updated_description,
+                        description=field.description,
                         is_primary_key=True,
                     )
                 )
@@ -207,13 +201,12 @@ class HightouchSchemaHandler:
         schema_fields: List[HightouchSchemaField] = []
         for column_name in referenced_columns:
             is_pk = primary_key and column_name.upper() == primary_key.upper()
-            description = "Primary Key" if is_pk else None
 
             schema_fields.append(
                 HightouchSchemaField(
                     name=column_name,
                     type="STRING",
-                    description=description,
+                    description=None,
                     is_primary_key=is_pk or False,
                 )
             )

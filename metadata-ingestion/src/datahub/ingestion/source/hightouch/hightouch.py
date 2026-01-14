@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -53,7 +53,6 @@ from datahub.ingestion.source.hightouch.hightouch_schema import HightouchSchemaH
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchModel,
-    HightouchSchemaField,
     HightouchSourceConnection,
     HightouchSync,
     HightouchSyncRun,
@@ -72,6 +71,12 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+    SiblingsClass,
+    StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -83,8 +88,12 @@ from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownQueryLineageInfo,
+    ObservedQuery,
+    SqlParsingAggregator,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
 
@@ -118,7 +127,7 @@ def normalize_column_name(name: str) -> str:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Enabled by default via configuration `include_column_lineage`",
+    "Enabled by default, emitting column-level lineage from field mappings",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
@@ -170,6 +179,51 @@ class HightouchSource(StatefulIngestionSourceBase):
             api_client=self.api_client,
             urn_builder=self._urn_builder,
         )
+
+        self._sql_aggregators: Dict[str, Optional[SqlParsingAggregator]] = {}
+
+    def _get_aggregator_for_platform(
+        self, source_platform: PlatformDetail
+    ) -> Optional[SqlParsingAggregator]:
+        """
+        Get or create a SQL aggregator for a specific source platform.
+
+        Returns None if the platform is unknown or aggregator creation fails.
+        This makes SQL parsing optional - we'll still emit basic known lineage.
+        """
+        platform = source_platform.platform
+        if not platform:
+            logger.debug("No platform specified, skipping SQL aggregator creation")
+            return None
+
+        if platform not in self._sql_aggregators:
+            try:
+                logger.info(
+                    f"Creating SQL parsing aggregator for platform: {platform} "
+                    f"(instance: {source_platform.platform_instance}, env: {source_platform.env})"
+                )
+
+                self._sql_aggregators[platform] = SqlParsingAggregator(
+                    platform=platform,
+                    platform_instance=source_platform.platform_instance,
+                    env=source_platform.env or self.config.env,
+                    graph=self.graph,
+                    eager_graph_load=False,
+                    generate_lineage=True,
+                    generate_queries=False,
+                    generate_usage_statistics=False,
+                    generate_operations=False,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create SQL aggregator for platform {platform}. "
+                    f"SQL parsing will be disabled for this platform, but basic lineage will still be emitted. "
+                    f"Error: {e}"
+                )
+                self._sql_aggregators[platform] = None
+                return None
+
+        return self._sql_aggregators[platform]
 
     def _get_source(self, source_id: str) -> Optional[HightouchSourceConnection]:
         if source_id not in self._sources_cache:
@@ -337,140 +391,100 @@ class HightouchSource(StatefulIngestionSourceBase):
         for workunit in container_workunits:
             yield workunit
 
-    def _parse_model_sql_lineage(
+    def _register_model_lineage(
         self,
         model: HightouchModel,
+        model_urn: str,
         source: HightouchSourceConnection,
-    ) -> Optional[UpstreamLineageClass]:
-        if not model.raw_sql:
-            return None
+    ) -> None:
+        """
+        Register lineage for a model in the SQL aggregator for the source platform.
 
-        self.report.sql_parsing_attempts += 1
-
+        If SQL aggregator is not available, this is a no-op. Basic lineage from
+        table-type models will still be emitted via the dataset upstream lineage.
+        """
         source_platform = self._get_platform_for_source(source)
         if not source_platform.platform:
             logger.debug(
-                f"Skipping SQL parsing for model {model.id}: unknown source platform"
+                f"Skipping lineage registration for model {model.id}: unknown source platform"
             )
-            return None
+            return
 
-        try:
-            sql_result: SqlParsingResult = create_lineage_sql_parsed_result(
-                query=model.raw_sql,
-                default_db=source_platform.database,
-                platform=source_platform.platform,
-                platform_instance=source_platform.platform_instance,
-                env=source_platform.env,
-                graph=None,
-                schema_aware=False,
+        aggregator = self._get_aggregator_for_platform(source_platform)
+        if not aggregator:
+            logger.debug(
+                f"No SQL aggregator available for platform {source_platform.platform}, "
+                f"skipping SQL-based lineage registration for model {model.id}"
             )
+            return
 
-            if sql_result.debug_info.error:
-                logger.debug(
-                    f"Failed to parse SQL for model {model.id}: {sql_result.debug_info.error}"
+        if model.query_type == "table" and model.name:
+            table_name = model.name
+            if source.configuration:
+                database = source.configuration.get("database", "")
+                schema = source.configuration.get("schema", "")
+                if source_platform.include_schema_in_urn and schema:
+                    table_name = f"{database}.{schema}.{table_name}"
+                elif database and "." not in table_name:
+                    table_name = f"{database}.{table_name}"
+
+            upstream_urn = self._urn_builder.make_upstream_table_urn(table_name, source)
+
+            try:
+                aggregator.add_known_lineage_mapping(
+                    upstream_urn=str(upstream_urn),
+                    downstream_urn=model_urn,
+                    lineage_type=DatasetLineageTypeClass.COPY,
                 )
+                logger.debug(
+                    f"Registered known lineage: {upstream_urn} -> {model_urn} (table reference) "
+                    f"on platform {source_platform.platform}"
+                )
+            except Exception as e:
+                logger.debug(
+                    f"Failed to register known lineage for model {model.id}: {e}"
+                )
+
+        elif (
+            model.raw_sql
+            and model.query_type == "raw_sql"
+            and self.config.parse_model_sql
+        ):
+            self.report.sql_parsing_attempts += 1
+
+            try:
+                aggregator.add_observed_query(
+                    ObservedQuery(
+                        query=model.raw_sql,
+                        default_db=source_platform.database,
+                        default_schema=None,
+                    )
+                )
+
+                aggregator.add_known_query_lineage(
+                    KnownQueryLineageInfo(
+                        query_text=model.raw_sql,
+                        downstream=model_urn,
+                        upstreams=[],
+                    ),
+                    merge_lineage=True,
+                )
+                self.report.sql_parsing_successes += 1
+                logger.debug(
+                    f"Registered SQL query for model {model.id} in aggregator "
+                    f"for platform {source_platform.platform}"
+                )
+            except Exception as e:
+                logger.debug(f"Error registering SQL query for model {model.id}: {e}")
                 self.report.sql_parsing_failures += 1
                 self.report.warning(
-                    title="SQL parsing failed for model",
-                    message=f"Could not extract table lineage from model '{model.name}'",
-                    context=f"model_id: {model.id}, error: {sql_result.debug_info.error}",
+                    title="SQL query registration error",
+                    message=f"Could not register SQL query for model '{model.name}'. "
+                    f"This may be due to an unsupported SQL dialect or parsing error. "
+                    f"Basic lineage will still be emitted.",
+                    context=f"model_id: {model.id}, platform: {source_platform.platform}",
+                    exc=e,
                 )
-                return None
-
-            if not sql_result.in_tables:
-                logger.debug(f"No upstream tables found for model {model.id}")
-                self.report.sql_parsing_successes += 1
-                return None
-
-            upstreams = []
-            for table_urn in sql_result.in_tables:
-                upstreams.append(
-                    UpstreamClass(
-                        dataset=str(table_urn),
-                        type=DatasetLineageTypeClass.TRANSFORMED,
-                    )
-                )
-
-            self.report.sql_parsing_successes += 1
-            logger.info(
-                f"Extracted {len(upstreams)} upstream tables for model {model.id}"
-            )
-            return UpstreamLineageClass(upstreams=upstreams)
-
-        except Exception as e:
-            logger.debug(f"Error parsing SQL for model {model.id}: {e}")
-            self.report.sql_parsing_failures += 1
-            self.report.warning(
-                title="SQL parsing error",
-                message=f"Unexpected error while parsing SQL for model '{model.name}'",
-                context=f"model_id: {model.id}",
-                exc=e,
-            )
-            return None
-
-    def _generate_destination_dataset(
-        self, sync: HightouchSync, destination: HightouchDestination
-    ) -> Optional[Dataset]:
-        destination_urn = self._get_outlet_urn_for_sync(sync, destination)
-        if not destination_urn:
-            return None
-
-        dest_details = self._get_platform_for_destination(destination)
-
-        dataset = Dataset(
-            name=sync.slug,  # Use sync slug as identifier
-            platform=dest_details.platform or destination.type,
-            env=dest_details.env,
-            platform_instance=dest_details.platform_instance,
-            display_name=sync.slug,
-            description=f"Destination dataset for Hightouch sync: {sync.slug}",
-        )
-
-        if self.graph:
-            try:
-                logger.debug(
-                    f"Sync {sync.id} ({sync.slug}): Fetching schema from DataHub for destination {destination_urn}"
-                )
-
-                schema_metadata = self.graph.get_schema_metadata(str(destination_urn))
-
-                if schema_metadata and schema_metadata.fields:
-                    schema_fields = []
-                    for field in schema_metadata.fields:
-                        schema_fields.append(
-                            HightouchSchemaField(
-                                name=field.fieldPath,
-                                type=field.nativeDataType or "UNKNOWN",
-                                description=field.description
-                                if field.description
-                                else None,
-                            )
-                        )
-
-                    formatted_fields = [
-                        (field.name, field.type)
-                        if field.description is None
-                        else (field.name, field.type, field.description)
-                        for field in schema_fields
-                    ]
-                    dataset._set_schema(formatted_fields)
-
-                    logger.info(
-                        f"Sync {sync.id} ({sync.slug}): Fetched {len(schema_fields)} fields from DataHub for destination {destination_urn}"
-                    )
-                    self.report.report_destination_schema_from_datahub()
-                else:
-                    logger.debug(
-                        f"Sync {sync.id} ({sync.slug}): No schema found in DataHub for destination {destination_urn}"
-                    )
-
-            except Exception as e:
-                logger.warning(
-                    f"Sync {sync.id} ({sync.slug}): Error fetching destination schema from DataHub: {e}",
-                    exc_info=True,
-                )
-
-        return dataset
 
     def _generate_model_dataset(
         self,
@@ -513,21 +527,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         platform_instance = self.config.platform_instance
         env = self.config.env
 
-        if self.config.emit_models_on_source_platform and source:
-            source_details = self._get_platform_for_source(source)
-            if source_details.platform:
-                platform_id = source_details.platform
-                platform_instance = source_details.platform_instance
-                env = source_details.env
-
-                if source_details.database:
-                    table_name = f"{source_details.database}.{model.slug}"
-
-                custom_properties["hightouch_model"] = "true"
-                logger.debug(
-                    f"Emitting model {model.slug} as sibling on platform {platform_id}"
-                )
-
         dataset = Dataset(
             name=table_name,
             platform=platform_id,
@@ -545,56 +544,69 @@ class HightouchSource(StatefulIngestionSourceBase):
         )
 
         if schema_fields:
-            formatted_fields = [
-                (field.name, field.type)
-                if field.description is None
-                else (field.name, field.type, field.description)
-                for field in schema_fields
-            ]
-            dataset._set_schema(formatted_fields)
-
-        if source:
-            if (
-                self.config.parse_model_sql
-                and model.raw_sql
-                and model.query_type == "raw_sql"
-            ):
-                upstream_lineage = self._parse_model_sql_lineage(model, source)
-                if upstream_lineage:
-                    dataset.set_upstreams(upstream_lineage)
-                    custom_properties["sql_parsed"] = "true"
-                    custom_properties["upstream_tables_count"] = str(
-                        len(upstream_lineage.upstreams)
+            schema_field_classes = []
+            for field in schema_fields:
+                schema_field_classes.append(
+                    SchemaFieldClass(
+                        fieldPath=field.name,
+                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        nativeDataType=field.type,
+                        description=field.description,
+                        isPartOfKey=field.is_primary_key,
                     )
-                else:
-                    custom_properties["sql_parsed"] = "true"
-                    custom_properties["upstream_tables_count"] = "0"
-            elif model.query_type == "table" and model.name:
-                table_name = model.name
-
-                if source.configuration:
-                    database = source.configuration.get("database", "")
-                    schema = source.configuration.get("schema", "")
-
-                    source_details = self._urn_builder._get_cached_source_details(
-                        source
-                    )
-
-                    if source_details.include_schema_in_urn and schema:
-                        table_name = f"{database}.{schema}.{table_name}"
-                    elif database and "." not in table_name:
-                        table_name = f"{database}.{table_name}"
-
-                upstream_urn = self._urn_builder.make_upstream_table_urn(
-                    table_name, source
                 )
-                dataset.set_upstreams([upstream_urn])
-                custom_properties["table_lineage"] = "true"
-                custom_properties["upstream_table"] = table_name
+            dataset._set_schema(schema_field_classes)
 
-                if self.config.emit_models_on_source_platform:
-                    custom_properties["sibling_of_table"] = model.name
-                    custom_properties["model_type"] = "table_reference"
+            if source:
+                source_platform = self._get_platform_for_source(source)
+                if source_platform.platform:
+                    aggregator = self._get_aggregator_for_platform(source_platform)
+                    if aggregator:
+                        try:
+                            aggregator.register_schema(
+                                str(dataset.urn),
+                                SchemaMetadataClass(
+                                    schemaName=table_name,
+                                    platform=f"urn:li:dataPlatform:{platform_id}",
+                                    version=0,
+                                    hash="",
+                                    platformSchema=SchemalessClass(),
+                                    fields=schema_field_classes,
+                                ),
+                            )
+                            logger.debug(
+                                f"Registered model schema for {model.slug} with aggregator "
+                                f"for platform {source_platform.platform}"
+                            )
+                        except Exception as e:
+                            logger.debug(
+                                f"Failed to register model schema for {model.slug}: {e}"
+                            )
+
+        if source and model.query_type == "table" and model.name:
+            table_name = model.name
+
+            if source.configuration:
+                database = source.configuration.get("database", "")
+                schema = source.configuration.get("schema", "")
+
+                source_details = self._urn_builder._get_cached_source_details(source)
+
+                if source_details.include_schema_in_urn and schema:
+                    table_name = f"{database}.{schema}.{table_name}"
+                elif database and "." not in table_name:
+                    table_name = f"{database}.{table_name}"
+
+            upstream_urn = self._urn_builder.make_upstream_table_urn(table_name, source)
+            custom_properties["table_lineage"] = "true"
+            custom_properties["upstream_table"] = table_name
+            custom_properties["source_table_urn"] = str(upstream_urn)
+
+            dataset.set_upstreams([upstream_urn])
+            logger.debug(
+                f"Set direct upstream lineage for table-type model {model.slug}: {upstream_urn}. "
+                f"This ensures basic lineage is emitted even if SQL aggregator is unavailable."
+            )
 
         dataset.set_custom_properties(custom_properties)
 
@@ -683,6 +695,23 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
                 return None
 
+        if (
+            self.config.include_table_lineage_to_sibling
+            and model.query_type == "table"
+            and model.name
+        ):
+            table_name = model.name
+            if source.configuration:
+                database = source.configuration.get("database", "")
+                schema = source.configuration.get("schema", "")
+                source_details = self._urn_builder._get_cached_source_details(source)
+                if source_details.include_schema_in_urn and schema:
+                    table_name = f"{database}.{schema}.{table_name}"
+                elif database and "." not in table_name:
+                    table_name = f"{database}.{table_name}"
+
+            return self._urn_builder.make_upstream_table_urn(table_name, source)
+
         return self._urn_builder.make_model_urn(model, source)
 
     def _get_outlet_urn_for_sync(
@@ -725,6 +754,73 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         return self._urn_builder.make_destination_urn(dest_table, destination)
 
+    def _generate_column_lineage(
+        self,
+        sync: HightouchSync,
+        model: HightouchModel,
+        inlet_urn: Union[str, DatasetUrn],
+        outlet_urn: Union[str, DatasetUrn],
+    ) -> List[FineGrainedLineageClass]:
+        """
+        Generate column-level lineage from field mappings.
+
+        Note: Schemas should already be registered with the SQL aggregator via
+        _preload_schemas_for_sql_parsing(), so we just fetch them for field matching.
+        """
+        field_mappings = self.api_client.extract_field_mappings(sync)
+        if not field_mappings:
+            return []
+
+        fine_grained_lineages = []
+        model_schema_fields = None
+        dest_schema_fields = None
+
+        if self.graph:
+            try:
+                model_schema_metadata = self.graph.get_schema_metadata(str(inlet_urn))
+                if model_schema_metadata and model_schema_metadata.fields:
+                    model_schema_fields = [
+                        f.fieldPath for f in model_schema_metadata.fields
+                    ]
+            except Exception as e:
+                logger.debug(f"Could not fetch model schema for column matching: {e}")
+
+            try:
+                dest_schema_metadata = self.graph.get_schema_metadata(str(outlet_urn))
+                if dest_schema_metadata and dest_schema_metadata.fields:
+                    dest_schema_fields = [
+                        f.fieldPath for f in dest_schema_metadata.fields
+                    ]
+            except Exception as e:
+                logger.debug(
+                    f"Could not fetch destination schema for column matching: {e}"
+                )
+
+        for mapping in field_mappings:
+            source_field, dest_field = self._normalize_and_match_column(
+                mapping.source_field,
+                mapping.destination_field,
+                model_schema_fields,
+                dest_schema_fields,
+            )
+
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[make_schema_field_urn(str(inlet_urn), source_field)],
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[make_schema_field_urn(str(outlet_urn), dest_field)],
+                )
+            )
+
+        if fine_grained_lineages:
+            self.report.column_lineage_emitted += len(fine_grained_lineages)
+            logger.debug(
+                f"Emitted {len(fine_grained_lineages)} column lineage edges for sync {sync.slug}"
+            )
+
+        return fine_grained_lineages
+
     def _generate_datajob_from_sync(self, sync: HightouchSync) -> DataJob:
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
@@ -751,77 +847,19 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         datajob.set_inlets(inlets)
 
-        fine_grained_lineages = []
         outlet_urn = None
-
         if destination:
             outlet_urn = self._get_outlet_urn_for_sync(sync, destination)
 
-        if model and destination and outlet_urn:
-            field_mappings = self.api_client.extract_field_mappings(sync)
-            inlet_urn = inlets[0] if inlets else None
-
-            if field_mappings and inlet_urn:
-                model_schema_fields = None
-                dest_schema_fields = None
-
-                if self.graph:
-                    try:
-                        model_schema_metadata = self.graph.get_schema_metadata(
-                            str(inlet_urn)
-                        )
-                        if model_schema_metadata and model_schema_metadata.fields:
-                            model_schema_fields = [
-                                f.fieldPath for f in model_schema_metadata.fields
-                            ]
-                    except Exception as e:
-                        logger.debug(
-                            f"Could not fetch model schema for column matching: {e}"
-                        )
-
-                    try:
-                        dest_schema_metadata = self.graph.get_schema_metadata(
-                            str(outlet_urn)
-                        )
-                        if dest_schema_metadata and dest_schema_metadata.fields:
-                            dest_schema_fields = [
-                                f.fieldPath for f in dest_schema_metadata.fields
-                            ]
-                    except Exception as e:
-                        logger.debug(
-                            f"Could not fetch destination schema for column matching: {e}"
-                        )
-
-                for mapping in field_mappings:
-                    source_field, dest_field = self._normalize_and_match_column(
-                        mapping.source_field,
-                        mapping.destination_field,
-                        model_schema_fields,
-                        dest_schema_fields,
-                    )
-
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                make_schema_field_urn(str(inlet_urn), source_field)
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                make_schema_field_urn(str(outlet_urn), dest_field)
-                            ],
-                        )
-                    )
-
-                if fine_grained_lineages:
-                    datajob.set_fine_grained_lineages(fine_grained_lineages)
-                    self.report.column_lineage_emitted += len(fine_grained_lineages)
-                    logger.debug(
-                        f"Emitted {len(fine_grained_lineages)} column lineage edges for sync {sync.slug}"
-                    )
-
         if outlet_urn:
             datajob.set_outlets([outlet_urn])
+
+        if model and outlet_urn and inlets:
+            fine_grained_lineages = self._generate_column_lineage(
+                sync, model, inlets[0], outlet_urn
+            )
+            if fine_grained_lineages:
+                datajob.set_fine_grained_lineages(fine_grained_lineages)
 
         custom_properties: Dict[str, str] = {
             "sync_id": sync.id,
@@ -980,15 +1018,14 @@ class HightouchSource(StatefulIngestionSourceBase):
     def _emit_destination_lineage(
         self,
         sync: HightouchSync,
-        destination_dataset: Dataset,
+        destination_urn: str,
         datajob: DataJob,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Emit upstream lineage and fine-grained lineage on the destination dataset.
         This makes the lineage visible from the destination dataset entity page.
+        Uses the outlet_urn from the datajob to ensure URN consistency.
         """
-        destination_urn = str(destination_dataset.urn)
-
         upstreams = []
         for inlet_urn in datajob.inlets:
             upstreams.append(
@@ -1018,10 +1055,13 @@ class HightouchSource(StatefulIngestionSourceBase):
             )
 
     def _emit_model_aspects(
-        self, model: HightouchModel, model_dataset: Dataset
+        self,
+        model: HightouchModel,
+        model_dataset: Dataset,
+        source: Optional[HightouchSourceConnection] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Emit all aspects for a model dataset (subtypes, view properties, tags).
+        Emit all aspects for a model dataset (subtypes, view properties, tags, siblings).
         This ensures consistency whether the model is emitted standalone or as part of a sync.
         """
         dataset_urn = str(model_dataset.urn)
@@ -1063,6 +1103,46 @@ class HightouchSource(StatefulIngestionSourceBase):
                 self.report.tags_emitted += len(tags_to_emit)
                 logger.debug(f"Emitted {len(tags_to_emit)} tags for model {model.slug}")
 
+        if (
+            self.config.include_table_lineage_to_sibling
+            and model.query_type == "table"
+            and source
+        ):
+            source_table_urn = model_dataset.custom_properties.get("source_table_urn")
+            if source_table_urn:
+                yield from self._emit_sibling_aspects(dataset_urn, source_table_urn)
+                logger.debug(
+                    f"Created sibling relationship for table-type model {model.slug}: "
+                    f"Hightouch model <-> {source_table_urn}"
+                )
+
+    def _emit_sibling_aspects(
+        self, model_urn: str, source_table_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit Siblings aspects on both the Hightouch model and the source table.
+        The source table is primary (the original), the Hightouch model is secondary.
+        """
+        yield MetadataChangeProposalWrapper(
+            entityUrn=model_urn,
+            aspect=SiblingsClass(
+                primary=False,
+                siblings=[source_table_urn],
+            ),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=source_table_urn,
+            aspect=SiblingsClass(
+                primary=True,
+                siblings=[model_urn],
+            ),
+        ).as_workunit()
+
+        logger.debug(
+            f"Emitted sibling relationship: {model_urn} <-> {source_table_urn} (source table is primary)"
+        )
+
     def _get_sync_workunits(
         self, sync: HightouchSync
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
@@ -1078,15 +1158,17 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
                 self.report.report_models_emitted()
                 yield model_dataset
-                yield from self._emit_model_aspects(model, model_dataset)
+                yield from self._emit_model_aspects(model, model_dataset, source)
+
+                if source:
+                    self._register_model_lineage(model, str(model_dataset.urn), source)
 
         destination = self._get_destination(sync.destination_id)
-        destination_dataset = None
+        outlet_urn = None
         if destination:
-            destination_dataset = self._generate_destination_dataset(sync, destination)
-            if destination_dataset:
+            outlet_urn = self._get_outlet_urn_for_sync(sync, destination)
+            if outlet_urn:
                 self.report.report_destinations_emitted()
-                yield destination_dataset
 
         dataflow = self._generate_dataflow_from_sync(sync)
         yield dataflow
@@ -1094,10 +1176,8 @@ class HightouchSource(StatefulIngestionSourceBase):
         datajob = self._generate_datajob_from_sync(sync)
         yield datajob
 
-        if destination_dataset and datajob.inlets:
-            yield from self._emit_destination_lineage(
-                sync, destination_dataset, datajob
-            )
+        if outlet_urn and datajob.inlets:
+            yield from self._emit_destination_lineage(sync, str(outlet_urn), datajob)
 
         if self.config.include_sync_runs:
             self.report.report_api_call()
@@ -1128,7 +1208,195 @@ class HightouchSource(StatefulIngestionSourceBase):
         self.report.report_models_emitted()
         yield model_dataset
 
-        yield from self._emit_model_aspects(model, model_dataset)
+        yield from self._emit_model_aspects(model, model_dataset, source)
+
+        if source:
+            self._register_model_lineage(model, str(model_dataset.urn), source)
+
+    def _extract_table_urns_from_sql(
+        self,
+        model: HightouchModel,
+        source: HightouchSourceConnection,
+    ) -> List[str]:
+        """
+        Parse SQL to extract table references and convert them to URNs.
+        Returns list of table URNs that are referenced in the SQL query.
+        """
+        if not model.raw_sql or model.query_type != "raw_sql":
+            return []
+
+        source_platform = self._get_platform_for_source(source)
+        if not source_platform.platform:
+            return []
+
+        try:
+            sql_result = create_lineage_sql_parsed_result(
+                query=model.raw_sql,
+                default_db=source_platform.database,
+                platform=source_platform.platform,
+                platform_instance=source_platform.platform_instance,
+                env=source_platform.env,
+                graph=None,
+                schema_aware=False,
+            )
+
+            if sql_result.in_tables:
+                logger.debug(
+                    f"Extracted {len(sql_result.in_tables)} table references from SQL in model {model.slug}"
+                )
+                return [str(urn) for urn in sql_result.in_tables]
+        except Exception as e:
+            logger.debug(f"Could not extract tables from SQL for model {model.id}: {e}")
+
+        return []
+
+    def _fetch_and_register_schema(
+        self,
+        urn: str,
+        aggregator: SqlParsingAggregator,
+        registered_urns: Set[str],
+        urn_description: str = "table",
+    ) -> bool:
+        """
+        Fetch schema from DataHub and register it with the SQL aggregator.
+        Returns True if successful, False otherwise.
+        """
+        if urn in registered_urns:
+            return False
+
+        if not self.graph:
+            return False
+
+        try:
+            schema_metadata = self.graph.get_schema_metadata(urn)
+            if schema_metadata and schema_metadata.fields:
+                aggregator.register_schema(urn, schema_metadata)
+                registered_urns.add(urn)
+                logger.debug(
+                    f"Preloaded schema for {urn_description} {urn} "
+                    f"({len(schema_metadata.fields)} fields)"
+                )
+                return True
+        except Exception as e:
+            logger.debug(f"Could not preload schema for {urn}: {e}")
+
+        return False
+
+    def _preload_model_schemas(
+        self,
+        model: HightouchModel,
+        source: HightouchSourceConnection,
+        aggregator: SqlParsingAggregator,
+        registered_urns: Set[str],
+    ) -> None:
+        """
+        Preload schemas for a specific model (upstream table and SQL-referenced tables).
+        """
+        if model.query_type == "table" and model.name:
+            table_name = model.name
+            if source.configuration:
+                database = source.configuration.get("database", "")
+                schema = source.configuration.get("schema", "")
+                source_details = self._urn_builder._get_cached_source_details(source)
+                if source_details.include_schema_in_urn and schema:
+                    table_name = f"{database}.{schema}.{table_name}"
+                elif database and "." not in table_name:
+                    table_name = f"{database}.{table_name}"
+
+            upstream_urn = str(
+                self._urn_builder.make_upstream_table_urn(table_name, source)
+            )
+            self._fetch_and_register_schema(
+                upstream_urn, aggregator, registered_urns, "upstream table"
+            )
+
+        if model.raw_sql and model.query_type == "raw_sql":
+            sql_table_urns = self._extract_table_urns_from_sql(model, source)
+            for table_urn in sql_table_urns:
+                self._fetch_and_register_schema(
+                    table_urn, aggregator, registered_urns, "SQL-referenced table"
+                )
+
+    def _preload_sync_schemas(
+        self,
+        sync: HightouchSync,
+        registered_urns: Set[str],
+    ) -> None:
+        """
+        Preload schemas for a sync (model schema and destination schema).
+        """
+        model = self._get_model(sync.model_id)
+        if not model:
+            return
+
+        source = self._get_source(model.source_id)
+        if not source:
+            return
+
+        source_platform = self._get_platform_for_source(source)
+        if not source_platform.platform:
+            return
+
+        aggregator = self._get_aggregator_for_platform(source_platform)
+        if not aggregator:
+            return
+
+        model_urn = str(self._urn_builder.make_model_urn(model, source))
+        self._fetch_and_register_schema(model_urn, aggregator, registered_urns, "model")
+
+        destination = self._get_destination(sync.destination_id)
+        if not destination:
+            return
+
+        outlet_urn = str(self._get_outlet_urn_for_sync(sync, destination))
+        if outlet_urn:
+            self._fetch_and_register_schema(
+                outlet_urn, aggregator, registered_urns, "destination"
+            )
+
+    def _preload_schemas_for_sql_parsing(
+        self,
+        models: List[HightouchModel],
+        syncs: List[HightouchSync],
+    ) -> None:
+        """
+        Proactively fetch and register schemas from DataHub for all models and syncs.
+        This includes:
+        1. Upstream source tables for table-type models
+        2. Tables referenced in raw SQL queries (parsed from SQL)
+        3. Hightouch model schemas already in DataHub
+        4. Downstream destination tables for syncs
+
+        This ensures the SQL aggregator has all schemas before parsing SQL queries.
+        """
+        if not self.graph:
+            logger.debug("No DataHub graph available - skipping schema preloading")
+            return
+
+        logger.info("Preloading schemas from DataHub for SQL parsing")
+        registered_urns: Set[str] = set()
+
+        for model in models:
+            source = self._get_source(model.source_id)
+            if not source:
+                continue
+
+            source_platform = self._get_platform_for_source(source)
+            if not source_platform.platform:
+                continue
+
+            aggregator = self._get_aggregator_for_platform(source_platform)
+            if not aggregator:
+                continue
+
+            self._preload_model_schemas(model, source, aggregator, registered_urns)
+
+        for sync in syncs:
+            self._preload_sync_schemas(sync, registered_urns)
+
+        logger.info(
+            f"Preloaded {len(registered_urns)} schemas from DataHub for SQL parsing"
+        )
 
     def get_workunits_internal(
         self,
@@ -1147,6 +1415,15 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         logger.info(f"Processing {len(filtered_syncs)} syncs after filtering")
 
+        all_models = []
+        if self.config.emit_models_as_datasets:
+            self.report.report_api_call()
+            all_models = self.api_client.get_models()
+            logger.info(f"Found {len(all_models)} models total")
+
+        if self.graph and (filtered_syncs or all_models):
+            self._preload_schemas_for_sql_parsing(all_models, filtered_syncs)
+
         for sync in filtered_syncs:
             try:
                 if self.config.emit_models_as_datasets:
@@ -1161,11 +1438,8 @@ class HightouchSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
-        if self.config.emit_models_as_datasets:
-            logger.info("Fetching standalone models")
-            self.report.report_api_call()
-            all_models = self.api_client.get_models()
-            logger.info(f"Found {len(all_models)} models total")
+        if self.config.emit_models_as_datasets and all_models:
+            logger.info("Processing standalone models")
 
             standalone_models = [
                 model
@@ -1198,6 +1472,40 @@ class HightouchSource(StatefulIngestionSourceBase):
             yield from self._assertions_handler.get_assertion_workunits(
                 contracts=contracts
             )
+
+        if self._sql_aggregators:
+            active_aggregators = {
+                platform: aggregator
+                for platform, aggregator in self._sql_aggregators.items()
+                if aggregator is not None
+            }
+
+            if active_aggregators:
+                logger.info(
+                    f"Generating lineage from {len(active_aggregators)} SQL aggregator(s)"
+                )
+                for platform, aggregator in active_aggregators.items():
+                    logger.info(f"Generating lineage from {platform} aggregator")
+                    try:
+                        for mcp in aggregator.gen_metadata():
+                            yield mcp.as_workunit()
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to generate metadata from {platform} aggregator: {e}",
+                            exc_info=True,
+                        )
+                    finally:
+                        try:
+                            aggregator.close()
+                        except Exception as e:
+                            logger.debug(f"Error closing {platform} aggregator: {e}")
+            else:
+                logger.info(
+                    "No active SQL aggregators - SQL-based lineage enrichment was not available. "
+                    "Basic known lineage was still emitted."
+                )
+        else:
+            logger.debug("No SQL aggregators created - SQL parsing was not used")
 
     def get_report(self) -> SourceReport:
         return self.report
