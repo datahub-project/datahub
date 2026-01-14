@@ -892,3 +892,104 @@ class TestWithTemporaryCredentials:
         finally:
             assert os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == "/original/path.json"
             os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+
+
+class TestAutoDiscoveryFiltering:
+    """Tests for auto-discovered projects being filtered by pattern"""
+
+    @patch(
+        "datahub.ingestion.source.common.gcp_project_utils._search_projects_with_retry"
+    )
+    def test_all_discovered_projects_filtered_raises(
+        self, mock_search: MagicMock
+    ) -> None:
+        """Auto-discovery should raise when all projects are filtered out"""
+        mock_search.return_value = iter(
+            [
+                GCPProject(id="dev-project-1", name="Dev 1"),
+                GCPProject(id="dev-project-2", name="Dev 2"),
+                GCPProject(id="staging-app", name="Staging"),
+            ]
+        )
+        mock_client = MagicMock()
+        pattern = AllowDenyPattern(allow=["^prod-.*"])
+
+        with pytest.raises(GCPProjectDiscoveryError, match="all were excluded"):
+            get_projects(
+                project_id_pattern=pattern,
+                client=mock_client,
+            )
+
+    @patch(
+        "datahub.ingestion.source.common.gcp_project_utils._search_projects_with_retry"
+    )
+    def test_partial_filter_returns_matching(self, mock_search: MagicMock) -> None:
+        """Auto-discovery should return projects matching pattern"""
+        mock_search.return_value = iter(
+            [
+                GCPProject(id="prod-app", name="Prod App"),
+                GCPProject(id="dev-project", name="Dev"),
+            ]
+        )
+        mock_client = MagicMock()
+        pattern = AllowDenyPattern(allow=["^prod-.*"])
+
+        result = get_projects(project_id_pattern=pattern, client=mock_client)
+
+        assert len(result) == 1
+        assert result[0].id == "prod-app"
+
+
+class TestOverlappingAllowDenyPatterns:
+    """Tests for allow/deny pattern interactions"""
+
+    def test_deny_overrides_allow(self) -> None:
+        """Deny patterns should take precedence over allow patterns"""
+        projects = [
+            GCPProject(id="prod-app", name="Prod App"),
+            GCPProject(id="prod-test", name="Prod Test"),
+            GCPProject(id="dev-app", name="Dev App"),
+        ]
+        pattern = AllowDenyPattern(allow=["^prod-.*"], deny=[".*-test$"])
+
+        filtered = _filter_projects_by_pattern(projects, pattern)
+
+        assert len(filtered) == 1
+        assert filtered[0].id == "prod-app"
+
+    def test_deny_all_overrides_specific_allow(self) -> None:
+        """Deny-all pattern should block everything even with specific allows"""
+        projects = [
+            GCPProject(id="prod-app", name="Prod App"),
+            GCPProject(id="dev-app", name="Dev App"),
+        ]
+        pattern = AllowDenyPattern(allow=["^prod-.*"], deny=[".*"])
+
+        filtered = _filter_projects_by_pattern(projects, pattern)
+
+        assert len(filtered) == 0
+
+    def test_overlapping_pattern_validation_warns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Conflicting allow/deny patterns should warn about deny precedence"""
+        pattern = AllowDenyPattern(allow=["^prod-.*"], deny=[".*"])
+        with caplog.at_level(logging.WARNING):
+            _validate_pattern_before_discovery(pattern, "auto-discovery")
+        assert "deny pattern" in caplog.text.lower()
+        assert "overrides" in caplog.text.lower() or "precedence" in caplog.text.lower()
+
+    def test_multiple_deny_patterns(self) -> None:
+        """Multiple deny patterns should all be applied"""
+        projects = [
+            GCPProject(id="prod-app", name="Prod App"),
+            GCPProject(id="prod-test", name="Prod Test"),
+            GCPProject(id="dev-app", name="Dev App"),
+            GCPProject(id="staging-app", name="Staging App"),
+        ]
+        pattern = AllowDenyPattern(deny=[".*-test$", "^dev-.*"])
+
+        filtered = _filter_projects_by_pattern(projects, pattern)
+
+        assert len(filtered) == 2
+        assert {p.id for p in filtered} == {"prod-app", "staging-app"}

@@ -427,6 +427,29 @@ def get_projects_by_labels(
         ) from e
 
 
+def _discover_all_projects(
+    client: resourcemanager_v3.ProjectsClient,
+    pattern: AllowDenyPattern,
+) -> List[GCPProject]:
+    _validate_pattern_before_discovery(pattern, "auto-discovery")
+    logger.info("Discovering all accessible GCP projects...")
+
+    debug_cmd = "gcloud projects list --filter='lifecycleState:ACTIVE'"
+    try:
+        projects = list(_search_projects_with_retry(client, "state:ACTIVE"))
+    except GoogleAPICallError as e:
+        raise _handle_discovery_error(
+            e, debug_cmd, discovery_method="auto-discovery"
+        ) from e
+
+    if not projects:
+        raise GCPProjectDiscoveryError(
+            f"No projects discovered. Verify service account has access. Debug: {debug_cmd}"
+        )
+
+    return _filter_and_validate(projects, pattern, "auto-discovery")
+
+
 def get_projects(
     project_ids: Optional[List[str]] = None,
     project_labels: Optional[List[str]] = None,
@@ -445,20 +468,4 @@ def get_projects(
     if project_labels:
         return get_projects_by_labels(project_labels, client, pattern)
 
-    _validate_pattern_before_discovery(pattern, "auto-discovery")
-    logger.info("Discovering all accessible GCP projects...")
-
-    debug_cmd = "gcloud projects list --filter='lifecycleState:ACTIVE'"
-    try:
-        discovered_projects = list(_search_projects_with_retry(client, "state:ACTIVE"))
-    except GoogleAPICallError as e:
-        raise _handle_discovery_error(
-            e, debug_cmd, discovery_method="auto-discovery"
-        ) from e
-
-    if not discovered_projects:
-        raise GCPProjectDiscoveryError(
-            f"No projects discovered. Verify service account has access. Debug: {debug_cmd}"
-        )
-
-    return _filter_and_validate(discovered_projects, pattern, "auto-discovery")
+    return _discover_all_projects(client, pattern)
