@@ -22,12 +22,13 @@ from datahub.configuration.common import AllowDenyPattern
 logger = logging.getLogger(__name__)
 
 GCP_PROJECT_ID_PATTERN = re.compile(r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
-LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*(?::[a-z0-9_-]+)?$")
+LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*:[a-z0-9_-]+$")
 
 RETRY_INITIAL_DELAY = 1.0
 RETRY_MAX_DELAY = 60.0
 RETRY_MULTIPLIER = 2.0
 RETRY_DEFAULT_TIMEOUT = 300.0
+HTTP_SERVER_ERROR_MIN = 500
 
 
 class GCPValidationError(ValueError):
@@ -88,11 +89,6 @@ def validate_project_label_format(label: str) -> None:
             f"Invalid project_labels format: '{label}'. "
             "Must be 'key:value' format. Example: env:prod"
         )
-    if ":" not in label:
-        raise GCPValidationError(
-            f"Invalid project_labels format: '{label}'. "
-            "Must be 'key:value' format. Example: env:prod"
-        )
 
 
 def validate_project_label_list(project_labels: List[str]) -> None:
@@ -124,7 +120,7 @@ def is_gcp_transient_error(exc: Exception) -> bool:
         return True
     if isinstance(exc, GoogleAPICallError):
         code = getattr(exc, "code", None)
-        if code is not None and code >= 500:
+        if code is not None and code >= HTTP_SERVER_ERROR_MIN:
             return True
     return False
 
