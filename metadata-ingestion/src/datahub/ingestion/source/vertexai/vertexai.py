@@ -54,10 +54,12 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.gcp_credentials_config import (
+    gcp_credentials_context,
+)
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
     call_with_retry,
-    gcp_credentials_context,
     get_gcp_error_type,
     get_projects,
     get_projects_client,

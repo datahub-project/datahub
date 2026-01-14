@@ -26,12 +26,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_credentials_config import (
+    GCPCredential,
+    gcp_credentials_context,
+)
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
     GCPProjectDiscoveryError,
     _validate_pattern_before_discovery,
-    gcp_credentials_context,
     get_projects_from_explicit_list,
     is_gcp_transient_error,
 )

@@ -19,6 +19,11 @@ from google.api_core.retry import Retry
 from google.cloud import resourcemanager_v3
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.common.gcp_credentials_config import (
+    gcp_credentials_context,
+    temporary_credentials_file,
+    with_temporary_credentials,
+)
 from datahub.ingestion.source.common.gcp_project_utils import (
     GCPProject,
     GCPProjectDiscoveryError,
@@ -32,18 +37,15 @@ from datahub.ingestion.source.common.gcp_project_utils import (
     _validate_pattern_before_discovery,
     call_with_retry,
     gcp_api_retry,
-    gcp_credentials_context,
     get_gcp_error_type,
     get_projects,
     get_projects_by_labels,
     get_projects_from_explicit_list,
     is_gcp_transient_error,
-    temporary_credentials_file,
     validate_project_id_format,
     validate_project_id_list,
     validate_project_label_format,
     validate_project_label_list,
-    with_temporary_credentials,
 )
 
 
@@ -705,7 +707,7 @@ class TestTemporaryCredentialsFile:
 
         with (
             patch(
-                "datahub.ingestion.source.common.gcp_project_utils.os.unlink"
+                "datahub.ingestion.source.common.gcp_credentials_config.os.unlink"
             ) as mock_unlink,
             caplog.at_level(logging.ERROR),
         ):
