@@ -334,8 +334,22 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void clear() {
-    esBulkProcessor.deleteByQuery(
-        QueryBuilders.matchAllQuery(), true, indexConvention.getIndexName(INDEX_NAME));
+    // Instead of deleting all documents (inefficient), delete and recreate the index
+    String indexName = indexConvention.getIndexName(INDEX_NAME);
+    try {
+      // Build a config with the correct target mappings for recreation
+      ReindexConfig config =
+          indexBuilder.buildReindexState(
+              indexName, GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
+
+      // Use clearIndex which handles deletion and recreation
+      indexBuilder.clearIndex(indexName, config);
+
+      log.info("Cleared index {} by deleting and recreating it", indexName);
+    } catch (IOException e) {
+      log.error("Failed to clear index {}", indexName, e);
+      throw new RuntimeException("Failed to clear index: " + indexName, e);
+    }
   }
 
   @Override
@@ -369,21 +383,16 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             response.getHits().getHits(), graphFilters.getRelationshipDirection());
 
     SearchHit[] searchHits = response.getHits().getHits();
-    // Only return next scroll ID if there are more results, indicated by full size results
-    String nextScrollId = null;
     String pitId = response.pointInTimeId();
-    if (searchHits.length == count && searchHits.length > 0) {
-      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      if (pitId != null && keepAlive == null) {
-        throw new IllegalArgumentException("Should not set pitId without keepAlive");
-      }
-      long expirationTime =
-          keepAlive == null
-              ? 0L
-              : System.currentTimeMillis()
-                  + TimeValue.parseTimeValue(keepAlive, "keepAlive").millis();
-      nextScrollId = new SearchAfterWrapper(sort, pitId, expirationTime).toScrollId();
+    if (pitId != null && keepAlive == null) {
+      throw new IllegalArgumentException("Should not set pitId without keepAlive");
     }
+    long expirationTime =
+        keepAlive == null
+            ? 0L
+            : System.currentTimeMillis()
+                + TimeValue.parseTimeValue(keepAlive, "keepAlive").millis();
+    String nextScrollId = SearchAfterWrapper.nextScrollId(searchHits, count, pitId, expirationTime);
     if (nextScrollId == null && pitId != null) {
       // Last scroll, we clean up the pitId assuming user has gone through all data
       graphReadDAO.cleanupPointInTime(pitId);

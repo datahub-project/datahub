@@ -87,6 +87,54 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Extracts the entity type name from an entity type URN.
+   *
+   * <p>Entity type URNs may come in two formats:
+   *
+   * <ul>
+   *   <li>{@code urn:li:entityType:dataset} - legacy format without datahub prefix
+   *   <li>{@code urn:li:entityType:datahub.dataset} - current format with datahub prefix
+   * </ul>
+   *
+   * <p>This method normalizes both formats to return just the entity type name (e.g., "dataset").
+   *
+   * @param entityTypeUrn the entity type URN to extract the name from
+   * @return the entity type name (e.g., "dataset", "dataFlow"), or null if the URN is null
+   */
+  @Nullable
+  public static String getEntityTypeId(@Nullable final Urn entityTypeUrn) {
+    if (entityTypeUrn == null) {
+      return null;
+    }
+    String entityTypeId = entityTypeUrn.getId();
+    // Handle both "datahub.dataset" and "dataset" formats
+    if (entityTypeId.startsWith("datahub.")) {
+      entityTypeId = entityTypeId.substring("datahub.".length());
+    }
+    return entityTypeId;
+  }
+
+  /**
+   * Checks if the given entity type URN matches the specified entity type name.
+   *
+   * <p>This method handles both URN formats:
+   *
+   * <ul>
+   *   <li>{@code urn:li:entityType:dataset}
+   *   <li>{@code urn:li:entityType:datahub.dataset}
+   * </ul>
+   *
+   * @param entityTypeUrn the entity type URN to check
+   * @param entityTypeName the entity type name to match against (e.g., "dataset")
+   * @return true if the URN represents the specified entity type, false otherwise
+   */
+  public static boolean entityTypeMatches(
+      @Nullable final Urn entityTypeUrn, @Nonnull final String entityTypeName) {
+    String extractedType = getEntityTypeId(entityTypeUrn);
+    return entityTypeName.equals(extractedType);
+  }
+
+  /**
    * Given a structured property input field or facet name, return a valid structured property facet
    * name
    *

@@ -54,7 +54,9 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
-    "ruamel.yaml",
+    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
+    # which is not available as wheel.
+    "ruamel.yaml<0.19.0",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -69,7 +71,8 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    "confluent_kafka[schemaregistry,avro]>=2.10.1",
+    # 2.13.0 introduced some breaking changes that require some development
+    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -226,6 +229,15 @@ clickhouse_common = {
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
+dataplex_common = {
+    "google-cloud-dataplex",
+    # Pinned to 0.2.2 because 0.3.0 changed the import path from
+    # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+    # which breaks existing code using the old import path
+    "google-cloud-datacatalog-lineage==0.2.2",
+    "tenacity>=8.0.1",
+}
+
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
@@ -275,7 +287,8 @@ pyhive_common = {
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
-    "acryl-pyhive[hive-pure-sasl]==0.6.16",
+    # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
+    "acryl-pyhive[hive-pure-sasl]==0.6.17",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
@@ -346,6 +359,11 @@ abs_base = {
     "tableschema>=1.20.2",
     "ujson>=5.2.0",
     *path_spec_common,
+}
+
+azure_data_factory = {
+    "azure-identity>=1.21.0",
+    "azure-mgmt-datafactory>=9.0.0",
 }
 
 data_lake_profiling = {
@@ -450,11 +468,15 @@ plugins: Dict[str, Set[str]] = {
         "tenacity!=8.4.0",
     },
     "azure-ad": set(),
+    "azure-data-factory": azure_data_factory,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
     | classification_lib
     | {
+        # Pinned to 0.2.2 because 0.3.0 changed the import path from
+        # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+        # which breaks existing code using the old import path
         "google-cloud-datacatalog-lineage==0.2.2",
     },
     "bigquery-slim": bigquery_common,
@@ -467,7 +489,14 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
+    "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
+    "db2": {
+        # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
+        "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+        "pyodbc",
+        *sql_common,
+    },
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
     "dremio": {"requests"} | sql_common,
@@ -518,9 +547,17 @@ plugins: Dict[str, Set[str]] = {
         *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
+    # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
+    # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary", "pymysql>=1.0.2"},
+    | {
+        "psycopg2-binary",
+        "pymysql>=1.0.2",
+        "pymetastore>=0.4.2",
+        "tenacity>=8.0.1",
+        "kerberos>=1.3.0",
+    },
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "json-schema": {"requests"},
@@ -617,6 +654,23 @@ plugins: Dict[str, Set[str]] = {
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
     "hightouch": {"requests"} | sqlglot_lib,
+    # Debug/utility plugins
+    "debug-recording": {
+        # VCR.py for HTTP recording - industry standard
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
+        "vcrpy>=8.0.0,<9.0; python_version >= '3.10'",
+        # vcrpy 7.x for Python 3.9 (requires urllib3 < 2.0) Python 3.9 EOL passed already, so we should get rid of this soon
+        "vcrpy>=7.0.0,<8.0.0; python_version < '3.10'",
+        # responses library for HTTP replay - better compatibility with custom SDK transports
+        # (e.g., Looker SDK) that break with VCR's urllib3 patching
+        "responses>=0.25.0,<1.0",
+        # AES-256 encrypted zip files
+        "pyzipper>=0.3.6,<1.0",
+        # Note: This plugin uses lazy imports to avoid requiring optional dependencies
+        # (e.g., sqlalchemy) when recording is not used. Dependencies like sqlalchemy
+        # are expected to be provided by the source connector itself when needed.
+        # The plugin is designed to be installed alongside source connectors, not standalone.
+    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -636,6 +690,8 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # Debug recording is an optional debugging tool.
+    "debug-recording",
 }
 
 mypy_stubs = {
@@ -717,6 +773,7 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            "dataplex",
             "delta-lake",
             "dremio",
             "druid",
@@ -783,14 +840,18 @@ full_test_dev_requirements = {
         dependency
         for plugin in [
             "athena",
+            "azure-data-factory",
             "circuit-breaker",
             "clickhouse",
+            "db2",
+            "debug-recording",
             "delta-lake",
             "druid",
             "excel",
             "feast",
             "hana",
             "hive",
+            "hive-metastore",
             "iceberg",
             "iceberg-catalog",
             "kafka-connect",
@@ -819,6 +880,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
+        "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
@@ -826,6 +888,7 @@ entry_points = {
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
+        "db2 = datahub.ingestion.source.sql.db2:Db2Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",
@@ -838,8 +901,8 @@ entry_points = {
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
-        "hive = datahub.ingestion.source.sql.hive:HiveSource",
-        "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "hive = datahub.ingestion.source.sql.hive.hive_source:HiveSource",
+        "hive-metastore = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
@@ -852,6 +915,7 @@ entry_points = {
         "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
+        "dataplex = datahub.ingestion.source.dataplex.dataplex:DataplexSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
@@ -882,7 +946,7 @@ entry_points = {
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
-        "presto-on-hive = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
@@ -932,6 +996,7 @@ entry_points = {
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
         "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",
+        "tags_to_structured_properties = datahub.ingestion.transformer.tags_to_structured_properties:TagsToStructuredPropertiesTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

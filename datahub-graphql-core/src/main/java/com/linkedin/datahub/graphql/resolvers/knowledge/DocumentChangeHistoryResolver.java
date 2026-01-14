@@ -178,14 +178,35 @@ public class DocumentChangeHistoryResolver
     }
 
     // Set details (optional parameters)
+    List<StringMapEntry> details = new ArrayList<>();
     if (event.getParameters() != null && !event.getParameters().isEmpty()) {
-      List<StringMapEntry> details = new ArrayList<>();
       for (Map.Entry<String, Object> entry : event.getParameters().entrySet()) {
         StringMapEntry mapEntry = new StringMapEntry();
         mapEntry.setKey(entry.getKey());
         mapEntry.setValue(entry.getValue() != null ? entry.getValue().toString() : "");
         details.add(mapEntry);
       }
+    }
+
+    // For RELATED_ENTITIES changes, include the modifier (entity URN) and operation as first-class
+    // fields
+    if (event.getCategory() == ChangeCategory.RELATED_ENTITIES) {
+      if (event.getModifier() != null && !event.getModifier().isEmpty()) {
+        StringMapEntry modifierEntry = new StringMapEntry();
+        modifierEntry.setKey("entityUrn");
+        modifierEntry.setValue(event.getModifier());
+        details.add(modifierEntry);
+      }
+
+      if (event.getOperation() != null) {
+        StringMapEntry operationEntry = new StringMapEntry();
+        operationEntry.setKey("operation");
+        operationEntry.setValue(event.getOperation().name());
+        details.add(operationEntry);
+      }
+    }
+
+    if (!details.isEmpty()) {
       change.setDetails(details);
     }
 
