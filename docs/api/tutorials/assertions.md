@@ -1022,6 +1022,9 @@ as `${parameterName}` in the SQL fragment.
 Next, you'll call the `runAssertion`, `runAssertions`, or `runAssertionsForAsset` mutations with the `parameters` input argument.
 This argument is a list of key-value tuples, where the key is the parameter name and the value is the parameter value:
 
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
 ```graphql
 mutation runAssertion {
   runAssertion(
@@ -1036,6 +1039,18 @@ mutation runAssertion {
   }
 }
 ```
+
+</TabItem>
+
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/run_assertion_with_parameters.py show_path_as_comment }}
+```
+
+</TabItem>
+
+</Tabs>
 
 At runtime, the `${parameterName}` placeholder in the SQL fragment will be replaced with the provided `parameterValue` before the query
 is sent to the database for execution.
