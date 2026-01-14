@@ -977,6 +977,46 @@ class HightouchSource(StatefulIngestionSourceBase):
         ):
             yield mcp.as_workunit()
 
+    def _emit_destination_lineage(
+        self,
+        sync: HightouchSync,
+        destination_dataset: Dataset,
+        datajob: DataJob,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit upstream lineage and fine-grained lineage on the destination dataset.
+        This makes the lineage visible from the destination dataset entity page.
+        """
+        destination_urn = str(destination_dataset.urn)
+
+        upstreams = []
+        for inlet_urn in datajob.inlets:
+            upstreams.append(
+                UpstreamClass(
+                    dataset=str(inlet_urn),
+                    type=DatasetLineageTypeClass.COPY,
+                )
+            )
+
+        fine_grained_lineages = (
+            datajob.fine_grained_lineages if datajob.fine_grained_lineages else None
+        )
+
+        if upstreams:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=destination_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=fine_grained_lineages,
+                ),
+            ).as_workunit()
+
+            logger.debug(
+                f"Emitted upstream lineage for destination {destination_urn} "
+                f"with {len(upstreams)} upstreams and "
+                f"{len(fine_grained_lineages) if fine_grained_lineages else 0} fine-grained lineages"
+            )
+
     def _emit_model_aspects(
         self, model: HightouchModel, model_dataset: Dataset
     ) -> Iterable[MetadataWorkUnit]:
@@ -1028,6 +1068,7 @@ class HightouchSource(StatefulIngestionSourceBase):
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self.report.report_syncs_scanned()
 
+        model = None
         if self.config.emit_models_as_datasets:
             model = self._get_model(sync.model_id)
             if model and self.config.model_patterns.allowed(model.name):
@@ -1040,6 +1081,7 @@ class HightouchSource(StatefulIngestionSourceBase):
                 yield from self._emit_model_aspects(model, model_dataset)
 
         destination = self._get_destination(sync.destination_id)
+        destination_dataset = None
         if destination:
             destination_dataset = self._generate_destination_dataset(sync, destination)
             if destination_dataset:
@@ -1051,6 +1093,11 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         datajob = self._generate_datajob_from_sync(sync)
         yield datajob
+
+        if destination_dataset and datajob.inlets:
+            yield from self._emit_destination_lineage(
+                sync, destination_dataset, datajob
+            )
 
         if self.config.include_sync_runs:
             self.report.report_api_call()
