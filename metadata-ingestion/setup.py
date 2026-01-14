@@ -616,7 +616,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
-    "hightouch": {"requests"},
+    "hightouch": {"requests"} | sqlglot_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
