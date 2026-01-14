@@ -570,29 +570,29 @@ class HightouchSource(StatefulIngestionSourceBase):
                     custom_properties["sql_parsed"] = "true"
                     custom_properties["upstream_tables_count"] = "0"
             elif model.query_type == "table" and model.name:
-                if not self.config.emit_models_on_source_platform:
-                    table_name = model.name
+                table_name = model.name
 
-                    if source.configuration:
-                        database = source.configuration.get("database", "")
-                        schema = source.configuration.get("schema", "")
+                if source.configuration:
+                    database = source.configuration.get("database", "")
+                    schema = source.configuration.get("schema", "")
 
-                        source_details = self._urn_builder._get_cached_source_details(
-                            source
-                        )
-
-                        if source_details.include_schema_in_urn and schema:
-                            table_name = f"{database}.{schema}.{table_name}"
-                        elif database and "." not in table_name:
-                            table_name = f"{database}.{table_name}"
-
-                    upstream_urn = self._urn_builder.make_upstream_table_urn(
-                        table_name, source
+                    source_details = self._urn_builder._get_cached_source_details(
+                        source
                     )
-                    dataset.set_upstreams([upstream_urn])
-                    custom_properties["table_lineage"] = "true"
-                    custom_properties["upstream_table"] = table_name
-                else:
+
+                    if source_details.include_schema_in_urn and schema:
+                        table_name = f"{database}.{schema}.{table_name}"
+                    elif database and "." not in table_name:
+                        table_name = f"{database}.{table_name}"
+
+                upstream_urn = self._urn_builder.make_upstream_table_urn(
+                    table_name, source
+                )
+                dataset.set_upstreams([upstream_urn])
+                custom_properties["table_lineage"] = "true"
+                custom_properties["upstream_table"] = table_name
+
+                if self.config.emit_models_on_source_platform:
                     custom_properties["sibling_of_table"] = model.name
                     custom_properties["model_type"] = "table_reference"
 
@@ -652,9 +652,6 @@ class HightouchSource(StatefulIngestionSourceBase):
     def _get_inlet_urn_for_model(
         self, model: HightouchModel, sync: HightouchSync
     ) -> Union[str, DatasetUrn, None]:
-        if not self.config.emit_models_as_datasets:
-            return None
-
         source = self._get_source(model.source_id)
         if not source:
             self.report.warning(
@@ -663,6 +660,28 @@ class HightouchSource(StatefulIngestionSourceBase):
                 context=f"sync_slug: {sync.slug} (model_id: {model.source_id})",
             )
             return None
+
+        if not self.config.emit_models_as_datasets:
+            if model.query_type == "table" and model.name:
+                table_name = model.name
+                if source.configuration:
+                    database = source.configuration.get("database", "")
+                    schema = source.configuration.get("schema", "")
+                    source_details = self._urn_builder._get_cached_source_details(
+                        source
+                    )
+                    if source_details.include_schema_in_urn and schema:
+                        table_name = f"{database}.{schema}.{table_name}"
+                    elif database and "." not in table_name:
+                        table_name = f"{database}.{table_name}"
+
+                return self._urn_builder.make_upstream_table_urn(table_name, source)
+            else:
+                logger.warning(
+                    f"Sync {sync.slug}: emit_models_as_datasets=False but model {model.slug} is not a table type. "
+                    f"Cannot create direct lineage without model. Model query_type: {model.query_type}"
+                )
+                return None
 
         return self._urn_builder.make_model_urn(model, source)
 
