@@ -348,6 +348,92 @@ class TestTransientErrorDetection:
             call_with_retry(mock_func, timeout=10.0)
         mock_func.assert_called_once()
 
+
+class TestSearchProjectsRetryIntegration:
+    """Tests that verify _search_projects_with_retry actually retries API calls"""
+
+    def test_search_projects_retries_on_service_unavailable(self) -> None:
+        """Verify client.search_projects is retried on ServiceUnavailable"""
+        mock_client = MagicMock()
+        mock_project = MagicMock()
+        mock_project.project_id = "test-project"
+        mock_project.display_name = "Test"
+
+        # First call fails, second succeeds
+        mock_client.search_projects.side_effect = [
+            ServiceUnavailable("Service unavailable"),
+            iter([mock_project]),
+        ]
+
+        with patch("time.sleep"):  # Speed up test
+            results = list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
+
+        assert len(results) == 1
+        assert results[0].id == "test-project"
+        assert mock_client.search_projects.call_count == 2
+
+    def test_search_projects_retries_on_resource_exhausted(self) -> None:
+        """Verify client.search_projects is retried on ResourceExhausted (rate limit)"""
+        mock_client = MagicMock()
+        mock_project = MagicMock()
+        mock_project.project_id = "test-project"
+        mock_project.display_name = "Test"
+
+        mock_client.search_projects.side_effect = [
+            ResourceExhausted("Quota exceeded"),
+            ResourceExhausted("Quota exceeded"),
+            iter([mock_project]),
+        ]
+
+        with patch("time.sleep"):
+            results = list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
+
+        assert len(results) == 1
+        assert mock_client.search_projects.call_count == 3
+
+    def test_search_projects_does_not_retry_permission_denied(self) -> None:
+        """Verify client.search_projects does NOT retry PermissionDenied"""
+        mock_client = MagicMock()
+        mock_client.search_projects.side_effect = PermissionDenied("Access denied")
+
+        with pytest.raises(PermissionDenied):
+            list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
+
+        mock_client.search_projects.assert_called_once()
+
+    def test_search_projects_does_not_retry_not_found(self) -> None:
+        """Verify client.search_projects does NOT retry NotFound"""
+        mock_client = MagicMock()
+        mock_client.search_projects.side_effect = NotFound("Not found")
+
+        with pytest.raises(NotFound):
+            list(_search_projects_with_retry(mock_client, "state:ACTIVE"))
+
+        mock_client.search_projects.assert_called_once()
+
+    def test_get_projects_end_to_end_retry(self) -> None:
+        """Verify get_projects retries through the full call stack"""
+        mock_client = MagicMock()
+        mock_project = MagicMock()
+        mock_project.project_id = "discovered-project"
+        mock_project.display_name = "Discovered"
+
+        mock_client.search_projects.side_effect = [
+            DeadlineExceeded("Timeout"),
+            iter([mock_project]),
+        ]
+
+        with patch("time.sleep"):
+            results = get_projects(client=mock_client)
+
+        assert len(results) == 1
+        assert results[0].id == "discovered-project"
+        assert mock_client.search_projects.call_count == 2
+
+
+class TestErrorHelpers:
+    """Tests for error classification and message helpers"""
+
     def test_get_gcp_error_type(self) -> None:
         """get_gcp_error_type should return error category"""
         assert get_gcp_error_type(NotFound("")) == "Not found"

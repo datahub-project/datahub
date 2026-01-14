@@ -122,6 +122,7 @@ class GCPCredential(ConfigModel):
             )
         return self
 
+    # TODO: To be deprecated in favor of temporary_credentials_file
     def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
         configs = self.model_dump()
         if project_id:
