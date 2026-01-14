@@ -270,6 +270,20 @@ def is_troubleshoot_available() -> bool:
 
 def troubleshoot(question: str, context: Optional[str] = None) -> dict:
     """Search DataHub documentation and knowledge bases to troubleshoot issues and answer questions.
+    ⚠️ IMPORTANT: This tool is TIME-CONSUMING and typically takes 10-30 seconds to return results.
+
+    Only use this tool when:
+    - You are NOT confident in your own answer
+    - The question requires specific DataHub documentation or best practices
+    - The user explicitly asks for documentation or official guidance
+    - You encounter an error or issue you cannot resolve with your existing knowledge
+
+    DO NOT use this tool when:
+    - You can confidently answer the question based on your training
+    - The question is about general programming concepts unrelated to DataHub specifics
+    - You're just checking something you already know
+    - The user is asking for quick clarifications or general guidance
+
     Use this tool when users need help with:
     - Configuring ingestion sources (BigQuery, Snowflake, etc.)
     - Making sense of ingestion logs and recipes
@@ -277,8 +291,10 @@ def troubleshoot(question: str, context: Optional[str] = None) -> dict:
     - Troubleshooting common issues and errors
     - Best practices and setup instructions
     - API usage and integration patterns
+
     The tool searches official DataHub documentation and returns relevant answers
     with links to source documentation.
+
     Args:
         question: The user's question about DataHub
         context: Additional context to help narrow down the search (e.g., "BigQuery ingestion source")
