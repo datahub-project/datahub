@@ -421,6 +421,9 @@ public class OpenLineageToDataHub {
 
     OpenLineage.ColumnLineageDatasetFacet columnLineage = dataset.getFacets().getColumnLineage();
     if (columnLineage.getFields() == null) {
+      log.warn(
+          "ColumnLineageDatasetFacet has null fields for dataset '{}' - skipping fine-grained lineage extraction",
+          dataset.getName());
       return null;
     }
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
@@ -1281,7 +1284,7 @@ public class OpenLineageToDataHub {
         orchestrator = matcher.group(1);
       } else if (producer.startsWith("https://github.com/apache/airflow/")) {
         orchestrator = "airflow";
-      } else if (producer.startsWith("https://github.com/trinodb/trino")) {
+      } else if (producer.startsWith("https://github.com/trinodb/trino/")) {
         orchestrator = "trino";
       }
     }
@@ -1314,6 +1317,9 @@ public class OpenLineageToDataHub {
     if ((dataset.getFacets() == null)
         || (dataset.getFacets().getSchema() == null)
         || (dataset.getFacets().getSchema().getFields() == null)) {
+      log.warn(
+          "SchemaDatasetFacet has null fields for dataset '{}' - skipping schema metadata extraction",
+          dataset.getName());
       return null;
     }
     dataset
