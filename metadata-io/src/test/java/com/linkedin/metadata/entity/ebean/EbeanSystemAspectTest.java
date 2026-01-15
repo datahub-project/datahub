@@ -329,6 +329,9 @@ public class EbeanSystemAspectTest {
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
+            .systemAspectValidators(
+                java.util.Collections.singletonList(
+                    new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
             .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
@@ -342,6 +345,9 @@ public class EbeanSystemAspectTest {
     when(ebeanAspectV2.getMetadata()).thenReturn(null);
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
+            .systemAspectValidators(
+                java.util.Collections.singletonList(
+                    new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
             .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
@@ -355,6 +361,9 @@ public class EbeanSystemAspectTest {
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
+            .systemAspectValidators(
+                java.util.Collections.singletonList(
+                    new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
             .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
@@ -370,6 +379,9 @@ public class EbeanSystemAspectTest {
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata((int) threshold));
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
+            .systemAspectValidators(
+                java.util.Collections.singletonList(
+                    new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
             .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
@@ -386,7 +398,12 @@ public class EbeanSystemAspectTest {
         .thenReturn(generateLargeMetadata(2000)); // 2KB over 1KB threshold
 
     try {
-      EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
+      EbeanSystemAspect.builder()
+          .systemAspectValidators(
+              java.util.Collections.singletonList(
+                  new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
+          .validationConfig(config)
+          .forUpdate(ebeanAspectV2, entityRegistry);
     } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
       assertEquals(e.getValidationPoint(), "PRE_DB_PATCH");
       // IGNORE remediation should NOT add deletion request (no OperationContext passed in this
@@ -406,7 +423,12 @@ public class EbeanSystemAspectTest {
         .thenReturn(generateLargeMetadata(2000)); // 2KB over 1KB threshold
 
     try {
-      EbeanSystemAspect.builder().validationConfig(config).forUpdate(ebeanAspectV2, entityRegistry);
+      EbeanSystemAspect.builder()
+          .systemAspectValidators(
+              java.util.Collections.singletonList(
+                  new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
+          .validationConfig(config)
+          .forUpdate(ebeanAspectV2, entityRegistry);
     } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
       assertEquals(e.getValidationPoint(), "PRE_DB_PATCH");
       // DELETE remediation would add deletion request to OperationContext if one was passed
@@ -436,6 +458,9 @@ public class EbeanSystemAspectTest {
     // Should NOT throw - only logs warning
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
+            .systemAspectValidators(
+                java.util.Collections.singletonList(
+                    new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
             .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);
@@ -460,6 +485,9 @@ public class EbeanSystemAspectTest {
     // Should pass - no warning threshold set
     EbeanSystemAspect aspect =
         EbeanSystemAspect.builder()
+            .systemAspectValidators(
+                java.util.Collections.singletonList(
+                    new com.linkedin.metadata.entity.AspectSizePayloadValidator(config, null)))
             .validationConfig(config)
             .forUpdate(ebeanAspectV2, entityRegistry);
     assertNotNull(aspect);

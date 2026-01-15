@@ -516,7 +516,7 @@ public class AspectDaoTest {
 
     @Nonnull
     @Override
-    public List<com.linkedin.metadata.aspect.SystemAspectValidator> getPayloadValidators() {
+    public List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators() {
       return java.util.Collections.emptyList();
     }
 
