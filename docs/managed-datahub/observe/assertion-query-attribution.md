@@ -1,4 +1,12 @@
+---
+description: Learn how to attribute queries to DataHub Cloud Observe to better track costs
+---
+
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
 # Assertion Query Attribution
+
+<FeatureAvailability saasOnly />
 
 For certain Assertions, like Freshness and Volume, DataHub will issue queries against your Data Warehouse (ex. Snowflake) to determine if that assertion passed or failed. This can result in many additional queries against your warehouse every day, depending on how many assertions you have set up. In order to help you track and understand all of the queries coming from DataHub Cloud Observe, tagging has been added to issued queries.
 
