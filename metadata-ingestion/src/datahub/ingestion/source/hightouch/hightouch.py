@@ -677,7 +677,12 @@ class HightouchSource(StatefulIngestionSourceBase):
             sync_type = sync.configuration.get("type")
 
             if sync_type == "event":
-                dest_table = sync.configuration.get("eventName")
+                event_name_value = sync.configuration.get("eventName")
+                # eventName can be a string or a dict like {"from": "EVENT_NAME"}
+                if isinstance(event_name_value, dict):
+                    dest_table = event_name_value.get("from")
+                elif isinstance(event_name_value, str):
+                    dest_table = event_name_value
             else:
                 for key in [
                     "object",
@@ -686,13 +691,21 @@ class HightouchSource(StatefulIngestionSourceBase):
                     "destinationTable",
                     "objectName",
                 ]:
-                    if key in sync.configuration and sync.configuration[key]:
-                        dest_table = sync.configuration[key]
-                        logger.debug(
-                            f"Found destination table/object '{dest_table}' using config key '{key}' "
-                            f"for sync {sync.slug} (destination type: {destination.type})"
-                        )
-                        break
+                    value = sync.configuration.get(key)
+                    if value:
+                        # Values can be strings or dicts
+                        if isinstance(value, str):
+                            dest_table = value
+                        elif isinstance(value, dict):
+                            # Try to extract from common dict patterns
+                            dest_table = value.get("from") or value.get("name")
+
+                        if dest_table:
+                            logger.debug(
+                                f"Found destination table/object '{dest_table}' using config key '{key}' "
+                                f"for sync {sync.slug} (destination type: {destination.type})"
+                            )
+                            break
 
         if not dest_table:
             dest_table = f"{sync.slug}_destination"
