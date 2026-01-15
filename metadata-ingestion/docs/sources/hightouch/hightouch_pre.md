@@ -11,9 +11,13 @@ This connector extracts the following:
 | ------------------------ | ------ | --------------------------------------------------------------------------------- |
 | Platform Instance        | ✅     | Enabled by default                                                                |
 | Lineage (Coarse-grained) | ✅     | Table-to-table lineage showing data flow from source → model → sync → destination |
-| Lineage (Fine-grained)   | ✅     | Column-to-column lineage via field mappings extracted from sync configurations    |
+| Lineage (Fine-grained)   | ✅     | Column-to-column lineage via field mappings and SQL parsing                       |
 | Deletion Detection       | ✅     | Enabled via stateful ingestion for automatic cleanup of stale entities            |
 | Tags                     | ✅     | Model tags are captured as custom properties                                      |
+| Containers               | ✅     | Hierarchical organization via workspaces and folders                              |
+| Siblings                 | ✅     | Sibling relationships between Hightouch models and upstream tables (optional)     |
+| Schema Normalization     | ✅     | Automatic casing normalization to match upstream table schemas                    |
+| SQL Parsing              | ✅     | Extracts upstream dependencies from raw_sql models                                |
 | Owners                   | 🚫     | Ownership information not exposed by Hightouch API                                |
 
 ### Integration Details
@@ -367,15 +371,63 @@ include_column_lineage: true
 
 This extracts field mappings from sync configurations and creates fine-grained lineage showing exactly which source columns map to which destination columns.
 
+### Container Organization
+
+The connector organizes Hightouch entities hierarchically using DataHub containers:
+
+```yaml
+extract_workspaces_to_containers: true # Enable container organization (default: true)
+```
+
+When enabled, the connector creates a hierarchy:
+
+- **Workspaces** → Top-level containers for Hightouch workspaces
+- **Folders** → Sub-containers for model folders (if models are organized in folders)
+- **Models & Syncs** → Placed within their respective workspace/folder containers
+
+This provides better organization in the DataHub UI, especially for large Hightouch deployments.
+
+### Sibling Relationships
+
+For table-type models and simple raw_sql models, you can establish sibling relationships between the Hightouch model and its upstream source table:
+
+```yaml
+include_table_lineage_to_sibling: true # Create sibling relationships (default: false)
+```
+
+When enabled:
+
+- The Hightouch model is marked as the **primary** sibling
+- The upstream source table is linked as a **secondary** sibling
+- This allows you to view both representations of the same data in DataHub
+- Requires `sources_to_platform_instance` configuration for proper URN matching
+
+**Note**: Sibling aspects are only emitted on the upstream table if it already exists in DataHub (has been ingested), preventing the creation of "ghost" entities.
+
+### SQL Parsing & Lineage
+
+The connector now includes SQL parsing capabilities for `raw_sql` models:
+
+- Automatically extracts upstream table dependencies from SQL queries
+- Creates column-level lineage for table-type models
+- Normalizes column casing to match upstream table schemas (e.g., Snowflake lowercasing)
+- Supports schema preloading from DataHub for accurate lineage resolution
+
+For best results:
+
+- Ensure upstream source tables are already ingested into DataHub
+- Configure `sources_to_platform_instance` for accurate URN generation
+- Enable a DataHub graph connection for schema resolution
+
 ## Current Limitations
 
-1. **SQL Parsing**: The connector does not currently parse SQL from `raw_sql` models to extract upstream table dependencies automatically. Manual configuration via `sources_to_platform_instance` is recommended for accurate lineage.
+1. **User Ownership**: Hightouch API does not currently expose creator/owner information for syncs, so ownership metadata is not extracted.
 
-2. **User Ownership**: Hightouch API does not currently expose creator/owner information for syncs, so ownership metadata is not extracted.
+2. **API Rate Limits**: The Hightouch API has rate limits. The connector implements retry logic with exponential backoff, but very large workspaces with thousands of syncs may need to be ingested in batches.
 
-3. **API Rate Limits**: The Hightouch API has rate limits. The connector implements retry logic with exponential backoff, but very large workspaces with thousands of syncs may need to be ingested in batches.
+3. **Supported Sources**: Platform detection works for major databases (Snowflake, BigQuery, Redshift, Postgres, etc.). Custom or less common sources may need manual platform mapping.
 
-4. **Supported Sources**: Platform detection works for major databases (Snowflake, BigQuery, Redshift, Postgres, etc.). Custom or less common sources may need manual platform mapping.
+4. **Complex SQL Queries**: SQL parsing works best for simple queries. Complex multi-table JOINs, CTEs, and subqueries may not produce complete column-level lineage.
 
 ## Troubleshooting
 
@@ -405,14 +457,3 @@ Error: 429 Too Many Requests
 
 - Using filtering patterns to reduce the number of syncs processed
 - Reducing `max_sync_runs_per_sync` to limit API calls
-
-## Support
-
-For issues, feature requests, or questions about this connector:
-
-- [DataHub Slack](https://datahubspace.slack.com/) - #troubleshoot channel
-- [GitHub Issues](https://github.com/datahub-project/datahub/issues)
-
-For Hightouch API documentation:
-
-- [Hightouch API Reference](https://hightouch.com/docs/api-reference)

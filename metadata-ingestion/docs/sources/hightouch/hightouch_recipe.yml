@@ -13,6 +13,10 @@ source:
     emit_models_as_datasets: true
     include_model_lineage: true
     include_column_lineage: true
+    include_table_lineage_to_sibling: false # Set to true to create sibling relationships
+
+    # Container organization
+    extract_workspaces_to_containers: true # Organize entities by workspace and folder
 
     # Sync run history
     include_sync_runs: true

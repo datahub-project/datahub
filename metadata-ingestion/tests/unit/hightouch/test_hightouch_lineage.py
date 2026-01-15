@@ -741,12 +741,12 @@ def test_column_lineage_with_fuzzy_matching_integration(
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_no_siblings_emission_for_raw_sql_models(
+def test_siblings_emission_for_single_table_raw_sql_models(
     mock_api_client_class, pipeline_context
 ):
     """
-    Test that siblings are NOT emitted for raw_sql models, even with
-    include_table_lineage_to_sibling=True, because they don't directly map to a source table.
+    Test that siblings ARE emitted for raw_sql models with a single upstream table
+    when include_table_lineage_to_sibling=True.
     """
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
@@ -794,6 +794,71 @@ def test_no_siblings_emission_for_raw_sql_models(
         and isinstance(wu.metadata.aspect, SiblingsClass)
     ]
 
+    # Should emit sibling aspect on the Hightouch model (primary)
+    assert len(siblings_workunits) == 1
+    sibling_wu = siblings_workunits[0]
+    assert sibling_wu.metadata.aspect.primary is True
+    assert len(sibling_wu.metadata.aspect.siblings) == 1
+    # Should reference the upstream snowflake table
+    assert "snowflake" in sibling_wu.metadata.aspect.siblings[0]
+    assert "customers" in sibling_wu.metadata.aspect.siblings[0]
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_no_siblings_for_multi_table_raw_sql_models(
+    mock_api_client_class, pipeline_context
+):
+    """
+    Test that siblings are NOT emitted for raw_sql models that reference multiple tables,
+    even with include_table_lineage_to_sibling=True.
+    """
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        emit_models_as_datasets=True,
+        include_table_lineage_to_sibling=True,
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_1",
+        name="Customer Orders",
+        slug="customer-orders",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        raw_sql="SELECT c.*, o.* FROM customers c JOIN orders o ON c.id = o.customer_id",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Production",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "production"},
+    )
+    mock_client.get_source_by_id.return_value = source_connection
+
+    workunits = list(source_instance._get_model_workunits(model))
+
+    siblings_workunits = [
+        wu
+        for wu in workunits
+        if hasattr(wu, "metadata")
+        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, SiblingsClass)
+    ]
+
+    # Should NOT emit siblings for multi-table queries
     assert len(siblings_workunits) == 0
 
 

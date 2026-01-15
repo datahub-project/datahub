@@ -151,6 +151,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         self._destinations_cache: Dict[str, HightouchDestination] = {}
         self._users_cache: Dict[str, HightouchUser] = {}
         self._workspaces_cache: Dict[str, str] = {}  # workspace_id -> workspace_name
+        self._folders_cache: Dict[str, str] = {}  # folder_id -> folder_name
         self._emitted_containers: set = set()
         self._registered_urns: Set[str] = set()  # Track URNs with loaded schemas
         self._model_schema_fields_cache: Dict[
@@ -248,26 +249,55 @@ class HightouchSource(StatefulIngestionSourceBase):
                 self._destinations_cache[destination_id] = destination
         return self._destinations_cache.get(destination_id)
 
+    def _preload_workspaces_and_folders(self) -> None:
+        """Preload all workspaces and folders once at the beginning for efficient container name resolution."""
+        if not self.config.extract_workspaces_to_containers:
+            return
+
+        # Preload all workspaces
+        try:
+            self.report.report_api_call()
+            workspaces = self.api_client.get_workspaces()
+            for workspace in workspaces:
+                self._workspaces_cache[workspace.id] = workspace.name
+            logger.info(f"Preloaded {len(workspaces)} workspace names")
+        except Exception as e:
+            logger.warning(f"Could not preload workspaces: {e}")
+
+        # Note: Hightouch API may not have a bulk folders endpoint
+        # Individual folder fetches will be done on-demand with caching
+
     def _get_workspace_name(self, workspace_id: str) -> str:
-        """Get workspace name from cache or API, falling back to workspace ID."""
+        """Get workspace name from cache, falling back to workspace ID."""
         if workspace_id not in self._workspaces_cache:
+            # Fallback if not preloaded (shouldn't normally happen)
+            logger.warning(
+                f"Workspace {workspace_id} not in preloaded cache, using ID as fallback"
+            )
+            self._workspaces_cache[workspace_id] = f"Workspace {workspace_id}"
+
+        return self._workspaces_cache[workspace_id]
+
+    def _get_folder_name(self, folder_id: str) -> str:
+        """Get folder name from cache or API on-demand, falling back to folder ID."""
+        if folder_id not in self._folders_cache:
             try:
                 self.report.report_api_call()
-                workspace = self.api_client.get_workspace_by_id(workspace_id)
-                if workspace:
-                    self._workspaces_cache[workspace_id] = workspace.name
+                folder_data = self.api_client.get_folder_by_id(folder_id)
+                if folder_data and "name" in folder_data:
+                    self._folders_cache[folder_id] = folder_data["name"]
                 else:
-                    # Fallback to ID if workspace not found
-                    self._workspaces_cache[workspace_id] = f"Workspace {workspace_id}"
-                    logger.warning(
-                        f"Could not fetch workspace name for {workspace_id}, using ID as fallback"
+                    # Fallback to ID if folder not found or no name
+                    self._folders_cache[folder_id] = f"Folder {folder_id}"
+                    logger.debug(
+                        f"Could not fetch folder name for {folder_id}, using ID as fallback"
                     )
             except Exception as e:
                 # Fallback to ID on error
-                self._workspaces_cache[workspace_id] = f"Workspace {workspace_id}"
-                logger.warning(f"Error fetching workspace {workspace_id}: {e}")
+                self._folders_cache[folder_id] = f"Folder {folder_id}"
+                logger.debug(f"Error fetching folder {folder_id}: {e}")
 
-        return self._workspaces_cache[workspace_id]
+        return self._folders_cache[folder_id]
 
     def _get_user(self, user_id: str) -> Optional[HightouchUser]:
         if user_id not in self._users_cache:
@@ -390,9 +420,12 @@ class HightouchSource(StatefulIngestionSourceBase):
         if container_key.guid() in self._emitted_containers:
             return
 
+        # Fetch actual folder name from API
+        folder_name = self._get_folder_name(folder_id)
+
         container_workunits = gen_containers(
             container_key=container_key,
-            name=f"Folder {folder_id}",
+            name=folder_name,
             sub_types=[str(BIContainerSubTypes.HIGHTOUCH_FOLDER)],
             parent_container_key=parent_container_key,
             extra_properties={
@@ -983,7 +1016,12 @@ class HightouchSource(StatefulIngestionSourceBase):
                 self.report.tags_emitted += len(tags_to_emit)
                 logger.debug(f"Emitted {len(tags_to_emit)} tags for model {model.slug}")
 
-        # Generate column-level lineage for table models with normalization
+        # Generate sibling relationships and column-level lineage for models with single upstream table
+        # This applies to:
+        # 1. table models (query_type == "table") - direct table reference via model.name
+        # 2. raw_sql models with exactly one upstream table - determined via SQL parsing
+        source_table_urn = None
+
         if model.query_type == "table" and model.name and source:
             table_name = model.name
             if source.configuration:
@@ -998,19 +1036,28 @@ class HightouchSource(StatefulIngestionSourceBase):
             source_table_urn = self._urn_builder.make_upstream_table_urn(
                 table_name, source
             )
+        elif model.raw_sql and source:
+            # For raw_sql models, use SQL-parsed table URNs if exactly one table is referenced
+            sql_table_urns = self._extract_table_urns_from_sql(model, source)
+            if len(sql_table_urns) == 1:
+                source_table_urn = sql_table_urns[0]
+                logger.debug(
+                    f"Using SQL-parsed upstream URN for model {model.slug} sibling/lineage: {source_table_urn}"
+                )
 
-            if source_table_urn:
-                # Emit sibling aspects if configured
-                if self.config.include_table_lineage_to_sibling:
-                    yield from self._lineage_handler.emit_sibling_aspects(
-                        dataset_urn, str(source_table_urn)
-                    )
-                    logger.debug(
-                        f"Created sibling relationship for table-type model {model.slug}: "
-                        f"Hightouch model <-> {source_table_urn}"
-                    )
+        if source_table_urn:
+            # Emit sibling aspects if configured
+            if self.config.include_table_lineage_to_sibling:
+                yield from self._lineage_handler.emit_sibling_aspects(
+                    dataset_urn, str(source_table_urn)
+                )
+                logger.debug(
+                    f"Created sibling relationship for model {model.slug} (query_type={model.query_type}): "
+                    f"Hightouch model <-> {source_table_urn}"
+                )
 
-                # Generate and emit column-level lineage for all table models
+            # Generate and emit column-level lineage for models with single upstream table
+            if model.query_type == "table":
                 fine_grained_lineages = (
                     self._lineage_handler.generate_table_model_column_lineage(
                         model, dataset_urn, str(source_table_urn), schema_fields or []
@@ -1371,6 +1418,9 @@ class HightouchSource(StatefulIngestionSourceBase):
         self,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         logger.info("Starting Hightouch metadata extraction")
+
+        # Preload workspace and folder names for efficient container organization
+        self._preload_workspaces_and_folders()
 
         emitted_model_ids = set()
 
