@@ -313,7 +313,7 @@ iceberg_common = {
     # 0.8.0.
     # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
     #   expected by the connector
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0",<=0.10.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
     # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
     # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
     "pydantic<2.12",
