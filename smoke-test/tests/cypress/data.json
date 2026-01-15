@@ -2939,7 +2939,7 @@
   {
     "auditHeader": null,
     "entityType": "document",
-    "entityUrn": "urn:li:document:cypress-external-doc-test`",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "documentInfo",
@@ -2979,7 +2979,7 @@
   {
     "auditHeader": null,
     "entityType": "document",
-    "entityUrn": "urn:li:document:cypress-external-doc-test1",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -2999,7 +2999,7 @@
   {
     "auditHeader": null,
     "entityType": "document",
-    "entityUrn": "urn:li:document:cypress-external-doc-test1",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "documentSettings",
@@ -3023,7 +3023,7 @@
   {
     "auditHeader": null,
     "entityType": "document",
-    "entityUrn": "urn:li:document:cypress-external-doc-test1",
+    "entityUrn": "urn:li:document:cypress-external-doc-test",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "ownership",
