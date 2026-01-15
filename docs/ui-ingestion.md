@@ -17,6 +17,12 @@ DataHub helps you discover and understand your organization's data by automatica
 
 This makes it simple to connect to popular platforms like Snowflake, BigQuery, dbt, and more, schedule automatic updates, and manage credentials securely.
 
+### Demo: Setting Up Ingestion
+
+Watch this 90-second demo to see the ingestion setup process in action:
+
+<iframe width="100%" height="500" src="https://screen.studio/share/MRXaUzS7" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Prerequisites and Permissions
 
 To manage metadata ingestion in DataHub, you need appropriate permissions.
@@ -93,15 +99,17 @@ Select the template that matches your data source. If your specific platform isn
 
 ### Step 2: Configure Connection Details
 
-After selecting your data source template, you'll be presented with a user-friendly form to configure the connection. The exact fields will vary depending on your chosen platform, but typically include:
+After selecting your data source template, you'll configure how DataHub connects to and extracts metadata from your source.
 
-**Connection Information:**
+**Name and Owners**: First, provide a descriptive name for your ingestion source that will help you and your team identify it later. You can also assign **Users** and/or **Groups** as owners of this ingestion source. By default, you (the creator) will be assigned as an owner, but you can add additional owners or change this at any time after creation.
+
+**Connection Information**: Next, you'll configure the connection details using a user-friendly form. The exact fields will vary depending on your chosen platform, but typically include:
 
 - Host/server address and port
 - Database or project names
 - Authentication credentials
 
-**Data Selection:**
+**Data Selection**: Configure what metadata to extract:
 
 - Which databases, schemas, or tables to include
 - Filtering options to exclude certain data
@@ -129,9 +137,7 @@ Once created, secrets can be referenced in your ingestion configuration forms us
 
 > **Security Note**: Users with the `Manage Secrets` privilege can retrieve plaintext secret values through DataHub's GraphQL API. Ensure secrets are only accessible to trusted administrators.
 
-### Step 3: Test Your Connection
-
-Before proceeding, it's important to verify that DataHub can successfully connect to your data source. Most ingestion source forms include a **Test Connection** button that validates:
+**Test Your Connection**: Before proceeding, it's important to verify that DataHub can successfully connect to your data source. Most ingestion source forms include a **Test Connection** button that validates:
 
 - Network connectivity to your data source
 - Authentication credentials
@@ -147,9 +153,16 @@ If the connection test fails, review your configuration and ensure that:
 - Credentials are correct and have sufficient permissions
 - Any firewall rules allow the connection
 
-### Step 4: Schedule Execution (Optional)
+**Advanced Configuration Options**: For users who need additional control, DataHub provides advanced configuration options accessible in the Advanced Settings section:
 
-You can configure automatic execution of your ingestion source on a regular schedule. This ensures your metadata stays up-to-date without manual intervention.
+- **CLI Version:** Specify a particular version of the DataHub CLI for ingestion execution
+- **Environment Variables:** Set custom environment variables for the ingestion process
+- **Executor ID:** Configure remote execution if needed
+- **Debug Mode:** Enable detailed logging for troubleshooting
+
+### Step 3: Sync Schedule
+
+Configure how often DataHub should sync metadata from your source. You can enable or disable scheduled execution using the toggle (recommended: enabled). This ensures your metadata stays up-to-date without manual intervention.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schedule-ingestion.png"/>
@@ -157,28 +170,14 @@ You can configure automatic execution of your ingestion source on a regular sche
 
 If you prefer to run ingestion manually or on an ad-hoc basis, you can skip the scheduling step entirely.
 
-### Step 5: Finish Up and Run
+### Step 4: Review and Save
 
-Finally, provide a descriptive name for your ingestion source that will help you and your team identify it later.
+Review your configuration to ensure all settings are correct. When you're ready, you have two options:
 
-You can also assign **Users** and/or **Groups** as owners of this ingestion source. By default, you (the creator) will be assigned as an owner, but you can add additional owners or change this at any time after creation.
+- **Save**: Save the ingestion source configuration without executing it immediately
+- **Save and Run**: Save and immediately execute your first ingestion run
 
-<p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/name-ingestion-source.png"/>
-</p>
-
-Click **Save and Run** to create the ingestion source and execute it immediately, or **Save** to create it without running.
-
-#### Advanced Configuration Options
-
-For users who need additional control, DataHub provides advanced configuration options:
-
-<p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/custom-ingestion-cli-version.png"/>
-</p>
-
-- **CLI Version:** Specify a particular version of the DataHub CLI for ingestion execution
-- **Environment Variables:** Set custom environment variables for the ingestion process
+Once you're happy with your configurations, click your preferred save option to finalize your source.
 
 ## Running and Monitoring Ingestion
 
