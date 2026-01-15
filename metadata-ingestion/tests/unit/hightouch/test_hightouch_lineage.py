@@ -205,6 +205,7 @@ def test_view_emission_for_raw_sql_model(mock_api_client_class, pipeline_context
         if hasattr(wu, "metadata")
         and hasattr(wu.metadata, "aspect")
         and isinstance(wu.metadata.aspect, SubTypesClass)
+        and hasattr(wu.metadata, "entityType")
         and wu.metadata.entityType == "dataset"
     ]
 
@@ -278,6 +279,7 @@ def test_table_subtype_for_table_model(mock_api_client_class, pipeline_context):
         if hasattr(wu, "metadata")
         and hasattr(wu.metadata, "aspect")
         and isinstance(wu.metadata.aspect, SubTypesClass)
+        and hasattr(wu.metadata, "entityType")
         and wu.metadata.entityType == "dataset"
     ]
 
@@ -335,6 +337,7 @@ def test_subtypes_always_emitted_for_all_models(
         if hasattr(wu, "metadata")
         and hasattr(wu.metadata, "aspect")
         and isinstance(wu.metadata.aspect, SubTypesClass)
+        and hasattr(wu.metadata, "entityType")
         and wu.metadata.entityType == "dataset"
     ]
 
