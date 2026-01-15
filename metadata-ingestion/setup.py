@@ -215,9 +215,9 @@ looker_common = {
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<=3.5.0",
-    "google-cloud-bigquery",
+    "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
-    "google-cloud-resource-manager",
+    "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "sqlalchemy-bigquery>=1.4.1,<2.0.0",
     *path_spec_common,
@@ -233,7 +233,7 @@ clickhouse_common = {
 }
 
 dataplex_common = {
-    "google-cloud-dataplex",
+    "google-cloud-dataplex<3.0.0",
     # Pinned to 0.2.2 because 0.3.0 changed the import path from
     # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
     # which breaks existing code using the old import path
@@ -507,7 +507,7 @@ plugins: Dict[str, Set[str]] = {
     "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
-        "pandas",
+        "pandas<3.0.0",
         *aws_common,
         *abs_base,
         *cachetools_lib,
