@@ -5,8 +5,6 @@ import dataclasses
 import logging
 from typing import Any, Dict, Iterable, List, Optional
 
-logger = logging.getLogger(__name__)
-
 import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
@@ -41,6 +39,8 @@ from datahub.metadata.schema_classes import (
     GroupMembershipClass,
 )
 from datahub.utilities.lossy_collections import LossyList
+
+logger = logging.getLogger(__name__)
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
