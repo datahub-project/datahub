@@ -10,54 +10,22 @@ fields, metric cube events have a clean structure with the measure value directl
 available, making extraction simpler and more reliable.
 """
 
-import base64
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
 import pandas as pd
 
+from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
+    decode_metric_cube_urn,
+    make_monitor_metric_cube_urn as build_metric_cube_urn,
+)
+
+# Re-export for backwards compatibility
+__all__ = ["build_metric_cube_urn", "decode_metric_cube_urn"]
+
 # Timestamp column
 TIMESTAMP_COLUMN = "timestampMillis"
-
-
-def build_metric_cube_urn(monitor_urn: str) -> str:
-    """Build a metric cube URN from a monitor URN.
-
-    The metric cube URN is derived from the monitor URN using Base64 URL-safe encoding.
-    This matches the Java implementation in MonitorMetricsResolver.java.
-
-    Args:
-        monitor_urn: The monitor URN (e.g., "urn:li:monitor:...")
-
-    Returns:
-        The metric cube URN (e.g., "urn:li:dataHubMetricCube:...")
-    """
-    encoded = base64.urlsafe_b64encode(monitor_urn.encode()).decode()
-    return f"urn:li:dataHubMetricCube:{encoded}"
-
-
-def decode_metric_cube_urn(metric_cube_urn: str) -> Optional[str]:
-    """Decode a metric cube URN to get the original monitor URN.
-
-    Args:
-        metric_cube_urn: The metric cube URN
-
-    Returns:
-        The original monitor URN, or None if decoding fails
-    """
-    if not metric_cube_urn or not metric_cube_urn.startswith(
-        "urn:li:dataHubMetricCube:"
-    ):
-        return None
-
-    try:
-        prefix = "urn:li:dataHubMetricCube:"
-        encoded = metric_cube_urn[len(prefix) :]
-        decoded = base64.urlsafe_b64decode(encoded.encode()).decode()
-        return decoded
-    except Exception:
-        return None
 
 
 @dataclass

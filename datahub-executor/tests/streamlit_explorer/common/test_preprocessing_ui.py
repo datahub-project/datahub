@@ -7,7 +7,9 @@ import pytest
 
 from scripts.streamlit_explorer.common.preprocessing_ui import (
     PreprocessingState,
+    _apply_inference_config,
     _apply_predefined_pipeline,
+    build_config_for_display,
     get_available_darts_transformers,
     get_available_pandas_transformers,
     get_available_pipelines,
@@ -104,7 +106,8 @@ class TestPreprocessingState:
         state = PreprocessingState()
         assert state.type_aware_enabled is True
         assert state.type_col == "type"
-        assert state.init_filter_enabled is True
+        # init_filter_enabled defaults to False (opt-in filtering)
+        assert state.init_filter_enabled is False
         assert state.init_trim_count == 1
 
     def test_init_filter_settings_can_be_configured(self):
@@ -1087,3 +1090,345 @@ class TestSerializeAppliedConfig:
         assert isinstance(result, dict)
         # The config should have pandas_transformers and darts_transformers keys
         assert "pandas_transformers" in result or "darts_transformers" in result
+
+
+# =============================================================================
+# From Inference Mode Tests
+# =============================================================================
+
+
+class TestFromInferencePipelineMode:
+    """Tests for the 'from_inference' pipeline mode functionality."""
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.get_available_pipelines")
+    def test_get_pipeline_options_includes_from_inference_when_config_loaded(
+        self, mock_get_pipelines, mock_st
+    ):
+        """Verify 'from_inference' option appears when inference config is loaded."""
+        mock_get_pipelines.return_value = []
+
+        # Setup mock config in session state
+        mock_config = MagicMock()
+        mock_config.type = "volume"
+        mock_st.session_state = {
+            "_loaded_inference_preprocessing_config": mock_config,
+            "_loaded_inference_source_urn": "urn:li:assertion:test123",
+        }
+
+        options = get_pipeline_options()
+
+        # Should have custom + from_inference
+        option_values = [opt[0] for opt in options]
+        assert "custom" in option_values
+        assert "from_inference" in option_values
+
+        # Verify label includes config type
+        from_inference_option = next(
+            opt for opt in options if opt[0] == "from_inference"
+        )
+        assert "volume" in from_inference_option[1]
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.get_available_pipelines")
+    def test_get_pipeline_options_excludes_from_inference_when_no_config(
+        self, mock_get_pipelines, mock_st
+    ):
+        """Verify 'from_inference' option is not present when no config loaded."""
+        mock_get_pipelines.return_value = []
+        mock_st.session_state = {}  # No loaded config
+
+        options = get_pipeline_options()
+
+        option_values = [opt[0] for opt in options]
+        assert "custom" in option_values
+        assert "from_inference" not in option_values
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.get_available_pipelines")
+    def test_get_pipeline_options_handles_dict_config(
+        self, mock_get_pipelines, mock_st
+    ):
+        """Verify handles dict config type correctly."""
+        mock_get_pipelines.return_value = []
+
+        # Setup dict config in session state
+        mock_st.session_state = {
+            "_loaded_inference_preprocessing_config": {
+                "type": "field",
+                "metric_type": "NULL_COUNT",
+            },
+            "_loaded_inference_source_urn": "urn:li:assertion:test456",
+        }
+
+        options = get_pipeline_options()
+
+        option_values = [opt[0] for opt in options]
+        assert "from_inference" in option_values
+
+        # Verify label includes config type from dict
+        from_inference_option = next(
+            opt for opt in options if opt[0] == "from_inference"
+        )
+        assert "field" in from_inference_option[1]
+
+    def test_preprocessing_state_accepts_from_inference_mode(self):
+        """Verify PreprocessingState accepts 'from_inference' as pipeline_mode."""
+        state = PreprocessingState(pipeline_mode="from_inference")
+        assert state.pipeline_mode == "from_inference"
+
+
+class TestApplyInferenceConfig:
+    """Tests for _apply_inference_config function."""
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    def test_returns_none_when_no_config_loaded(self, mock_st):
+        """Verify returns None and shows error when no config loaded."""
+        mock_st.session_state = {}  # No loaded config
+        state = PreprocessingState()
+
+        df = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=10, freq="h"),
+                "y": range(10),
+            }
+        )
+
+        result = _apply_inference_config(df, state)
+
+        assert result is None
+        mock_st.error.assert_called()
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch(
+        "scripts.streamlit_explorer.common.preprocessing_ui.VolumeTimeSeriesPreprocessor",
+        create=True,
+    )
+    def test_applies_volume_config(self, mock_preprocessor_cls, mock_st):
+        """Verify volume config is applied using VolumeTimeSeriesPreprocessor."""
+        # Setup mock config
+        mock_config = MagicMock()
+        mock_config.type = "volume"
+        mock_st.session_state = {
+            "_loaded_inference_preprocessing_config": mock_config,
+        }
+
+        # Setup mock preprocessor
+        mock_preprocessor = MagicMock()
+        mock_ts = MagicMock()
+        mock_df = pd.DataFrame(
+            {"y": range(10)},
+            index=pd.date_range("2024-01-01", periods=10, freq="h"),
+        )
+        mock_ts.to_dataframe.return_value = mock_df
+        mock_preprocessor.process.return_value = mock_ts
+        mock_preprocessor_cls.from_config.return_value = mock_preprocessor
+
+        # Patch the import
+        with patch.dict(
+            "sys.modules",
+            {
+                "datahub_observe.algorithms.preprocessing": MagicMock(
+                    VolumeTimeSeriesPreprocessor=mock_preprocessor_cls
+                )
+            },
+        ):
+            state = PreprocessingState()
+            df = pd.DataFrame(
+                {
+                    "ds": pd.date_range("2024-01-01", periods=10, freq="h"),
+                    "y": range(10),
+                }
+            )
+
+            # Import fresh to get patched version
+            from scripts.streamlit_explorer.common.preprocessing_ui import (
+                _apply_inference_config,
+            )
+
+            _apply_inference_config(df, state)
+
+            # Verify correct preprocessor was used
+            mock_preprocessor_cls.from_config.assert_called_once_with(mock_config)
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.AnomalyDataFilterConfig")
+    def test_applies_anomaly_filter_when_enabled(self, mock_filter_config, mock_st):
+        """Verify anomaly filter is applied before inference config."""
+        # Setup mock config
+        mock_config = MagicMock()
+        mock_config.type = "volume"
+        mock_st.session_state = {
+            "_loaded_inference_preprocessing_config": mock_config,
+        }
+
+        # Setup mock filter
+        mock_transformer = MagicMock()
+        mock_transformer.transform.return_value = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=8, freq="h"),
+                "y": range(8),
+                "type": ["SUCCESS"] * 8,
+            }
+        )
+        mock_filter_config.return_value.create_transformer.return_value = (
+            mock_transformer
+        )
+
+        state = PreprocessingState(use_anomalies_as_exclusions=True)
+        df = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=10, freq="h"),
+                "y": range(10),
+                "type": ["SUCCESS"] * 8 + ["ANOMALY"] * 2,
+            }
+        )
+
+        # The function will fail after filter because we haven't mocked the preprocessor
+        # but we can verify the filter was called
+        try:
+            _apply_inference_config(df, state)
+        except Exception:
+            pass  # Expected to fail after filtering
+
+        mock_filter_config.assert_called_once_with(
+            enabled=True, type_values=["ANOMALY"]
+        )
+
+
+class TestBuildConfigForDisplayFromInference:
+    """Tests for build_config_for_display with from_inference mode."""
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.HAS_PREPROCESSING", True)
+    def test_returns_error_when_no_config_loaded(self, mock_st):
+        """Verify returns error dict when no inference config loaded."""
+        mock_st.session_state = {}
+        state = PreprocessingState(pipeline_mode="from_inference")
+
+        with patch(
+            "datahub_observe.algorithms.preprocessing.serialization.pipeline_config_to_dict"
+        ):
+            result = build_config_for_display(state)
+
+        assert result is not None
+        assert "error" in result
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.HAS_PREPROCESSING", True)
+    def test_serializes_volume_config(self, mock_st):
+        """Verify volume config is serialized with correct type."""
+        mock_config = MagicMock()
+        mock_config.type = "volume"
+        mock_st.session_state = {
+            "_loaded_inference_preprocessing_config": mock_config,
+            "_loaded_inference_source_urn": "urn:li:assertion:test",
+        }
+
+        state = PreprocessingState(pipeline_mode="from_inference")
+
+        with patch(
+            "datahub_observe.algorithms.preprocessing.serialization.pipeline_config_to_dict"
+        ) as mock_to_dict:
+            mock_to_dict.return_value = {"type": "volume", "convert_cumulative": False}
+            result = build_config_for_display(state)
+
+        assert result is not None
+        assert result.get("_source") == "inference"
+        assert result.get("_source_urn") == "urn:li:assertion:test"
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.HAS_PREPROCESSING", True)
+    def test_handles_dict_config(self, mock_st):
+        """Verify dict config is returned as-is with metadata."""
+        mock_st.session_state = {
+            "_loaded_inference_preprocessing_config": {
+                "type": "custom",
+                "settings": {},
+            },
+            "_loaded_inference_source_urn": "urn:li:assertion:test",
+        }
+
+        state = PreprocessingState(pipeline_mode="from_inference")
+
+        with patch(
+            "datahub_observe.algorithms.preprocessing.serialization.pipeline_config_to_dict"
+        ):
+            result = build_config_for_display(state)
+
+        assert result is not None
+        assert result.get("_source") == "inference"
+
+
+class TestRenderInferenceConfigInfo:
+    """Tests for render_inference_config_info function."""
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    def test_shows_warning_when_no_config_loaded(self, mock_st):
+        """Verify warning shown when no inference config loaded."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import (
+            render_inference_config_info,
+        )
+
+        mock_st.session_state = {}
+
+        render_inference_config_info()
+
+        mock_st.warning.assert_called_with("No inference config loaded")
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.HAS_PREPROCESSING", True)
+    def test_shows_config_type_info(self, mock_st):
+        """Verify config type info is displayed."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import (
+            render_inference_config_info,
+        )
+
+        mock_config = MagicMock()
+        mock_config.type = "volume"
+        mock_config.__class__.__name__ = "VolumePreprocessorConfig"
+        mock_st.session_state = {
+            "_loaded_inference_preprocessing_config": mock_config,
+            "_loaded_inference_source_urn": "urn:li:assertion:test123",
+        }
+
+        render_inference_config_info()
+
+        # Verify info was displayed
+        mock_st.info.assert_called()
+        call_args = mock_st.info.call_args[0][0]
+        assert "volume" in call_args
+
+    @patch("scripts.streamlit_explorer.common.preprocessing_ui.st")
+    def test_clear_config_button_clears_session_state(self, mock_st):
+        """Verify clear button removes config from session state."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import (
+            render_inference_config_info,
+        )
+
+        mock_config = MagicMock()
+        mock_config.type = "volume"
+
+        # Create a MagicMock that supports both dict-style and attribute-style access
+        mock_session_state = MagicMock()
+        mock_session_state.get.side_effect = lambda k, default=None: {
+            "_loaded_inference_preprocessing_config": mock_config,
+            "_loaded_inference_source_urn": "urn:li:assertion:test",
+            "preprocessing_state": PreprocessingState(pipeline_mode="from_inference"),
+        }.get(k, default)
+        mock_session_state.preprocessing_state = PreprocessingState(
+            pipeline_mode="from_inference"
+        )
+        mock_st.session_state = mock_session_state
+
+        # Simulate button click
+        mock_st.button.return_value = True
+
+        render_inference_config_info()
+
+        # Verify config was cleared
+        mock_st.session_state.pop.assert_any_call(
+            "_loaded_inference_preprocessing_config", None
+        )
+        mock_st.session_state.pop.assert_any_call("_loaded_inference_source_urn", None)
+        mock_st.rerun.assert_called()

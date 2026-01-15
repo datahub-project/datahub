@@ -36,13 +36,13 @@ try:
     HAS_PREPROCESSING = True
 except ImportError:
     HAS_PREPROCESSING = False
-    PreprocessingConfig = None
-    TimeSeriesPreprocessor = None
-    InitDataFilterConfig = None
-    FrequencyAlignmentConfig = None
-    AnomalyDataFilterConfig = None
-    default_pandas_transformers = None
-    default_darts_transformers = None
+    PreprocessingConfig = None  # type: ignore[assignment,misc]
+    TimeSeriesPreprocessor = None  # type: ignore[assignment,misc]
+    InitDataFilterConfig = None  # type: ignore[assignment,misc]
+    FrequencyAlignmentConfig = None  # type: ignore[assignment,misc]
+    AnomalyDataFilterConfig = None  # type: ignore[assignment,misc]
+    default_pandas_transformers = None  # type: ignore[assignment]
+    default_darts_transformers = None  # type: ignore[assignment]
 
 # Import registry for predefined pipelines
 try:
@@ -197,8 +197,26 @@ def get_pipeline_options() -> list[tuple[str, str]]:
 
     Returns:
         List of (value, display_label) tuples. Always includes "custom" as first option.
+        If an inference config is loaded, includes "from_inference" option.
     """
     options = [("custom", "Custom Configuration")]
+
+    # Check if inference config is loaded in session state
+    loaded_config = st.session_state.get("_loaded_inference_preprocessing_config")
+    if loaded_config is not None:
+        # Determine the type of loaded config for display
+        source_urn = st.session_state.get("_loaded_inference_source_urn", "")
+        short_urn = source_urn[-30:] if len(source_urn) > 30 else source_urn
+
+        # Get config type for label
+        config_type = "custom"
+        if hasattr(loaded_config, "type"):
+            config_type = loaded_config.type
+        elif isinstance(loaded_config, dict) and "type" in loaded_config:
+            config_type = loaded_config["type"]
+
+        label = f"From Inference ({config_type}) - {short_urn}"
+        options.append(("from_inference", label))
 
     pipelines = get_available_pipelines()
     for p in pipelines:
@@ -272,7 +290,7 @@ class PreprocessingState:
 
     # Init data filter settings (replaces exclude_init_results)
     # Uses InitDataFilterTransformer for INIT chunk handling
-    init_filter_enabled: bool = True  # Enable INIT filtering via transformer
+    init_filter_enabled: bool = False  # Enable INIT filtering via transformer
     init_trim_count: int = 1  # Number of INIT values to trim from the beginning
 
     # Result type filtering (shared by custom and predefined modes)
@@ -448,12 +466,14 @@ def build_config_for_display(
     state: PreprocessingState,
     config_overrides: Optional[dict] = None,
 ) -> Optional[dict]:
-    """Build the complete config for display, handling both predefined and custom pipelines.
+    """Build the complete config for display, handling predefined, custom, and inference pipelines.
 
     For predefined pipelines, this instantiates the pipeline and serializes its actual config.
 
     For custom mode, this uses state_to_config() which builds the config from UI state,
     including AnomalyDataFilterConfig if anomaly exclusion is enabled.
+
+    For from_inference mode, this serializes the loaded inference config.
 
     Note: Anomaly exclusions are now handled via the type column. The DataFrame should
     have rows marked with type="ANOMALY" before preprocessing.
@@ -471,6 +491,7 @@ def build_config_for_display(
     try:
         from datahub_observe.algorithms.preprocessing.serialization import (
             config_to_dict,
+            pipeline_config_to_dict,
         )
     except ImportError:
         return {"error": "Serialization not available"}
@@ -482,6 +503,29 @@ def build_config_for_display(
         config = state_to_config(state)
         if config is not None:
             result = config_to_dict(config)
+    elif state.pipeline_mode == "from_inference":
+        # From inference mode - serialize the loaded inference config
+        loaded_config = st.session_state.get("_loaded_inference_preprocessing_config")
+        if loaded_config is not None:
+            try:
+                # Check if it's a pipeline config (volume/field)
+                if hasattr(loaded_config, "type") and loaded_config.type in (
+                    "volume",
+                    "field",
+                ):
+                    result = pipeline_config_to_dict(loaded_config)
+                elif isinstance(loaded_config, dict):
+                    result = loaded_config
+                else:
+                    result = config_to_dict(loaded_config)
+                result["_source"] = "inference"
+                source_urn = st.session_state.get("_loaded_inference_source_urn", "")
+                if source_urn:
+                    result["_source_urn"] = source_urn
+            except Exception as e:
+                result = {"error": f"Could not serialize inference config: {e}"}
+        else:
+            result = {"error": "No inference config loaded"}
     else:
         # Predefined pipeline - get the actual pipeline config
         try:
@@ -837,6 +881,81 @@ def render_pipeline_info(
         st.error(f"Error loading pipeline info: {e}")
 
 
+def render_inference_config_info() -> None:
+    """Display information about the loaded inference preprocessing config.
+
+    Shows the loaded config details and source URN. The config will be used
+    directly when preprocessing is applied with "from_inference" mode selected.
+    """
+    loaded_config = st.session_state.get("_loaded_inference_preprocessing_config")
+    source_urn = st.session_state.get("_loaded_inference_source_urn", "")
+
+    if loaded_config is None:
+        st.warning("No inference config loaded")
+        return
+
+    # Determine config type
+    config_type = "custom"
+    if hasattr(loaded_config, "type"):
+        config_type = loaded_config.type
+    elif isinstance(loaded_config, dict) and "type" in loaded_config:
+        config_type = loaded_config["type"]
+
+    st.info(f"**From Inference** - Using {config_type} config from monitor")
+
+    # Show source URN
+    if source_urn:
+        st.caption(f"Source: `{source_urn[-60:]}`")
+
+    # Show config details
+    try:
+        if hasattr(loaded_config, "__class__") and hasattr(
+            loaded_config.__class__, "__name__"
+        ):
+            st.markdown(f"**Config Type:** `{loaded_config.__class__.__name__}`")
+
+        # Try to serialize for display
+        if HAS_PREPROCESSING:
+            try:
+                from datahub_observe.algorithms.preprocessing.serialization import (
+                    config_to_dict,
+                    pipeline_config_to_dict,
+                )
+
+                if hasattr(loaded_config, "type") and loaded_config.type in (
+                    "volume",
+                    "field",
+                ):
+                    config_dict = pipeline_config_to_dict(loaded_config)
+                elif not isinstance(loaded_config, dict):
+                    config_dict = config_to_dict(loaded_config)
+                else:
+                    config_dict = loaded_config
+
+                render_config_expander(
+                    config_dict, title="Loaded Inference Config (Read-Only)"
+                )
+            except Exception:
+                # Fallback: show raw representation
+                if isinstance(loaded_config, dict):
+                    render_config_expander(
+                        loaded_config, title="Loaded Inference Config (Read-Only)"
+                    )
+    except Exception as e:
+        st.caption(f"Config loaded (details unavailable: {e})")
+
+    # Button to clear the loaded config
+    if st.button("Clear Loaded Config", key="clear_inference_config_btn"):
+        st.session_state.pop("_loaded_inference_preprocessing_config", None)
+        st.session_state.pop("_loaded_inference_source_urn", None)
+        # Reset pipeline mode to custom if it was set to from_inference
+        if st.session_state.get("preprocessing_state"):
+            state = st.session_state.preprocessing_state
+            if state.pipeline_mode == "from_inference":
+                state.pipeline_mode = "custom"
+        st.rerun()
+
+
 def render_filtering_config(
     state: PreprocessingState,
     anomaly_count: int = 0,
@@ -1141,6 +1260,9 @@ def render_preprocessing_config_panel(
         render_resampling_config(state)
         render_differencing_config(state)
         render_missing_data_config(state)
+    elif selected == "from_inference":
+        # Show loaded inference config info (read-only)
+        render_inference_config_info()
     else:
         # Show predefined pipeline info with dynamic configuration options
         render_pipeline_info(selected, state=state)
@@ -1241,7 +1363,7 @@ def state_to_config(
     type_col = state.type_col if state.type_aware_enabled else None
 
     return PreprocessingConfig(
-        type_col=type_col,
+        type_col=type_col,  # type: ignore[arg-type]
         pandas_transformers=pandas_transformers,
         darts_transformers=darts_transformers,
     )
@@ -1256,6 +1378,7 @@ def apply_preprocessing(
 
     Supports both custom configuration and predefined pipelines from the registry.
     If state.pipeline_mode is not "custom", uses the predefined pipeline.
+    If state.pipeline_mode is "from_inference", uses the loaded inference config.
 
     Note: For anomaly exclusion, the DataFrame should have rows marked with
     type="ANOMALY" before calling this function. Use mark_anomalies_in_type_column()
@@ -1277,6 +1400,10 @@ def apply_preprocessing(
     # Get state if not provided
     if state is None:
         state = init_preprocessing_state()
+
+    # Check if using loaded inference config
+    if state.pipeline_mode == "from_inference" and config is None:
+        return _apply_inference_config(df, state)
 
     # Check if using a predefined pipeline
     if state.pipeline_mode != "custom" and config is None:
@@ -1360,6 +1487,109 @@ def _apply_predefined_pipeline(
         return None
     except Exception as e:
         st.error(f"Preprocessing error with '{pipeline_name}' pipeline: {e}")
+        return None
+
+
+def _apply_inference_config(
+    df: pd.DataFrame,
+    state: PreprocessingState,
+) -> Optional[pd.DataFrame]:
+    """Apply the loaded inference preprocessing config directly.
+
+    Uses the config stored in session state from "Load from Monitor Inference".
+    Supports VolumePreprocessorConfig, FieldMetricPreprocessorConfig, and
+    PreprocessingConfig types.
+
+    Note: For anomaly exclusion, the DataFrame should have rows marked with
+    type="ANOMALY" before calling this function. The AnomalyDataFilterTransformer
+    is applied before the inference config if anomaly exclusion is enabled.
+
+    Args:
+        df: Input DataFrame with 'ds', 'y', and optionally 'type' columns
+        state: PreprocessingState containing anomaly exclusion settings
+
+    Returns:
+        Preprocessed DataFrame, or None if error
+    """
+    loaded_config = st.session_state.get("_loaded_inference_preprocessing_config")
+
+    if loaded_config is None:
+        st.error("No inference config loaded. Load a config first.")
+        return None
+
+    try:
+        # Apply anomaly data filter if enabled (filters rows with type="ANOMALY")
+        filtered_df = df.copy()
+        if state.use_anomalies_as_exclusions and AnomalyDataFilterConfig is not None:
+            anomaly_filter = AnomalyDataFilterConfig(
+                enabled=True,
+                type_values=["ANOMALY"],
+            ).create_transformer()
+            # Apply with type_col from state
+            filtered_df = anomaly_filter.transform(filtered_df, type_col=state.type_col)
+
+        # Determine the type of loaded config and create appropriate preprocessor
+        config_type = None
+        if hasattr(loaded_config, "type"):
+            config_type = loaded_config.type
+        elif isinstance(loaded_config, dict) and "type" in loaded_config:
+            config_type = loaded_config["type"]
+
+        # Import base type for annotation
+        from datahub_observe.algorithms.preprocessing import TimeSeriesPreprocessor
+
+        preprocessor: TimeSeriesPreprocessor
+
+        if config_type == "volume":
+            # VolumePreprocessorConfig - use VolumeTimeSeriesPreprocessor
+            from datahub_observe.algorithms.preprocessing import (
+                VolumeTimeSeriesPreprocessor,
+            )
+
+            preprocessor = VolumeTimeSeriesPreprocessor.from_config(loaded_config)
+            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+
+        elif config_type == "field":
+            # FieldMetricPreprocessorConfig - use FieldMetricTimeSeriesPreprocessor
+            from datahub_observe.algorithms.preprocessing import (
+                FieldMetricTimeSeriesPreprocessor,
+            )
+
+            preprocessor = FieldMetricTimeSeriesPreprocessor.from_config(loaded_config)
+            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+
+        elif isinstance(loaded_config, dict):
+            # Raw dict - try to deserialize as PreprocessingConfig
+            from datahub_observe.algorithms.preprocessing.serialization import (
+                config_from_dict,
+            )
+
+            config = config_from_dict(loaded_config, check_schema=False)
+            if isinstance(config, dict):
+                st.error(
+                    "Could not deserialize inference config. "
+                    "The config format may be incompatible."
+                )
+                return None
+            preprocessor = TimeSeriesPreprocessor(config)
+            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+
+        else:
+            # Assume it's a PreprocessingConfig
+            preprocessor = TimeSeriesPreprocessor(loaded_config)
+            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+
+        # Convert back to DataFrame
+        result_df = ts.to_dataframe().reset_index()
+        result_df.columns = ["ds", "y"]
+
+        return result_df
+
+    except Exception as e:
+        st.error(f"Preprocessing error with inference config: {e}")
+        import traceback
+
+        st.caption(f"Details: {traceback.format_exc()}")
         return None
 
 

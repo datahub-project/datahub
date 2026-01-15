@@ -448,6 +448,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
           AWS_REGION: us-west-2
           PROFILE_NAME: ${{ matrix.profile }}
+          # Set Cloudsmith pip URL for observe-models package (needed by datahub-executor via smoke-test)
+          UV_EXTRA_INDEX_URL: ${{ secrets.CLOUDSMITH_PASSWORD && format('https://{0}:{1}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_USERNAME, secrets.CLOUDSMITH_PASSWORD) || (secrets.CLOUDSMITH_API_KEY && format('https://token:{0}@dl.cloudsmith.io/basic/datahub/datahub-cloud/python/simple/', secrets.CLOUDSMITH_API_KEY) || '') }}
         run: |
           ./smoke-test/run-quickstart.sh
 

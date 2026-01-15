@@ -20,6 +20,9 @@ import streamlit as st
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from .inference_loader import (
+    fetch_inference_data,
+)
 from .shared import (
     _SELECTED_ENDPOINT,
     METRIC_CUBE_ASPECTS,
@@ -288,6 +291,18 @@ def _render_api_fetch_controls(
 
         st.markdown("---")
 
+        st.markdown("**Inference Data (Model Configs & Training Evals)**")
+        fetch_inference = st.checkbox(
+            "Fetch Inference Data",
+            value=True,
+            key="fetch_inference_data",
+            help="Fetch model configurations, training evaluations, and predictions "
+            "from AssertionEvaluationContext. Enables viewing stored ML model configs "
+            "and historical training results.",
+        )
+
+        st.markdown("---")
+
         max_workers = st.number_input(
             "Concurrency",
             min_value=1,
@@ -313,6 +328,7 @@ def _render_api_fetch_controls(
         max_workers=max_workers,
         include_active_monitors=include_active,
         include_inactive_monitors=include_inactive,
+        fetch_inference_data=fetch_inference,
     )
 
     btn_label = "Refresh Cache" if is_update else "Fetch and Cache"
@@ -723,6 +739,68 @@ def _execute_api_fetch(
                         sync_type=effective_sync_type,
                     )
                     saved_aspects.append(f"{aspect_name}: {len(df):,}")
+
+        # Fetch inference data if enabled
+        inference_saved_count = 0
+        if fetch_config.fetch_inference_data and monitor_assertion_map:
+            status_text.markdown(
+                "🔬 Fetching inference data (model configs & evals)..."
+            )
+            progress_bar.progress(0.96, text="Fetching inference data...")
+
+            cache = loader.cache.get_endpoint_cache(config.hostname)
+            inference_errors = []
+
+            for _monitor_urn, assertion_urn in monitor_assertion_map.items():
+                if _check_cancelled():
+                    break
+
+                try:
+                    inference_data = fetch_inference_data(
+                        graphql_url=graphql_url,
+                        headers=headers,
+                        assertion_urn=assertion_urn,
+                    )
+
+                    if inference_data.has_inference_data:
+                        # Save inference data to cache
+                        model_config = inference_data.model_config
+                        cache.save_inference_data(
+                            entity_urn=assertion_urn,
+                            model_config_dict=model_config.model_dump()
+                            if model_config
+                            else None,
+                            preprocessing_config_json=model_config.preprocessing_config_json
+                            if model_config
+                            else None,
+                            forecast_config_json=model_config.forecast_config_json
+                            if model_config
+                            else None,
+                            anomaly_config_json=model_config.anomaly_config_json
+                            if model_config
+                            else None,
+                            forecast_evals_json=model_config.forecast_evals_json
+                            if model_config
+                            else None,
+                            anomaly_evals_json=model_config.anomaly_evals_json
+                            if model_config
+                            else None,
+                            predictions_df=inference_data.predictions_df,
+                            generated_at=inference_data.generated_at,
+                        )
+                        inference_saved_count += 1
+                except Exception as e:
+                    inference_errors.append(f"{assertion_urn}: {e}")
+
+            if inference_saved_count > 0:
+                saved_aspects.append(f"inference data: {inference_saved_count}")
+
+            if inference_errors:
+                with st.expander(
+                    f"⚠️ {len(inference_errors)} inference fetch errors", expanded=False
+                ):
+                    for msg in inference_errors[:20]:
+                        st.text(msg)
 
         progress_bar.progress(1.0, text="Complete!")
 
@@ -1303,10 +1381,12 @@ def build_metric_cube_urn(monitor_urn: str) -> str:
     Returns:
         The metric cube URN (e.g., "urn:li:dataHubMetricCube:...")
     """
-    import base64
+    # Re-use the shared utility
+    from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
+        make_monitor_metric_cube_urn,
+    )
 
-    encoded = base64.urlsafe_b64encode(monitor_urn.encode()).decode()
-    return f"urn:li:dataHubMetricCube:{encoded}"
+    return make_monitor_metric_cube_urn(monitor_urn)
 
 
 def _graphql_list_monitor_metrics(

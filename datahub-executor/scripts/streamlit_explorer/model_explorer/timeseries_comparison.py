@@ -6,33 +6,12 @@ import pandas as pd
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 import streamlit as st
 
-from ..common import init_explorer_state
-from .model_training import TrainingRun
-
-# =============================================================================
-# Training Runs Access
-# =============================================================================
-
-
-def _get_training_runs() -> dict[str, TrainingRun]:
-    """Get stored training runs from session state."""
-    if "training_runs" not in st.session_state:
-        st.session_state["training_runs"] = {}
-    return st.session_state["training_runs"]
-
+from ..common import _hex_to_rgba, init_explorer_state
+from .model_training import TrainingRun, _get_training_runs
 
 # =============================================================================
 # Visualization
 # =============================================================================
-
-
-def _hex_to_rgba(hex_color: str, alpha: float) -> tuple:
-    """Convert hex color to RGBA tuple."""
-    hex_color = hex_color.lstrip("#")
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-    return (r, g, b, alpha)
 
 
 def _create_individual_model_chart(run: TrainingRun) -> go.Figure:

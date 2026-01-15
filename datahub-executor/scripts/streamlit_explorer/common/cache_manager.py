@@ -1955,6 +1955,326 @@ class EndpointCache:
         run_dir = self.training_runs_dir / run_id
         return run_dir.exists() and (run_dir / "metadata.json").exists()
 
+    # =========================================================================
+    # Inference Data Storage Methods
+    # =========================================================================
+
+    @property
+    def inference_dir(self) -> Path:
+        """Directory for storing inference data."""
+        return self.endpoint_dir / "inference"
+
+    def save_inference_data(
+        self,
+        entity_urn: str,
+        model_config_dict: Optional[dict[str, Any]] = None,
+        preprocessing_config_json: Optional[str] = None,
+        forecast_config_json: Optional[str] = None,
+        anomaly_config_json: Optional[str] = None,
+        forecast_evals_json: Optional[str] = None,
+        anomaly_evals_json: Optional[str] = None,
+        predictions_df: Optional[pd.DataFrame] = None,
+        generated_at: Optional[int] = None,
+    ) -> bool:
+        """Save inference data (configs, evals, predictions) to disk.
+
+        Args:
+            entity_urn: The assertion or monitor URN
+            model_config_dict: Full ModelConfig as dict (optional)
+            preprocessing_config_json: Serialized preprocessing config JSON
+            forecast_config_json: Serialized forecast model config JSON
+            anomaly_config_json: Serialized anomaly model config JSON
+            forecast_evals_json: Serialized forecast training evals JSON
+            anomaly_evals_json: Serialized anomaly training evals JSON
+            predictions_df: DataFrame with predictions
+            generated_at: Timestamp when model was trained
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        # Create safe directory name from URN
+        safe_name = entity_urn.replace(":", "_").replace(",", "_")
+        inference_path = self.inference_dir / safe_name
+        inference_path.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Save metadata
+            metadata: dict[str, Any] = {
+                "entity_urn": entity_urn,
+                "generated_at": generated_at,
+                "saved_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            # Store model config if provided
+            if model_config_dict:
+                metadata["model_config"] = model_config_dict
+
+            # Store config JSONs as separate files for easy access
+            if preprocessing_config_json:
+                with open(inference_path / "preprocessing_config.json", "w") as f:
+                    f.write(preprocessing_config_json)
+                metadata["has_preprocessing_config"] = True
+
+            if forecast_config_json:
+                with open(inference_path / "forecast_config.json", "w") as f:
+                    f.write(forecast_config_json)
+                metadata["has_forecast_config"] = True
+
+            if anomaly_config_json:
+                with open(inference_path / "anomaly_config.json", "w") as f:
+                    f.write(anomaly_config_json)
+                metadata["has_anomaly_config"] = True
+
+            if forecast_evals_json:
+                with open(inference_path / "forecast_evals.json", "w") as f:
+                    f.write(forecast_evals_json)
+                metadata["has_forecast_evals"] = True
+
+            if anomaly_evals_json:
+                with open(inference_path / "anomaly_evals.json", "w") as f:
+                    f.write(anomaly_evals_json)
+                metadata["has_anomaly_evals"] = True
+
+            # Save predictions DataFrame
+            if predictions_df is not None and len(predictions_df) > 0:
+                predictions_df.to_parquet(
+                    inference_path / "predictions.parquet", index=False
+                )
+                metadata["has_predictions"] = True
+                metadata["prediction_count"] = len(predictions_df)
+
+            # Save metadata file
+            with open(inference_path / "metadata.json", "w") as f:
+                json.dump(metadata, f, indent=2)
+
+            return True
+
+        except Exception as e:
+            logger.warning("Failed to save inference data for %s: %s", entity_urn, e)
+            return False
+
+    def load_inference_data(self, entity_urn: str) -> Optional[dict[str, Any]]:
+        """Load saved inference data for an entity.
+
+        Args:
+            entity_urn: The assertion or monitor URN
+
+        Returns:
+            Dict with inference data, or None if not found
+        """
+        safe_name = entity_urn.replace(":", "_").replace(",", "_")
+        inference_path = self.inference_dir / safe_name
+
+        if not inference_path.exists():
+            return None
+
+        try:
+            # Load metadata
+            meta_path = inference_path / "metadata.json"
+            if not meta_path.exists():
+                return None
+
+            with open(meta_path, "r") as f:
+                metadata = json.load(f)
+
+            result: dict[str, Any] = {
+                "entity_urn": metadata.get("entity_urn"),
+                "generated_at": metadata.get("generated_at"),
+                "saved_at": metadata.get("saved_at"),
+                "model_config": metadata.get("model_config"),
+            }
+
+            # Load config JSONs
+            preprocessing_path = inference_path / "preprocessing_config.json"
+            if preprocessing_path.exists():
+                with open(preprocessing_path, "r") as f:
+                    result["preprocessing_config_json"] = f.read()
+
+            forecast_config_path = inference_path / "forecast_config.json"
+            if forecast_config_path.exists():
+                with open(forecast_config_path, "r") as f:
+                    result["forecast_config_json"] = f.read()
+
+            anomaly_config_path = inference_path / "anomaly_config.json"
+            if anomaly_config_path.exists():
+                with open(anomaly_config_path, "r") as f:
+                    result["anomaly_config_json"] = f.read()
+
+            # Load evals JSONs
+            forecast_evals_path = inference_path / "forecast_evals.json"
+            if forecast_evals_path.exists():
+                with open(forecast_evals_path, "r") as f:
+                    result["forecast_evals_json"] = f.read()
+
+            anomaly_evals_path = inference_path / "anomaly_evals.json"
+            if anomaly_evals_path.exists():
+                with open(anomaly_evals_path, "r") as f:
+                    result["anomaly_evals_json"] = f.read()
+
+            # Load predictions DataFrame
+            predictions_path = inference_path / "predictions.parquet"
+            if predictions_path.exists():
+                result["predictions_df"] = pd.read_parquet(predictions_path)
+
+            return result
+
+        except Exception as e:
+            logger.warning("Failed to load inference data for %s: %s", entity_urn, e)
+            return None
+
+    def list_saved_inference_data(self) -> list[dict[str, Any]]:
+        """List all saved inference data entries.
+
+        Returns:
+            List of dicts with inference metadata (without full configs/predictions)
+        """
+        entries: list[dict[str, Any]] = []
+
+        if not self.inference_dir.exists():
+            return entries
+
+        for entry_dir in self.inference_dir.iterdir():
+            if not entry_dir.is_dir():
+                continue
+
+            meta_path = entry_dir / "metadata.json"
+            if meta_path.exists():
+                try:
+                    with open(meta_path, "r") as f:
+                        metadata = json.load(f)
+
+                    # Extract model info from model_config if present
+                    model_config = metadata.get("model_config") or {}
+                    entries.append(
+                        {
+                            "entity_urn": metadata.get("entity_urn"),
+                            "generated_at": metadata.get("generated_at"),
+                            "saved_at": metadata.get("saved_at"),
+                            "has_preprocessing_config": metadata.get(
+                                "has_preprocessing_config", False
+                            ),
+                            "has_forecast_config": metadata.get(
+                                "has_forecast_config", False
+                            ),
+                            "has_anomaly_config": metadata.get(
+                                "has_anomaly_config", False
+                            ),
+                            "has_forecast_evals": metadata.get(
+                                "has_forecast_evals", False
+                            ),
+                            "has_anomaly_evals": metadata.get(
+                                "has_anomaly_evals", False
+                            ),
+                            "has_predictions": metadata.get("has_predictions", False),
+                            "prediction_count": metadata.get("prediction_count", 0),
+                            "forecast_model_name": model_config.get(
+                                "forecast_model_name"
+                            ),
+                            "anomaly_model_name": model_config.get(
+                                "anomaly_model_name"
+                            ),
+                        }
+                    )
+                except Exception:
+                    continue
+
+        # Sort by saved_at (newest first)
+        entries.sort(key=lambda x: x.get("saved_at", ""), reverse=True)
+        return entries
+
+    def delete_inference_data(self, entity_urn: str) -> bool:
+        """Delete saved inference data for an entity.
+
+        Args:
+            entity_urn: The assertion or monitor URN
+
+        Returns:
+            True if deleted, False if not found
+        """
+        safe_name = entity_urn.replace(":", "_").replace(",", "_")
+        inference_path = self.inference_dir / safe_name
+
+        if inference_path.exists():
+            shutil.rmtree(inference_path)
+            return True
+        return False
+
+    def inference_data_exists(self, entity_urn: str) -> bool:
+        """Check if inference data exists for an entity.
+
+        Args:
+            entity_urn: The assertion or monitor URN
+
+        Returns:
+            True if exists, False otherwise
+        """
+        safe_name = entity_urn.replace(":", "_").replace(",", "_")
+        inference_path = self.inference_dir / safe_name
+        return inference_path.exists() and (inference_path / "metadata.json").exists()
+
+    def update_inference_config(
+        self,
+        entity_urn: str,
+        preprocessing_config_json: Optional[str] = None,
+        forecast_config_json: Optional[str] = None,
+        anomaly_config_json: Optional[str] = None,
+    ) -> bool:
+        """Update specific configs in saved inference data.
+
+        This allows editing configs without replacing all data.
+
+        Args:
+            entity_urn: The assertion or monitor URN
+            preprocessing_config_json: New preprocessing config JSON (optional)
+            forecast_config_json: New forecast config JSON (optional)
+            anomaly_config_json: New anomaly config JSON (optional)
+
+        Returns:
+            True if updated successfully, False if not found or error
+        """
+        safe_name = entity_urn.replace(":", "_").replace(",", "_")
+        inference_path = self.inference_dir / safe_name
+
+        if not inference_path.exists():
+            return False
+
+        try:
+            # Load existing metadata
+            meta_path = inference_path / "metadata.json"
+            with open(meta_path, "r") as f:
+                metadata = json.load(f)
+
+            # Update configs
+            if preprocessing_config_json is not None:
+                with open(inference_path / "preprocessing_config.json", "w") as f:
+                    f.write(preprocessing_config_json)
+                metadata["has_preprocessing_config"] = True
+
+            if forecast_config_json is not None:
+                with open(inference_path / "forecast_config.json", "w") as f:
+                    f.write(forecast_config_json)
+                metadata["has_forecast_config"] = True
+
+            if anomaly_config_json is not None:
+                with open(inference_path / "anomaly_config.json", "w") as f:
+                    f.write(anomaly_config_json)
+                metadata["has_anomaly_config"] = True
+
+            # Update saved_at timestamp
+            metadata["saved_at"] = datetime.now(timezone.utc).isoformat()
+
+            # Save updated metadata
+            with open(meta_path, "w") as f:
+                json.dump(metadata, f, indent=2)
+
+            return True
+
+        except Exception as e:
+            logger.warning(
+                "Failed to update inference config for %s: %s", entity_urn, e
+            )
+            return False
+
 
 class RunEventCache:
     """High-level interface for managing timeseries caches across all endpoints."""

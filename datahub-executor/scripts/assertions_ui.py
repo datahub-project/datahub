@@ -8,6 +8,7 @@ import random
 # Handle both direct execution (streamlit run) and module import
 import sys
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional
@@ -139,31 +140,337 @@ def _get_monitor_client() -> Optional[MonitorClient]:
     return client
 
 
+# =============================================================================
+# Random Dataset Generation
+# =============================================================================
+
+# Fake data for generating realistic-looking datasets
+_PLATFORMS = ["snowflake", "bigquery", "redshift", "postgres", "mysql", "databricks"]
+_DATABASES = [
+    "analytics",
+    "warehouse",
+    "reporting",
+    "raw_data",
+    "staging",
+    "production",
+]
+_SCHEMAS = ["public", "dbt", "core", "marts", "staging", "raw", "analytics"]
+_TABLES = [
+    "users",
+    "orders",
+    "transactions",
+    "events",
+    "sessions",
+    "products",
+    "customers",
+    "inventory",
+    "payments",
+    "logs",
+    "accounts",
+    "subscriptions",
+    "invoices",
+    "shipments",
+    "reviews",
+]
+# Valid FabricType enum values in DataHub
+_ENVS = ["PROD", "DEV", "STG", "CORP", "TEST"]
+
+# Column templates for different table types
+_COLUMN_TEMPLATES = {
+    "users": [
+        ("user_id", "BIGINT", "Unique user identifier"),
+        ("email", "VARCHAR(255)", "User email address"),
+        ("username", "VARCHAR(100)", "User login name"),
+        ("first_name", "VARCHAR(50)", "User first name"),
+        ("last_name", "VARCHAR(50)", "User last name"),
+        ("created_at", "TIMESTAMP", "Account creation timestamp"),
+        ("updated_at", "TIMESTAMP", "Last update timestamp"),
+        ("is_active", "BOOLEAN", "Whether user is active"),
+        ("country_code", "VARCHAR(2)", "Two-letter country code"),
+    ],
+    "orders": [
+        ("order_id", "BIGINT", "Unique order identifier"),
+        ("user_id", "BIGINT", "Foreign key to users"),
+        ("order_date", "DATE", "Date order was placed"),
+        ("total_amount", "DECIMAL(10,2)", "Total order amount"),
+        ("currency", "VARCHAR(3)", "Three-letter currency code"),
+        ("status", "VARCHAR(20)", "Order status"),
+        ("shipping_address_id", "BIGINT", "Foreign key to addresses"),
+        ("created_at", "TIMESTAMP", "Record creation timestamp"),
+    ],
+    "transactions": [
+        ("transaction_id", "BIGINT", "Unique transaction identifier"),
+        ("user_id", "BIGINT", "Foreign key to users"),
+        ("amount", "DECIMAL(12,2)", "Transaction amount"),
+        ("currency", "VARCHAR(3)", "Currency code"),
+        ("transaction_type", "VARCHAR(20)", "Type of transaction"),
+        ("status", "VARCHAR(20)", "Transaction status"),
+        ("processed_at", "TIMESTAMP", "When transaction was processed"),
+        ("reference_id", "VARCHAR(100)", "External reference"),
+    ],
+    "events": [
+        ("event_id", "BIGINT", "Unique event identifier"),
+        ("event_type", "VARCHAR(50)", "Type of event"),
+        ("user_id", "BIGINT", "User who triggered event"),
+        ("session_id", "VARCHAR(100)", "Session identifier"),
+        ("timestamp", "TIMESTAMP", "Event timestamp"),
+        ("properties", "JSON", "Event properties"),
+        ("page_url", "VARCHAR(500)", "Page URL where event occurred"),
+    ],
+    "products": [
+        ("product_id", "BIGINT", "Unique product identifier"),
+        ("sku", "VARCHAR(50)", "Stock keeping unit"),
+        ("name", "VARCHAR(200)", "Product name"),
+        ("description", "TEXT", "Product description"),
+        ("price", "DECIMAL(10,2)", "Product price"),
+        ("category_id", "BIGINT", "Foreign key to categories"),
+        ("inventory_count", "INTEGER", "Current inventory"),
+        ("is_active", "BOOLEAN", "Whether product is available"),
+    ],
+    "default": [
+        ("id", "BIGINT", "Primary key"),
+        ("name", "VARCHAR(100)", "Name"),
+        ("description", "TEXT", "Description"),
+        ("created_at", "TIMESTAMP", "Creation timestamp"),
+        ("updated_at", "TIMESTAMP", "Last update timestamp"),
+        ("status", "VARCHAR(20)", "Status"),
+        ("metadata", "JSON", "Additional metadata"),
+    ],
+}
+
+# Lorem ipsum style descriptions for datasets
+_DATASET_DESCRIPTIONS = [
+    "Core business entity table containing essential operational data.",
+    "Analytics-ready dataset optimized for reporting and dashboards.",
+    "Staging table for data pipeline processing and transformation.",
+    "Historical record of all transactions for audit and compliance.",
+    "Real-time event stream data for behavioral analytics.",
+    "Master data table synchronized from source systems daily.",
+    "Aggregated metrics table for executive reporting.",
+    "Raw ingestion table from external data sources.",
+]
+
+
+def _generate_random_dataset_urn() -> str:
+    """Generate a random dataset URN without creating it in DataHub."""
+    platform = random.choice(_PLATFORMS)
+    db = random.choice(_DATABASES)
+    schema = random.choice(_SCHEMAS)
+    table = random.choice(_TABLES)
+    env = random.choice(_ENVS)
+
+    # Add random suffix to make unique
+    suffix = random.randint(1000, 9999)
+    qualified_name = f"{db}.{schema}.{table}_{suffix}"
+
+    # Dataset URN format: urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})
+    return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{qualified_name},{env})"
+
+
+def _create_random_dataset_in_datahub() -> str:
+    """Create a random dataset with schema and properties in DataHub.
+
+    Returns:
+        The dataset URN.
+    """
+    graph = _get_graph()
+    if graph is None:
+        raise ValueError("No DataHub connection configured")
+
+    # Generate random dataset details
+    platform = random.choice(_PLATFORMS)
+    db = random.choice(_DATABASES)
+    schema = random.choice(_SCHEMAS)
+    table_base = random.choice(_TABLES)
+    env = random.choice(_ENVS)
+
+    suffix = random.randint(1000, 9999)
+    table_name = f"{table_base}_{suffix}"
+    qualified_name = f"{db}.{schema}.{table_name}"
+
+    # Dataset URN format: urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})
+    dataset_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{qualified_name},{env})"
+    )
+
+    # Get column template based on table type
+    columns = _COLUMN_TEMPLATES.get(table_base, _COLUMN_TEMPLATES["default"])
+
+    # Build schema fields
+    schema_fields = []
+    for col_name, col_type, col_desc in columns:
+        # Map SQL types to DataHub schema types
+        field_type = _sql_type_to_schema_field_type(col_type)
+        schema_fields.append(
+            models.SchemaFieldClass(
+                fieldPath=col_name,
+                type=field_type,
+                nativeDataType=col_type,
+                description=col_desc,
+                nullable=col_name
+                not in (
+                    "id",
+                    "user_id",
+                    "order_id",
+                    "event_id",
+                    "product_id",
+                    "transaction_id",
+                ),
+            )
+        )
+
+    # Create aspects
+    now_ms = int(time.time() * 1000)
+
+    dataset_properties = models.DatasetPropertiesClass(
+        name=table_name,
+        qualifiedName=qualified_name,
+        description=random.choice(_DATASET_DESCRIPTIONS),
+        created=models.TimeStampClass(time=now_ms),
+        lastModified=models.TimeStampClass(time=now_ms),
+        customProperties={
+            "source": "sample_data_generator",
+            "environment": env.lower(),
+            "database": db,
+            "schema": schema,
+        },
+    )
+
+    schema_metadata = models.SchemaMetadataClass(
+        schemaName=qualified_name,
+        platform=f"urn:li:dataPlatform:{platform}",
+        version=0,
+        hash="",
+        platformSchema=models.MySqlDDLClass(tableSchema=""),
+        fields=schema_fields,
+    )
+
+    # Add global tags to identify datasets created by this tool
+    global_tags = models.GlobalTagsClass(
+        tags=[models.TagAssociationClass(tag="urn:li:tag:datahub:observe_streamlit")]
+    )
+
+    # Status aspect makes the entity visible in DataHub search
+    status = models.StatusClass(removed=False)
+
+    # Emit the MCPs
+    mcps = [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=status,
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=dataset_properties,
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=schema_metadata,
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=global_tags,
+        ),
+    ]
+
+    graph.emit_mcps(mcps)
+
+    return dataset_urn
+
+
+def _sql_type_to_schema_field_type(sql_type: str) -> models.SchemaFieldDataTypeClass:
+    """Convert SQL type string to DataHub SchemaFieldDataType."""
+    sql_type_upper = sql_type.upper()
+
+    if "BIGINT" in sql_type_upper or "INT" in sql_type_upper:
+        return models.SchemaFieldDataTypeClass(type=models.NumberTypeClass())
+    elif (
+        "DECIMAL" in sql_type_upper
+        or "NUMERIC" in sql_type_upper
+        or "FLOAT" in sql_type_upper
+        or "DOUBLE" in sql_type_upper
+    ):
+        return models.SchemaFieldDataTypeClass(type=models.NumberTypeClass())
+    elif (
+        "VARCHAR" in sql_type_upper
+        or "CHAR" in sql_type_upper
+        or "TEXT" in sql_type_upper
+    ):
+        return models.SchemaFieldDataTypeClass(type=models.StringTypeClass())
+    elif "TIMESTAMP" in sql_type_upper or "DATETIME" in sql_type_upper:
+        return models.SchemaFieldDataTypeClass(type=models.TimeTypeClass())
+    elif "DATE" in sql_type_upper:
+        return models.SchemaFieldDataTypeClass(type=models.DateTypeClass())
+    elif "BOOLEAN" in sql_type_upper or "BOOL" in sql_type_upper:
+        return models.SchemaFieldDataTypeClass(type=models.BooleanTypeClass())
+    elif "JSON" in sql_type_upper:
+        return models.SchemaFieldDataTypeClass(type=models.RecordTypeClass())
+    else:
+        return models.SchemaFieldDataTypeClass(type=models.StringTypeClass())
+
+
 def generate_sample_metrics(
     num_points: int = 60,
     trend_factor: float = 1.0,
     seasonality: float = 20.0,
     noise_level: float = 5.0,
     base_value: float = 100.0,
+    monotonic: bool = False,
+    daily_increment_range: tuple[float, float] = (100.0, 500.0),
 ) -> List[Metric]:
     """
     Generate synthetic time series data with trend, seasonality, and noise.
+
+    Args:
+        num_points: Number of data points to generate
+        trend_factor: Factor for upward trend
+        seasonality: Amplitude of weekly seasonality
+        noise_level: Standard deviation of random noise
+        base_value: Starting base value
+        monotonic: If True, generate strictly increasing values (append-only)
+        daily_increment_range: (min, max) daily increment for monotonic mode
+
+    Returns:
+        List of Metric objects
     """
     metrics = []
     now = int(time.time() * 1000)
+    current_value = base_value
 
     # Generate data points going back in time
     for i in range(num_points, 0, -1):
         # Generate timestamp (going backward from now)
         timestamp_ms = now - (i * 24 * 60 * 60 * 1000)  # daily data
 
-        # Generate value with trend, seasonality, and noise
-        trend = trend_factor * (num_points - i)
-        season = seasonality * (0.5 + 0.5 * (1 + (i % 7) / 7))  # weekly seasonality
-        noise = random.normalvariate(0, noise_level)
+        if monotonic:
+            # Monotonically increasing: each day adds rows (append-only table)
+            # Use consistent increments based on day-of-week for realistic patterns
+            day_of_week = (num_points - i) % 7
+            # Weekends have lower activity
+            if day_of_week in (5, 6):  # Saturday, Sunday
+                increment_factor = 0.3
+            elif day_of_week == 0:  # Monday (catch-up)
+                increment_factor = 1.5
+            else:
+                increment_factor = 1.0
 
-        value = base_value + trend + season + noise
-        value = max(0, value)  # Ensure non-negative values
+            min_inc, max_inc = daily_increment_range
+            base_increment = random.uniform(min_inc, max_inc)
+            increment = base_increment * increment_factor
+
+            # Add small random variation
+            increment *= random.uniform(0.9, 1.1)
+
+            current_value += increment
+            value = int(current_value)
+        else:
+            # Original non-monotonic behavior with trend, seasonality, and noise
+            trend = trend_factor * (num_points - i)
+            season = seasonality * (0.5 + 0.5 * (1 + (i % 7) / 7))  # weekly seasonality
+            noise = random.normalvariate(0, noise_level)
+
+            value = base_value + trend + season + noise
+            value = max(0, value)  # Ensure non-negative values
 
         metrics.append(Metric(timestamp_ms=timestamp_ms, value=value))
 
@@ -234,6 +541,11 @@ def generate_sample_run_events(
     dataset_urn: str,
     num_events: int = 30,
     base_value: float = 1000.0,
+    monotonic: bool = True,
+    daily_increment_range: tuple[float, float] = (100.0, 500.0),
+    inject_anomaly: bool = False,
+    anomaly_position: float = 0.7,  # Position in time series (0.0-1.0)
+    anomaly_magnitude: float = 3.0,  # Multiplier for anomaly spike
 ) -> list:
     """Generate sample assertion run events with realistic patterns.
 
@@ -242,6 +554,11 @@ def generate_sample_run_events(
         dataset_urn: The dataset URN (assertee)
         num_events: Number of events to generate
         base_value: Base metric value (row count)
+        monotonic: If True, generate strictly increasing values (append-only)
+        daily_increment_range: (min, max) daily increment for monotonic mode
+        inject_anomaly: If True, inject an anomaly spike
+        anomaly_position: Where to inject anomaly (0.0-1.0)
+        anomaly_magnitude: How much larger the anomaly increment should be
 
     Returns:
         List of MetadataChangeProposalWrapper objects
@@ -249,19 +566,58 @@ def generate_sample_run_events(
     mcps = []
     now = int(time.time() * 1000)
     prev_value = None
+    current_value = base_value
+    anomaly_index = int(num_events * (1 - anomaly_position)) if inject_anomaly else -1
 
     for i in range(num_events, 0, -1):
         # Generate timestamp (going backward from now, daily)
         timestamp_ms = now - (i * 24 * 60 * 60 * 1000)
+        event_index = num_events - i
 
-        # Generate value with some variation
-        trend = 10 * (num_events - i)  # slight upward trend
-        noise = random.normalvariate(0, base_value * 0.1)
-        value = base_value + trend + noise
-        value = max(0, int(value))  # Row counts are integers
+        if monotonic:
+            # Monotonically increasing: each day adds rows (append-only table)
+            day_of_week = event_index % 7
 
-        # Occasionally generate failures (about 10%)
-        is_success = random.random() > 0.1
+            # Weekends have lower activity
+            if day_of_week in (5, 6):  # Saturday, Sunday
+                increment_factor = 0.3
+            elif day_of_week == 0:  # Monday (catch-up)
+                increment_factor = 1.5
+            else:
+                increment_factor = 1.0
+
+            min_inc, max_inc = daily_increment_range
+            base_increment = random.uniform(min_inc, max_inc)
+            increment = base_increment * increment_factor
+
+            # Inject anomaly if requested
+            if inject_anomaly and event_index == anomaly_index:
+                increment *= anomaly_magnitude
+
+            # Add small random variation
+            increment *= random.uniform(0.95, 1.05)
+
+            current_value += increment
+            value = int(current_value)
+        else:
+            # Non-monotonic behavior with trend and noise
+            trend = 10 * event_index  # slight upward trend
+            noise = random.normalvariate(0, base_value * 0.1)
+            value = base_value + trend + noise
+            value = max(0, int(value))  # Row counts are integers
+
+        # For monotonic data, success/failure is based on whether growth is reasonable
+        # For non-monotonic, use random failures
+        if monotonic:
+            # In real systems, assertions pass when growth is within expected bounds
+            is_success = True
+            # Mark anomaly as failure if present
+            if inject_anomaly and event_index == anomaly_index:
+                is_success = False
+        else:
+            # Occasionally generate failures (about 10%)
+            is_success = random.random() > 0.1
+
         result_type = (
             models.AssertionResultTypeClass.SUCCESS
             if is_success
@@ -276,6 +632,8 @@ def generate_sample_run_events(
         }
         if prev_value is not None:
             native_results["Previous Row Count"] = str(prev_value)
+            if monotonic:
+                native_results["Row Increment"] = str(value - prev_value)
 
         run_event = models.AssertionRunEventClass(
             timestampMillis=timestamp_ms,
@@ -309,16 +667,47 @@ def generate_sample_run_events(
     return mcps
 
 
-def generate_volume_sample_data(dataset_urn: str) -> str:
+@dataclass
+class SampleDataConfig:
+    """Configuration for sample data generation."""
+
+    # Basic settings
+    num_days: int = 60
+    base_row_count: int = 10000
+
+    # Volume assertion behavior
+    monotonic: bool = True  # Append-only table (realistic)
+    daily_increment_range: tuple[float, float] = (100.0, 500.0)
+
+    # Metric cube settings
+    create_metric_cube: bool = True
+
+    # Anomaly injection
+    inject_anomaly: bool = False
+    anomaly_position: float = 0.7  # 70% through the time series
+    anomaly_magnitude: float = 3.0  # 3x normal increment
+
+
+def generate_volume_sample_data(
+    dataset_urn: str,
+    config: Optional[SampleDataConfig] = None,
+) -> str:
     """Generates sample volume assertion data for a dataset.
 
     Creates the monitor/assertion if they don't exist, then generates:
-    - Sample metrics (for AI assertion evaluation)
+    - Sample metrics (for AI assertion evaluation) - optional via config
     - Sample assertion run events (for Time Series Explorer)
+
+    Args:
+        dataset_urn: The dataset URN to create sample data for
+        config: Configuration for sample data generation
 
     Returns:
         The monitor URN.
     """
+    if config is None:
+        config = SampleDataConfig()
+
     graph = _get_graph()
     if graph is None:
         raise ValueError("No DataHub connection configured")
@@ -378,22 +767,33 @@ def generate_volume_sample_data(dataset_urn: str) -> str:
         )
     )
 
-    # Generate sample metrics (for AI evaluation)
-    metrics = generate_sample_metrics()
-    metric_urn = make_monitor_metric_cube_urn(monitor_urn)
-
-    for metric in metrics:
-        metrics_client.save_metric_value(
-            metric_urn=metric_urn,
-            metric=metric,
+    # Generate sample metrics (for AI evaluation) - optional
+    if config.create_metric_cube:
+        metrics = generate_sample_metrics(
+            num_points=config.num_days,
+            base_value=float(config.base_row_count),
+            monotonic=config.monotonic,
+            daily_increment_range=config.daily_increment_range,
         )
+        metric_urn = make_monitor_metric_cube_urn(monitor_urn)
+
+        for metric in metrics:
+            metrics_client.save_metric_value(
+                metric_urn=metric_urn,
+                metric=metric,
+            )
 
     # Generate sample assertion run events (for Time Series Explorer)
     run_event_mcps = generate_sample_run_events(
         assertion_urn=assertion_urn,
         dataset_urn=dataset_urn,
-        num_events=30,
-        base_value=1000.0,
+        num_events=config.num_days,
+        base_value=float(config.base_row_count),
+        monotonic=config.monotonic,
+        daily_increment_range=config.daily_increment_range,
+        inject_anomaly=config.inject_anomaly,
+        anomaly_position=config.anomaly_position,
+        anomaly_magnitude=config.anomaly_magnitude,
     )
 
     for mcpw in run_event_mcps:
@@ -953,29 +1353,189 @@ def render_load_sample_data_page() -> None:
     """Render the load sample data page."""
     st.header("Load Sample Data")
 
-    # Show connection status
+    # Show connection status first
     if not render_connection_status():
         st.info("Please configure a DataHub connection to load sample data.")
         return
 
+    st.markdown(
+        "Generate realistic sample volume assertion data for testing and development. "
+        "Volume assertions track row counts over time - by default, data is generated "
+        "as **monotonically increasing** (append-only), which is realistic for most "
+        "production tables."
+    )
+
     # Track generation result in session state
     _SAMPLE_DATA_RESULT_KEY = "_sample_data_result"
 
+    # Random URN generator (outside form so it can update state)
+    _RANDOM_URN_KEY = "_random_dataset_urn"
+
+    col_btn1, col_btn2 = st.columns([1, 1])
+
+    with col_btn1:
+        if st.button("🎲 Generate Random Dataset URN"):
+            random_urn = _generate_random_dataset_urn()
+            st.session_state[_RANDOM_URN_KEY] = random_urn
+            st.rerun()  # Rerun to populate the form field
+
+    with col_btn2:
+        if st.button("✨ Create Random Dataset in DataHub"):
+            try:
+                with st.spinner("Creating dataset..."):
+                    random_urn = _create_random_dataset_in_datahub()
+                    st.session_state[_RANDOM_URN_KEY] = random_urn
+                st.session_state["_dataset_created_success"] = random_urn
+                st.rerun()  # Rerun to populate the form field
+            except Exception as e:
+                st.error(f"Failed to create dataset: {e}")
+
+    # Show success message after rerun (outside the button handler)
+    if "_dataset_created_success" in st.session_state:
+        created_urn = st.session_state.pop("_dataset_created_success")
+        st.success(f"✅ Created dataset: `{created_urn}`")
+
+    # Get default value from session state if available
+    default_urn = st.session_state.get(_RANDOM_URN_KEY, "")
+
     with st.form("load_sample"):
         dataset_urn = st.text_input(
-            "Dataset URN", help="Format: urn:li:dataset:(platform,name,env)"
+            "Dataset URN",
+            value=default_urn,
+            help="Format: urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})",
+            placeholder="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_database.my_schema.my_table,PROD)",
         )
 
-        submitted = st.form_submit_button("Generate Sample Data")
+        st.markdown("---")
+        st.markdown("### Data Generation Settings")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            num_days = st.number_input(
+                "Number of Days",
+                min_value=7,
+                max_value=365,
+                value=60,
+                help="How many days of historical data to generate",
+            )
+
+            base_row_count = st.number_input(
+                "Starting Row Count",
+                min_value=100,
+                max_value=10000000,
+                value=10000,
+                step=1000,
+                help="Initial row count for the table",
+            )
+
+        with col2:
+            daily_increment_min = st.number_input(
+                "Min Daily Increment",
+                min_value=0,
+                max_value=100000,
+                value=100,
+                step=50,
+                help="Minimum rows added per day",
+            )
+
+            daily_increment_max = st.number_input(
+                "Max Daily Increment",
+                min_value=1,
+                max_value=100000,
+                value=500,
+                step=50,
+                help="Maximum rows added per day",
+            )
+
+        st.markdown("---")
+        st.markdown("### Options")
+
+        opt_col1, opt_col2 = st.columns(2)
+
+        with opt_col1:
+            monotonic = st.checkbox(
+                "Monotonically Increasing (Append-Only)",
+                value=True,
+                help="Row counts always increase - realistic for append-only tables. "
+                "Unchecking this creates fluctuating values with trend/seasonality.",
+            )
+
+            create_metric_cube = st.checkbox(
+                "Create Metric Cube",
+                value=True,
+                help="Generate metric cube events for AI model training and evaluation. "
+                "Disable if you only need assertion run events.",
+            )
+
+        with opt_col2:
+            inject_anomaly = st.checkbox(
+                "Inject Anomaly",
+                value=False,
+                help="Insert an anomaly spike in the data for testing anomaly detection",
+            )
+
+        # Anomaly settings (shown only if inject_anomaly is checked)
+        if inject_anomaly:
+            anom_col1, anom_col2 = st.columns(2)
+            with anom_col1:
+                anomaly_position = st.slider(
+                    "Anomaly Position",
+                    min_value=0.1,
+                    max_value=0.9,
+                    value=0.7,
+                    step=0.1,
+                    help="Where in the time series to inject the anomaly (0.1=early, 0.9=late)",
+                )
+            with anom_col2:
+                anomaly_magnitude = st.slider(
+                    "Anomaly Magnitude",
+                    min_value=2.0,
+                    max_value=10.0,
+                    value=3.0,
+                    step=0.5,
+                    help="How much larger the anomaly increment is (e.g., 3.0 = 3x normal)",
+                )
+        else:
+            anomaly_position = 0.7
+            anomaly_magnitude = 3.0
+
+        st.markdown("---")
+
+        submitted = st.form_submit_button("Generate Sample Data", type="primary")
 
         if submitted:
             try:
                 # Validate URN format
+                if not dataset_urn:
+                    st.error("Please enter a Dataset URN")
+                    return
+
                 DatasetUrn.from_string(dataset_urn)
+
+                # Validate increment range
+                if daily_increment_min > daily_increment_max:
+                    st.error("Min daily increment must be less than or equal to max")
+                    return
+
+                # Build config
+                config = SampleDataConfig(
+                    num_days=int(num_days),
+                    base_row_count=int(base_row_count),
+                    monotonic=monotonic,
+                    daily_increment_range=(
+                        float(daily_increment_min),
+                        float(daily_increment_max),
+                    ),
+                    create_metric_cube=create_metric_cube,
+                    inject_anomaly=inject_anomaly,
+                    anomaly_position=anomaly_position,
+                    anomaly_magnitude=anomaly_magnitude,
+                )
 
                 with st.spinner("Generating sample data..."):
                     # Generate sample data (creates/updates monitor/assertion)
-                    monitor_urn = generate_volume_sample_data(dataset_urn)
+                    monitor_urn = generate_volume_sample_data(dataset_urn, config)
                     assertion_urn = default_volume_assertion_urn(dataset_urn)
 
                 # Store result in session state for display outside form
@@ -983,6 +1543,13 @@ def render_load_sample_data_page() -> None:
                     "success": True,
                     "monitor_urn": monitor_urn,
                     "assertion_urn": assertion_urn,
+                    "config": {
+                        "num_days": config.num_days,
+                        "base_row_count": config.base_row_count,
+                        "monotonic": config.monotonic,
+                        "create_metric_cube": config.create_metric_cube,
+                        "inject_anomaly": config.inject_anomaly,
+                    },
                 }
                 st.session_state[_SELECTED_MONITOR_KEY] = monitor_urn
                 st.rerun()
@@ -1004,6 +1571,23 @@ def render_load_sample_data_page() -> None:
                 f"Monitor: {result['monitor_urn']}\nAssertion: {result['assertion_urn']}",
                 language=None,
             )
+
+            # Show config summary
+            config_info = result.get("config", {})
+            config_details = []
+            if config_info.get("num_days"):
+                config_details.append(f"📅 {config_info['num_days']} days of data")
+            if config_info.get("monotonic"):
+                config_details.append("📈 Monotonically increasing (append-only)")
+            if config_info.get("create_metric_cube"):
+                config_details.append("📊 Metric cube created")
+            if config_info.get("inject_anomaly"):
+                config_details.append("⚠️ Anomaly injected")
+
+            if config_details:
+                st.markdown("**Configuration:**")
+                for detail in config_details:
+                    st.markdown(f"- {detail}")
 
             st.info(
                 "💡 **Note:** It may take a few seconds for the data to be indexed. "

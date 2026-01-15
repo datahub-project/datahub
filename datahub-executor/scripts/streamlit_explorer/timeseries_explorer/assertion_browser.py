@@ -209,7 +209,7 @@ def _render_timeseries_viewer_section(
     col_nav1, col_nav2 = st.columns(2)
 
     with col_nav1:
-        if st.button("Anomaly Browser →", key="go_to_anomaly_browser"):
+        if st.button("Monitor Browser →", key="go_to_monitor_browser"):
             # Store monitor URN for the Monitor Browser to filter to
             from ..common.shared import _SELECTED_MONITOR
 

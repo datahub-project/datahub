@@ -9,9 +9,15 @@ import pandas as pd
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 import streamlit as st
 
-from ..common import DataLoader, init_explorer_state
-from .model_training import TrainingRun
+from ..common import (
+    DataLoader,
+    _hex_to_rgba,
+    get_model_hyperparameters,
+    init_explorer_state,
+)
+from .model_training import TrainingRun, _get_training_runs
 from .observe_models_adapter import (
+    _create_train_fn,
     get_anomaly_model_configs,
     is_global_forecasting_model,
     is_observe_models_available,
@@ -104,11 +110,29 @@ def _get_and_clear_training_status() -> dict | None:
     return status
 
 
-def _get_training_runs() -> dict[str, TrainingRun]:
-    """Get stored training runs from session state."""
-    if "training_runs" not in st.session_state:
-        st.session_state["training_runs"] = {}
-    return st.session_state["training_runs"]
+# =============================================================================
+# Hyperparameters Extraction
+# =============================================================================
+
+
+def _render_hyperparameters_display(params: dict[str, object]) -> None:
+    """Render hyperparameters in a nicely formatted display.
+
+    Args:
+        params: Dictionary of hyperparameters to display
+    """
+    param_lines = []
+    for key, value in params.items():
+        if isinstance(value, dict):
+            param_lines.append(f"- **{key}**: `{value}`")
+        elif isinstance(value, float):
+            if np.isnan(value):
+                param_lines.append(f"- **{key}**: `NaN`")
+            else:
+                param_lines.append(f"- **{key}**: `{value:.6g}`")
+        else:
+            param_lines.append(f"- **{key}**: `{value}`")
+    st.markdown("\n".join(param_lines))
 
 
 # =============================================================================
@@ -158,19 +182,30 @@ def _load_ground_truth_anomalies(hostname: str, assertion_urn: str) -> pd.DataFr
         return pd.DataFrame(columns=["ds", "status"])
 
 
+def _convert_ground_truth_for_training(ground_truth_df: pd.DataFrame) -> pd.DataFrame:
+    """Convert ground truth to format expected by observe-models.
+
+    observe-models expects:
+    - ds: timestamp column
+    - is_anomaly_gt: boolean (True = anomaly)
+
+    Streamlit has:
+    - ds: timestamp column
+    - status: 'confirmed', 'rejected', 'unconfirmed'
+
+    Only 'confirmed' status is treated as ground truth anomaly.
+    """
+    if ground_truth_df.empty:
+        return pd.DataFrame(columns=["ds", "is_anomaly_gt"])
+
+    result = ground_truth_df.copy()
+    result["is_anomaly_gt"] = result["status"] == "confirmed"
+    return result[["ds", "is_anomaly_gt"]]
+
+
 # =============================================================================
 # Visualization
 # =============================================================================
-
-
-def _hex_to_rgba(hex_color: str, alpha: float) -> tuple:
-    """Convert hex color to RGBA tuple."""
-    hex_color = hex_color.lstrip("#")
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-    return (r, g, b, alpha)
-
 
 # Standard colors for anomaly detection visualizations
 # (No color differentiation needed since each combination gets its own chart)
@@ -483,6 +518,164 @@ def _compute_classification_metrics(
     }
 
 
+def _render_anomaly_performance_summary(
+    anomaly_runs: dict[str, AnomalyDetectionRun],
+    ground_truth_df: pd.DataFrame,
+) -> None:
+    """Render a performance summary table for all anomaly detection runs.
+
+    Args:
+        anomaly_runs: Dictionary of anomaly detection runs
+        ground_truth_df: Ground truth anomaly DataFrame with 'ds' and 'status' columns
+    """
+    if not anomaly_runs:
+        return
+
+    st.subheader("Performance Summary")
+
+    # Build comparison data
+    table_data: list[dict[str, object]] = []
+
+    for _run_id, run in anomaly_runs.items():
+        # Get detection count
+        detected_count = 0
+        if (
+            run.detection_results is not None
+            and "is_anomaly" in run.detection_results.columns
+        ):
+            detected_count = int(run.detection_results["is_anomaly"].sum())
+
+        # Get grid search score if available
+        grid_score = None
+        grid_score_display = "N/A"
+        if hasattr(run.model, "best_score") and run.model.best_score is not None:
+            grid_score = run.model.best_score
+            grid_score_display = f"{grid_score:.4f}"
+
+        # Compute classification metrics if ground truth is available
+        precision_display = "N/A"
+        recall_display = "N/A"
+        f1_display = "N/A"
+        f1_raw = float("nan")
+
+        if (
+            ground_truth_df is not None
+            and not ground_truth_df.empty
+            and run.detection_results is not None
+            and "is_anomaly" in run.detection_results.columns
+        ):
+            model_detected = run.detection_results[
+                run.detection_results["is_anomaly"] == True  # noqa: E712
+            ]
+            if not model_detected.empty or detected_count == 0:
+                metrics = _compute_classification_metrics(
+                    model_detected_df=model_detected,
+                    ground_truth_df=ground_truth_df,
+                )
+                if not np.isnan(metrics["Precision"]):
+                    precision_display = f"{metrics['Precision']:.2%}"
+                if not np.isnan(metrics["Recall"]):
+                    recall_display = f"{metrics['Recall']:.2%}"
+                if not np.isnan(metrics["F1"]):
+                    f1_display = f"{metrics['F1']:.2%}"
+                    f1_raw = metrics["F1"]
+
+        # Determine base model info
+        if run.forecast_model_name:
+            base_info = run.forecast_model_name
+        elif run.preprocessing_id:
+            base_info = run.preprocessing_id
+        else:
+            base_info = "N/A"
+
+        table_data.append(
+            {
+                "Anomaly Model": run.anomaly_model_name,
+                "Base": base_info,
+                "Detected": detected_count,
+                "Grid Score": grid_score_display,
+                "Precision": precision_display,
+                "Recall": recall_display,
+                "F1": f1_display,
+                "_f1_raw": f1_raw,  # For sorting
+                "_grid_raw": grid_score if grid_score is not None else float("-inf"),
+            }
+        )
+
+    # Sort by F1 score (highest/best first), then by grid score
+    def _sort_key(x: dict[str, object]) -> tuple[float, float]:
+        f1_val = float(x["_f1_raw"])  # type: ignore[arg-type]
+        grid_val = float(x["_grid_raw"])  # type: ignore[arg-type]
+        return (
+            -f1_val if not np.isnan(f1_val) else float("inf"),
+            -grid_val,
+        )
+
+    table_data.sort(key=_sort_key)
+
+    # Remove raw sorting columns before display
+    for row in table_data:
+        del row["_f1_raw"]
+        del row["_grid_raw"]
+
+    summary_df = pd.DataFrame(table_data)
+
+    st.dataframe(
+        summary_df,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Anomaly Model": st.column_config.TextColumn(
+                "Anomaly Model",
+                width="medium",
+                help="Anomaly detection model name",
+            ),
+            "Base": st.column_config.TextColumn(
+                "Base",
+                width="medium",
+                help="Forecast model or preprocessing configuration",
+            ),
+            "Detected": st.column_config.NumberColumn(
+                "Detected",
+                width="small",
+                help="Number of anomalies detected",
+            ),
+            "Grid Score": st.column_config.TextColumn(
+                "Grid Score",
+                width="small",
+                help="Best score from hyperparameter grid search (higher is better)",
+            ),
+            "Precision": st.column_config.TextColumn(
+                "Precision",
+                width="small",
+                help="TP / (TP + FP) - higher is better",
+            ),
+            "Recall": st.column_config.TextColumn(
+                "Recall",
+                width="small",
+                help="TP / (TP + FN) - higher is better",
+            ),
+            "F1": st.column_config.TextColumn(
+                "F1",
+                width="small",
+                help="Harmonic mean of Precision and Recall - higher is better",
+            ),
+        },
+    )
+
+    # Show legend for metrics
+    with st.expander("Metrics Guide", expanded=False):
+        st.markdown("""
+        - **Detected**: Number of anomalies detected by the model in the test period
+        - **Grid Score**: Best score from hyperparameter optimization (requires ground truth)
+        - **Precision**: Of all detected anomalies, how many were correct? (TP / (TP + FP))
+        - **Recall**: Of all actual anomalies, how many were detected? (TP / (TP + FN))
+        - **F1**: Harmonic mean of Precision and Recall (balanced measure)
+
+        *Note: Classification metrics require ground truth anomaly labels to compute.*
+        """)
+
+
 # =============================================================================
 # Main Page
 # =============================================================================
@@ -494,13 +687,18 @@ def render_anomaly_comparison_page() -> None:
 
     init_explorer_state()
 
-    # Navigation - Back to Time Series Comparison
-    col_nav_back, col_nav_spacer = st.columns([1, 4])
+    # Navigation - Back to Time Series Comparison / Forward to Model Override
+    col_nav_back, col_nav_spacer, col_nav_forward = st.columns([1, 3, 1])
     with col_nav_back:
         if st.button("← Time Series Comparison"):
             from . import timeseries_comparison_page
 
             st.switch_page(timeseries_comparison_page)
+    with col_nav_forward:
+        if st.button("Model Override →"):
+            from . import model_override_page
+
+            st.switch_page(model_override_page)
 
     st.markdown("---")
 
@@ -513,7 +711,9 @@ def render_anomaly_comparison_page() -> None:
         return
 
     # Get available anomaly model configs
-    anomaly_configs = get_anomaly_model_configs()
+    # Pass grid search setting from session state (defaults to True)
+    grid_search_enabled = st.session_state.get("anomaly_enable_grid_search", True)
+    anomaly_configs = get_anomaly_model_configs(enable_grid_search=grid_search_enabled)
     if not anomaly_configs:
         st.warning("No anomaly detection models available in the registry.")
         return
@@ -743,6 +943,18 @@ def render_anomaly_comparison_page() -> None:
 
         st.markdown("---")
 
+        # 4. Training Options
+        st.write("**Training Options**")
+        enable_grid_search = st.checkbox(
+            "Enable Hyperparameter Grid Search",
+            value=True,
+            key="anomaly_enable_grid_search",
+            help="Use automatic grid search to find optimal hyperparameters. "
+            "Uses ground truth anomalies for scoring when available.",
+        )
+
+        st.markdown("---")
+
         # Calculate what will be trained (considering compatibility)
         standalone_count = len(models_standalone)
 
@@ -801,6 +1013,33 @@ def render_anomaly_comparison_page() -> None:
                 skipped_models: list[str] = []
                 trained_run_ids: list[str] = []  # Track for auto-selection
 
+                # Load ground truth for grid search (if enabled)
+                ground_truth_for_training = None
+                if enable_grid_search:
+                    gt_hostname = str(
+                        st.session_state.get("current_hostname", "") or ""
+                    )
+                    gt_assertion_urn = str(
+                        st.session_state.get("selected_assertion_urn", "") or ""
+                    )
+                    gt_raw = _load_ground_truth_anomalies(gt_hostname, gt_assertion_urn)
+                    if not gt_raw.empty:
+                        ground_truth_for_training = _convert_ground_truth_for_training(
+                            gt_raw
+                        )
+                        n_confirmed = int(
+                            ground_truth_for_training["is_anomaly_gt"].sum()
+                        )
+                        st.info(
+                            f"Grid search enabled with {n_confirmed} confirmed "
+                            f"anomalies for scoring"
+                        )
+                    else:
+                        st.warning(
+                            "No ground truth anomalies found. "
+                            "Grid search will minimize false positives."
+                        )
+
                 # Build training tasks: (forecast_id or None, anomaly_key)
                 training_tasks: list[tuple[str | None, str]] = []
 
@@ -838,12 +1077,23 @@ def render_anomaly_comparison_page() -> None:
                             else None
                         )
 
-                        # Progress text
+                        # Progress text - check if forecast model needs re-training
+                        needs_retrain = (
+                            forecast_run
+                            and forecast_run.model is None
+                            and forecast_run.registry_key
+                        )
                         if forecast_run:
-                            progress_text = (
-                                f"Training {anomaly_config.name} on "
-                                f"{forecast_run.display_name}... ({i + 1}/{len(training_tasks)})"
-                            )
+                            if needs_retrain:
+                                progress_text = (
+                                    f"Re-training {forecast_run.display_name} (cached) + "
+                                    f"{anomaly_config.name}... ({i + 1}/{len(training_tasks)})"
+                                )
+                            else:
+                                progress_text = (
+                                    f"Training {anomaly_config.name} on "
+                                    f"{forecast_run.display_name}... ({i + 1}/{len(training_tasks)})"
+                                )
                         else:
                             progress_text = (
                                 f"Training {anomaly_config.name} (standalone)... "
@@ -870,6 +1120,27 @@ def render_anomaly_comparison_page() -> None:
                                 forecast_model = forecast_run.model
                                 train_df = forecast_run.train_df
                                 test_df = forecast_run.test_df
+
+                                # If forecast model is None (loaded from cache), re-train it
+                                if forecast_model is None:
+                                    if forecast_run.registry_key:
+                                        # Re-train the forecast model using cached train_df
+                                        retrain_fn = _create_train_fn(
+                                            forecast_run.registry_key
+                                        )
+                                        forecast_model = retrain_fn(train_df)
+                                        # Store re-trained model in session state run
+                                        forecast_run.model = forecast_model
+                                    else:
+                                        # Non-observe-model (e.g., local DataHub Base Prophet)
+                                        # can't be re-trained this way
+                                        failed_models.append(
+                                            f"{anomaly_config.name} on {forecast_run.display_name}: "
+                                            "Forecast model was loaded from cache and cannot be "
+                                            "re-trained. Please re-train the forecast model first, "
+                                            "or use an observe-models forecast model (prophet, datahub)."
+                                        )
+                                        continue
                             else:
                                 # Standalone model - use selected preprocessing
                                 forecast_model = None
@@ -913,9 +1184,9 @@ def render_anomaly_comparison_page() -> None:
                                 train_df = full_df_sorted.iloc[:split_idx].copy()
                                 test_df = full_df_sorted.iloc[split_idx:].copy()
 
-                            # Train anomaly model
+                            # Train anomaly model (with ground truth for grid search)
                             anomaly_model = anomaly_config.train_fn(
-                                train_df, forecast_model
+                                train_df, forecast_model, ground_truth_for_training
                             )
 
                             # Run detection on TEST DATA ONLY
@@ -1023,15 +1294,44 @@ def render_anomaly_comparison_page() -> None:
                         ].sum()
                         st.caption(f"Detected anomalies: {detected_count}")
 
-    # Visualization section (below the two columns)
+                    # Show best hyperparameters (from grid search or model config)
+                    if anomaly_run.model is not None:
+                        params = get_model_hyperparameters(anomaly_run.model)
+                        if params and "note" not in params:
+                            st.markdown("**Best Hyperparameters:**")
+                            _render_hyperparameters_display(params)
+
+                            # Grid search info
+                            if (
+                                hasattr(anomaly_run.model, "best_score")
+                                and anomaly_run.model.best_score is not None
+                            ):
+                                st.caption(
+                                    f"Grid search score: {anomaly_run.model.best_score:.4f}"
+                                )
+
+    # Performance Summary section (below the two columns)
     st.markdown("---")
-    st.subheader("Visualization")
 
     anomaly_runs = _get_anomaly_runs()
 
     if not anomaly_runs:
-        st.info("Train anomaly detection models to see visualizations.")
+        st.info(
+            "Train anomaly detection models to see performance summary and visualizations."
+        )
         return
+
+    # Load ground truth for performance metrics
+    gt_hostname = str(st.session_state.get("current_hostname", "") or "")
+    gt_assertion_urn = str(st.session_state.get("selected_assertion_urn", "") or "")
+    ground_truth_df = _load_ground_truth_anomalies(gt_hostname, gt_assertion_urn)
+
+    # Render performance summary table
+    _render_anomaly_performance_summary(anomaly_runs, ground_truth_df)
+
+    # Visualization section
+    st.markdown("---")
+    st.subheader("Visualization")
 
     # Select which runs to visualize using checkboxes
     run_options = list(anomaly_runs.keys())
@@ -1059,15 +1359,54 @@ def render_anomaly_comparison_page() -> None:
     for idx, run_id in enumerate(run_options):
         col_idx = idx % num_cols if num_cols > 0 else 0
         with cols[col_idx] if cols else st.container():
-            # Determine default checked state
-            default_checked = run_id in previous_selection
-            is_checked = st.checkbox(
-                run_labels.get(run_id, run_id),
-                value=default_checked,
-                key=f"anomaly_run_cb_{run_id}",
-            )
-            if is_checked:
-                selected_run_ids.append(run_id)
+            # Use sub-columns for checkbox + info button
+            cb_col, info_col = st.columns([0.9, 0.1])
+
+            with cb_col:
+                # Determine default checked state
+                default_checked = run_id in previous_selection
+                is_checked = st.checkbox(
+                    run_labels.get(run_id, run_id),
+                    value=default_checked,
+                    key=f"anomaly_run_cb_{run_id}",
+                )
+                if is_checked:
+                    selected_run_ids.append(run_id)
+
+            with info_col:
+                # Info button to show hyperparameters
+                if st.button(
+                    "ℹ️",
+                    key=f"anomaly_info_{run_id}",
+                    help="View hyperparameters",
+                    type="tertiary",
+                ):
+                    st.session_state[
+                        f"show_anomaly_params_{run_id}"
+                    ] = not st.session_state.get(f"show_anomaly_params_{run_id}", False)
+
+            # Show hyperparameters if toggled
+            if st.session_state.get(f"show_anomaly_params_{run_id}", False):
+                run = anomaly_runs.get(run_id)
+                if run and run.model:
+                    params = get_model_hyperparameters(run.model)
+                    with st.container():
+                        st.markdown("**Anomaly Model Hyperparameters:**")
+                        _render_hyperparameters_display(params)
+
+                        # Also show grid search info if available
+                        if (
+                            hasattr(run.model, "best_score")
+                            and run.model.best_score is not None
+                        ):
+                            st.caption(
+                                f"Grid search best score: {run.model.best_score:.4f}"
+                            )
+                        if hasattr(run.model, "all_grid_search_results"):
+                            num_configs = len(run.model.all_grid_search_results)
+                            if num_configs > 0:
+                                st.caption(f"Evaluated {num_configs} configurations")
+                        st.markdown("---")
 
     # Update session state with current selection
     st.session_state[_ANOMALY_SELECTED_RUNS_KEY] = selected_run_ids
@@ -1099,11 +1438,7 @@ def render_anomaly_comparison_page() -> None:
         st.info("Select at least one run to visualize.")
         return
 
-    # Load ground truth (shared across all visualizations)
-    gt_hostname = str(st.session_state.get("current_hostname", "") or "")
-    gt_assertion_urn = str(st.session_state.get("selected_assertion_urn", "") or "")
-    ground_truth_df = _load_ground_truth_anomalies(gt_hostname, gt_assertion_urn)
-
+    # Note: ground_truth_df is already loaded above for the Performance Summary
     # Get the list of selected runs
     selected_runs = [
         anomaly_runs[rid] for rid in selected_run_ids if rid in anomaly_runs

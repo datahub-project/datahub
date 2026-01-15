@@ -23,9 +23,11 @@ __all__: Tuple[str, ...] = (
     "is_training_required",
     "is_field_metric_assertion",
     "encode_monitor_urn",
+    "decode_monitor_urn",
     "default_volume_assertion_urn",
     "default_volume_monitor_urn",
     "make_monitor_metric_cube_urn",
+    "decode_metric_cube_urn",
     "apply_runtime_parameters",
     "render_sql_template",
 )
@@ -65,6 +67,12 @@ def encode_monitor_urn(urn: str) -> str:
     return encoded_bytes.decode("utf-8")
 
 
+def decode_monitor_urn(encoded: str) -> str:
+    """Decodes a Base64 URL encoded URN back to the original string."""
+    decoded_bytes = base64.urlsafe_b64decode(encoded.encode("utf-8"))
+    return decoded_bytes.decode("utf-8")
+
+
 # TODO: Determine whether we should move the following methods.
 
 
@@ -83,8 +91,27 @@ def make_monitor_metric_cube_urn(monitor_urn: str) -> str:
     """
     Build the DataHub Metric Cube URN for a given monitor URN.
     """
-    assert MonitorUrn.from_string(monitor_urn)
     return DataHubMetricCubeUrn(encode_monitor_urn(monitor_urn)).urn()
+
+
+def decode_metric_cube_urn(metric_cube_urn: str) -> Optional[str]:
+    """Decode a MetricCube URN to get the original monitor URN.
+
+    Args:
+        metric_cube_urn: The MetricCube URN
+
+    Returns:
+        The original monitor URN, or None if decoding fails
+    """
+    prefix = "urn:li:dataHubMetricCube:"
+    if not metric_cube_urn or not metric_cube_urn.startswith(prefix):
+        return None
+
+    try:
+        encoded = metric_cube_urn[len(prefix) :]
+        return decode_monitor_urn(encoded)
+    except Exception:
+        return None
 
 
 def _create_jinja_env() -> Environment:

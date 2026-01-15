@@ -232,7 +232,7 @@ def get_observe_model_configs() -> dict[str, ObserveModelConfig]:
         from datahub_observe.registry import ModelType, get_model_registry  # type: ignore[import-untyped]  # noqa: I001
 
         registry = get_model_registry()
-        forecasters = registry.list(model_type=ModelType.FORECASTING)
+        forecasters = registry.list(model_type=ModelType.FORECAST)
 
         configs: dict[str, ObserveModelConfig] = {}
 
@@ -282,14 +282,18 @@ class AnomalyModelConfig:
     is_observe_model: bool = True
 
     # These are set dynamically
-    train_fn: Optional[Callable[[pd.DataFrame, object], object]] = None
+    # train_fn takes: train_df, forecast_model, ground_truth_df (optional)
+    train_fn: Optional[
+        Callable[[pd.DataFrame, object, Optional[pd.DataFrame]], object]
+    ] = None
     detect_fn: Optional[Callable[[object, pd.DataFrame], pd.DataFrame]] = None
 
 
 def _create_anomaly_train_fn(
     registry_key: str,
     requires_forecast: bool = True,
-) -> Callable[[pd.DataFrame, object], object]:
+    enable_grid_search: bool = False,
+) -> Callable[[pd.DataFrame, object, Optional[pd.DataFrame]], object]:
     """
     Create a training function for an observe-models anomaly detector.
 
@@ -299,12 +303,17 @@ def _create_anomaly_train_fn(
     Args:
         registry_key: Key in the observe-models registry
         requires_forecast: Whether this model requires a forecast model
+        enable_grid_search: Whether to enable hyperparameter grid search
 
     Returns:
         A function that trains the anomaly model and returns it
     """
 
-    def train_fn(train_df: pd.DataFrame, forecast_model: object) -> object:
+    def train_fn(
+        train_df: pd.DataFrame,
+        forecast_model: object,
+        ground_truth: Optional[pd.DataFrame] = None,
+    ) -> object:
         from datahub_observe.registry import get_model_registry  # type: ignore[import-untyped]  # noqa: I001
 
         # Get model class from registry
@@ -312,10 +321,16 @@ def _create_anomaly_train_fn(
         entry = registry.get(registry_key)
         model_class = entry.cls
 
+        # Set param_grid for grid search
+        param_grid = "auto" if enable_grid_search else None
+
         if requires_forecast:
             # Instantiate anomaly model with the already-trained forecast model
             # The forecast model is NOT re-trained - only the anomaly scorer is trained
-            anomaly_model = model_class(forecast_model=forecast_model)
+            anomaly_model = model_class(
+                forecast_model=forecast_model,
+                param_grid=param_grid,
+            )
         else:
             # For models that don't need a forecast (e.g., DeepSVDD)
             # Build preprocessing config from context
@@ -328,10 +343,12 @@ def _create_anomaly_train_fn(
             anomaly_model = model_class(
                 preprocessing_config=preprocessing_config,
                 model_config={},
+                param_grid=param_grid,
             )
 
         # Train the anomaly model (trains scorer, not forecast model)
-        anomaly_model.train(train_df)
+        # Pass ground_truth for grid search scoring
+        anomaly_model.train(train_df, ground_truth=ground_truth)
         return anomaly_model
 
     return train_fn
@@ -357,12 +374,17 @@ def _create_anomaly_detect_fn() -> Callable[[object, pd.DataFrame], pd.DataFrame
     return detect_fn
 
 
-def get_anomaly_model_configs() -> dict[str, AnomalyModelConfig]:
+def get_anomaly_model_configs(
+    enable_grid_search: bool = False,
+) -> dict[str, AnomalyModelConfig]:
     """
     Get model configurations for all available observe-models anomaly detectors.
 
     Dynamically discovers all anomaly detection models from the registry
     without any hardcoded filtering.
+
+    Args:
+        enable_grid_search: Whether to enable hyperparameter grid search for models
 
     Returns:
         Dictionary mapping model keys to AnomalyModelConfig instances.
@@ -375,7 +397,7 @@ def get_anomaly_model_configs() -> dict[str, AnomalyModelConfig]:
         from datahub_observe.registry import ModelType, get_model_registry  # type: ignore[import-untyped]  # noqa: I001
 
         registry = get_model_registry()
-        anomaly_detectors = registry.list(model_type=ModelType.ANOMALY_DETECTION)
+        anomaly_detectors = registry.list(model_type=ModelType.ANOMALY)
 
         configs: dict[str, AnomalyModelConfig] = {}
 
@@ -417,7 +439,9 @@ def get_anomaly_model_configs() -> dict[str, AnomalyModelConfig]:
                 requires_forecast_model=requires_forecast,
                 requires_global_forecast_model=requires_global,
                 is_observe_model=True,
-                train_fn=_create_anomaly_train_fn(registry_key, requires_forecast),
+                train_fn=_create_anomaly_train_fn(
+                    registry_key, requires_forecast, enable_grid_search
+                ),
                 detect_fn=_create_anomaly_detect_fn(),
             )
 
@@ -453,7 +477,7 @@ def is_global_forecasting_model(registry_key: Optional[str]) -> bool:
         from datahub_observe.registry import ModelType, get_model_registry  # type: ignore[import-untyped]  # noqa: I001
 
         registry = get_model_registry()
-        forecasters = registry.list(model_type=ModelType.FORECASTING)
+        forecasters = registry.list(model_type=ModelType.FORECAST)
 
         for entry in forecasters:
             if entry.name == registry_key:
@@ -507,4 +531,5 @@ __all__ = [
     "ObserveModelConfig",
     "AnomalyModelConfig",
     "DYNAMIC_COLOR_PALETTE",
+    "_create_train_fn",
 ]

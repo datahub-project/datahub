@@ -23,6 +23,16 @@ from ..common.preprocessing_ui import (
     serialize_preprocessing_state,
 )
 
+# Serializers for deserializing stored configs
+try:
+    from datahub_executor.common.monitor.inference.inference_utils import (
+        PreprocessingConfigSerializer,
+    )
+
+    HAS_PREPROCESSING_SERIALIZER = True
+except ImportError:
+    HAS_PREPROCESSING_SERIALIZER = False
+
 
 def _count_excluded_points(ts_df: pd.DataFrame, exclusion) -> int:
     """Count how many data points fall within an exclusion range."""
@@ -237,11 +247,19 @@ def _render_saved_preprocessings(
             if selected_id and selected_matches:
                 loaded_df = endpoint_cache.load_preprocessing(selected_id)
                 if loaded_df is not None:
-                    st.session_state["loaded_saved_preprocessing"] = loaded_df
-                    st.session_state["loaded_saved_preprocessing_id"] = selected_id
-                    # Also load the metadata with config
+                    # Update the main preprocessed_df so the visualization above updates
+                    st.session_state["preprocessed_df"] = loaded_df
+                    # Load the metadata with config
                     metadata = endpoint_cache.get_preprocessing_metadata(selected_id)
-                    st.session_state["loaded_saved_preprocessing_metadata"] = metadata
+                    if metadata:
+                        saved_config = metadata.get("preprocessing_config")
+                        if saved_config:
+                            st.session_state["applied_preprocessing_config"] = (
+                                saved_config
+                            )
+                    # Track which saved preprocessing is loaded
+                    st.session_state["loaded_saved_preprocessing_id"] = selected_id
+                    st.success(f"Loaded preprocessing '{selected_id}'")
                     st.rerun()
                 else:
                     st.error(f"Failed to load '{selected_id}'")
@@ -251,84 +269,66 @@ def _render_saved_preprocessings(
         if st.button("🗑️ Delete", key="delete_preprocessing_btn"):
             if selected_id:
                 endpoint_cache.delete_preprocessing(selected_id)
-                # Clear loaded preprocessing if it was the deleted one
+                # Clear preprocessed data if it was from the deleted preprocessing
                 if st.session_state.get("loaded_saved_preprocessing_id") == selected_id:
-                    st.session_state.pop("loaded_saved_preprocessing", None)
+                    st.session_state.pop("preprocessed_df", None)
+                    st.session_state.pop("applied_preprocessing_config", None)
                     st.session_state.pop("loaded_saved_preprocessing_id", None)
                 st.rerun()
 
-    # Show loaded preprocessing visualization
-    loaded_df = st.session_state.get("loaded_saved_preprocessing")
+    # Show which saved preprocessing is currently loaded
     loaded_id = st.session_state.get("loaded_saved_preprocessing_id")
-    if loaded_df is not None and loaded_id:
-        st.markdown("---")
+    if loaded_id:
+        st.caption(f"Currently loaded: **{loaded_id}**")
 
-        # Build info string
-        original_count = len(original_df) if original_df is not None else "?"
-        st.markdown(
-            f"**Loaded: {loaded_id}** — Original: {original_count} rows → "
-            f"Preprocessed: {len(loaded_df)} rows"
-        )
 
-        fig = go.Figure()
+def _try_auto_load_inference_config(
+    loader: DataLoader,
+    hostname: str,
+    assertion_urn: str | None,
+) -> None:
+    """Auto-load inference config for the current assertion if available.
 
-        # Determine scatter type based on larger dataset
-        max_points = max(
-            len(loaded_df),
-            len(original_df) if original_df is not None else 0,
-        )
-        scatter_type = go.Scattergl if max_points > 5000 else go.Scatter
+    Checks if inference data with a preprocessing config exists for the
+    currently selected assertion. If so, loads it and makes "From Inference"
+    available in the Preprocessing Mode dropdown.
 
-        # Add original data trace (if available)
-        if original_df is not None and len(original_df) > 0:
-            fig.add_trace(
-                scatter_type(
-                    x=original_df["ds"],
-                    y=original_df["y"],
-                    mode="lines",
-                    name="Original",
-                    line=dict(color="#1f77b4", width=1),
-                    opacity=0.5,
-                )
-            )
+    Args:
+        loader: DataLoader instance
+        hostname: The endpoint hostname
+        assertion_urn: The currently selected assertion URN
+    """
+    if not HAS_PREPROCESSING_SERIALIZER:
+        return
 
-        # Add preprocessed data trace
-        fig.add_trace(
-            scatter_type(
-                x=loaded_df["ds"],
-                y=loaded_df["y"],
-                mode="lines",
-                name=f"Preprocessed ({loaded_id})",
-                line=dict(color="#2ca02c", width=2),
-            )
-        )
+    if not assertion_urn:
+        return
 
-        fig.update_layout(
-            height=350,
-            title=f"Saved Preprocessing: {loaded_id}",
-            xaxis_title="Time",
-            yaxis_title="Value",
-            legend=dict(
-                orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
-            ),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    # Check if already loaded for this assertion
+    currently_loaded_urn = st.session_state.get("_loaded_inference_source_urn")
+    if currently_loaded_urn == assertion_urn:
+        return  # Already loaded
 
-        # Show the saved preprocessing configuration if available
-        loaded_metadata = st.session_state.get("loaded_saved_preprocessing_metadata")
-        if loaded_metadata:
-            saved_config = loaded_metadata.get("preprocessing_config")
-            if saved_config:
-                render_config_expander(
-                    saved_config, title=f"Saved Configuration ({loaded_id})"
-                )
+    endpoint_cache = loader.cache.get_endpoint_cache(hostname)
 
-        # Clear button
-        if st.button("Clear Loaded", key="clear_loaded_preprocessing"):
-            st.session_state.pop("loaded_saved_preprocessing", None)
-            st.session_state.pop("loaded_saved_preprocessing_id", None)
-            st.session_state.pop("loaded_saved_preprocessing_metadata", None)
-            st.rerun()
+    # Try to load inference data for the current assertion
+    inference_data = endpoint_cache.load_inference_data(assertion_urn)
+    if inference_data:
+        preprocessing_json = inference_data.get("preprocessing_config_json")
+        if preprocessing_json:
+            try:
+                # Deserialize the preprocessing config
+                config = PreprocessingConfigSerializer.deserialize(preprocessing_json)
+
+                # Store in session state for use by preprocessing UI
+                st.session_state["_loaded_inference_preprocessing_config"] = config
+                st.session_state["_loaded_inference_source_urn"] = assertion_urn
+
+                # Note: Don't auto-select "from_inference" mode - let user choose
+                # The option will now appear in the dropdown
+
+            except Exception:
+                pass  # Silently ignore deserialization errors
 
 
 def render_preprocessing_page():
@@ -341,7 +341,7 @@ def render_preprocessing_page():
     # Navigation buttons
     col_nav_back, col_nav_spacer, col_nav_forward = st.columns([1, 3, 1])
     with col_nav_back:
-        if st.button("← Metric Cube Browser", key="go_to_metric_cube_browser"):
+        if st.button("← Metric Cube Events", key="go_to_metric_cube_events"):
             from ..timeseries_explorer import metric_cube_browser_page
 
             st.switch_page(metric_cube_browser_page)
@@ -359,6 +359,11 @@ def render_preprocessing_page():
 
     hostname = st.session_state.get("current_hostname")
     assertion_urn = st.session_state.get("selected_assertion_urn")
+
+    # Auto-load inference config if available for current assertion
+    # This makes "From Inference" appear in the Preprocessing Mode dropdown
+    if hostname and assertion_urn:
+        _try_auto_load_inference_config(loader, hostname, assertion_urn)
 
     # Use the already-extracted time series from metric cube data
     # This is set by assertion_browser using metric_cube_extractor.extract_timeseries()

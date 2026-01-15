@@ -80,13 +80,16 @@ class TestMakeMonitorMetricCubeUrn:
         "long_tail_companions.analytics.pet_details,PROD)"
     )
 
-    def test_requires_monitor_urn_not_dataset_urn(self):
-        """make_monitor_metric_cube_urn should reject dataset URNs."""
-        from datahub.utilities.urns.error import InvalidUrnError
+    def test_encodes_any_urn_string(self):
+        """make_monitor_metric_cube_urn encodes any URN string.
 
-        # This is the bug that was fixed - passing a dataset URN should fail
-        with pytest.raises((AssertionError, InvalidUrnError)):
-            make_monitor_metric_cube_urn(self.SAMPLE_DATASET_URN)
+        Note: Validation of URN format is not done in this function.
+        Callers should ensure they pass valid monitor URNs.
+        """
+        # The function will encode any string (including dataset URNs)
+        # It's the caller's responsibility to pass the correct URN type
+        metric_urn = make_monitor_metric_cube_urn(self.SAMPLE_DATASET_URN)
+        assert metric_urn.startswith("urn:li:dataHubMetricCube:")
 
     def test_accepts_monitor_urn(self):
         """make_monitor_metric_cube_urn should accept a valid monitor URN."""

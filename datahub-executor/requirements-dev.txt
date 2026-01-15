@@ -55,7 +55,6 @@ alembic==1.17.2
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
-    #   mlflow
 altair==4.2.0
     # via
     #   -r requirements.txt
@@ -181,9 +180,7 @@ bleach==6.3.0
     #   -r requirements.txt
     #   nbconvert
 blinker==1.9.0
-    # via
-    #   flask
-    #   streamlit
+    # via streamlit
 blis==0.7.11
     # via
     #   -r requirements.txt
@@ -231,8 +228,6 @@ cachetools==6.2.4
     #   -r requirements.txt
     #   acryl-datahub
     #   confluent-kafka
-    #   mlflow-skinny
-    #   mlflow-tracing
     #   streamlit
 catalogue==2.0.10
     # via
@@ -285,8 +280,6 @@ click==8.3.1
     #   click-plugins
     #   click-repl
     #   dataflows-tabulator
-    #   flask
-    #   mlflow-skinny
     #   streamlit
     #   tableschema
     #   typer
@@ -320,7 +313,6 @@ cloudpathlib==0.23.0
 cloudpickle==3.1.2
     # via
     #   -r requirements.txt
-    #   mlflow-skinny
     #   shap
     #   statsforecast
 cmdstanpy==1.2.5
@@ -376,7 +368,6 @@ cryptography==45.0.7
     #   acryl-great-expectations
     #   authlib
     #   azure-identity
-    #   mlflow
     #   moto
     #   msal
     #   pyjwt
@@ -404,8 +395,6 @@ databricks-sdk==0.77.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   mlflow-skinny
-    #   mlflow-tracing
 databricks-sql-connector==2.9.6
     # via
     #   -r requirements.txt
@@ -441,7 +430,6 @@ docker==7.1.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   mlflow
 duckdb==1.4.3
     # via
     #   -r requirements.txt
@@ -471,7 +459,6 @@ fastapi==0.128.0
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
-    #   mlflow-skinny
 fastavro==1.12.1
     # via
     #   -r requirements.txt
@@ -488,12 +475,6 @@ filelock==3.20.2
     #   snowflake-connector-python
     #   torch
     #   transformers
-flask==3.1.2
-    # via
-    #   flask-cors
-    #   mlflow
-flask-cors==6.0.2
-    # via mlflow
 fonttools==4.61.1
     # via
     #   -r requirements.txt
@@ -525,9 +506,7 @@ geoalchemy2==0.18.1
 gitdb==4.0.12
     # via gitpython
 gitpython==3.1.45
-    # via
-    #   mlflow-skinny
-    #   streamlit
+    # via streamlit
 google-api-core==2.25.2
     # via
     #   -r requirements.txt
@@ -599,14 +578,6 @@ googleapis-common-protos==1.72.0
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
-graphene==3.4.3
-    # via mlflow
-graphql-core==3.2.7
-    # via
-    #   graphene
-    #   graphql-relay
-graphql-relay==3.2.0
-    # via graphene
 greenlet==3.3.0
     # via
     #   -r requirements.txt
@@ -632,8 +603,6 @@ grpcio-status==1.62.3
     # via
     #   -r requirements.txt
     #   google-api-core
-gunicorn==23.0.0 ; sys_platform != 'win32'
-    # via mlflow
 h11==0.16.0
     # via
     #   -r requirements.txt
@@ -671,8 +640,6 @@ httpx==0.28.1
     #   confluent-kafka
     #   jupyterlab
     #   mixpanel
-huey==2.5.5
-    # via mlflow
 huggingface-hub==0.36.0
     # via
     #   -r requirements.txt
@@ -702,8 +669,6 @@ importlib-metadata==8.7.1
     # via
     #   -r requirements.txt
     #   acryl-great-expectations
-    #   mlflow-skinny
-    #   opentelemetry-api
 importlib-resources==6.5.2
     # via
     #   -r requirements.txt
@@ -742,8 +707,6 @@ isoduration==20.11.0
     # via
     #   -r requirements.txt
     #   jsonschema
-itsdangerous==2.2.0
-    # via flask
 jedi==0.19.2
     # via
     #   -r requirements.txt
@@ -755,7 +718,6 @@ jinja2==3.1.4
     #   acryl-datahub-executor
     #   acryl-great-expectations
     #   altair
-    #   flask
     #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
@@ -934,7 +896,6 @@ markdown-it-py==4.0.0
 markupsafe==3.0.3
     # via
     #   -r requirements.txt
-    #   flask
     #   jinja2
     #   mako
     #   nbconvert
@@ -947,12 +908,9 @@ matplotlib==3.10.8
     # via
     #   -r requirements.txt
     #   darts
-    #   mlflow
     #   nfoursid
-    #   observe-models
     #   prophet
     #   pyod
-    #   seaborn
 matplotlib-inline==0.2.1
     # via
     #   -r requirements.txt
@@ -971,14 +929,6 @@ mixpanel==5.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-mlflow==3.8.1
-    # via observe-models
-mlflow-skinny==3.8.1
-    # via
-    #   mlflow
-    #   observe-models
-mlflow-tracing==3.8.1
-    # via mlflow
 more-itertools==10.8.0
     # via
     #   -r requirements.txt
@@ -1089,7 +1039,6 @@ numpy==1.26.4
     #   db-dtypes
     #   hawkesbook
     #   matplotlib
-    #   mlflow
     #   nfoursid
     #   numba
     #   numpy-typing-compat
@@ -1105,7 +1054,6 @@ numpy==1.26.4
     #   pyod
     #   scikit-learn
     #   scipy
-    #   seaborn
     #   shap
     #   spacy
     #   stanio
@@ -1119,7 +1067,6 @@ numpy==1.26.4
     #   triad
     #   utilsforecast
     #   xarray
-    #   xgboost
 numpy-typing-compat==20250818.1.25
     # via optype
 nvidia-cublas-cu12==12.8.4.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
@@ -1169,11 +1116,10 @@ nvidia-cusparselt-cu12==0.7.1 ; platform_machine == 'x86_64' and sys_platform ==
     # via
     #   -r requirements.txt
     #   torch
-nvidia-nccl-cu12==2.27.5 ; platform_machine != 'aarch64' and sys_platform == 'linux'
+nvidia-nccl-cu12==2.27.5 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via
     #   -r requirements.txt
     #   torch
-    #   xgboost
 nvidia-nvjitlink-cu12==12.8.93 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via
     #   -r requirements.txt
@@ -1193,31 +1139,16 @@ oauthlib==3.3.1
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
-observe-models==0.1.0.dev21
+observe-models==0.1.0.dev30
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
 openpyxl==3.1.5
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
     #   dataflows-tabulator
-opentelemetry-api==1.39.1
-    # via
-    #   mlflow-skinny
-    #   mlflow-tracing
-    #   opentelemetry-sdk
-    #   opentelemetry-semantic-conventions
-opentelemetry-proto==1.27.0
-    # via
-    #   mlflow-skinny
-    #   mlflow-tracing
-opentelemetry-sdk==1.39.1
-    # via
-    #   mlflow-skinny
-    #   mlflow-tracing
-opentelemetry-semantic-conventions==0.60b1
-    # via opentelemetry-sdk
 optype==0.13.4
     # via scipy-stubs
 oscrypto @ git+https://github.com/wbond/oscrypto.git@1547f535001ba568b239b8797465536759c742a3
@@ -1237,7 +1168,6 @@ packaging==25.0
     #   db-dtypes
     #   geoalchemy2
     #   google-cloud-bigquery
-    #   gunicorn
     #   huggingface-hub
     #   ipykernel
     #   jupyter-events
@@ -1247,8 +1177,6 @@ packaging==25.0
     #   lightning-utilities
     #   marshmallow
     #   matplotlib
-    #   mlflow-skinny
-    #   mlflow-tracing
     #   nbconvert
     #   plotly
     #   pmdarima
@@ -1282,13 +1210,11 @@ pandas==2.1.4
     #   darts
     #   databricks-sql-connector
     #   db-dtypes
-    #   mlflow
     #   nfoursid
     #   observe-models
     #   pmdarima
     #   prophet
     #   pydeequ
-    #   seaborn
     #   shap
     #   statsforecast
     #   statsmodels
@@ -1405,9 +1331,6 @@ protobuf==4.25.8
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
-    #   mlflow-skinny
-    #   mlflow-tracing
-    #   opentelemetry-proto
     #   proto-plus
     #   streamlit
     #   tensorboardx
@@ -1441,7 +1364,6 @@ pyarrow==20.0.0
     #   acryl-datahub
     #   databricks-sql-connector
     #   db-dtypes
-    #   mlflow
     #   observe-models
     #   streamlit
     #   triad
@@ -1481,8 +1403,6 @@ pydantic==2.12.5
     #   confection
     #   fastapi
     #   mixpanel
-    #   mlflow-skinny
-    #   mlflow-tracing
     #   observe-models
     #   spacy
     #   thinc
@@ -1554,7 +1474,6 @@ python-dateutil==2.9.0.post0
     #   croniter
     #   faker
     #   google-cloud-bigquery
-    #   graphene
     #   holidays
     #   jupyter-client
     #   matplotlib
@@ -1564,7 +1483,6 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
     # via
     #   -r requirements.txt
-    #   mlflow-skinny
     #   observe-models
     #   uvicorn
 python-json-logger==4.0.0
@@ -1611,7 +1529,6 @@ pyyaml==6.0.3
     #   acryl-datahub-actions
     #   huggingface-hub
     #   jupyter-events
-    #   mlflow-skinny
     #   moto
     #   observe-models
     #   pytorch-lightning
@@ -1666,7 +1583,6 @@ requests==2.32.5
     #   huggingface-hub
     #   jupyterlab-server
     #   mixpanel
-    #   mlflow-skinny
     #   moto
     #   msal
     #   redshift-connector
@@ -1748,7 +1664,6 @@ scikit-learn==1.8.0
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
     #   darts
-    #   mlflow
     #   observe-models
     #   pmdarima
     #   pyod
@@ -1760,22 +1675,18 @@ scipy==1.16.3
     #   acryl-great-expectations
     #   darts
     #   hawkesbook
-    #   mlflow
     #   pmdarima
     #   pyod
     #   scikit-learn
     #   shap
     #   statsforecast
     #   statsmodels
-    #   xgboost
 scipy-stubs==1.16.2.0
     # via acryl-datahub-executor (pyproject.toml)
 scramp==1.4.8
     # via
     #   -r requirements.txt
     #   redshift-connector
-seaborn==0.13.2
-    # via observe-models
 send2trash==2.0.0
     # via
     #   -r requirements.txt
@@ -1867,7 +1778,6 @@ sqlalchemy==1.4.54
     #   databricks-sql-connector
     #   dataflows-tabulator
     #   geoalchemy2
-    #   mlflow
     #   snowflake-sqlalchemy
     #   sqlalchemy-bigquery
     #   sqlalchemy-redshift
@@ -1895,7 +1805,6 @@ sqlparse==0.5.5
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   mlflow-skinny
 srsly==2.5.2
     # via
     #   -r requirements.txt
@@ -2115,17 +2024,12 @@ typing-extensions==4.15.0
     #   darts
     #   faker
     #   fastapi
-    #   graphene
     #   grpcio
     #   huggingface-hub
     #   ipython
     #   joblib-stubs
     #   lightning-utilities
-    #   mlflow-skinny
     #   mypy
-    #   opentelemetry-api
-    #   opentelemetry-sdk
-    #   opentelemetry-semantic-conventions
     #   optype
     #   pydantic
     #   pydantic-core
@@ -2200,7 +2104,6 @@ uvicorn==0.40.0
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
-    #   mlflow-skinny
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via
     #   -r requirements.txt
@@ -2215,8 +2118,6 @@ vininfo==1.9.2
     # via
     #   -r requirements.txt
     #   acryl-datahub-classify
-waitress==3.0.2 ; sys_platform == 'win32'
-    # via mlflow
 wasabi==1.1.3
     # via
     #   -r requirements.txt
@@ -2265,8 +2166,6 @@ websockets==15.0.1
 werkzeug==3.1.4
     # via
     #   -r requirements.txt
-    #   flask
-    #   flask-cors
     #   moto
 widgetsnbextension==4.0.15
     # via
@@ -2285,8 +2184,6 @@ xarray==2025.6.1
     # via
     #   -r requirements.txt
     #   darts
-xgboost==3.1.2
-    # via observe-models
 xlrd==2.0.2
     # via
     #   -r requirements.txt

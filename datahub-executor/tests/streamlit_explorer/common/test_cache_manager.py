@@ -1756,3 +1756,228 @@ class TestDuckDBOptimizations:
 
             # Schema should be invalidated (file was rewritten)
             assert "assertionRunEvent" not in cache._schema_cache
+
+
+class TestInferenceDataStorage:
+    """Tests for EndpointCache inference data storage methods."""
+
+    def test_save_and_load_inference_data(self):
+        """Test saving and loading inference data."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            # Save inference data
+            predictions_df = pd.DataFrame(
+                {
+                    "timestamp_ms": [1000, 2000, 3000],
+                    "yhat": [100.0, 105.0, 102.0],
+                }
+            )
+
+            result = cache.save_inference_data(
+                entity_urn="urn:li:assertion:test123",
+                model_config_dict={"forecast_model_name": "prophet"},
+                preprocessing_config_json='{"normalize": true}',
+                forecast_config_json='{"model": "prophet"}',
+                anomaly_config_json='{"threshold": 0.95}',
+                forecast_evals_json='{"aggregated": {"mae": 0.1}}',
+                anomaly_evals_json='{"aggregated": {"precision": 0.9}}',
+                predictions_df=predictions_df,
+                generated_at=1700000000000,
+            )
+
+            assert result is True
+
+            # Load and verify
+            loaded = cache.load_inference_data("urn:li:assertion:test123")
+
+            assert loaded is not None
+            assert loaded["entity_urn"] == "urn:li:assertion:test123"
+            assert loaded["generated_at"] == 1700000000000
+            assert loaded["model_config"]["forecast_model_name"] == "prophet"
+            assert loaded["preprocessing_config_json"] == '{"normalize": true}'
+            assert loaded["forecast_config_json"] == '{"model": "prophet"}'
+            assert loaded["anomaly_config_json"] == '{"threshold": 0.95}'
+            assert loaded["forecast_evals_json"] == '{"aggregated": {"mae": 0.1}}'
+            assert loaded["anomaly_evals_json"] == '{"aggregated": {"precision": 0.9}}'
+
+            # Verify predictions DataFrame
+            assert loaded["predictions_df"] is not None
+            assert len(loaded["predictions_df"]) == 3
+
+    def test_load_nonexistent_inference_data(self):
+        """Test loading inference data that doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            loaded = cache.load_inference_data("urn:li:assertion:nonexistent")
+            assert loaded is None
+
+    def test_list_saved_inference_data(self):
+        """Test listing saved inference data entries."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            # Save multiple entries
+            cache.save_inference_data(
+                entity_urn="urn:li:assertion:test1",
+                model_config_dict={"forecast_model_name": "prophet"},
+                preprocessing_config_json='{"a": 1}',
+                generated_at=1000,
+            )
+            cache.save_inference_data(
+                entity_urn="urn:li:assertion:test2",
+                model_config_dict={"anomaly_model_name": "iforest"},
+                anomaly_config_json='{"b": 2}',
+                generated_at=2000,
+            )
+
+            entries = cache.list_saved_inference_data()
+
+            assert len(entries) == 2
+            urns = {e["entity_urn"] for e in entries}
+            assert urns == {"urn:li:assertion:test1", "urn:li:assertion:test2"}
+
+            # Check metadata extraction
+            test1_entry = next(
+                e for e in entries if e["entity_urn"] == "urn:li:assertion:test1"
+            )
+            assert test1_entry["has_preprocessing_config"] is True
+            assert test1_entry["has_forecast_config"] is False
+            assert test1_entry["forecast_model_name"] == "prophet"
+
+    def test_delete_inference_data(self):
+        """Test deleting inference data."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            # Save data
+            cache.save_inference_data(
+                entity_urn="urn:li:assertion:test",
+                preprocessing_config_json='{"test": true}',
+            )
+
+            # Verify it exists
+            assert cache.inference_data_exists("urn:li:assertion:test") is True
+
+            # Delete
+            result = cache.delete_inference_data("urn:li:assertion:test")
+            assert result is True
+
+            # Verify it's gone
+            assert cache.inference_data_exists("urn:li:assertion:test") is False
+
+    def test_delete_nonexistent_inference_data(self):
+        """Test deleting inference data that doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            result = cache.delete_inference_data("urn:li:assertion:nonexistent")
+            assert result is False
+
+    def test_inference_data_exists(self):
+        """Test checking if inference data exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            assert cache.inference_data_exists("urn:li:assertion:test") is False
+
+            cache.save_inference_data(
+                entity_urn="urn:li:assertion:test",
+                preprocessing_config_json='{"test": true}',
+            )
+
+            assert cache.inference_data_exists("urn:li:assertion:test") is True
+
+    def test_update_inference_config_preprocessing(self):
+        """Test updating preprocessing config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            # Save initial data
+            cache.save_inference_data(
+                entity_urn="urn:li:assertion:test",
+                preprocessing_config_json='{"old": true}',
+            )
+
+            # Update
+            result = cache.update_inference_config(
+                entity_urn="urn:li:assertion:test",
+                preprocessing_config_json='{"new": true}',
+            )
+            assert result is True
+
+            # Verify update
+            loaded = cache.load_inference_data("urn:li:assertion:test")
+            assert loaded is not None
+            assert loaded["preprocessing_config_json"] == '{"new": true}'
+
+    def test_update_inference_config_forecast(self):
+        """Test updating forecast config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            # Save initial data (no forecast config)
+            cache.save_inference_data(
+                entity_urn="urn:li:assertion:test",
+                preprocessing_config_json='{"a": 1}',
+            )
+
+            # Add forecast config via update
+            result = cache.update_inference_config(
+                entity_urn="urn:li:assertion:test",
+                forecast_config_json='{"model": "prophet"}',
+            )
+            assert result is True
+
+            # Verify
+            loaded = cache.load_inference_data("urn:li:assertion:test")
+            assert loaded is not None
+            assert loaded["forecast_config_json"] == '{"model": "prophet"}'
+            # Preprocessing should still be there
+            assert loaded["preprocessing_config_json"] == '{"a": 1}'
+
+    def test_update_nonexistent_inference_data(self):
+        """Test updating inference data that doesn't exist fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            result = cache.update_inference_config(
+                entity_urn="urn:li:assertion:nonexistent",
+                preprocessing_config_json='{"test": true}',
+            )
+            assert result is False
+
+    def test_save_inference_data_minimal(self):
+        """Test saving with minimal data."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            # Save with only entity_urn
+            result = cache.save_inference_data(entity_urn="urn:li:assertion:minimal")
+            assert result is True
+
+            # Load and verify
+            loaded = cache.load_inference_data("urn:li:assertion:minimal")
+            assert loaded is not None
+            assert loaded["entity_urn"] == "urn:li:assertion:minimal"
+            assert loaded.get("preprocessing_config_json") is None
+
+    def test_inference_data_urn_escaping(self):
+        """Test that URNs with special characters are handled."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = EndpointCache("test.example.com", Path(tmpdir))
+
+            # URN with special characters
+            entity_urn = "urn:li:assertion:test,dataset:abc"
+
+            result = cache.save_inference_data(
+                entity_urn=entity_urn,
+                preprocessing_config_json='{"test": true}',
+            )
+            assert result is True
+
+            # Verify it can be loaded
+            loaded = cache.load_inference_data(entity_urn)
+            assert loaded is not None
+            assert loaded["entity_urn"] == entity_urn

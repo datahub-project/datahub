@@ -76,9 +76,10 @@ task installDev(type: Exec, dependsOn: ':metadata-ingestion-modules:acryl-cloud:
         "${python_executable} -m venv ${venv_name} && " +
         "${venv_name}/bin/python -m pip install --upgrade uv && " +
         "set +x && source ${venv_name}/bin/activate && set -x && " +
-        "uv pip install -r requirements.txt && " +
+        // --index-strategy unsafe-best-match ensures resolution works when UV_EXTRA_INDEX_URL is set (e.g., Cloudsmith)
+        "uv pip install --index-strategy unsafe-best-match -r requirements.txt && " +
         // Install acryl-datahub-cloud with --no-deps to avoid version conflict with local acryl-datahub
-        "uv pip install --no-deps -e ../metadata-ingestion-modules/acryl-cloud && " +
+        "uv pip install --index-strategy unsafe-best-match --no-deps -e ../metadata-ingestion-modules/acryl-cloud && " +
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 

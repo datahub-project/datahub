@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 from prophet import Prophet
 
-from ..common import DataLoader, init_explorer_state
+from ..common import DataLoader, get_model_hyperparameters, init_explorer_state
 from .observe_models_adapter import (
     get_model_preprocessing_defaults,
     get_observe_model_configs,
@@ -450,60 +450,6 @@ def _generate_run_id(model_key: str, preprocessing_id: str) -> str:
 # =============================================================================
 
 
-def _get_model_hyperparameters(model: object) -> dict[str, object]:
-    """Extract hyperparameters from a trained model.
-
-    Works with both observe-models and local Prophet models.
-    """
-    params: dict[str, object] = {}
-
-    if model is None:
-        return {"note": "Model not available (loaded from cache)"}
-
-    # observe-models: best_params from hyperparameter tuning
-    if hasattr(model, "best_params") and model.best_params:
-        params.update(model.best_params)
-
-    # Prophet model attributes
-    prophet_attrs = [
-        "changepoint_prior_scale",
-        "seasonality_prior_scale",
-        "holidays_prior_scale",
-        "seasonality_mode",
-        "changepoint_range",
-        "n_changepoints",
-        "yearly_seasonality",
-        "weekly_seasonality",
-        "daily_seasonality",
-        "interval_width",
-    ]
-    for attr in prophet_attrs:
-        if hasattr(model, attr):
-            val = getattr(model, attr)
-            if val is not None:
-                params[attr] = val
-
-    # observe-models: check for inner model (DartsBaseForecastModel wraps models)
-    if hasattr(model, "model") and model.model is not None:
-        inner = model.model
-        # Darts Prophet wrapper
-        if hasattr(inner, "model") and inner.model is not None:
-            inner_prophet = inner.model
-            for attr in prophet_attrs:
-                if hasattr(inner_prophet, attr) and attr not in params:
-                    val = getattr(inner_prophet, attr)
-                    if val is not None:
-                        params[attr] = val
-
-    # NBEATS/Neural models: check for model config
-    if hasattr(model, "darts_model_config"):
-        config = model.darts_model_config
-        if config:
-            params["model_config"] = config
-
-    return params if params else {"note": "No hyperparameters available"}
-
-
 def _render_training_runs_panel() -> None:
     """Render panel showing all training runs with delete buttons."""
     runs = _get_training_runs()
@@ -563,20 +509,30 @@ def _render_training_runs_panel() -> None:
             st.caption(time_str)
 
         with col_info_btn:
-            # Info button to show hyperparameters
-            if st.button("ℹ️", key=f"info_run_{run_id}", help="View hyperparameters"):
+            # Info button to show hyperparameters - tertiary type for no border
+            if st.button(
+                "ℹ️",
+                key=f"info_run_{run_id}",
+                help="View hyperparameters",
+                type="tertiary",
+            ):
                 st.session_state[f"show_params_{run_id}"] = not st.session_state.get(
                     f"show_params_{run_id}", False
                 )
 
         with col_del:
-            if st.button("🗑️", key=f"del_run_{run_id}", help="Delete run"):
+            if st.button(
+                "🗑️",
+                key=f"del_run_{run_id}",
+                help="Delete run",
+                type="tertiary",
+            ):
                 _delete_training_run(run_id)
                 st.rerun()
 
         # Show hyperparameters if toggled
         if st.session_state.get(f"show_params_{run_id}", False):
-            params = _get_model_hyperparameters(run.model)
+            params = get_model_hyperparameters(run.model)
             with st.container():
                 st.markdown("**Hyperparameters:**")
                 # Format as a nice display
@@ -750,11 +706,15 @@ def render_model_training_page() -> None:
         st.write("**Models to train**")
         selected_model_keys: list[str] = []
         model_cols = st.columns(min(3, len(available_models)))
+
+        # Default models: DataHub Base + latest prophet and datahub from observe-models
+        default_model_keys = {"datahub_base", "obs_prophet", "obs_datahub"}
+
         for idx, model_key in enumerate(available_models):
             col_idx = idx % len(model_cols)
             with model_cols[col_idx]:
-                # Default datahub_base to checked
-                default_checked = model_key == "datahub_base"
+                # Default selected models
+                default_checked = model_key in default_model_keys
                 is_checked = st.checkbox(
                     model_labels.get(model_key, model_key),
                     value=default_checked,
@@ -1015,4 +975,8 @@ def render_model_training_page() -> None:
                 st.switch_page(timeseries_comparison_page)
 
 
-__all__ = ["render_model_training_page"]
+__all__ = [
+    "render_model_training_page",
+    "TrainingRun",
+    "_get_training_runs",
+]

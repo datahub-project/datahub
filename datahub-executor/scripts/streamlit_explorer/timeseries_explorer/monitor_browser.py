@@ -1,9 +1,10 @@
 # ruff: noqa: INP001
 """Monitor Browser page for Time Series Explorer."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 import plotly.graph_objects as go  # type: ignore[import-untyped]
@@ -11,6 +12,7 @@ import requests
 import streamlit as st
 
 from ..common import (
+    _SELECTED_ASSERTION,
     _SELECTED_ENDPOINT,
     _SELECTED_MONITOR,
     AnomalyEditTracker,
@@ -114,7 +116,7 @@ def render_monitor_browser_page():
     # Navigation - Back to Metric Cube Browser
     col_nav_back, col_nav_spacer = st.columns([1, 4])
     with col_nav_back:
-        if st.button("← Metric Cube Browser", key="go_to_metric_cube_browser"):
+        if st.button("← Metric Cube Events", key="go_to_metric_cube_events"):
             from . import metric_cube_browser_page
 
             st.switch_page(metric_cube_browser_page)
@@ -151,6 +153,18 @@ def render_monitor_browser_page():
 
     st.markdown("---")
 
+    # Tabs for different views
+    tab_inference, tab_events = st.tabs(["Monitor Inference Data", "Monitor Events"])
+
+    with tab_inference:
+        _render_monitor_inference_data(loader, hostname)
+
+    with tab_events:
+        _render_monitor_events_content(loader, hostname)
+
+
+def _render_monitor_events_content(loader: DataLoader, hostname: str):
+    """Render the monitor events content."""
     col1, col2 = st.columns(2)
 
     with col1:
@@ -1380,6 +1394,846 @@ def _create_anomaly_event_rest(
             False,
             f"Create failed for {_shorten_urn(change.monitor_urn, 40)}: {str(e)}",
         )
+
+
+# =============================================================================
+# Monitor Inference Data Section
+# =============================================================================
+
+
+def _render_monitor_inference_data(loader: DataLoader, hostname: str):
+    """Render inference data from monitors."""
+    cache = loader.cache.get_endpoint_cache(hostname)
+
+    # List saved inference data
+    inference_entries = cache.list_saved_inference_data()
+
+    if not inference_entries:
+        st.info(
+            "No inference data found.\n\n"
+            "Enable **Fetch Inference Data** in Data Source → Cached API Data → "
+            "Advanced Options when fetching monitor data."
+        )
+        return
+
+    st.subheader(f"Saved Inference Data ({len(inference_entries)})")
+
+    # Display as table
+    display_data = []
+    for entry in inference_entries:
+        row = {
+            "Entity URN": entry.get("entity_urn", "")[-40:],
+            "Forecast Model": entry.get("forecast_model_name") or "—",
+            "Anomaly Model": entry.get("anomaly_model_name") or "—",
+            "Has Preprocessing": "✓" if entry.get("has_preprocessing_config") else "—",
+            "Has Forecast Evals": "✓" if entry.get("has_forecast_evals") else "—",
+            "Has Anomaly Evals": "✓" if entry.get("has_anomaly_evals") else "—",
+            "Predictions": entry.get("prediction_count", 0),
+            "Saved At": entry.get("saved_at", "")[:16],
+        }
+        display_data.append(row)
+
+    st.dataframe(pd.DataFrame(display_data), hide_index=True, use_container_width=True)
+
+    # Select entry for details
+    st.markdown("---")
+    st.subheader("Inference Details")
+
+    entity_urns = [
+        e.get("entity_urn") for e in inference_entries if e.get("entity_urn")
+    ]
+
+    # Restore previously selected assertion if it exists in the list
+    saved_assertion = st.session_state.get(_SELECTED_ASSERTION)
+    default_index = 0
+    if saved_assertion and saved_assertion in entity_urns:
+        default_index = entity_urns.index(saved_assertion)
+
+    selected_urn = st.selectbox(
+        "Select Entity",
+        options=entity_urns,
+        index=default_index,
+        format_func=lambda x: x[-50:] if x else "",
+        key="inference_entity_select",
+    )
+
+    # Save selection to session state for persistence
+    if selected_urn:
+        st.session_state[_SELECTED_ASSERTION] = selected_urn
+        inference_data = cache.load_inference_data(selected_urn)
+        if inference_data:
+            _render_inference_details(
+                inference_data, cache=cache, entity_urn=selected_urn
+            )
+        else:
+            st.error(f"Failed to load inference data for: {selected_urn}")
+
+
+def _render_inference_details(
+    data: dict[str, Any], cache: Any = None, entity_urn: str = ""
+):
+    """Render details for inference data entry.
+
+    Args:
+        data: The inference data dictionary
+        cache: Optional EndpointCache for editing configs
+        entity_urn: Entity URN for saving edits
+    """
+    col1, col2 = st.columns(2)
+
+    model_config = data.get("model_config") or {}
+
+    with col1:
+        st.markdown("**Forecast Model:**")
+        forecast_name = model_config.get("forecast_model_name") or "Not configured"
+        forecast_version = model_config.get("forecast_model_version") or ""
+        st.write(f"{forecast_name} {forecast_version}")
+
+    with col2:
+        st.markdown("**Anomaly Model:**")
+        anomaly_name = model_config.get("anomaly_model_name") or "Not configured"
+        anomaly_version = model_config.get("anomaly_model_version") or ""
+        st.write(f"{anomaly_name} {anomaly_version}")
+
+    # Confidence and generation info
+    confidence = model_config.get("confidence")
+    generated_at = data.get("generated_at")
+
+    info_cols = st.columns(2)
+    with info_cols[0]:
+        st.metric("Confidence", f"{confidence:.2f}" if confidence else "—")
+    with info_cols[1]:
+        if generated_at:
+            gen_dt = datetime.fromtimestamp(generated_at / 1000)
+            st.metric("Generated At", gen_dt.strftime("%Y-%m-%d %H:%M"))
+        else:
+            st.metric("Generated At", "—")
+
+    # Tabs for different config types
+    config_tabs = st.tabs(
+        [
+            "Predictions",
+            "Preprocessing Config",
+            "Forecast Config",
+            "Anomaly Config",
+            "Forecast Evals",
+            "Anomaly Evals",
+            "Export",
+        ]
+    )
+
+    with config_tabs[0]:
+        _render_predictions(data.get("predictions_df"))
+
+    with config_tabs[1]:
+        _render_config_json(
+            data.get("preprocessing_config_json"),
+            "Preprocessing",
+            cache=cache,
+            entity_urn=entity_urn,
+        )
+
+    with config_tabs[2]:
+        _render_config_json(
+            data.get("forecast_config_json"),
+            "Forecast",
+            cache=cache,
+            entity_urn=entity_urn,
+        )
+
+    with config_tabs[3]:
+        _render_config_json(
+            data.get("anomaly_config_json"),
+            "Anomaly",
+            cache=cache,
+            entity_urn=entity_urn,
+        )
+
+    with config_tabs[4]:
+        _render_evals(data.get("forecast_evals_json"), "Forecast")
+
+    with config_tabs[5]:
+        _render_evals(data.get("anomaly_evals_json"), "Anomaly")
+
+    with config_tabs[6]:
+        _render_config_export(data)
+
+
+def _render_config_json(
+    config_json: Optional[str],
+    config_type: str,
+    cache: Any = None,
+    entity_urn: str = "",
+):
+    """Render a configuration JSON with optional editing capability.
+
+    Args:
+        config_json: The configuration JSON string
+        config_type: Type of config (Preprocessing, Forecast, Anomaly)
+        cache: Optional EndpointCache for saving edits
+        entity_urn: Entity URN for saving edits
+    """
+    # Check if serializers are available for validation
+    import importlib.util
+
+    HAS_SERIALIZERS = (
+        importlib.util.find_spec(
+            "datahub_executor.common.monitor.inference.inference_utils"
+        )
+        is not None
+    )
+
+    config_type_lower = config_type.lower()
+    can_edit = cache is not None and entity_urn
+
+    if not config_json:
+        st.info(f"No {config_type_lower} configuration stored.")
+
+        # Allow creating new config if editing is enabled
+        if can_edit:
+            if st.checkbox(
+                f"Create new {config_type_lower} config",
+                key=f"create_{config_type_lower}",
+            ):
+                _render_config_editor(
+                    cache=cache,
+                    entity_urn=entity_urn,
+                    config_type=config_type_lower,
+                    initial_json="{}",
+                    has_serializers=HAS_SERIALIZERS,
+                )
+        return
+
+    # View mode vs Edit mode
+    if can_edit:
+        edit_mode = st.checkbox(
+            f"Edit {config_type_lower} config", key=f"edit_{config_type_lower}"
+        )
+    else:
+        edit_mode = False
+
+    if edit_mode:
+        _render_config_editor(
+            cache=cache,
+            entity_urn=entity_urn,
+            config_type=config_type_lower,
+            initial_json=config_json,
+            has_serializers=HAS_SERIALIZERS,
+        )
+    else:
+        try:
+            config = json.loads(config_json)
+            st.json(config)
+        except json.JSONDecodeError:
+            st.text(config_json)
+
+
+def _render_config_editor(
+    cache: Any,
+    entity_urn: str,
+    config_type: str,
+    initial_json: str,
+    has_serializers: bool = False,
+):
+    """Render a JSON editor with validation and save capability.
+
+    Args:
+        cache: EndpointCache instance
+        entity_urn: The entity URN
+        config_type: Type of config (preprocessing, forecast, anomaly)
+        initial_json: Initial JSON string
+        has_serializers: Whether serializers are available for schema validation
+    """
+    # Format initial JSON nicely
+    try:
+        formatted = json.dumps(json.loads(initial_json), indent=2)
+    except json.JSONDecodeError:
+        formatted = initial_json
+
+    edited_json = st.text_area(
+        f"{config_type.title()} Configuration",
+        value=formatted,
+        height=300,
+        key=f"json_editor_{config_type}",
+    )
+
+    # Validation
+    is_valid = False
+    validation_error = None
+
+    try:
+        json.loads(edited_json)  # Validate JSON syntax
+        is_valid = True
+
+        # Additional validation with serializers if available
+        if has_serializers:
+            try:
+                from datahub_executor.common.monitor.inference.inference_utils import (
+                    AnomalyConfigSerializer,
+                    ForecastConfigSerializer,
+                    PreprocessingConfigSerializer,
+                )
+
+                if config_type == "preprocessing":
+                    PreprocessingConfigSerializer.deserialize(edited_json)
+                elif config_type == "forecast":
+                    ForecastConfigSerializer.deserialize(edited_json)
+                elif config_type == "anomaly":
+                    AnomalyConfigSerializer.deserialize(edited_json)
+            except Exception as e:
+                # JSON is valid but doesn't match expected schema
+                st.warning(f"⚠️ JSON is valid but may not match expected schema: {e}")
+
+    except json.JSONDecodeError as e:
+        is_valid = False
+        validation_error = str(e)
+
+    if is_valid:
+        st.success("✓ Valid JSON")
+    else:
+        st.error(f"Invalid JSON: {validation_error}")
+
+    # Save button
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button(
+            f"Save {config_type.title()} Config",
+            disabled=not is_valid,
+            key=f"save_{config_type}",
+        ):
+            # Use the update_inference_config method
+            kwargs = {}
+            if config_type == "preprocessing":
+                kwargs["preprocessing_config_json"] = edited_json
+            elif config_type == "forecast":
+                kwargs["forecast_config_json"] = edited_json
+            elif config_type == "anomaly":
+                kwargs["anomaly_config_json"] = edited_json
+
+            success = cache.update_inference_config(entity_urn, **kwargs)
+
+            if success:
+                st.success(f"Saved {config_type} configuration")
+                st.rerun()
+            else:
+                st.error(f"Failed to save {config_type} configuration")
+
+    with col2:
+        if st.button(f"Reset {config_type.title()}", key=f"reset_{config_type}"):
+            st.rerun()
+
+
+def _render_evals(evals_json: Optional[str], eval_type: str):
+    """Render training evaluations."""
+    if not evals_json:
+        st.info(f"No {eval_type.lower()} training evaluations stored.")
+        return
+
+    try:
+        evals = json.loads(evals_json)
+
+        # Display aggregated metrics prominently
+        aggregated = evals.get("aggregated") or {}
+        if aggregated:
+            st.markdown("**Aggregated Metrics:**")
+            metric_cols = st.columns(min(len(aggregated), 4))
+            for i, (name, value) in enumerate(aggregated.items()):
+                if value is not None:
+                    with metric_cols[i % len(metric_cols)]:
+                        if isinstance(value, float):
+                            st.metric(name.upper(), f"{value:.4f}")
+                        else:
+                            st.metric(name.upper(), str(value))
+
+        # Show per-horizon metrics if available
+        per_horizon = evals.get("per_horizon") or []
+        if per_horizon:
+            st.markdown("**Per-Horizon Metrics:**")
+            horizon_df = pd.DataFrame(per_horizon)
+            st.dataframe(horizon_df, hide_index=True, use_container_width=True)
+
+        # Show full JSON in expander
+        with st.expander("Full Evaluation Data"):
+            st.json(evals)
+
+    except json.JSONDecodeError:
+        st.text(evals_json)
+
+
+def _render_config_export(data: dict[str, Any]):
+    """Render configuration export options.
+
+    Args:
+        data: The inference data dictionary containing configs
+    """
+    st.markdown("Export configurations for use in other environments.")
+
+    export_format = st.radio(
+        "Export Format",
+        options=["JSON", "Python Dict"],
+        horizontal=True,
+        key="inference_export_format",
+    )
+
+    export_cols = st.columns(3)
+
+    with export_cols[0]:
+        _export_config_button(
+            data.get("preprocessing_config_json"),
+            "preprocessing_config",
+            export_format,
+        )
+
+    with export_cols[1]:
+        _export_config_button(
+            data.get("forecast_config_json"),
+            "forecast_config",
+            export_format,
+        )
+
+    with export_cols[2]:
+        _export_config_button(
+            data.get("anomaly_config_json"),
+            "anomaly_config",
+            export_format,
+        )
+
+
+def _export_config_button(
+    config_json: Optional[str],
+    filename_base: str,
+    format_type: str,
+):
+    """Render export button for a configuration.
+
+    Args:
+        config_json: The configuration JSON string
+        filename_base: Base name for the export file
+        format_type: Export format ("JSON" or "Python Dict")
+    """
+    if not config_json:
+        st.button(
+            f"Export {filename_base.replace('_', ' ').title()}",
+            disabled=True,
+            key=f"export_{filename_base}",
+        )
+        return
+
+    try:
+        config = json.loads(config_json)
+    except json.JSONDecodeError:
+        st.button(
+            f"Export {filename_base.replace('_', ' ').title()}",
+            disabled=True,
+            key=f"export_{filename_base}",
+        )
+        return
+
+    if format_type == "JSON":
+        content = json.dumps(config, indent=2)
+        filename = f"{filename_base}.json"
+        mime = "application/json"
+    else:  # Python Dict
+        content = f"# {filename_base}\nconfig = {repr(config)}"
+        filename = f"{filename_base}.py"
+        mime = "text/x-python"
+
+    st.download_button(
+        label=f"Download {filename_base.replace('_', ' ').title()}",
+        data=content,
+        file_name=filename,
+        mime=mime,
+        key=f"download_{filename_base}",
+    )
+
+
+def _render_predictions(predictions_df: Optional[pd.DataFrame]):
+    """Render stored predictions with comprehensive visualization."""
+    if predictions_df is None or len(predictions_df) == 0:
+        st.info("No predictions stored.")
+        return
+
+    # Convert timestamp_ms to datetime if needed
+    df_plot = predictions_df.copy()
+    time_col = None
+    for col in ["timestamp_ms", "ds", "datetime"]:
+        if col in df_plot.columns:
+            time_col = col
+            break
+
+    if time_col == "timestamp_ms":
+        df_plot["datetime"] = pd.to_datetime(df_plot[time_col], unit="ms")
+        time_col = "datetime"
+
+    # Sort by time
+    if time_col:
+        df_plot = df_plot.sort_values(time_col)
+
+    # Summary statistics
+    st.markdown(f"### Stored Predictions ({len(df_plot)} points)")
+
+    # Calculate summary metrics
+    has_actuals = "y" in df_plot.columns
+    has_predictions = "yhat" in df_plot.columns
+    has_detection_bands = (
+        "detection_band_lower" in df_plot.columns
+        and "detection_band_upper" in df_plot.columns
+    )
+    has_anomalies = "is_anomaly" in df_plot.columns
+    has_anomaly_scores = "anomaly_score" in df_plot.columns
+
+    # Summary metrics row - use compact display
+    metric_cols = st.columns(5)
+
+    with metric_cols[0]:
+        st.markdown("**Data Points**")
+        st.write(f"{len(df_plot):,}")
+
+    with metric_cols[1]:
+        st.markdown("**Date Range**")
+        if time_col and len(df_plot) > 0:
+            start_date = df_plot[time_col].min().strftime("%Y-%m-%d")
+            end_date = df_plot[time_col].max().strftime("%Y-%m-%d")
+            st.write(f"{start_date}")
+            st.caption(f"→ {end_date}")
+        else:
+            st.write("—")
+
+    with metric_cols[2]:
+        st.markdown("**Anomalies**")
+        if has_anomalies:
+            anomaly_count = df_plot["is_anomaly"].sum()
+            anomaly_pct = anomaly_count / len(df_plot) * 100 if len(df_plot) > 0 else 0
+            st.write(f"{anomaly_count} ({anomaly_pct:.1f}%)")
+        else:
+            st.write("—")
+
+    with metric_cols[3]:
+        st.markdown("**MAE**")
+        if has_actuals and has_predictions:
+            mae = (df_plot["y"] - df_plot["yhat"]).abs().mean()
+            st.write(f"{mae:.4f}")
+        else:
+            st.write("—")
+
+    with metric_cols[4]:
+        st.markdown("**Coverage**")
+        if has_detection_bands and has_actuals:
+            in_band = (
+                (df_plot["y"] >= df_plot["detection_band_lower"])
+                & (df_plot["y"] <= df_plot["detection_band_upper"])
+            ).mean()
+            st.write(f"{in_band:.1%}")
+        else:
+            st.write("—")
+
+    # Visualization tabs
+    viz_tabs = st.tabs(["📈 Time Series Plot", "📊 Summary Stats", "📋 Data Table"])
+
+    with viz_tabs[0]:
+        _render_predictions_chart(
+            df_plot,
+            time_col,
+            has_actuals,
+            has_predictions,
+            has_detection_bands,
+            has_anomalies,
+        )
+
+    with viz_tabs[1]:
+        _render_predictions_stats(
+            df_plot,
+            has_actuals,
+            has_predictions,
+            has_detection_bands,
+            has_anomalies,
+            has_anomaly_scores,
+        )
+
+    with viz_tabs[2]:
+        # Show data table with filtering
+        st.markdown("**Stored Prediction Data**")
+
+        # Filter options
+        filter_col1, filter_col2 = st.columns(2)
+        with filter_col1:
+            show_anomalies_only = st.checkbox(
+                "Show anomalies only",
+                disabled=not has_anomalies,
+                key="pred_anomaly_filter",
+            )
+        with filter_col2:
+            max_rows = st.number_input(
+                "Max rows",
+                min_value=1,
+                max_value=max(1, len(df_plot)),
+                value=min(100, len(df_plot)),
+                key="pred_max_rows",
+            )
+
+        display_df = df_plot
+        if show_anomalies_only and has_anomalies:
+            display_df = df_plot[df_plot["is_anomaly"] == True]  # noqa: E712
+
+        st.dataframe(
+            display_df.head(int(max_rows)),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+        if len(display_df) > int(max_rows):
+            st.caption(f"Showing {int(max_rows)} of {len(display_df)} rows")
+
+
+def _render_predictions_chart(
+    df_plot: pd.DataFrame,
+    time_col: Optional[str],
+    has_actuals: bool,
+    has_predictions: bool,
+    has_detection_bands: bool,
+    has_anomalies: bool,
+):
+    """Render the predictions time series chart."""
+    if not time_col:
+        st.warning("No timestamp column available for visualization.")
+        return
+
+    fig = go.Figure()
+
+    # Detection bands (render first so they appear in background)
+    if has_detection_bands:
+        fig.add_trace(
+            go.Scatter(
+                x=df_plot[time_col],
+                y=df_plot["detection_band_upper"],
+                mode="lines",
+                name="Detection Band Upper",
+                line=dict(color="rgba(255, 165, 0, 0.5)", width=1, dash="dash"),
+                showlegend=True,
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df_plot[time_col],
+                y=df_plot["detection_band_lower"],
+                mode="lines",
+                name="Detection Band",
+                fill="tonexty",
+                line=dict(color="rgba(255, 165, 0, 0.5)", width=1, dash="dash"),
+                fillcolor="rgba(255, 165, 0, 0.1)",
+            )
+        )
+
+    # Prediction interval (forecast confidence bands)
+    if "yhat_lower" in df_plot.columns and "yhat_upper" in df_plot.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df_plot[time_col],
+                y=df_plot["yhat_upper"],
+                mode="lines",
+                name="Forecast CI Upper",
+                line=dict(color="rgba(100, 149, 237, 0)", width=0),
+                showlegend=False,
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df_plot[time_col],
+                y=df_plot["yhat_lower"],
+                mode="lines",
+                name="Forecast CI",
+                fill="tonexty",
+                line=dict(color="rgba(100, 149, 237, 0)", width=0),
+                fillcolor="rgba(100, 149, 237, 0.2)",
+            )
+        )
+
+    # Predictions line
+    if has_predictions:
+        fig.add_trace(
+            go.Scatter(
+                x=df_plot[time_col],
+                y=df_plot["yhat"],
+                mode="lines",
+                name="Predicted",
+                line=dict(color="cornflowerblue", width=2),
+            )
+        )
+
+    # Actual values - split into normal and anomaly points
+    if has_actuals:
+        if has_anomalies:
+            normal_mask = ~df_plot["is_anomaly"].fillna(False)
+            anomaly_mask = df_plot["is_anomaly"].fillna(False)
+
+            # Normal points
+            if normal_mask.any():
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_plot.loc[normal_mask, time_col],
+                        y=df_plot.loc[normal_mask, "y"],
+                        mode="markers",
+                        name="Actual",
+                        marker=dict(color="blue", size=5),
+                    )
+                )
+
+            # Anomaly points
+            if anomaly_mask.any():
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_plot.loc[anomaly_mask, time_col],
+                        y=df_plot.loc[anomaly_mask, "y"],
+                        mode="markers",
+                        name="Anomaly",
+                        marker=dict(
+                            color="red",
+                            size=10,
+                            symbol="x",
+                            line=dict(width=2),
+                        ),
+                    )
+                )
+        else:
+            fig.add_trace(
+                go.Scatter(
+                    x=df_plot[time_col],
+                    y=df_plot["y"],
+                    mode="markers",
+                    name="Actual",
+                    marker=dict(color="blue", size=5),
+                )
+            )
+
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title="Value",
+        height=500,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+        ),
+        hovermode="x unified",
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Legend explanation
+    if has_detection_bands or has_anomalies:
+        legend_items = []
+        if has_detection_bands:
+            legend_items.append("🟧 Orange bands = Anomaly detection thresholds")
+        if "yhat_lower" in df_plot.columns:
+            legend_items.append("🟦 Blue shaded = Forecast confidence interval")
+        if has_anomalies:
+            legend_items.append("❌ Red X = Detected anomaly")
+        st.caption(" | ".join(legend_items))
+
+
+def _render_predictions_stats(
+    df_plot: pd.DataFrame,
+    has_actuals: bool,
+    has_predictions: bool,
+    has_detection_bands: bool,
+    has_anomalies: bool,
+    has_anomaly_scores: bool,
+):
+    """Render summary statistics for predictions."""
+    stats_col1, stats_col2 = st.columns(2)
+
+    with stats_col1:
+        st.markdown("**Value Statistics**")
+        value_stats = {}
+
+        if has_actuals:
+            value_stats["Actual Mean"] = f"{df_plot['y'].mean():.4f}"
+            value_stats["Actual Std"] = f"{df_plot['y'].std():.4f}"
+            value_stats["Actual Min"] = f"{df_plot['y'].min():.4f}"
+            value_stats["Actual Max"] = f"{df_plot['y'].max():.4f}"
+
+        if has_predictions:
+            value_stats["Predicted Mean"] = f"{df_plot['yhat'].mean():.4f}"
+            value_stats["Predicted Std"] = f"{df_plot['yhat'].std():.4f}"
+
+        if value_stats:
+            st.dataframe(
+                pd.DataFrame(list(value_stats.items()), columns=["Metric", "Value"]),
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.info("No value statistics available.")
+
+    with stats_col2:
+        st.markdown("**Prediction Performance**")
+        perf_stats = {}
+
+        if has_actuals and has_predictions:
+            residuals = df_plot["y"] - df_plot["yhat"]
+            perf_stats["MAE"] = f"{residuals.abs().mean():.4f}"
+            perf_stats["RMSE"] = f"{(residuals**2).mean() ** 0.5:.4f}"
+            perf_stats["Mean Error"] = f"{residuals.mean():.4f}"
+            perf_stats["Residual Std"] = f"{residuals.std():.4f}"
+
+            # MAPE (avoiding division by zero)
+            non_zero_mask = df_plot["y"].abs() > 1e-10
+            if non_zero_mask.any():
+                mape = (
+                    residuals[non_zero_mask].abs() / df_plot.loc[non_zero_mask, "y"]
+                ).mean() * 100
+                perf_stats["MAPE"] = f"{mape:.2f}%"
+
+        if perf_stats:
+            st.dataframe(
+                pd.DataFrame(list(perf_stats.items()), columns=["Metric", "Value"]),
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.info("No performance metrics available.")
+
+    # Detection bands and anomaly stats
+    if has_detection_bands or has_anomalies or has_anomaly_scores:
+        st.markdown("---")
+        st.markdown("**Anomaly Detection Statistics**")
+
+        anomaly_cols = st.columns(3)
+
+        with anomaly_cols[0]:
+            if has_detection_bands:
+                band_width = (
+                    df_plot["detection_band_upper"] - df_plot["detection_band_lower"]
+                )
+                st.markdown("**Detection Band Stats**")
+                band_stats = {
+                    "Mean Width": f"{band_width.mean():.4f}",
+                    "Min Width": f"{band_width.min():.4f}",
+                    "Max Width": f"{band_width.max():.4f}",
+                }
+                for name, val in band_stats.items():
+                    st.text(f"{name}: {val}")
+
+        with anomaly_cols[1]:
+            if has_anomalies:
+                anomaly_count = df_plot["is_anomaly"].sum()
+                total_count = len(df_plot)
+                st.markdown("**Anomaly Summary**")
+                st.text(f"Total Anomalies: {anomaly_count}")
+                st.text(f"Anomaly Rate: {anomaly_count / total_count * 100:.2f}%")
+                st.text(f"Normal Points: {total_count - anomaly_count}")
+
+        with anomaly_cols[2]:
+            if has_anomaly_scores:
+                st.markdown("**Anomaly Score Stats**")
+                scores = df_plot["anomaly_score"].dropna()
+                if len(scores) > 0:
+                    st.text(f"Mean Score: {scores.mean():.4f}")
+                    st.text(f"Max Score: {scores.max():.4f}")
+                    st.text(f"Min Score: {scores.min():.4f}")
 
 
 __all__ = ["render_monitor_browser_page"]

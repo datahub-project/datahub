@@ -24,7 +24,8 @@ import plotly.graph_objects as go  # type: ignore[import-untyped]  # noqa: F401
 import streamlit as st
 
 # Local imports - using relative imports within common package
-from .cache_manager import (
+# These are re-exported for use by other modules
+from .cache_manager import (  # noqa: F401
     ALL_ASPECTS,
     METRIC_CUBE_ASPECTS,
     MONITOR_ASPECTS,
@@ -34,8 +35,8 @@ from .cache_manager import (
     hostname_to_dir,
 )
 from .data_loaders import DataLoader
-from .env_config import DataHubEnvConfig
-from .preprocessing_ui import (
+from .env_config import DataHubEnvConfig  # noqa: F401
+from .preprocessing_ui import (  # noqa: F401
     apply_preprocessing,
     render_before_after_chart,
     render_preprocessing_config_panel,
@@ -109,6 +110,7 @@ class FetchConfig:
     include_inactive_monitors: bool = (
         True  # Include monitors with INACTIVE/PAUSED status
     )
+    fetch_inference_data: bool = True  # Fetch model configs and training evals
 
 
 # =============================================================================
@@ -134,6 +136,23 @@ def _shorten_urn(urn: str, max_length: int = 60) -> str:
 
     # Truncate from end with ellipsis
     return urn[: max_length - 3] + "..."
+
+
+def _hex_to_rgba(hex_color: str, alpha: float) -> tuple:
+    """Convert hex color to RGBA tuple.
+
+    Args:
+        hex_color: Hex color string (e.g., "#ff7f0e" or "ff7f0e")
+        alpha: Alpha transparency value (0.0 to 1.0)
+
+    Returns:
+        Tuple of (r, g, b, alpha)
+    """
+    hex_color = hex_color.lstrip("#")
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    return (r, g, b, alpha)
 
 
 def _render_urn_with_link(
@@ -324,6 +343,52 @@ def _set_cancelled(value: bool) -> None:
         _cancel_event.clear()
 
 
+# =============================================================================
+# Model Hyperparameter Extraction
+# =============================================================================
+
+
+def get_model_hyperparameters(model: object) -> dict[str, object]:
+    """Extract hyperparameters from a trained model (observe-models).
+
+    Uses get_hyperparameters() from observe-models which returns only actual
+    model hyperparameters, not metadata or training statistics.
+
+    Args:
+        model: The trained model object (forecast or anomaly model)
+
+    Returns:
+        Dict of hyperparameters, or dict with "note" key if unavailable
+    """
+    if model is None:
+        return {"note": "Model not available"}
+
+    # Primary: Use get_hyperparameters() from observe-models
+    # This is the preferred method - returns clean hyperparameters
+    if hasattr(model, "get_hyperparameters"):
+        try:
+            hyperparams = model.get_hyperparameters()
+            if hyperparams:
+                return dict(hyperparams)
+        except Exception:
+            pass
+
+    # Fallback: Check best_params from hyperparameter tuning (grid search)
+    if hasattr(model, "best_params") and model.best_params:
+        return dict(model.best_params)
+
+    # Last resort: get_config_dict for legacy models
+    if hasattr(model, "get_config_dict"):
+        try:
+            config = model.get_config_dict(include_training_params=False)
+            if config:
+                return dict(config)
+        except Exception:
+            pass
+
+    return {"note": "No hyperparameters available"}
+
+
 def init_explorer_state():
     """Initialize explorer state in session state.
 
@@ -372,27 +437,16 @@ __all__ = [
     "FetchConfig",
     # Helper functions
     "_shorten_urn",
+    "_hex_to_rgba",
     "_render_urn_with_link",
     "_get_datahub_url",
     "_make_urn_link",
     "_check_cancelled",
     "_set_cancelled",
+    "get_model_hyperparameters",
     "init_explorer_state",
-    # Re-exported from other modules
+    # Re-exported from shared_config (external script)
     "ACTIVE_ENV_CONFIG",
     "get_active_config",
     "render_connection_status",
-    "ALL_ASPECTS",
-    "METRIC_CUBE_ASPECTS",
-    "MONITOR_ASPECTS",
-    "AnomalyEdit",
-    "AnomalyEditTracker",
-    "get_cache_dir",
-    "hostname_to_dir",
-    "DataLoader",
-    "DataHubEnvConfig",
-    "apply_preprocessing",
-    "render_before_after_chart",
-    "render_preprocessing_config_panel",
-    "render_preprocessing_stats",
 ]
