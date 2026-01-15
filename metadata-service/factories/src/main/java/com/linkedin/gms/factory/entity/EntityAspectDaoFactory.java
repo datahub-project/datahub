@@ -24,7 +24,7 @@ import org.springframework.context.annotation.DependsOn;
 public class EntityAspectDaoFactory {
 
   @Autowired(required = false)
-  private List<SystemAspectValidator> payloadValidators;
+  private List<SystemAspectValidator> systemAspectValidators;
 
   @Bean(name = "entityAspectDao")
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
@@ -34,7 +34,7 @@ public class EntityAspectDaoFactory {
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
     List<SystemAspectValidator> validators =
-        Objects.requireNonNullElse(payloadValidators, List.of());
+        Objects.requireNonNullElse(systemAspectValidators, List.of());
     log.debug(
         "Creating EntityAspectDao with {} SystemAspectValidators: {}",
         validators.size(),
@@ -61,7 +61,7 @@ public class EntityAspectDaoFactory {
   protected AspectDao createCassandraInstance(
       CqlSession session, final ConfigurationProvider configurationProvider) {
     List<SystemAspectValidator> validators =
-        Objects.requireNonNullElse(payloadValidators, List.of());
+        Objects.requireNonNullElse(systemAspectValidators, List.of());
     CassandraAspectDao cassandraAspectDao =
         new CassandraAspectDao(
             session,

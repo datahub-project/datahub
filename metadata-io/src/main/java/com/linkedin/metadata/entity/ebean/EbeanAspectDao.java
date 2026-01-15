@@ -91,14 +91,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
-  @Getter @Nonnull private final List<SystemAspectValidator> payloadValidators;
+  @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfig validationConfig;
 
   public EbeanAspectDao(
       @Nonnull final Database server,
       EbeanConfiguration ebeanConfiguration,
       MetricUtils metricUtils,
-      @Nonnull List<SystemAspectValidator> payloadValidators,
+      @Nonnull List<SystemAspectValidator> systemAspectValidators,
       @Nullable AspectSizeValidationConfig validationConfig) {
     this.server = server;
     this.batchGetMethod =
@@ -106,7 +106,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
     this.metricUtils = metricUtils;
-    this.payloadValidators = payloadValidators;
+    this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
   }
 
@@ -1030,7 +1030,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                 Map.Entry::getKey,
                 e ->
                     EbeanSystemAspect.builder()
-                        .payloadValidators(payloadValidators)
+                        .systemAspectValidators(systemAspectValidators)
                         .validationConfig(validationConfig)
                         .operationContext(opContext)
                         .forUpdate(e.getValue(), entityRegistry)));

@@ -61,7 +61,7 @@ public class EbeanSystemAspect implements SystemAspect {
 
   @Setter @Nullable private AuditStamp auditStamp;
 
-  @Nullable private List<SystemAspectValidator> payloadValidators;
+  @Nullable private List<SystemAspectValidator> systemAspectValidators;
 
   @Nullable private AspectSizeValidationConfig validationConfig;
 
@@ -125,16 +125,16 @@ public class EbeanSystemAspect implements SystemAspect {
     // making validation/metrics essentially free without re-serializing.
     log.debug(
         "withVersion() called with {} validators, metadata size: {} bytes",
-        payloadValidators != null ? payloadValidators.size() : 0,
+        systemAspectValidators != null ? systemAspectValidators.size() : 0,
         entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
-    if (payloadValidators != null && !payloadValidators.isEmpty()) {
+    if (systemAspectValidators != null && !systemAspectValidators.isEmpty()) {
       log.debug(
           "Invoking {} SystemAspectValidators for urn={}, aspect={}, size={} bytes",
-          payloadValidators.size(),
+          systemAspectValidators.size(),
           getUrn(),
           getAspectName(),
           entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
-      for (SystemAspectValidator validator : payloadValidators) {
+      for (SystemAspectValidator validator : systemAspectValidators) {
         validator.validatePayload(this, entityAspect);
       }
     }
@@ -163,7 +163,7 @@ public class EbeanSystemAspect implements SystemAspect {
           this.recordTemplate,
           this.systemMetadata,
           this.auditStamp,
-          this.payloadValidators,
+          this.systemAspectValidators,
           this.validationConfig,
           this.operationContext);
     }
@@ -179,8 +179,8 @@ public class EbeanSystemAspect implements SystemAspect {
       this.aspectName = ebeanAspectV2.getAspect();
 
       // Pre-patch validation: iterate through validators
-      if (payloadValidators != null) {
-        for (SystemAspectValidator validator : payloadValidators) {
+      if (systemAspectValidators != null) {
+        for (SystemAspectValidator validator : systemAspectValidators) {
           validator.validatePrePatch(
               ebeanAspectV2.getMetadata(), urn, aspectName, operationContext);
         }
@@ -300,7 +300,7 @@ public class EbeanSystemAspect implements SystemAspect {
           recordTemplateCopy,
           systemMetadataCopy,
           auditStampCopy,
-          this.payloadValidators,
+          this.systemAspectValidators,
           this.validationConfig,
           this.operationContext);
     } catch (CloneNotSupportedException e) {

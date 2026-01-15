@@ -100,7 +100,7 @@ public class EntityAspect {
     @Nonnull private final EntitySpec entitySpec;
     @Nullable private final AspectSpec aspectSpec;
 
-    @Nullable private List<SystemAspectValidator> payloadValidators;
+    @Nullable private List<SystemAspectValidator> systemAspectValidators;
 
     @Nullable private Object operationContext;
 
@@ -196,7 +196,7 @@ public class EntityAspect {
             this.auditStamp,
             this.entitySpec,
             this.aspectSpec,
-            this.payloadValidators,
+            this.systemAspectValidators,
             this.operationContext);
       }
 
@@ -307,8 +307,8 @@ public class EntityAspect {
       // - EntityAspect provides the JSON string that was ALREADY serialized for DB write
       // This is NOT duplicate serialization - validators reuse the JSON created for the DB write,
       // making validation/metrics essentially free without re-serializing.
-      if (payloadValidators != null && !payloadValidators.isEmpty()) {
-        for (SystemAspectValidator validator : payloadValidators) {
+      if (systemAspectValidators != null && !systemAspectValidators.isEmpty()) {
+        for (SystemAspectValidator validator : systemAspectValidators) {
           validator.validatePayload(this, entityAspect);
         }
       }

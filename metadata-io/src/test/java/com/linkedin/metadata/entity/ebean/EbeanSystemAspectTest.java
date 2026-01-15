@@ -255,7 +255,7 @@ public class EbeanSystemAspectTest {
             recordTemplate,
             null, // null so that we get it from ebeanAspectV2
             auditStamp,
-            null, // payloadValidators
+            null, // systemAspectValidators
             null, // validationConfig
             null); // operationContext
 

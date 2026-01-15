@@ -64,15 +64,15 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   private final CqlSession _cqlSession;
   private boolean canWrite = true;
   @Setter private boolean connectionValidated = false;
-  @Getter @Nonnull private final List<SystemAspectValidator> payloadValidators;
+  @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfig validationConfig;
 
   public CassandraAspectDao(
       @Nonnull final CqlSession cqlSession,
-      @Nonnull List<SystemAspectValidator> payloadValidators,
+      @Nonnull List<SystemAspectValidator> systemAspectValidators,
       @Nullable AspectSizeValidationConfig validationConfig) {
     _cqlSession = cqlSession;
-    this.payloadValidators = payloadValidators;
+    this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
   }
 
@@ -101,14 +101,14 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .map(
             a -> {
               // Pre-patch validation if this is for update
-              if (forUpdate && payloadValidators != null) {
-                for (SystemAspectValidator validator : payloadValidators) {
+              if (forUpdate && systemAspectValidators != null) {
+                for (SystemAspectValidator validator : systemAspectValidators) {
                   validator.validatePrePatch(
                       a.getMetadata(), UrnUtils.getUrn(urn), aspectName, opContext);
                 }
               }
               return EntityAspect.EntitySystemAspect.builder()
-                  .payloadValidators(payloadValidators)
+                  .systemAspectValidators(systemAspectValidators)
                   .forUpdate(a, opContext.getEntityRegistry());
             })
         .orElse(null);

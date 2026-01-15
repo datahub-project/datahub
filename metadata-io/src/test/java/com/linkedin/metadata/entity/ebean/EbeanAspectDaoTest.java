@@ -266,7 +266,7 @@ public class EbeanAspectDaoTest {
             new Status(),
             new SystemMetadata(),
             AuditStampUtils.createDefaultAuditStamp(),
-            null, // payloadValidators
+            null, // systemAspectValidators
             null, // validationConfig
             null); // operationContext
 

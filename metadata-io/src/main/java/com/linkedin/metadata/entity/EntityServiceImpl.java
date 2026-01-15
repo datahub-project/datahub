@@ -269,7 +269,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   static SystemAspect applyUpsert(
       ChangeMCP changeMCP,
       SystemAspect latestAspect,
-      @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> payloadValidators,
+      @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> systemAspectValidators,
       @Nullable com.linkedin.metadata.config.AspectSizeValidationConfig validationConfig,
       @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
 
@@ -340,7 +340,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       } else {
         // insert
         return EbeanSystemAspect.builder()
-            .payloadValidators(payloadValidators)
+            .systemAspectValidators(systemAspectValidators)
             .validationConfig(validationConfig)
             .operationContext(opContext)
             .forInsert(
@@ -1111,7 +1111,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                       applyUpsert(
                                           changeMCP,
                                           systemAspect,
-                                          aspectDao.getPayloadValidators(),
+                                          aspectDao.getSystemAspectValidators(),
                                           aspectDao.getValidationConfig(),
                                           opContext));
 
@@ -1159,7 +1159,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                     applyUpsert(
                                                         mcp,
                                                         sysAspect,
-                                                        aspectDao.getPayloadValidators(),
+                                                        aspectDao.getSystemAspectValidators(),
                                                         aspectDao.getValidationConfig(),
                                                         opContext));
                                           }
@@ -3242,7 +3242,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         applyUpsert(
             writeItem,
             latestAspect,
-            aspectDao.getPayloadValidators(),
+            aspectDao.getSystemAspectValidators(),
             aspectDao.getValidationConfig(),
             opContext);
 
