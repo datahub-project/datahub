@@ -37,7 +37,6 @@ import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.metadata.entity.validation.AspectSizeValidator;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -102,9 +101,11 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .map(
             a -> {
               // Pre-patch validation if this is for update
-              if (forUpdate) {
-                AspectSizeValidator.validatePrePatchSize(
-                    a.getMetadata(), UrnUtils.getUrn(urn), aspectName, validationConfig);
+              if (forUpdate && payloadValidators != null) {
+                for (SystemAspectValidator validator : payloadValidators) {
+                  validator.validatePrePatch(
+                      a.getMetadata(), UrnUtils.getUrn(urn), aspectName, opContext);
+                }
               }
               return EntityAspect.EntitySystemAspect.builder()
                   .payloadValidators(payloadValidators)

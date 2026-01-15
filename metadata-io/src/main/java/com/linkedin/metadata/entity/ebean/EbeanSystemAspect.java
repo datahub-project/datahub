@@ -10,7 +10,6 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
-import com.linkedin.metadata.entity.validation.AspectSizeValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -179,15 +178,13 @@ public class EbeanSystemAspect implements SystemAspect {
       this.urn = UrnUtils.getUrn(ebeanAspectV2.getUrn());
       this.aspectName = ebeanAspectV2.getAspect();
 
-      // Pre-patch validation: check existing aspect size from DB using utility
-      // Get context from OperationContext (may contain isRemediationDeletion flag)
-      AspectSizeValidator.validatePrePatchSize(
-          ebeanAspectV2.getMetadata(),
-          urn,
-          aspectName,
-          validationConfig,
-          operationContext,
-          null); // MetricUtils not available in this context
+      // Pre-patch validation: iterate through validators
+      if (payloadValidators != null) {
+        for (SystemAspectValidator validator : payloadValidators) {
+          validator.validatePrePatch(
+              ebeanAspectV2.getMetadata(), urn, aspectName, operationContext);
+        }
+      }
 
       this.recordTemplate =
           Optional.ofNullable(ebeanAspectV2.getMetadata())

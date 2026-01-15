@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
@@ -109,6 +110,111 @@ public class AspectSizePayloadValidator implements SystemAspectValidator {
     long kb = bytes / 1024;
     if (kb > 0) return kb + "KB";
     return bytes + "B";
+  }
+
+  @Override
+  public void validatePrePatch(
+      @Nullable String rawMetadata,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable Object operationContext) {
+
+    // Skip validation if this is a remediation deletion to avoid circular validation
+    if (operationContext instanceof io.datahubproject.metadata.context.OperationContext) {
+      io.datahubproject.metadata.context.OperationContext opContext =
+          (io.datahubproject.metadata.context.OperationContext) operationContext;
+      if (opContext.getValidationContext() != null
+          && opContext.getValidationContext().isRemediationDeletion()) {
+        log.debug(
+            "Skipping pre-patch size validation for remediation deletion: urn={}, aspect={}",
+            urn,
+            aspectName);
+        return;
+      }
+    }
+
+    // Validation disabled
+    if (config.getPrePatch() == null || !config.getPrePatch().isEnabled()) {
+      return;
+    }
+
+    // No metadata to validate (new aspect)
+    if (rawMetadata == null) {
+      return;
+    }
+
+    long actualSize = rawMetadata.length();
+    long threshold = config.getPrePatch().getMaxSizeBytes();
+
+    // Emit bucketed counter for size distribution tracking
+    if (metricUtils != null) {
+      metricUtils.incrementMicrometer(
+          "aspectSizeValidation.prePatch.sizeDistribution",
+          1,
+          "aspectName",
+          aspectName,
+          "sizeBucket",
+          getSizeBucket(actualSize));
+    }
+
+    if (actualSize > threshold) {
+      OversizedAspectRemediation remediation = config.getPrePatch().getOversizedRemediation();
+
+      log.warn(
+          "Oversized pre-patch aspect remediation={}: urn={}, aspect={}, size={} serialized bytes, threshold={} serialized bytes",
+          remediation != null ? remediation.logLabel : "null",
+          urn,
+          aspectName,
+          actualSize,
+          threshold);
+
+      // Emit oversized counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.prePatch.oversized",
+            1,
+            "aspectName",
+            aspectName,
+            "remediation",
+            remediation != null ? remediation.name() : "null");
+      }
+
+      // For DELETE remediation, collect deletion request for execution after transaction
+      if (remediation == OversizedAspectRemediation.DELETE
+          && operationContext instanceof io.datahubproject.metadata.context.OperationContext) {
+        io.datahubproject.metadata.context.OperationContext opContext =
+            (io.datahubproject.metadata.context.OperationContext) operationContext;
+        opContext.addPendingDeletion(
+            AspectDeletionRequest.builder()
+                .urn(urn)
+                .aspectName(aspectName)
+                .validationPoint("PRE_DB_PATCH")
+                .aspectSize(actualSize)
+                .threshold(threshold)
+                .build());
+      }
+
+      // Always throw to skip the write (for both IGNORE and DELETE)
+      throw new AspectSizeExceededException(
+          "PRE_DB_PATCH", actualSize, threshold, urn.toString(), aspectName);
+    } else if (config.getPrePatch().getWarnSizeBytes() != null
+        && actualSize > config.getPrePatch().getWarnSizeBytes()) {
+      // Exceeded warning threshold but under max - log without blocking
+      log.warn(
+          "Large pre-patch aspect (above warning threshold): urn={}, aspect={}, size={} serialized bytes, warnThreshold={}, maxThreshold={}",
+          urn,
+          aspectName,
+          actualSize,
+          config.getPrePatch().getWarnSizeBytes(),
+          threshold);
+
+      // Emit warning counter metric
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(
+            "aspectSizeValidation.prePatch.warning", 1, "aspectName", aspectName);
+      }
+      // No throw - write proceeds
+    }
   }
 
   @Override

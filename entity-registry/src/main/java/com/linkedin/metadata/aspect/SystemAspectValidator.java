@@ -1,16 +1,25 @@
 package com.linkedin.metadata.aspect;
 
+import com.linkedin.common.urn.Urn;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
- * Validator invoked after an aspect has been serialized to JSON but before it is written to the
- * database. Enables validation, metrics collection, or other processing without duplicate
- * serialization overhead.
+ * Validator invoked at two checkpoints during aspect processing:
+ *
+ * <ol>
+ *   <li><b>Pre-patch validation:</b> Called when loading existing aspect from database before patch
+ *       application
+ *   <li><b>Post-patch validation:</b> Called after aspect serialization but before database write
+ * </ol>
  *
  * <p><b>Execution Context:</b>
  *
  * <ul>
- *   <li>Called in {@code SystemAspect.withVersion()} after RecordTemplate → JSON serialization
+ *   <li>Pre-patch: Called by DAO when loading aspect for update (EbeanAspectDao,
+ *       CassandraAspectDao)
+ *   <li>Post-patch: Called in {@code SystemAspect.withVersion()} after RecordTemplate → JSON
+ *       serialization
  *   <li>Runs for ALL aspect writes: REST API, GraphQL, and Kafka MCP ingestion
  *   <li>Multiple validators are called in registration order; if any validator throws, the DB write
  *       is prevented
@@ -25,12 +34,12 @@ import javax.annotation.Nonnull;
  *   <li>Audit logging: Record what aspects are being written
  * </ul>
  *
- * <p><b>Performance:</b> Aspects MUST be serialized to JSON before database writes - this is a
- * required step, not optional. The JSON string in {@code serializedAspect} is this already-created
- * serialization, so validators can inspect it at zero additional cost. Since JSON serialization is
- * one of the most expensive operations in MCP processing, performing a second serialization just
- * for validation would effectively double this cost. The validator pattern makes validation
- * essentially free by reusing the required serialization.
+ * <p><b>Performance:</b> Both validation checkpoints reuse existing serialization:
+ *
+ * <ul>
+ *   <li>Pre-patch: Validates JSON already fetched from database (zero additional cost)
+ *   <li>Post-patch: Validates JSON already created for database write (zero additional cost)
+ * </ul>
  *
  * <p><b>Naming:</b> "Validator" terminology is used for consistency with existing {@code
  * AspectPayloadValidators} in {@code
@@ -42,7 +51,35 @@ import javax.annotation.Nonnull;
  */
 public interface SystemAspectValidator {
   /**
-   * Called after aspect serialization but before database write.
+   * Called when loading existing aspect from database before patch application.
+   *
+   * <p>Enables validation of pre-existing aspects before they are modified. The raw metadata is the
+   * JSON string already fetched from the database - no additional serialization cost.
+   *
+   * <p>Validators should check if pre-patch validation is enabled in their configuration and return
+   * early if disabled. If validation fails, throw a RuntimeException to prevent the write.
+   *
+   * @param rawMetadata serialized aspect JSON from database (may be null for new aspects)
+   * @param urn entity URN
+   * @param aspectName aspect name
+   * @param operationContext optional operation context (may contain flags like remediation
+   *     deletion)
+   * @throws RuntimeException to reject the aspect write (prevents DB persistence)
+   */
+  default void validatePrePatch(
+      @Nullable String rawMetadata,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable Object operationContext) {
+    // Default implementation: no-op (validators can choose to implement pre-patch validation)
+  }
+
+  /**
+   * Called after aspect serialization but before database write (post-patch validation).
+   *
+   * <p>Enables validation of the final aspect after all patches have been applied. The serialized
+   * aspect is the JSON string already created for database write - no additional serialization
+   * cost.
    *
    * @param systemAspect original aspect with context (URN, aspect spec, RecordTemplate)
    * @param serializedAspect serialized EntityAspect containing JSON metadata string (via {@code
