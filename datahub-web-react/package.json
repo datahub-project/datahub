@@ -51,6 +51,7 @@
         "@visx/tooltip": "^3.12.0",
         "@visx/xychart": "^3.2.0",
         "@visx/zoom": "^3.1.1",
+        "ai": "^4.3.16",
         "analytics": "^0.8.9",
         "antd": "4.24.7",
         "color-hash": "^2.0.1",
@@ -102,7 +103,8 @@
         "uuid": "^8.3.2",
         "virtualizedtableforantd4": "^1.2.1",
         "web-vitals": "^0.2.4",
-        "yamljs": "^0.3.0"
+        "yamljs": "^0.3.0",
+        "zod": "^4.0.0"
     },
     "scripts": {
         "analyze": "source-map-explorer 'dist/assets/*.js'",
