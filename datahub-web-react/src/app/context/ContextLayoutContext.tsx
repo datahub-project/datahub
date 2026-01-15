@@ -6,17 +6,36 @@ interface ContextLayoutValue {
      * Used to offset fixed-position elements (like the editor toolbar) to center them on the content area.
      */
     sidebarWidth: number;
+    /**
+     * Whether the sidebar should be hidden entirely (for external documents).
+     */
+    isSidebarHidden: boolean;
+    /**
+     * Function to control sidebar visibility.
+     * Called by DocumentProfile to hide sidebar for external documents.
+     */
+    setSidebarHidden: (hidden: boolean) => void;
 }
 
 const ContextLayoutContext = createContext<ContextLayoutValue | null>(null);
 
 interface ContextLayoutProviderProps {
     sidebarWidth: number;
+    isSidebarHidden: boolean;
+    setSidebarHidden: (hidden: boolean) => void;
     children: React.ReactNode;
 }
 
-export function ContextLayoutProvider({ sidebarWidth, children }: ContextLayoutProviderProps) {
-    const value = useMemo(() => ({ sidebarWidth }), [sidebarWidth]);
+export function ContextLayoutProvider({
+    sidebarWidth,
+    isSidebarHidden,
+    setSidebarHidden,
+    children,
+}: ContextLayoutProviderProps) {
+    const value = useMemo(
+        () => ({ sidebarWidth, isSidebarHidden, setSidebarHidden }),
+        [sidebarWidth, isSidebarHidden, setSidebarHidden],
+    );
     return <ContextLayoutContext.Provider value={value}>{children}</ContextLayoutContext.Provider>;
 }
 
