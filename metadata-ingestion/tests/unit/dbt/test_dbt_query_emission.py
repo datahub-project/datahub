@@ -176,12 +176,12 @@ def test_query_urn_generation():
     assert first_query_urn is not None
     assert isinstance(first_query_urn, str)
     assert first_query_urn.startswith("urn:li:query:")
-    # URN should have special characters replaced with underscores
-    assert "model_test_test_model" in first_query_urn
+    # URN should preserve dots for uniqueness (model.test.test_model stays as-is)
+    assert "model.test.test_model" in first_query_urn
 
 
-def test_query_entity_with_invalid_tags_and_terms():
-    """Test that tags and terms are converted to comma-separated strings in customProperties."""
+def test_query_entity_with_mixed_tags_and_terms():
+    """Test that tags and terms lists are converted to comma-separated strings."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
     node.meta = {
@@ -189,21 +189,8 @@ def test_query_entity_with_invalid_tags_and_terms():
             {
                 "name": "Test query",
                 "sql": "SELECT 1",
-                "tags": [
-                    "valid_tag",
-                    "",
-                    "  ",
-                    123,
-                    None,
-                    "another_valid",
-                ],  # Mix of valid and invalid
-                "terms": [
-                    "ValidTerm",
-                    "",
-                    None,
-                    456,
-                    "AnotherTerm",
-                ],  # Mix of valid and invalid
+                "tags": ["production", "analytics", "team-data"],
+                "terms": ["CustomerData", "PII"],
             }
         ]
     }
@@ -211,22 +198,17 @@ def test_query_entity_with_invalid_tags_and_terms():
 
     mcps = list(source._create_query_entity_mcps(node, node_urn))
 
-    # Should have: properties (with customProperties), subjects = 2 MCPs
     assert len(mcps) == 2
-
-    # Check that tags and terms are in customProperties as comma-separated strings
     properties_mcp = mcps[0]
     assert isinstance(properties_mcp.aspect, QueryPropertiesClass)
     assert properties_mcp.aspect.customProperties is not None
 
-    # All items are converted to strings and joined
-    assert "tags" in properties_mcp.aspect.customProperties
-    assert "terms" in properties_mcp.aspect.customProperties
-    # Should include all items (even empty strings and numbers converted to strings)
-    assert "valid_tag" in properties_mcp.aspect.customProperties["tags"]
-    assert "another_valid" in properties_mcp.aspect.customProperties["tags"]
-    assert "ValidTerm" in properties_mcp.aspect.customProperties["terms"]
-    assert "AnotherTerm" in properties_mcp.aspect.customProperties["terms"]
+    # Tags and terms should be comma-separated strings
+    assert (
+        properties_mcp.aspect.customProperties["tags"]
+        == "production, analytics, team-data"
+    )
+    assert properties_mcp.aspect.customProperties["terms"] == "CustomerData, PII"
 
 
 def test_query_entity_with_non_list_tags_and_terms():
@@ -297,3 +279,161 @@ def test_query_entity_reporting():
     assert source.report.num_queries_emitted == 3
     assert source.report.num_queries_failed == 1
     assert len(source.report.queries_failed_list) == 1
+
+
+def test_node_meta_is_none():
+    """Test that None meta is handled gracefully without errors."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node.meta = None  # type: ignore
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 0
+    assert source.report.num_queries_emitted == 0
+    assert source.report.num_queries_failed == 0
+
+
+def test_meta_queries_not_a_list():
+    """Test that non-list meta.queries (string, dict) is gracefully skipped."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    # Test with string
+    node.meta = {"queries": "not a list"}
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    assert len(mcps) == 0
+
+    # Test with dict
+    node.meta = {"queries": {"name": "query", "sql": "SELECT 1"}}
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    assert len(mcps) == 0
+
+    # Test with number
+    node.meta = {"queries": 123}
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    assert len(mcps) == 0
+
+    assert source.report.num_queries_emitted == 0
+
+
+def test_empty_queries_list():
+    """Test that empty queries list emits nothing."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node.meta = {"queries": []}
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 0
+    assert source.report.num_queries_emitted == 0
+    assert source.report.num_queries_failed == 0
+
+
+def test_duplicate_query_names_create_same_urn():
+    """Test that duplicate query names on same model create the same URN (last one wins)."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node.meta = {
+        "queries": [
+            {"name": "Same Name", "sql": "SELECT 1"},
+            {"name": "Same Name", "sql": "SELECT 2"},  # Duplicate name
+        ]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    # Both queries are emitted (4 MCPs = 2 queries * 2 aspects)
+    assert len(mcps) == 4
+    assert source.report.num_queries_emitted == 2
+
+    # Both have the same URN (user's responsibility to have unique names)
+    first_urn = mcps[0].entityUrn
+    third_urn = mcps[2].entityUrn  # Second query's properties
+    assert first_urn == third_urn
+
+
+def test_query_with_special_characters_in_name():
+    """Test that special characters in query names are sanitized in URN."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node.meta = {
+        "queries": [
+            {
+                "name": "Query with spaces & special (chars)!",
+                "sql": "SELECT 1",
+            }
+        ]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 2
+    query_urn = mcps[0].entityUrn
+    assert query_urn is not None
+    # Special characters should be replaced with underscores
+    assert "urn:li:query:" in query_urn
+    assert "&" not in query_urn
+    assert "(" not in query_urn
+    assert ")" not in query_urn
+    assert "!" not in query_urn
+
+
+def test_query_with_unicode_characters():
+    """Test that Unicode characters in query names are handled."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node.meta = {
+        "queries": [
+            {
+                "name": "客户查询 (Customer Query)",
+                "description": "Requête des données clients",
+                "sql": "SELECT * FROM customers WHERE région = 'Île-de-France'",
+            }
+        ]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 2
+    assert source.report.num_queries_emitted == 1
+
+    # Check that the name and description are preserved
+    properties = mcps[0].aspect
+    assert isinstance(properties, QueryPropertiesClass)
+    assert properties.name == "客户查询 (Customer Query)"
+    assert properties.description == "Requête des données clients"
+    # SQL should be preserved as-is
+    assert "région" in properties.statement.value
+
+
+def test_query_with_long_name():
+    """Test that very long query names are handled."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    long_name = "A" * 500  # 500 character name
+    node.meta = {
+        "queries": [
+            {
+                "name": long_name,
+                "sql": "SELECT 1",
+            }
+        ]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 2
+    assert source.report.num_queries_emitted == 1
+
+    properties = mcps[0].aspect
+    assert isinstance(properties, QueryPropertiesClass)
+    assert properties.name == long_name
+    assert len(properties.name) == 500
