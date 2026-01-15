@@ -1,0 +1,62 @@
+# Example recipe for Microsoft Fabric OneLake source
+# See fabric_onelake.md for full configuration options
+
+source:
+  type: fabric-onelake
+  config:
+    # Authentication (using service principal)
+    credential:
+      authentication_method: service_principal
+      client_id: ${AZURE_CLIENT_ID}
+      client_secret: ${AZURE_CLIENT_SECRET}
+      tenant_id: ${AZURE_TENANT_ID}
+    
+    # Optional: Platform instance (use as tenant identifier)
+    # This groups all workspaces under a tenant-level container
+    # platform_instance: "contoso-tenant"
+    
+    # Optional: Environment
+    # env: PROD
+    
+    # Optional: Filter workspaces by name pattern
+    # workspace_pattern:
+    #   allow:
+    #     - ".*"  # Allow all workspaces by default
+    #   deny: []
+    
+    # Optional: Filter lakehouses by name pattern
+    # lakehouse_pattern:
+    #   allow:
+    #     - ".*"  # Allow all lakehouses by default
+    #   deny: []
+    
+    # Optional: Filter warehouses by name pattern
+    # warehouse_pattern:
+    #   allow:
+    #     - ".*"  # Allow all warehouses by default
+    #   deny: []
+    
+    # Optional: Filter tables by name pattern
+    # Format: 'schema.table' or just 'table' for default schema
+    # table_pattern:
+    #   allow:
+    #     - ".*"  # Allow all tables by default
+    #   deny: []
+    
+    # Feature flags
+    extract_lakehouses: true
+    extract_warehouses: true
+    extract_schemas: true  # Set to false to skip schema containers
+    
+    # Optional: API timeout (seconds)
+    # api_timeout: 30
+    
+    # Optional: Stateful ingestion for stale entity removal
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
