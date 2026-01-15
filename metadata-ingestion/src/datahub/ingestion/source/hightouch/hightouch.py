@@ -379,6 +379,88 @@ class HightouchSource(StatefulIngestionSourceBase):
         for workunit in container_workunits:
             yield workunit
 
+    def _generate_table_model_column_lineage(
+        self,
+        model: HightouchModel,
+        model_urn: str,
+        upstream_table_urn: str,
+    ) -> List[FineGrainedLineageClass]:
+        """Generate column-level lineage for table-type models with schema normalization."""
+        if not self.graph:
+            return []
+
+        fine_grained_lineages = []
+
+        try:
+            # Fetch schemas from DataHub for both upstream table and Hightouch model
+            upstream_schema = self.graph.get_schema_metadata(upstream_table_urn)
+            model_schema = self.graph.get_schema_metadata(model_urn)
+
+            if not upstream_schema or not upstream_schema.fields:
+                logger.debug(
+                    f"No upstream schema found for {upstream_table_urn}, skipping column lineage"
+                )
+                return []
+
+            if not model_schema or not model_schema.fields:
+                logger.debug(
+                    f"No model schema found for {model_urn}, skipping column lineage"
+                )
+                return []
+
+            upstream_fields = {f.fieldPath: f for f in upstream_schema.fields}
+            model_fields = {f.fieldPath: f for f in model_schema.fields}
+
+            # For table models, columns map 1:1 from upstream to model
+            # Use fuzzy matching to handle casing differences (e.g., Snowflake lowercasing)
+            for model_field_path in model_fields:
+                # Try to find matching upstream field using normalization
+                matched_upstream_field = None
+                normalized_model_field = normalize_column_name(model_field_path)
+
+                for upstream_field_path in upstream_fields:
+                    if (
+                        normalize_column_name(upstream_field_path)
+                        == normalized_model_field
+                    ):
+                        matched_upstream_field = upstream_field_path
+                        logger.debug(
+                            f"Matched model field '{model_field_path}' to upstream field '{upstream_field_path}'"
+                        )
+                        break
+
+                if matched_upstream_field:
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(
+                                    upstream_table_urn, matched_upstream_field
+                                )
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                make_schema_field_urn(model_urn, model_field_path)
+                            ],
+                        )
+                    )
+                else:
+                    logger.debug(
+                        f"No matching upstream field found for model field '{model_field_path}'"
+                    )
+
+            if fine_grained_lineages:
+                logger.debug(
+                    f"Generated {len(fine_grained_lineages)} column lineage edges for table model {model.slug}"
+                )
+
+        except Exception as e:
+            logger.debug(
+                f"Failed to generate column lineage for table model {model.slug}: {e}"
+            )
+
+        return fine_grained_lineages
+
     def _register_model_lineage(
         self,
         model: HightouchModel,
@@ -1077,23 +1159,60 @@ class HightouchSource(StatefulIngestionSourceBase):
                 self.report.tags_emitted += len(tags_to_emit)
                 logger.debug(f"Emitted {len(tags_to_emit)} tags for model {model.slug}")
 
-        if (
-            self.config.include_table_lineage_to_sibling
-            and model.query_type == "table"
-            and source
-        ):
-            source_table_urn = model_dataset.custom_properties.get("source_table_urn")
+        # Generate column-level lineage for table models with normalization
+        if model.query_type == "table" and model.name and source:
+            table_name = model.name
+            if source.configuration:
+                database = source.configuration.get("database", "")
+                schema = source.configuration.get("schema", "")
+                source_details = self._urn_builder._get_cached_source_details(source)
+                if source_details.include_schema_in_urn and schema:
+                    table_name = f"{database}.{schema}.{table_name}"
+                elif database and "." not in table_name:
+                    table_name = f"{database}.{table_name}"
+
+            source_table_urn = self._urn_builder.make_upstream_table_urn(
+                table_name, source
+            )
+
             if source_table_urn:
-                yield from self._emit_sibling_aspects(dataset_urn, source_table_urn)
-                logger.debug(
-                    f"Created sibling relationship for table-type model {model.slug}: "
-                    f"Hightouch model <-> {source_table_urn}"
+                # Emit sibling aspects if configured
+                if self.config.include_table_lineage_to_sibling:
+                    yield from self._emit_sibling_aspects(
+                        dataset_urn, str(source_table_urn)
+                    )
+                    logger.debug(
+                        f"Created sibling relationship for table-type model {model.slug}: "
+                        f"Hightouch model <-> {source_table_urn}"
+                    )
+
+                # Generate and emit column-level lineage for all table models
+                fine_grained_lineages = self._generate_table_model_column_lineage(
+                    model, dataset_urn, str(source_table_urn)
                 )
+                if fine_grained_lineages:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn,
+                        aspect=UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=str(source_table_urn),
+                                    type=DatasetLineageTypeClass.COPY,
+                                )
+                            ],
+                            fineGrainedLineages=fine_grained_lineages,
+                        ),
+                    ).as_workunit()
+                    self.report.column_lineage_emitted += len(fine_grained_lineages)
+                    logger.debug(
+                        f"Emitted {len(fine_grained_lineages)} column lineage edges for table model {model.slug}: "
+                        f"{source_table_urn} -> {dataset_urn}"
+                    )
 
     def _emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        # Always emit sibling aspect on Hightouch model (primary)
+        # Hightouch model is primary, similar to trino_as_primary pattern
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=SiblingsClass(
@@ -1102,22 +1221,18 @@ class HightouchSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        # Only emit sibling aspect on source table if it was registered (has schema loaded)
-        if source_table_urn in self._registered_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=source_table_urn,
-                aspect=SiblingsClass(
-                    primary=False,
-                    siblings=[model_urn],
-                ),
-            ).as_workunit()
-            logger.debug(
-                f"Emitted sibling relationship: {model_urn} (primary) <-> {source_table_urn} (secondary)"
-            )
-        else:
-            logger.debug(
-                f"Emitted sibling aspect on {model_urn} only - source table {source_table_urn} not in registered URNs"
-            )
+        # Always emit sibling aspect on source table (secondary)
+        # DataHub handles aspects on entities that don't exist yet
+        yield MetadataChangeProposalWrapper(
+            entityUrn=source_table_urn,
+            aspect=SiblingsClass(
+                primary=False,
+                siblings=[model_urn],
+            ),
+        ).as_workunit()
+        logger.debug(
+            f"Emitted sibling relationship: {model_urn} (primary) <-> {source_table_urn} (secondary)"
+        )
 
     def _get_sync_workunits(
         self, sync: HightouchSync
