@@ -6,6 +6,7 @@ from typing import Annotated, Any, Dict, List, Optional
 import pydantic
 from pydantic import model_validator
 from pydantic.fields import Field
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
 from datahub.ingestion.source_config.operation_config import OperationConfig
@@ -20,7 +21,20 @@ _PROFILING_FLAGS_TO_REPORT = {
 logger = logging.getLogger(__name__)
 
 
-class GEProfilingBaseConfig(ConfigModel):
+class ProfilingMethodConfig(ConfigModel):
+    """Base class for profiling configs that support method selection."""
+
+    method: Literal["ge", "sqlalchemy"] = Field(
+        default="ge",
+        description=(
+            "Profiling method to use. "
+            "Options: `ge` (Great Expectations) or `sqlalchemy` (custom SQLAlchemy-based profiler). "
+            "The SQLAlchemy profiler has no GE dependency and provides the same functionality."
+        ),
+    )
+
+
+class GEProfilingBaseConfig(ProfilingMethodConfig):
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
     )

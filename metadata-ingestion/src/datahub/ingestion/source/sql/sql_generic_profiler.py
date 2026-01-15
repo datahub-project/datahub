@@ -2,9 +2,14 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union, cast
 
 from sqlalchemy import create_engine, inspect
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import (
@@ -203,7 +208,11 @@ class GenericProfiler:
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        from datahub.ingestion.source.sql_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
 
@@ -213,13 +222,28 @@ class GenericProfiler:
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-            env=self.config.env,
-        )
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
+            return DatahubGEProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
 
     def is_dataset_eligible_for_profiling(
         self,
