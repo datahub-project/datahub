@@ -159,10 +159,9 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     )
 
     tls_verify: bool = Field(
-        default=False,
-        description="If True, verify server certificates for secure LDAP connections. "
-        "Enabling this prevents Man-in-the-Middle (MITM) attacks (CWE-295). "
-        "Recommended for production environments.",
+        default=True,
+        description="Verify server TLS certificates for LDAPS connections. "
+        "Disabling in production exposes connections to Man-in-the-Middle attacks (CWE-295).",
     )
 
     # default mapping for attrs

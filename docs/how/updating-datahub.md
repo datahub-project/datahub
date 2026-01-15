@@ -33,6 +33,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- (LDAP) The LDAP ingestion source now enforces TLS certificate verification by default (`tls_verify: true`). This prevents Man-in-the-Middle attacks (CWE-295) but may break existing configurations using self-signed certificates. To restore the previous behavior, explicitly set `tls_verify: false` in your recipe.
 - #15415: MLModel and MLModelGroup search field mapping has been updated to resolve duplicate field name conflicts. Existing entities will be automatically reindexed in the background after upgrade. New MLModel and MLModelGroup entities ingested after the upgrade will work immediately.
 - #15397: Grafana ingestion source dataset granularity changed from per-datasource to per-panel (per visual). This improves lineage accuracy by ensuring each panel's query results in a unique dataset entity with precise upstream/downstream connections. Dataset URN format changed from `{ds_type}.{ds_uid}` to `{ds_type}.{ds_uid}.{dashboard_uid}.{panel_id}`. This means all existing Grafana dataset entities will have different URNs. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up old entities and create new ones. Otherwise, we recommend soft deleting all Grafana datasets via the DataHub CLI: `datahub delete --platform grafana --soft` and then re-ingesting with the latest CLI version.
 - #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
@@ -55,7 +56,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
-- (LDAP) Added `tls_verify` configuration option to the LDAP ingestion source. This option enables TLS certificate verification for secure LDAP (LDAPS) connections, preventing Man-in-the-Middle attacks (CWE-295). The default is `false` for backwards compatibility, but **we strongly recommend setting `tls_verify: true` in production environments**. When disabled, a security warning will be logged at runtime.
 
 ## 1.3.0
 

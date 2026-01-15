@@ -102,7 +102,7 @@ def test_parse_groups(input, expected):
 @pytest.mark.parametrize(
     "tls_verify_value, expected",
     [
-        (None, False),  # Default value should be False for backwards compatibility
+        (None, True),  # Default value should be True for secure by default
         (False, False),  # Explicitly set to False
         (True, True),  # Explicitly set to True for secure connections
     ],
