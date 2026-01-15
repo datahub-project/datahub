@@ -4,8 +4,23 @@ import { ChatMessage } from '@app/chat/components/messages/ChatMessage';
 import { ThinkingGroup } from '@app/chat/components/messages/ThinkingGroup';
 import { ChatMessageAction, ChatVariant } from '@app/chat/types';
 import { MessageGroup } from '@app/chat/utils/messageGrouping';
+import { THINKING_WINDOW_MS, isUserOrAgentThinkingRecent } from '@app/chat/utils/thinkingState';
 
-import { Entity } from '@types';
+import { DataHubAiConversationMessage, Entity } from '@types';
+
+const isThinkingGroupComplete = ({
+    messages,
+    isStreaming,
+    isLastGroup,
+}: {
+    messages: DataHubAiConversationMessage[];
+    isStreaming: boolean;
+    isLastGroup: boolean;
+}): boolean => {
+    if (isStreaming) return false;
+    if (!isLastGroup) return true;
+    return !isUserOrAgentThinkingRecent(messages, Date.now(), THINKING_WINDOW_MS);
+};
 
 interface MessageListProps {
     messageGroups: MessageGroup[];
@@ -40,8 +55,13 @@ export const MessageList: React.FC<MessageListProps> = ({
                 const isThinking = group.type === 'thinking';
                 if (isThinking) {
                     const firstMessageTime = group.messages[0]?.time || index;
-                    // Thinking group is complete if there's a next group (non-thinking) or if we're not streaming
-                    const isComplete = index < messageGroups.length - 1 || !isStreaming;
+                    const isLastGroup = index === messageGroups.length - 1;
+                    const isComplete = isThinkingGroupComplete({
+                        messages: group.messages,
+                        isStreaming,
+                        isLastGroup,
+                    });
+
                     return (
                         <ThinkingGroup
                             key={`thinking-group-${firstMessageTime}`}

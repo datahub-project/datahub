@@ -10,6 +10,7 @@ import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
 import { ChatFeatureFlags, ChatMessageAction, ChatVariant } from '@app/chat/types';
+import { shouldPollForThinking } from '@app/chat/utils/thinkingState';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -246,6 +247,20 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
             setMessages(conversation.messages);
         }
     }, [conversation, setMessages]);
+
+    // Poll for updates when waiting for a response (not streaming locally)
+    // This handles the case where user navigates away and returns mid-stream
+    useEffect(() => {
+        const shouldPoll = shouldPollForThinking({ messages, isStreaming });
+        if (shouldPoll) {
+            const pollInterval = setInterval(() => {
+                refetch();
+            }, 3000); // Poll every 3 seconds
+
+            return () => clearInterval(pollInterval);
+        }
+        return undefined;
+    }, [isStreaming, messages, refetch]);
 
     // Notify parent after fetch completes if conversation is missing
     useEffect(() => {
