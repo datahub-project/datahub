@@ -84,9 +84,7 @@ export function getAssetDescriptionDetails({
         originalDescription ||
         uiAuthoredDescription ||
         propagatedDescription ||
-        documentation?.documentation ||
-        defaultDescription ||
-        '';
+        (editedDescription ?? (documentation?.documentation || defaultDescription || ''));
 
     return {
         displayedDescription,
