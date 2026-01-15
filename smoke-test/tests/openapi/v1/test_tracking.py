@@ -252,7 +252,7 @@ def test_tracking_api_kafka(auth_session):
             continue
         error = msg.error()
         if error:
-            if error.code() == KafkaError._PARTITION_EOF:
+            if error.code() == KafkaError.PARTITION_EOF:
                 continue
             else:
                 logger.info(f"Consumer error: {error}")
