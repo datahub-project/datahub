@@ -468,17 +468,25 @@ class HightouchSource(StatefulIngestionSourceBase):
             return []
 
         # For table models, normalize field casing to match upstream table
+        # Also extract table URNs from any models with SQL for single-table queries
+        sql_table_urns = []
+        if model.raw_sql and source:
+            sql_table_urns = self._extract_table_urns_from_sql(model, source)
+
         upstream_field_casing = self._lineage_handler.get_upstream_field_casing(
-            model, source
+            model, source, sql_table_urns
         )
 
         if upstream_field_casing:
-            logger.debug(
-                f"Using upstream field casing for model {model.slug}: {len(upstream_field_casing)} fields mapped"
+            logger.info(
+                f"Using upstream field casing for model {model.slug}: {len(upstream_field_casing)} fields mapped. "
+                f"Casing map: {upstream_field_casing}"
             )
         else:
-            logger.debug(
-                f"No upstream field casing available for model {model.slug}, using original Hightouch casing"
+            logger.info(
+                f"No upstream field casing available for model {model.slug} (query_type={model.query_type}, "
+                f"name={model.name}, graph={'available' if self.graph else 'not available'}), "
+                f"using original Hightouch casing"
             )
 
         schema_field_classes: List[SchemaFieldClass] = []
@@ -489,9 +497,15 @@ class HightouchSource(StatefulIngestionSourceBase):
 
             if upstream_field_casing and normalized_name in upstream_field_casing:
                 if field_path != field.name:
-                    logger.debug(
-                        f"Normalized field casing for model {model.slug}: '{field.name}' -> '{field_path}'"
+                    logger.info(
+                        f"Normalized field casing for model {model.slug}: '{field.name}' -> '{field_path}' "
+                        f"(normalized lookup key: '{normalized_name}')"
                     )
+            elif upstream_field_casing:
+                logger.info(
+                    f"No casing match found for field '{field.name}' in model {model.slug} "
+                    f"(normalized: '{normalized_name}'). Available upstream fields: {list(upstream_field_casing.keys())}"
+                )
 
             schema_field_classes.append(
                 SchemaFieldClass(
@@ -502,6 +516,10 @@ class HightouchSource(StatefulIngestionSourceBase):
                     isPartOfKey=field.is_primary_key,
                 )
             )
+
+        if schema_field_classes:
+            field_names = [f.fieldPath for f in schema_field_classes]
+            logger.info(f"Final schema for model {model.slug}: {field_names}")
 
         return schema_field_classes
 
@@ -1190,7 +1208,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         model: HightouchModel,
         source: HightouchSourceConnection,
     ) -> List[str]:
-        if not model.raw_sql or model.query_type != "raw_sql":
+        if not model.raw_sql:
             return []
 
         source_platform = self._get_platform_for_source(source)

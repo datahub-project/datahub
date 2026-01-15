@@ -66,39 +66,67 @@ class HightouchLineageHandler:
         self,
         model: HightouchModel,
         source: Optional[HightouchSourceConnection],
+        sql_table_urns: Optional[List[str]] = None,
     ) -> Dict[str, str]:
         """
-        For table models, fetch upstream table schema and return a mapping
-        from normalized field names to the actual upstream field names with correct casing.
+        For table models and SQL models with a single upstream table, fetch upstream table schema
+        and return a mapping from normalized field names to the actual upstream field names with correct casing.
         This ensures Hightouch model schemas match upstream casing for proper sibling visualization.
+
+        Works for:
+        - table models: Uses model.name to build upstream URN
+        - SQL models (raw_sql, custom, dbt, etc.): Uses parsed SQL table URNs if exactly one table is referenced
         """
-        if (
-            not source
-            or model.query_type != "table"
-            or not model.name
-            or not self.graph
-        ):
+        if not source or not self.graph:
             return {}
 
-        # Build upstream table URN
-        table_name = model.name
-        if source.configuration:
-            database = source.configuration.get("database", "")
-            schema = source.configuration.get("schema", "")
-            source_details = self.urn_builder._get_cached_source_details(source)
-            if source_details.include_schema_in_urn and schema:
-                table_name = f"{database}.{schema}.{table_name}"
-            elif database and "." not in table_name:
-                table_name = f"{database}.{table_name}"
+        upstream_urn = None
 
-        upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
-        if not upstream_urn:
+        # For table models, build URN from table name
+        if model.query_type == "table" and model.name:
+            table_name = model.name
+            if source.configuration:
+                database = source.configuration.get("database", "")
+                schema = source.configuration.get("schema", "")
+                source_details = self.urn_builder._get_cached_source_details(source)
+                if source_details.include_schema_in_urn and schema:
+                    table_name = f"{database}.{schema}.{table_name}"
+                elif database and "." not in table_name:
+                    table_name = f"{database}.{table_name}"
+
+            upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
+            if not upstream_urn:
+                logger.info(
+                    f"Could not generate upstream URN for table model {model.slug} (table_name={table_name})"
+                )
+                return {}
+
+        # For SQL models (raw_sql, custom, dbt, etc.), use SQL-parsed table URNs if exactly one table is referenced
+        elif sql_table_urns:
+            if len(sql_table_urns) == 1:
+                upstream_urn = sql_table_urns[0]
+                logger.info(
+                    f"Using SQL-parsed upstream URN for model {model.slug} (query_type={model.query_type}): {upstream_urn}"
+                )
+            else:
+                logger.info(
+                    f"Skipping upstream casing for model {model.slug} (query_type={model.query_type}): "
+                    f"model references {len(sql_table_urns)} tables (need exactly 1)"
+                )
+                return {}
+        else:
             return {}
 
         # Fetch upstream schema
         try:
+            logger.info(
+                f"Fetching upstream schema for model {model.slug} from URN: {upstream_urn}"
+            )
             upstream_schema = self.graph.get_schema_metadata(str(upstream_urn))
             if not upstream_schema or not upstream_schema.fields:
+                logger.info(
+                    f"No upstream schema found for {upstream_urn} for model {model.slug}"
+                )
                 return {}
 
             # Create mapping: normalized field name -> actual upstream field name
@@ -107,15 +135,15 @@ class HightouchLineageHandler:
                 normalized = normalize_column_name(field.fieldPath)
                 field_casing_map[normalized] = field.fieldPath
 
-            logger.debug(
+            logger.info(
                 f"Fetched {len(field_casing_map)} field casings from upstream table {upstream_urn} "
-                f"for model {model.slug}"
+                f"for model {model.slug}. Field mapping: {field_casing_map}"
             )
             return field_casing_map
 
         except Exception as e:
-            logger.debug(
-                f"Could not fetch upstream field casing for model {model.slug}: {e}"
+            logger.warning(
+                f"Could not fetch upstream field casing for model {model.slug} from {upstream_urn}: {e}"
             )
             return {}
 
