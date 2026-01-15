@@ -42,6 +42,8 @@ export default function ContextRoutes() {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const location = useLocation();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    // Start hidden - DocumentProfile controls visibility based on document type
+    const [isSidebarHidden, setIsSidebarHidden] = useState(true);
     const expandedSidebarWidth = useSidebarWidth(0.2);
 
     // Check if we're on an entity profile page (document/:urn)
@@ -56,18 +58,33 @@ export default function ContextRoutes() {
         setIsCollapsed(false);
     }, []);
 
+    const setSidebarHidden = useCallback((hidden: boolean) => {
+        setIsSidebarHidden(hidden);
+    }, []);
+
     // Calculate the sidebar width for the layout context
-    const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED_WIDTH : expandedSidebarWidth;
+    const getEffectiveSidebarWidth = () => {
+        if (isSidebarHidden) return 0;
+        if (isCollapsed) return SIDEBAR_COLLAPSED_WIDTH;
+        return expandedSidebarWidth;
+    };
+    const sidebarWidth = getEffectiveSidebarWidth();
 
     return (
-        <ContextLayoutProvider sidebarWidth={sidebarWidth}>
+        <ContextLayoutProvider
+            sidebarWidth={sidebarWidth}
+            isSidebarHidden={isSidebarHidden}
+            setSidebarHidden={setSidebarHidden}
+        >
             <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
-                <ContextSidebar
-                    isEntityProfile={isEntityProfile}
-                    isCollapsed={isCollapsed}
-                    onToggleCollapsed={toggleCollapsed}
-                    onExpandSidebar={expandSidebar}
-                />
+                {!isSidebarHidden && (
+                    <ContextSidebar
+                        isEntityProfile={isEntityProfile}
+                        isCollapsed={isCollapsed}
+                        onToggleCollapsed={toggleCollapsed}
+                        onExpandSidebar={expandSidebar}
+                    />
+                )}
                 <MainContent>
                     <Switch>
                         <Route path={documentPath} render={() => <EntityPageV2 entityType={EntityType.Document} />} />
