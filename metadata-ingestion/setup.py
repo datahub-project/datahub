@@ -54,7 +54,9 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
-    "ruamel.yaml",
+    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
+    # which is not available as wheel.
+    "ruamel.yaml<0.19.0",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -69,7 +71,8 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    "confluent_kafka[schemaregistry,avro]>=2.10.1",
+    # 2.13.0 introduced some breaking changes that require some development
+    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -284,7 +287,8 @@ pyhive_common = {
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
-    "acryl-pyhive[hive-pure-sasl]==0.6.16",
+    # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
+    "acryl-pyhive[hive-pure-sasl]==0.6.17",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
@@ -304,7 +308,9 @@ iceberg_common = {
     # especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`,
     # `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version
     # 0.8.0.
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.8.0",
+    # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
+    #   expected by the connector
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0",
     # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
     # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
     "pydantic<2.12",
@@ -355,6 +361,11 @@ abs_base = {
     "tableschema>=1.20.2",
     "ujson>=5.2.0",
     *path_spec_common,
+}
+
+azure_data_factory = {
+    "azure-identity>=1.21.0",
+    "azure-mgmt-datafactory>=9.0.0",
 }
 
 data_lake_profiling = {
@@ -459,6 +470,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity!=8.4.0",
     },
     "azure-ad": set(),
+    "azure-data-factory": azure_data_factory,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -481,6 +493,12 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
+    "db2": {
+        # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
+        "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+        "pyodbc",
+        *sql_common,
+    },
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
     "dremio": {"requests"} | sql_common,
@@ -535,7 +553,13 @@ plugins: Dict[str, Set[str]] = {
     # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary", "pymysql>=1.0.2", "pymetastore>=0.4.2", "tenacity>=8.0.1", "kerberos>=1.3.0"},
+    | {
+        "psycopg2-binary",
+        "pymysql>=1.0.2",
+        "pymetastore>=0.4.2",
+        "tenacity>=8.0.1",
+        "kerberos>=1.3.0",
+    },
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "json-schema": {"requests"},
@@ -631,6 +655,23 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
+    # Debug/utility plugins
+    "debug-recording": {
+        # VCR.py for HTTP recording - industry standard
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
+        "vcrpy>=8.0.0,<9.0; python_version >= '3.10'",
+        # vcrpy 7.x for Python 3.9 (requires urllib3 < 2.0) Python 3.9 EOL passed already, so we should get rid of this soon
+        "vcrpy>=7.0.0,<8.0.0; python_version < '3.10'",
+        # responses library for HTTP replay - better compatibility with custom SDK transports
+        # (e.g., Looker SDK) that break with VCR's urllib3 patching
+        "responses>=0.25.0,<1.0",
+        # AES-256 encrypted zip files
+        "pyzipper>=0.3.6,<1.0",
+        # Note: This plugin uses lazy imports to avoid requiring optional dependencies
+        # (e.g., sqlalchemy) when recording is not used. Dependencies like sqlalchemy
+        # are expected to be provided by the source connector itself when needed.
+        # The plugin is designed to be installed alongside source connectors, not standalone.
+    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -650,6 +691,8 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # Debug recording is an optional debugging tool.
+    "debug-recording",
 }
 
 mypy_stubs = {
@@ -797,8 +840,11 @@ full_test_dev_requirements = {
         dependency
         for plugin in [
             "athena",
+            "azure-data-factory",
             "circuit-breaker",
             "clickhouse",
+            "db2",
+            "debug-recording",
             "delta-lake",
             "druid",
             "excel",
@@ -834,6 +880,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
+        "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
@@ -841,6 +888,7 @@ entry_points = {
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
+        "db2 = datahub.ingestion.source.sql.db2:Db2Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",

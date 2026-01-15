@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.kafka;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -13,6 +14,7 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.config.kafka.SetupConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -24,9 +26,13 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.CreatePartitionsResult;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.ListTopicsResult;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.TopicPartitionInfo;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -44,10 +50,12 @@ public class CreateKafkaTopicsStepTest {
 
     // Create real KafkaConfiguration with test data
     kafkaConfiguration = new KafkaConfiguration();
+    kafkaConfiguration.setProducer(new ProducerConfiguration());
     kafkaConfiguration.setBootstrapServers("localhost:9092");
 
     SetupConfiguration setupConfig = new SetupConfiguration();
     setupConfig.setPreCreateTopics(true);
+    setupConfig.setAutoIncreasePartitions(true);
     setupConfig.setUseConfluentSchemaRegistry(true);
     kafkaConfiguration.setSetup(setupConfig);
 
@@ -160,13 +168,14 @@ public class CreateKafkaTopicsStepTest {
   }
 
   @Test
-  public void testSkipExistingTopics() throws Exception {
+  public void testSkipExistingTopicsWithSamePartitionCount() throws Exception {
     // Create spy to mock the createAdminClient method
     CreateKafkaTopicsStep spyStep = spy(step);
 
     // Mock AdminClient and its dependencies
     AdminClient mockAdminClient = mock(AdminClient.class);
     ListTopicsResult mockListTopicsResult = mock(ListTopicsResult.class);
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
 
     // Mock existing topics (topic already exists)
     Set<String> existingTopics = new HashSet<>();
@@ -176,10 +185,25 @@ public class CreateKafkaTopicsStepTest {
     when(mockListTopicsResult.names()).thenReturn(listTopicsFuture);
     when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
 
+    // Mock topic description with 3 partitions (same as config)
+    TopicDescription mockTopicDescription = mock(TopicDescription.class);
+    TopicPartitionInfo partition1 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition2 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition3 = mock(TopicPartitionInfo.class);
+    when(mockTopicDescription.partitions())
+        .thenReturn(Arrays.asList(partition1, partition2, partition3));
+
+    Map<String, TopicDescription> topicDescriptionMap = new HashMap<>();
+    topicDescriptionMap.put("test-topic", mockTopicDescription);
+    KafkaFuture<Map<String, TopicDescription>> describeTopicsFuture = mock(KafkaFuture.class);
+    when(describeTopicsFuture.get()).thenReturn(topicDescriptionMap);
+    when(mockDescribeTopicsResult.allTopicNames()).thenReturn(describeTopicsFuture);
+    when(mockAdminClient.describeTopics(anyList())).thenReturn(mockDescribeTopicsResult);
+
     // Mock the createAdminClient method to return our mock AdminClient
     doReturn(mockAdminClient).when(spyStep).createAdminClient();
 
-    // Set up topics configuration with test topics
+    // Set up topics configuration with test topics (3 partitions)
     Map<String, TopicsConfiguration.TopicConfiguration> topics = new HashMap<>();
     TopicsConfiguration.TopicConfiguration topicConfig =
         new TopicsConfiguration.TopicConfiguration();
@@ -196,8 +220,138 @@ public class CreateKafkaTopicsStepTest {
     assertNotNull(result);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
+    // Verify that createTopics was NOT called since topic already exists with correct partition
+    // count
+    verify(mockAdminClient, times(0)).createTopics(any());
+    // Verify that createPartitions was NOT called since partition count matches
+    verify(mockAdminClient, times(0)).createPartitions(any());
+  }
+
+  @Test
+  public void testIncreasePartitionsForExistingTopic() throws Exception {
+    // Create spy to mock the createAdminClient method
+    CreateKafkaTopicsStep spyStep = spy(step);
+
+    // Mock AdminClient and its dependencies
+    AdminClient mockAdminClient = mock(AdminClient.class);
+    ListTopicsResult mockListTopicsResult = mock(ListTopicsResult.class);
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+    CreatePartitionsResult mockCreatePartitionsResult = mock(CreatePartitionsResult.class);
+
+    // Mock existing topics (topic already exists)
+    Set<String> existingTopics = new HashSet<>();
+    existingTopics.add("test-topic");
+    KafkaFuture<Set<String>> listTopicsFuture = mock(KafkaFuture.class);
+    when(listTopicsFuture.get()).thenReturn(existingTopics);
+    when(mockListTopicsResult.names()).thenReturn(listTopicsFuture);
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+
+    // Mock topic description with 3 partitions (less than config's 5)
+    TopicDescription mockTopicDescription = mock(TopicDescription.class);
+    TopicPartitionInfo partition1 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition2 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition3 = mock(TopicPartitionInfo.class);
+    when(mockTopicDescription.partitions())
+        .thenReturn(Arrays.asList(partition1, partition2, partition3));
+
+    Map<String, TopicDescription> topicDescriptionMap = new HashMap<>();
+    topicDescriptionMap.put("test-topic", mockTopicDescription);
+    KafkaFuture<Map<String, TopicDescription>> describeTopicsFuture = mock(KafkaFuture.class);
+    when(describeTopicsFuture.get()).thenReturn(topicDescriptionMap);
+    when(mockDescribeTopicsResult.allTopicNames()).thenReturn(describeTopicsFuture);
+    when(mockAdminClient.describeTopics(anyList())).thenReturn(mockDescribeTopicsResult);
+
+    // Mock partition increase result
+    KafkaFuture<Void> createPartitionsFuture = mock(KafkaFuture.class);
+    when(createPartitionsFuture.get()).thenReturn(null); // Success
+    when(mockCreatePartitionsResult.all()).thenReturn(createPartitionsFuture);
+    when(mockAdminClient.createPartitions(any())).thenReturn(mockCreatePartitionsResult);
+
+    // Mock the createAdminClient method to return our mock AdminClient
+    doReturn(mockAdminClient).when(spyStep).createAdminClient();
+
+    // Set up topics configuration with test topics (5 partitions desired)
+    Map<String, TopicsConfiguration.TopicConfiguration> topics = new HashMap<>();
+    TopicsConfiguration.TopicConfiguration topicConfig =
+        new TopicsConfiguration.TopicConfiguration();
+    topicConfig.setName("test-topic");
+    topicConfig.setPartitions(5); // Want to increase from 3 to 5
+    topicConfig.setReplicationFactor(1);
+    topicConfig.setEnabled(true);
+    topics.put("testTopic", topicConfig);
+    kafkaConfiguration.setTopics(topics);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = spyStep.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
     // Verify that createTopics was NOT called since topic already exists
     verify(mockAdminClient, times(0)).createTopics(any());
+    // Verify that createPartitions WAS called to increase partition count
+    verify(mockAdminClient, times(1)).createPartitions(any());
+  }
+
+  @Test
+  public void testWarnWhenTopicHasMorePartitionsThanConfig() throws Exception {
+    // Create spy to mock the createAdminClient method
+    CreateKafkaTopicsStep spyStep = spy(step);
+
+    // Mock AdminClient and its dependencies
+    AdminClient mockAdminClient = mock(AdminClient.class);
+    ListTopicsResult mockListTopicsResult = mock(ListTopicsResult.class);
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+
+    // Mock existing topics (topic already exists)
+    Set<String> existingTopics = new HashSet<>();
+    existingTopics.add("test-topic");
+    KafkaFuture<Set<String>> listTopicsFuture = mock(KafkaFuture.class);
+    when(listTopicsFuture.get()).thenReturn(existingTopics);
+    when(mockListTopicsResult.names()).thenReturn(listTopicsFuture);
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+
+    // Mock topic description with 5 partitions (more than config's 3)
+    TopicDescription mockTopicDescription = mock(TopicDescription.class);
+    TopicPartitionInfo partition1 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition2 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition3 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition4 = mock(TopicPartitionInfo.class);
+    TopicPartitionInfo partition5 = mock(TopicPartitionInfo.class);
+    when(mockTopicDescription.partitions())
+        .thenReturn(Arrays.asList(partition1, partition2, partition3, partition4, partition5));
+
+    Map<String, TopicDescription> topicDescriptionMap = new HashMap<>();
+    topicDescriptionMap.put("test-topic", mockTopicDescription);
+    KafkaFuture<Map<String, TopicDescription>> describeTopicsFuture = mock(KafkaFuture.class);
+    when(describeTopicsFuture.get()).thenReturn(topicDescriptionMap);
+    when(mockDescribeTopicsResult.allTopicNames()).thenReturn(describeTopicsFuture);
+    when(mockAdminClient.describeTopics(anyList())).thenReturn(mockDescribeTopicsResult);
+
+    // Mock the createAdminClient method to return our mock AdminClient
+    doReturn(mockAdminClient).when(spyStep).createAdminClient();
+
+    // Set up topics configuration with test topics (3 partitions desired, but topic has 5)
+    Map<String, TopicsConfiguration.TopicConfiguration> topics = new HashMap<>();
+    TopicsConfiguration.TopicConfiguration topicConfig =
+        new TopicsConfiguration.TopicConfiguration();
+    topicConfig.setName("test-topic");
+    topicConfig.setPartitions(3); // Config says 3, but topic has 5
+    topicConfig.setReplicationFactor(1);
+    topicConfig.setEnabled(true);
+    topics.put("testTopic", topicConfig);
+    kafkaConfiguration.setTopics(topics);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = spyStep.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Verify that createTopics was NOT called
+    verify(mockAdminClient, times(0)).createTopics(any());
+    // Verify that createPartitions was NOT called (can't reduce partitions)
+    verify(mockAdminClient, times(0)).createPartitions(any());
   }
 
   @Test
@@ -360,6 +514,105 @@ public class CreateKafkaTopicsStepTest {
 
     assertNotNull(result);
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testFailWhenPartitionCountCheckFails() throws Exception {
+    // Create spy to mock the createAdminClient method
+    CreateKafkaTopicsStep spyStep = spy(step);
+
+    // Mock AdminClient and its dependencies
+    AdminClient mockAdminClient = mock(AdminClient.class);
+    ListTopicsResult mockListTopicsResult = mock(ListTopicsResult.class);
+    DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
+
+    // Mock existing topics (topic already exists)
+    Set<String> existingTopics = new HashSet<>();
+    existingTopics.add("test-topic");
+    KafkaFuture<Set<String>> listTopicsFuture = mock(KafkaFuture.class);
+    when(listTopicsFuture.get()).thenReturn(existingTopics);
+    when(mockListTopicsResult.names()).thenReturn(listTopicsFuture);
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+
+    // Mock describeTopics to throw an exception
+    KafkaFuture<Map<String, TopicDescription>> describeTopicsFuture = mock(KafkaFuture.class);
+    when(describeTopicsFuture.get()).thenThrow(new RuntimeException("Failed to describe topic"));
+    when(mockDescribeTopicsResult.allTopicNames()).thenReturn(describeTopicsFuture);
+    when(mockAdminClient.describeTopics(anyList())).thenReturn(mockDescribeTopicsResult);
+
+    // Mock the createAdminClient method to return our mock AdminClient
+    doReturn(mockAdminClient).when(spyStep).createAdminClient();
+
+    // Set up topics configuration with test topics
+    Map<String, TopicsConfiguration.TopicConfiguration> topics = new HashMap<>();
+    TopicsConfiguration.TopicConfiguration topicConfig =
+        new TopicsConfiguration.TopicConfiguration();
+    topicConfig.setName("test-topic");
+    topicConfig.setPartitions(5);
+    topicConfig.setReplicationFactor(1);
+    topicConfig.setEnabled(true);
+    topics.put("testTopic", topicConfig);
+    kafkaConfiguration.setTopics(topics);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = spyStep.executable().apply(mockContext);
+
+    assertNotNull(result);
+    // Should fail when partition count check fails
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+
+    // Verify that createTopics was NOT called
+    verify(mockAdminClient, times(0)).createTopics(any());
+    // Verify that createPartitions was NOT called
+    verify(mockAdminClient, times(0)).createPartitions(any());
+  }
+
+  @Test
+  public void testSkipPartitionIncreaseWhenAutoIncreaseDisabled() throws Exception {
+    // Create spy to mock the createAdminClient method
+    CreateKafkaTopicsStep spyStep = spy(step);
+
+    // Disable auto-increase partitions
+    kafkaConfiguration.getSetup().setAutoIncreasePartitions(false);
+
+    // Mock AdminClient and its dependencies
+    AdminClient mockAdminClient = mock(AdminClient.class);
+    ListTopicsResult mockListTopicsResult = mock(ListTopicsResult.class);
+
+    // Mock existing topics (topic already exists)
+    Set<String> existingTopics = new HashSet<>();
+    existingTopics.add("test-topic");
+    KafkaFuture<Set<String>> listTopicsFuture = mock(KafkaFuture.class);
+    when(listTopicsFuture.get()).thenReturn(existingTopics);
+    when(mockListTopicsResult.names()).thenReturn(listTopicsFuture);
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+
+    // Mock the createAdminClient method to return our mock AdminClient
+    doReturn(mockAdminClient).when(spyStep).createAdminClient();
+
+    // Set up topics configuration with test topics (5 partitions desired, but topic has 3)
+    Map<String, TopicsConfiguration.TopicConfiguration> topics = new HashMap<>();
+    TopicsConfiguration.TopicConfiguration topicConfig =
+        new TopicsConfiguration.TopicConfiguration();
+    topicConfig.setName("test-topic");
+    topicConfig.setPartitions(5); // Want to increase from 3 to 5, but auto-increase is disabled
+    topicConfig.setReplicationFactor(1);
+    topicConfig.setEnabled(true);
+    topics.put("testTopic", topicConfig);
+    kafkaConfiguration.setTopics(topics);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = spyStep.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Verify that createTopics was NOT called since topic already exists
+    verify(mockAdminClient, times(0)).createTopics(any());
+    // Verify that createPartitions was NOT called since auto-increase is disabled
+    verify(mockAdminClient, times(0)).createPartitions(any());
+    // Verify that describeTopics was NOT called since auto-increase is disabled
+    verify(mockAdminClient, times(0)).describeTopics(anyList());
   }
 
   @Test
