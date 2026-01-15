@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -51,6 +51,7 @@ from datahub.ingestion.source.hightouch.hightouch_assertion import (
 from datahub.ingestion.source.hightouch.hightouch_schema import HightouchSchemaHandler
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
+    HightouchDestinationLineageInfo,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
@@ -151,6 +152,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         self._destinations_cache: Dict[str, HightouchDestination] = {}
         self._users_cache: Dict[str, HightouchUser] = {}
         self._emitted_containers: set = set()
+        self._registered_urns: Set[str] = set()  # Track URNs with loaded schemas
 
         self._urn_builder = HightouchUrnBuilder(self)
 
@@ -168,7 +170,7 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         self._sql_aggregators: Dict[str, Optional[SqlParsingAggregator]] = {}
 
-        self._destination_lineage: Dict[str, Dict[str, Any]] = {}
+        self._destination_lineage: Dict[str, HightouchDestinationLineageInfo] = {}
 
     def _get_aggregator_for_platform(
         self, source_platform: PlatformDetail
@@ -663,7 +665,7 @@ class HightouchSource(StatefulIngestionSourceBase):
                 return None
 
         # Always return Hightouch model URN when emitting models as datasets
-        # Sibling relationships will connect to source table when include_table_lineage_to_sibling is True
+        # The sibling relationship connects the model to the upstream warehouse table
         return self._urn_builder.make_model_urn(model, source)
 
     def _get_outlet_urn_for_sync(
@@ -980,16 +982,15 @@ class HightouchSource(StatefulIngestionSourceBase):
     ) -> None:
         # Accumulate across syncs to avoid overwriting when multiple syncs target same destination
         if destination_urn not in self._destination_lineage:
-            self._destination_lineage[destination_urn] = {
-                "upstreams": set(),
-                "fine_grained_lineages": [],
-            }
+            self._destination_lineage[destination_urn] = (
+                HightouchDestinationLineageInfo()
+            )
 
         for inlet_urn in datajob.inlets:
-            self._destination_lineage[destination_urn]["upstreams"].add(str(inlet_urn))
+            self._destination_lineage[destination_urn].upstreams.add(str(inlet_urn))
 
         if datajob.fine_grained_lineages:
-            self._destination_lineage[destination_urn]["fine_grained_lineages"].extend(
+            self._destination_lineage[destination_urn].fine_grained_lineages.extend(
                 datajob.fine_grained_lineages
             )
 
@@ -1007,12 +1008,12 @@ class HightouchSource(StatefulIngestionSourceBase):
                     dataset=upstream_urn,
                     type=DatasetLineageTypeClass.COPY,
                 )
-                for upstream_urn in lineage_data["upstreams"]
+                for upstream_urn in lineage_data.upstreams
             ]
 
             fine_grained_lineages = (
-                lineage_data["fine_grained_lineages"]
-                if lineage_data["fine_grained_lineages"]
+                lineage_data.fine_grained_lineages
+                if lineage_data.fine_grained_lineages
                 else None
             )
 
@@ -1092,7 +1093,7 @@ class HightouchSource(StatefulIngestionSourceBase):
     def _emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        # Hightouch model is primary, source table is secondary
+        # Always emit sibling aspect on Hightouch model (primary)
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=SiblingsClass(
@@ -1101,18 +1102,8 @@ class HightouchSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        # Only emit sibling aspect on source table if it exists in DataHub
-        source_exists = False
-        if self.graph:
-            try:
-                schema_metadata = self.graph.get_schema_metadata(source_table_urn)
-                source_exists = schema_metadata is not None
-            except Exception as e:
-                logger.debug(
-                    f"Could not check if source table {source_table_urn} exists: {e}"
-                )
-
-        if source_exists:
+        # Only emit sibling aspect on source table if it was registered (has schema loaded)
+        if source_table_urn in self._registered_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=source_table_urn,
                 aspect=SiblingsClass(
@@ -1121,12 +1112,11 @@ class HightouchSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
             logger.debug(
-                f"Emitted sibling relationship: {model_urn} <-> {source_table_urn} (Hightouch model is primary)"
+                f"Emitted sibling relationship: {model_urn} (primary) <-> {source_table_urn} (secondary)"
             )
         else:
             logger.debug(
-                f"Skipped emitting sibling aspect on source table {source_table_urn} - table not found in DataHub. "
-                f"Sibling aspect emitted on Hightouch model {model_urn} only."
+                f"Emitted sibling aspect on {model_urn} only - source table {source_table_urn} not in registered URNs"
             )
 
     def _get_sync_workunits(
@@ -1337,7 +1327,7 @@ class HightouchSource(StatefulIngestionSourceBase):
             return
 
         logger.info("Preloading schemas from DataHub for SQL parsing")
-        registered_urns: Set[str] = set()
+        self._registered_urns.clear()  # Clear any previous run's data
 
         for model in models:
             source = self._get_source(model.source_id)
@@ -1352,13 +1342,15 @@ class HightouchSource(StatefulIngestionSourceBase):
             if not aggregator:
                 continue
 
-            self._preload_model_schemas(model, source, aggregator, registered_urns)
+            self._preload_model_schemas(
+                model, source, aggregator, self._registered_urns
+            )
 
         for sync in syncs:
-            self._preload_sync_schemas(sync, registered_urns)
+            self._preload_sync_schemas(sync, self._registered_urns)
 
         logger.info(
-            f"Preloaded {len(registered_urns)} schemas from DataHub for SQL parsing"
+            f"Preloaded {len(self._registered_urns)} schemas from DataHub for SQL parsing"
         )
 
     def get_workunits_internal(

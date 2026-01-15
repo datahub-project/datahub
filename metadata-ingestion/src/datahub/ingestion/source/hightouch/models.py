@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -148,3 +148,8 @@ class HightouchContractRun(_HightouchBaseModel):
     total_rows_checked: Optional[int] = Field(default=None, alias="totalRowsChecked")
     rows_passed: Optional[int] = Field(default=None, alias="rowsPassed")
     rows_failed: Optional[int] = Field(default=None, alias="rowsFailed")
+
+
+class HightouchDestinationLineageInfo(BaseModel):
+    upstreams: Set[str] = Field(default_factory=set)
+    fine_grained_lineages: List = Field(default_factory=list)
