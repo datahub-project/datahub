@@ -37,6 +37,7 @@ import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@app/shared/constants';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
 import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
@@ -66,7 +67,7 @@ const Content = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
     height: 100%;
-    width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
+    width: ${(props) => (props.isCollapsed ? `${NAV_SIDEBAR_WIDTH_COLLAPSED}px` : `${NAV_SIDEBAR_WIDTH_EXPANDED}px`)};
     transition: width 250ms ease-in-out;
     overflow-x: hidden;
 `;
@@ -442,7 +443,7 @@ export const NavSidebar = () => {
     return (
         <Container>
             {renderSvgSelectedGradientForReusingInIcons()}
-            <Content isCollapsed={isCollapsed}>
+            <Content id={NAV_SIDEBAR_ID} data-collapsed={isCollapsed} isCollapsed={isCollapsed}>
                 {showSkeleton ? (
                     <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (
