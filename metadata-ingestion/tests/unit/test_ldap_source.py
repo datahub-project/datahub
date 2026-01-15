@@ -119,9 +119,10 @@ def test_ldap_config_tls_verify(tls_verify_value, expected):
     assert config.tls_verify is expected
 
 
+@patch("datahub.ingestion.source.ldap.logger")
 @patch("datahub.ingestion.source.ldap.ldap")
-def test_tls_verify_false_sets_allow(mock_ldap):
-    """Test that tls_verify=False sets OPT_X_TLS_ALLOW (insecure)."""
+def test_tls_verify_false_sets_allow(mock_ldap, mock_logger):
+    """Test that tls_verify=False sets OPT_X_TLS_ALLOW (insecure) and logs warning."""
     mock_ldap.OPT_X_TLS_REQUIRE_CERT = 24577  # Actual value
     mock_ldap.OPT_X_TLS_ALLOW = 3
     mock_ldap.OPT_REFERRALS = 8
@@ -146,6 +147,10 @@ def test_tls_verify_false_sets_allow(mock_ldap):
     mock_ldap.set_option.assert_any_call(
         mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_ALLOW
     )
+
+    # Verify security warning was logged
+    mock_logger.warning.assert_called_once()
+    assert "tls_verify=False" in mock_logger.warning.call_args[0][0]
 
 
 @patch("datahub.ingestion.source.ldap.ldap")
