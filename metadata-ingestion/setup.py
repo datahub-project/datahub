@@ -46,7 +46,7 @@ framework_common = {
     "psutil>=5.8.0,<8.0.0",
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
-    "packaging<25.0.0",
+    "packaging<26.0.0",
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -580,7 +580,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"} | sqlglot_lib,
-    "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<25.0.0"},
+    "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
     "mysql": sql_common | mysql | aws_common,
@@ -633,7 +633,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
-    "nifi": {"requests<3.0.0", "packaging<25.0.0", "requests-gssapi<2.0.0"},
+    "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
         | {"lark[regex]==1.1.4", "sqlparse<1.0.0", "more-itertools<11.0.0"}
