@@ -1,10 +1,13 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
+import ldap as ldap_module
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.ldap import (
     LDAPSource,
     LDAPSourceConfig,
+    logger,
     parse_groups,
     parse_ldap_dn,
     parse_users,
@@ -119,13 +122,18 @@ def test_ldap_config_tls_verify(tls_verify_value, expected):
     assert config.tls_verify is expected
 
 
-@patch("datahub.ingestion.source.ldap.logger")
+def test_ldap_logger_configured():
+    """Test that the LDAP source module has a properly configured logger."""
+    assert logger is not None
+    assert logger.name == "datahub.ingestion.source.ldap"
+
+
 @patch("datahub.ingestion.source.ldap.ldap")
-def test_tls_verify_false_sets_allow(mock_ldap, mock_logger):
+def test_tls_verify_false_sets_allow_and_logs_warning(mock_ldap):
     """Test that tls_verify=False sets OPT_X_TLS_ALLOW (insecure) and logs warning."""
-    mock_ldap.OPT_X_TLS_REQUIRE_CERT = 24577  # Actual value
-    mock_ldap.OPT_X_TLS_ALLOW = 3
-    mock_ldap.OPT_REFERRALS = 8
+    mock_ldap.OPT_X_TLS_REQUIRE_CERT = ldap_module.OPT_X_TLS_REQUIRE_CERT
+    mock_ldap.OPT_X_TLS_ALLOW = ldap_module.OPT_X_TLS_ALLOW
+    mock_ldap.OPT_REFERRALS = ldap_module.OPT_REFERRALS
     mock_ldap.initialize.return_value = MagicMock()
 
     config = LDAPSourceConfig.model_validate(
@@ -138,27 +146,29 @@ def test_tls_verify_false_sets_allow(mock_ldap, mock_logger):
         }
     )
 
-    from datahub.ingestion.api.common import PipelineContext
-
     ctx = PipelineContext(run_id="test")
-    LDAPSource(ctx, config)
 
-    # Verify ldap.set_option was called with OPT_X_TLS_ALLOW (insecure)
-    mock_ldap.set_option.assert_any_call(
-        mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_ALLOW
-    )
+    with patch("datahub.ingestion.source.ldap.logger") as mock_logger:
+        LDAPSource(ctx, config)
 
-    # Verify security warning was logged
-    mock_logger.warning.assert_called_once()
-    assert "tls_verify=False" in mock_logger.warning.call_args[0][0]
+        # Verify ldap.set_option was called with OPT_X_TLS_ALLOW (insecure)
+        mock_ldap.set_option.assert_any_call(
+            ldap_module.OPT_X_TLS_REQUIRE_CERT, ldap_module.OPT_X_TLS_ALLOW
+        )
+
+        # Verify security warning was logged
+        mock_logger.warning.assert_called_once()
+        warning_msg = mock_logger.warning.call_args[0][0]
+        assert "tls_verify=False" in warning_msg
+        assert "Man-in-the-Middle" in warning_msg
 
 
 @patch("datahub.ingestion.source.ldap.ldap")
 def test_tls_verify_true_sets_demand(mock_ldap):
-    """Test that tls_verify=True sets OPT_X_TLS_DEMAND (secure)."""
-    mock_ldap.OPT_X_TLS_REQUIRE_CERT = 24577  # Actual value
-    mock_ldap.OPT_X_TLS_DEMAND = 2
-    mock_ldap.OPT_REFERRALS = 8
+    """Test that tls_verify=True sets OPT_X_TLS_DEMAND (secure) and does not log warning."""
+    mock_ldap.OPT_X_TLS_REQUIRE_CERT = ldap_module.OPT_X_TLS_REQUIRE_CERT
+    mock_ldap.OPT_X_TLS_DEMAND = ldap_module.OPT_X_TLS_DEMAND
+    mock_ldap.OPT_REFERRALS = ldap_module.OPT_REFERRALS
     mock_ldap.initialize.return_value = MagicMock()
 
     config = LDAPSourceConfig.model_validate(
@@ -171,12 +181,15 @@ def test_tls_verify_true_sets_demand(mock_ldap):
         }
     )
 
-    from datahub.ingestion.api.common import PipelineContext
-
     ctx = PipelineContext(run_id="test")
-    LDAPSource(ctx, config)
 
-    # Verify ldap.set_option was called with OPT_X_TLS_DEMAND (secure)
-    mock_ldap.set_option.assert_any_call(
-        mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_DEMAND
-    )
+    with patch("datahub.ingestion.source.ldap.logger") as mock_logger:
+        LDAPSource(ctx, config)
+
+        # Verify ldap.set_option was called with OPT_X_TLS_DEMAND (secure)
+        mock_ldap.set_option.assert_any_call(
+            ldap_module.OPT_X_TLS_REQUIRE_CERT, ldap_module.OPT_X_TLS_DEMAND
+        )
+
+        # Verify NO security warning was logged (secure mode)
+        mock_logger.warning.assert_not_called()
