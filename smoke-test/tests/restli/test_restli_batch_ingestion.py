@@ -117,13 +117,13 @@ def test_restli_batch_ingestion_sync(graph_client):
     # Positive Test (all valid MetadataChangeProposal)
     mcps = _create_valid_dashboard_mcps()
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
-    assert ret >= 0
+    assert isinstance(ret, list)
 
     # Negative Test (contains invalid MetadataChangeProposal)
     invalid_mcp = _create_invalid_dashboard_mcp()
     mcps.append(invalid_mcp)
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
-    assert ret >= 0
+    assert isinstance(ret, list)
 
     # Expected that invalid field of MetadataChangeProposal is ignored,
     # Rest Fields are persistd into DB
@@ -142,13 +142,13 @@ def test_restli_batch_ingestion_async(graph_client):
     # Positive Test (all valid MetadataChangeProposal)
     mcps = _create_valid_dashboard_mcps()
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.ASYNC)
-    assert ret >= 0
+    assert isinstance(ret, list)
 
     # Negative Test (contains invalid MetadataChangeProposal)
     invalid_mcp = _create_invalid_dashboard_mcp()
     mcps.append(invalid_mcp)
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.ASYNC)
-    assert ret >= 0
+    assert isinstance(ret, list)
 
     # Expected that invalid field of MetadataChangeProposal is ignored,
     # Rest Fields are persistd into DB
@@ -188,4 +188,4 @@ def test_restli_batch_ingestion_exception_async(graph_client):
     generated_urns.extend([mcp.entityUrn for mcp in bad_mcps if mcp.entityUrn])
     # TODO expectation is that it throws exception, but it doesn't currently.this test case need to change after fix.
     ret = graph_client.emit_mcps(bad_mcps, emit_mode=EmitMode.ASYNC)
-    assert ret >= 0
+    assert isinstance(ret, list)
