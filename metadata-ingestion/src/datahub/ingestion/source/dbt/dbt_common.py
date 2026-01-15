@@ -1910,6 +1910,24 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 result_type=model_performance.status,
             )
 
+    def _extract_list_as_string(
+        self,
+        field_name: str,
+        value: Any,
+        query_name: str,
+        node_name: str,
+    ) -> Optional[str]:
+        """Extract a list field as comma-separated string, logging if invalid type."""
+        if not value:
+            return None
+        if not isinstance(value, list):
+            logger.debug(
+                f"Invalid {field_name} type for query '{query_name}' in {node_name}: "
+                f"expected list, got {type(value).__name__}. Ignoring {field_name}."
+            )
+            return None
+        return ", ".join(str(item) for item in value)
+
     def _create_query_entity_mcps(
         self,
         node: DBTNode,
@@ -1944,7 +1962,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
                 query_timestamp = datetime_to_ts_millis(manifest_generated_at)
             except Exception:
-                # Fall back to current time if parsing fails
+                # dateutil can throw various errors on malformed timestamps from non-standard dbt versions
                 query_timestamp = datetime_to_ts_millis(datetime.now())
         else:
             query_timestamp = datetime_to_ts_millis(datetime.now())
@@ -2011,29 +2029,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # Build custom properties to include tags and terms
                 custom_properties = {}
 
-                # Add tags to custom properties if present
-                query_tags = query_def.get("tags")
-                if query_tags:
-                    if isinstance(query_tags, list):
-                        custom_properties["tags"] = ", ".join(
-                            str(tag) for tag in query_tags
-                        )
-                    else:
-                        logger.debug(
-                            f"Invalid tags type for query '{query_name}' in {node.dbt_name}: expected list, got {type(query_tags).__name__}. Ignoring tags."
-                        )
+                # Add tags and terms to custom properties if present
+                if tags_str := self._extract_list_as_string(
+                    "tags", query_def.get("tags"), query_name, node.dbt_name
+                ):
+                    custom_properties["tags"] = tags_str
 
-                # Add terms to custom properties if present
-                query_terms = query_def.get("terms")
-                if query_terms:
-                    if isinstance(query_terms, list):
-                        custom_properties["terms"] = ", ".join(
-                            str(term) for term in query_terms
-                        )
-                    else:
-                        logger.debug(
-                            f"Invalid terms type for query '{query_name}' in {node.dbt_name}: expected list, got {type(query_terms).__name__}. Ignoring terms."
-                        )
+                if terms_str := self._extract_list_as_string(
+                    "terms", query_def.get("terms"), query_name, node.dbt_name
+                ):
+                    custom_properties["terms"] = terms_str
 
                 # Create QueryProperties aspect
                 query_properties = QueryPropertiesClass(
