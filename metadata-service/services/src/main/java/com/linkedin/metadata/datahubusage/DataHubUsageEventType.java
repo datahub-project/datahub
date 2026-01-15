@@ -256,6 +256,8 @@ public enum DataHubUsageEventType {
   DATAHUB_CHAT_RESPONSE_ERROR_EVENT("DataHubChatResponseErrorEvent"),
   DATAHUB_CHAT_RESPONSE_COMPLETE_EVENT("DataHubChatResponseCompleteEvent"),
   STOP_DATAHUB_CHAT_RESPONSE_EVENT("StopDataHubChatResponseEvent"),
+  CHAT_MESSAGE_REACTION_EVENT("ChatMessageReactionEvent"),
+  CHAT_MESSAGE_FEEDBACK_EVENT("ChatMessageFeedbackEvent"),
   SUBSCRIPTION_OWNER_CLICK_EVENT("SubscriptionOwnerClickEvent"),
   SUBSCRIPTION_ENTITY_CLICK_EVENT("SubscriptionEntityClickEvent"),
   SUBSCRIPTION_EDIT_CLICK_EVENT("SubscriptionEditClickEvent"),

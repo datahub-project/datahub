@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { ChatLocationType } from '@app/analytics';
 import { ChatMessage } from '@app/chat/components/messages/ChatMessage';
 import { ThinkingGroup } from '@app/chat/components/messages/ThinkingGroup';
 import { ChatMessageAction, ChatVariant } from '@app/chat/types';
@@ -32,6 +33,7 @@ interface MessageListProps {
     conversationUrn?: string;
     selectedEntityUrn?: string;
     onEntitySelect?: (entity: Entity | null) => void;
+    chatLocation?: ChatLocationType;
 }
 
 /**
@@ -48,6 +50,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     conversationUrn,
     selectedEntityUrn,
     onEntitySelect,
+    chatLocation,
 }) => {
     return (
         <>
@@ -84,6 +87,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         conversationUrn={conversationUrn}
                         selectedEntityUrn={selectedEntityUrn}
                         onEntitySelect={onEntitySelect}
+                        chatLocation={chatLocation}
                     />
                 );
             })}

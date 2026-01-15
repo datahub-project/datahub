@@ -1812,6 +1812,11 @@ type FeatureFlagsConfig {
   showAskDataHub: Boolean!
 
   """
+  Whether thumbs up/down feedback buttons are shown on AI chat responses
+  """
+  showAskDataHubFeedback: Boolean!
+
+  """
   Whether creating support tickets is enabled or not
   """
   supportTicketsEnabled: Boolean!

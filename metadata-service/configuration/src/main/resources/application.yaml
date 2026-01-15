@@ -1262,8 +1262,10 @@ featureFlags:
   # If enabled, the invite users feature will be available in the UI
   supportTicketsEnabled: ${SUPPORT_TICKETS_ENABLED:false}
   # If enabled, the support tickets feature will be available in the UI
-  showAskDataHub: ${SHOW_ASK_DATAHUB:false}
+  showAskDataHub: ${SHOW_ASK_DATAHUB:true}
   # If enabled, the ask datahub feature will be available in the UI
+  showAskDataHubFeedback: ${SHOW_ASK_DATAHUB_FEEDBACK:true}
+  # If enabled, the thumbs up/down feedback buttons will be shown on AI chat responses
   freshnessAssertionTuningEnabled: ${FRESHNESS_ASSERTION_TUNING_ENABLED:true}
   # If enabled, the freshness assertion tuning feature will be available in the UI
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar

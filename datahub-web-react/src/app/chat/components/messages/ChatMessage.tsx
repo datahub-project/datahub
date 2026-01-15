@@ -4,9 +4,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { ChatLocationType } from '@app/analytics';
+import { ChatFeedbackModal } from '@app/chat/components/messages/ChatFeedbackModal';
 import { MarkdownContent } from '@app/chat/components/messages/ChatMessage.styles';
 import { CodeBlock } from '@app/chat/components/messages/CodeBlock';
+import { ReactionButtons } from '@app/chat/components/messages/ReactionButtons';
 import { MessageReferences } from '@app/chat/components/references/MessageReferences';
+import { useChatMessageReaction } from '@app/chat/hooks/useChatMessageReaction';
 import { ChatMessageAction, ChatVariant } from '@app/chat/types';
 import { parseMessageContent } from '@app/chat/utils/parseMessageContent';
 import { extractTypeFromUrn } from '@app/entity/shared/utils';
@@ -42,6 +46,14 @@ const CopyButtonWrapper = styled.div`
     margin-left: auto;
 `;
 
+const ReactionButtonsWrapper = styled.div<{ $hasReaction?: boolean }>`
+    opacity: ${(props) => (props.$hasReaction ? 1 : 0)};
+    visibility: ${(props) => (props.$hasReaction ? 'visible' : 'hidden')};
+    transition:
+        opacity 0.2s ease,
+        visibility 0.2s ease;
+`;
+
 const MessageContent = styled.div<{ isUser: boolean; $variant?: ChatVariant }>`
     max-width: ${(props) => {
         if (!props.isUser) return '100%';
@@ -54,7 +66,7 @@ const MessageContent = styled.div<{ isUser: boolean; $variant?: ChatVariant }>`
     min-width: 0; /* Allow flex item to shrink below content size */
     box-sizing: border-box;
 
-    &:hover ${CopyButtonWrapper} {
+    &:hover ${CopyButtonWrapper}, &:hover ${ReactionButtonsWrapper} {
         opacity: 1;
         visibility: visible;
     }
@@ -112,6 +124,7 @@ interface MessageRendererProps {
     variant?: ChatVariant; // 'full' shows MessageReferences, 'compact' for entity sidebar
     allowedActions?: ChatMessageAction[];
     showReferences?: boolean;
+    chatLocation?: ChatLocationType;
 }
 
 export const ChatMessage: React.FC<MessageRendererProps> = ({
@@ -122,6 +135,7 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
     variant = ChatVariant.Full,
     allowedActions,
     showReferences = true,
+    chatLocation,
 }) => {
     const isUser = message.actor.type === DataHubAiConversationActorType.User;
     const isThinking = message.type === DataHubAiConversationMessageType.Thinking;
@@ -134,6 +148,15 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const messageRef = useRef<HTMLDivElement>(null);
+
+    // Use custom hook for reaction state and analytics
+    const { reaction, showFeedbackModal, handleReaction, handleFeedbackSubmit, handleFeedbackCancel } =
+        useChatMessageReaction({
+            messageTime: message.time,
+            messageText: message.content?.text,
+            conversationUrn,
+            chatLocation,
+        });
 
     // Memoize parsing to avoid re-parsing on every render (matches pattern used in MessageReferences)
     const parts = useMemo(() => {
@@ -245,6 +268,9 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
     const canShowCopy = allowedActionsSet.has(ChatMessageAction.Copy) && isAiTextMessage;
     const canShowOpenInChat =
         allowedActionsSet.has(ChatMessageAction.OpenInChat) && isAiTextMessage && !!conversationUrn;
+    const canShowThumbsUp = allowedActionsSet.has(ChatMessageAction.ThumbsUp) && isAiTextMessage;
+    const canShowThumbsDown = allowedActionsSet.has(ChatMessageAction.ThumbsDown) && isAiTextMessage;
+    const canShowReactions = canShowThumbsUp || canShowThumbsDown;
 
     const handleOpenInChat = () => {
         if (conversationUrn) {
@@ -252,8 +278,10 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
         }
     };
 
-    const shouldShowFullActions = variant === ChatVariant.Full && (canShowReferences || canShowCopy);
-    const shouldShowCompactActions = variant === ChatVariant.Compact && (canShowCopy || canShowOpenInChat);
+    const shouldShowFullActions =
+        variant === ChatVariant.Full && (canShowReferences || canShowCopy || canShowReactions);
+    const shouldShowCompactActions =
+        variant === ChatVariant.Compact && (canShowCopy || canShowOpenInChat || canShowReactions);
 
     const messageElement = (
         <MessageContainer ref={messageRef} isUser={isUser}>
@@ -269,6 +297,17 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
                                 selectedEntityUrn={selectedEntityUrn}
                                 onEntitySelect={onEntitySelect}
                             />
+                        )}
+                        {canShowReactions && (
+                            <ReactionButtonsWrapper $hasReaction={reaction !== null}>
+                                <ReactionButtons
+                                    reaction={reaction}
+                                    showThumbsUp={canShowThumbsUp}
+                                    showThumbsDown={canShowThumbsDown}
+                                    onReaction={handleReaction}
+                                    alwaysVisible
+                                />
+                            </ReactionButtonsWrapper>
                         )}
                         {canShowCopy && (
                             <CopyButtonWrapper>
@@ -301,41 +340,60 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
     // Compact mode with action buttons: wrap in hover container
     if (shouldShowCompactActions) {
         return (
-            <CompactMessageWrapper>
-                {messageElement}
-                <CompactActionButtonsContainer className="compact-action-buttons">
-                    {canShowCopy && (
-                        <Tooltip title={copied ? 'Copied!' : 'Copy'} placement="top">
-                            <Button
-                                variant="text"
-                                size="md"
-                                color="gray"
-                                onClick={handleCopy}
-                                icon={{
-                                    icon: copied ? 'Check' : 'Copy',
-                                    source: 'phosphor',
-                                    size: 'md',
-                                }}
-                                style={{ padding: '4px 8px', minWidth: 'auto' }}
+            <>
+                <CompactMessageWrapper>
+                    {messageElement}
+                    <CompactActionButtonsContainer className="compact-action-buttons">
+                        {canShowReactions && (
+                            <ReactionButtons
+                                reaction={reaction}
+                                showThumbsUp={canShowThumbsUp}
+                                showThumbsDown={canShowThumbsDown}
+                                onReaction={handleReaction}
+                                alwaysVisible
                             />
-                        </Tooltip>
-                    )}
-                    {canShowOpenInChat && (
-                        <Tooltip title="Open in Chat" placement="top">
-                            <Button
-                                variant="text"
-                                size="md"
-                                color="gray"
-                                onClick={handleOpenInChat}
-                                icon={{ icon: 'ArrowUpRight', source: 'phosphor', size: 'md' }}
-                                style={{ padding: '4px 8px', minWidth: 'auto' }}
-                            />
-                        </Tooltip>
-                    )}
-                </CompactActionButtonsContainer>
-            </CompactMessageWrapper>
+                        )}
+                        {canShowCopy && (
+                            <Tooltip title={copied ? 'Copied!' : 'Copy'} placement="top">
+                                <Button
+                                    variant="text"
+                                    size="md"
+                                    color="gray"
+                                    onClick={handleCopy}
+                                    icon={{
+                                        icon: copied ? 'Check' : 'Copy',
+                                        source: 'phosphor',
+                                        size: 'md',
+                                    }}
+                                    style={{ padding: '4px 8px', minWidth: 'auto' }}
+                                />
+                            </Tooltip>
+                        )}
+                        {canShowOpenInChat && (
+                            <Tooltip title="Open in Chat" placement="top">
+                                <Button
+                                    variant="text"
+                                    size="md"
+                                    color="gray"
+                                    onClick={handleOpenInChat}
+                                    icon={{ icon: 'ArrowUpRight', source: 'phosphor', size: 'md' }}
+                                    style={{ padding: '4px 8px', minWidth: 'auto' }}
+                                />
+                            </Tooltip>
+                        )}
+                    </CompactActionButtonsContainer>
+                </CompactMessageWrapper>
+                {showFeedbackModal && (
+                    <ChatFeedbackModal onSubmit={handleFeedbackSubmit} onCancel={handleFeedbackCancel} />
+                )}
+            </>
         );
     }
 
-    return messageElement;
+    return (
+        <>
+            {messageElement}
+            {showFeedbackModal && <ChatFeedbackModal onSubmit={handleFeedbackSubmit} onCancel={handleFeedbackCancel} />}
+        </>
+    );
 };

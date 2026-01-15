@@ -70,6 +70,11 @@ export function useIsAiChatEnabled() {
     return appConfig.config.featureFlags.showAskDataHub;
 }
 
+export function useIsAiChatFeedbackEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showAskDataHubFeedback;
+}
+
 export function useIsFreshnessAssertionTuningEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.freshnessAssertionTuningEnabled;

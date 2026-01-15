@@ -33,7 +33,12 @@ export default function AskDataHubTab(_props: EntityTabProps) {
     const { entityData, urn: entityUrn = '', entityType } = entityContext || {};
     const userUrn = userContext.user?.urn;
     const featureFlags = { verboseMode: false };
-    const compactActions: ChatMessageAction[] = [ChatMessageAction.Copy, ChatMessageAction.OpenInChat];
+    const compactActions: ChatMessageAction[] = [
+        ChatMessageAction.Copy,
+        ChatMessageAction.OpenInChat,
+        ChatMessageAction.ThumbsUp,
+        ChatMessageAction.ThumbsDown,
+    ];
 
     // Provide generic fallback so user can still chat even if entity data is loading
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : 'this asset';

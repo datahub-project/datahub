@@ -90,6 +90,7 @@ public class FeatureFlags {
   private boolean termPropagationV2Enabled = false;
   private boolean inviteUsersEnabled = false;
   private boolean showAskDataHub = false;
+  private boolean showAskDataHubFeedback = false;
   private boolean supportTicketsEnabled = false;
   private boolean freshnessAssertionTuningEnabled = false;
   private boolean contextDocumentsEnabled = false;

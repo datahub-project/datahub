@@ -10,4 +10,6 @@ export enum ChatVariant {
 export enum ChatMessageAction {
     Copy = 'copy',
     OpenInChat = 'openInChat',
+    ThumbsUp = 'thumbsUp',
+    ThumbsDown = 'thumbsDown',
 }

@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { ChatArea } from '@app/chat/components/ChatArea';
 import { ConversationList } from '@app/chat/components/ConversationList';
-import { ChatFeatureFlags } from '@app/chat/types';
+import { ChatFeatureFlags, ChatMessageAction } from '@app/chat/types';
 import {
     ConversationListItem,
     mapToConversationListItem,
@@ -359,6 +359,11 @@ export const ChatPage = () => {
                             initialMessage={initialMessageRef.current}
                             chatLocation="ask_datahub_ui"
                             suggestedQuestions={suggestedQuestions}
+                            messageActions={[
+                                ChatMessageAction.Copy,
+                                ChatMessageAction.ThumbsUp,
+                                ChatMessageAction.ThumbsDown,
+                            ]}
                         />
                     )}
                 </MainContent>

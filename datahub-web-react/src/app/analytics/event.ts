@@ -273,6 +273,8 @@ export enum EventType {
     DataHubChatResponseErrorEvent,
     DataHubChatResponseCompleteEvent,
     StopDataHubChatResponseEvent,
+    ChatMessageReactionEvent,
+    ChatMessageFeedbackEvent,
     FileUploadAttemptEvent,
     FileUploadFailedEvent,
     FileUploadSucceededEvent,
@@ -2081,6 +2083,30 @@ export interface StopDataHubChatResponseEvent extends BaseEvent {
     conversationUrn: string;
 }
 
+export type ChatMessageReactionType = 'positive' | 'negative';
+
+/**
+ * Logged when a user reacts to a chat message with thumbs up or thumbs down.
+ */
+export interface ChatMessageReactionEvent extends BaseEvent {
+    type: EventType.ChatMessageReactionEvent;
+    conversationUrn: string;
+    messageId: string;
+    reaction: ChatMessageReactionType;
+    chatLocation: ChatLocationType;
+}
+
+/**
+ * Logged when a user submits text feedback after a negative reaction.
+ */
+export interface ChatMessageFeedbackEvent extends BaseEvent {
+    type: EventType.ChatMessageFeedbackEvent;
+    conversationUrn: string;
+    messageId: string;
+    feedbackText: string;
+    chatLocation: ChatLocationType;
+}
+
 interface GoToLogicalParentEvent extends BaseEvent {
     type: EventType.GoToLogicalParentEvent;
     entityUrn: string;
@@ -2467,6 +2493,8 @@ export type Event =
     | DataHubChatResponseErrorEvent
     | DataHubChatResponseCompleteEvent
     | StopDataHubChatResponseEvent
+    | ChatMessageReactionEvent
+    | ChatMessageFeedbackEvent
     | FileUploadAttemptEvent
     | FileUploadFailedEvent
     | FileUploadSucceededEvent

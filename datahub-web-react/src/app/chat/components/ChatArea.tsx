@@ -380,6 +380,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                     conversationUrn={conversationUrn}
                                     selectedEntityUrn={selectedEntityUrn}
                                     onEntitySelect={onEntitySelect}
+                                    chatLocation={chatLocation}
                                 />
                                 <div ref={messagesEndRef} />
                             </>
