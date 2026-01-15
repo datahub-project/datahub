@@ -1,7 +1,9 @@
 import { codecovVitePlugin } from '@codecov/vite-plugin';
+import federation from '@originjs/vite-plugin-federation';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 
@@ -53,20 +55,48 @@ export default defineConfig(async ({ mode }) => {
         antThemeConfig = require(themeConfigFile);
     }
 
+    // common extra logging setup for proxies
+    const proxyDebugConfig = (proxy, options) => {
+        proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log(`[PROXY] ${req.url} -> ${options.target}${req.url}`);
+        });
+        proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log(`[PROXY RESPONSE] ${req.url} <- ${proxyRes.statusCode} ${proxyRes.statusMessage}`);
+            if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400) {
+                console.log(`[PROXY REDIRECT] Location: ${proxyRes.headers.location}`);
+            }
+        });
+        proxy.on('error', (err, req, _res) => {
+            console.error(`[PROXY ERROR] ${req.url}:`, err.message);
+        });
+    };
+
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
         target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
         changeOrigin: true,
+        configure: proxyDebugConfig,
     };
+
     const proxyOptions = {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
         '/openapi/v1/tracking/track': frontendProxy,
         '/openapi/v1/files': frontendProxy,
+        '/mfe/config': frontendProxy,
     };
 
-    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
+    const isHttps = process.env.REACT_APP_HTTPS === 'true';
+    const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+    if (isHttps) {
+        devPlugins.push(
+            basicSsl({
+                name: 'datahub-dev-ssl',
+                domains: ['localhost'],
+            }),
+        );
+    }
 
     return {
         appType: 'spa',
@@ -74,6 +104,13 @@ export default defineConfig(async ({ mode }) => {
         plugins: [
             ...devPlugins,
             react(),
+            federation({
+                name: 'datahub-host',
+                remotes: {
+                    // at least one remote is needed to load the plugin correctly, just remotes: {} does not work
+                    remoteName: '',
+                },
+            }),
             svgr(),
             macrosPlugin(),
             viteStaticCopy({
@@ -130,6 +167,7 @@ export default defineConfig(async ({ mode }) => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
+            https: isHttps,
         },
         css: {
             preprocessorOptions: {
@@ -153,7 +191,9 @@ export default defineConfig(async ({ mode }) => {
                 reporter: ['text', 'json', 'html'],
                 include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
-                exclude: [],
+                exclude: [
+                    '**/*.d.ts', // TypeScript declaration files contain no executable code
+                ],
             },
         },
         resolve: {

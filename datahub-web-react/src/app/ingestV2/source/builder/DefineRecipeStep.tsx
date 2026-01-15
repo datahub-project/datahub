@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import RecipeBuilder from '@app/ingestV2/source/builder/RecipeBuilder';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { StepProps } from '@app/ingestV2/source/builder/types';
@@ -107,7 +107,7 @@ export const DefineRecipeStep = ({
         setSelectedSourceType?.(newState.type);
     };
 
-    if (type && CONNECTORS_WITH_FORM.has(type)) {
+    if (type && CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS.has(type)) {
         return (
             <RecipeBuilder
                 key={stagedRecipeName}

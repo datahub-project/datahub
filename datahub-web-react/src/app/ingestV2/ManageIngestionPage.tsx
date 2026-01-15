@@ -5,8 +5,10 @@ import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
@@ -19,6 +21,7 @@ import { NoPageFound } from '@app/shared/NoPageFound';
 import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -76,6 +79,7 @@ export const ManageIngestionPage = () => {
     const canManageIngestion = platformPrivileges?.manageIngestion;
     const showIngestionTab = isIngestionEnabled && canManageIngestion;
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
+    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
@@ -180,9 +184,17 @@ export const ManageIngestionPage = () => {
 
     const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
-    const handleCreateSource = () => {
-        setShowCreateSourceModal(true);
-    };
+    const handleCreateSource = useCallback(() => {
+        if (showIngestionOnboardingRedesignV1) {
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'sources_page_cta',
+            });
+            history.push(PageRoutes.INGESTION_CREATE);
+        } else {
+            setShowCreateSourceModal(true);
+        }
+    }, [showIngestionOnboardingRedesignV1, history]);
 
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);

@@ -1,10 +1,11 @@
 import { ShareAltOutlined } from '@ant-design/icons';
-import { FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
+import { ArrowsClockwise, FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/dataFlow/preview/Preview';
+import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -28,7 +29,7 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import { isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
-import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
+import { GetDataFlowQuery, useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
@@ -120,6 +121,15 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: ListBullets,
+                },
+                {
+                    name: 'Runs',
+                    component: RunsTab,
+                    icon: ArrowsClockwise,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataFlow: GetDataFlowQuery) => (dataFlow?.dataFlow?.runs?.total || 0) !== 0,
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -269,6 +279,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 }

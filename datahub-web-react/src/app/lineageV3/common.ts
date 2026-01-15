@@ -92,6 +92,11 @@ export interface LineageBoundingBox {
     dragged?: boolean;
 }
 
+export interface LineageAnnotationNode {
+    label: string;
+    dragged?: boolean;
+}
+
 export type LineageNode = LineageEntity | LineageFilter;
 
 const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob, EntityType.DataProcessInstance];

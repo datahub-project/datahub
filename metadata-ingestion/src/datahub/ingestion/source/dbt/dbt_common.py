@@ -5,7 +5,16 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import dateutil.parser
 import more_itertools
@@ -48,6 +57,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
@@ -133,6 +143,64 @@ DBT_PLATFORM = "dbt"
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 
+# =============================================================================
+# Regex patterns for Snowflake semantic view CLL (Column-Level Lineage) parsing
+# =============================================================================
+# Parses Snowflake semantic view DDL to extract column lineage from DIMENSIONS,
+# FACTS, and METRICS sections. Pattern naming: _SV_ prefix = Semantic View
+
+# Common building blocks for identifier matching
+_SV_IDENTIFIER = r"(\w+|\"[^\"]+\")"  # Matches: word OR "quoted identifier"
+_SV_COL_END = r"(?=\s*(?:,|\)|COMMENT|--|$|\n))"  # Lookahead for column end
+
+# TABLES section: greedy match with lookahead handles nested parens like PRIMARY KEY(...)
+_SV_TABLES_SECTION_RE = re.compile(
+    r"TABLES\s*\((.*)\)(?=\s*(?:RELATIONSHIPS|DIMENSIONS|METRICS|FACTS|COMMENT|$))",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# Alias mapping: "OrdersTable AS db.schema.orders" -> ("OrdersTable", "orders")
+_SV_ALIAS_RE = re.compile(r"(\w+)\s+as\s+[\w.]+\.(\w+)", re.IGNORECASE)
+
+# Dimension/fact: "TABLE.COL AS OUTPUT_COL"
+_SV_DIMENSION_RE = re.compile(
+    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}\s+AS\s+{_SV_IDENTIFIER}{_SV_COL_END}",
+    re.IGNORECASE,
+)
+
+# Metric: "TABLE.METRIC AS FUNC(SOURCE_COL)" - matches any aggregation function
+_SV_METRIC_RE = re.compile(
+    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}\s+AS\s+\w+\s*\(\s*{_SV_IDENTIFIER}\s*\)",
+    re.IGNORECASE,
+)
+
+# Derived metric: "OUTPUT AS TABLE.METRIC + TABLE.METRIC"
+_SV_DERIVED_METRIC_RE = re.compile(
+    rf"{_SV_IDENTIFIER}\s+AS\s+((?:{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}(?:\s*[+\-*/]\s*)?)+)",
+    re.IGNORECASE,
+)
+
+# Table.column reference extractor for derived metric expressions
+_SV_TABLE_METRIC_REF_RE = re.compile(
+    rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}", re.IGNORECASE
+)
+
+
+def _add_cll_entry(
+    cll_info: Set["DBTColumnLineageInfo"],
+    upstream_dbt_name: str,
+    upstream_col: str,
+    downstream_col: str,
+) -> None:
+    """Add a CLL entry to the set (automatically deduplicated)."""
+    cll_info.add(
+        DBTColumnLineageInfo(
+            upstream_dbt_name=upstream_dbt_name,
+            upstream_col=upstream_col,
+            downstream_col=downstream_col,
+        )
+    )
+
 
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
@@ -213,6 +281,14 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit model performance metadata when set to Yes or Only. "
         "Only supported with dbt core.",
     )
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def convert_bool_to_emit_directive(cls, v: Any) -> Any:
+        """Allow boolean values as shorthand for EmitDirective.YES/NO."""
+        if isinstance(v, bool):
+            return EmitDirective.YES if v else EmitDirective.NO
+        return v
 
     @model_validator(mode="after")
     def process_only_directive(self) -> "DBTEntitiesEnabled":
@@ -533,12 +609,133 @@ class DBTColumn:
     datahub_data_type: Optional[SchemaFieldDataType] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class DBTColumnLineageInfo:
-    upstream_dbt_name: str
+    """Column-level lineage info. Frozen to allow use in sets for deduplication.
 
+    CLL from semantic views is identified by the dataset's subtype (Semantic View).
+    """
+
+    upstream_dbt_name: str
     upstream_col: str
     downstream_col: str
+
+
+def _build_table_mapping(
+    compiled_sql: str,
+    upstream_nodes: List[str],
+    all_nodes_map: Dict[str, Any],
+) -> Dict[str, str]:
+    """Build mapping of table references (including aliases) to dbt source node names."""
+    table_to_dbt_name: Dict[str, str] = {}
+    for upstream_dbt_name in upstream_nodes:
+        if upstream_dbt_name in all_nodes_map:
+            upstream_node = all_nodes_map[upstream_dbt_name]
+            table_name = upstream_node.name.upper()
+            if table_name in table_to_dbt_name:
+                logger.warning(
+                    f"Semantic view table name collision: '{table_name}' maps to both "
+                    f"'{table_to_dbt_name[table_name]}' and '{upstream_dbt_name}'. "
+                    f"Using '{upstream_dbt_name}'."
+                )
+            table_to_dbt_name[table_name] = upstream_dbt_name
+
+    # Parse TABLES section to extract alias mappings
+    tables_section = _SV_TABLES_SECTION_RE.search(compiled_sql)
+    if tables_section:
+        tables_content = tables_section.group(1)
+        alias_matches = _SV_ALIAS_RE.findall(tables_content)
+        for alias, table_name in alias_matches:
+            alias_upper = alias.upper()
+            table_upper = table_name.upper()
+            if table_upper in table_to_dbt_name:
+                table_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
+
+    return table_to_dbt_name
+
+
+def _parse_derived_metrics(
+    compiled_sql: str,
+    cll_info: Set["DBTColumnLineageInfo"],
+) -> None:
+    """Parse derived metrics computed from other metrics."""
+    metric_to_sources: Dict[str, List[Tuple[str, str]]] = {}
+    for cll in cll_info:
+        if cll.downstream_col not in metric_to_sources:
+            metric_to_sources[cll.downstream_col] = []
+        metric_to_sources[cll.downstream_col].append(
+            (cll.upstream_dbt_name, cll.upstream_col)
+        )
+
+    for match in _SV_DERIVED_METRIC_RE.finditer(compiled_sql):
+        output_metric = match.group(1).strip('"').lower()
+        expression = match.group(2)
+
+        refs = _SV_TABLE_METRIC_REF_RE.findall(expression)
+        for _table_ref, metric_name in refs:
+            metric_name_lower = metric_name.strip('"').lower()
+            if metric_name_lower in metric_to_sources:
+                for upstream_dbt_name, source_col in metric_to_sources[
+                    metric_name_lower
+                ]:
+                    _add_cll_entry(
+                        cll_info, upstream_dbt_name, source_col, output_metric
+                    )
+
+
+def parse_semantic_view_cll(
+    compiled_sql: str,
+    upstream_nodes: List[str],
+    all_nodes_map: Dict[str, Any],
+) -> List[DBTColumnLineageInfo]:
+    """
+    Parse semantic view DDL to extract column-level lineage.
+
+    Extracts mappings from DIMENSIONS, FACTS, and METRICS sections.
+    Returns list of DBTColumnLineageInfo mapping upstream columns to downstream columns.
+    """
+    if not compiled_sql:
+        return []
+
+    cll_info: Set[DBTColumnLineageInfo] = set()
+
+    table_to_dbt_name = _build_table_mapping(
+        compiled_sql, upstream_nodes, all_nodes_map
+    )
+    if not table_to_dbt_name:
+        return []
+
+    # Parse METRICS first (more specific pattern)
+    for match in _SV_METRIC_RE.finditer(compiled_sql):
+        table_ref = match.group(1).strip('"').upper()
+        output_column = match.group(2).strip('"').lower()
+        source_column = match.group(3).strip('"').lower()
+
+        if table_ref in table_to_dbt_name:
+            _add_cll_entry(
+                cll_info,
+                table_to_dbt_name[table_ref],
+                source_column,
+                output_column,
+            )
+
+    # Parse DIMENSIONS/FACTS (simpler 1:1 mapping with AS keyword)
+    for match in _SV_DIMENSION_RE.finditer(compiled_sql):
+        table_ref = match.group(1).strip('"').upper()
+        source_column = match.group(2).strip('"').lower()
+        output_column = match.group(3).strip('"').lower()
+
+        if table_ref in table_to_dbt_name:
+            _add_cll_entry(
+                cll_info,
+                table_to_dbt_name[table_ref],
+                source_column,
+                output_column,
+            )
+
+    _parse_derived_metrics(compiled_sql, cll_info)
+
+    return list(cll_info)
 
 
 @dataclass
@@ -576,7 +773,7 @@ class DBTNode:
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
 
-    node_type: str  # source, model, snapshot, seed, test, etc
+    node_type: str  # source, model, snapshot, seed, test (dbt's resource_type)
     max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
@@ -586,6 +783,11 @@ class DBTNode:
     )
 
     owner: Optional[str]
+
+    # Semantic view specific fields (only populated when materialization == 'semantic_view')
+    entities: List[Dict[str, Any]] = field(default_factory=list)
+    dimensions: List[Dict[str, Any]] = field(default_factory=list)
+    measures: List[Dict[str, Any]] = field(default_factory=list)
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
@@ -775,15 +977,15 @@ def get_upstreams(
         upstream_manifest_node = all_nodes[upstream]
 
         # This logic creates lineages among dbt nodes.
-        upstream_urns.append(
-            upstream_manifest_node.get_urn_for_upstream_lineage(
-                dbt_platform_instance=platform_instance,
-                target_platform=target_platform,
-                target_platform_instance=target_platform_instance,
-                env=environment,
-                skip_sources_in_lineage=skip_sources_in_lineage,
-            )
+        urn = upstream_manifest_node.get_urn_for_upstream_lineage(
+            dbt_platform_instance=platform_instance,
+            target_platform=target_platform,
+            target_platform_instance=target_platform_instance,
+            env=environment,
+            skip_sources_in_lineage=skip_sources_in_lineage,
         )
+        upstream_urns.append(urn)
+
     return upstream_urns
 
 
@@ -995,7 +1197,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
-        # return dbt nodes + global custom properties
+        # return dbt nodes (including semantic models) + global custom properties
         raise NotImplementedError()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -1036,6 +1238,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # for a filtered node may be used by an unfiltered node.
         # NOTE: This method mutates the DBTNode objects directly.
         self._infer_schemas_and_update_cll(all_nodes_map)
+
+        # Use map values to get nodes with CLL mutations applied
+        all_nodes = list(all_nodes_map.values())
 
         nodes = self._filter_nodes(all_nodes)
         nodes = self._drop_duplicate_sources(nodes)
@@ -1333,7 +1538,47 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
             depends_on_ephemeral_models = False
-            if node.node_type in {"source", "test", "seed"}:
+            if node.materialization == "semantic_view":
+                # CLL parsing uses custom regex (only Snowflake semantic views supported)
+                if node.dbt_adapter != "snowflake":
+                    self.report.warning(
+                        title="Semantic View CLL Unsupported Adapter",
+                        message=f"Column-level lineage for semantic views is only supported for Snowflake. "
+                        f"Adapter '{node.dbt_adapter}' is not supported.",
+                        context=node.dbt_name,
+                    )
+                elif node.compiled_code:
+                    try:
+                        cll_info = parse_semantic_view_cll(
+                            compiled_sql=node.compiled_code,
+                            upstream_nodes=node.upstream_nodes,
+                            all_nodes_map=all_nodes_map,
+                        )
+                        node.upstream_cll.extend(cll_info)
+
+                        if not cll_info:
+                            self.report.warning(
+                                title="Semantic View CLL Empty",
+                                message="CLL parser returned 0 entries - DDL may contain unsupported syntax",
+                                context=node.dbt_name,
+                            )
+                    except Exception as e:
+                        self.report.warning(
+                            title="Semantic View CLL Parsing Failed",
+                            message=f"Failed to parse column-level lineage: {str(e)}",
+                            context=node.dbt_name,
+                        )
+                        logger.debug(
+                            f"Semantic view CLL parsing traceback for {node.dbt_name}",
+                            exc_info=True,
+                        )
+                else:
+                    self.report.warning(
+                        title="Semantic View Missing compiled_code",
+                        message="No compiled_code available, CLL extraction skipped",
+                        context=node.dbt_name,
+                    )
+            elif node.node_type in {"source", "test", "seed"}:
                 # For sources, we generate CLL as a 1:1 mapping.
                 # We don't support CLL for tests (assertions) or seeds.
                 pass
@@ -1557,6 +1802,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ),
                     aspects,
                 )
+
                 for aspect in standalone_aspects:
                     # The domains aspect, and some others, may not support being added to the snapshot.
                     yield MetadataChangeProposalWrapper(
@@ -1567,6 +1813,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
+
                 # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                 if self._should_create_sibling_relationships(node):
                     # Get the target platform URN
@@ -1587,6 +1834,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
+
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             else:
                 logger.debug(
@@ -1897,6 +2145,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.env,
                     self.config.platform_instance,
                 )
+
                 upstreams_lineage_class = make_mapping_upstream_lineage(
                     upstream_urn=upstream_dbt_urn,
                     downstream_urn=node_datahub_urn,
@@ -1904,6 +2153,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
                     skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
+
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
                     wu = convert_upstream_lineage_to_patch(
@@ -2233,7 +2483,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.node_type:
             return None
 
-        subtypes: List[str] = [node.node_type.capitalize()]
+        if node.materialization == "semantic_view":
+            subtypes: List[str] = [DatasetSubTypes.SEMANTIC_VIEW]
+        else:
+            subtypes = [node.node_type.capitalize()]
 
         return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,

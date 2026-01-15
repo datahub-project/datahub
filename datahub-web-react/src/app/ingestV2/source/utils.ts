@@ -21,7 +21,7 @@ import {
     EXECUTION_REQUEST_STATUS_SUCCESS,
 } from '@app/ingestV2/executions/constants';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
-import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
 import {
@@ -34,6 +34,7 @@ import {
     OwnershipTypeEntity,
     SortCriterion,
     SortOrder,
+    StringMapEntryInput,
 } from '@types';
 
 dayjs.extend(utc);
@@ -538,6 +539,11 @@ export function getSortInput(field: string, order: SortingState): SortCriterion 
     };
 }
 
+export const DEFAULT_SOURCE_SORT_CRITERION: SortCriterion = {
+    sortOrder: SortOrder.Ascending,
+    field: 'type',
+};
+
 export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
     return hideSystemSources
         ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
@@ -613,10 +619,101 @@ export const buildOwnerEntities = (urn: string, owners?: Entity[], defaultOwnerT
                     ...owner.info,
                 },
             },
+            attribution: owner.attribution ?? null,
             associatedUrn: urn,
             type: owner.type,
             ownershipType: defaultOwnerType ?? null,
             __typename: 'Owner' as const,
         })) || []
     );
+};
+
+export const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
+    if (source) {
+        let { type } = source;
+        if (type === 'unity-catalog') {
+            type = 'databricks';
+        }
+        return { ...source, type };
+    }
+    return undefined;
+};
+
+export const removeExecutionsFromIngestionSource = (source) => {
+    if (source) {
+        return {
+            name: source.name,
+            type: source.type,
+            schedule: source.schedule,
+            config: source.config,
+            source: source.source,
+        };
+    }
+    return undefined;
+};
+
+export const formatExtraArgs = (extraArgs: StringMapEntryInput[] | null | undefined): StringMapEntryInput[] => {
+    if (extraArgs === null || extraArgs === undefined) return [];
+    return extraArgs
+        .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
+        .map((entry) => ({ key: entry.key, value: entry.value }));
+};
+
+export const getNewIngestionSourcePlaceholder = (
+    urn: string,
+    data: SourceBuilderState,
+    defaultOwnershipType: OwnershipTypeEntity | undefined,
+) => {
+    const newSource = {
+        urn,
+        name: data.name as string,
+        type: data.type as string,
+        config: { executorId: '', recipe: '', version: null, debugMode: null, extraArgs: null },
+        schedule: {
+            interval: data.schedule?.interval || '',
+            timezone: data.schedule?.timezone || null,
+        },
+        platform: null,
+        executions: null,
+        source: null,
+        ownership: {
+            owners: buildOwnerEntities(urn, data.owners, defaultOwnershipType),
+            lastModified: {
+                time: 0,
+            },
+            __typename: 'Ownership' as const,
+        },
+        __typename: 'IngestionSource' as const,
+    };
+
+    return newSource;
+};
+
+export const getIngestionSourceMutationInput = (data: SourceBuilderState, source?: IngestionSource) => {
+    return {
+        type: data.type as string,
+        name: data.name as string,
+        config: {
+            recipe: data.config?.recipe as string,
+            version: (data.config?.version?.length && (data.config?.version as string)) || undefined,
+            executorId: (data.config?.executorId?.length && (data.config?.executorId as string)) || DEFAULT_EXECUTOR_ID,
+            debugMode: data.config?.debugMode || false,
+            extraArgs: formatExtraArgs(data.config?.extraArgs || []),
+        },
+        schedule: data.schedule && {
+            interval: data.schedule?.interval as string,
+            timezone: data.schedule?.timezone as string,
+        },
+        // Preserve source field when editing existing sources (especially system sources)
+        source: source?.source
+            ? {
+                  type: source.source.type,
+              }
+            : undefined,
+    };
+};
+
+export const getSourceDisplayName = (sourceType: string, ingestionSources: SourceConfig[]) => {
+    const sourceConfigs = getSourceConfigs(ingestionSources, sourceType as string);
+    return sourceConfigs?.displayName;
 };
