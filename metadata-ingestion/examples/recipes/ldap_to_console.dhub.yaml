@@ -6,9 +6,9 @@ source:
     ldap_user: "cn=admin,dc=example,dc=org"
     ldap_password: "admin"
     base_dn: "dc=example,dc=org"
-    # Enable TLS certificate verification (recommended for production)
-    # Prevents Man-in-the-Middle attacks (CWE-295)
-    # tls_verify: true  # Default: false (for backwards compatibility)
+    # TLS certificate verification is enabled by default
+    # Set to false only for testing with self-signed certificates
+    # tls_verify: true
 
 # see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/console for complete documentation
 sink:
