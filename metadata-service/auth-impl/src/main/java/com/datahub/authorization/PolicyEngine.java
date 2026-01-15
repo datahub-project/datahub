@@ -207,18 +207,19 @@ public class PolicyEngine {
   }
 
   /**
-   * Returns true if the resource portion of a DataHub policy matches the resource being
-   * evaluated, false otherwise.
+   * Returns true if the resource portion of a DataHub policy matches the resource being evaluated,
+   * false otherwise.
    *
-   * <p>This is a convenience method that delegates to the full isResourceMatch method
-   * with an empty subResources list.
+   * <p>This is a convenience method that delegates to the full isResourceMatch method with an empty
+   * subResources list.
    */
   private boolean isResourceMatch(
       final String policyType,
       final @Nullable DataHubResourceFilter policyResourceFilter,
       final Optional<ResolvedEntitySpec> requestResource) {
     // Delegate to the full method with empty subResources list
-    return isResourceMatch(policyType, policyResourceFilter, requestResource, Collections.emptyList());
+    return isResourceMatch(
+        policyType, policyResourceFilter, requestResource, Collections.emptyList());
   }
 
   /**
@@ -264,12 +265,12 @@ public class PolicyEngine {
   /**
    * Determines if UNION logic should be applied for domain validation.
    *
-   * <p>Conditions for UNION logic:
-   * 1. Domain-based authorization is enabled
-   * 2. Policy HAS domain criteria (requires domain filtering)
-   * 3. Domain subResources are provided (domain being assigned/modified)
+   * <p>Conditions for UNION logic: 1. Domain-based authorization is enabled 2. Policy HAS domain
+   * criteria (requires domain filtering) 3. Domain subResources are provided (domain being
+   * assigned/modified)
    *
-   * <p>Note: This applies to both CREATE (entity has no domain) and UPDATE (entity domain is changing)
+   * <p>Note: This applies to both CREATE (entity has no domain) and UPDATE (entity domain is
+   * changing)
    *
    * @return true if should use subResource domains for validation
    */

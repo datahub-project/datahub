@@ -42,7 +42,7 @@ public class DomainBasedAuthorizationValidatorTest {
       AspectPluginConfig.builder()
           .className(DomainBasedAuthorizationValidator.class.getName())
           .enabled(true)
-          .supportedOperations(List.of("CREATE", "UPDATE", "DELETE"))
+          .supportedOperations(List.of("CREATE", "UPDATE"))
           .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
           .build();
 
@@ -83,10 +83,13 @@ public class DomainBasedAuthorizationValidatorTest {
             Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
-    assertEquals(result.collect(Collectors.toList()).size(), 0, "DELETE operations should skip validation");
+    assertEquals(
+        result.collect(Collectors.toList()).size(), 0, "DELETE operations should skip validation");
     // Verify no authorization checks were performed
     authUtilMock.verify(
-        () -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(any(), any(), anyCollection(), anyCollection()),
+        () ->
+            AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                any(), any(), anyCollection(), anyCollection()),
         never());
   }
 
@@ -124,19 +127,22 @@ public class DomainBasedAuthorizationValidatorTest {
 
     // Mock domain aspect
     Domains domainsAspect = new Domains();
-    domainsAspect.setDomains(Collections.singletonList(domainUrn).stream()
-        .collect(Collectors.toCollection(UrnArray::new)));
+    domainsAspect.setDomains(
+        Collections.singletonList(domainUrn).stream()
+            .collect(Collectors.toCollection(UrnArray::new)));
     Aspect domainAspectData = mock(Aspect.class);
     when(domainAspectData.data()).thenReturn(domainsAspect.data());
     when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
 
     // Mock authorization - authorized
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-            eq(mockAuthSession),
-            eq(ApiOperation.CREATE),
-            eq(Collections.singletonList(entityUrn)),
-            anyCollection()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    eq(mockAuthSession),
+                    eq(ApiOperation.CREATE),
+                    eq(Collections.singletonList(entityUrn)),
+                    anyCollection()))
         .thenReturn(true);
 
     // Act
@@ -145,7 +151,8 @@ public class DomainBasedAuthorizationValidatorTest {
             Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
-    assertEquals(result.collect(Collectors.toList()).size(), 0, "Should pass validation when authorized");
+    assertEquals(
+        result.collect(Collectors.toList()).size(), 0, "Should pass validation when authorized");
   }
 
   @Test
@@ -160,17 +167,20 @@ public class DomainBasedAuthorizationValidatorTest {
 
     // Mock domain aspect
     Domains domainsAspect = new Domains();
-    domainsAspect.setDomains(Collections.singletonList(domainUrn).stream()
-        .collect(Collectors.toCollection(UrnArray::new)));
+    domainsAspect.setDomains(
+        Collections.singletonList(domainUrn).stream()
+            .collect(Collectors.toCollection(UrnArray::new)));
     when(mockChangeMCP.getAspect(Domains.class)).thenReturn(domainsAspect);
 
     // Mock authorization - unauthorized
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-            eq(mockAuthSession),
-            eq(ApiOperation.CREATE),
-            eq(Collections.singletonList(entityUrn)),
-            anyCollection()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    eq(mockAuthSession),
+                    eq(ApiOperation.CREATE),
+                    eq(Collections.singletonList(entityUrn)),
+                    anyCollection()))
         .thenReturn(false);
 
     // Act
@@ -198,8 +208,9 @@ public class DomainBasedAuthorizationValidatorTest {
 
     // Mock existing domain aspect
     Domains existingDomains = new Domains();
-    existingDomains.setDomains(Collections.singletonList(domainUrn).stream()
-        .collect(Collectors.toCollection(UrnArray::new)));
+    existingDomains.setDomains(
+        Collections.singletonList(domainUrn).stream()
+            .collect(Collectors.toCollection(UrnArray::new)));
     Aspect domainAspectData = mock(Aspect.class);
     when(domainAspectData.data()).thenReturn(existingDomains.data());
     when(mockAspectRetriever.getLatestAspectObject(entityUrn, DOMAINS_ASPECT_NAME))
@@ -207,11 +218,13 @@ public class DomainBasedAuthorizationValidatorTest {
 
     // Mock authorization - authorized
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-            eq(mockAuthSession),
-            eq(ApiOperation.UPDATE),
-            eq(Collections.singletonList(entityUrn)),
-            anyCollection()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    eq(mockAuthSession),
+                    eq(ApiOperation.UPDATE),
+                    eq(Collections.singletonList(entityUrn)),
+                    anyCollection()))
         .thenReturn(true);
 
     // Act
@@ -240,11 +253,13 @@ public class DomainBasedAuthorizationValidatorTest {
 
     // Mock authorization with empty domains - authorized
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-            eq(mockAuthSession),
-            eq(ApiOperation.CREATE),
-            eq(Collections.singletonList(entityUrn)),
-            eq(Collections.emptySet())))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    eq(mockAuthSession),
+                    eq(ApiOperation.CREATE),
+                    eq(Collections.singletonList(entityUrn)),
+                    eq(Collections.emptySet())))
         .thenReturn(true);
 
     // Act
@@ -253,6 +268,7 @@ public class DomainBasedAuthorizationValidatorTest {
             Collections.singletonList(mockChangeMCP), mockRetrieverContext);
 
     // Assert
-    assertEquals(result.collect(Collectors.toList()).size(), 0, "Should pass validation when no domains");
+    assertEquals(
+        result.collect(Collectors.toList()).size(), 0, "Should pass validation when no domains");
   }
 }

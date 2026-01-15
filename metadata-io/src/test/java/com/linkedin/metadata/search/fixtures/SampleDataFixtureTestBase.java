@@ -903,7 +903,10 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
             query -> {
               try {
                 AutoCompleteResults result =
-                    autocomplete(getOperationContext(), new DatasetType(getEntityClient(), new FeatureFlags()), query);
+                    autocomplete(
+                        getOperationContext(),
+                        new DatasetType(getEntityClient(), new FeatureFlags()),
+                        query);
                 assertTrue(
                     result.getEntities().size() >= 1,
                     String.format(

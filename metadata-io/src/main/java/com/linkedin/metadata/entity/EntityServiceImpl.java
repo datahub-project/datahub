@@ -1138,8 +1138,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // do final pre-commit checks with previous aspect value
                     ValidationExceptionCollection exceptions =
-                        AspectsBatch.validatePreCommit(
-                            changeMCPs, opContext.getRetrieverContext());
+                        AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext());
 
                     List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults =
                         new ArrayList<>();

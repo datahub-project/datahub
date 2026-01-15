@@ -32,15 +32,14 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Validator that performs domain-based authorization checks inside the transaction.
- * This ensures that domain reads from the database are consistent with the transaction state,
- * preventing race conditions where domains could change between authorization check and commit.
+ * Validator that performs domain-based authorization checks inside the transaction. This ensures
+ * that domain reads from the database are consistent with the transaction state, preventing race
+ * conditions where domains could change between authorization check and commit.
  *
- * <p>This validator:
- * 1. Reads domains from incoming MCPs (lightweight parsing - outside transaction)
- * 2. Reads existing entity domains from database (inside transaction via aspectRetriever)
- * 3. Performs domain-based authorization check
- * 4. Throws validation exception if unauthorized
+ * <p>This validator: 1. Reads domains from incoming MCPs (lightweight parsing - outside
+ * transaction) 2. Reads existing entity domains from database (inside transaction via
+ * aspectRetriever) 3. Performs domain-based authorization check 4. Throws validation exception if
+ * unauthorized
  */
 @Setter
 @Getter
@@ -59,8 +58,7 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
 
     AuthorizationSession session = retrieverContext.getAuthorizationSession();
 
@@ -74,12 +72,15 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
 
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
 
-    // Group changes by entity URN
+    // Group changes by entity URN, filtering out DELETE operations
     Map<Urn, List<ChangeMCP>> changesByEntity =
         changeMCPs.stream()
             .filter(
                 changeMCP ->
                     !EXECUTION_REQUEST_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType()))
+            .filter(
+                changeMCP ->
+                    ApiOperation.fromChangeType(changeMCP.getChangeType()) != ApiOperation.DELETE)
             .collect(Collectors.groupingBy(ChangeMCP::getUrn));
 
     return changesByEntity.entrySet().stream()
@@ -88,48 +89,43 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
               Urn entityUrn = entry.getKey();
               List<ChangeMCP> entityChanges = entry.getValue();
 
-              // Determine the operation type first
+              // Determine the operation type
               ApiOperation operation =
                   entityChanges.stream()
                       .map(changeMCP -> ApiOperation.fromChangeType(changeMCP.getChangeType()))
                       .findFirst()
                       .orElse(ApiOperation.UPDATE);
 
-              // Extract domains based on operation type
+              // Extract domains from both MCPs and existing entity data
               Set<Urn> allDomains = new HashSet<>();
+              Set<Urn> domainsFromMCPs = getDomainsFromMCPs(entityChanges);
+              Set<Urn> domainsFromDB = getEntityDomains(entityUrn, aspectRetriever);
+              allDomains.addAll(domainsFromMCPs);
+              allDomains.addAll(domainsFromDB);
 
-              if (operation == ApiOperation.DELETE) {
-                allDomains.addAll(getEntityDomains(entityUrn, aspectRetriever));
-              } else {
-                Set<Urn> domainsFromMCPs = getDomainsFromMCPs(entityChanges);
-                Set<Urn> domainsFromDB = getEntityDomains(entityUrn, aspectRetriever);
-                allDomains.addAll(domainsFromMCPs);
-                allDomains.addAll(domainsFromDB);
-              }
-
-              boolean isAuthorized = AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                  session, operation, List.of(entityUrn), allDomains);
+              boolean isAuthorized =
+                  AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                      session, operation, List.of(entityUrn), allDomains);
 
               if (!isAuthorized) {
-                log.warn("DomainBasedAuthorizationValidator: BLOCKED - Unauthorized to {} entity {} with domains {}",
-                    operation, entityUrn, allDomains);
+                log.warn(
+                    "DomainBasedAuthorizationValidator: BLOCKED - Unauthorized to {} entity {} with domains {}",
+                    operation,
+                    entityUrn,
+                    allDomains);
                 return Stream.of(
                     AspectValidationException.forAuth(
                         entityChanges.get(0),
                         String.format(
                             "Unauthorized to %s entity %s with domains %s",
-                            operation,
-                            entityUrn,
-                            allDomains)));
+                            operation, entityUrn, allDomains)));
               }
 
               return Stream.empty();
             });
   }
 
-  /**
-   * Extract domains from MCPs
-   */
+  /** Extract domains from MCPs */
   private Set<Urn> getDomainsFromMCPs(Collection<ChangeMCP> changeMCPs) {
     return changeMCPs.stream()
         .filter(changeMCP -> DOMAINS_ASPECT_NAME.equals(changeMCP.getAspectName()))

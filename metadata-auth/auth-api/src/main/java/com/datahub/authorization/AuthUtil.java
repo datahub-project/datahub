@@ -8,7 +8,6 @@ import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
@@ -27,12 +26,9 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIV
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
 import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE;
 
-import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.domain.Domains;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.ApiOperation;
@@ -50,15 +46,12 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -138,12 +131,9 @@ public class AuthUtil {
         mcps.stream()
             .map(
                 mcp -> {
-                  Urn urn = mcp.getEntityUrn();
-                  if (urn == null) {
-                    com.linkedin.metadata.models.EntitySpec entitySpec =
-                        entityRegistry.getEntitySpec(mcp.getEntityType());
-                    urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
-                  }
+                  com.linkedin.metadata.models.EntitySpec entitySpec =
+                      entityRegistry.getEntitySpec(mcp.getEntityType());
+                  Urn urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
                   return Pair.of(Pair.of(mcp.getChangeType(), urn), mcp);
                 })
             .collect(Collectors.toList());
@@ -691,17 +681,18 @@ public class AuthUtil {
   }
 
   /**
-   * Authorize MetadataChangeProposals with optional domain-based authorization.
-   * When domainsByEntity is provided and non-empty, uses domain-aware authorization.
-   * Otherwise uses standard authorization without domain context.
+   * Authorize MetadataChangeProposals with optional domain-based authorization. When
+   * domainsByEntity is provided and non-empty, uses domain-aware authorization. Otherwise uses
+   * standard authorization without domain context.
    *
-   * This method groups MCPs by operation type for efficient batch authorization.
+   * <p>This method groups MCPs by operation type for efficient batch authorization.
    *
    * @param session Authorization session (from OperationContext)
    * @param apiGroup API group for authorization
    * @param entityRegistry Entity registry for URN resolution
    * @param mcps Collection of MCPs to authorize
-   * @param domainsByEntity Optional map of entity URN to their domain URNs (pass null or empty for standard auth)
+   * @param domainsByEntity Optional map of entity URN to their domain URNs (pass null or empty for
+   *     standard auth)
    * @return Map of MCP to authorization result (true if authorized, false otherwise)
    */
   public static Map<MetadataChangeProposal, Boolean> isAPIAuthorizedMCPsWithDomains(
@@ -719,12 +710,9 @@ public class AuthUtil {
     Map<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> mcpsByOperation = new HashMap<>();
 
     for (MetadataChangeProposal mcp : mcps) {
-      Urn urn = mcp.getEntityUrn();
-      if (urn == null) {
-        com.linkedin.metadata.models.EntitySpec entitySpec =
-            entityRegistry.getEntitySpec(mcp.getEntityType());
-        urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
-      }
+      com.linkedin.metadata.models.EntitySpec entitySpec =
+          entityRegistry.getEntitySpec(mcp.getEntityType());
+      Urn urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
 
       // Determine operation type based on change type
       ApiOperation operation;
@@ -745,9 +733,7 @@ public class AuthUtil {
           break;
       }
 
-      mcpsByOperation
-          .computeIfAbsent(operation, k -> new ArrayList<>())
-          .add(Pair.of(mcp, urn));
+      mcpsByOperation.computeIfAbsent(operation, k -> new ArrayList<>()).add(Pair.of(mcp, urn));
     }
 
     // Process each operation group
@@ -757,29 +743,45 @@ public class AuthUtil {
       List<Pair<MetadataChangeProposal, Urn>> mcpUrnPairs = entry.getValue();
 
       if (useDomainAuth) {
-        // Domain-based authorization: Check each entity with its domains
-        for (Pair<MetadataChangeProposal, Urn> pair : mcpUrnPairs) {
+        // Partition entities by whether they have domains
+        Map<Boolean, List<Pair<MetadataChangeProposal, Urn>>> partitioned =
+            mcpUrnPairs.stream()
+                .collect(
+                    Collectors.partitioningBy(
+                        pair ->
+                            !domainsByEntity
+                                .getOrDefault(pair.getSecond(), Collections.emptySet())
+                                .isEmpty()));
+
+        // Process entities with domains individually using subResources
+        // SubResources pattern: Pass domains as subResources to PolicyEngine for domain-based
+        // authorization. Each entity URN is passed as the resource, and its associated domains
+        // are passed as subResources. This enables the PolicyEngine to validate both the entity
+        // access and domain membership in a single authorization check.
+        for (Pair<MetadataChangeProposal, Urn> pair : partitioned.get(true)) {
           MetadataChangeProposal mcp = pair.getFirst();
           Urn urn = pair.getSecond();
+          Set<Urn> domains = domainsByEntity.get(urn);
 
-          Set<Urn> domains = domainsByEntity.getOrDefault(urn, Collections.emptySet());
-          boolean authorized;
-
-          if (!domains.isEmpty()) {
-            // Entity has domains - use domain-based authorization
-            authorized =
-                isAPIAuthorizedEntityUrnsWithSubResources(session, operation, List.of(urn), domains);
-          } else {
-            // Entity has no domains - fall back to standard authorization
-            authorized = isAPIAuthorizedEntityUrns(session, operation, List.of(urn));
-          }
-
+          boolean authorized =
+              isAPIAuthorizedEntityUrnsWithSubResources(session, operation, List.of(urn), domains);
           results.put(mcp, authorized);
+        }
+
+        // Batch process entities without domains (standard authorization, no subResources)
+        List<Pair<MetadataChangeProposal, Urn>> withoutDomains = partitioned.get(false);
+        if (!withoutDomains.isEmpty()) {
+          List<Urn> urns =
+              withoutDomains.stream().map(Pair::getSecond).collect(Collectors.toList());
+          boolean authorized = isAPIAuthorizedEntityUrns(session, operation, urns);
+
+          for (Pair<MetadataChangeProposal, Urn> pair : withoutDomains) {
+            results.put(pair.getFirst(), authorized);
+          }
         }
       } else {
         // Standard authorization: Batch authorize all URNs for this operation
-        List<Urn> urns =
-            mcpUrnPairs.stream().map(Pair::getSecond).collect(Collectors.toList());
+        List<Urn> urns = mcpUrnPairs.stream().map(Pair::getSecond).collect(Collectors.toList());
         boolean authorized = isAPIAuthorizedEntityUrns(session, operation, urns);
 
         // Apply result to all MCPs in this batch

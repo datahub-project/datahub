@@ -4,13 +4,13 @@ import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.OperationContext;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -23,9 +23,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+
 /**
- * Utility class for extracting domain information from entities and MetadataChangeProposals.
- * Used by API resources (OpenAPI, RestLI, GraphQL) to support domain-based authorization.
+ * Utility class for extracting domain information from entities and MetadataChangeProposals. Used
+ * by API resources (OpenAPI, RestLI, GraphQL) to support domain-based authorization.
  */
 @Slf4j
 public class DomainExtractionUtils {
@@ -35,8 +36,8 @@ public class DomainExtractionUtils {
   }
 
   /**
-   * Extract domains from a MetadataChangeProposal's Domains aspect.
-   * Handles both regular UPSERT/CREATE operations and PATCH operations.
+   * Extract domains from a MetadataChangeProposal's Domains aspect. Handles both regular
+   * UPSERT/CREATE operations and PATCH operations.
    *
    * @param mcp The MetadataChangeProposal containing the aspect
    * @return Set of domain URNs found in the aspect, or empty set if none found
@@ -62,15 +63,15 @@ public class DomainExtractionUtils {
         return new HashSet<>(domains.getDomains());
       }
     } catch (Exception e) {
-      log.warn("Error parsing domains from MCP for entity {}: {}",
-          mcp.getEntityUrn(), e.getMessage());
+      log.warn(
+          "Error parsing domains from MCP for entity {}: {}", mcp.getEntityUrn(), e.getMessage());
     }
     return Collections.emptySet();
   }
 
   /**
-   * Extract domain URNs from a JSON Patch document.
-   * Parses patch operations to find domain URNs being added or replaced.
+   * Extract domain URNs from a JSON Patch document. Parses patch operations to find domain URNs
+   * being added or replaced.
    *
    * @param patchDocument The JSON Patch document as a string
    * @return Set of domain URNs found in the patch, or empty set if none found
@@ -145,12 +146,13 @@ public class DomainExtractionUtils {
         return Collections.emptySet();
       }
 
-      EnvelopedAspect envelopedAspect = entityService.getLatestEnvelopedAspect(
-          opContext, entityUrn.getEntityType(), entityUrn, DOMAINS_ASPECT_NAME);
+      EnvelopedAspect envelopedAspect =
+          entityService.getLatestEnvelopedAspect(
+              opContext, entityUrn.getEntityType(), entityUrn, DOMAINS_ASPECT_NAME);
 
       if (envelopedAspect != null) {
-        Domains domains = RecordUtils.toRecordTemplate(
-            Domains.class, envelopedAspect.getValue().data());
+        Domains domains =
+            RecordUtils.toRecordTemplate(Domains.class, envelopedAspect.getValue().data());
         if (domains.getDomains() != null && !domains.getDomains().isEmpty()) {
           return new HashSet<>(domains.getDomains());
         }
@@ -162,16 +164,15 @@ public class DomainExtractionUtils {
   }
 
   /**
-   * Extract domain URNs from a collection of MetadataChangeProposals for authorization.
-   * This combines:
-   * 1. Existing domains from entities already in the system
-   * 2. New domains being set in the current MCPs (from Domains aspect)
+   * Extract domain URNs from a collection of MetadataChangeProposals for authorization. This
+   * combines: 1. Existing domains from entities already in the system 2. New domains being set in
+   * the current MCPs (from Domains aspect)
    *
-   * Special entities like dataHubExecutionRequest are excluded from domain-based authorization
+   * <p>Special entities like dataHubExecutionRequest are excluded from domain-based authorization
    * as they are system entities that should not be subject to domain restrictions.
    *
-   * This is the central method for domain extraction used by REST resources
-   * when domain-based authorization is enabled.
+   * <p>This is the central method for domain extraction used by REST resources when domain-based
+   * authorization is enabled.
    *
    * @param opContext Operation context
    * @param entityService Entity service for domain lookups
@@ -188,11 +189,12 @@ public class DomainExtractionUtils {
 
     // Collect unique entity URNs from MCPs, excluding special system entities
     // that should not be subject to domain-based authorization
-    Set<Urn> entityUrns = mcps.stream()
-        .map(MetadataChangeProposal::getEntityUrn)
-        .filter(Objects::nonNull)
-        .filter(urn -> !EXECUTION_REQUEST_ENTITY_NAME.equals(urn.getEntityType()))
-        .collect(Collectors.toSet());
+    Set<Urn> entityUrns =
+        mcps.stream()
+            .map(MetadataChangeProposal::getEntityUrn)
+            .filter(Objects::nonNull)
+            .filter(urn -> !EXECUTION_REQUEST_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toSet());
 
     // Get existing domains from entities already in the system
     for (Urn entityUrn : entityUrns) {
@@ -204,13 +206,14 @@ public class DomainExtractionUtils {
 
     // Extract domains from MCPs with Domains aspect (new domains being set)
     for (MetadataChangeProposal mcp : mcps) {
-      if (mcp.getEntityUrn() != null &&
-          DOMAINS_ASPECT_NAME.equals(mcp.getAspectName()) &&
-          mcp.getAspect() != null) {
+      if (mcp.getEntityUrn() != null
+          && DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())
+          && mcp.getAspect() != null) {
 
         Set<Urn> mcpDomains = extractDomainsFromMCP(mcp);
         if (!mcpDomains.isEmpty()) {
-          entityDomains.computeIfAbsent(mcp.getEntityUrn(), k -> new HashSet<>())
+          entityDomains
+              .computeIfAbsent(mcp.getEntityUrn(), k -> new HashSet<>())
               .addAll(mcpDomains);
         }
       }
@@ -249,8 +252,6 @@ public class DomainExtractionUtils {
    */
   @Nonnull
   public static Set<Urn> collectAllDomains(@Nonnull Map<Urn, Set<Urn>> entityDomains) {
-    return entityDomains.values().stream()
-        .flatMap(Set::stream)
-        .collect(Collectors.toSet());
+    return entityDomains.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
   }
 }
