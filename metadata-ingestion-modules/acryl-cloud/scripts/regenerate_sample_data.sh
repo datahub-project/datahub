@@ -33,7 +33,7 @@ echo "  Output: $OUTPUT_FILE"
 echo ""
 
 # Run export script
-python3 metadata-ingestion/scripts/export_sample_data.py \
+python3 metadata-ingestion-modules/acryl-cloud/scripts/export_sample_data.py \
     --server "$SERVER" \
     --token "$TOKEN" \
     --seed-urn "$SEED_URN" \

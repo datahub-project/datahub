@@ -78,6 +78,20 @@ EXCLUDED_ASPECTS = {
     "corpGroupSettings",  # Group-specific settings
 }
 
+# Glossary terms/nodes to exclude from sample data exports
+# - Compliance-related terms from fieldeng that shouldn't be in public samples
+EXCLUDED_GLOSSARY_TERMS = {
+    "CMMC Ready",
+    "DOD 5015.2 Records Management",
+    "OMB Data Policy Mandate",
+    "Risk Management Framework (RMF)",
+}
+
+EXCLUDED_GLOSSARY_NODES = {
+    "Compliance Audit Evidence",
+}
+
+
 
 class DataHubExporter:
     def __init__(self, server: str, token: str):
@@ -412,6 +426,15 @@ class DataHubExporter:
                                 term_info_data = term_info_aspect.get(
                                     "value"
                                 ) or term_info_aspect.get("json", {})
+
+                                # Skip excluded glossary terms
+                                term_name = term_info_data.get("name", "")
+                                if term_name in EXCLUDED_GLOSSARY_TERMS:
+                                    logging.info(
+                                        f"Skipping excluded glossary term: {term_name}"
+                                    )
+                                    continue
+
                                 parent_node = term_info_data.get("parentNode")
                                 if parent_node and parent_node not in fetched_nodes:
                                     parent_urns.add(parent_node)
@@ -436,6 +459,15 @@ class DataHubExporter:
                                 node_info_data = node_info_aspect.get(
                                     "value"
                                 ) or node_info_aspect.get("json", {})
+
+                                # Skip excluded glossary nodes
+                                node_name = node_info_data.get("name", "")
+                                if node_name in EXCLUDED_GLOSSARY_NODES:
+                                    logging.info(
+                                        f"Skipping excluded glossary node: {node_name}"
+                                    )
+                                    continue
+
                                 parent_node = node_info_data.get("parentNode")
                                 if parent_node and parent_node not in fetched_nodes:
                                     parent_urns.add(parent_node)
@@ -1002,6 +1034,87 @@ class DataHubExporter:
 
         return mcps
 
+    def add_missing_dataflow_info(
+        self, mcps: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Add dataFlowInfo aspects for dataFlow entities that don't have them.
+        This prevents them from showing as URNs in the UI.
+
+        Spark dataFlow entities from fieldeng often lack dataFlowInfo aspects,
+        causing them to render as raw URNs like 'urn:li:dataFlow:(spark,ex...'
+        instead of proper names. This function synthesizes dataFlowInfo from
+        the URN structure to ensure proper UI display.
+
+        Additionally, if dataFlow entities are missing entirely (only dataJob
+        entities were exported), this function will create them by extracting
+        dataFlow URNs from dataJob URNs.
+        """
+        # Find all dataFlow URNs - both explicit entities and embedded in dataJob URNs
+        dataflow_urns = set()
+        dataflows_with_info = set()
+
+        for mcp in mcps:
+            # Find explicit dataFlow entities
+            if mcp.get('entityType') == 'dataFlow':
+                urn = mcp.get('entityUrn')
+                if urn:
+                    dataflow_urns.add(urn)
+                    if mcp.get('aspectName') == 'dataFlowInfo':
+                        dataflows_with_info.add(urn)
+
+            # Extract dataFlow URNs from dataJob entities
+            elif mcp.get('entityType') == 'dataJob':
+                job_urn = mcp.get('entityUrn', '')
+                # DataJob URN format: urn:li:dataJob:(urn:li:dataFlow:(platform,name,env),jobName)
+                if ':dataFlow:(' in job_urn:
+                    try:
+                        # Extract the dataFlow URN
+                        flow_start = job_urn.index(':dataFlow:(')
+                        flow_end = job_urn.index('),', flow_start) + 1
+                        dataflow_urn = job_urn[flow_start-6:flow_end]  # Include 'urn:li:' prefix
+                        dataflow_urns.add(dataflow_urn)
+                    except (ValueError, IndexError):
+                        logging.debug(f"Could not extract dataFlow URN from: {job_urn}")
+
+        # Add dataFlowInfo for flows missing it (and create dataFlow entities if needed)
+        added_count = 0
+        for urn in dataflow_urns:
+            if urn not in dataflows_with_info:
+                # Extract name from URN: urn:li:dataFlow:(platform,flowName,env)
+                try:
+                    # Parse URN structure
+                    parts = urn.split(':(')[1].rstrip(')').split(',')
+                    platform = parts[0]
+                    flow_name = parts[1] if len(parts) > 1 else 'unknown'
+
+                    dataflow_info_mcp = {
+                        'entityType': 'dataFlow',
+                        'entityUrn': urn,
+                        'changeType': 'UPSERT',
+                        'aspectName': 'dataFlowInfo',
+                        'aspect': {
+                            'json': {
+                                'name': flow_name,
+                                'description': f'{platform.title()} data pipeline',
+                                'customProperties': {}
+                            }
+                        },
+                        'systemMetadata': {'properties': {'sampleData': 'true'}},
+                    }
+                    mcps.append(dataflow_info_mcp)
+                    added_count += 1
+                    logging.info(f"Added dataFlowInfo for {urn}")
+                except Exception as e:
+                    logging.warning(f"Could not synthesize dataFlowInfo for {urn}: {e}")
+
+        if added_count > 0:
+            logging.info(f"Added {added_count} dataFlowInfo aspects for proper UI display")
+        else:
+            logging.info("All dataFlow entities already have dataFlowInfo")
+
+        return mcps
+
     def convert_to_mcps(self, entity_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Convert entity data to MCP format.
@@ -1107,6 +1220,32 @@ class DataHubExporter:
 
                 for urn, entity_data in entities.items():
                     try:
+                        # Filter excluded glossary terms
+                        if entity_type == "glossaryTerm":
+                            aspects = entity_data.get("aspects", {})
+                            if "glossaryTermInfo" in aspects:
+                                term_info = aspects["glossaryTermInfo"]
+                                term_data = term_info.get("value") or term_info.get("json", {})
+                                term_name = term_data.get("name", "")
+                                if term_name in EXCLUDED_GLOSSARY_TERMS:
+                                    logging.info(
+                                        f"Filtering out excluded glossary term: {term_name}"
+                                    )
+                                    continue
+
+                        # Filter excluded glossary nodes
+                        if entity_type == "glossaryNode":
+                            aspects = entity_data.get("aspects", {})
+                            if "glossaryNodeInfo" in aspects:
+                                node_info = aspects["glossaryNodeInfo"]
+                                node_data = node_info.get("value") or node_info.get("json", {})
+                                node_name = node_data.get("name", "")
+                                if node_name in EXCLUDED_GLOSSARY_NODES:
+                                    logging.info(
+                                        f"Filtering out excluded glossary node: {node_name}"
+                                    )
+                                    continue
+
                         mcps = self.convert_to_mcps(entity_data)
 
                         # Count filtered aspects
@@ -1145,7 +1284,12 @@ class DataHubExporter:
         logging.info("Adding missing status aspects for toggle feature...")
         final_mcps = self.add_missing_status_aspects(cleaned_mcps)
 
-        # Step 10: Write to output file
+        # Step 10: Add missing dataFlowInfo to prevent URN display
+        # This ensures dataFlow entities show proper names instead of URNs in the UI
+        logging.info("Ensuring all dataFlows have display names...")
+        final_mcps = self.add_missing_dataflow_info(final_mcps)
+
+        # Step 11: Write to output file
         logging.info(f"Writing {len(final_mcps)} MCPs to {output_file}...")
         with open(output_file, "w") as f:
             json.dump(final_mcps, f, indent=2)

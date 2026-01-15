@@ -254,7 +254,7 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 # Install external deps in a cacheable layer
 USER datahub
 COPY ./datahub-executor/requirements.txt /datahub-executor/
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
+RUN --mount=type=cache,target=/home/datahub/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
   grep -v "^\-e " /datahub-executor/requirements.txt | uv pip install -r /dev/stdin
 USER 0
 
@@ -478,7 +478,7 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 # Install external deps in a cacheable layer first
 USER datahub
 COPY ./datahub-executor/requirements.txt /datahub-executor/
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
+RUN --mount=type=cache,target=/home/datahub/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
   grep -v "^\-e " /datahub-executor/requirements.txt | uv pip install -r /dev/stdin
 USER 0
 
