@@ -20,6 +20,7 @@ import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
+import { DaisyChat } from '@app/shared/daisy/chat';
 
 /*
     Construct Apollo Client
@@ -96,6 +97,7 @@ export const InnerApp: React.VFC = () => {
                 </Helmet>
                 <Router basename={getRuntimeBasePath()}>
                     <Routes />
+                    <DaisyChat />
                 </Router>
             </CustomThemeProvider>
         </HelmetProvider>
