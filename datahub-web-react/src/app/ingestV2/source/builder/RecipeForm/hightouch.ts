@@ -5,7 +5,7 @@
  * to maintain backward compatibility during the UI transition period. Any changes should be
  * applied to both files until V1 is fully deprecated.
  */
-import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { FieldType, FilterRecipeField, FilterRule, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const HIGHTOUCH_API_KEY: RecipeField = {
     name: 'api_key',
@@ -56,7 +56,7 @@ export const HIGHTOUCH_MAX_SYNC_RUNS: RecipeField = {
     rules: null,
 };
 
-export const HIGHTOUCH_SYNC_ALLOW: RecipeField = {
+export const HIGHTOUCH_SYNC_ALLOW: FilterRecipeField = {
     name: 'sync_patterns.allow',
     label: 'Sync Allow Patterns',
     tooltip: 'Only include syncs that match these regex patterns.',
@@ -64,11 +64,12 @@ export const HIGHTOUCH_SYNC_ALLOW: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: 'source.config.sync_patterns.allow',
     rules: null,
+    rule: FilterRule.INCLUDE,
     section: 'Syncs',
     placeholder: '.*',
 };
 
-export const HIGHTOUCH_SYNC_DENY: RecipeField = {
+export const HIGHTOUCH_SYNC_DENY: FilterRecipeField = {
     name: 'sync_patterns.deny',
     label: 'Sync Deny Patterns',
     tooltip: 'Exclude syncs that match these regex patterns.',
@@ -76,11 +77,12 @@ export const HIGHTOUCH_SYNC_DENY: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: 'source.config.sync_patterns.deny',
     rules: null,
+    rule: FilterRule.EXCLUDE,
     section: 'Syncs',
     placeholder: 'test-.*',
 };
 
-export const HIGHTOUCH_MODEL_ALLOW: RecipeField = {
+export const HIGHTOUCH_MODEL_ALLOW: FilterRecipeField = {
     name: 'model_patterns.allow',
     label: 'Model Allow Patterns',
     tooltip: 'Only include models that match these regex patterns.',
@@ -88,11 +90,12 @@ export const HIGHTOUCH_MODEL_ALLOW: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: 'source.config.model_patterns.allow',
     rules: null,
+    rule: FilterRule.INCLUDE,
     section: 'Models',
     placeholder: '.*',
 };
 
-export const HIGHTOUCH_MODEL_DENY: RecipeField = {
+export const HIGHTOUCH_MODEL_DENY: FilterRecipeField = {
     name: 'model_patterns.deny',
     label: 'Model Deny Patterns',
     tooltip: 'Exclude models that match these regex patterns.',
@@ -100,6 +103,7 @@ export const HIGHTOUCH_MODEL_DENY: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: 'source.config.model_patterns.deny',
     rules: null,
+    rule: FilterRule.EXCLUDE,
     section: 'Models',
     placeholder: 'draft-.*',
 };
