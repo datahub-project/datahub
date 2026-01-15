@@ -137,6 +137,28 @@ Kafka Lag Monitoring:
 
 - `FRESHNESS_ASSERTION_TUNING_ENABLED`: Turns on the ability to tune smart freshness assertions (default: `true`)
 
+**New Catalog Environment Variables:**
+
+- `INGESTION_ONBOARDING_REDESIGN_V1`: Turns on the new ingestion source experience with updated screens for creating/editing sources, showing Ask DataHub on the sidebar, and the updates page for viewing run results (default: `false`)
+- `IS_FREE_TRIAL_INSTANCE`: If enabled, we will enable a new UI experience for onboarding purposes for free trial users. We will also default ingest sample data upon spinning up the instance. (default: `false`)
+
+**New RunLLM Environment Variables for Ingestion Ask DataHub:**
+
+- `RUNLLM_API_KEY`: Our API key we store in AWS parameter store in order to communicate with RunLLM. If this is not provided then RunLLM is disabled as a tool to be used by Ingestion Ask DataHub (but the Ingestion Ask DataHub agent will still work).
+- `RUNLLM_ASSISTANT_ID`: The agent/assistant ID of the agent configured in RunLLM. If this is not provided then RunLLM is disabled as a tool to be used by Ingestion Ask DataHub (but the Ingestion Ask DataHub agent will still work).
+- `S3_LOG_STREAMING_ENABLED`: Enables our ingestion troubleshooting agent to query portions of logs from S3 instead of just relying on the truncated logs in the database. (default `true`)
+
+**New Metronome Rate Limiting of AskDatahub:**
+
+- `BILLING_ENABLED`: Whether or not we are tracking "billing" of customers in metronome (default: `false`)
+- `BILLING_PROVIDER`: Our billing provider. For future use, only `metronome` is supported now (default: `metronome`)
+- `METRONOME_API_KEY`: The metronome API key to let us post and get from metronome. This is stored in AWS parameter store.
+- `METRONOME_BASE_URL`: The base URL of metronome, default is expected. (default: `https://api.metronome.com}`)
+- `METRONOME_FREE_TRIAL_RATE_CARD_ID`: The rate card ID for tracking usage of ask datahub in Metronome. (default is set in datahub-apps for free trials)
+- `METRONOME_ASK_DATAHUB_PRODUCT_ID`: The product ID for tracking usage of ask datahub in Metronome. (default is set in datahub-apps for free trials)
+- `METRONOME_ASK_DATAHUB_ANSWER_CREDIT_TYPE_ID`: The credit ID for tracking usage of ask datahub in Metronome. This should be our custom "Answer" in metronome. (default is set in datahub-apps for free trials)
+- `ASK_DATAHUB_MONTHLY_ANSWERS_CREDITS`: The number of questions they can use on Ask DataHub every month (default: `1000`)
+
 **Existing Variables with New Behavior:**
 
 - `ENABLE_BEDROCK_OPTIMIZED_LATENCY`: Now affects cost calculations (+25% premium). Previously only API behavior.
