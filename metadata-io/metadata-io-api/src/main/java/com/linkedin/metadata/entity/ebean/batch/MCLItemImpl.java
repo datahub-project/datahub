@@ -8,7 +8,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -80,7 +79,23 @@ public class MCLItemImpl implements MCLItem {
           aspectRetriever
               .getEntityRegistry()
               .getEntitySpec(this.metadataChangeLog.getEntityType()));
-      aspectSpec(AspectUtils.validateAspect(this.metadataChangeLog, this.entitySpec));
+
+      // Validate MCL has required fields (inlined from AspectUtils.validateAspect)
+      if (!this.metadataChangeLog.hasAspectName()
+          || (!ChangeType.DELETE.equals(this.metadataChangeLog.getChangeType())
+              && !this.metadataChangeLog.hasAspect())) {
+        throw new UnsupportedOperationException(
+            String.format(
+                "Aspect and aspect name is required for create and update operations. changeType: %s entityName: %s hasAspectName: %s hasAspect: %s",
+                this.metadataChangeLog.getChangeType(),
+                this.entitySpec.getName(),
+                this.metadataChangeLog.hasAspectName(),
+                this.metadataChangeLog.hasAspect()));
+      }
+
+      aspectSpec(
+          ValidationApiUtils.validateAspect(
+              this.entitySpec, this.metadataChangeLog.getAspectName()));
 
       Urn urn = this.metadataChangeLog.getEntityUrn();
       if (urn == null) {

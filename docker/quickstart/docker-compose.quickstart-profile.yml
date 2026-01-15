@@ -49,7 +49,7 @@ services:
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
       EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
-      EBEAN_DATASOURCE_USERNAME: datahub
+      EBEAN_DATASOURCE_USERNAME: root
       ELASTICSEARCH_HOST: search
       ELASTICSEARCH_IMPLEMENTATION: opensearch
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: 'true'

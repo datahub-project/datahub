@@ -2995,3 +2995,61 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **47b0f2125a** - feat(ci): add ARM architecture support to nightly workflow (#15818)
   *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-07*
+
+## Upstream Merge Session - 2026-01-13 19:07:53
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 15
+- **Strategy**: stacked
+- **Started**: 2026-01-13 19:07:53
+
+### Commits Included in This Merge
+
+- **88c41fc201** - feat(ui/ingestion): bring back ingestion flow changes to OSS (#15796)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-01-07*
+
+- **87c06b98b7** - docs(structured-properties): clarify breaking schema changes behavior (#15821)
+  *by James Wright <james.wright@datahub.com> on 2026-01-07*
+
+- **58aeb5ee2d** - fix(ui) Improve quality of login background video (#15820)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-07*
+
+- **d251a3bf1b** - fix(system-update): fix regressions for postgres, cdc in sql setup steps (#15823)
+  *by Chakru <161002324+chakru-r@users.noreply.github.com> on 2026-01-08*
+
+- **5294e31496** - chore: add aviraj-gour to pr-labeler team members (#15815)
+  *by Aviraj Gour <aviraj.gour@datahub.com> on 2026-01-08*
+
+- **8226f3c2d0** - docs(remote-ingestion): add Executor Pool ID validation to setup inst… (#15829)
+  *by bryanprosser-acryl <bryan.prosser@acryl.io> on 2026-01-08*
+
+- **1c555349e7** - feat(ingest/db2): add source for IBM Db2 (#14968)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-01-08*
+
+- **765ed54a1f** - fix(kafka): change auto-increase partitions to opt-in behavior (#15830)
+  *by rob-1019 <rob.caskey@datahub.com> on 2026-01-08*
+
+- **710d331447** - docs(sdk): run assertion parameters example (#15831)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2026-01-08*
+
+- **a8006dae15** - fix(ui/ux): Push Ingestion sources sorting to UI (#15405)
+  *by Saketh Varma <sakethvarma397@gmail.com> on 2026-01-09*
+
+- **1927d6792f** - docs(trino): clarify that HTTP is default and HTTPS must be explicitly enabled (#15826)
+  *by Alfiya S <alfiya.samiulla@datahub.com> on 2026-01-09*
+
+- **4fd1e6cea1** - Fix reading data products with output_port (#15808)
+  *by mihai103 <mihai.ciocirdel@gmail.com> on 2026-01-09*
+
+- **b21d90071f** - feat(ingest/gx) : Add Spark Execution Engine Support for Great Expectation Datahub Validation Action  (#15366)
+  *by DucNgoQuang <146427841+DucNgoQuang@users.noreply.github.com> on 2026-01-09*
+
+- **f49ed555e5** - feat(tableau): implement exponential backoff for retry logic on InternalServerError (#15828)
+  *by Neha Gslab <46673172+NehaGslab@users.noreply.github.com> on 2026-01-09*
+
+- **7757c86814** - fix: multiple typos (#15807)
+  *by Benjamin Maquet <ben.maquet@consensys.net> on 2026-01-09*
