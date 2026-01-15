@@ -797,6 +797,8 @@ def test_siblings_emission_for_single_table_raw_sql_models(
     # Should emit sibling aspect on the Hightouch model (primary)
     assert len(siblings_workunits) == 1
     sibling_wu = siblings_workunits[0]
+    assert isinstance(sibling_wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(sibling_wu.metadata.aspect, SiblingsClass)
     assert sibling_wu.metadata.aspect.primary is True
     assert len(sibling_wu.metadata.aspect.siblings) == 1
     # Should reference the upstream snowflake table

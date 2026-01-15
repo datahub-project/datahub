@@ -129,19 +129,6 @@ class HightouchAPIClient:
             logger.warning(f"Failed to parse workspace {workspace_id}: {e}")
             return None
 
-    def get_folder_by_id(self, folder_id: str) -> Optional[Dict[str, str]]:
-        """
-        Fetch folder information by ID.
-        Returns a dict with folder details if found, None otherwise.
-        """
-        try:
-            response = self._make_request("GET", f"folders/{folder_id}")
-            # Folders might have: id, name, workspace_id, parent_folder_id
-            return response
-        except Exception as e:
-            logger.debug(f"Could not fetch folder {folder_id}: {e}")
-            return None
-
     def get_sources(self) -> List[HightouchSourceConnection]:
         all_data = self._make_paginated_request("sources")
         sources = []

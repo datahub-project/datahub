@@ -381,11 +381,11 @@ extract_workspaces_to_containers: true # Enable container organization (default:
 
 When enabled, the connector creates a hierarchy:
 
-- **Workspaces** → Top-level containers for Hightouch workspaces
-- **Folders** → Sub-containers for model folders (if models are organized in folders)
+- **Workspaces** → Top-level containers for Hightouch workspaces (using workspace names when available from API, otherwise workspace IDs)
+- **Folders** → Sub-containers for model folders (displayed as folder IDs since the Hightouch API does not provide folder names)
 - **Models & Syncs** → Placed within their respective workspace/folder containers
 
-This provides better organization in the DataHub UI, especially for large Hightouch deployments.
+This provides better organization in the DataHub UI, especially for large Hightouch deployments. Folders are typically organized by destination type (e.g., Salesforce, Mixpanel, Intercom).
 
 ### Sibling Relationships
 

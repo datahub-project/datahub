@@ -274,28 +274,20 @@ class HightouchSource(StatefulIngestionSourceBase):
             logger.warning(
                 f"Workspace {workspace_id} not in preloaded cache, using ID as fallback"
             )
-            self._workspaces_cache[workspace_id] = f"Workspace {workspace_id}"
+            self._workspaces_cache[workspace_id] = workspace_id
 
         return self._workspaces_cache[workspace_id]
 
     def _get_folder_name(self, folder_id: str) -> str:
-        """Get folder name from cache or API on-demand, falling back to folder ID."""
+        """
+        Get folder name from cache, using folder ID as display name.
+
+        Note: Hightouch API does not currently expose a public endpoint to fetch folder names by ID,
+        so we use the folder ID directly as the container name.
+        """
         if folder_id not in self._folders_cache:
-            try:
-                self.report.report_api_call()
-                folder_data = self.api_client.get_folder_by_id(folder_id)
-                if folder_data and "name" in folder_data:
-                    self._folders_cache[folder_id] = folder_data["name"]
-                else:
-                    # Fallback to ID if folder not found or no name
-                    self._folders_cache[folder_id] = f"Folder {folder_id}"
-                    logger.debug(
-                        f"Could not fetch folder name for {folder_id}, using ID as fallback"
-                    )
-            except Exception as e:
-                # Fallback to ID on error
-                self._folders_cache[folder_id] = f"Folder {folder_id}"
-                logger.debug(f"Error fetching folder {folder_id}: {e}")
+            # Use folder ID as the name since there's no API to fetch folder names
+            self._folders_cache[folder_id] = folder_id
 
         return self._folders_cache[folder_id]
 
