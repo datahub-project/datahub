@@ -93,5 +93,7 @@ public interface SystemAspect extends ReadItem {
    *     not available
    */
   @Nullable
-  Object getOperationContext();
+  default Object getOperationContext() {
+    return null; // Default: no operation context
+  }
 }

@@ -12,7 +12,6 @@ import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -83,11 +82,5 @@ public class TestSystemAspect implements SystemAspect {
   @Override
   public SystemAspect setDatabaseAspect(@Nonnull SystemAspect databaseAspect) {
     return this;
-  }
-
-  @Nullable
-  @Override
-  public Object getOperationContext() {
-    return null; // Not applicable for test implementation
   }
 }

@@ -93,12 +93,6 @@ public class EnvelopedSystemAspect implements SystemAspect {
     throw new NotImplementedException();
   }
 
-  @Nullable
-  @Override
-  public Object getOperationContext() {
-    return null; // Not applicable for this implementation
-  }
-
   @Nonnull
   @Override
   public SystemAspect setSystemMetadata(@Nullable SystemMetadata systemMetadata) {
