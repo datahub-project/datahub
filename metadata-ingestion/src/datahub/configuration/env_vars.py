@@ -64,6 +64,14 @@ def get_rest_emitter_default_retry_max_times() -> str:
     return os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 
 
+def get_rest_emitter_429_retry_multiplier() -> int:
+    """Multiplier for 429 retry backoff.
+
+    Number of retries will effectively be this value * get_rest_emitter_default_retry_max_times().
+    """
+    return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
+
+
 def get_rest_emitter_batch_max_payload_bytes() -> int:
     """Maximum payload size in bytes for batch operations."""
     return int(
