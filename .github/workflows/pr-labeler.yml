@@ -67,7 +67,8 @@ jobs:
           "dinesh-verma-datahub",
           "rob-1019",
           "kewats",
-          "aviraj-gour"
+          "aviraj-gour",
+          "rajat-datahub"
           ]'),
           github.actor
           )

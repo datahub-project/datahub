@@ -92,13 +92,81 @@ FROZEN_TIME = "2024-01-15 12:00:00"
 class MockAzureResource:
     """Mock class to simulate Azure SDK resource objects.
 
-    The Azure SDK returns resource objects (Pipeline, Dataset, etc.) that have
-    an as_dict() method. Our connector calls this method to get a dictionary
-    representation which is then validated against our Pydantic models.
+    Exposes dictionary data as attributes (like Azure SDK models) and supports
+    nested attribute access for properties like `linked_service_name.reference_name`.
+
+    The Azure SDK models expose properties at the top level (not nested under
+    a 'properties' dict), so this mock looks in both the top level AND the
+    'properties' dict for backwards compatibility with test data.
+
+    For activities, also checks 'typeProperties' since SDK activity subclasses
+    expose typeProperties contents as direct attributes (e.g., activity.pipeline
+    instead of activity.typeProperties.pipeline).
     """
+
+    # Attributes that should return the raw dict (for dict-like access)
+    _DICT_PASSTHROUGH_ATTRS = {"tags", "parameters", "invoked_by", "error"}
 
     def __init__(self, data: Dict[str, Any]):
         self._data = data
+        # Extract properties to top level for SDK-like access
+        self._properties = data.get("properties", {})
+        # For activities, typeProperties are also exposed at top level
+        self._type_properties = data.get("typeProperties", {})
+
+    def __getattr__(self, name: str) -> Any:
+        # Convert snake_case to camelCase for Azure API compatibility
+        # e.g., linked_service_name -> linkedServiceName
+        camel_name = "".join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(name.split("_"))
+        )
+
+        value = None
+        found = False
+
+        # Try top-level first (snake_case then camelCase)
+        if name in self._data:
+            value = self._data[name]
+            found = True
+        elif camel_name in self._data:
+            value = self._data[camel_name]
+            found = True
+        # Then try properties dict (SDK models expose these at top level)
+        elif name in self._properties:
+            value = self._properties[name]
+            found = True
+        elif camel_name in self._properties:
+            value = self._properties[camel_name]
+            found = True
+        # Also try typeProperties (SDK activity subclasses expose these at top level)
+        elif name in self._type_properties:
+            value = self._type_properties[name]
+            found = True
+        elif camel_name in self._type_properties:
+            value = self._type_properties[camel_name]
+            found = True
+
+        if not found:
+            # Return None for missing attributes (like SDK does for optional fields)
+            return None
+
+        # For known dict-like attributes, return raw dict to support .get()/.items()
+        if (
+            name in self._DICT_PASSTHROUGH_ATTRS
+            or camel_name in self._DICT_PASSTHROUGH_ATTRS
+        ):
+            return value
+
+        # Recursively wrap nested dicts as MockAzureResource
+        if isinstance(value, dict):
+            return MockAzureResource(value)
+        if isinstance(value, list):
+            return [
+                MockAzureResource(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        return value
 
     def as_dict(self) -> Dict[str, Any]:
         return self._data

@@ -15,6 +15,7 @@ from sqlalchemy.sql import quoted_name
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
     dataset_urn_to_key,
     make_dataset_urn_with_platform_instance,
@@ -107,10 +108,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    use_odbc: bool = Field(
-        default=False,
-        description="See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc.",
-    )
+    # Soft deprecation: use_odbc is removed, source type determines ODBC mode
+    _use_odbc_removed = pydantic_removed_field("use_odbc")
     uri_args: Dict[str, str] = Field(
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
@@ -152,45 +151,49 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
     @field_validator("uri_args", mode="after")
     @classmethod
-    def passwords_match(
+    def validate_uri_args(
         cls, v: Dict[str, Any], info: ValidationInfo, **kwargs: Any
     ) -> Dict[str, Any]:
-        if (
-            info.data["use_odbc"]
-            and not info.data["sqlalchemy_uri"]
-            and "driver" not in v
-        ):
-            raise ValueError("uri_args must contain a 'driver' option")
-        elif not info.data["use_odbc"] and v:
-            raise ValueError("uri_args is not supported when ODBC is disabled")
+        # Use Pydantic validation context to get is_odbc flag
+        is_odbc = info.context.get("is_odbc", False) if info.context else False
+        if is_odbc and not info.data["sqlalchemy_uri"] and "driver" not in v:
+            raise ValueError(
+                "uri_args must contain a 'driver' option when using mssql-odbc source type"
+            )
+        elif not is_odbc and v:
+            raise ValueError(
+                "uri_args is not supported for source type 'mssql'. Use source type 'mssql-odbc' instead."
+            )
         return v
 
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
         current_db: Optional[str] = None,
+        is_odbc: bool = False,
     ) -> str:
         current_db = current_db or self.database
 
-        if self.use_odbc:
+        scheme = self.scheme
+        if is_odbc:
             # Ensure that the import is available.
             import pyodbc  # noqa: F401
 
-            self.scheme = "mssql+pyodbc"
+            scheme = "mssql+pyodbc"
 
             # ODBC requires a database name, otherwise it will interpret host_port
             # as a pre-defined ODBC connection name.
             current_db = current_db or "master"
 
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,  # type: ignore
+            scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
             self.host_port,  # type: ignore
             current_db,
             uri_opts=uri_opts,
         )
-        if self.use_odbc:
+        if is_odbc:
             final_uri_args = self.uri_args.copy()
             if final_uri_args and current_db:
                 final_uri_args.update({"database": current_db})
@@ -236,16 +239,23 @@ class SQLServerSource(SQLAlchemySource):
     - Metadata for databases, schemas, views and tables
     - Column types associated with each table/view
     - Table, row, and column statistics via optional SQL profiling
-    We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install.
-    If you do use pyodbc, make sure to change the source type from `mssql` to `mssql-odbc` so that we pull in the right set of dependencies. This will be needed in most cases where encryption is required, such as managed SQL Server services in Azure.
+
+    Two source types are available:
+    - `mssql`: Uses [python-tds](https://github.com/denisenkom/pytds) library (pure Python, easier to install)
+    - `mssql-odbc`: Uses [pyodbc](https://github.com/mkleehammer/pyodbc) library (required for encryption, Azure managed services)
+
+    If you need encryption (e.g., for Azure SQL), use source type `mssql-odbc` and configure `uri_args` with your ODBC driver settings.
     """
 
     report: SQLSourceReport
 
-    def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: SQLServerConfig, ctx: PipelineContext, is_odbc: bool = False
+    ):
         super().__init__(config, ctx, "mssql")
         # Cache the table and column descriptions
         self.config: SQLServerConfig = config
+        self._is_odbc = is_odbc
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
@@ -262,7 +272,7 @@ class SQLServerSource(SQLAlchemySource):
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
                 with inspector.engine.connect() as conn:
-                    if self.config.use_odbc:
+                    if self._is_odbc:
                         self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)
@@ -331,8 +341,18 @@ class SQLServerSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "SQLServerSource":
-        config = SQLServerConfig.model_validate(config_dict)
-        return cls(config, ctx)
+        # Determine ODBC mode based on source type.
+        # Use 'mssql-odbc' for ODBC connections, 'mssql' for non-ODBC (pytds) connections.
+        source_type = getattr(
+            getattr(ctx.pipeline_config, "source", None), "type", None
+        )
+        is_odbc = source_type == "mssql-odbc"
+
+        # Pass is_odbc via Pydantic validation context for use in validators
+        config = SQLServerConfig.model_validate(
+            config_dict, context={"is_odbc": is_odbc}
+        )
+        return cls(config, ctx, is_odbc=is_odbc)
 
     # override to get table descriptions
     def get_table_properties(
@@ -988,7 +1008,7 @@ class SQLServerSource(SQLAlchemySource):
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
-        url = self.config.get_sql_alchemy_url()
+        url = self.config.get_sql_alchemy_url(is_odbc=self._is_odbc)
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
@@ -1009,7 +1029,9 @@ class SQLServerSource(SQLAlchemySource):
 
             for db in databases:
                 if self.config.database_pattern.allowed(db["name"]):
-                    url = self.config.get_sql_alchemy_url(current_db=db["name"])
+                    url = self.config.get_sql_alchemy_url(
+                        current_db=db["name"], is_odbc=self._is_odbc
+                    )
                     engine = create_engine(url, **self.config.options)
                     inspector = inspect(engine)
                     self.current_database = db["name"]
