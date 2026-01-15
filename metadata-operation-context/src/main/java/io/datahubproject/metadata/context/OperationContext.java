@@ -234,9 +234,7 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull private final ValidationContext validationContext;
   @Nullable private final SystemTelemetryContext systemTelemetryContext;
 
-  /**
-   * Override Lombok-generated getter to inject authorization session into RetrieverContext
-   */
+  /** Override Lombok-generated getter to inject authorization session into RetrieverContext */
   public RetrieverContext getRetrieverContext() {
     // If the retrieverContext already has a session, return it as-is
     if (retrieverContext.getAuthorizationSession() != null) {
@@ -249,7 +247,7 @@ public class OperationContext implements AuthorizationSession {
         .aspectRetriever(retrieverContext.getAspectRetriever())
         .cachingAspectRetriever(retrieverContext.getCachingAspectRetriever())
         .searchRetriever(retrieverContext.getSearchRetriever())
-        .authorizationSession(this)  // Inject the OperationContext as the authorization session
+        .authorizationSession(this) // Inject the OperationContext as the authorization session
         .build();
   }
 
