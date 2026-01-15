@@ -2,7 +2,10 @@
 
 import contextlib
 import dataclasses
+import logging
 from typing import Any, Dict, Iterable, List, Optional
+
+logger = logging.getLogger(__name__)
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
@@ -157,7 +160,9 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     tls_verify: bool = Field(
         default=False,
-        description="If True, verify server certificates for secure LDAP connections.",
+        description="If True, verify server certificates for secure LDAP connections. "
+        "Enabling this prevents Man-in-the-Middle (MITM) attacks (CWE-295). "
+        "Recommended for production environments.",
     )
 
     # default mapping for attrs
@@ -228,11 +233,15 @@ class LDAPSource(StatefulIngestionSourceBase):
         self.report = LDAPSourceReport()
 
         # Configure TLS certificate validation
-        # Default behavior (tls_verify=False) maintains backwards compatibility
         # Setting tls_verify=True enforces certificate validation (recommended for production)
         if self.config.tls_verify:
             ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
         else:
+            logger.warning(
+                "LDAP TLS certificate verification is disabled (tls_verify=False). "
+                "This makes the connection vulnerable to Man-in-the-Middle attacks. "
+                "Set tls_verify=True for production environments."
+            )
             ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
 

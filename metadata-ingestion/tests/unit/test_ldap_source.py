@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from datahub.ingestion.source.ldap import (
+    LDAPSource,
     LDAPSourceConfig,
     parse_groups,
     parse_ldap_dn,
@@ -114,3 +117,61 @@ def test_ldap_config_tls_verify(tls_verify_value, expected):
 
     config = LDAPSourceConfig.model_validate(config_dict)
     assert config.tls_verify is expected
+
+
+@patch("datahub.ingestion.source.ldap.ldap")
+def test_tls_verify_false_sets_allow(mock_ldap):
+    """Test that tls_verify=False sets OPT_X_TLS_ALLOW (insecure)."""
+    mock_ldap.OPT_X_TLS_REQUIRE_CERT = 24577  # Actual value
+    mock_ldap.OPT_X_TLS_ALLOW = 3
+    mock_ldap.OPT_REFERRALS = 8
+    mock_ldap.initialize.return_value = MagicMock()
+
+    config = LDAPSourceConfig.model_validate(
+        {
+            "ldap_server": "ldaps://example.com",
+            "ldap_user": "cn=admin,dc=example,dc=com",
+            "ldap_password": "password",
+            "base_dn": "dc=example,dc=com",
+            "tls_verify": False,
+        }
+    )
+
+    from datahub.ingestion.api.common import PipelineContext
+
+    ctx = PipelineContext(run_id="test")
+    LDAPSource(ctx, config)
+
+    # Verify ldap.set_option was called with OPT_X_TLS_ALLOW (insecure)
+    mock_ldap.set_option.assert_any_call(
+        mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_ALLOW
+    )
+
+
+@patch("datahub.ingestion.source.ldap.ldap")
+def test_tls_verify_true_sets_demand(mock_ldap):
+    """Test that tls_verify=True sets OPT_X_TLS_DEMAND (secure)."""
+    mock_ldap.OPT_X_TLS_REQUIRE_CERT = 24577  # Actual value
+    mock_ldap.OPT_X_TLS_DEMAND = 2
+    mock_ldap.OPT_REFERRALS = 8
+    mock_ldap.initialize.return_value = MagicMock()
+
+    config = LDAPSourceConfig.model_validate(
+        {
+            "ldap_server": "ldaps://example.com",
+            "ldap_user": "cn=admin,dc=example,dc=com",
+            "ldap_password": "password",
+            "base_dn": "dc=example,dc=com",
+            "tls_verify": True,
+        }
+    )
+
+    from datahub.ingestion.api.common import PipelineContext
+
+    ctx = PipelineContext(run_id="test")
+    LDAPSource(ctx, config)
+
+    # Verify ldap.set_option was called with OPT_X_TLS_DEMAND (secure)
+    mock_ldap.set_option.assert_any_call(
+        mock_ldap.OPT_X_TLS_REQUIRE_CERT, mock_ldap.OPT_X_TLS_DEMAND
+    )
