@@ -40,8 +40,6 @@ def normalize_column_name(name: str) -> str:
 
 
 class HightouchLineageHandler:
-    """Handles all lineage-related operations for Hightouch connector."""
-
     def __init__(
         self,
         api_client: HightouchAPIClient,
@@ -82,7 +80,6 @@ class HightouchLineageHandler:
 
         upstream_urn = None
 
-        # For table models, build URN from table name
         if model.query_type == "table" and model.name:
             table_name = model.name
             if source.configuration:
@@ -96,7 +93,7 @@ class HightouchLineageHandler:
 
             upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
             if not upstream_urn:
-                logger.info(
+                logger.debug(
                     f"Could not generate upstream URN for table model {model.slug} (table_name={table_name})"
                 )
                 return {}
@@ -105,11 +102,11 @@ class HightouchLineageHandler:
         elif sql_table_urns:
             if len(sql_table_urns) == 1:
                 upstream_urn = sql_table_urns[0]
-                logger.info(
+                logger.debug(
                     f"Using SQL-parsed upstream URN for model {model.slug} (query_type={model.query_type}): {upstream_urn}"
                 )
             else:
-                logger.info(
+                logger.debug(
                     f"Skipping upstream casing for model {model.slug} (query_type={model.query_type}): "
                     f"model references {len(sql_table_urns)} tables (need exactly 1)"
                 )
@@ -117,14 +114,13 @@ class HightouchLineageHandler:
         else:
             return {}
 
-        # Fetch upstream schema
         try:
-            logger.info(
+            logger.debug(
                 f"Fetching upstream schema for model {model.slug} from URN: {upstream_urn}"
             )
             upstream_schema = self.graph.get_schema_metadata(str(upstream_urn))
             if not upstream_schema or not upstream_schema.fields:
-                logger.info(
+                logger.debug(
                     f"No upstream schema found for {upstream_urn} for model {model.slug}"
                 )
                 return {}
@@ -135,7 +131,7 @@ class HightouchLineageHandler:
                 normalized = normalize_column_name(field.fieldPath)
                 field_casing_map[normalized] = field.fieldPath
 
-            logger.info(
+            logger.debug(
                 f"Fetched {len(field_casing_map)} field casings from upstream table {upstream_urn} "
                 f"for model {model.slug}. Field mapping: {field_casing_map}"
             )
@@ -154,14 +150,12 @@ class HightouchLineageHandler:
         upstream_table_urn: str,
         model_schema_fields: List[SchemaFieldClass],
     ) -> List[FineGrainedLineageClass]:
-        """Generate column-level lineage for table-type models with schema normalization."""
         if not self.graph:
             return []
 
         fine_grained_lineages = []
 
         try:
-            # Fetch upstream schema from DataHub
             upstream_schema = self.graph.get_schema_metadata(upstream_table_urn)
 
             if not upstream_schema or not upstream_schema.fields:
@@ -241,7 +235,6 @@ class HightouchLineageHandler:
             [PlatformDetail], Optional[SqlParsingAggregator]
         ],
     ) -> None:
-        """Register known lineage for models in SQL parsing aggregator."""
         source_platform = get_platform_for_source_fn(source)
         if not source_platform.platform:
             logger.debug(
@@ -256,7 +249,6 @@ class HightouchLineageHandler:
             )
             return
 
-        # For table models, register direct table reference
         if model.query_type == "table" and model.name:
             table_name = model.name
             if source.configuration:
@@ -498,7 +490,6 @@ class HightouchLineageHandler:
     def emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit sibling aspects for Hightouch model and source table."""
         # Always emit sibling aspect on Hightouch model (primary)
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,

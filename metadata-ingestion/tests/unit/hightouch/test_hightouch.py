@@ -936,7 +936,6 @@ def test_generate_assertion_from_contract(mock_api_client_class, pipeline_contex
 
     assert len(workunits) > 0
 
-    # Check that assertion info was created
     mcp = workunits[0].metadata
     assert isinstance(mcp, MetadataChangeProposalWrapper)
     assert mcp.aspect is not None
@@ -1531,10 +1530,8 @@ def test_schema_emission_enabled_and_applied(
 
     result = source_instance._generate_model_dataset(model, None)
 
-    # Check that schema was emitted
     assert source_instance.report.model_schemas_emitted == 1
 
-    # Check that dataset has schema
     schema_fields = result.dataset.schema
     assert len(schema_fields) == 2
     assert schema_fields[0].field_path == "user_id"

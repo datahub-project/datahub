@@ -250,11 +250,9 @@ class HightouchSource(StatefulIngestionSourceBase):
         return self._destinations_cache.get(destination_id)
 
     def _preload_workspaces_and_folders(self) -> None:
-        """Preload all workspaces and folders once at the beginning for efficient container name resolution."""
         if not self.config.extract_workspaces_to_containers:
             return
 
-        # Preload all workspaces
         try:
             self.report.report_api_call()
             workspaces = self.api_client.get_workspaces()
@@ -268,9 +266,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         # Individual folder fetches will be done on-demand with caching
 
     def _get_workspace_name(self, workspace_id: str) -> str:
-        """Get workspace name from cache, falling back to workspace ID."""
         if workspace_id not in self._workspaces_cache:
-            # Fallback if not preloaded (shouldn't normally happen)
             logger.warning(
                 f"Workspace {workspace_id} not in preloaded cache, using ID as fallback"
             )
@@ -374,7 +370,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         if container_key.guid() in self._emitted_containers:
             return
 
-        # Fetch actual workspace name from API
         workspace_name = self._get_workspace_name(workspace_id)
 
         container_workunits = gen_containers(
@@ -412,7 +407,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         if container_key.guid() in self._emitted_containers:
             return
 
-        # Fetch actual folder name from API
         folder_name = self._get_folder_name(folder_id)
 
         container_workunits = gen_containers(
@@ -445,7 +439,6 @@ class HightouchSource(StatefulIngestionSourceBase):
     def _build_model_custom_properties(
         self, model: HightouchModel, source: Optional[HightouchSourceConnection]
     ) -> Dict[str, str]:
-        """Build custom properties dictionary for a model dataset."""
         custom_properties = {
             "model_id": model.id,
             "query_type": model.query_type,
@@ -484,7 +477,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         source: Optional[HightouchSourceConnection],
         referenced_columns: Optional[List[str]],
     ) -> List[SchemaFieldClass]:
-        """Build schema field classes with upstream casing normalization."""
         schema_fields = self._schema_handler.resolve_schema(
             model=model, source=source, referenced_columns=referenced_columns
         )
@@ -503,12 +495,12 @@ class HightouchSource(StatefulIngestionSourceBase):
         )
 
         if upstream_field_casing:
-            logger.info(
+            logger.debug(
                 f"Using upstream field casing for model {model.slug}: {len(upstream_field_casing)} fields mapped. "
                 f"Casing map: {upstream_field_casing}"
             )
         else:
-            logger.info(
+            logger.debug(
                 f"No upstream field casing available for model {model.slug} (query_type={model.query_type}, "
                 f"name={model.name}, graph={'available' if self.graph else 'not available'}), "
                 f"using original Hightouch casing"
@@ -516,18 +508,17 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         schema_field_classes: List[SchemaFieldClass] = []
         for field in schema_fields:
-            # Use upstream casing if available, otherwise use field name as-is
             normalized_name = normalize_column_name(field.name)
             field_path = upstream_field_casing.get(normalized_name, field.name)
 
             if upstream_field_casing and normalized_name in upstream_field_casing:
                 if field_path != field.name:
-                    logger.info(
+                    logger.debug(
                         f"Normalized field casing for model {model.slug}: '{field.name}' -> '{field_path}' "
                         f"(normalized lookup key: '{normalized_name}')"
                     )
             elif upstream_field_casing:
-                logger.info(
+                logger.debug(
                     f"No casing match found for field '{field.name}' in model {model.slug} "
                     f"(normalized: '{normalized_name}'). Available upstream fields: {list(upstream_field_casing.keys())}"
                 )
@@ -544,7 +535,7 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         if schema_field_classes:
             field_names = [f.fieldPath for f in schema_field_classes]
-            logger.info(f"Final schema for model {model.slug}: {field_names}")
+            logger.debug(f"Final schema for model {model.slug}: {field_names}")
 
         return schema_field_classes
 
@@ -555,7 +546,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         source: Optional[HightouchSourceConnection],
         schema_field_classes: List[SchemaFieldClass],
     ) -> None:
-        """Register model schema with SQL parsing aggregator if available."""
         if not source:
             return
 
@@ -592,7 +582,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         source: Optional[HightouchSourceConnection],
         custom_properties: Dict[str, str],
     ) -> Optional[Union[str, DatasetUrn]]:
-        """Set up upstream lineage for table-type models, returns upstream URN."""
         if not source or model.query_type != "table" or not model.name:
             return None
 
@@ -640,7 +629,6 @@ class HightouchSource(StatefulIngestionSourceBase):
             custom_properties=custom_properties,
         )
 
-        # Build and set schema fields
         schema_field_classes = self._build_model_schema_fields(
             model, source, referenced_columns
         )
@@ -650,7 +638,6 @@ class HightouchSource(StatefulIngestionSourceBase):
                 model, str(dataset.urn), source, schema_field_classes
             )
 
-        # Set up upstream lineage for table models
         upstream_urn = self._setup_table_model_upstream(
             model, source, custom_properties
         )
@@ -659,7 +646,6 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         dataset.set_custom_properties(custom_properties)
 
-        # Cache normalized schema fields for use in downstream column lineage
         if schema_field_classes:
             self._model_schema_fields_cache[model.id] = schema_field_classes
 
@@ -745,7 +731,6 @@ class HightouchSource(StatefulIngestionSourceBase):
                         if isinstance(value, str):
                             dest_table = value
                         elif isinstance(value, dict):
-                            # Try to extract from common dict patterns
                             dest_table = value.get("from") or value.get("name")
 
                         if dest_table:
@@ -1038,7 +1023,6 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
 
         if source_table_urn:
-            # Emit sibling aspects if configured
             if self.config.include_table_lineage_to_sibling:
                 yield from self._lineage_handler.emit_sibling_aspects(
                     dataset_urn, str(source_table_urn)
@@ -1048,7 +1032,6 @@ class HightouchSource(StatefulIngestionSourceBase):
                     f"Hightouch model <-> {source_table_urn}"
                 )
 
-            # Generate and emit column-level lineage for models with single upstream table
             if model.query_type == "table":
                 fine_grained_lineages = (
                     self._lineage_handler.generate_table_model_column_lineage(
@@ -1402,7 +1385,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         for sync in syncs:
             self._preload_sync_schemas(sync, self._registered_urns)
 
-        logger.info(
+        logger.debug(
             f"Preloaded {len(self._registered_urns)} schemas from DataHub for SQL parsing"
         )
 
