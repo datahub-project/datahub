@@ -5,40 +5,6 @@ HIGHTOUCH_PLATFORM = "hightouch"
 # Assertion types
 ASSERTION_TYPE_HIGHTOUCH_CONTRACT = "hightouch_contract"
 
-# Mapping of destination types to their configuration key for table/object name
-# Based on actual Hightouch API responses
-DESTINATION_CONFIG_TABLE_KEY_MAPPING = {
-    # CRM & Sales (use 'object' for Salesforce-style objects)
-    "salesforce": "object",
-    "hubspot": "object",
-    "zendesk": "object",
-    "pipedrive": "object",
-    # Marketing Automation (typically use 'object' or custom keys)
-    "braze": "object",
-    "iterable": "object",
-    "marketo": "object",
-    # Analytics & Product
-    "mixpanel": "table",  # Mixpanel may use different structure
-    "amplitude": "table",
-    "segment": "table",
-    # Data Warehouses & Databases (use 'table' or 'tableName')
-    "snowflake": "tableName",
-    "bigquery": "tableName",
-    "redshift": "tableName",
-    "databricks": "tableName",
-    "postgres": "tableName",
-    "mysql": "tableName",
-    "mssql": "tableName",
-    # Default fallback keys to try in order
-    "_fallback_keys": [
-        "object",
-        "tableName",
-        "table",
-        "destinationTable",
-        "objectName",
-    ],
-}
-
 # Mapping of Hightouch source types to DataHub platform names
 # Reference: https://hightouch.com/docs/getting-started/concepts/#sources
 KNOWN_SOURCE_PLATFORM_MAPPING = {

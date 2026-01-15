@@ -231,7 +231,7 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
             return mock_responses["sync_runs"].get(sync_id, [])[:limit]
 
         def mock_extract_field_mappings(sync):
-            from datahub.ingestion.source.hightouch.models import FieldMapping
+            from datahub.ingestion.source.hightouch.models import HightouchFieldMapping
 
             config = sync.configuration
             field_mappings = []
@@ -239,7 +239,7 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
             if "fieldMappings" in config:
                 for mapping in config["fieldMappings"]:
                     field_mappings.append(
-                        FieldMapping(
+                        HightouchFieldMapping(
                             source_field=mapping["sourceField"],
                             destination_field=mapping["destinationField"],
                             is_primary_key=mapping.get("isPrimaryKey", False),
@@ -248,7 +248,7 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
             elif "columnMappings" in config:
                 for dest_field, source_field in config["columnMappings"].items():
                     field_mappings.append(
-                        FieldMapping(
+                        HightouchFieldMapping(
                             source_field=str(source_field),
                             destination_field=str(dest_field),
                             is_primary_key=False,

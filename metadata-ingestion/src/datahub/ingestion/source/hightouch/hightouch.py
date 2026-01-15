@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -40,7 +40,6 @@ from datahub.ingestion.source.hightouch.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.hightouch.constants import (
-    DESTINATION_CONFIG_TABLE_KEY_MAPPING,
     HIGHTOUCH_PLATFORM,
     KNOWN_DESTINATION_PLATFORM_MAPPING,
     KNOWN_SOURCE_PLATFORM_MAPPING,
@@ -88,11 +87,7 @@ from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.sql_parsing.sql_parsing_aggregator import (
-    KnownQueryLineageInfo,
-    ObservedQuery,
-    SqlParsingAggregator,
-)
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
@@ -110,10 +105,6 @@ class FolderKey(ContainerKey):
 
 
 def normalize_column_name(name: str) -> str:
-    """
-    Normalize column name for fuzzy matching.
-    Converts to lowercase and removes underscores/hyphens.
-    """
     return name.lower().replace("_", "").replace("-", "")
 
 
@@ -134,11 +125,6 @@ def normalize_column_name(name: str) -> str:
     "Enabled by default via stateful ingestion",
 )
 class HightouchSource(StatefulIngestionSourceBase):
-    """
-    This plugin extracts Hightouch reverse ETL metadata including sources,
-    models, syncs, destinations, and sync run history.
-    """
-
     config: HightouchSourceConfig
     report: HightouchSourceReport
     platform: str = "hightouch"
@@ -182,15 +168,12 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         self._sql_aggregators: Dict[str, Optional[SqlParsingAggregator]] = {}
 
+        self._destination_lineage: Dict[str, Dict[str, Any]] = {}
+
     def _get_aggregator_for_platform(
         self, source_platform: PlatformDetail
     ) -> Optional[SqlParsingAggregator]:
-        """
-        Get or create a SQL aggregator for a specific source platform.
-
-        Returns None if the platform is unknown or aggregator creation fails.
-        This makes SQL parsing optional - we'll still emit basic known lineage.
-        """
+        # Returns None if platform is unknown - SQL parsing is optional, basic lineage still works
         platform = source_platform.platform
         if not platform:
             logger.debug("No platform specified, skipping SQL aggregator creation")
@@ -282,6 +265,9 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         if source_details.env is None:
             source_details.env = self.config.env
+
+        if source_details.database is None and source.configuration:
+            source_details.database = source.configuration.get("database")
 
         return source_details
 
@@ -397,12 +383,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         model_urn: str,
         source: HightouchSourceConnection,
     ) -> None:
-        """
-        Register lineage for a model in the SQL aggregator for the source platform.
-
-        If SQL aggregator is not available, this is a no-op. Basic lineage from
-        table-type models will still be emitted via the dataset upstream lineage.
-        """
         source_platform = self._get_platform_for_source(source)
         if not source_platform.platform:
             logger.debug(
@@ -453,33 +433,25 @@ class HightouchSource(StatefulIngestionSourceBase):
             self.report.sql_parsing_attempts += 1
 
             try:
-                aggregator.add_observed_query(
-                    ObservedQuery(
-                        query=model.raw_sql,
-                        default_db=source_platform.database,
-                        default_schema=None,
-                    )
-                )
-
-                aggregator.add_known_query_lineage(
-                    KnownQueryLineageInfo(
-                        query_text=model.raw_sql,
-                        downstream=model_urn,
-                        upstreams=[],
-                    ),
-                    merge_lineage=True,
+                aggregator.add_view_definition(
+                    view_urn=model_urn,
+                    view_definition=model.raw_sql,
+                    default_db=source_platform.database,
+                    default_schema=None,
                 )
                 self.report.sql_parsing_successes += 1
                 logger.debug(
-                    f"Registered SQL query for model {model.id} in aggregator "
+                    f"Registered view definition for model {model.id} in aggregator "
                     f"for platform {source_platform.platform}"
                 )
             except Exception as e:
-                logger.debug(f"Error registering SQL query for model {model.id}: {e}")
+                logger.debug(
+                    f"Error registering view definition for model {model.id}: {e}"
+                )
                 self.report.sql_parsing_failures += 1
                 self.report.warning(
-                    title="SQL query registration error",
-                    message=f"Could not register SQL query for model '{model.name}'. "
+                    title="View definition registration error",
+                    message=f"Could not register view definition for model '{model.name}'. "
                     f"This may be due to an unsupported SQL dialect or parsing error. "
                     f"Basic lineage will still be emitted.",
                     context=f"model_id: {model.id}, platform: {source_platform.platform}",
@@ -628,11 +600,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         model_schema: Optional[List[str]] = None,
         dest_schema: Optional[List[str]] = None,
     ) -> tuple[str, str]:
-        """
-        Normalize and validate column names for lineage, attempting fuzzy matching.
-
-        Returns: (validated_source_field, validated_destination_field)
-        """
         if not model_schema and not dest_schema:
             return (source_field, destination_field)
 
@@ -695,61 +662,45 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
                 return None
 
-        if (
-            self.config.include_table_lineage_to_sibling
-            and model.query_type == "table"
-            and model.name
-        ):
-            table_name = model.name
-            if source.configuration:
-                database = source.configuration.get("database", "")
-                schema = source.configuration.get("schema", "")
-                source_details = self._urn_builder._get_cached_source_details(source)
-                if source_details.include_schema_in_urn and schema:
-                    table_name = f"{database}.{schema}.{table_name}"
-                elif database and "." not in table_name:
-                    table_name = f"{database}.{table_name}"
-
-            return self._urn_builder.make_upstream_table_urn(table_name, source)
-
+        # Always return Hightouch model URN when emitting models as datasets
+        # Sibling relationships will connect to source table when include_table_lineage_to_sibling is True
         return self._urn_builder.make_model_urn(model, source)
 
     def _get_outlet_urn_for_sync(
         self, sync: HightouchSync, destination: HightouchDestination
     ) -> Union[str, DatasetUrn, None]:
+        # Hightouch API doesn't guarantee config schema (per swagger.json).
+        # Try common keys in priority order: object > tableName > table > destinationTable > objectName
         dest_table = None
 
         if sync.configuration:
-            dest_type = destination.type.lower()
-            expected_key = DESTINATION_CONFIG_TABLE_KEY_MAPPING.get(dest_type)
+            sync_type = sync.configuration.get("type")
 
-            if expected_key and isinstance(expected_key, str):
-                dest_table = sync.configuration.get(expected_key)
-                if dest_table:
-                    logger.debug(
-                        f"Found destination table '{dest_table}' using expected key '{expected_key}' "
-                        f"for {dest_type} destination"
-                    )
-
-            if not dest_table:
-                fallback_keys = DESTINATION_CONFIG_TABLE_KEY_MAPPING.get(
-                    "_fallback_keys", []
-                )
-                for key in fallback_keys:
-                    dest_table = sync.configuration.get(key)
-                    if dest_table:
+            if sync_type == "event":
+                dest_table = sync.configuration.get("eventName")
+            else:
+                for key in [
+                    "object",
+                    "tableName",
+                    "table",
+                    "destinationTable",
+                    "objectName",
+                ]:
+                    if key in sync.configuration and sync.configuration[key]:
+                        dest_table = sync.configuration[key]
                         logger.debug(
-                            f"Found destination table '{dest_table}' using fallback key '{key}' "
-                            f"for {dest_type} destination"
+                            f"Found destination table/object '{dest_table}' using config key '{key}' "
+                            f"for sync {sync.slug} (destination type: {destination.type})"
                         )
                         break
 
         if not dest_table:
-            # Last resort: use sync name with a prefix to distinguish from job name
             dest_table = f"{sync.slug}_destination"
             logger.warning(
-                f"Could not find destination table name in sync configuration for sync {sync.slug} (id: {sync.id}). "
-                f"Destination type: {destination.type}. Using fallback name: {dest_table}"
+                f"Could not determine destination table name for sync {sync.slug} (id: {sync.id}). "
+                f"Destination type: {destination.type}, Sync type: {sync.configuration.get('type') if sync.configuration else 'unknown'}. "
+                f"Tried keys: object, tableName, table, destinationTable, objectName. "
+                f"Using fallback name: {dest_table}"
             )
 
         return self._urn_builder.make_destination_urn(dest_table, destination)
@@ -761,12 +712,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         inlet_urn: Union[str, DatasetUrn],
         outlet_urn: Union[str, DatasetUrn],
     ) -> List[FineGrainedLineageClass]:
-        """
-        Generate column-level lineage from field mappings.
-
-        Note: Schemas should already be registered with the SQL aggregator via
-        _preload_schemas_for_sql_parsing(), so we just fetch them for field matching.
-        """
         field_mappings = self.api_client.extract_field_mappings(sync)
         if not field_mappings:
             return []
@@ -1015,44 +960,63 @@ class HightouchSource(StatefulIngestionSourceBase):
         ):
             yield mcp.as_workunit()
 
-    def _emit_destination_lineage(
+    def _accumulate_destination_lineage(
         self,
-        sync: HightouchSync,
         destination_urn: str,
         datajob: DataJob,
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Emit upstream lineage and fine-grained lineage on the destination dataset.
-        This makes the lineage visible from the destination dataset entity page.
-        Uses the outlet_urn from the datajob to ensure URN consistency.
-        """
-        upstreams = []
+    ) -> None:
+        # Accumulate across syncs to avoid overwriting when multiple syncs target same destination
+        if destination_urn not in self._destination_lineage:
+            self._destination_lineage[destination_urn] = {
+                "upstreams": set(),
+                "fine_grained_lineages": [],
+            }
+
         for inlet_urn in datajob.inlets:
-            upstreams.append(
-                UpstreamClass(
-                    dataset=str(inlet_urn),
-                    type=DatasetLineageTypeClass.COPY,
-                )
+            self._destination_lineage[destination_urn]["upstreams"].add(str(inlet_urn))
+
+        if datajob.fine_grained_lineages:
+            self._destination_lineage[destination_urn]["fine_grained_lineages"].extend(
+                datajob.fine_grained_lineages
             )
 
-        fine_grained_lineages = (
-            datajob.fine_grained_lineages if datajob.fine_grained_lineages else None
+        logger.debug(
+            f"Accumulated lineage for destination {destination_urn}: "
+            f"{len(datajob.inlets)} inlet(s), "
+            f"{len(datajob.fine_grained_lineages) if datajob.fine_grained_lineages else 0} fine-grained lineage(s)"
         )
 
-        if upstreams:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=destination_urn,
-                aspect=UpstreamLineageClass(
-                    upstreams=upstreams,
-                    fineGrainedLineages=fine_grained_lineages,
-                ),
-            ).as_workunit()
+    def _emit_all_destination_lineage(self) -> Iterable[MetadataWorkUnit]:
+        # Called after all syncs processed to emit consolidated lineage
+        for destination_urn, lineage_data in self._destination_lineage.items():
+            upstreams = [
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.COPY,
+                )
+                for upstream_urn in lineage_data["upstreams"]
+            ]
 
-            logger.debug(
-                f"Emitted upstream lineage for destination {destination_urn} "
-                f"with {len(upstreams)} upstreams and "
-                f"{len(fine_grained_lineages) if fine_grained_lineages else 0} fine-grained lineages"
+            fine_grained_lineages = (
+                lineage_data["fine_grained_lineages"]
+                if lineage_data["fine_grained_lineages"]
+                else None
             )
+
+            if upstreams:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=destination_urn,
+                    aspect=UpstreamLineageClass(
+                        upstreams=upstreams,
+                        fineGrainedLineages=fine_grained_lineages,
+                    ),
+                ).as_workunit()
+
+                logger.info(
+                    f"Emitted consolidated upstream lineage for destination {destination_urn}: "
+                    f"{len(upstreams)} upstream(s), "
+                    f"{len(fine_grained_lineages) if fine_grained_lineages else 0} fine-grained lineage(s)"
+                )
 
     def _emit_model_aspects(
         self,
@@ -1060,10 +1024,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         model_dataset: Dataset,
         source: Optional[HightouchSourceConnection] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Emit all aspects for a model dataset (subtypes, view properties, tags, siblings).
-        This ensures consistency whether the model is emitted standalone or as part of a sync.
-        """
         dataset_urn = str(model_dataset.urn)
 
         subtypes: List[str] = [str(DatasetSubTypes.HIGHTOUCH_MODEL)]
@@ -1119,29 +1079,42 @@ class HightouchSource(StatefulIngestionSourceBase):
     def _emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Emit Siblings aspects on both the Hightouch model and the source table.
-        The source table is primary (the original), the Hightouch model is secondary.
-        """
+        # Hightouch model is primary, source table is secondary
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=SiblingsClass(
-                primary=False,
+                primary=True,
                 siblings=[source_table_urn],
             ),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=source_table_urn,
-            aspect=SiblingsClass(
-                primary=True,
-                siblings=[model_urn],
-            ),
-        ).as_workunit()
+        # Only emit sibling aspect on source table if it exists in DataHub
+        source_exists = False
+        if self.graph:
+            try:
+                schema_metadata = self.graph.get_schema_metadata(source_table_urn)
+                source_exists = schema_metadata is not None
+            except Exception as e:
+                logger.debug(
+                    f"Could not check if source table {source_table_urn} exists: {e}"
+                )
 
-        logger.debug(
-            f"Emitted sibling relationship: {model_urn} <-> {source_table_urn} (source table is primary)"
-        )
+        if source_exists:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=source_table_urn,
+                aspect=SiblingsClass(
+                    primary=False,
+                    siblings=[model_urn],
+                ),
+            ).as_workunit()
+            logger.debug(
+                f"Emitted sibling relationship: {model_urn} <-> {source_table_urn} (Hightouch model is primary)"
+            )
+        else:
+            logger.debug(
+                f"Skipped emitting sibling aspect on source table {source_table_urn} - table not found in DataHub. "
+                f"Sibling aspect emitted on Hightouch model {model_urn} only."
+            )
 
     def _get_sync_workunits(
         self, sync: HightouchSync
@@ -1177,7 +1150,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         yield datajob
 
         if outlet_urn and datajob.inlets:
-            yield from self._emit_destination_lineage(sync, str(outlet_urn), datajob)
+            self._accumulate_destination_lineage(str(outlet_urn), datajob)
 
         if self.config.include_sync_runs:
             self.report.report_api_call()
@@ -1218,10 +1191,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         model: HightouchModel,
         source: HightouchSourceConnection,
     ) -> List[str]:
-        """
-        Parse SQL to extract table references and convert them to URNs.
-        Returns list of table URNs that are referenced in the SQL query.
-        """
         if not model.raw_sql or model.query_type != "raw_sql":
             return []
 
@@ -1257,10 +1226,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         registered_urns: Set[str],
         urn_description: str = "table",
     ) -> bool:
-        """
-        Fetch schema from DataHub and register it with the SQL aggregator.
-        Returns True if successful, False otherwise.
-        """
         if urn in registered_urns:
             return False
 
@@ -1289,9 +1254,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         aggregator: SqlParsingAggregator,
         registered_urns: Set[str],
     ) -> None:
-        """
-        Preload schemas for a specific model (upstream table and SQL-referenced tables).
-        """
         if model.query_type == "table" and model.name:
             table_name = model.name
             if source.configuration:
@@ -1322,9 +1284,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         sync: HightouchSync,
         registered_urns: Set[str],
     ) -> None:
-        """
-        Preload schemas for a sync (model schema and destination schema).
-        """
         model = self._get_model(sync.model_id)
         if not model:
             return
@@ -1359,16 +1318,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         models: List[HightouchModel],
         syncs: List[HightouchSync],
     ) -> None:
-        """
-        Proactively fetch and register schemas from DataHub for all models and syncs.
-        This includes:
-        1. Upstream source tables for table-type models
-        2. Tables referenced in raw SQL queries (parsed from SQL)
-        3. Hightouch model schemas already in DataHub
-        4. Downstream destination tables for syncs
-
-        This ensures the SQL aggregator has all schemas before parsing SQL queries.
-        """
+        # Fetch schemas from DataHub for SQL parsing: upstream tables, SQL refs, models, destinations
         if not self.graph:
             logger.debug("No DataHub graph available - skipping schema preloading")
             return
@@ -1472,6 +1422,12 @@ class HightouchSource(StatefulIngestionSourceBase):
             yield from self._assertions_handler.get_assertion_workunits(
                 contracts=contracts
             )
+
+        if self._destination_lineage:
+            logger.info(
+                f"Emitting consolidated lineage for {len(self._destination_lineage)} destination(s)"
+            )
+            yield from self._emit_all_destination_lineage()
 
         if self._sql_aggregators:
             active_aggregators = {

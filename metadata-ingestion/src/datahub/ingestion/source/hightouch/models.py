@@ -110,11 +110,6 @@ class HightouchSyncRun(_HightouchBaseModel):
     query_size: Optional[int] = Field(default=None, alias="querySize")
 
 
-class ColumnLineage(BaseModel):
-    source_column: str
-    destination_column: str
-
-
 class HightouchUser(_HightouchBaseModel):
     id: str
     email: str
@@ -122,7 +117,7 @@ class HightouchUser(_HightouchBaseModel):
     created_at: Optional[datetime] = Field(default=None, alias="createdAt")
 
 
-class FieldMapping(BaseModel):
+class HightouchFieldMapping(BaseModel):
     source_field: str
     destination_field: str
     is_primary_key: bool = False

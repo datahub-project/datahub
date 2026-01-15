@@ -557,44 +557,60 @@ def test_column_lineage_not_emitted_when_no_mappings(
     assert source_instance.report.column_lineage_emitted == 0
 
 
-def test_normalize_column_name():
-    assert normalize_column_name("user_id") == "userid"
-    assert normalize_column_name("UserId") == "userid"
-    assert normalize_column_name("USER_ID") == "userid"
-    assert normalize_column_name("user-id") == "userid"
-    assert normalize_column_name("userId") == "userid"
-    assert normalize_column_name("UserID") == "userid"
+@pytest.mark.parametrize(
+    "input_name,expected_output",
+    [
+        ("user_id", "userid"),
+        ("UserId", "userid"),
+        ("USER_ID", "userid"),
+        ("user-id", "userid"),
+        ("userId", "userid"),
+        ("UserID", "userid"),
+    ],
+)
+def test_normalize_column_name(input_name, expected_output):
+    assert normalize_column_name(input_name) == expected_output
 
 
+@pytest.mark.parametrize(
+    "source_input,dest_input,model_schema,dest_schema,expected_source,expected_dest",
+    [
+        (
+            "userId",
+            "USERID",
+            ["user_id", "email_address", "created_at"],
+            ["UserId", "EmailAddress", "CreatedAt"],
+            "user_id",
+            "UserId",
+        ),
+        (
+            "emailaddress",
+            "EmailAddress",
+            ["email_address", "first_name", "last_name"],
+            ["EmailAddress", "FirstName", "LastName"],
+            "email_address",
+            "EmailAddress",
+        ),
+        (
+            "not_in_schema",
+            "also_not_in_schema",
+            ["user_id", "email"],
+            ["UserId", "Email"],
+            "not_in_schema",
+            "also_not_in_schema",
+        ),
+    ],
+)
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_column_name_fuzzy_matching(mock_api_client_class, pipeline_context):
-    config = HightouchSourceConfig(
-        api_config=HightouchAPIConfig(api_key="test"),
-        env="PROD",
-    )
-
-    mock_client = MagicMock()
-    mock_api_client_class.return_value = mock_client
-
-    source_instance = HightouchIngestionSource(config, pipeline_context)
-
-    model_schema = ["user_id", "email_address", "created_at"]
-    dest_schema = ["UserId", "EmailAddress", "CreatedAt"]
-
-    source_field, dest_field = source_instance._normalize_and_match_column(
-        "userId",
-        "USERID",
-        model_schema,
-        dest_schema,
-    )
-
-    assert source_field == "user_id"
-    assert dest_field == "UserId"
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_column_name_fuzzy_matching_with_underscores(
-    mock_api_client_class, pipeline_context
+def test_column_name_fuzzy_matching(
+    mock_api_client_class,
+    pipeline_context,
+    source_input,
+    dest_input,
+    model_schema,
+    dest_schema,
+    expected_source,
+    expected_dest,
 ):
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
@@ -606,44 +622,15 @@ def test_column_name_fuzzy_matching_with_underscores(
 
     source_instance = HightouchIngestionSource(config, pipeline_context)
 
-    model_schema = ["email_address", "first_name", "last_name"]
-    dest_schema = ["EmailAddress", "FirstName", "LastName"]
-
     source_field, dest_field = source_instance._normalize_and_match_column(
-        "emailaddress",
-        "EmailAddress",
+        source_input,
+        dest_input,
         model_schema,
         dest_schema,
     )
 
-    assert source_field == "email_address"
-    assert dest_field == "EmailAddress"
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_column_name_fuzzy_matching_no_match(mock_api_client_class, pipeline_context):
-    config = HightouchSourceConfig(
-        api_config=HightouchAPIConfig(api_key="test"),
-        env="PROD",
-    )
-
-    mock_client = MagicMock()
-    mock_api_client_class.return_value = mock_client
-
-    source_instance = HightouchIngestionSource(config, pipeline_context)
-
-    model_schema = ["user_id", "email"]
-    dest_schema = ["UserId", "Email"]
-
-    source_field, dest_field = source_instance._normalize_and_match_column(
-        "not_in_schema",
-        "also_not_in_schema",
-        model_schema,
-        dest_schema,
-    )
-
-    assert source_field == "not_in_schema"
-    assert dest_field == "also_not_in_schema"
+    assert source_field == expected_source
+    assert dest_field == expected_dest
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -744,93 +731,6 @@ def test_column_lineage_with_fuzzy_matching_integration(
         ]
         assert "user_id" in upstream_fields
         assert "email_address" in upstream_fields
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_siblings_emission_for_table_models(mock_api_client_class, pipeline_context):
-    """
-    Test that siblings are properly emitted when include_table_lineage_to_sibling=True
-    for table-type models.
-    """
-    config = HightouchSourceConfig(
-        api_config=HightouchAPIConfig(api_key="test"),
-        env="PROD",
-        emit_models_as_datasets=True,
-        include_table_lineage_to_sibling=True,
-    )
-
-    mock_client = MagicMock()
-    mock_api_client_class.return_value = mock_client
-
-    source_instance = HightouchIngestionSource(config, pipeline_context)
-
-    model = HightouchModel(
-        id="model_1",
-        name="customers",
-        slug="customers-model",
-        workspace_id="workspace_1",
-        source_id="source_1",
-        query_type="table",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-    )
-
-    source_connection = HightouchSourceConnection(
-        id="source_1",
-        name="Snowflake Production",
-        slug="snowflake-prod",
-        type="snowflake",
-        workspace_id="workspace_1",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={"database": "production"},
-    )
-    mock_client.get_source_by_id.return_value = source_connection
-
-    workunits = list(source_instance._get_model_workunits(model))
-
-    siblings_workunits = [
-        wu.metadata
-        for wu in workunits
-        if hasattr(wu, "metadata")
-        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, SiblingsClass)
-    ]
-
-    assert len(siblings_workunits) == 2
-
-    # Extract the actual URNs from the workunits
-    siblings_dict = {mcp.entityUrn: mcp for mcp in siblings_workunits}
-
-    assert len(siblings_dict) == 2
-
-    # Find model and source table URNs
-    model_siblings_mcp = None
-    source_siblings_mcp = None
-
-    for urn, mcp in siblings_dict.items():
-        if urn and "customers-model" in urn:
-            model_siblings_mcp = mcp
-        elif urn and "production.customers" in urn and "customers-model" not in urn:
-            source_siblings_mcp = mcp
-
-    assert model_siblings_mcp is not None, (
-        f"Model siblings workunit not found in {list(siblings_dict.keys())}"
-    )
-    assert source_siblings_mcp is not None, (
-        f"Source table siblings workunit not found in {list(siblings_dict.keys())}"
-    )
-
-    model_urn = model_siblings_mcp.entityUrn
-    source_table_urn = source_siblings_mcp.entityUrn
-
-    assert isinstance(model_siblings_mcp.aspect, SiblingsClass)
-    assert model_siblings_mcp.aspect.primary is False
-    assert source_table_urn in model_siblings_mcp.aspect.siblings
-
-    assert isinstance(source_siblings_mcp.aspect, SiblingsClass)
-    assert source_siblings_mcp.aspect.primary is True
-    assert model_urn in source_siblings_mcp.aspect.siblings
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")

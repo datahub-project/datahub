@@ -37,16 +37,6 @@ logger = logging.getLogger(__name__)
 
 
 class HightouchAssertionsHandler:
-    """
-    Handler for Hightouch Event Contracts converted to DataHub Assertions.
-
-    Responsible for:
-    - Generating assertion URNs
-    - Converting contracts to assertions
-    - Processing contract run results
-    - Emitting assertion workunits
-    """
-
     def __init__(
         self,
         source: "HightouchSource",
@@ -96,12 +86,7 @@ class HightouchAssertionsHandler:
             )
 
     def _make_assertion_urn(self, contract: HightouchContract) -> str:
-        """
-        Generate assertion URN from contract using a deterministic GUID.
-
-        Follows the same pattern as dbt tests, including platform, name,
-        instance, env, and model information for uniqueness and traceability.
-        """
+        # Deterministic GUID using platform, name, instance, env, and model_id
         guid_dict = {
             "platform": HIGHTOUCH_PLATFORM,
             "name": f"contract_{contract.id}_{contract.name}",

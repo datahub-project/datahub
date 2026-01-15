@@ -1,8 +1,10 @@
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import requests
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hightouch.config import (
@@ -13,6 +15,7 @@ from datahub.ingestion.source.hightouch.config import (
 from datahub.ingestion.source.hightouch.hightouch import (
     HightouchSource as HightouchIngestionSource,
 )
+from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.models import (
     HightouchContract,
     HightouchContractRun,
@@ -210,7 +213,6 @@ def test_generate_dataflow_from_sync(
 def test_get_workunits_internal(
     mock_api_client_class, hightouch_config, pipeline_context
 ):
-    """Test workunit generation."""
     mock_client = MagicMock()
     mock_api_client_class.return_value = mock_client
 
@@ -274,8 +276,6 @@ def test_get_workunits_internal(
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
 def test_sync_patterns_filtering(mock_api_client_class, pipeline_context):
-    from datahub.configuration.common import AllowDenyPattern
-
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         sync_patterns=AllowDenyPattern(deny=["test.*"]),
@@ -1216,10 +1216,6 @@ def test_contracts_can_be_disabled(mock_api_client_class, pipeline_context):
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
 def test_contracts_404_handling(mock_api_client_class, pipeline_context):
     """Test that 404 errors from contracts endpoint are handled gracefully."""
-    from unittest.mock import Mock
-
-    import requests
-
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         include_contracts=True,  # Explicitly enabled to test 404 handling
@@ -1236,9 +1232,6 @@ def test_contracts_404_handling(mock_api_client_class, pipeline_context):
     http_error = requests.exceptions.HTTPError()
     http_error.response = mock_response
     mock_client.get_contracts.side_effect = lambda: (_ for _ in ()).throw(http_error)
-
-    # Actually call the real method that handles 404
-    from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 
     real_client = HightouchAPIClient(config.api_config)
 
@@ -1551,11 +1544,87 @@ def test_schema_emission_enabled_and_applied(
 # Tests for Outlet URN Generation with Various Configuration Keys
 
 
+@pytest.mark.parametrize(
+    "sync_config,dest_type,dest_name,expected_in_urn,not_expected_in_urn,test_id",
+    [
+        (
+            {"type": "object", "object": "contacts_table"},
+            "salesforce",
+            "Salesforce",
+            "contacts_table",
+            "my-sync",
+            "with_object_key",
+        ),
+        (
+            {"object": "Account"},
+            "salesforce",
+            "Salesforce",
+            "Account",
+            "my-sync",
+            "crm_object_key",
+        ),
+        (
+            {"tableName": "users_table"},
+            "mysql",
+            "MySQL",
+            "users_table",
+            None,
+            "database_tableName_key",
+        ),
+        (
+            {"table": "orders_table"},
+            "postgres",
+            "PostgreSQL",
+            "orders_table",
+            None,
+            "database_table_key",
+        ),
+        (
+            {"destinationTable": "customers_table"},
+            "bigquery",
+            "BigQuery",
+            "customers_table",
+            None,
+            "generic_destinationTable_key",
+        ),
+        (
+            {"objectName": "CustomObject"},
+            "hubspot",
+            "HubSpot",
+            "CustomObject",
+            None,
+            "crm_objectName_key",
+        ),
+        (
+            {"someOtherKey": "value"},
+            "salesforce",
+            "Salesforce",
+            "my-sync_destination",
+            None,
+            "fallback_no_config_key",
+        ),
+        (
+            {"type": "event", "eventName": "page_view"},
+            "segment",
+            "Segment",
+            "page_view",
+            None,
+            "event_type_eventName",
+        ),
+    ],
+)
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_outlet_urn_with_destination_table(
-    mock_api_client_class, hightouch_config, pipeline_context
+def test_outlet_urn_generation(
+    mock_api_client_class,
+    hightouch_config,
+    pipeline_context,
+    sync_config,
+    dest_type,
+    dest_name,
+    expected_in_urn,
+    not_expected_in_urn,
+    test_id,
 ):
-    """Test outlet URN generation when destinationTable is in configuration."""
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
 
     sync = HightouchSync(
@@ -1566,14 +1635,14 @@ def test_outlet_urn_with_destination_table(
         destination_id="20",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
-        configuration={"destinationTable": "contacts_table"},
+        configuration=sync_config,
     )
 
     destination = HightouchDestination(
         id="20",
-        name="Salesforce",
-        slug="salesforce",
-        type="salesforce",
+        name=dest_name,
+        slug=dest_type,
+        type=dest_type,
         workspace_id="100",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
@@ -1583,125 +1652,18 @@ def test_outlet_urn_with_destination_table(
     outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
 
     assert outlet_urn is not None
-    assert "contacts_table" in str(outlet_urn)
-    assert "my-sync" not in str(outlet_urn)  # Should not use sync slug
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_outlet_urn_with_object_key(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test outlet URN generation when 'object' key is used (common for Salesforce)."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    sync = HightouchSync(
-        id="1",
-        slug="my-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={"object": "Account"},
-    )
-
-    destination = HightouchDestination(
-        id="20",
-        name="Salesforce",
-        slug="salesforce",
-        type="salesforce",
-        workspace_id="100",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={},
-    )
-
-    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
-
-    assert outlet_urn is not None
-    assert "Account" in str(outlet_urn)
-    assert "my-sync" not in str(outlet_urn)
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_outlet_urn_with_table_name_key(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test outlet URN generation when 'tableName' key is used."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    sync = HightouchSync(
-        id="1",
-        slug="my-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={"tableName": "users_table"},
-    )
-
-    destination = HightouchDestination(
-        id="20",
-        name="PostgreSQL",
-        slug="postgres",
-        type="postgres",
-        workspace_id="100",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={},
-    )
-
-    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
-
-    assert outlet_urn is not None
-    assert "users_table" in str(outlet_urn)
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_outlet_urn_fallback_when_no_config_key(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test outlet URN generation falls back to sync slug with suffix when no config key found."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    sync = HightouchSync(
-        id="1",
-        slug="my-sync",
-        workspace_id="100",
-        model_id="10",
-        destination_id="20",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={"someOtherKey": "value"},  # No destination table key
-    )
-
-    destination = HightouchDestination(
-        id="20",
-        name="Salesforce",
-        slug="salesforce",
-        type="salesforce",
-        workspace_id="100",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={},
-    )
-
-    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
-
-    assert outlet_urn is not None
-    # Should use sync slug with _destination suffix to distinguish from job name
-    assert "my-sync_destination" in str(outlet_urn)
+    assert expected_in_urn in str(outlet_urn)
+    if not_expected_in_urn:
+        assert not_expected_in_urn not in str(outlet_urn)
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
 def test_outlet_urn_priority_of_config_keys(
     mock_api_client_class, hightouch_config, pipeline_context
 ):
-    """Test that type-specific config keys take priority over fallback keys."""
+    # When multiple keys exist, priority order: object > tableName > table > destinationTable > objectName
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
 
-    # For Salesforce, "object" key should take priority as it's the type-specific key
     sync = HightouchSync(
         id="1",
         slug="my-sync",
@@ -1736,69 +1698,69 @@ def test_outlet_urn_priority_of_config_keys(
     assert "wrong_destination_table" not in str(outlet_urn)
 
 
-def test_model_raw_sql_extraction_from_nested_object():
-    """Test that raw_sql is correctly extracted from nested 'raw' object"""
-    # This is the actual format returned by Hightouch API
-    model_data = {
-        "id": "123",
-        "name": "Test Model",
-        "slug": "test-model",
-        "workspaceId": "456",
-        "sourceId": "789",
-        "queryType": "raw_sql",
-        "createdAt": "2023-01-01T00:00:00Z",
-        "updatedAt": "2023-01-02T00:00:00Z",
-        "primaryKey": "id",
-        "isSchema": False,
-        "raw": {"sql": "SELECT * FROM table WHERE id = 1"},
-    }
-
+@pytest.mark.parametrize(
+    "model_data,expected_sql,expected_query_type,test_id",
+    [
+        (
+            {
+                "id": "123",
+                "name": "Test Model",
+                "slug": "test-model",
+                "workspaceId": "456",
+                "sourceId": "789",
+                "queryType": "raw_sql",
+                "createdAt": "2023-01-01T00:00:00Z",
+                "updatedAt": "2023-01-02T00:00:00Z",
+                "primaryKey": "id",
+                "isSchema": False,
+                "raw": {"sql": "SELECT * FROM table WHERE id = 1"},
+            },
+            "SELECT * FROM table WHERE id = 1",
+            "raw_sql",
+            "nested_raw_object",
+        ),
+        (
+            {
+                "id": "123",
+                "name": "Test Model",
+                "slug": "test-model",
+                "workspaceId": "456",
+                "sourceId": "789",
+                "queryType": "raw_sql",
+                "createdAt": "2023-01-01T00:00:00Z",
+                "updatedAt": "2023-01-02T00:00:00Z",
+                "primaryKey": "id",
+                "isSchema": False,
+                "rawSql": "SELECT * FROM table WHERE id = 2",
+            },
+            "SELECT * FROM table WHERE id = 2",
+            "raw_sql",
+            "direct_rawSql_field",
+        ),
+        (
+            {
+                "id": "123",
+                "name": "Test Model",
+                "slug": "test-model",
+                "workspaceId": "456",
+                "sourceId": "789",
+                "queryType": "table",
+                "createdAt": "2023-01-01T00:00:00Z",
+                "updatedAt": "2023-01-02T00:00:00Z",
+                "primaryKey": "id",
+                "isSchema": False,
+                "table": {"name": "my_table"},
+            },
+            None,
+            "table",
+            "without_raw_sql",
+        ),
+    ],
+)
+def test_model_raw_sql_extraction(
+    model_data, expected_sql, expected_query_type, test_id
+):
     model = HightouchModel.model_validate(model_data)
 
-    assert model.raw_sql is not None
-    assert model.raw_sql == "SELECT * FROM table WHERE id = 1"
-    assert model.query_type == "raw_sql"
-
-
-def test_model_raw_sql_direct_field():
-    """Test that raw_sql works with direct rawSql field (if API ever returns it that way)"""
-    model_data = {
-        "id": "123",
-        "name": "Test Model",
-        "slug": "test-model",
-        "workspaceId": "456",
-        "sourceId": "789",
-        "queryType": "raw_sql",
-        "createdAt": "2023-01-01T00:00:00Z",
-        "updatedAt": "2023-01-02T00:00:00Z",
-        "primaryKey": "id",
-        "isSchema": False,
-        "rawSql": "SELECT * FROM table WHERE id = 2",
-    }
-
-    model = HightouchModel.model_validate(model_data)
-
-    assert model.raw_sql is not None
-    assert model.raw_sql == "SELECT * FROM table WHERE id = 2"
-
-
-def test_model_without_raw_sql():
-    """Test that models without SQL (e.g., table type) work correctly"""
-    model_data = {
-        "id": "123",
-        "name": "Test Model",
-        "slug": "test-model",
-        "workspaceId": "456",
-        "sourceId": "789",
-        "queryType": "table",
-        "createdAt": "2023-01-01T00:00:00Z",
-        "updatedAt": "2023-01-02T00:00:00Z",
-        "primaryKey": "id",
-        "isSchema": False,
-        "table": {"name": "my_table"},
-    }
-
-    model = HightouchModel.model_validate(model_data)
-
-    assert model.raw_sql is None
-    assert model.query_type == "table"
+    assert model.raw_sql == expected_sql
+    assert model.query_type == expected_query_type

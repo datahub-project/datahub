@@ -4,11 +4,11 @@ from unittest.mock import Mock, patch
 import requests
 
 from datahub.ingestion.source.hightouch.config import HightouchAPIConfig
-from datahub.ingestion.source.hightouch.hightouch_api import (
-    FieldMapping,
-    HightouchAPIClient,
+from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
+from datahub.ingestion.source.hightouch.models import (
+    HightouchFieldMapping,
+    HightouchSync,
 )
-from datahub.ingestion.source.hightouch.models import HightouchSync
 
 
 def test_api_client_initialization():
@@ -112,14 +112,14 @@ def test_extract_field_mappings_from_field_mappings():
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
-            "fieldMappings": [
+            "mappings": [
                 {
-                    "sourceField": "user_id",
-                    "destinationField": "UserId",
+                    "from": "user_id",
+                    "to": "UserId",
                     "isPrimaryKey": True,
                 },
-                {"sourceField": "email", "destinationField": "Email"},
-                {"sourceField": "name", "destinationField": "Name"},
+                {"from": "email", "to": "Email"},
+                {"from": "name", "to": "Name"},
             ]
         },
     )
@@ -148,11 +148,11 @@ def test_extract_field_mappings_from_column_mappings():
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
-            "columnMappings": {
-                "user_id": "id",
-                "user_email": "email",
-                "user_name": "name",
-            }
+            "mappings": [
+                {"from": "id", "to": "user_id"},
+                {"from": "email", "to": "user_email"},
+                {"from": "name", "to": "user_name"},
+            ]
         },
     )
 
@@ -185,7 +185,7 @@ def test_extract_field_mappings_from_columns():
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
-            "columns": [
+            "mappings": [
                 {"from": "user_id", "to": "UserId", "isPrimaryKey": True},
                 {"from": "email", "to": "Email"},
             ]
@@ -252,8 +252,8 @@ def test_extract_field_mappings_with_snake_case_keys():
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
-            "field_mappings": [
-                {"source_field": "user_id", "destination_field": "UserId"},
+            "mappings": [
+                {"from": "user_id", "to": "UserId"},
             ]
         },
     )
@@ -278,11 +278,11 @@ def test_extract_field_mappings_skips_incomplete_mappings():
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
-            "fieldMappings": [
-                {"sourceField": "user_id", "destinationField": "UserId"},
-                {"sourceField": "email"},  # Missing destination
-                {"destinationField": "Name"},  # Missing source
-                {"sourceField": "valid", "destinationField": "ValidField"},
+            "mappings": [
+                {"from": "user_id", "to": "UserId"},
+                {"from": "email"},  # Missing destination
+                {"to": "Name"},  # Missing source
+                {"from": "valid", "to": "ValidField"},
             ]
         },
     )
@@ -336,7 +336,7 @@ def test_get_contract_runs_404_handling(mock_request):
 
 
 def test_field_mapping_model():
-    mapping = FieldMapping(
+    mapping = HightouchFieldMapping(
         source_field="user_id",
         destination_field="UserId",
         is_primary_key=True,
@@ -348,7 +348,7 @@ def test_field_mapping_model():
 
 
 def test_field_mapping_model_defaults():
-    mapping = FieldMapping(
+    mapping = HightouchFieldMapping(
         source_field="email",
         destination_field="Email",
     )

@@ -218,12 +218,11 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
 
     include_table_lineage_to_sibling: bool = Field(
         default=True,
-        description="For table-type models, whether to create lineage to the underlying source table "
-        "and establish a sibling relationship. When enabled (default), the Hightouch model (emitted on 'hightouch' platform) "
-        "becomes a sibling of the source table (e.g., Snowflake table), with the source table as primary. "
-        "The source table URN is used in lineage/inputOutput instead of the Hightouch model URN. "
-        "Similar to Trino's 'trino_as_primary' relationship with Hive tables. "
-        "When enabled, ensure sources_to_platform_instance is configured to match your warehouse connector settings.",
+        description="Controls sibling relationship between Hightouch table models and their source warehouse tables. "
+        "When True (default), the Hightouch model is designated as primary and the source warehouse table "
+        "(e.g., Snowflake, BigQuery) as secondary. The sibling aspect on the source table is only emitted if "
+        "the source table already exists in DataHub. Configure sources_to_platform_instance to ensure URNs "
+        "match your source platform connector settings for proper sibling linking.",
     )
 
     extract_workspaces_to_containers: bool = Field(

@@ -9,10 +9,10 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.hightouch.config import HightouchAPIConfig
 from datahub.ingestion.source.hightouch.models import (
-    FieldMapping,
     HightouchContract,
     HightouchContractRun,
     HightouchDestination,
+    HightouchFieldMapping,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
@@ -71,12 +71,6 @@ class HightouchAPIClient:
     def _make_paginated_request(
         self, endpoint: str, params: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
-        """
-        Make paginated GET requests to Hightouch API.
-
-        Handles pagination using offset-based approach and hasMore indicator.
-        Returns all items from all pages combined.
-        """
         all_items = []
         offset = 0
         limit = params.get("limit", 100) if params else 100
@@ -285,131 +279,58 @@ class HightouchAPIClient:
 
         return runs
 
-    def extract_field_mappings(self, sync: HightouchSync) -> List[FieldMapping]:
-        """Extract field mappings from sync configuration.
-
-        Handles multiple configuration formats used by different destination types.
-        """
-        field_mappings: List[FieldMapping] = []
+    def extract_field_mappings(
+        self, sync: HightouchSync
+    ) -> List[HightouchFieldMapping]:
+        field_mappings: List[HightouchFieldMapping] = []
         config = sync.configuration if sync.configuration else {}
 
         if not config:
             return field_mappings
-        if "fieldMappings" in config or "field_mappings" in config:
-            mappings = config.get("fieldMappings", config.get("field_mappings", []))
 
-            if not isinstance(mappings, list):
+        mappings = config.get("mappings", [])
+        if not isinstance(mappings, list):
+            logger.warning(
+                f"Sync {sync.id}: Expected mappings to be a list, got {type(mappings).__name__}"
+            )
+            return field_mappings
+
+        for i, mapping in enumerate(mappings):
+            if not isinstance(mapping, dict):
                 logger.warning(
-                    f"Sync {sync.id}: Expected fieldMappings to be a list, got {type(mappings).__name__}"
+                    f"Sync {sync.id}: Skipping non-dict mapping at index {i}: {type(mapping).__name__}"
                 )
-                return field_mappings
+                continue
 
-            for i, mapping in enumerate(mappings):
-                if not isinstance(mapping, dict):
-                    logger.warning(
-                        f"Sync {sync.id}: Skipping non-dict field mapping at index {i}: {type(mapping).__name__}"
-                    )
-                    continue
+            source = mapping.get("from")
+            dest = mapping.get("to")
 
-                source = mapping.get("sourceField") or mapping.get("source_field")
-                dest = mapping.get("destinationField") or mapping.get(
-                    "destination_field"
+            if not source or not dest:
+                logger.debug(
+                    f"Sync {sync.id}: Skipping incomplete mapping at index {i} "
+                    f"(from={source}, to={dest})"
                 )
-                is_pk = mapping.get(
-                    "isPrimaryKey", mapping.get("is_primary_key", False)
+                continue
+
+            if not isinstance(source, str) or not isinstance(dest, str):
+                logger.warning(
+                    f"Sync {sync.id}: Field names must be strings, got from={type(source).__name__}, "
+                    f"to={type(dest).__name__}. Converting to strings."
                 )
+                source = str(source)
+                dest = str(dest)
 
-                if not source or not dest:
-                    logger.debug(
-                        f"Sync {sync.id}: Skipping incomplete field mapping at index {i} "
-                        f"(source={source}, dest={dest})"
-                    )
-                    continue
+            is_pk = mapping.get("isPrimaryKey", mapping.get("is_primary_key", False))
 
-                if not isinstance(source, str) or not isinstance(dest, str):
-                    logger.warning(
-                        f"Sync {sync.id}: Field names must be strings, got source={type(source).__name__}, "
-                        f"dest={type(dest).__name__}. Converting to strings."
-                    )
-                    source = str(source)
-                    dest = str(dest)
-
-                field_mappings.append(
-                    FieldMapping(
-                        source_field=source,
-                        destination_field=dest,
-                        is_primary_key=bool(is_pk),
-                    )
+            field_mappings.append(
+                HightouchFieldMapping(
+                    source_field=source,
+                    destination_field=dest,
+                    is_primary_key=bool(is_pk),
                 )
-
-        elif "columnMappings" in config or "column_mappings" in config:
-            mappings_dict = config.get(
-                "columnMappings", config.get("column_mappings", {})
             )
 
-            if not isinstance(mappings_dict, dict):
-                logger.warning(
-                    f"Sync {sync.id}: Expected columnMappings to be a dict, got {type(mappings_dict).__name__}"
-                )
-                return field_mappings
-
-            for dest_field, source_field in mappings_dict.items():
-                if not isinstance(dest_field, str) or not isinstance(
-                    source_field, (str, int, float)
-                ):
-                    logger.warning(
-                        f"Sync {sync.id}: Invalid column mapping types: {dest_field}={source_field}. "
-                        f"Expected strings. Converting to strings."
-                    )
-
-                field_mappings.append(
-                    FieldMapping(
-                        source_field=str(source_field),
-                        destination_field=str(dest_field),
-                        is_primary_key=False,
-                    )
-                )
-
-        elif "columns" in config:
-            columns = config.get("columns", [])
-
-            if not isinstance(columns, list):
-                logger.warning(
-                    f"Sync {sync.id}: Expected columns to be a list, got {type(columns).__name__}"
-                )
-                return field_mappings
-
-            for i, column in enumerate(columns):
-                if not isinstance(column, dict):
-                    logger.warning(
-                        f"Sync {sync.id}: Skipping non-dict column at index {i}: {type(column).__name__}"
-                    )
-                    continue
-
-                source = column.get("from") or column.get("source")
-                dest = column.get("to") or column.get("destination")
-
-                if not source or not dest:
-                    logger.debug(
-                        f"Sync {sync.id}: Skipping incomplete column mapping at index {i} "
-                        f"(source={source}, dest={dest})"
-                    )
-                    continue
-
-                if not isinstance(source, str) or not isinstance(dest, str):
-                    logger.warning(
-                        f"Sync {sync.id}: Column names must be strings, got source={type(source).__name__}, "
-                        f"dest={type(dest).__name__}. Converting to strings."
-                    )
-                    source = str(source)
-                    dest = str(dest)
-
-                field_mappings.append(
-                    FieldMapping(
-                        source_field=source,
-                        destination_field=dest,
-                        is_primary_key=column.get("isPrimaryKey", False),
-                    )
-                )
-
+        logger.debug(
+            f"Extracted {len(field_mappings)} field mappings for sync {sync.id}"
+        )
         return field_mappings
