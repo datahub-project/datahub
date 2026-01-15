@@ -205,6 +205,7 @@ def test_view_emission_for_raw_sql_model(mock_api_client_class, pipeline_context
         if hasattr(wu, "metadata")
         and hasattr(wu.metadata, "aspect")
         and isinstance(wu.metadata.aspect, SubTypesClass)
+        and wu.metadata.entityType == "dataset"
     ]
 
     view_workunits = [
@@ -277,6 +278,7 @@ def test_table_subtype_for_table_model(mock_api_client_class, pipeline_context):
         if hasattr(wu, "metadata")
         and hasattr(wu.metadata, "aspect")
         and isinstance(wu.metadata.aspect, SubTypesClass)
+        and wu.metadata.entityType == "dataset"
     ]
 
     assert len(subtype_workunits) == 1
@@ -333,6 +335,7 @@ def test_subtypes_always_emitted_for_all_models(
         if hasattr(wu, "metadata")
         and hasattr(wu.metadata, "aspect")
         and isinstance(wu.metadata.aspect, SubTypesClass)
+        and wu.metadata.entityType == "dataset"
     ]
 
     view_workunits = [
@@ -622,15 +625,15 @@ def test_column_name_fuzzy_matching(
 
     source_instance = HightouchIngestionSource(config, pipeline_context)
 
-    source_field, dest_field = source_instance._normalize_and_match_column(
+    column_pair = source_instance._lineage_handler.normalize_and_match_column(
         source_input,
         dest_input,
         model_schema,
         dest_schema,
     )
 
-    assert source_field == expected_source
-    assert dest_field == expected_dest
+    assert column_pair.source_field == expected_source
+    assert column_pair.destination_field == expected_dest
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -650,6 +653,7 @@ def test_column_lineage_with_fuzzy_matching_integration(
 
     mock_graph = Mock()
     source_instance.graph = mock_graph
+    source_instance._lineage_handler.graph = mock_graph
 
     model_schema_meta = Mock()
     model_schema_meta.fields = [

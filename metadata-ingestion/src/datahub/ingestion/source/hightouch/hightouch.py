@@ -6,7 +6,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -48,6 +47,9 @@ from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.hightouch_assertion import (
     HightouchAssertionsHandler,
 )
+from datahub.ingestion.source.hightouch.hightouch_lineage import (
+    HightouchLineageHandler,
+)
 from datahub.ingestion.source.hightouch.hightouch_schema import HightouchSchemaHandler
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
@@ -68,15 +70,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemalessClass,
     SchemaMetadataClass,
-    SiblingsClass,
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
@@ -152,8 +150,12 @@ class HightouchSource(StatefulIngestionSourceBase):
         self._models_cache: Dict[str, HightouchModel] = {}
         self._destinations_cache: Dict[str, HightouchDestination] = {}
         self._users_cache: Dict[str, HightouchUser] = {}
+        self._workspaces_cache: Dict[str, str] = {}  # workspace_id -> workspace_name
         self._emitted_containers: set = set()
         self._registered_urns: Set[str] = set()  # Track URNs with loaded schemas
+        self._model_schema_fields_cache: Dict[
+            str, List[SchemaFieldClass]
+        ] = {}  # Cache normalized schema fields
 
         self._urn_builder = HightouchUrnBuilder(self)
 
@@ -172,6 +174,17 @@ class HightouchSource(StatefulIngestionSourceBase):
         self._sql_aggregators: Dict[str, Optional[SqlParsingAggregator]] = {}
 
         self._destination_lineage: Dict[str, HightouchDestinationLineageInfo] = {}
+
+        self._lineage_handler = HightouchLineageHandler(
+            api_client=self.api_client,
+            report=self.report,
+            urn_builder=self._urn_builder,
+            graph=self.graph,
+            registered_urns=self._registered_urns,
+            model_schema_fields_cache=self._model_schema_fields_cache,
+            destination_lineage=self._destination_lineage,
+            sql_aggregators=self._sql_aggregators,
+        )
 
     def _get_aggregator_for_platform(
         self, source_platform: PlatformDetail
@@ -234,6 +247,27 @@ class HightouchSource(StatefulIngestionSourceBase):
             if destination:
                 self._destinations_cache[destination_id] = destination
         return self._destinations_cache.get(destination_id)
+
+    def _get_workspace_name(self, workspace_id: str) -> str:
+        """Get workspace name from cache or API, falling back to workspace ID."""
+        if workspace_id not in self._workspaces_cache:
+            try:
+                self.report.report_api_call()
+                workspace = self.api_client.get_workspace_by_id(workspace_id)
+                if workspace:
+                    self._workspaces_cache[workspace_id] = workspace.name
+                else:
+                    # Fallback to ID if workspace not found
+                    self._workspaces_cache[workspace_id] = f"Workspace {workspace_id}"
+                    logger.warning(
+                        f"Could not fetch workspace name for {workspace_id}, using ID as fallback"
+                    )
+            except Exception as e:
+                # Fallback to ID on error
+                self._workspaces_cache[workspace_id] = f"Workspace {workspace_id}"
+                logger.warning(f"Error fetching workspace {workspace_id}: {e}")
+
+        return self._workspaces_cache[workspace_id]
 
     def _get_user(self, user_id: str) -> Optional[HightouchUser]:
         if user_id not in self._users_cache:
@@ -318,9 +352,12 @@ class HightouchSource(StatefulIngestionSourceBase):
         if container_key.guid() in self._emitted_containers:
             return
 
+        # Fetch actual workspace name from API
+        workspace_name = self._get_workspace_name(workspace_id)
+
         container_workunits = gen_containers(
             container_key=container_key,
-            name=f"Workspace {workspace_id}",
+            name=workspace_name,
             sub_types=[str(BIContainerSubTypes.HIGHTOUCH_WORKSPACE)],
             extra_properties={
                 "workspace_id": workspace_id,
@@ -380,232 +417,10 @@ class HightouchSource(StatefulIngestionSourceBase):
         for workunit in container_workunits:
             yield workunit
 
-    def _generate_table_model_column_lineage(
-        self,
-        model: HightouchModel,
-        model_urn: str,
-        upstream_table_urn: str,
-        model_schema_fields: List[SchemaFieldClass],
-    ) -> List[FineGrainedLineageClass]:
-        """Generate column-level lineage for table-type models with schema normalization."""
-        if not self.graph:
-            return []
-
-        fine_grained_lineages = []
-
-        try:
-            # Fetch upstream schema from DataHub
-            upstream_schema = self.graph.get_schema_metadata(upstream_table_urn)
-
-            if not upstream_schema or not upstream_schema.fields:
-                logger.debug(
-                    f"No upstream schema found for {upstream_table_urn}, skipping column lineage"
-                )
-                return []
-
-            if not model_schema_fields:
-                logger.debug(
-                    f"No model schema fields provided for {model_urn}, skipping column lineage"
-                )
-                return []
-
-            upstream_fields = {f.fieldPath: f for f in upstream_schema.fields}
-            model_fields = {f.fieldPath: f for f in model_schema_fields}
-
-            # For table models, columns map 1:1 from upstream to model
-            # Use fuzzy matching to handle casing differences (e.g., Snowflake lowercasing)
-            for model_field_path in model_fields:
-                # Try to find matching upstream field using normalization
-                matched_upstream_field = None
-                normalized_model_field = normalize_column_name(model_field_path)
-
-                for upstream_field_path in upstream_fields:
-                    if (
-                        normalize_column_name(upstream_field_path)
-                        == normalized_model_field
-                    ):
-                        matched_upstream_field = upstream_field_path
-                        logger.debug(
-                            f"Matched model field '{model_field_path}' to upstream field '{upstream_field_path}'"
-                        )
-                        break
-
-                if matched_upstream_field:
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                make_schema_field_urn(
-                                    upstream_table_urn, matched_upstream_field
-                                )
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                make_schema_field_urn(model_urn, model_field_path)
-                            ],
-                        )
-                    )
-                else:
-                    logger.debug(
-                        f"No matching upstream field found for model field '{model_field_path}'"
-                    )
-
-            if fine_grained_lineages:
-                logger.debug(
-                    f"Generated {len(fine_grained_lineages)} column lineage edges for table model {model.slug}"
-                )
-
-        except Exception as e:
-            logger.debug(
-                f"Failed to generate column lineage for table model {model.slug}: {e}"
-            )
-
-        return fine_grained_lineages
-
-    def _register_model_lineage(
-        self,
-        model: HightouchModel,
-        model_urn: str,
-        source: HightouchSourceConnection,
-    ) -> None:
-        source_platform = self._get_platform_for_source(source)
-        if not source_platform.platform:
-            logger.debug(
-                f"Skipping lineage registration for model {model.id}: unknown source platform"
-            )
-            return
-
-        aggregator = self._get_aggregator_for_platform(source_platform)
-        if not aggregator:
-            logger.debug(
-                f"No SQL aggregator available for platform {source_platform.platform}, "
-                f"skipping SQL-based lineage registration for model {model.id}"
-            )
-            return
-
-        if model.query_type == "table" and model.name:
-            table_name = model.name
-            if source.configuration:
-                database = source.configuration.get("database", "")
-                schema = source.configuration.get("schema", "")
-                if source_platform.include_schema_in_urn and schema:
-                    table_name = f"{database}.{schema}.{table_name}"
-                elif database and "." not in table_name:
-                    table_name = f"{database}.{table_name}"
-
-            upstream_urn = self._urn_builder.make_upstream_table_urn(table_name, source)
-
-            try:
-                aggregator.add_known_lineage_mapping(
-                    upstream_urn=str(upstream_urn),
-                    downstream_urn=model_urn,
-                    lineage_type=DatasetLineageTypeClass.COPY,
-                )
-                logger.debug(
-                    f"Registered known lineage: {upstream_urn} -> {model_urn} (table reference) "
-                    f"on platform {source_platform.platform}"
-                )
-            except Exception as e:
-                logger.debug(
-                    f"Failed to register known lineage for model {model.id}: {e}"
-                )
-
-        elif (
-            model.raw_sql
-            and model.query_type == "raw_sql"
-            and self.config.parse_model_sql
-        ):
-            self.report.sql_parsing_attempts += 1
-
-            try:
-                aggregator.add_view_definition(
-                    view_urn=model_urn,
-                    view_definition=model.raw_sql,
-                    default_db=source_platform.database,
-                    default_schema=None,
-                )
-                self.report.sql_parsing_successes += 1
-                logger.debug(
-                    f"Registered view definition for model {model.id} in aggregator "
-                    f"for platform {source_platform.platform}"
-                )
-            except Exception as e:
-                logger.debug(
-                    f"Error registering view definition for model {model.id}: {e}"
-                )
-                self.report.sql_parsing_failures += 1
-                self.report.warning(
-                    title="View definition registration error",
-                    message=f"Could not register view definition for model '{model.name}'. "
-                    f"This may be due to an unsupported SQL dialect or parsing error. "
-                    f"Basic lineage will still be emitted.",
-                    context=f"model_id: {model.id}, platform: {source_platform.platform}",
-                    exc=e,
-                )
-
-    def _get_upstream_field_casing(
-        self,
-        model: HightouchModel,
-        source: Optional[HightouchSourceConnection],
+    def _build_model_custom_properties(
+        self, model: HightouchModel, source: Optional[HightouchSourceConnection]
     ) -> Dict[str, str]:
-        """
-        For table models, fetch upstream table schema and return a mapping
-        from normalized field names to the actual upstream field names with correct casing.
-        This ensures Hightouch model schemas match upstream casing for proper sibling visualization.
-        """
-        if (
-            not source
-            or model.query_type != "table"
-            or not model.name
-            or not self.graph
-        ):
-            return {}
-
-        # Build upstream table URN
-        table_name = model.name
-        if source.configuration:
-            database = source.configuration.get("database", "")
-            schema = source.configuration.get("schema", "")
-            source_details = self._urn_builder._get_cached_source_details(source)
-            if source_details.include_schema_in_urn and schema:
-                table_name = f"{database}.{schema}.{table_name}"
-            elif database and "." not in table_name:
-                table_name = f"{database}.{table_name}"
-
-        upstream_urn = self._urn_builder.make_upstream_table_urn(table_name, source)
-        if not upstream_urn:
-            return {}
-
-        # Fetch upstream schema
-        try:
-            upstream_schema = self.graph.get_schema_metadata(str(upstream_urn))
-            if not upstream_schema or not upstream_schema.fields:
-                return {}
-
-            # Create mapping: normalized field name -> actual upstream field name
-            field_casing_map: Dict[str, str] = {}
-            for field in upstream_schema.fields:
-                normalized = normalize_column_name(field.fieldPath)
-                field_casing_map[normalized] = field.fieldPath
-
-            logger.debug(
-                f"Fetched {len(field_casing_map)} field casings from upstream table {upstream_urn} "
-                f"for model {model.slug}"
-            )
-            return field_casing_map
-
-        except Exception as e:
-            logger.debug(
-                f"Could not fetch upstream field casing for model {model.slug}: {e}"
-            )
-            return {}
-
-    def _generate_model_dataset(
-        self,
-        model: HightouchModel,
-        source: Optional[HightouchSourceConnection],
-        referenced_columns: Optional[List[str]] = None,
-    ) -> HightouchModelDatasetResult:
+        """Build custom properties dictionary for a model dataset."""
         custom_properties = {
             "model_id": model.id,
             "query_type": model.query_type,
@@ -636,16 +451,145 @@ class HightouchSource(StatefulIngestionSourceBase):
                 custom_properties["raw_sql_truncated"] = "true"
                 custom_properties["raw_sql_length"] = str(len(model.raw_sql))
 
-        platform_id = HIGHTOUCH_PLATFORM
-        table_name = model.slug
-        platform_instance = self.config.platform_instance
-        env = self.config.env
+        return custom_properties
+
+    def _build_model_schema_fields(
+        self,
+        model: HightouchModel,
+        source: Optional[HightouchSourceConnection],
+        referenced_columns: Optional[List[str]],
+    ) -> List[SchemaFieldClass]:
+        """Build schema field classes with upstream casing normalization."""
+        schema_fields = self._schema_handler.resolve_schema(
+            model=model, source=source, referenced_columns=referenced_columns
+        )
+
+        if not schema_fields:
+            return []
+
+        # For table models, normalize field casing to match upstream table
+        upstream_field_casing = self._lineage_handler.get_upstream_field_casing(
+            model, source
+        )
+
+        if upstream_field_casing:
+            logger.debug(
+                f"Using upstream field casing for model {model.slug}: {len(upstream_field_casing)} fields mapped"
+            )
+        else:
+            logger.debug(
+                f"No upstream field casing available for model {model.slug}, using original Hightouch casing"
+            )
+
+        schema_field_classes: List[SchemaFieldClass] = []
+        for field in schema_fields:
+            # Use upstream casing if available, otherwise use field name as-is
+            normalized_name = normalize_column_name(field.name)
+            field_path = upstream_field_casing.get(normalized_name, field.name)
+
+            if upstream_field_casing and normalized_name in upstream_field_casing:
+                if field_path != field.name:
+                    logger.debug(
+                        f"Normalized field casing for model {model.slug}: '{field.name}' -> '{field_path}'"
+                    )
+
+            schema_field_classes.append(
+                SchemaFieldClass(
+                    fieldPath=field_path,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType=field.type,
+                    description=field.description,
+                    isPartOfKey=field.is_primary_key,
+                )
+            )
+
+        return schema_field_classes
+
+    def _register_model_schema_with_aggregator(
+        self,
+        model: HightouchModel,
+        dataset_urn: str,
+        source: Optional[HightouchSourceConnection],
+        schema_field_classes: List[SchemaFieldClass],
+    ) -> None:
+        """Register model schema with SQL parsing aggregator if available."""
+        if not source:
+            return
+
+        source_platform = self._get_platform_for_source(source)
+        if not source_platform.platform:
+            return
+
+        aggregator = self._get_aggregator_for_platform(source_platform)
+        if not aggregator:
+            return
+
+        try:
+            aggregator.register_schema(
+                dataset_urn,
+                SchemaMetadataClass(
+                    schemaName=model.slug,
+                    platform=f"urn:li:dataPlatform:{HIGHTOUCH_PLATFORM}",
+                    version=0,
+                    hash="",
+                    platformSchema=SchemalessClass(),
+                    fields=schema_field_classes,
+                ),
+            )
+            logger.debug(
+                f"Registered model schema for {model.slug} with aggregator "
+                f"for platform {source_platform.platform}"
+            )
+        except Exception as e:
+            logger.debug(f"Failed to register model schema for {model.slug}: {e}")
+
+    def _setup_table_model_upstream(
+        self,
+        model: HightouchModel,
+        source: Optional[HightouchSourceConnection],
+        custom_properties: Dict[str, str],
+    ) -> Optional[Union[str, DatasetUrn]]:
+        """Set up upstream lineage for table-type models, returns upstream URN."""
+        if not source or model.query_type != "table" or not model.name:
+            return None
+
+        table_name = model.name
+
+        if source.configuration:
+            database = source.configuration.get("database", "")
+            schema = source.configuration.get("schema", "")
+            source_details = self._urn_builder._get_cached_source_details(source)
+
+            if source_details.include_schema_in_urn and schema:
+                table_name = f"{database}.{schema}.{table_name}"
+            elif database and "." not in table_name:
+                table_name = f"{database}.{table_name}"
+
+        upstream_urn = self._urn_builder.make_upstream_table_urn(table_name, source)
+        custom_properties["table_lineage"] = "true"
+        custom_properties["upstream_table"] = table_name
+        custom_properties["source_table_urn"] = str(upstream_urn)
+
+        logger.debug(
+            f"Set direct upstream lineage for table-type model {model.slug}: {upstream_urn}. "
+            f"This ensures basic lineage is emitted even if SQL aggregator is unavailable."
+        )
+
+        return upstream_urn
+
+    def _generate_model_dataset(
+        self,
+        model: HightouchModel,
+        source: Optional[HightouchSourceConnection],
+        referenced_columns: Optional[List[str]] = None,
+    ) -> HightouchModelDatasetResult:
+        custom_properties = self._build_model_custom_properties(model, source)
 
         dataset = Dataset(
-            name=table_name,
-            platform=platform_id,
-            env=env,
-            platform_instance=platform_instance,
+            name=model.slug,
+            platform=HIGHTOUCH_PLATFORM,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
             display_name=model.name,
             description=model.description,
             created=model.created_at,
@@ -653,84 +597,28 @@ class HightouchSource(StatefulIngestionSourceBase):
             custom_properties=custom_properties,
         )
 
-        schema_fields = self._schema_handler.resolve_schema(
-            model=model, source=source, referenced_columns=referenced_columns
+        # Build and set schema fields
+        schema_field_classes = self._build_model_schema_fields(
+            model, source, referenced_columns
         )
-
-        schema_field_classes: List[SchemaFieldClass] = []
-        if schema_fields:
-            # For table models, normalize field casing to match upstream table
-            upstream_field_casing = self._get_upstream_field_casing(model, source)
-
-            for field in schema_fields:
-                # Use upstream casing if available, otherwise use field name as-is
-                field_path = upstream_field_casing.get(
-                    normalize_column_name(field.name), field.name
-                )
-
-                schema_field_classes.append(
-                    SchemaFieldClass(
-                        fieldPath=field_path,
-                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                        nativeDataType=field.type,
-                        description=field.description,
-                        isPartOfKey=field.is_primary_key,
-                    )
-                )
+        if schema_field_classes:
             dataset._set_schema(schema_field_classes)
-
-            if source:
-                source_platform = self._get_platform_for_source(source)
-                if source_platform.platform:
-                    aggregator = self._get_aggregator_for_platform(source_platform)
-                    if aggregator:
-                        try:
-                            aggregator.register_schema(
-                                str(dataset.urn),
-                                SchemaMetadataClass(
-                                    schemaName=table_name,
-                                    platform=f"urn:li:dataPlatform:{platform_id}",
-                                    version=0,
-                                    hash="",
-                                    platformSchema=SchemalessClass(),
-                                    fields=schema_field_classes,
-                                ),
-                            )
-                            logger.debug(
-                                f"Registered model schema for {model.slug} with aggregator "
-                                f"for platform {source_platform.platform}"
-                            )
-                        except Exception as e:
-                            logger.debug(
-                                f"Failed to register model schema for {model.slug}: {e}"
-                            )
-
-        if source and model.query_type == "table" and model.name:
-            table_name = model.name
-
-            if source.configuration:
-                database = source.configuration.get("database", "")
-                schema = source.configuration.get("schema", "")
-
-                source_details = self._urn_builder._get_cached_source_details(source)
-
-                if source_details.include_schema_in_urn and schema:
-                    table_name = f"{database}.{schema}.{table_name}"
-                elif database and "." not in table_name:
-                    table_name = f"{database}.{table_name}"
-
-            upstream_urn = self._urn_builder.make_upstream_table_urn(table_name, source)
-            custom_properties["table_lineage"] = "true"
-            custom_properties["upstream_table"] = table_name
-            custom_properties["source_table_urn"] = str(upstream_urn)
-
-            dataset.set_upstreams([upstream_urn])
-            logger.debug(
-                f"Set direct upstream lineage for table-type model {model.slug}: {upstream_urn}. "
-                f"This ensures basic lineage is emitted even if SQL aggregator is unavailable."
+            self._register_model_schema_with_aggregator(
+                model, str(dataset.urn), source, schema_field_classes
             )
 
+        # Set up upstream lineage for table models
+        upstream_urn = self._setup_table_model_upstream(
+            model, source, custom_properties
+        )
+        if upstream_urn:
+            dataset.set_upstreams([upstream_urn])
+
         dataset.set_custom_properties(custom_properties)
+
+        # Cache normalized schema fields for use in downstream column lineage
+        if schema_field_classes:
+            self._model_schema_fields_cache[model.id] = schema_field_classes
 
         return HightouchModelDatasetResult(
             dataset=dataset, schema_fields=schema_field_classes
@@ -744,41 +632,6 @@ class HightouchSource(StatefulIngestionSourceBase):
             display_name=sync.slug,
             platform_instance=self.config.platform_instance,
         )
-
-    def _normalize_and_match_column(
-        self,
-        source_field: str,
-        destination_field: str,
-        model_schema: Optional[List[str]] = None,
-        dest_schema: Optional[List[str]] = None,
-    ) -> tuple[str, str]:
-        if not model_schema and not dest_schema:
-            return (source_field, destination_field)
-
-        validated_source = source_field
-        validated_dest = destination_field
-
-        if model_schema:
-            normalized_source = normalize_column_name(source_field)
-            for schema_field in model_schema:
-                if normalize_column_name(schema_field) == normalized_source:
-                    validated_source = schema_field
-                    logger.debug(
-                        f"Fuzzy matched source field '{source_field}' to schema field '{schema_field}'"
-                    )
-                    break
-
-        if dest_schema:
-            normalized_dest = normalize_column_name(destination_field)
-            for schema_field in dest_schema:
-                if normalize_column_name(schema_field) == normalized_dest:
-                    validated_dest = schema_field
-                    logger.debug(
-                        f"Fuzzy matched destination field '{destination_field}' to schema field '{schema_field}'"
-                    )
-                    break
-
-        return (validated_source, validated_dest)
 
     def _get_inlet_urn_for_model(
         self, model: HightouchModel, sync: HightouchSync
@@ -870,67 +723,6 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         return self._urn_builder.make_destination_urn(dest_table, destination)
 
-    def _generate_column_lineage(
-        self,
-        sync: HightouchSync,
-        model: HightouchModel,
-        inlet_urn: Union[str, DatasetUrn],
-        outlet_urn: Union[str, DatasetUrn],
-    ) -> List[FineGrainedLineageClass]:
-        field_mappings = self.api_client.extract_field_mappings(sync)
-        if not field_mappings:
-            return []
-
-        fine_grained_lineages = []
-        model_schema_fields = None
-        dest_schema_fields = None
-
-        if self.graph:
-            try:
-                model_schema_metadata = self.graph.get_schema_metadata(str(inlet_urn))
-                if model_schema_metadata and model_schema_metadata.fields:
-                    model_schema_fields = [
-                        f.fieldPath for f in model_schema_metadata.fields
-                    ]
-            except Exception as e:
-                logger.debug(f"Could not fetch model schema for column matching: {e}")
-
-            try:
-                dest_schema_metadata = self.graph.get_schema_metadata(str(outlet_urn))
-                if dest_schema_metadata and dest_schema_metadata.fields:
-                    dest_schema_fields = [
-                        f.fieldPath for f in dest_schema_metadata.fields
-                    ]
-            except Exception as e:
-                logger.debug(
-                    f"Could not fetch destination schema for column matching: {e}"
-                )
-
-        for mapping in field_mappings:
-            source_field, dest_field = self._normalize_and_match_column(
-                mapping.source_field,
-                mapping.destination_field,
-                model_schema_fields,
-                dest_schema_fields,
-            )
-
-            fine_grained_lineages.append(
-                FineGrainedLineageClass(
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[make_schema_field_urn(str(inlet_urn), source_field)],
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[make_schema_field_urn(str(outlet_urn), dest_field)],
-                )
-            )
-
-        if fine_grained_lineages:
-            self.report.column_lineage_emitted += len(fine_grained_lineages)
-            logger.debug(
-                f"Emitted {len(fine_grained_lineages)} column lineage edges for sync {sync.slug}"
-            )
-
-        return fine_grained_lineages
-
     def _generate_datajob_from_sync(self, sync: HightouchSync) -> DataJob:
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
@@ -965,8 +757,10 @@ class HightouchSource(StatefulIngestionSourceBase):
             datajob.set_outlets([outlet_urn])
 
         if model and outlet_urn and inlets:
-            fine_grained_lineages = self._generate_column_lineage(
-                sync, model, inlets[0], outlet_urn
+            # Use cached schema fields with normalized casing for column lineage
+            model_schema_fields = self._model_schema_fields_cache.get(model.id)
+            fine_grained_lineages = self._lineage_handler.generate_column_lineage(
+                sync, model, inlets[0], outlet_urn, model_schema_fields
             )
             if fine_grained_lineages:
                 datajob.set_fine_grained_lineages(fine_grained_lineages)
@@ -1125,63 +919,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         ):
             yield mcp.as_workunit()
 
-    def _accumulate_destination_lineage(
-        self,
-        destination_urn: str,
-        datajob: DataJob,
-    ) -> None:
-        # Accumulate across syncs to avoid overwriting when multiple syncs target same destination
-        if destination_urn not in self._destination_lineage:
-            self._destination_lineage[destination_urn] = (
-                HightouchDestinationLineageInfo()
-            )
-
-        for inlet_urn in datajob.inlets:
-            self._destination_lineage[destination_urn].upstreams.add(str(inlet_urn))
-
-        if datajob.fine_grained_lineages:
-            self._destination_lineage[destination_urn].fine_grained_lineages.extend(
-                datajob.fine_grained_lineages
-            )
-
-        logger.debug(
-            f"Accumulated lineage for destination {destination_urn}: "
-            f"{len(datajob.inlets)} inlet(s), "
-            f"{len(datajob.fine_grained_lineages) if datajob.fine_grained_lineages else 0} fine-grained lineage(s)"
-        )
-
-    def _emit_all_destination_lineage(self) -> Iterable[MetadataWorkUnit]:
-        # Called after all syncs processed to emit consolidated lineage
-        for destination_urn, lineage_data in self._destination_lineage.items():
-            upstreams = [
-                UpstreamClass(
-                    dataset=upstream_urn,
-                    type=DatasetLineageTypeClass.COPY,
-                )
-                for upstream_urn in lineage_data.upstreams
-            ]
-
-            fine_grained_lineages = (
-                lineage_data.fine_grained_lineages
-                if lineage_data.fine_grained_lineages
-                else None
-            )
-
-            if upstreams:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=destination_urn,
-                    aspect=UpstreamLineageClass(
-                        upstreams=upstreams,
-                        fineGrainedLineages=fine_grained_lineages,
-                    ),
-                ).as_workunit()
-
-                logger.info(
-                    f"Emitted consolidated upstream lineage for destination {destination_urn}: "
-                    f"{len(upstreams)} upstream(s), "
-                    f"{len(fine_grained_lineages) if fine_grained_lineages else 0} fine-grained lineage(s)"
-                )
-
     def _emit_model_aspects(
         self,
         model: HightouchModel,
@@ -1247,7 +984,7 @@ class HightouchSource(StatefulIngestionSourceBase):
             if source_table_urn:
                 # Emit sibling aspects if configured
                 if self.config.include_table_lineage_to_sibling:
-                    yield from self._emit_sibling_aspects(
+                    yield from self._lineage_handler.emit_sibling_aspects(
                         dataset_urn, str(source_table_urn)
                     )
                     logger.debug(
@@ -1256,8 +993,10 @@ class HightouchSource(StatefulIngestionSourceBase):
                     )
 
                 # Generate and emit column-level lineage for all table models
-                fine_grained_lineages = self._generate_table_model_column_lineage(
-                    model, dataset_urn, str(source_table_urn), schema_fields or []
+                fine_grained_lineages = (
+                    self._lineage_handler.generate_table_model_column_lineage(
+                        model, dataset_urn, str(source_table_urn), schema_fields or []
+                    )
                 )
                 if fine_grained_lineages:
                     yield MetadataChangeProposalWrapper(
@@ -1277,36 +1016,6 @@ class HightouchSource(StatefulIngestionSourceBase):
                         f"Emitted {len(fine_grained_lineages)} column lineage edges for table model {model.slug}: "
                         f"{source_table_urn} -> {dataset_urn}"
                     )
-
-    def _emit_sibling_aspects(
-        self, model_urn: str, source_table_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
-        # Always emit sibling aspect on Hightouch model (primary)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=model_urn,
-            aspect=SiblingsClass(
-                primary=True,
-                siblings=[source_table_urn],
-            ),
-        ).as_workunit()
-
-        # Only emit sibling aspect on source table if it was preloaded (exists in DataHub)
-        # This prevents creating ghost entities with no useful metadata
-        if source_table_urn in self._registered_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=source_table_urn,
-                aspect=SiblingsClass(
-                    primary=False,
-                    siblings=[model_urn],
-                ),
-            ).as_workunit()
-            logger.debug(
-                f"Emitted bidirectional sibling relationship: {model_urn} (primary) <-> {source_table_urn} (secondary)"
-            )
-        else:
-            logger.debug(
-                f"Emitted sibling aspect on {model_urn} only - source table {source_table_urn} not in registered URNs (prevents ghost entity creation)"
-            )
 
     def _get_sync_workunits(
         self, sync: HightouchSync
@@ -1328,7 +1037,46 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
 
                 if source:
-                    self._register_model_lineage(model, str(result.dataset.urn), source)
+                    self._lineage_handler.register_model_lineage(
+                        model,
+                        str(result.dataset.urn),
+                        source,
+                        self._get_platform_for_source,
+                        self._get_aggregator_for_platform,
+                    )
+
+                # Organize models into workspace and folder containers
+                if model.workspace_id:
+                    workspace_key = WorkspaceKey(
+                        workspace_id=model.workspace_id,
+                        platform=HIGHTOUCH_PLATFORM,
+                        instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    yield from self._generate_workspace_container(model.workspace_id)
+
+                    if model.folder_id:
+                        # Model is in a folder - create folder container and add model to it
+                        folder_key = FolderKey(
+                            folder_id=model.folder_id,
+                            workspace_id=model.workspace_id,
+                            platform=HIGHTOUCH_PLATFORM,
+                            instance=self.config.platform_instance,
+                            env=self.config.env,
+                        )
+                        yield from self._generate_folder_container(
+                            model.folder_id,
+                            model.workspace_id,
+                            parent_container_key=workspace_key,
+                        )
+                        yield from self._add_entity_to_container(
+                            str(result.dataset.urn), folder_key
+                        )
+                    else:
+                        # Model is directly in workspace - add model to workspace
+                        yield from self._add_entity_to_container(
+                            str(result.dataset.urn), workspace_key
+                        )
 
         destination = self._get_destination(sync.destination_id)
         outlet_urn = None
@@ -1343,8 +1091,24 @@ class HightouchSource(StatefulIngestionSourceBase):
         datajob = self._generate_datajob_from_sync(sync)
         yield datajob
 
+        # Organize syncs (dataflows/datajobs) into workspace containers
+        if sync.workspace_id:
+            workspace_key = WorkspaceKey(
+                workspace_id=sync.workspace_id,
+                platform=HIGHTOUCH_PLATFORM,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            yield from self._generate_workspace_container(sync.workspace_id)
+            yield from self._add_entity_to_container(str(dataflow.urn), workspace_key)
+            yield from self._add_entity_to_container(str(datajob.urn), workspace_key)
+
         if outlet_urn and datajob.inlets:
-            self._accumulate_destination_lineage(str(outlet_urn), datajob)
+            self._lineage_handler.accumulate_destination_lineage(
+                str(outlet_urn),
+                datajob.inlets,
+                datajob.fine_grained_lineages,
+            )
 
         if self.config.include_sync_runs:
             self.report.report_api_call()
@@ -1380,7 +1144,46 @@ class HightouchSource(StatefulIngestionSourceBase):
         )
 
         if source:
-            self._register_model_lineage(model, str(result.dataset.urn), source)
+            self._lineage_handler.register_model_lineage(
+                model,
+                str(result.dataset.urn),
+                source,
+                self._get_platform_for_source,
+                self._get_aggregator_for_platform,
+            )
+
+        # Organize models into workspace and folder containers
+        if model.workspace_id:
+            workspace_key = WorkspaceKey(
+                workspace_id=model.workspace_id,
+                platform=HIGHTOUCH_PLATFORM,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            yield from self._generate_workspace_container(model.workspace_id)
+
+            if model.folder_id:
+                # Model is in a folder - create folder container and add model to it
+                folder_key = FolderKey(
+                    folder_id=model.folder_id,
+                    workspace_id=model.workspace_id,
+                    platform=HIGHTOUCH_PLATFORM,
+                    instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+                yield from self._generate_folder_container(
+                    model.folder_id,
+                    model.workspace_id,
+                    parent_container_key=workspace_key,
+                )
+                yield from self._add_entity_to_container(
+                    str(result.dataset.urn), folder_key
+                )
+            else:
+                # Model is directly in workspace - add model to workspace
+                yield from self._add_entity_to_container(
+                    str(result.dataset.urn), workspace_key
+                )
 
     def _extract_table_urns_from_sql(
         self,
@@ -1625,7 +1428,7 @@ class HightouchSource(StatefulIngestionSourceBase):
             logger.info(
                 f"Emitting consolidated lineage for {len(self._destination_lineage)} destination(s)"
             )
-            yield from self._emit_all_destination_lineage()
+            yield from self._lineage_handler.emit_all_destination_lineage()
 
         if self._sql_aggregators:
             active_aggregators = {

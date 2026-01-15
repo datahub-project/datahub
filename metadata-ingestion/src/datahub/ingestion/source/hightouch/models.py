@@ -22,6 +22,14 @@ class HightouchSchemaField(_HightouchBaseModel):
     is_primary_key: bool = False
 
 
+class HightouchWorkspace(_HightouchBaseModel):
+    id: str
+    name: str
+    slug: str
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")
+
+
 class HightouchSourceConnection(_HightouchBaseModel):
     id: str
     name: str
@@ -124,6 +132,13 @@ class HightouchFieldMapping(BaseModel):
     source_field: str
     destination_field: str
     is_primary_key: bool = False
+
+
+class HightouchColumnPair(BaseModel):
+    """Represents a matched column pair between source and destination."""
+
+    source_field: str
+    destination_field: str
 
 
 class HightouchContract(_HightouchBaseModel):

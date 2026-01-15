@@ -18,6 +18,7 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchSync,
     HightouchSyncRun,
     HightouchUser,
+    HightouchWorkspace,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,30 @@ class HightouchAPIClient:
             offset += len(items)
 
         return all_items
+
+    def get_workspaces(self) -> List[HightouchWorkspace]:
+        all_data = self._make_paginated_request("workspaces")
+        workspaces = []
+
+        for workspace_data in all_data:
+            try:
+                workspace = HightouchWorkspace.model_validate(workspace_data)
+                workspaces.append(workspace)
+            except ValidationError as e:
+                logger.warning(
+                    f"Failed to parse workspace: {e}, data: {workspace_data}"
+                )
+                continue
+
+        return workspaces
+
+    def get_workspace_by_id(self, workspace_id: str) -> Optional[HightouchWorkspace]:
+        try:
+            response = self._make_request("GET", f"workspaces/{workspace_id}")
+            return HightouchWorkspace.model_validate(response)
+        except ValidationError as e:
+            logger.warning(f"Failed to parse workspace {workspace_id}: {e}")
+            return None
 
     def get_sources(self) -> List[HightouchSourceConnection]:
         all_data = self._make_paginated_request("sources")
