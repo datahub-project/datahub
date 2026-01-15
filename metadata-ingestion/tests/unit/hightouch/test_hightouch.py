@@ -175,13 +175,13 @@ def test_generate_model_dataset(
         updated_at=datetime(2023, 1, 2),
     )
 
-    dataset = source_instance._generate_model_dataset(model, source_entity)
+    result = source_instance._generate_model_dataset(model, source_entity)
 
-    assert dataset.urn.name == "customer-model"
-    assert str(dataset.urn.platform) == "urn:li:dataPlatform:hightouch"
-    assert dataset.urn.env == "PROD"
-    assert dataset.display_name == "Customer Model"
-    assert dataset.description == "Test model"
+    assert result.dataset.urn.name == "customer-model"
+    assert str(result.dataset.urn.platform) == "urn:li:dataPlatform:hightouch"
+    assert result.dataset.urn.env == "PROD"
+    assert result.dataset.display_name == "Customer Model"
+    assert result.dataset.description == "Test model"
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -350,9 +350,9 @@ def test_sql_parsing_with_valid_query(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._generate_model_dataset(mock_model, mock_source)
 
-    assert dataset.urn.name == "customer-360"
+    assert result.dataset.urn.name == "customer-360"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
@@ -389,9 +389,9 @@ def test_sql_parsing_with_no_upstream_tables(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._generate_model_dataset(mock_model, mock_source)
 
-    assert dataset.urn.name == "static-data"
+    assert result.dataset.urn.name == "static-data"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
@@ -428,9 +428,9 @@ def test_sql_parsing_with_invalid_sql(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._generate_model_dataset(mock_model, mock_source)
 
-    assert dataset.urn.name == "invalid-model"
+    assert result.dataset.urn.name == "invalid-model"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
@@ -467,13 +467,13 @@ def test_sql_parsing_with_no_raw_sql(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._generate_model_dataset(mock_model, mock_source)
 
-    assert dataset.urn.name == "table-model"
+    assert result.dataset.urn.name == "table-model"
     assert source_instance.report.sql_parsing_attempts == 0
 
     # Table-type models should have upstream lineage to the source table
-    upstream_lineage = dataset.upstreams
+    upstream_lineage = result.dataset.upstreams
     assert upstream_lineage is not None
     assert len(upstream_lineage.upstreams) == 1
     # The upstream should be the table name from the model
@@ -502,9 +502,9 @@ def test_sql_parsing_with_unknown_platform(
 
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
 
-    dataset = source_instance._generate_model_dataset(mock_model, None)
+    result = source_instance._generate_model_dataset(mock_model, None)
 
-    assert dataset.urn.name == "custom-model"
+    assert result.dataset.urn.name == "custom-model"
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -545,9 +545,9 @@ def test_sql_parsing_with_cte(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._generate_model_dataset(mock_model, mock_source)
 
-    assert dataset.urn.name == "cte-model"
+    assert result.dataset.urn.name == "cte-model"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
@@ -587,9 +587,9 @@ def test_sql_parsing_disabled(mock_api_client_class, pipeline_context):
     source_instance = HightouchIngestionSource(config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._generate_model_dataset(mock_model, mock_source)
 
-    assert dataset.urn.name == "test-model"
+    assert result.dataset.urn.name == "test-model"
     assert source_instance.report.sql_parsing_attempts == 0
 
 
@@ -1529,13 +1529,13 @@ def test_schema_emission_enabled_and_applied(
         ],
     )
 
-    dataset = source_instance._generate_model_dataset(model, None)
+    result = source_instance._generate_model_dataset(model, None)
 
     # Check that schema was emitted
     assert source_instance.report.model_schemas_emitted == 1
 
     # Check that dataset has schema
-    schema_fields = dataset.schema
+    schema_fields = result.dataset.schema
     assert len(schema_fields) == 2
     assert schema_fields[0].field_path == "user_id"
     assert schema_fields[1].field_path == "email"

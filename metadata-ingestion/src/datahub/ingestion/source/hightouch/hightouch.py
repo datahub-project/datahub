@@ -53,6 +53,7 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchDestinationLineageInfo,
     HightouchModel,
+    HightouchModelDatasetResult,
     HightouchSourceConnection,
     HightouchSync,
     HightouchSyncRun,
@@ -384,6 +385,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         model: HightouchModel,
         model_urn: str,
         upstream_table_urn: str,
+        model_schema_fields: List[SchemaFieldClass],
     ) -> List[FineGrainedLineageClass]:
         """Generate column-level lineage for table-type models with schema normalization."""
         if not self.graph:
@@ -392,9 +394,8 @@ class HightouchSource(StatefulIngestionSourceBase):
         fine_grained_lineages = []
 
         try:
-            # Fetch schemas from DataHub for both upstream table and Hightouch model
+            # Fetch upstream schema from DataHub
             upstream_schema = self.graph.get_schema_metadata(upstream_table_urn)
-            model_schema = self.graph.get_schema_metadata(model_urn)
 
             if not upstream_schema or not upstream_schema.fields:
                 logger.debug(
@@ -402,14 +403,14 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
                 return []
 
-            if not model_schema or not model_schema.fields:
+            if not model_schema_fields:
                 logger.debug(
-                    f"No model schema found for {model_urn}, skipping column lineage"
+                    f"No model schema fields provided for {model_urn}, skipping column lineage"
                 )
                 return []
 
             upstream_fields = {f.fieldPath: f for f in upstream_schema.fields}
-            model_fields = {f.fieldPath: f for f in model_schema.fields}
+            model_fields = {f.fieldPath: f for f in model_schema_fields}
 
             # For table models, columns map 1:1 from upstream to model
             # Use fuzzy matching to handle casing differences (e.g., Snowflake lowercasing)
@@ -542,12 +543,69 @@ class HightouchSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
+    def _get_upstream_field_casing(
+        self,
+        model: HightouchModel,
+        source: Optional[HightouchSourceConnection],
+    ) -> Dict[str, str]:
+        """
+        For table models, fetch upstream table schema and return a mapping
+        from normalized field names to the actual upstream field names with correct casing.
+        This ensures Hightouch model schemas match upstream casing for proper sibling visualization.
+        """
+        if (
+            not source
+            or model.query_type != "table"
+            or not model.name
+            or not self.graph
+        ):
+            return {}
+
+        # Build upstream table URN
+        table_name = model.name
+        if source.configuration:
+            database = source.configuration.get("database", "")
+            schema = source.configuration.get("schema", "")
+            source_details = self._urn_builder._get_cached_source_details(source)
+            if source_details.include_schema_in_urn and schema:
+                table_name = f"{database}.{schema}.{table_name}"
+            elif database and "." not in table_name:
+                table_name = f"{database}.{table_name}"
+
+        upstream_urn = self._urn_builder.make_upstream_table_urn(table_name, source)
+        if not upstream_urn:
+            return {}
+
+        # Fetch upstream schema
+        try:
+            upstream_schema = self.graph.get_schema_metadata(str(upstream_urn))
+            if not upstream_schema or not upstream_schema.fields:
+                return {}
+
+            # Create mapping: normalized field name -> actual upstream field name
+            field_casing_map: Dict[str, str] = {}
+            for field in upstream_schema.fields:
+                normalized = normalize_column_name(field.fieldPath)
+                field_casing_map[normalized] = field.fieldPath
+
+            logger.debug(
+                f"Fetched {len(field_casing_map)} field casings from upstream table {upstream_urn} "
+                f"for model {model.slug}"
+            )
+            return field_casing_map
+
+        except Exception as e:
+            logger.debug(
+                f"Could not fetch upstream field casing for model {model.slug}: {e}"
+            )
+            return {}
+
     def _generate_model_dataset(
         self,
         model: HightouchModel,
         source: Optional[HightouchSourceConnection],
         referenced_columns: Optional[List[str]] = None,
-    ) -> Dataset:
+    ) -> HightouchModelDatasetResult:
         custom_properties = {
             "model_id": model.id,
             "query_type": model.query_type,
@@ -599,12 +657,20 @@ class HightouchSource(StatefulIngestionSourceBase):
             model=model, source=source, referenced_columns=referenced_columns
         )
 
+        schema_field_classes: List[SchemaFieldClass] = []
         if schema_fields:
-            schema_field_classes = []
+            # For table models, normalize field casing to match upstream table
+            upstream_field_casing = self._get_upstream_field_casing(model, source)
+
             for field in schema_fields:
+                # Use upstream casing if available, otherwise use field name as-is
+                field_path = upstream_field_casing.get(
+                    normalize_column_name(field.name), field.name
+                )
+
                 schema_field_classes.append(
                     SchemaFieldClass(
-                        fieldPath=field.name,
+                        fieldPath=field_path,
                         type=SchemaFieldDataTypeClass(type=StringTypeClass()),
                         nativeDataType=field.type,
                         description=field.description,
@@ -666,7 +732,9 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         dataset.set_custom_properties(custom_properties)
 
-        return dataset
+        return HightouchModelDatasetResult(
+            dataset=dataset, schema_fields=schema_field_classes
+        )
 
     def _generate_dataflow_from_sync(self, sync: HightouchSync) -> DataFlow:
         return DataFlow(
@@ -1119,6 +1187,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         model: HightouchModel,
         model_dataset: Dataset,
         source: Optional[HightouchSourceConnection] = None,
+        schema_fields: Optional[List[SchemaFieldClass]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = str(model_dataset.urn)
 
@@ -1188,7 +1257,7 @@ class HightouchSource(StatefulIngestionSourceBase):
 
                 # Generate and emit column-level lineage for all table models
                 fine_grained_lineages = self._generate_table_model_column_lineage(
-                    model, dataset_urn, str(source_table_urn)
+                    model, dataset_urn, str(source_table_urn), schema_fields or []
                 )
                 if fine_grained_lineages:
                     yield MetadataChangeProposalWrapper(
@@ -1212,7 +1281,7 @@ class HightouchSource(StatefulIngestionSourceBase):
     def _emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        # Hightouch model is primary, similar to trino_as_primary pattern
+        # Always emit sibling aspect on Hightouch model (primary)
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=SiblingsClass(
@@ -1221,18 +1290,23 @@ class HightouchSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        # Always emit sibling aspect on source table (secondary)
-        # DataHub handles aspects on entities that don't exist yet
-        yield MetadataChangeProposalWrapper(
-            entityUrn=source_table_urn,
-            aspect=SiblingsClass(
-                primary=False,
-                siblings=[model_urn],
-            ),
-        ).as_workunit()
-        logger.debug(
-            f"Emitted sibling relationship: {model_urn} (primary) <-> {source_table_urn} (secondary)"
-        )
+        # Only emit sibling aspect on source table if it was preloaded (exists in DataHub)
+        # This prevents creating ghost entities with no useful metadata
+        if source_table_urn in self._registered_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=source_table_urn,
+                aspect=SiblingsClass(
+                    primary=False,
+                    siblings=[model_urn],
+                ),
+            ).as_workunit()
+            logger.debug(
+                f"Emitted bidirectional sibling relationship: {model_urn} (primary) <-> {source_table_urn} (secondary)"
+            )
+        else:
+            logger.debug(
+                f"Emitted sibling aspect on {model_urn} only - source table {source_table_urn} not in registered URNs (prevents ghost entity creation)"
+            )
 
     def _get_sync_workunits(
         self, sync: HightouchSync
@@ -1244,15 +1318,17 @@ class HightouchSource(StatefulIngestionSourceBase):
             model = self._get_model(sync.model_id)
             if model and self.config.model_patterns.allowed(model.name):
                 source = self._get_source(model.source_id)
-                model_dataset = self._generate_model_dataset(
+                result = self._generate_model_dataset(
                     model, source, referenced_columns=sync.referenced_columns
                 )
                 self.report.report_models_emitted()
-                yield model_dataset
-                yield from self._emit_model_aspects(model, model_dataset, source)
+                yield result.dataset
+                yield from self._emit_model_aspects(
+                    model, result.dataset, source, result.schema_fields
+                )
 
                 if source:
-                    self._register_model_lineage(model, str(model_dataset.urn), source)
+                    self._register_model_lineage(model, str(result.dataset.urn), source)
 
         destination = self._get_destination(sync.destination_id)
         outlet_urn = None
@@ -1295,14 +1371,16 @@ class HightouchSource(StatefulIngestionSourceBase):
         self.report.report_models_scanned()
 
         source = self._get_source(model.source_id)
-        model_dataset = self._generate_model_dataset(model, source)
+        result = self._generate_model_dataset(model, source)
         self.report.report_models_emitted()
-        yield model_dataset
+        yield result.dataset
 
-        yield from self._emit_model_aspects(model, model_dataset, source)
+        yield from self._emit_model_aspects(
+            model, result.dataset, source, result.schema_fields
+        )
 
         if source:
-            self._register_model_lineage(model, str(model_dataset.urn), source)
+            self._register_model_lineage(model, str(result.dataset.urn), source)
 
     def _extract_table_urns_from_sql(
         self,

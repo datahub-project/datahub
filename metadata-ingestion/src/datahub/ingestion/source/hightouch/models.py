@@ -3,6 +3,9 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from datahub.metadata.schema_classes import SchemaFieldClass
+from datahub.sdk.dataset import Dataset
+
 
 class _HightouchBaseModel(BaseModel):
     model_config = ConfigDict(
@@ -153,3 +156,10 @@ class HightouchContractRun(_HightouchBaseModel):
 class HightouchDestinationLineageInfo(BaseModel):
     upstreams: Set[str] = Field(default_factory=set)
     fine_grained_lineages: List = Field(default_factory=list)
+
+
+class HightouchModelDatasetResult(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    dataset: Dataset
+    schema_fields: List[SchemaFieldClass] = Field(default_factory=list)
