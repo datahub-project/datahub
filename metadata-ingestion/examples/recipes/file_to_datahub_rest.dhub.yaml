@@ -3,11 +3,11 @@
 source:
   type: "file"
   config:
-    filename: "./examples/mce_files/bootstrap_mce.json"
+    filename: "../smoke-test/tests/cypress/data.json"
 
 # see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:
     server: "http://localhost:8080"
-    token: eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6Ijg4MzEwZTJhLTUyMmItNDk2OC05MzFkLTU1N2M2MjdlYjllZSIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3NjY2MzIxNjUsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.TGebxgvJVOUVHx_YcfxFk57PJcSG-S6N8oaJjoClz-Q
+    token: eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6IjMzMzVlNzE5LTIxNDMtNDY5Ny1iMjhkLTY2ZGQyMjE3M2M1OCIsInN1YiI6ImRhdGFodWIiLCJleHAiOjE3NzEwMTY0NDEsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.bIptH_nZY_Q26vzKJZ3CggmVqrbuDuv_8JjPlgs4drM
