@@ -100,6 +100,7 @@ public class AuthUtil {
           DATA_PRODUCT_ENTITY_NAME,
           NOTEBOOK_ENTITY_NAME,
           DATA_PROCESS_INSTANCE_ENTITY_NAME,
+          DATAHUB_VIEW_ENTITY_NAME,
           // Saas Only
           TAG_ENTITY_NAME);
 
