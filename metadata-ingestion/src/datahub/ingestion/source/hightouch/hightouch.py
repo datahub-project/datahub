@@ -30,6 +30,9 @@ from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.hightouch_assertion import (
     HightouchAssertionsHandler,
 )
+from datahub.ingestion.source.hightouch.hightouch_container import (
+    HightouchContainerHandler,
+)
 from datahub.ingestion.source.hightouch.hightouch_lineage import (
     HightouchLineageHandler,
 )
@@ -115,6 +118,8 @@ class HightouchSource(StatefulIngestionSourceBase):
         self._sql_aggregators: Dict[str, Optional[SqlParsingAggregator]] = {}
         self._destination_lineage: Dict[str, HightouchDestinationLineageInfo] = {}
 
+        self._container_handler = HightouchContainerHandler(config=self.config)
+
         self._schema_handler = HightouchSchemaHandler(
             report=self.report, graph=self.graph, urn_builder=self._urn_builder
         )
@@ -136,6 +141,7 @@ class HightouchSource(StatefulIngestionSourceBase):
             urn_builder=self._urn_builder,
             schema_handler=self._schema_handler,
             lineage_handler=self._lineage_handler,
+            container_handler=self._container_handler,
             get_platform_for_source=self._get_platform_for_source,
             get_aggregator_for_platform=self._get_aggregator_for_platform,
             model_schema_fields_cache=self._model_schema_fields_cache,
@@ -147,6 +153,7 @@ class HightouchSource(StatefulIngestionSourceBase):
             api_client=self.api_client,
             urn_builder=self._urn_builder,
             lineage_handler=self._lineage_handler,
+            container_handler=self._container_handler,
             model_handler=self._model_handler,
             model_schema_fields_cache=self._model_schema_fields_cache,
             get_model=self._get_model,
@@ -329,6 +336,9 @@ class HightouchSource(StatefulIngestionSourceBase):
         self,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         logger.info("Starting Hightouch metadata extraction")
+
+        yield from self._container_handler.emit_models_container()
+        yield from self._container_handler.emit_syncs_container()
 
         emitted_model_ids = set()
 

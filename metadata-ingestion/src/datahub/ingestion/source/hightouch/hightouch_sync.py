@@ -13,6 +13,9 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchSourceReport,
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
+from datahub.ingestion.source.hightouch.hightouch_container import (
+    HightouchContainerHandler,
+)
 from datahub.ingestion.source.hightouch.hightouch_lineage import (
     HightouchLineageHandler,
 )
@@ -41,6 +44,7 @@ class HightouchSyncHandler:
         api_client: "HightouchAPIClient",
         urn_builder: "HightouchUrnBuilder",
         lineage_handler: "HightouchLineageHandler",
+        container_handler: "HightouchContainerHandler",
         model_handler: "HightouchModelHandler",
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
         get_model: Callable,
@@ -52,6 +56,7 @@ class HightouchSyncHandler:
         self.api_client = api_client
         self.urn_builder = urn_builder
         self.lineage_handler = lineage_handler
+        self.container_handler = container_handler
         self.model_handler = model_handler
         self.model_schema_fields_cache = model_schema_fields_cache
         self.get_model = get_model
@@ -358,6 +363,10 @@ class HightouchSyncHandler:
                     model, result.dataset, source, result.schema_fields
                 )
 
+                yield from self.container_handler.add_model_to_container(
+                    result.dataset.urn
+                )
+
                 if source:
                     self.lineage_handler.register_model_lineage(
                         model,
@@ -377,8 +386,16 @@ class HightouchSyncHandler:
         dataflow = self.generate_dataflow_from_sync(sync)
         yield dataflow
 
+        yield from self.container_handler.add_dataflow_to_container(str(dataflow.urn))
+
         datajob = self.generate_datajob_from_sync(sync)
         yield datajob
+
+        yield from self.container_handler.add_datajob_browse_path(
+            datajob_urn=str(datajob.urn),
+            dataflow_urn=str(dataflow.urn),
+            pipeline_name=sync.slug,
+        )
 
         if outlet_urn and datajob.inlets:
             self.lineage_handler.accumulate_destination_lineage(

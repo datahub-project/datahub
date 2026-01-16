@@ -2,6 +2,10 @@
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 HIGHTOUCH_PLATFORM = "hightouch"
 
+# Container types for organization
+CONTAINER_TYPE_MODELS = "Models"
+CONTAINER_TYPE_SYNCS = "Syncs"
+
 # Assertion types
 ASSERTION_TYPE_HIGHTOUCH_CONTRACT = "hightouch_contract"
 

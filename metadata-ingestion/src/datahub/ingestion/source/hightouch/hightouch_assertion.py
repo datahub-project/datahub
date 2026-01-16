@@ -152,7 +152,6 @@ class HightouchAssertionsHandler:
                 "contract_name": contract.name,
                 "enabled": str(contract.enabled),
                 "severity": contract.severity or "unknown",
-                "workspace_id": contract.workspace_id,
             },
         )
 

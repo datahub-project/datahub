@@ -8,6 +8,9 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchSourceReport,
 )
 from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
+from datahub.ingestion.source.hightouch.hightouch_container import (
+    HightouchContainerHandler,
+)
 from datahub.ingestion.source.hightouch.hightouch_lineage import (
     HightouchLineageHandler,
 )
@@ -51,6 +54,7 @@ class HightouchModelHandler:
         urn_builder: "HightouchUrnBuilder",
         schema_handler: "HightouchSchemaHandler",
         lineage_handler: "HightouchLineageHandler",
+        container_handler: "HightouchContainerHandler",
         get_platform_for_source: Callable,
         get_aggregator_for_platform: Callable,
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
@@ -60,6 +64,7 @@ class HightouchModelHandler:
         self.urn_builder = urn_builder
         self.schema_handler = schema_handler
         self.lineage_handler = lineage_handler
+        self.container_handler = container_handler
         self.get_platform_for_source = get_platform_for_source
         self.get_aggregator_for_platform = get_aggregator_for_platform
         self.model_schema_fields_cache = model_schema_fields_cache
@@ -84,9 +89,6 @@ class HightouchModelHandler:
         if model.tags:
             for key, value in model.tags.items():
                 custom_properties[f"tag_{key}"] = value
-
-        if model.folder_id:
-            custom_properties["folder_id"] = model.folder_id
 
         if model.raw_sql:
             sql_truncated = (
@@ -367,6 +369,8 @@ class HightouchModelHandler:
         yield from self.emit_model_aspects(
             model, result.dataset, source, result.schema_fields
         )
+
+        yield from self.container_handler.add_model_to_container(result.dataset.urn)
 
         if source:
             self.lineage_handler.register_model_lineage(
