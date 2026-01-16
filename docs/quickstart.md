@@ -17,7 +17,7 @@ If you're interested in a managed version, [DataHub](https://www.datahub.com) pr
 
   | Platform | Application                                                                                                                                     |
   | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-  | Window   | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
+  | Windows  | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Mac      | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 

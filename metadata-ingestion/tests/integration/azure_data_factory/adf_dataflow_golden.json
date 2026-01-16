@@ -33,6 +33,127 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
     "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-dataflow-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Factory"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-dataflow-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-dataflow-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-dataflow-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "factory_name": "complex-data-factory",
+                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/DataFlowPipeline"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/DataFlowPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "DataFlowPipeline",
+            "description": "Pipeline that executes a mapping data flow",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-dataflow-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-dataflow-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-dataflow-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV),RunSalesTransformation)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
@@ -71,22 +192,6 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-dataflow-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV),RunSalesTransformation)",
     "changeType": "UPSERT",
@@ -105,14 +210,17 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Data Factory"
+            "path": [
+                {
+                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
+                }
             ]
         }
     },
@@ -123,68 +231,13 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV),RunSalesTransformation)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:azure-data-factory"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-dataflow-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV),RunSalesTransformation)",
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-dataflow-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:azure-data-factory"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-dataflow-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/DataFlowPipeline",
-                "factory_name": "complex-data-factory"
-            },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/DataFlowPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "DataFlowPipeline",
-            "description": "Pipeline that executes a mapping data flow",
-            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -219,61 +272,8 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
-                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-dataflow-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-dataflow-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-dataflow-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV)",
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.DataFlowPipeline,DEV),RunSalesTransformation)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

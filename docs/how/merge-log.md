@@ -3053,3 +3053,61 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **7757c86814** - fix: multiple typos (#15807)
   *by Benjamin Maquet <ben.maquet@consensys.net> on 2026-01-09*
+
+## Upstream Merge Session - 2026-01-15 10:13:12
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 15
+- **Strategy**: stacked
+- **Started**: 2026-01-15 10:13:12
+
+### Commits Included in This Merge
+
+- **0237cd100c** - feat(api): sdk assertion privilege mapping (#15838)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2026-01-09*
+
+- **76b99d246c** - feat(auth): add VIEW_ENTITY_PAGE authorization for Views (#15816)
+  *by Pedro Silva <pedro@acryl.io> on 2026-01-09*
+
+- **e8dec12975** - fix(documents): resolve entity names in change history for related as… (#15836)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-01-09*
+
+- **c75c84e847** - fix: hide template editing controls for Documents until backend suppo… (#15835)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-01-09*
+
+- **650d6c49c2** - fix(documents): fix context document popover positioning (#7773) (#15834)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-01-09*
+
+- **9c5bab5bb8** - feat(ingest/dbt): Add semantic view support (#15411)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-01-09*
+
+- **f5ac58b8d4** - Revert "feat(api): sdk assertion privilege mapping" (#15842)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2026-01-09*
+
+- **be789b8b38** - fix: Update ingestion source logos (#15841)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-01-09*
+
+- **5bb669701e** - fix(ui) Fix editing default system ingestion sources (#15832)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-09*
+
+- **5b24daebbf** - refactor(adf): remove custom pydantic validations for ADK and use SDK models (#15825)
+  *by Anush Kumar <anush.kumar@datahub.com> on 2026-01-09*
+
+- **45b1cdb1fc** - fix(es): remove double role suffix (#15844)
+  *by RyanHolstien <RyanHolstien@users.noreply.github.com> on 2026-01-09*
+
+- **3d4adf1d88** - updated pr-labeler.yml (add Rajat Singh[rajat-datahub] to team member-list) (#15854)
+  *by rajat-datahub <rajat.singh@datahub.com> on 2026-01-12*
+
+- **1555f89205** - feat(mssql): auto-enable use_odbc when source type is mssql-odbc (#15702)
+  *by Alfiya S <alfiya.samiulla@datahub.com> on 2026-01-12*
+
+- **afb313308d** - feat(docs): update dagster docs with new config options (#15843)
+  *by Kevin Karch <kevin.karch@acryl.io> on 2026-01-12*
+
+- **79e9bbaa9a** - docs: Tiny fix, platform Window -> Windows. (#15849)
+  *by Brett Randall <javabrett@gmail.com> on 2026-01-13*

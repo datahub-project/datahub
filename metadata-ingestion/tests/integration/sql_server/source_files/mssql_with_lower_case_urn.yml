@@ -10,9 +10,6 @@ source:
     database_pattern:
       deny:
         - .*DB_WITH@SPEC_SYMB.*
-    # use_odbc: True
-    # uri_args:
-    #   driver: "ODBC Driver 17 for SQL Server"
 
 sink:
   type: file

@@ -305,16 +305,6 @@
   changeType: UPSERT
   aspect:
     datasetNameDelimiter: "."
-    name: prefect
-    displayName: Prefect
-    type: OTHERS
-    logoUrl: "assets/platforms/prefectlogo.png"
-- entityUrn: urn:li:dataPlatform:presto
-  entityType: dataPlatform
-  aspectName: dataPlatformInfo
-  changeType: UPSERT
-  aspect:
-    datasetNameDelimiter: "."
     name: presto
     displayName: Presto
     type: QUERY_ENGINE

@@ -1273,6 +1273,14 @@ public class PoliciesConfig {
               DATA_MANAGE_NAMESPACES_PRIVILEGE,
               DATA_LIST_ENTITIES_PRIVILEGE));
 
+  // DataHub View Privileges
+  public static final ResourcePrivileges DATAHUB_VIEW_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.DATAHUB_VIEW_ENTITY_NAME,
+          "Views",
+          "DataHub Views",
+          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EXISTS_ENTITY_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1299,6 +1307,7 @@ public class PoliciesConfig {
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
           APPLICATION_PRIVILEGES,
+          DATAHUB_VIEW_PRIVILEGES,
           // SaaS Only
           FORMS_PRIVILEGES,
           ML_FEATURE_PRIVILEGES,

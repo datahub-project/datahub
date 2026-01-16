@@ -1,7 +1,10 @@
+from typing import Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 
 
@@ -23,6 +26,27 @@ def mssql_source():
         source.report = MagicMock()
         source.ctx = MagicMock()
         return source
+
+
+@pytest.fixture
+def mock_pipeline_context():
+    """Factory fixture for creating mock PipelineContext with configurable source type."""
+
+    def _create_context(source_type: Optional[str] = None) -> MagicMock:
+        mock_ctx = MagicMock(spec=PipelineContext)
+
+        if source_type is None:
+            mock_ctx.pipeline_config = None
+        else:
+            mock_source_config = MagicMock()
+            mock_source_config.type = source_type
+            mock_pipeline_config = MagicMock(spec=PipelineConfig)
+            mock_pipeline_config.source = mock_source_config
+            mock_ctx.pipeline_config = mock_pipeline_config
+
+        return mock_ctx
+
+    return _create_context
 
 
 def test_is_temp_table(mssql_source):
@@ -384,3 +408,74 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
     # Verify database_name is properly set
     assert sp_step["database_name"] == "test_db"
     assert direct_step["database_name"] == "test_db"
+
+
+@pytest.mark.parametrize(
+    "source_type,expected_is_odbc",
+    [
+        # mssql-odbc enables ODBC mode
+        ("mssql-odbc", True),
+        # mssql does not enable ODBC mode
+        ("mssql", False),
+        # No pipeline_config defaults to non-ODBC
+        (None, False),
+    ],
+)
+def test_odbc_mode_from_source_type(
+    mock_pipeline_context, source_type, expected_is_odbc
+):
+    """Test ODBC mode is determined by source type (using Pydantic validation context)."""
+    mock_ctx = mock_pipeline_context(source_type)
+
+    config_dict = {
+        "host_port": "localhost:1433",
+        "username": "test",
+        "password": "test",
+        "database": "test_db",
+        "include_descriptions": False,
+    }
+
+    # Add uri_args when ODBC is expected (required by validator)
+    if expected_is_odbc:
+        config_dict["uri_args"] = {"driver": "ODBC Driver 17 for SQL Server"}
+
+    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+        source = SQLServerSource.create(config_dict, mock_ctx)
+
+    # is_odbc is stored on the source instance (not config)
+    assert source._is_odbc is expected_is_odbc
+
+
+def test_use_odbc_removed_field_warning(mock_pipeline_context):
+    """Test that using deprecated use_odbc field emits a warning via pydantic_removed_field."""
+    import warnings
+
+    from datahub.configuration.common import ConfigurationWarning
+
+    mock_ctx = mock_pipeline_context("mssql-odbc")
+    config_dict = {
+        "host_port": "localhost:1433",
+        "username": "test",
+        "password": "test",
+        "database": "test_db",
+        "use_odbc": True,  # Deprecated field - should trigger warning
+        "uri_args": {"driver": "ODBC Driver 17 for SQL Server"},
+        "include_descriptions": False,
+    }
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+            source = SQLServerSource.create(config_dict, mock_ctx)
+
+        config_warnings = [
+            warning
+            for warning in w
+            if issubclass(warning.category, ConfigurationWarning)
+        ]
+        assert len(config_warnings) == 1
+        assert "use_odbc" in str(config_warnings[0].message)
+        assert "removed" in str(config_warnings[0].message)
+
+    # is_odbc is determined by source type, stored on instance
+    assert source._is_odbc is True
