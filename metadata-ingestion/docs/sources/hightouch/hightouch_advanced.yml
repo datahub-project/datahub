@@ -54,12 +54,6 @@ source:
     max_contract_runs_per_contract: 10
 
     # ============================================
-    # Organization & Containers
-    # ============================================
-    # Organize models and syncs under workspace/folder containers
-    extract_workspaces_to_containers: true
-
-    # ============================================
     # Filtering Patterns
     # ============================================
     # Filter which syncs are ingested

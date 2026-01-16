@@ -277,7 +277,6 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
                         "parse_model_sql": True,
                         "include_contracts": False,
                         "include_table_lineage_to_sibling": False,
-                        "extract_workspaces_to_containers": False,
                         "sources_to_platform_instance": {
                             "source_1": {
                                 "platform": "snowflake",

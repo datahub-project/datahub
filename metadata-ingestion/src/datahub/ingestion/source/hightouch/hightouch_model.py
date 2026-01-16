@@ -8,9 +8,6 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchSourceReport,
 )
 from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
-from datahub.ingestion.source.hightouch.hightouch_container import (
-    HightouchContainerHandler,
-)
 from datahub.ingestion.source.hightouch.hightouch_lineage import (
     HightouchLineageHandler,
 )
@@ -54,7 +51,6 @@ class HightouchModelHandler:
         urn_builder: "HightouchUrnBuilder",
         schema_handler: "HightouchSchemaHandler",
         lineage_handler: "HightouchLineageHandler",
-        container_handler: "HightouchContainerHandler",
         get_platform_for_source: Callable,
         get_aggregator_for_platform: Callable,
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
@@ -64,7 +60,6 @@ class HightouchModelHandler:
         self.urn_builder = urn_builder
         self.schema_handler = schema_handler
         self.lineage_handler = lineage_handler
-        self.container_handler = container_handler
         self.get_platform_for_source = get_platform_for_source
         self.get_aggregator_for_platform = get_aggregator_for_platform
         self.model_schema_fields_cache = model_schema_fields_cache
@@ -381,31 +376,6 @@ class HightouchModelHandler:
                 self.get_platform_for_source,
                 self.get_aggregator_for_platform,
             )
-
-        if model.workspace_id:
-            workspace_key = self.container_handler.get_workspace_key(model.workspace_id)
-            yield from self.container_handler.generate_workspace_container(
-                model.workspace_id
-            )
-            self.report.workspaces_emitted += 1
-
-            if model.folder_id:
-                folder_key = self.container_handler.get_folder_key(
-                    model.folder_id, model.workspace_id
-                )
-                yield from self.container_handler.generate_folder_container(
-                    model.folder_id,
-                    model.workspace_id,
-                    parent_container_key=workspace_key,
-                )
-                self.report.folders_emitted += 1
-                yield from self.container_handler.add_entity_to_container(
-                    str(result.dataset.urn), folder_key
-                )
-            else:
-                yield from self.container_handler.add_entity_to_container(
-                    str(result.dataset.urn), workspace_key
-                )
 
     def extract_table_urns_from_sql(
         self,

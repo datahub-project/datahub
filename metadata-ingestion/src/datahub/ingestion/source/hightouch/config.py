@@ -110,9 +110,6 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     schemas_from_referenced_columns: int = 0
     column_lineage_emitted: int = 0
     tags_emitted: int = 0
-    folders_processed: int = 0
-    workspaces_emitted: int = 0
-    folders_emitted: int = 0
 
     def report_syncs_scanned(self, count: int = 1) -> None:
         self.syncs_scanned += count
@@ -243,13 +240,6 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         "(e.g., Snowflake, BigQuery) as secondary. The sibling aspect on the source table is only emitted if "
         "the source table already exists in DataHub. Configure sources_to_platform_instance to ensure URNs "
         "match your source platform connector settings for proper sibling linking.",
-    )
-
-    extract_workspaces_to_containers: bool = Field(
-        default=True,
-        description="Whether to extract Hightouch workspaces as DataHub containers. "
-        "When enabled, models and syncs are organized under workspace containers, providing hierarchical navigation. "
-        "Models with folder assignments are nested under folder containers within their workspace.",
     )
 
     # Configuration for stateful ingestion

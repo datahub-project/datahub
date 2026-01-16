@@ -10,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400311,
+        "lastObserved": 1704110400396,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -45,7 +45,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400312,
+        "lastObserved": 1704110400397,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -64,7 +64,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400312,
+        "lastObserved": 1704110400398,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -87,132 +87,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400313,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "hightouch",
-                "env": "PROD",
-                "workspace_id": "workspace_1"
-            },
-            "name": "workspace_1",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400314,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400315,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:hightouch"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400315,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Workspace"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400316,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400316,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400317,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-                    "urn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400318,
+        "lastObserved": 1704110400398,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -228,7 +103,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400319,
+        "lastObserved": 1704110400399,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -246,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400320,
+        "lastObserved": 1704110400400,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -262,7 +137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400321,
+        "lastObserved": 1704110400402,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -295,7 +170,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400321,
+        "lastObserved": 1704110400403,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -316,7 +191,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400322,
+        "lastObserved": 1704110400404,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -337,60 +212,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400323,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400323,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-                    "urn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400324,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400325,
+        "lastObserved": 1704110400404,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -406,7 +228,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400327,
+        "lastObserved": 1704110400406,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -442,7 +264,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400328,
+        "lastObserved": 1704110400406,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -467,7 +289,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400329,
+        "lastObserved": 1704110400408,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -486,7 +308,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400329,
+        "lastObserved": 1704110400408,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -505,44 +327,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400330,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400330,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406",
-                    "urn": "urn:li:container:d98f099b73eb1f53b48ed32cf1bcf406"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400331,
+        "lastObserved": 1704110400409,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -567,7 +352,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400333,
+        "lastObserved": 1704110400410,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -582,7 +367,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110400332,
+                        "time": 1704110400410,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -596,7 +381,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400339,
+        "lastObserved": 1704110400414,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -612,7 +397,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400339,
+        "lastObserved": 1704110400415,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -628,7 +413,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400340,
+        "lastObserved": 1704110400415,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -644,7 +429,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400341,
+        "lastObserved": 1704110400416,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -660,7 +445,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400341,
+        "lastObserved": 1704110400416,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -676,7 +461,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400342,
+        "lastObserved": 1704110400417,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -692,7 +477,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400342,
+        "lastObserved": 1704110400417,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -708,7 +493,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400342,
+        "lastObserved": 1704110400418,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }

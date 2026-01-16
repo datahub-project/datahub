@@ -13,9 +13,6 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchSourceReport,
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
-from datahub.ingestion.source.hightouch.hightouch_container import (
-    HightouchContainerHandler,
-)
 from datahub.ingestion.source.hightouch.hightouch_lineage import (
     HightouchLineageHandler,
 )
@@ -44,7 +41,6 @@ class HightouchSyncHandler:
         api_client: "HightouchAPIClient",
         urn_builder: "HightouchUrnBuilder",
         lineage_handler: "HightouchLineageHandler",
-        container_handler: "HightouchContainerHandler",
         model_handler: "HightouchModelHandler",
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
         get_model: Callable,
@@ -56,7 +52,6 @@ class HightouchSyncHandler:
         self.api_client = api_client
         self.urn_builder = urn_builder
         self.lineage_handler = lineage_handler
-        self.container_handler = container_handler
         self.model_handler = model_handler
         self.model_schema_fields_cache = model_schema_fields_cache
         self.get_model = get_model
@@ -372,33 +367,6 @@ class HightouchSyncHandler:
                         self.model_handler.get_aggregator_for_platform,
                     )
 
-                if model.workspace_id:
-                    workspace_key = self.container_handler.get_workspace_key(
-                        model.workspace_id
-                    )
-                    yield from self.container_handler.generate_workspace_container(
-                        model.workspace_id
-                    )
-                    self.report.workspaces_emitted += 1
-
-                    if model.folder_id:
-                        folder_key = self.container_handler.get_folder_key(
-                            model.folder_id, model.workspace_id
-                        )
-                        yield from self.container_handler.generate_folder_container(
-                            model.folder_id,
-                            model.workspace_id,
-                            parent_container_key=workspace_key,
-                        )
-                        self.report.folders_emitted += 1
-                        yield from self.container_handler.add_entity_to_container(
-                            str(result.dataset.urn), folder_key
-                        )
-                    else:
-                        yield from self.container_handler.add_entity_to_container(
-                            str(result.dataset.urn), workspace_key
-                        )
-
         destination = self.get_destination(sync.destination_id)
         outlet_urn = None
         if destination:
@@ -411,19 +379,6 @@ class HightouchSyncHandler:
 
         datajob = self.generate_datajob_from_sync(sync)
         yield datajob
-
-        if sync.workspace_id:
-            workspace_key = self.container_handler.get_workspace_key(sync.workspace_id)
-            yield from self.container_handler.generate_workspace_container(
-                sync.workspace_id
-            )
-            self.report.workspaces_emitted += 1
-            yield from self.container_handler.add_entity_to_container(
-                str(dataflow.urn), workspace_key
-            )
-            yield from self.container_handler.add_entity_to_container(
-                str(datajob.urn), workspace_key
-            )
 
         if outlet_urn and datajob.inlets:
             self.lineage_handler.accumulate_destination_lineage(

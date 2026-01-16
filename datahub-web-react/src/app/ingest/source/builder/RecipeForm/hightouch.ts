@@ -28,15 +28,6 @@ export const HIGHTOUCH_EMIT_MODELS: RecipeField = {
     rules: null,
 };
 
-export const HIGHTOUCH_INCLUDE_COLUMN_LINEAGE: RecipeField = {
-    name: 'include_column_lineage',
-    label: 'Include Column Lineage',
-    tooltip: 'Extract field mappings from sync configurations to create column-to-column lineage.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_column_lineage',
-    rules: null,
-};
-
 export const HIGHTOUCH_INCLUDE_SYNC_RUNS: RecipeField = {
     name: 'include_sync_runs',
     label: 'Include Sync Runs',
