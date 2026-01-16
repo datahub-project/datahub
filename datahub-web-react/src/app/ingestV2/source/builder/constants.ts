@@ -33,6 +33,7 @@ import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
 import oktaLogo from '@images/oktalogo.png';
+import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.svg';
@@ -181,6 +182,8 @@ export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const FABRIC_ONELAKE = 'fabric-onelake';
+export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [AIRFLOW_URN]: airflowLogo,
@@ -239,6 +242,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogicLogo,
+    [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

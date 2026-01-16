@@ -1,5 +1,7 @@
 """Configuration classes for Fabric OneLake connector."""
 
+from typing import Optional
+
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -109,8 +111,8 @@ class FabricOneLakeSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfig
     # See client.py for implementation details
 
     # Stateful Ingestion
-    stateful_ingestion: StatefulStaleMetadataRemovalConfig = Field(
-        default=StatefulStaleMetadataRemovalConfig(),
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
         description=(
             "Configuration for stateful ingestion and stale entity removal. "
             "When enabled, tracks ingested entities and removes those that "

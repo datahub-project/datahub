@@ -10,7 +10,7 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 
 import logging
 from collections import defaultdict
-from typing import Iterable, Literal, Optional
+from typing import Iterable, Literal, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
@@ -57,6 +57,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
 
@@ -70,25 +71,27 @@ class WorkspaceKey(ContainerKey):
     workspace_id: str
 
 
-class LakehouseKey(ContainerKey):
-    """Container key for Fabric lakehouses."""
+class LakehouseKey(WorkspaceKey):
+    """Container key for Fabric lakehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
-    workspace_id: str
     lakehouse_id: str
 
 
-class WarehouseKey(ContainerKey):
-    """Container key for Fabric warehouses."""
+class WarehouseKey(WorkspaceKey):
+    """Container key for Fabric warehouses. Inherits from WorkspaceKey to enable parent_key() traversal."""
 
-    workspace_id: str
     warehouse_id: str
 
 
-class SchemaKey(ContainerKey):
-    """Container key for Fabric schemas."""
+class LakehouseSchemaKey(LakehouseKey):
+    """Container key for Fabric schemas under lakehouses. Inherits from LakehouseKey to enable parent_key() traversal."""
 
-    workspace_id: str
-    item_id: str  # Lakehouse or Warehouse ID
+    schema_name: str
+
+
+class WarehouseSchemaKey(WarehouseKey):
+    """Container key for Fabric schemas under warehouses. Inherits from WarehouseKey to enable parent_key() traversal."""
+
     schema_name: str
 
 
@@ -120,11 +123,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Link client report to source report for reporting
         self.report.client_report = self.client_report
 
-        # Create stale entity removal handler
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
-
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FabricOneLakeSource":
         config = FabricOneLakeSourceConfig.model_validate(config_dict)
@@ -133,14 +131,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
         ]
 
     def get_report(self) -> FabricOneLakeSourceReport:
         """Return the ingestion report."""
         return self.report
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """Generate workunits for all Fabric OneLake resources."""
         logger.info("Starting Fabric OneLake ingestion")
 
@@ -186,7 +186,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _create_workspace_container(
         self, workspace: FabricWorkspace
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Container]:
         """Create a workspace container."""
         container_key = WorkspaceKey(
             platform=PLATFORM,
@@ -199,14 +199,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             display_name=workspace.name,
             description=workspace.description,
             subtype=GenericContainerSubTypes.FABRIC_WORKSPACE,
+            parent_container=None,  # Workspace is root container
             qualified_name=make_workspace_name(workspace.id),
         )
 
-        yield from container.as_workunits()
+        yield container
 
     def _process_workspace_items(
         self, workspace: FabricWorkspace
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Union[Container, Dataset]]:
         """Process lakehouses and warehouses within a workspace."""
         # Process lakehouses
         if self.config.extract_lakehouses:
@@ -254,7 +255,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_lakehouse(
         self, workspace: FabricWorkspace, lakehouse: FabricLakehouse
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Union[Container, Dataset]]:
         """Process a lakehouse and its tables."""
         # Create lakehouse container
         workspace_key = WorkspaceKey(
@@ -275,11 +276,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             display_name=lakehouse.name,
             description=lakehouse.description,
             subtype=DatasetContainerSubTypes.FABRIC_LAKEHOUSE,
-            parent_container=workspace_key.as_urn(),
+            parent_container=workspace_key,
             qualified_name=make_lakehouse_name(workspace.id, lakehouse.id),
         )
 
-        yield from lakehouse_container.as_workunits()
+        yield lakehouse_container
 
         # Process tables
         yield from self._process_item_tables(
@@ -288,7 +289,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
     def _process_warehouse(
         self, workspace: FabricWorkspace, warehouse: FabricWarehouse
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Union[Container, Dataset]]:
         """Process a warehouse and its tables."""
         # Create warehouse container
         workspace_key = WorkspaceKey(
@@ -309,11 +310,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             display_name=warehouse.name,
             description=warehouse.description,
             subtype=DatasetContainerSubTypes.FABRIC_WAREHOUSE,
-            parent_container=workspace_key.as_urn(),
+            parent_container=workspace_key,
             qualified_name=make_warehouse_name(workspace.id, warehouse.id),
         )
 
-        yield from warehouse_container.as_workunits()
+        yield warehouse_container
 
         # Process tables
         yield from self._process_item_tables(
@@ -326,7 +327,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_id: str,
         item_type: Literal["Lakehouse", "Warehouse"],
         item_container_key: ContainerKey,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
             # List tables
@@ -364,32 +365,44 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             for schema_name, schema_tables in tables_by_schema.items():
                 # For schemas-disabled lakehouses, schema_name is empty string - skip schema container
                 if self.config.extract_schemas and schema_name:
-                    # Create schema container
-                    schema_key = SchemaKey(
-                        platform=PLATFORM,
-                        instance=self.config.platform_instance,
-                        workspace_id=workspace.id,
-                        item_id=item_id,
-                        schema_name=schema_name,
-                    )
+                    # Create schema container key with proper inheritance
+                    if item_type == "Lakehouse":
+                        schema_key: Union[LakehouseSchemaKey, WarehouseSchemaKey] = (
+                            LakehouseSchemaKey(
+                                platform=PLATFORM,
+                                instance=self.config.platform_instance,
+                                workspace_id=workspace.id,
+                                lakehouse_id=item_id,
+                                schema_name=schema_name,
+                            )
+                        )
+                    else:  # Warehouse
+                        schema_key = WarehouseSchemaKey(
+                            platform=PLATFORM,
+                            instance=self.config.platform_instance,
+                            workspace_id=workspace.id,
+                            warehouse_id=item_id,
+                            schema_name=schema_name,
+                        )
 
                     schema_container = Container(
                         container_key=schema_key,
                         display_name=schema_name,
                         subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
-                        parent_container=item_container_key.as_urn(),
+                        parent_container=item_container_key,
                         qualified_name=make_schema_name(
                             workspace.id, item_id, schema_name
                         ),
                     )
 
-                    yield from schema_container.as_workunits()
+                    yield schema_container
                     self.report.report_schema_scanned()
 
-                    parent_container_urn: str = schema_key.as_urn()
+                    # Pass ContainerKey object, not URN string
+                    parent_container_key: ContainerKey = schema_key
                 else:
                     # Tables directly under item container (schemas-disabled or extract_schemas=false)
-                    parent_container_urn = item_container_key.as_urn()
+                    parent_container_key = item_container_key
 
                 # Create table datasets
                 for table in schema_tables:
@@ -400,7 +413,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         item_id,
                         schema_name,
                         table,
-                        parent_container_urn,
+                        parent_container_key,
                         columns,
                     )
 
@@ -418,9 +431,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_id: str,
         schema_name: str,
         table: FabricTable,
-        parent_container_urn: str,
+        parent_container_key: ContainerKey,
         columns: list,  # TODO: Should be list[FabricColumn] when schema extraction is implemented
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Dataset]:
         """Create a table dataset with schema metadata."""
         table_name = make_table_name(workspace.id, item_id, schema_name, table.name)
 
@@ -450,9 +463,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             description=table.description,
-            parent_container=parent_container_urn,
+            display_name=table.name,
+            parent_container=parent_container_key,
             schema=schema_fields,
-            subtype=DatasetSubTypes.TABLE,  # All Fabric tables are currently ingested as TABLE subtype
+            subtype=DatasetSubTypes.TABLE,
         )
 
-        yield from dataset.as_workunits()
+        yield dataset
