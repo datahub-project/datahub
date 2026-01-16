@@ -1,9 +1,9 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import requests
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -20,6 +20,8 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchUser,
     HightouchWorkspace,
 )
+
+T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
@@ -105,119 +107,69 @@ class HightouchAPIClient:
 
         return all_items
 
-    def get_workspaces(self) -> List[HightouchWorkspace]:
-        all_data = self._make_paginated_request("workspaces")
-        workspaces = []
+    def _fetch_entities(
+        self, endpoint: str, model_class: Type[T], entity_name: str
+    ) -> List[T]:
+        all_data = self._make_paginated_request(endpoint)
+        entities = []
 
-        for workspace_data in all_data:
+        for item_data in all_data:
             try:
-                workspace = HightouchWorkspace.model_validate(workspace_data)
-                workspaces.append(workspace)
+                entity = model_class.model_validate(item_data)
+                entities.append(entity)
             except ValidationError as e:
-                logger.warning(
-                    f"Failed to parse workspace: {e}, data: {workspace_data}"
-                )
+                logger.warning(f"Failed to parse {entity_name}: {e}, data: {item_data}")
                 continue
 
-        return workspaces
+        return entities
+
+    def _fetch_entity_by_id(
+        self, endpoint: str, entity_id: str, model_class: Type[T], entity_name: str
+    ) -> Optional[T]:
+        try:
+            response = self._make_request("GET", f"{endpoint}/{entity_id}")
+            return model_class.model_validate(response)
+        except ValidationError as e:
+            logger.warning(f"Failed to parse {entity_name} {entity_id}: {e}")
+            return None
+
+    def get_workspaces(self) -> List[HightouchWorkspace]:
+        return self._fetch_entities("workspaces", HightouchWorkspace, "workspace")
 
     def get_workspace_by_id(self, workspace_id: str) -> Optional[HightouchWorkspace]:
-        try:
-            response = self._make_request("GET", f"workspaces/{workspace_id}")
-            return HightouchWorkspace.model_validate(response)
-        except ValidationError as e:
-            logger.warning(f"Failed to parse workspace {workspace_id}: {e}")
-            return None
+        return self._fetch_entity_by_id(
+            "workspaces", workspace_id, HightouchWorkspace, "workspace"
+        )
 
     def get_sources(self) -> List[HightouchSourceConnection]:
-        all_data = self._make_paginated_request("sources")
-        sources = []
-
-        for source_data in all_data:
-            try:
-                source = HightouchSourceConnection.model_validate(source_data)
-                sources.append(source)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse source: {e}, data: {source_data}")
-                continue
-
-        return sources
+        return self._fetch_entities("sources", HightouchSourceConnection, "source")
 
     def get_source_by_id(self, source_id: str) -> Optional[HightouchSourceConnection]:
-        try:
-            response = self._make_request("GET", f"sources/{source_id}")
-            return HightouchSourceConnection.model_validate(response)
-        except ValidationError as e:
-            logger.warning(f"Failed to parse source {source_id}: {e}")
-            return None
+        return self._fetch_entity_by_id(
+            "sources", source_id, HightouchSourceConnection, "source"
+        )
 
     def get_models(self) -> List[HightouchModel]:
-        all_data = self._make_paginated_request("models")
-        models = []
-
-        for model_data in all_data:
-            try:
-                model = HightouchModel.model_validate(model_data)
-                models.append(model)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse model: {e}, data: {model_data}")
-                continue
-
-        return models
+        return self._fetch_entities("models", HightouchModel, "model")
 
     def get_model_by_id(self, model_id: str) -> Optional[HightouchModel]:
-        try:
-            response = self._make_request("GET", f"models/{model_id}")
-            return HightouchModel.model_validate(response)
-        except ValidationError as e:
-            logger.warning(f"Failed to parse model {model_id}: {e}")
-            return None
+        return self._fetch_entity_by_id("models", model_id, HightouchModel, "model")
 
     def get_destinations(self) -> List[HightouchDestination]:
-        all_data = self._make_paginated_request("destinations")
-        destinations = []
-
-        for dest_data in all_data:
-            try:
-                destination = HightouchDestination.model_validate(dest_data)
-                destinations.append(destination)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse destination: {e}, data: {dest_data}")
-                continue
-
-        return destinations
+        return self._fetch_entities("destinations", HightouchDestination, "destination")
 
     def get_destination_by_id(
         self, destination_id: str
     ) -> Optional[HightouchDestination]:
-        try:
-            response = self._make_request("GET", f"destinations/{destination_id}")
-            return HightouchDestination.model_validate(response)
-        except ValidationError as e:
-            logger.warning(f"Failed to parse destination {destination_id}: {e}")
-            return None
+        return self._fetch_entity_by_id(
+            "destinations", destination_id, HightouchDestination, "destination"
+        )
 
     def get_syncs(self) -> List[HightouchSync]:
-        all_data = self._make_paginated_request("syncs")
-        syncs = []
-
-        for sync_data in all_data:
-            try:
-                sync = HightouchSync.model_validate(sync_data)
-                syncs.append(sync)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse sync: {e}, data: {sync_data}")
-                continue
-
-        return syncs
+        return self._fetch_entities("syncs", HightouchSync, "sync")
 
     def get_sync_by_id(self, sync_id: str) -> Optional[HightouchSync]:
-        try:
-            response = self._make_request("GET", f"syncs/{sync_id}")
-            return HightouchSync.model_validate(response)
-        except ValidationError as e:
-            logger.warning(f"Failed to parse sync {sync_id}: {e}")
-            return None
+        return self._fetch_entity_by_id("syncs", sync_id, HightouchSync, "sync")
 
     def get_sync_runs(self, sync_id: str, limit: int = 10) -> List[HightouchSyncRun]:
         response = self._make_request(
@@ -236,16 +188,13 @@ class HightouchAPIClient:
         return runs
 
     def get_user_by_id(self, user_id: str) -> Optional[HightouchUser]:
-        try:
-            response = self._make_request("GET", f"users/{user_id}")
-            return HightouchUser.model_validate(response)
-        except ValidationError as e:
-            logger.warning(f"Failed to parse user {user_id}: {e}")
-            return None
+        return self._fetch_entity_by_id("users", user_id, HightouchUser, "user")
 
     def get_contracts(self) -> List[HightouchContract]:
         try:
-            all_data = self._make_paginated_request("events/contracts")
+            return self._fetch_entities(
+                "events/contracts", HightouchContract, "contract"
+            )
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 logger.warning(
@@ -255,25 +204,10 @@ class HightouchAPIClient:
                 return []
             raise
 
-        contracts = []
-
-        for contract_data in all_data:
-            try:
-                contract = HightouchContract.model_validate(contract_data)
-                contracts.append(contract)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse contract: {e}, data: {contract_data}")
-                continue
-
-        return contracts
-
     def get_contract_by_id(self, contract_id: str) -> Optional[HightouchContract]:
-        try:
-            response = self._make_request("GET", f"events/contracts/{contract_id}")
-            return HightouchContract.model_validate(response)
-        except ValidationError as e:
-            logger.warning(f"Failed to parse contract {contract_id}: {e}")
-            return None
+        return self._fetch_entity_by_id(
+            "events/contracts", contract_id, HightouchContract, "contract"
+        )
 
     def get_contract_runs(
         self, contract_id: str, limit: int = 10
