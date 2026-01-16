@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: Apache-2.0
+# © Crown Copyright 2026. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+
+
+name: Sync Upstream
+
+on:
+  schedule:
+    # Sync nightly at 12:00 AM (midnight) UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync-upstream:
+    name: Sync to upstream-mirror branch
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Required to push changes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Fetch full history
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      
+      - name: Fetch upstream URL (fallback)
+        if: ${{ !github.event.repository.parent.clone_url }}
+        id: fetch_upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching upstream URL from GitHub API..."
+          UPSTREAM_URL=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.parent.clone_url')
+          echo "clone_url=$UPSTREAM_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Add upstream remote
+        env:
+          UPSTREAM_URL: ${{ github.event.repository.parent.clone_url || steps.fetch_upstream.outputs.clone_url }}
+        run: |
+          if [ -z "$UPSTREAM_URL" ] || [ "$UPSTREAM_URL" = "null" ]; then
+            echo "::error::Could not determine upstream repository URL. Ensure this repository is a fork."
+            exit 1
+          fi
+          
+          echo "Found upstream URL: $UPSTREAM_URL"
+          
+          # Add or update the upstream remote
+          if git remote | grep -q "^upstream$"; then
+            git remote set-url upstream "$UPSTREAM_URL"
+          else
+            git remote add upstream "$UPSTREAM_URL"
+          fi
+          
+          git remote -v
+
+      - name: Check upstream-mirror branch exists
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const branchName = 'upstream-mirror';
+            
+            // Check if branch exists remotely
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: branchName
+              });
+              core.info(`✓ Branch ${branchName} exists remotely`);
+            } catch (error) {
+              if (error.status === 404) {
+                await core.summary
+                  .addRaw('## ❌ Sync Failed\n\n')
+                  .addRaw(`The \`${branchName}\` branch does not exist in this repository.\n\n`)
+                  .addRaw('Please create it first by running:\n\n')
+                  .addRaw(`\`\`\`bash\n`)
+                  .addRaw(`git checkout -b ${branchName} upstream/master\n`)
+                  .addRaw(`git push origin ${branchName}\n`)
+                  .addRaw(`\`\`\`\n`)
+                  .write();
+                core.setFailed(`Branch ${branchName} does not exist. Please create it first.`);
+                return;
+              } else {
+                await core.summary
+                  .addRaw('## ❌ Sync Failed\n\n')
+                  .addRaw(`Failed to check if branch exists: ${error.message}\n`)
+                  .write();
+                core.setFailed(`Failed to get branch: ${error.message}`);
+                return;
+              }
+            }
+
+      - name: Fetch upstream
+        run: |
+          git fetch upstream master -f --no-tags
+
+      - name: Sync with upstream master
+        run: |
+          git checkout upstream-mirror
+          # Reset to upstream/master to get exact copy with full history
+          git reset --hard upstream/master
+
+      - name: Push to upstream-mirror
+        run: |
+          git push origin upstream-mirror --force
+      
+      - name: Summary
+        if: success()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const branchName = 'upstream-mirror';
+            
+            // Get latest commit info
+            let latestCommit = '';
+            await exec.exec('git', ['log', '-1', '--oneline', branchName], {
+              listeners: {
+                stdout: (data) => {
+                  latestCommit += data.toString();
+                }
+              }
+            });
+            
+            const syncTime = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+            
+            await core.summary
+              .addRaw('## ✅ Sync Successful\n\n')
+              .addRaw(`Successfully synced upstream DataHub master to \`${branchName}\` branch.\n\n`)
+              .addRaw(`**Sync Time:** ${syncTime}\n\n`)
+              .addRaw('**Latest Commit:**\n')
+              .addRaw('```\n')
+              .addRaw(`${latestCommit.trim()}\n`)
+              .addRaw('```\n\n')
+              .addRaw(`**Branch:** [${branchName}](/$GITHUB_REPOSITORY/tree/${branchName})\n`)
+              .write();
+            
+            core.info(`Successfully synced upstream/master to ${branchName} branch`);
+            core.info(`Latest commit on ${branchName}: ${latestCommit.trim()}`);
