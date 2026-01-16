@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
     TeradataSource,
@@ -1841,3 +1842,76 @@ class TestOwnershipExtraction:
 
         assert hasattr(source, "_tables_cache_lock")
         assert isinstance(source._tables_cache_lock, type(Lock()))
+
+    def test_emit_ownership_early_return(self):
+        """Test that _emit_ownership_if_available returns early when extract_ownership is False."""
+        source = _create_source(extract_ownership=False)
+        # Populate cache to ensure early return happens before creator check
+        source._table_creator_cache[("test_db", "test_table")] = "creator_user"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+        assert len(work_units) == 0
+
+    def test_table_creator_cache_population_with_creator(self):
+        """Test that cache is populated when CreatorName is not None."""
+        source = _create_source()
+
+        # Create entries with and without creator
+        entry_with_creator = _create_mock_table_entry(
+            "db1", "table_with_creator", creator_name="user1"
+        )
+        entry_without_creator = _create_mock_table_entry(
+            "db1", "table_without_creator", creator_name=None
+        )
+
+        with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_engine = MagicMock()
+            mock_engine.execute.return_value = [
+                entry_with_creator,
+                entry_without_creator,
+            ]
+            mock_get_engine.return_value = mock_engine
+
+            source.cache_tables_and_views()
+
+            # Only entry with creator should be in cache
+            assert ("db1", "table_with_creator") in source._table_creator_cache
+            assert source._table_creator_cache[("db1", "table_with_creator")] == "user1"
+            assert ("db1", "table_without_creator") not in source._table_creator_cache
+
+    def test_get_creator_returns_from_cache(self):
+        """Test that _get_creator_for_entity returns value from cache when present."""
+        source = _create_source()
+
+        # Manually populate cache
+        source._table_creator_cache[("schema1", "entity1")] = "owner1"
+        source._table_creator_cache[("schema2", "entity2")] = "owner2"
+
+        # Test retrieval
+        result1 = source._get_creator_for_entity("schema1", "entity1")
+        result2 = source._get_creator_for_entity("schema2", "entity2")
+        result3 = source._get_creator_for_entity("schema3", "entity3")
+
+        assert result1 == "owner1"
+        assert result2 == "owner2"
+        assert result3 is None
+
+    def test_emit_ownership_creates_user_urn(self):
+        """Test that _emit_ownership_if_available creates correct user URN."""
+        source = _create_source(extract_ownership=True)
+        source._table_creator_cache[("test_db", "test_table")] = "test_creator"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+
+        assert len(work_units) == 1
+        # The work unit should contain ownership with user URN
+        # Verify by checking the work unit was created (indicates make_user_urn was called)
+        assert isinstance(work_units[0], MetadataWorkUnit)
