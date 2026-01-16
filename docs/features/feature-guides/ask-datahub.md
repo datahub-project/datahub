@@ -33,19 +33,16 @@ Get insights into the human side of your data:
 - **Collaboration**: Understand which teams work with particular datasets
 - **History**: Learn about past usage patterns and organizational knowledge
 
-### Answer Questions Using Curated Knowledge
+### Answer Questions With Curated Knowledge
 
-Ask DataHub can reference your organization's **Context Graph documents** to provide consistent, reliable answers grounded in your team's shared knowledge:
+Ask DataHub can reference your organization's **Context Documents**, **Glossary Terms**, **Domains**, and more to provide consistent, reliable answers grounded in your team's shared knowledge:
 
-- **Metric definitions**: Get accurate definitions of business metrics with proper context
-- **Data policies**: Understand compliance requirements and handling guidelines
 - **Best practices**: Follow documented runbooks and quality standards
-- **Access procedures**: Learn the right process for requesting data access
-
-When Ask DataHub references a Context Graph document, it provides citations so you can verify the source and explore more details.
+- **Runbooks, guides, & FAQs**: Learn the right process for requesting data access
+- **Policies**: Understand compliance requirements and data handling guidelines
 
 :::tip Improve Ask DataHub Responses
-Document your most-asked questions, policies, and definitions in [Context Graph](context-graph/overview.md) to help Ask DataHub provide more accurate, consistent answers across your organization.
+Document your most-asked questions, policies, and definitions in [Context Documents](context/context-documents.md) to help Ask DataHub provide more accurate, consistent answers across your organization.
 :::
 
 ### Assess Data Quality
@@ -65,18 +62,14 @@ Generate first-draft SQL queries to answer specific analytical questions, accele
 
 ## Getting Started
 
-To start using Ask DataHub:
+### DataHub UI
 
-1. **In Slack or Teams**: Simply mention @DataHub followed by your question in any channel or chat
-2. **Enable the feature**: As of DataHub Cloud v0.3.13, Ask DataHub is in public beta and can be enabled in Settings → AI
-3. **Start asking questions**: Try queries like:
-   - "What tables contain customer email data?"
-   - "Who owns the sales_facts table?"
-   - "What would break if I change the orders table schema?"
-   - "Find me the most reliable revenue datasets"
-   - "Show me tables with data quality issues"
-   - "What's the definition of Gross Revenue?" (references Context Graph documents)
-   - "What data quality checks should I add to customer tables?" (references runbooks)
+Ask DataHub is currently available **Public Beta** within DataHub in multiple places:
+
+- **Chat** tab in the left-hand navigation bar, where you can start new conversations with DataHub
+- **Data Sources** configuration flow, where DataHub can help you troubleshoot ingestion sources
+- **Asset Profile Sidebar** where you can start a chat about a specific DataHub asset. 
+- **Chrome Extension** sidebar under the **Ask Tab**. 
 
 ### Slack
 
@@ -90,11 +83,6 @@ Similarly, you can use Ask DataHub in Microsoft Teams by mentioning @DataHub in 
 
 Learn more: [Ask DataHub in Teams](../../managed-datahub/teams/saas-teams-app.md#ask-datahub-in-slack)
 
-### DataHub UI
-
-Ask DataHub is coming soon to the DataHub UI, providing seamless access to AI assistance while browsing your data catalog.
-
-Ask DataHub is currently available in the DataHub UI as part of a private beta. If you're interested in enabling this feature, please reach out to your DataHub representative.
 
 ## Customize Ask DataHub
 
@@ -121,8 +109,8 @@ Custom base prompts can be used to:
 - Guide the model on how to navigate Glossary Terms, Tags, Domains, and properties
 - Guide the assistant toward specific recommendations (e.g. helping differentiate production over staging assets)
 
-:::tip Context Graph + Custom Instructions
-For organization-specific definitions, policies, and procedures, consider documenting them in [Context Graph](context-graph/overview.md) instead of (or in addition to) custom instructions. Context Graph documents are governable, versionable, and can be linked to specific assets—making them easier to maintain as your organization evolves.
+:::tip Context Documents + Custom Instructions
+For organization-specific definitions, policies, and procedures, consider documenting them in [Context Documents](context/context-documents.md) instead of (or in addition to) custom instructions. Context Documents are governable, versionable, and can be linked to specific assets—making them easier to maintain as your organization evolves.
 :::
 
 ### Default Organization View
@@ -146,16 +134,6 @@ Ask DataHub leverages your complete metadata graph **and organizational knowledg
 - Data quality and assertion results
 - Tags, glossary terms, and classifications
 - Schema information and sample values
-- **Context Graph documents** (published runbooks, policies, FAQs, and definitions)
+- Context Documents (published runbooks, policies, FAQs, and definitions)
 
 By combining structured metadata with unstructured organizational knowledge, Ask DataHub can answer both technical questions ("What's in this table?") and contextual questions ("How should I use this table?") with consistent, reliable answers grounded in your team's shared understanding.
-
-### Making Responses More Reliable
-
-The more you document in [Context Graph](context-graph/overview.md), the better Ask DataHub becomes. Published documents are automatically indexed and used to ground responses, which means:
-
-- **Consistency**: Everyone gets the same answer to "What's our revenue definition?"
-- **Reliability**: Answers cite authoritative sources your team has reviewed
-- **Context**: Technical metadata is paired with the "why" and "how" from your documentation
-
-Learn more: [Context Graph](context-graph/overview.md)
