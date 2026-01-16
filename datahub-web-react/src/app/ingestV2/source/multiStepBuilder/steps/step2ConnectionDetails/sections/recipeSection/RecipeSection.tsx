@@ -1,5 +1,5 @@
 import { Form, message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
@@ -15,37 +15,22 @@ interface Props {
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
-    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe, setIsRecipeValid }: Props) {
+export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe }: Props) {
     const { type } = state;
-    const isEditing = !!state.isEditing;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
-    // FYI: We don't have form validation for sources without a form
-    useEffect(() => {
-        setIsRecipeValid?.(!hasForm || isEditing || !!state.isConnectionDetailsValid);
-    }, [hasForm, isEditing, setIsRecipeValid, state.isConnectionDetailsValid]);
 
     const [form] = Form.useForm();
     const runFormValidation = useCallback(() => {
-        form.validateFields()
-            .then(() => {
-                setIsRecipeValid?.(true);
-            })
-            .catch((error) => {
-                // FYI: `error` could be triggered with empty list of `errorFields` when form is valid
-                const hasErrors = (error.errorFields?.length ?? 0) > 0;
-                setIsRecipeValid?.(!hasErrors);
-            });
-    }, [form, setIsRecipeValid]);
+        form.validateFields();
+    }, [form]);
 
     const onTabClick = useCallback(
         (activeKey) => {
             if (activeKey !== 'form') {
                 setSelectedTabKey(activeKey);
-                setIsRecipeValid?.(true); // no field validation when in yaml editor
                 return;
             }
 
@@ -62,7 +47,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
             }
         },
-        [displayRecipe, setIsRecipeValid, runFormValidation],
+        [displayRecipe, runFormValidation],
     );
 
     const tabs: Tab[] = useMemo(

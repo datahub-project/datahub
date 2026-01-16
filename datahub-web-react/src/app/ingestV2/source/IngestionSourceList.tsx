@@ -480,12 +480,16 @@ export const IngestionSourceList = ({
             } else {
                 setSourcesToRefetch((prev) => new Set([...prev, createdOrUpdatedSourceUrnFromLocation]));
             }
+            // clear browser state vars for shouldRun to prevent duplicate runs
+            history.replace(history.location.pathname, { ...location.state, shouldRun: undefined });
         }
     }, [
         isCreatedOrUpdatedSourceFromLocationHandled,
         createdOrUpdatedSourceUrnFromLocation,
         shouldRunCreatedOrUpdatedSourceFromLocation,
         executeIngestionSource,
+        history,
+        location,
     ]);
 
     const onChangePage = (newPage: number) => {
