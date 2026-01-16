@@ -327,9 +327,7 @@ class DbtTestConfig:
             "dbt_test_query_entity_emission.json",
             "dbt_test_query_entity_emission_golden.json",
             manifest_file="dbt_manifest_with_queries.json",
-            source_config_modifiers={
-                "enable_query_entity_emission": True,
-            },
+            source_config_modifiers={},  # queries enabled by default via entities_enabled.queries
         ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,

@@ -3,7 +3,7 @@
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt.dbt_common import DBTNode
+from datahub.ingestion.source.dbt.dbt_common import DBTNode, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import (
     QueryPropertiesClass,
@@ -452,7 +452,7 @@ def test_accepts_very_long_query_names():
 def test_disabling_query_emission_skips_all_queries_including_valid_ones():
     """Test that disabling query emission completely bypasses query processing."""
     source = create_test_dbt_source()
-    source.config.enable_query_entity_emission = False
+    source.config.entities_enabled.queries = EmitDirective.NO
     node = create_test_dbt_node_with_queries()
     # Node has 2 valid queries defined
     assert len(node.meta["queries"]) == 2
@@ -492,3 +492,119 @@ def test_filters_empty_and_none_values_from_tags_list():
     assert properties.customProperties is not None
     assert properties.customProperties["tags"] == "valid, another_valid"
     assert properties.customProperties["terms"] == "Term1, Term2"
+
+
+def test_exactly_max_queries_processes_all():
+    """Test that exactly max_queries_per_model queries are all processed."""
+    source = create_test_dbt_source()
+    source.config.max_queries_per_model = 10  # Set a smaller limit for testing
+    node = create_test_dbt_node_with_queries()
+    # Create exactly 10 queries
+    node.meta = {
+        "queries": [{"name": f"query_{i}", "sql": f"SELECT {i}"} for i in range(10)]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    # All 10 queries should be processed (2 MCPs each: properties + subjects)
+    assert len(mcps) == 20
+    assert source.report.num_queries_emitted == 10
+
+
+def test_exceeds_max_queries_truncates_with_warning():
+    """Test that exceeding max_queries_per_model truncates the list."""
+    source = create_test_dbt_source()
+    source.config.max_queries_per_model = 5  # Set a smaller limit for testing
+    node = create_test_dbt_node_with_queries()
+    # Create 10 queries (exceeds limit of 5)
+    node.meta = {
+        "queries": [{"name": f"query_{i}", "sql": f"SELECT {i}"} for i in range(10)]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    # Only first 5 queries should be processed (2 MCPs each)
+    assert len(mcps) == 10
+    assert source.report.num_queries_emitted == 5
+
+
+def test_unlimited_queries_when_max_is_zero():
+    """Test that setting max_queries_per_model=0 allows unlimited queries."""
+    source = create_test_dbt_source()
+    source.config.max_queries_per_model = 0  # Unlimited
+    node = create_test_dbt_node_with_queries()
+    # Create 150 queries (more than default 100)
+    node.meta = {
+        "queries": [{"name": f"query_{i}", "sql": f"SELECT {i}"} for i in range(150)]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    # All 150 queries should be processed (2 MCPs each)
+    assert len(mcps) == 300
+    assert source.report.num_queries_emitted == 150
+
+
+def test_sql_at_max_length_not_truncated():
+    """Test that SQL exactly at 1MB limit is not truncated."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    # Create SQL exactly at 1MB (1,048,576 bytes)
+    max_length = 1 * 1024 * 1024
+    long_sql = "X" * max_length
+    node.meta = {"queries": [{"name": "long_query", "sql": long_sql}]}
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 2
+    properties = mcps[0].aspect
+    assert isinstance(properties, QueryPropertiesClass)
+    # Should NOT be truncated (no "..." suffix)
+    assert len(properties.statement.value) == max_length
+    assert not properties.statement.value.endswith("...")
+
+
+def test_sql_exceeding_max_length_is_truncated():
+    """Test that SQL exceeding 1MB limit is truncated with '...' suffix."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    # Create SQL just over 1MB
+    max_length = 1 * 1024 * 1024
+    oversized_sql = "Y" * (max_length + 100)
+    node.meta = {"queries": [{"name": "oversized_query", "sql": oversized_sql}]}
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 2
+    properties = mcps[0].aspect
+    assert isinstance(properties, QueryPropertiesClass)
+    # Should be truncated with "..." suffix
+    assert len(properties.statement.value) == max_length + 3  # +3 for "..."
+    assert properties.statement.value.endswith("...")
+
+
+def test_shows_all_validation_errors_not_just_first():
+    """Test that when a query has multiple validation errors, all are reported."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    # Create query missing both name and sql (should report both errors)
+    node.meta = {"queries": [{"description": "Query with no name or sql"}]}
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 0
+    assert source.report.num_queries_failed == 1
+    # Check that failure list contains both errors
+    # LossyList yields values when iterated
+    failure_msgs = list(source.report.queries_failed_list)
+    assert len(failure_msgs) == 1
+    failure_msg = failure_msgs[0]
+    # Both 'name' and 'sql' errors should be present
+    assert "name" in failure_msg.lower()
+    assert "sql" in failure_msg.lower()

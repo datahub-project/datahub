@@ -143,10 +143,6 @@ DBT_PLATFORM = "dbt"
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
-# Max queries per model to prevent metadata explosion. 100 is a reasonable limit
-# for most use cases - if you need more, consider splitting into multiple models.
-# This limit helps prevent accidental runaway ingestion from malformed manifests.
-_DBT_MAX_QUERIES_PER_MODEL = 100
 _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]")
 
 
@@ -157,7 +153,9 @@ class DBTQueryDefinition(pydantic.BaseModel):
 
     name: str = Field(..., min_length=1, description="Unique name for the query")
     sql: str = Field(..., min_length=1, description="SQL statement for the query")
-    # Use Any for optional fields to allow lenient parsing
+    # Use Any for optional fields to gracefully handle dbt YAML variations.
+    # dbt users may provide integers, nulls, or other types - we validate at access time
+    # rather than failing the entire query definition.
     description: Optional[Any] = Field(None, description="Human-readable description")
     tags: Optional[Any] = Field(None, description="Tags for categorization")
     terms: Optional[Any] = Field(None, description="Glossary terms")
@@ -178,19 +176,20 @@ class DBTQueryDefinition(pydantic.BaseModel):
             return stripped if stripped else None
         return None
 
+    def _list_to_csv(self, values: Any) -> Optional[str]:
+        """Convert list to CSV string, filtering out empty/invalid values."""
+        if not isinstance(values, list):
+            return None
+        valid = [str(v).strip() for v in values if v and str(v).strip()]
+        return ", ".join(valid) if valid else None
+
     def get_tags_csv(self) -> Optional[str]:
         """Get tags as CSV string, filtering out invalid values."""
-        if not isinstance(self.tags, list):
-            return None
-        valid = [str(t).strip() for t in self.tags if t and str(t).strip()]
-        return ", ".join(valid) if valid else None
+        return self._list_to_csv(self.tags)
 
     def get_terms_csv(self) -> Optional[str]:
         """Get terms as CSV string, filtering out invalid values."""
-        if not isinstance(self.terms, list):
-            return None
-        valid = [str(t).strip() for t in self.terms if t and str(t).strip()]
-        return ", ".join(valid) if valid else None
+        return self._list_to_csv(self.terms)
 
 
 # =============================================================================
@@ -288,6 +287,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     num_queries_emitted: int = 0
     num_queries_failed: int = 0
     queries_failed_list: LossyList[str] = field(default_factory=LossyList)
+    queries_using_fallback_timestamp: int = 0
 
 
 class EmitDirective(ConfigEnum):
@@ -330,6 +330,10 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.YES,
         description="Emit model performance metadata when set to Yes or Only. "
         "Only supported with dbt core.",
+    )
+    queries: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit Query entities from meta.queries field when set to Yes or Only.",
     )
 
     @field_validator("*", mode="before")
@@ -499,9 +503,10 @@ class DBTCommonConfig(
         default=True,
         description="When enabled, ownership info will be extracted from the dbt meta",
     )
-    enable_query_entity_emission: bool = Field(
-        default=True,
-        description="When enabled, Query entities will be created from meta.queries field in dbt models.",
+    max_queries_per_model: int = Field(
+        default=100,
+        description="Maximum number of Query entities to emit per dbt model. "
+        "Prevents metadata explosion from malformed manifests. Set to 0 for unlimited.",
     )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
@@ -1970,7 +1975,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         node_datahub_urn: str,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Create Query entities from meta.queries field in dbt models."""
-        if not self.config.enable_query_entity_emission:
+        # Check if query emission is enabled via entities_enabled.queries
+        if self.config.entities_enabled.queries == EmitDirective.NO:
             return
 
         if not node.meta:
@@ -1984,16 +1990,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             logger.warning(f"Invalid meta.queries in {node.dbt_name}: expected list")
             return
 
-        # Limit queries to prevent metadata explosion
-        if len(queries) > _DBT_MAX_QUERIES_PER_MODEL:
+        # Limit queries to prevent metadata explosion (0 = unlimited)
+        max_queries = self.config.max_queries_per_model
+        if max_queries > 0 and len(queries) > max_queries:
             logger.warning(
                 f"Too many queries in {node.dbt_name}: {len(queries)} exceeds limit of "
-                f"{_DBT_MAX_QUERIES_PER_MODEL}, only processing first {_DBT_MAX_QUERIES_PER_MODEL}"
+                f"{max_queries}, only processing first {max_queries}"
             )
-            queries = queries[:_DBT_MAX_QUERIES_PER_MODEL]
+            queries = queries[:max_queries]
 
         # Get timestamp from manifest for reproducibility
         query_timestamp: Optional[int] = None
+        using_fallback_timestamp = False
         manifest_info = getattr(self.report, "manifest_info", None)
         if isinstance(manifest_info, dict):
             generated_at = manifest_info.get("generated_at")
@@ -2007,14 +2015,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         f"Failed to parse manifest timestamp '{generated_at}': {e}, "
                         "falling back to current time"
                     )
+                    using_fallback_timestamp = True
 
         # Fall back to current time if manifest timestamp unavailable
         if query_timestamp is None:
             query_timestamp = datetime_to_ts_millis(datetime.now())
+            using_fallback_timestamp = True
             logger.info(
                 f"Using current time for query timestamps in {node.dbt_name} "
                 "(manifest timestamp unavailable)"
             )
+
+        if using_fallback_timestamp:
+            self.report.queries_using_fallback_timestamp += 1
 
         seen_urns: Dict[str, str] = {}
 
@@ -2023,8 +2036,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             try:
                 query = DBTQueryDefinition.model_validate(query_def)
             except pydantic.ValidationError as e:
-                # Extract first error message for user-friendly logging
-                error_msg = e.errors()[0]["msg"] if e.errors() else str(e)
+                # Show all validation errors for better debugging
+                all_errors = [
+                    f"{err['loc'][0]}: {err['msg']}" if err.get("loc") else err["msg"]
+                    for err in e.errors()
+                ]
+                error_msg = "; ".join(all_errors) if all_errors else str(e)
                 logger.warning(
                     f"Invalid query at index {idx} in {node.dbt_name}: {error_msg}"
                 )
