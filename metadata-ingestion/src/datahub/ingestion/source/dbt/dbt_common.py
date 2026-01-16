@@ -142,7 +142,9 @@ DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
-_DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
+_DBT_MAX_SQL_LENGTH = (
+    1 * 1024 * 1024
+)  # 1MB limit for SQL strings (compiled code, queries)
 # Use + to collapse consecutive special chars into single underscore
 # e.g., "Revenue (USD)" and "Revenue [USD]" both become "Revenue_USD_" (not "Revenue__USD_")
 _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
@@ -173,7 +175,8 @@ class DBTQueryDefinition(pydantic.BaseModel):
     @field_validator("description", mode="before")
     @classmethod
     def coerce_description(cls, v: Any) -> Optional[str]:
-        """Coerce description to string, logging warning for invalid types."""
+        # dbt YAML allows arbitrary types in meta fields (e.g., description: 123).
+        # We accept only strings to avoid serialization issues in DataHub.
         if v is None:
             return None
         if not isinstance(v, str):
@@ -189,7 +192,8 @@ class DBTQueryDefinition(pydantic.BaseModel):
     def coerce_string_list(
         cls, v: Any, info: pydantic.ValidationInfo
     ) -> Optional[List[str]]:
-        """Coerce to list of strings, logging warning for invalid types."""
+        # dbt YAML parsing can produce unexpected types (e.g., tags: "single-tag"
+        # instead of tags: ["single-tag"]). We require lists for proper handling.
         if v is None:
             return None
         if not isinstance(v, list):
@@ -201,8 +205,8 @@ class DBTQueryDefinition(pydantic.BaseModel):
         return [str(item).strip() for item in v if item and str(item).strip()]
 
     @staticmethod
-    def list_to_csv(values: Optional[List[str]]) -> Optional[str]:
-        """Convert list to CSV string."""
+    def _list_to_csv(values: Optional[List[str]]) -> Optional[str]:
+        """Convert list to comma-separated string for customProperties storage."""
         if not values:
             return None
         return ", ".join(values)
@@ -1172,10 +1176,6 @@ def get_column_type(
     "Enabled by default, configure using `include_column_lineage`",
 )
 class DBTSourceBase(StatefulIngestionSourceBase):
-    # Cached query timestamp (computed once from manifest, not per-node)
-    _query_timestamp_cache: Optional[int] = None
-    _query_timestamp_logged: bool = False
-
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.platform: str = "dbt"
@@ -1192,9 +1192,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, self.config, ctx
         )
-        # Reset cache for each source instance
-        self._query_timestamp_cache = None
-        self._query_timestamp_logged = False
+        # Query timestamp cache: computed once from manifest for reproducibility.
+        # Caching ensures identical re-runs produce the same timestamps, enabling
+        # proper change detection and avoiding duplicate MCPs in stateful ingestion.
+        self._query_timestamp_cache: Optional[int] = None
+        self._query_timestamp_logged: bool = False
 
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities (computed once from manifest, cached).
@@ -2086,11 +2088,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             query_sql = query.sql
 
             # Truncate very long SQL
-            if len(query_sql) > _DBT_MAX_COMPILED_CODE_LENGTH:
+            if len(query_sql) > _DBT_MAX_SQL_LENGTH:
                 logger.warning(
                     f"Query '{query_name}' in {node.dbt_name}: SQL exceeds 1MB, truncating"
                 )
-                query_sql = query_sql[:_DBT_MAX_COMPILED_CODE_LENGTH] + "..."
+                query_sql = query_sql[:_DBT_MAX_SQL_LENGTH] + "..."
 
             # Generate URN
             query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
@@ -2113,9 +2115,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Extract optional fields (already validated/coerced by Pydantic)
             custom_properties: Dict[str, str] = {}
-            if tags_csv := DBTQueryDefinition.list_to_csv(query.tags):
+            if tags_csv := DBTQueryDefinition._list_to_csv(query.tags):
                 custom_properties["tags"] = tags_csv
-            if terms_csv := DBTQueryDefinition.list_to_csv(query.terms):
+            if terms_csv := DBTQueryDefinition._list_to_csv(query.terms):
                 custom_properties["terms"] = terms_csv
 
             # Emit QueryProperties aspect
@@ -2333,9 +2335,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             compiled_code = try_format_query(
                 node.compiled_code, platform=self.config.target_platform
             )
-            compiled_code = self._truncate_code(
-                compiled_code, _DBT_MAX_COMPILED_CODE_LENGTH
-            )
+            compiled_code = self._truncate_code(compiled_code, _DBT_MAX_SQL_LENGTH)
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}
         view_properties = ViewPropertiesClass(

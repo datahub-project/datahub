@@ -700,3 +700,30 @@ def test_timestamp_cached_across_nodes():
     assert first_timestamp == second_timestamp
     # Fallback counter should only be incremented once (not per-node)
     assert source.report.queries_using_fallback_timestamp == 1
+
+
+def test_warns_and_uses_fallback_on_malformed_generated_at(caplog):
+    """Test that malformed generated_at logs warning and uses fallback timestamp."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    # Set manifest_info with malformed timestamp
+    source.report.manifest_info = {
+        "generated_at": "not-a-valid-date-format",
+        "dbt_version": "1.5.0",
+    }
+
+    with caplog.at_level(logging.WARNING):
+        mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    # Should still emit queries using fallback
+    assert len(mcps) == 4
+    assert source.report.queries_using_fallback_timestamp == 1
+
+    # Verify warning was logged about parse failure
+    assert any(
+        "Failed to parse manifest timestamp" in record.message
+        and "not-a-valid-date-format" in record.message
+        for record in caplog.records
+    )
