@@ -10,6 +10,7 @@ import { MessageReferences } from '@app/chat/components/references/MessageRefere
 import { ChatMessageAction, ChatVariant } from '@app/chat/types';
 import { parseMessageContent } from '@app/chat/utils/parseMessageContent';
 import { extractTypeFromUrn } from '@app/entity/shared/utils';
+import { ExternalLinksWrapper } from '@app/sharedV2/ExternalLinksWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 
@@ -191,29 +192,31 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
 
     const content = useMemo(() => {
         return (
-            <MarkdownContent isUser={isUser} $variant={variant}>
-                {parts.map((part, index) => {
-                    const contentPreview = part.content.substring(0, 50).replace(/\s/g, '');
-                    const key = `${part.type}-${index}-${contentPreview}`;
+            <ExternalLinksWrapper>
+                <MarkdownContent isUser={isUser} $variant={variant}>
+                    {parts.map((part, index) => {
+                        const contentPreview = part.content.substring(0, 50).replace(/\s/g, '');
+                        const key = `${part.type}-${index}-${contentPreview}`;
 
-                    if (part.type === 'code') {
-                        const isCopied = copiedIndex === index;
-                        const isTruncated = part.content?.endsWith('...');
+                        if (part.type === 'code') {
+                            const isCopied = copiedIndex === index;
+                            const isTruncated = part.content?.endsWith('...');
 
-                        return (
-                            <CodeBlock
-                                key={key}
-                                language={part.language || 'code'}
-                                content={part.content}
-                                isTruncated={isTruncated}
-                                isCopied={isCopied}
-                                onCopy={() => handleCopyCode(part.content || '', index)}
-                            />
-                        );
-                    }
-                    return <MDEditor.Markdown key={key} source={part.content} style={MARKDOWN_STYLE} />;
-                })}
-            </MarkdownContent>
+                            return (
+                                <CodeBlock
+                                    key={key}
+                                    language={part.language || 'code'}
+                                    content={part.content}
+                                    isTruncated={isTruncated}
+                                    isCopied={isCopied}
+                                    onCopy={() => handleCopyCode(part.content || '', index)}
+                                />
+                            );
+                        }
+                        return <MDEditor.Markdown key={key} source={part.content} style={MARKDOWN_STYLE} />;
+                    })}
+                </MarkdownContent>
+            </ExternalLinksWrapper>
         );
     }, [parts, isUser, copiedIndex, variant]);
 

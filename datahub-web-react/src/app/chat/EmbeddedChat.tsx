@@ -11,13 +11,12 @@ import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
 import { MessageContext } from '@app/chat/hooks/useChatStream';
 import { ChatFeatureFlags } from '@app/chat/types';
-import { ExternalLinksWrapper } from '@app/sharedV2/ExternalLinksWrapper';
 import { useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 
 import { useCreateDataHubAiConversationMutation } from '@graphql/aiChat.generated';
 import { DataHubAiConversationOriginType } from '@types';
 
-const Container = styled(ExternalLinksWrapper)`
+const Container = styled.div`
     display: flex;
     flex-direction: column;
     height: 100%;

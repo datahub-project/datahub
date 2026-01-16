@@ -61,17 +61,6 @@ describe('ExternalLinksWrapper', () => {
         expect(link).toHaveAttribute('target', '_blank');
     });
 
-    it('does not set target="_blank" for internal links', () => {
-        render(
-            <ExternalLinksWrapper>
-                <a href="/internal-page">Internal Link</a>
-            </ExternalLinksWrapper>,
-        );
-
-        const link = screen.getByRole('link');
-        expect(link).toHaveAttribute('target', '_blank');
-    });
-
     it('adds rel="noopener noreferrer" to external links', () => {
         render(
             <ExternalLinksWrapper>
