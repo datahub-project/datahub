@@ -427,7 +427,8 @@ public class EntityController
     if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
       // Only enforce entity type authorization if domain-based auth is disabled
       // When domain-based auth is enabled, domain permissions will be checked below
-      if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      if (configurationProvider.getFeatureFlags() == null
+          || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
         throw new UnauthorizedException(
             authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
       }
@@ -444,7 +445,8 @@ public class EntityController
             .collect(Collectors.toList());
 
     final Map<Urn, Set<Urn>> entityDomains;
-    if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (configurationProvider.getFeatureFlags() != null
+        && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       log.info(
           "Domain-based authorization is ENABLED for PATCH. Collecting domain information for {} proposals.",
           mcps.size());
@@ -547,7 +549,8 @@ public class EntityController
     if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityTypes)) {
       // Only enforce entity type authorization if domain-based auth is disabled
       // When domain-based auth is enabled, we'll check domain permissions below
-      if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      if (configurationProvider.getFeatureFlags() == null
+          || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
         throw new UnauthorizedException(
             authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
       }
@@ -581,7 +584,8 @@ public class EntityController
             .collect(Collectors.toList());
 
     final Map<Urn, Set<Urn>> entityDomains;
-    if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (configurationProvider.getFeatureFlags() != null
+        && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       log.info(
           "Domain-based authorization is ENABLED. Collecting domain information for {} proposals.",
           mcps.size());

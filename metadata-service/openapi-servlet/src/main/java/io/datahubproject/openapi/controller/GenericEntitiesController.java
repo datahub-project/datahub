@@ -575,7 +575,8 @@ public abstract class GenericEntitiesController<
     if (!mcps.isEmpty()) {
       // Extract domains when domain-based authorization is enabled
       Map<Urn, Set<Urn>> domainsByEntity =
-          configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()
+          configurationProvider.getFeatureFlags() != null
+                  && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()
               ? DomainExtractionUtils.extractEntityDomainsForAuthorization(
                   opContext, entityService, mcps)
               : null;
@@ -706,7 +707,8 @@ public abstract class GenericEntitiesController<
     // Domain-based authorization (when enabled) is now handled inside the transaction
     // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
     // Only perform standard authorization here when domain-based auth is disabled
-    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       // Standard entity URN authorization when domain auth is disabled
       if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
         throw new UnauthorizedException(
@@ -788,7 +790,8 @@ public abstract class GenericEntitiesController<
     // Domain-based authorization (when enabled) is now handled inside the transaction
     // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
     // Only perform standard authorization here when domain-based auth is disabled
-    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       // Standard entity URN authorization when domain auth is disabled
       if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
         throw new UnauthorizedException(
