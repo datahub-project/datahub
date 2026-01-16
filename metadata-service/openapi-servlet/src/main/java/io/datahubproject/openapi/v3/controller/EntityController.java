@@ -12,7 +12,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -59,7 +58,6 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
@@ -429,7 +427,7 @@ public class EntityController
     if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
       // Only enforce entity type authorization if domain-based auth is disabled
       // When domain-based auth is enabled, domain permissions will be checked below
-     if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
         throw new UnauthorizedException(
             authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
       }
@@ -439,16 +437,20 @@ public class EntityController
         toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
 
     // Extract MCPs and perform domain-based authorization if enabled
-    List<MetadataChangeProposal> mcps = batch.getMCPItems().stream()
-        .map(item -> item.getMetadataChangeProposal())
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+    List<MetadataChangeProposal> mcps =
+        batch.getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
 
     final Map<Urn, Set<Urn>> entityDomains;
     if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      log.info("Domain-based authorization is ENABLED for PATCH. Collecting domain information for {} proposals.", mcps.size());
-      entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
-          opContext, entityService, mcps);
+      log.info(
+          "Domain-based authorization is ENABLED for PATCH. Collecting domain information for {} proposals.",
+          mcps.size());
+      entityDomains =
+          DomainExtractionUtils.extractEntityDomainsForAuthorization(
+              opContext, entityService, mcps);
 
       // Validate all domains exist
       Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
@@ -457,26 +459,34 @@ public class EntityController
             "One or more domains do not exist. Cannot update entity with non-existent domain.");
       }
     } else {
-      log.info("Domain-based authorization is DISABLED for PATCH. Using standard authorization for all {} proposals.", mcps.size());
+      log.info(
+          "Domain-based authorization is DISABLED for PATCH. Using standard authorization for all {} proposals.",
+          mcps.size());
       entityDomains = null;
     }
 
     // Authorize all MCPs with unified method (handles both domain-based and standard auth)
     Map<MetadataChangeProposal, Boolean> authResults =
-        AuthUtil.isAPIAuthorizedMCPsWithDomains(opContext, ENTITY, entityRegistry, mcps, entityDomains);
+        AuthUtil.isAPIAuthorizedMCPsWithDomains(
+            opContext, ENTITY, entityRegistry, mcps, entityDomains);
 
     // Check for authorization failures
-    List<MetadataChangeProposal> failures = authResults.entrySet().stream()
-        .filter(entry -> !entry.getValue())
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toList());
+    List<MetadataChangeProposal> failures =
+        authResults.entrySet().stream()
+            .filter(entry -> !entry.getValue())
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
 
     if (!failures.isEmpty()) {
-      String errorMessages = failures.stream()
-          .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
-          .collect(Collectors.joining(", "));
+      String errorMessages =
+          failures.stream()
+              .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
+              .collect(Collectors.joining(", "));
       throw new UnauthorizedException(
-          "User " + authentication.getActor().toUrnStr() + " is unauthorized to modify entities: " + errorMessages);
+          "User "
+              + authentication.getActor().toUrnStr()
+              + " is unauthorized to modify entities: "
+              + errorMessages);
     }
 
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
@@ -564,16 +574,20 @@ public class EntityController
             .build(opContext);
 
     // Extract MCPs and perform domain-based authorization if enabled
-    List<MetadataChangeProposal> mcps = batch.getMCPItems().stream()
-        .map(item -> item.getMetadataChangeProposal())
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+    List<MetadataChangeProposal> mcps =
+        batch.getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
 
     final Map<Urn, Set<Urn>> entityDomains;
     if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.", mcps.size());
-      entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
-          opContext, entityService, mcps);
+      log.info(
+          "Domain-based authorization is ENABLED. Collecting domain information for {} proposals.",
+          mcps.size());
+      entityDomains =
+          DomainExtractionUtils.extractEntityDomainsForAuthorization(
+              opContext, entityService, mcps);
 
       // Validate all domains exist
       Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
@@ -582,26 +596,34 @@ public class EntityController
             "One or more domains do not exist. Cannot create entity with non-existent domain.");
       }
     } else {
-      log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.", mcps.size());
+      log.info(
+          "Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.",
+          mcps.size());
       entityDomains = null;
     }
 
     // Authorize all MCPs with unified method (handles both domain-based and standard auth)
     Map<MetadataChangeProposal, Boolean> authResults =
-        AuthUtil.isAPIAuthorizedMCPsWithDomains(opContext, ENTITY, entityRegistry, mcps, entityDomains);
+        AuthUtil.isAPIAuthorizedMCPsWithDomains(
+            opContext, ENTITY, entityRegistry, mcps, entityDomains);
 
     // Check for authorization failures
-    List<MetadataChangeProposal> failures = authResults.entrySet().stream()
-        .filter(entry -> !entry.getValue())
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toList());
+    List<MetadataChangeProposal> failures =
+        authResults.entrySet().stream()
+            .filter(entry -> !entry.getValue())
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
 
     if (!failures.isEmpty()) {
-      String errorMessages = failures.stream()
-          .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
-          .collect(Collectors.joining(", "));
+      String errorMessages =
+          failures.stream()
+              .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
+              .collect(Collectors.joining(", "));
       throw new UnauthorizedException(
-          "User " + authentication.getActor().toUrnStr() + " is unauthorized to modify entities: " + errorMessages);
+          "User "
+              + authentication.getActor().toUrnStr()
+              + " is unauthorized to modify entities: "
+              + errorMessages);
     }
 
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
