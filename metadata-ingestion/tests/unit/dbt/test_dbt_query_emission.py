@@ -396,6 +396,35 @@ def test_sanitizes_special_characters_in_urn():
     assert "!" not in query_urn
 
 
+def test_query_names_collide_after_sanitization(caplog):
+    """Different query names that sanitize to same URN should be handled."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node.meta = {
+        "queries": [
+            {"name": "Revenue (USD)", "sql": "SELECT 1"},
+            {"name": "Revenue [USD]", "sql": "SELECT 2"},  # Collides after sanitization
+        ]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    with caplog.at_level(logging.WARNING):
+        mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    # Only first query emitted (2 MCPs), second skipped due to URN collision
+    assert len(mcps) == 2
+    assert source.report.num_queries_emitted == 1
+    assert source.report.num_queries_failed == 1
+
+    # Verify it's the first query that was kept
+    props = mcps[0].aspect
+    assert isinstance(props, QueryPropertiesClass)
+    assert props.statement.value == "SELECT 1"
+
+    # Verify warning about duplicate URN
+    assert any("Duplicate query" in record.message for record in caplog.records)
+
+
 def test_handles_unicode_in_name_and_sql():
     """Test that Unicode characters in query names are handled."""
     source = create_test_dbt_source()
@@ -690,11 +719,15 @@ def test_timestamp_cached_across_nodes():
 
     # Process first node
     mcps1 = list(source._create_query_entity_mcps(node1, node_urn1))
-    first_timestamp = mcps1[0].aspect.created.time
+    props1 = mcps1[0].aspect
+    assert isinstance(props1, QueryPropertiesClass)
+    first_timestamp = props1.created.time
 
     # Process second node
     mcps2 = list(source._create_query_entity_mcps(node2, node_urn2))
-    second_timestamp = mcps2[0].aspect.created.time
+    props2 = mcps2[0].aspect
+    assert isinstance(props2, QueryPropertiesClass)
+    second_timestamp = props2.created.time
 
     # Timestamps should be identical (cached)
     assert first_timestamp == second_timestamp

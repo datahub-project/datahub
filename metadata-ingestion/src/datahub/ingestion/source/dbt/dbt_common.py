@@ -142,10 +142,9 @@ DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
-_DBT_MAX_SQL_LENGTH = (
-    1 * 1024 * 1024
-)  # 1MB limit for SQL strings (compiled code, queries)
-# Replaces runs of non-alphanumeric chars with a single underscore for clean URNs.
+_DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
+# URN-safe chars only; names like "Revenue (USD)" become "Revenue_USD_" which can
+# collide with "Revenue [USD]" - duplicates are detected and skipped with warnings.
 _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
 
 
@@ -2091,16 +2090,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if terms_csv := DBTQueryDefinition._list_to_csv(query.terms):
                 custom_properties["terms"] = terms_csv
 
-            # Emit QueryProperties aspect
-            # - origin: The dataset this query was defined on (via meta.queries)
-            # - source: MANUAL indicates user-defined (vs SYSTEM for auto-discovered)
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn_str,
                 aspect=QueryPropertiesClass(
                     statement=QueryStatementClass(
                         value=query_sql, language=QueryLanguageClass.SQL
                     ),
-                    source=QuerySourceClass.MANUAL,
+                    source=QuerySourceClass.MANUAL,  # User-defined, not auto-discovered
                     name=query_name,
                     description=query.description,
                     created=AuditStampClass(
@@ -2114,8 +2110,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ),
             )
 
-            # Emit QuerySubjects aspect to link query to dataset
-            # This makes the query appear in the dataset's Queries tab
+            # Links query to dataset so it appears in the Queries tab
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn_str,
                 aspect=QuerySubjectsClass(
