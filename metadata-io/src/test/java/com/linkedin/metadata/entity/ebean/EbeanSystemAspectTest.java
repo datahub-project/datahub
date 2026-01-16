@@ -533,4 +533,53 @@ public class EbeanSystemAspectTest {
     sb.append(suffix);
     return sb.toString();
   }
+
+  @Test
+  public void testMultipleValidatorsCalledDuringPrePatch() throws Exception {
+    // Test that when multiple validators are registered, ALL are called during pre-patch
+    com.linkedin.metadata.aspect.SystemAspectValidator validator1 =
+        mock(com.linkedin.metadata.aspect.SystemAspectValidator.class);
+    com.linkedin.metadata.aspect.SystemAspectValidator validator2 =
+        mock(com.linkedin.metadata.aspect.SystemAspectValidator.class);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000));
+
+    EbeanSystemAspect aspect =
+        EbeanSystemAspect.builder()
+            .systemAspectValidators(java.util.Arrays.asList(validator1, validator2))
+            .forUpdate(ebeanAspectV2, entityRegistry);
+
+    assertNotNull(aspect);
+
+    // Verify BOTH validators were called with correct parameters
+    verify(validator1, times(1))
+        .validatePrePatch(
+            eq(generateLargeMetadata(1000)), eq(urn), eq(STATUS_ASPECT_NAME), isNull());
+    verify(validator2, times(1))
+        .validatePrePatch(
+            eq(generateLargeMetadata(1000)), eq(urn), eq(STATUS_ASPECT_NAME), isNull());
+  }
+
+  @Test(
+      expectedExceptions =
+          com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
+  public void testValidatorExceptionPreventsUpdate() throws Exception {
+    // Test that if a validator throws during pre-patch, the update is prevented
+    com.linkedin.metadata.aspect.SystemAspectValidator throwingValidator =
+        mock(com.linkedin.metadata.aspect.SystemAspectValidator.class);
+
+    // Make validator throw on pre-patch
+    doThrow(
+            new com.linkedin.metadata.entity.validation.AspectSizeExceededException(
+                "PRE_DB_PATCH", 2000L, 1000L, URN_STRING, STATUS_ASPECT_NAME))
+        .when(throwingValidator)
+        .validatePrePatch(anyString(), any(), anyString(), any());
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000));
+
+    // Should throw and prevent the update
+    EbeanSystemAspect.builder()
+        .systemAspectValidators(java.util.Collections.singletonList(throwingValidator))
+        .forUpdate(ebeanAspectV2, entityRegistry);
+  }
 }
