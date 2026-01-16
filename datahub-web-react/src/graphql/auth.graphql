@@ -11,12 +11,27 @@ query listAccessTokens($input: ListAccessTokenInput!) {
         total
         tokens {
             urn
-            type
             id
             name
             description
             actorUrn
             ownerUrn
+            owner {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                    email
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
             createdAt
             expiresAt
         }
@@ -31,4 +46,65 @@ mutation createAccessToken($input: CreateAccessTokenInput!) {
 
 mutation revokeAccessToken($tokenId: String!) {
     revokeAccessToken(tokenId: $tokenId)
+}
+
+query listServiceAccounts($input: ListServiceAccountsInput!) {
+    listServiceAccounts(input: $input) {
+        start
+        count
+        total
+        serviceAccounts {
+            urn
+            type
+            name
+            displayName
+            description
+            createdBy
+            createdAt
+            updatedAt
+            roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0, count: 1 }) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on DataHubRole {
+                            urn
+                            type
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getServiceAccount($urn: String!) {
+    getServiceAccount(urn: $urn) {
+        urn
+        type
+        name
+        displayName
+        description
+        createdBy
+        createdAt
+        updatedAt
+    }
+}
+
+mutation createServiceAccount($input: CreateServiceAccountInput!) {
+    createServiceAccount(input: $input) {
+        urn
+        type
+        name
+        displayName
+        description
+        createdBy
+        createdAt
+    }
+}
+
+mutation deleteServiceAccount($urn: String!) {
+    deleteServiceAccount(urn: $urn)
 }

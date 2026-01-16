@@ -3,10 +3,13 @@ package com.linkedin.datahub.graphql.resolvers.user;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListUsersInput;
 import com.linkedin.datahub.graphql.generated.ListUsersResult;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
@@ -30,6 +33,8 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
+  private static final String SUB_TYPES_FIELD = "typeNames";
+  private static final String SERVICE_ACCOUNT_SUB_TYPE = "SERVICE_ACCOUNT";
 
   private final EntityClient _entityClient;
 
@@ -49,18 +54,31 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> {
-          try {
-            // First, get all policy Urns.
-            final SearchResult gmsResult =
-                _entityClient.search(
-                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
-                    CORP_USER_ENTITY_NAME,
-                    query,
-                    Collections.emptyMap(),
-                    start,
-                    count);
+      return GraphQLConcurrencyUtils.supplyAsync(
+          () -> {
+            try {
+              // Build filters to exclude service accounts (subTypes.typeNames != SERVICE_ACCOUNT)
+              final List<FacetFilterInput> filters =
+                  ImmutableList.of(
+                      new FacetFilterInput(
+                          SUB_TYPES_FIELD,
+                          null,
+                          ImmutableList.of(SERVICE_ACCOUNT_SUB_TYPE),
+                          true, // negated = true to exclude service accounts
+                          FilterOperator.EQUAL));
+
+              // First, get all user Urns excluding service accounts.
+              final SearchResult gmsResult =
+                  _entityClient.search(
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
+                      CORP_USER_ENTITY_NAME,
+                      query,
+                      buildFilter(filters, Collections.emptyList()),
+                      Collections.emptyList(),
+                      start,
+                      count);
 
             // Then, get hydrate all users.
             final Map<Urn, EntityResponse> entities =

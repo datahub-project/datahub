@@ -38,10 +38,14 @@ import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver
 import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertCustomAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.CreateServiceAccountResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.DeleteServiceAccountResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetServiceAccountResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.ListServiceAccountsResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
@@ -1097,6 +1101,9 @@ public class GmsGraphQLEngine {
                     "getAccessTokenMetadata",
                     new GetAccessTokenMetadataResolver(statefulTokenService, this.entityClient))
                 .dataFetcher("debugAccess", new DebugAccessResolver(this.entityClient, graphClient))
+                .dataFetcher(
+                    "listServiceAccounts", new ListServiceAccountsResolver(this.entityClient))
+                .dataFetcher("getServiceAccount", new GetServiceAccountResolver(this.entityClient))
                 .dataFetcher("container", getResolver(containerType))
                 .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
                 .dataFetcher("listSecrets", new ListSecretsResolver(this.entityClient))
@@ -1298,10 +1305,15 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher(
-                  "createAccessToken", new CreateAccessTokenResolver(this.statefulTokenService))
+                  "createAccessToken",
+                  new CreateAccessTokenResolver(this.statefulTokenService, this.entityClient))
               .dataFetcher(
                   "revokeAccessToken",
                   new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
+              .dataFetcher(
+                  "createServiceAccount", new CreateServiceAccountResolver(this.entityClient))
+              .dataFetcher(
+                  "deleteServiceAccount", new DeleteServiceAccountResolver(this.entityClient))
               .dataFetcher(
                   "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
               .dataFetcher(
@@ -1968,6 +1980,17 @@ public class GmsGraphQLEngine {
                             .getTokens().stream()
                                 .map(AccessTokenMetadata::getUrn)
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "AccessTokenMetadata",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "owner",
+                new LoadableTypeResolver<>(
+                    corpUserType,
+                    (env) -> {
+                      final AccessTokenMetadata token = env.getSource();
+                      return token.getOwner() != null ? token.getOwner().getUrn() : null;
+                    })));
   }
 
   private void configureGlossaryTermResolvers(final RuntimeWiring.Builder builder) {

@@ -54,8 +54,12 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
     return (
         <Modal
             width={700}
-            title="New Personal Access Token"
-            open={visible}
+            title={
+                <Typography.Text>
+                    <b> New Access Token</b>
+                </Typography.Text>
+            }
+            visible={visible}
             onCancel={onClose}
             buttons={[
                 {
@@ -72,7 +76,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     message={
                         <span>
                             <StyledInfoCircleOutlined />
-                            Make sure to copy your personal access token now. You won’t be able to see it again.
+                            Make sure to copy your access token now. You won’t be able to see it again.
                         </span>
                     }
                 />

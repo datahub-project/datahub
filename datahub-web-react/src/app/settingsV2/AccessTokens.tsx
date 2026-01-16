@@ -10,7 +10,9 @@ import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import CreateServiceAccountTokenModal from '@app/identity/serviceAccount/CreateServiceAccountTokenModal';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
+import SelectServiceAccountModal from '@app/settingsV2/SelectServiceAccountModal';
 import { Message } from '@app/shared/Message';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -21,7 +23,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '@graphql/auth.generated';
 import { useListUsersQuery } from '@graphql/user.generated';
-import { EntityType, FacetFilterInput } from '@types';
+import { EntityType, FacetFilterInput, ServiceAccount } from '@types';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -91,6 +93,8 @@ export enum StatusType {
 
 export const AccessTokens = () => {
     const [createTokenFor, setCreateTokenFor] = useState<'personal' | 'remote-executor' | undefined>(undefined);
+    const [showSelectServiceAccountModal, setShowSelectServiceAccountModal] = useState(false);
+    const [selectedServiceAccount, setSelectedServiceAccount] = useState<ServiceAccount | null>(null);
     const [removedTokens, setRemovedTokens] = useState<string[]>([]);
     const [statusFilter, setStatusFilter] = useState(StatusType.ALL);
     const [owner, setOwner] = useState('All');
@@ -118,6 +122,7 @@ export const AccessTokens = () => {
         isTokenAuthEnabled && authenticatedUser?.platformPrivileges?.generatePersonalAccessTokens;
 
     const canManageToken = authenticatedUser?.platformPrivileges?.manageTokens;
+    const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts;
 
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
@@ -219,12 +224,12 @@ export const AccessTokens = () => {
 
     const tableData = filteredTokens?.map((token) => ({
         urn: token.urn,
-        type: token.type,
         id: token.id,
         name: token.name,
         description: token.description,
         actorUrn: token.actorUrn,
         ownerUrn: token.ownerUrn,
+        owner: (token as any).owner,
         createdAt: token.createdAt,
         expiresAt: token.expiresAt,
     }));
@@ -257,14 +262,16 @@ export const AccessTokens = () => {
         },
         {
             title: 'Owner',
-            dataIndex: 'ownerUrn',
-            key: 'ownerUrn',
-            render: (ownerUrn: string) => {
-                if (!ownerUrn) return '';
-                const displayName = ownerUrn?.replace('urn:li:corpuser:', '');
-                const link = `/user/${ownerUrn}/owner of`;
-                const ownerName = displayName || '';
-                return <Link to={link}>{ownerName}</Link>;
+            dataIndex: 'owner',
+            key: 'owner',
+            render: (tokenOwner: any, record: any) => {
+                if (!tokenOwner && !record.ownerUrn) return '';
+                const ownerUrn = tokenOwner?.urn || record.ownerUrn;
+                const displayName = tokenOwner
+                    ? entityRegistry.getDisplayName(EntityType.CorpUser, tokenOwner)
+                    : ownerUrn?.replace('urn:li:corpuser:', '');
+                const link = `/${entityRegistry.getPathName(EntityType.CorpUser)}/${encodeURIComponent(ownerUrn)}`;
+                return <a href={link}>{displayName}</a>;
             },
         },
         {
@@ -286,7 +293,7 @@ export const AccessTokens = () => {
         },
     ];
 
-    const filterColumns = canManageToken ? tableColumns : tableColumns.filter((column) => column.key !== 'ownerUrn');
+    const filterColumns = canManageToken ? tableColumns : tableColumns.filter((column) => column.key !== 'owner');
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -316,9 +323,9 @@ export const AccessTokens = () => {
                     }
                 />
             )}
-            <Typography.Title level={5}>Personal Access Tokens</Typography.Title>
+            <Typography.Title level={5}>Access Tokens</Typography.Title>
             <PersonTokenDescriptionText type="secondary">
-                Personal Access Tokens allow you to make programmatic requests to DataHub&apos;s APIs. They inherit your
+                Access Tokens allow you to make programmatic requests to DataHub&apos;s APIs. They inherit your
                 privileges and have a finite lifespan. Do not share Personal Access Tokens.
             </PersonTokenDescriptionText>
             <TabToolbar>
@@ -341,6 +348,16 @@ export const AccessTokens = () => {
                                     label: 'Remote Executor',
                                     onClick: () => setCreateTokenFor('remote-executor'),
                                 },
+                                ...(canManageServiceAccounts
+                                    ? [
+                                          {
+                                              key: 'service-account',
+                                              className: 'service-account-dropdown-option',
+                                              label: 'Service Account',
+                                              onClick: () => setShowSelectServiceAccountModal(true),
+                                          },
+                                      ]
+                                    : []),
                             ],
                         }}
                     >
@@ -433,6 +450,25 @@ export const AccessTokens = () => {
                 modalTitle="Are you sure you want to revoke this token?"
                 modalText="Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action."
             />
+            <SelectServiceAccountModal
+                visible={showSelectServiceAccountModal}
+                onClose={() => setShowSelectServiceAccountModal(false)}
+                onSelectServiceAccount={(serviceAccount) => {
+                    setShowSelectServiceAccountModal(false);
+                    setSelectedServiceAccount(serviceAccount);
+                }}
+            />
+            {selectedServiceAccount && (
+                <CreateServiceAccountTokenModal
+                    visible={!!selectedServiceAccount}
+                    serviceAccount={selectedServiceAccount}
+                    onClose={() => setSelectedServiceAccount(null)}
+                    onCreateToken={() => {
+                        setSelectedServiceAccount(null);
+                        tokensRefetch?.();
+                    }}
+                />
+            )}
         </SourceContainer>
     );
 };

@@ -105,7 +105,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageFeatures(AuthorizationUtils.canManageFeatures(context));
             platformPrivileges.setManageHomePageTemplates(
                 AuthorizationUtils.canManageHomePageTemplates(context));
-
+            platformPrivileges.setManageServiceAccounts(canManageServiceAccounts(context));
             // Construct and return authenticated user object.
             final AuthenticatedUser authUser = new AuthenticatedUser();
             authUser.setCorpUser(corpUser);
@@ -173,5 +173,11 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   private boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+  }
+
+  /** Returns true if the authenticated user has privileges to manage service accounts */
+  private boolean canManageServiceAccounts(@Nonnull QueryContext context) {
+    return isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_SERVICE_ACCOUNTS_PRIVILEGE);
   }
 }
