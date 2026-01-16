@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.hightouch.config import HightouchSourceReport
@@ -8,8 +8,10 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchSchemaField,
     HightouchSourceConnection,
+    HightouchSync,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger = logging.getLogger(__name__)
 
@@ -287,3 +289,156 @@ class HightouchSchemaHandler:
                 exc_info=True,
             )
             return None
+
+    def fetch_and_register_schema(
+        self,
+        urn: str,
+        aggregator: SqlParsingAggregator,
+        registered_urns: Set[str],
+        urn_description: str = "table",
+    ) -> bool:
+        if urn in registered_urns:
+            return False
+
+        if not self.graph:
+            return False
+
+        try:
+            schema_metadata = self.graph.get_schema_metadata(urn)
+            if schema_metadata and schema_metadata.fields:
+                aggregator.register_schema(urn, schema_metadata)
+                registered_urns.add(urn)
+                logger.debug(
+                    f"Preloaded schema for {urn_description} {urn} ({len(schema_metadata.fields)} fields)"
+                )
+                return True
+        except Exception as e:
+            logger.debug(f"Could not preload schema for {urn}: {e}")
+
+        return False
+
+    def preload_model_schemas(
+        self,
+        model: HightouchModel,
+        source: HightouchSourceConnection,
+        aggregator: SqlParsingAggregator,
+        registered_urns: Set[str],
+        extract_table_urns_fn: Callable,
+    ) -> None:
+        if model.query_type == "table" and model.name:
+            table_name = model.name
+            if source.configuration:
+                database = source.configuration.get("database", "")
+                schema = source.configuration.get("schema", "")
+                source_details = self.urn_builder._get_cached_source_details(source)
+                if source_details.include_schema_in_urn and schema:
+                    table_name = f"{database}.{schema}.{table_name}"
+                elif database and "." not in table_name:
+                    table_name = f"{database}.{table_name}"
+
+            upstream_urn = str(
+                self.urn_builder.make_upstream_table_urn(table_name, source)
+            )
+            self.fetch_and_register_schema(
+                upstream_urn, aggregator, registered_urns, "upstream table"
+            )
+
+        if model.raw_sql and model.query_type == "raw_sql":
+            sql_table_urns = extract_table_urns_fn(model, source)
+            for table_urn in sql_table_urns:
+                self.fetch_and_register_schema(
+                    table_urn, aggregator, registered_urns, "SQL-referenced table"
+                )
+
+    def preload_sync_schemas(
+        self,
+        sync: HightouchSync,
+        registered_urns: Set[str],
+        get_model: Callable,
+        get_source: Callable,
+        get_destination: Callable,
+        get_platform_for_source: Callable,
+        get_aggregator_for_platform: Callable,
+        get_outlet_urn_for_sync: Callable,
+    ) -> None:
+        model = get_model(sync.model_id)
+        if not model:
+            return
+
+        source = get_source(model.source_id)
+        if not source:
+            return
+
+        source_platform = get_platform_for_source(source)
+        if not source_platform.platform:
+            return
+
+        aggregator = get_aggregator_for_platform(source_platform)
+        if not aggregator:
+            return
+
+        model_urn = str(self.urn_builder.make_model_urn(model, source))
+        self.fetch_and_register_schema(model_urn, aggregator, registered_urns, "model")
+
+        destination = get_destination(sync.destination_id)
+        if not destination:
+            return
+
+        outlet_urn = str(get_outlet_urn_for_sync(sync, destination))
+        if outlet_urn:
+            self.fetch_and_register_schema(
+                outlet_urn, aggregator, registered_urns, "destination"
+            )
+
+    def preload_schemas_for_sql_parsing(
+        self,
+        models: List[HightouchModel],
+        syncs: List[HightouchSync],
+        registered_urns: Set[str],
+        get_source: Callable,
+        get_model: Callable,
+        get_destination: Callable,
+        get_platform_for_source: Callable,
+        get_aggregator_for_platform: Callable,
+        extract_table_urns_fn: Callable,
+        get_outlet_urn_for_sync: Callable,
+    ) -> None:
+        if not self.graph:
+            logger.debug("No DataHub graph available - skipping schema preloading")
+            return
+
+        logger.info("Preloading schemas from DataHub for SQL parsing")
+        registered_urns.clear()
+
+        for model in models:
+            source = get_source(model.source_id)
+            if not source:
+                continue
+
+            source_platform = get_platform_for_source(source)
+            if not source_platform.platform:
+                continue
+
+            aggregator = get_aggregator_for_platform(source_platform)
+            if not aggregator:
+                continue
+
+            self.preload_model_schemas(
+                model, source, aggregator, registered_urns, extract_table_urns_fn
+            )
+
+        for sync in syncs:
+            self.preload_sync_schemas(
+                sync,
+                registered_urns,
+                get_model,
+                get_source,
+                get_destination,
+                get_platform_for_source,
+                get_aggregator_for_platform,
+                get_outlet_urn_for_sync,
+            )
+
+        logger.debug(
+            f"Preloaded {len(registered_urns)} schemas from DataHub for SQL parsing"
+        )

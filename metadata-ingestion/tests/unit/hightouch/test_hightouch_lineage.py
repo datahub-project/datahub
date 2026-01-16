@@ -11,8 +11,8 @@ from datahub.ingestion.source.hightouch.config import (
 )
 from datahub.ingestion.source.hightouch.hightouch import (
     HightouchSource as HightouchIngestionSource,
-    normalize_column_name,
 )
+from datahub.ingestion.source.hightouch.hightouch_utils import normalize_column_name
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchModel,
@@ -100,7 +100,7 @@ def test_column_lineage_emission(mock_api_client_class, pipeline_context):
     )
     mock_client.get_destination_by_id.return_value = destination
 
-    datajob = source_instance._generate_datajob_from_sync(sync)
+    datajob = source_instance._sync_handler.generate_datajob_from_sync(sync)
 
     assert datajob.fine_grained_lineages is not None
     assert len(datajob.fine_grained_lineages) == 3
@@ -421,7 +421,7 @@ def test_tags_in_sync_custom_properties(mock_api_client_class, pipeline_context)
     mock_client.get_destination_by_id.return_value = destination
     mock_client.extract_field_mappings.return_value = []
 
-    datajob = source_instance._generate_datajob_from_sync(sync)
+    datajob = source_instance._sync_handler.generate_datajob_from_sync(sync)
 
     assert "hightouch_tags" in datajob.custom_properties
     tags_str = datajob.custom_properties["hightouch_tags"]
@@ -488,7 +488,7 @@ def test_schedule_in_custom_properties(mock_api_client_class, pipeline_context):
     mock_client.get_destination_by_id.return_value = destination
     mock_client.extract_field_mappings.return_value = []
 
-    datajob = source_instance._generate_datajob_from_sync(sync)
+    datajob = source_instance._sync_handler.generate_datajob_from_sync(sync)
 
     assert "schedule" in datajob.custom_properties
     assert "cron" in datajob.custom_properties["schedule"]
@@ -555,7 +555,7 @@ def test_column_lineage_not_emitted_when_no_mappings(
     )
     mock_client.get_destination_by_id.return_value = destination
 
-    datajob = source_instance._generate_datajob_from_sync(sync)
+    datajob = source_instance._sync_handler.generate_datajob_from_sync(sync)
 
     assert (
         datajob.fine_grained_lineages is None or len(datajob.fine_grained_lineages) == 0
@@ -725,7 +725,7 @@ def test_column_lineage_with_fuzzy_matching_integration(
     )
     mock_client.get_destination_by_id.return_value = destination
 
-    datajob = source_instance._generate_datajob_from_sync(sync)
+    datajob = source_instance._sync_handler.generate_datajob_from_sync(sync)
 
     assert datajob.fine_grained_lineages is not None
     assert len(datajob.fine_grained_lineages) == 2

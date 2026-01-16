@@ -1,6 +1,9 @@
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
-from datahub.ingestion.source.hightouch.config import PlatformDetail
+from datahub.ingestion.source.hightouch.config import (
+    HightouchSourceConfig,
+    PlatformDetail,
+)
 from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
@@ -9,21 +12,25 @@ from datahub.ingestion.source.hightouch.models import (
 )
 from datahub.metadata.urns import DatasetUrn
 
-if TYPE_CHECKING:
-    from datahub.ingestion.source.hightouch.hightouch import HightouchSource
-
 
 class HightouchUrnBuilder:
-    def __init__(self, source: "HightouchSource"):
-        self.source = source
+    def __init__(
+        self,
+        config: HightouchSourceConfig,
+        get_platform_for_source: Callable,
+        get_platform_for_destination: Callable,
+    ):
+        self.config = config
+        self.get_platform_for_source = get_platform_for_source
+        self.get_platform_for_destination = get_platform_for_destination
         self._platform_detail_cache: Dict[str, PlatformDetail] = {}
 
     def _get_cached_source_details(
         self, source: HightouchSourceConnection
     ) -> PlatformDetail:
         if source.id not in self._platform_detail_cache:
-            self._platform_detail_cache[source.id] = (
-                self.source._get_platform_for_source(source)
+            self._platform_detail_cache[source.id] = self.get_platform_for_source(
+                source
             )
         return self._platform_detail_cache[source.id]
 
@@ -32,8 +39,8 @@ class HightouchUrnBuilder:
     ) -> PlatformDetail:
         cache_key = f"dest_{destination.id}"
         if cache_key not in self._platform_detail_cache:
-            self._platform_detail_cache[cache_key] = (
-                self.source._get_platform_for_destination(destination)
+            self._platform_detail_cache[cache_key] = self.get_platform_for_destination(
+                destination
             )
         return self._platform_detail_cache[cache_key]
 
@@ -45,8 +52,8 @@ class HightouchUrnBuilder:
         return DatasetUrn.create_from_ids(
             platform_id=HIGHTOUCH_PLATFORM,
             table_name=model.slug,
-            env=self.source.config.env,
-            platform_instance=self.source.config.platform_instance,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
 
     def make_upstream_table_urn(

@@ -175,7 +175,7 @@ def test_generate_model_dataset(
         updated_at=datetime(2023, 1, 2),
     )
 
-    result = source_instance._generate_model_dataset(model, source_entity)
+    result = source_instance._model_handler.generate_model_dataset(model, source_entity)
 
     assert result.dataset.urn.name == "customer-model"
     assert str(result.dataset.urn.platform) == "urn:li:dataPlatform:hightouch"
@@ -201,7 +201,7 @@ def test_generate_dataflow_from_sync(
         disabled=False,
     )
 
-    dataflow = source_instance._generate_dataflow_from_sync(sync)
+    dataflow = source_instance._sync_handler.generate_dataflow_from_sync(sync)
 
     assert dataflow.urn.flow_id == "30"
     assert dataflow.urn.orchestrator == "hightouch"
@@ -350,7 +350,9 @@ def test_sql_parsing_with_valid_query(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    result = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._model_handler.generate_model_dataset(
+        mock_model, mock_source
+    )
 
     assert result.dataset.urn.name == "customer-360"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
@@ -389,7 +391,9 @@ def test_sql_parsing_with_no_upstream_tables(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    result = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._model_handler.generate_model_dataset(
+        mock_model, mock_source
+    )
 
     assert result.dataset.urn.name == "static-data"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
@@ -428,7 +432,9 @@ def test_sql_parsing_with_invalid_sql(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    result = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._model_handler.generate_model_dataset(
+        mock_model, mock_source
+    )
 
     assert result.dataset.urn.name == "invalid-model"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
@@ -467,7 +473,9 @@ def test_sql_parsing_with_no_raw_sql(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    result = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._model_handler.generate_model_dataset(
+        mock_model, mock_source
+    )
 
     assert result.dataset.urn.name == "table-model"
     assert source_instance.report.sql_parsing_attempts == 0
@@ -502,7 +510,7 @@ def test_sql_parsing_with_unknown_platform(
 
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
 
-    result = source_instance._generate_model_dataset(mock_model, None)
+    result = source_instance._model_handler.generate_model_dataset(mock_model, None)
 
     assert result.dataset.urn.name == "custom-model"
 
@@ -545,7 +553,9 @@ def test_sql_parsing_with_cte(
     source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    result = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._model_handler.generate_model_dataset(
+        mock_model, mock_source
+    )
 
     assert result.dataset.urn.name == "cte-model"
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
@@ -587,7 +597,9 @@ def test_sql_parsing_disabled(mock_api_client_class, pipeline_context):
     source_instance = HightouchIngestionSource(config, pipeline_context)
     source_instance._sources_cache = {"1": mock_source}
 
-    result = source_instance._generate_model_dataset(mock_model, mock_source)
+    result = source_instance._model_handler.generate_model_dataset(
+        mock_model, mock_source
+    )
 
     assert result.dataset.urn.name == "test-model"
     assert source_instance.report.sql_parsing_attempts == 0
@@ -1528,7 +1540,7 @@ def test_schema_emission_enabled_and_applied(
         ],
     )
 
-    result = source_instance._generate_model_dataset(model, None)
+    result = source_instance._model_handler.generate_model_dataset(model, None)
 
     assert source_instance.report.model_schemas_emitted == 1
 
@@ -1646,7 +1658,9 @@ def test_outlet_urn_generation(
         configuration={},
     )
 
-    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
+    outlet_urn = source_instance._sync_handler.get_outlet_urn_for_sync(
+        sync, destination
+    )
 
     assert outlet_urn is not None
     assert expected_in_urn in str(outlet_urn)
@@ -1687,7 +1701,9 @@ def test_outlet_urn_priority_of_config_keys(
         configuration={},
     )
 
-    outlet_urn = source_instance._get_outlet_urn_for_sync(sync, destination)
+    outlet_urn = source_instance._sync_handler.get_outlet_urn_for_sync(
+        sync, destination
+    )
 
     assert outlet_urn is not None
     assert "correct_object" in str(outlet_urn)

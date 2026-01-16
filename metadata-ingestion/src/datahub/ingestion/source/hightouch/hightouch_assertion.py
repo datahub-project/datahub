@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,6 +16,8 @@ from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.models import (
     HightouchContract,
     HightouchContractRun,
+    HightouchModel,
+    HightouchSourceConnection,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
 from datahub.metadata.schema_classes import (
@@ -30,26 +32,25 @@ from datahub.metadata.schema_classes import (
     DatasetAssertionScopeClass,
 )
 
-if TYPE_CHECKING:
-    from datahub.ingestion.source.hightouch.hightouch import HightouchSource
-
 logger = logging.getLogger(__name__)
 
 
 class HightouchAssertionsHandler:
     def __init__(
         self,
-        source: "HightouchSource",
         config: HightouchSourceConfig,
         report: HightouchSourceReport,
         api_client: HightouchAPIClient,
         urn_builder: HightouchUrnBuilder,
+        get_model: Callable[[str], Optional[HightouchModel]],
+        get_source: Callable[[str], Optional[HightouchSourceConnection]],
     ) -> None:
-        self.source = source
         self.config = config
         self.report = report
         self.api_client = api_client
         self.urn_builder = urn_builder
+        self.get_model = get_model
+        self.get_source = get_source
 
     def get_assertion_workunits(
         self, contracts: List[HightouchContract]
@@ -107,14 +108,14 @@ class HightouchAssertionsHandler:
         if not contract.model_id:
             return None
 
-        model = self.source._get_model(contract.model_id)
+        model = self.get_model(contract.model_id)
         if not model:
             logger.debug(
                 f"Model {contract.model_id} not found for contract {contract.id}"
             )
             return None
 
-        source = self.source._get_source(model.source_id)
+        source = self.get_source(model.source_id)
         if not source:
             logger.debug(f"Source {model.source_id} not found for model {model.id}")
             return None

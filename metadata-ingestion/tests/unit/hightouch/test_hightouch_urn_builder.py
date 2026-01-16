@@ -62,7 +62,11 @@ def test_urn_builder_make_model_urn_on_hightouch_platform(
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(source)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
 
     model = HightouchModel(
         id="model_123",
@@ -114,7 +118,11 @@ def test_urn_builder_make_model_urn_on_source_platform(
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(source)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
 
     model = HightouchModel(
         id="model_123",
@@ -162,7 +170,11 @@ def test_urn_builder_make_upstream_table_urn(mock_api_client_class, pipeline_con
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(source)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
 
     source_connection = HightouchSourceConnection(
         id="source_1",
@@ -201,7 +213,11 @@ def test_urn_builder_make_upstream_table_urn_with_qualified_name(
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(source)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
 
     source_connection = HightouchSourceConnection(
         id="source_1",
@@ -237,7 +253,11 @@ def test_urn_builder_make_destination_urn(mock_api_client_class, pipeline_contex
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(source)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
 
     destination = HightouchDestination(
         id="dest_1",
@@ -276,7 +296,11 @@ def test_urn_builder_make_destination_urn_with_database(
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(source)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
 
     destination = HightouchDestination(
         id="dest_1",
@@ -313,7 +337,11 @@ def test_urn_builder_caching_source_details(mock_api_client_class, pipeline_cont
     )
 
     mock_source_instance = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(mock_source_instance)
+    urn_builder = HightouchUrnBuilder(
+        config=mock_source_instance.config,
+        get_platform_for_source=mock_source_instance._get_platform_for_source,
+        get_platform_for_destination=mock_source_instance._get_platform_for_destination,
+    )
 
     source_connection = HightouchSourceConnection(
         id="source_1",
@@ -341,7 +369,11 @@ def test_urn_builder_fallback_to_source_type(mock_api_client_class, pipeline_con
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
-    urn_builder = HightouchUrnBuilder(source)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
 
     source_connection = HightouchSourceConnection(
         id="source_unknown",
