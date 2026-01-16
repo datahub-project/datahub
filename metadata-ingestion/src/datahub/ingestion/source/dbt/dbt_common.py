@@ -143,7 +143,9 @@ DBT_PLATFORM = "dbt"
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
-_QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]")
+# Use + to collapse consecutive special chars into single underscore
+# e.g., "Revenue (USD)" and "Revenue [USD]" both become "Revenue_USD_" (not "Revenue__USD_")
+_QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
 
 
 class DBTQueryDefinition(pydantic.BaseModel):
@@ -171,22 +173,31 @@ class DBTQueryDefinition(pydantic.BaseModel):
     @field_validator("description", mode="before")
     @classmethod
     def coerce_description(cls, v: Any) -> Optional[str]:
-        """Coerce description to string, returning None for invalid types."""
+        """Coerce description to string, logging warning for invalid types."""
         if v is None:
             return None
         if not isinstance(v, str):
-            return None  # Silently ignore non-string descriptions
+            logger.warning(
+                f"Invalid description type {type(v).__name__}, expected string - ignoring"
+            )
+            return None
         stripped = v.strip()
         return stripped if stripped else None
 
     @field_validator("tags", "terms", mode="before")
     @classmethod
-    def coerce_string_list(cls, v: Any) -> Optional[List[str]]:
-        """Coerce to list of strings, filtering empty/invalid values."""
+    def coerce_string_list(
+        cls, v: Any, info: pydantic.ValidationInfo
+    ) -> Optional[List[str]]:
+        """Coerce to list of strings, logging warning for invalid types."""
         if v is None:
             return None
         if not isinstance(v, list):
-            return None  # Silently ignore non-list values
+            field_name = info.field_name or "field"
+            logger.warning(
+                f"Invalid {field_name} type {type(v).__name__}, expected list - ignoring"
+            )
+            return None
         return [str(item).strip() for item in v if item and str(item).strip()]
 
     @staticmethod

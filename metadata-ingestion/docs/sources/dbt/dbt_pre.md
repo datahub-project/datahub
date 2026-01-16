@@ -140,21 +140,22 @@ Each query in the `queries` list supports the following fields:
 
 - **Actor**: All queries are attributed to the `dbt_executor` actor
 - **Timestamps**: Uses manifest `generated_at` for reproducibility; falls back to current time if unavailable
-- **Custom Properties**: Tags/terms stored in `customProperties` (Query entities don't support native GlobalTags/GlossaryTerms)
+- **Custom Properties**: Tags/terms stored in `customProperties` (see [Known Limitations](#known-limitations) below)
 - **SQL Truncation**: SQL exceeding 1MB is truncated with "..." suffix
-- **URN Sanitization**: Special characters replaced with underscores (`[^a-zA-Z0-9_\-\.]` → `_`)
+- **URN Sanitization**: Consecutive special characters collapsed into single underscore (`[^a-zA-Z0-9_\-\.]+` → `_`)
 
 #### Error Handling
 
-| Scenario                          | Behavior                                                                               |
-| --------------------------------- | -------------------------------------------------------------------------------------- |
-| `meta.queries` not a list         | Skipped with WARNING log                                                               |
-| Query missing `name` or `sql`     | Skipped, all validation errors shown in log and `queries_failed_list`                  |
-| Duplicate query names             | Duplicate skipped, first definition wins (WARNING)                                     |
-| Invalid `tags`/`terms` (not list) | Field ignored silently                                                                 |
-| Empty values in tags/terms list   | Filtered out automatically                                                             |
-| Manifest timestamp unparseable    | Falls back to current time with WARNING; tracked in `queries_using_fallback_timestamp` |
-| Exceeds `max_queries_per_model`   | Only first N processed (configurable, default 100), WARNING logged                     |
+| Scenario                           | Behavior                                                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `meta.queries` not a list          | Skipped with WARNING log                                                               |
+| Query missing `name` or `sql`      | Skipped, all validation errors shown in log and `queries_failed_list`                  |
+| Duplicate query names              | Duplicate skipped, first definition wins (WARNING)                                     |
+| Invalid `description` (not string) | Field ignored with WARNING log                                                         |
+| Invalid `tags`/`terms` (not list)  | Field ignored with WARNING log                                                         |
+| Empty values in tags/terms list    | Filtered out automatically                                                             |
+| Manifest timestamp unparseable     | Falls back to current time with WARNING; tracked in `queries_using_fallback_timestamp` |
+| Exceeds `max_queries_per_model`    | Only first N processed (configurable, default 100), WARNING logged                     |
 
 All validation errors are logged at WARNING level and tracked in the ingestion report.
 
@@ -216,6 +217,18 @@ source:
     # Extract owners from specific meta patterns
     enable_meta_mapping: true
 ```
+
+#### Known Limitations
+
+1. **Tags/Terms in Custom Properties**: Query entities don't currently support native `GlobalTags` or `GlossaryTerms` aspects. Tags and terms are stored as comma-separated strings in `customProperties`. This means:
+
+   - Cannot filter queries by tags in the DataHub UI search
+   - Cannot apply tag-based governance policies to queries
+   - Tags/terms appear as plain text in the Properties tab, not as clickable links
+
+2. **No SQL Validation Against Model**: The `sql` field in `meta.queries` is not validated against the model it's defined on. You could define `sql: "SELECT * FROM products"` under the `customers` model. DataHub trusts that users define meaningful queries. Consider documenting your team's conventions for query definitions.
+
+3. **URN Collision on Similar Names**: Query names are sanitized for URN generation. Names like `"Revenue (USD)"` and `"Revenue [USD]"` both become `Revenue_USD_`, causing a collision (second one is skipped with a warning). Use distinct, alphanumeric query names to avoid this.
 
 :::tip Choosing Between meta.queries and meta_mapping
 
