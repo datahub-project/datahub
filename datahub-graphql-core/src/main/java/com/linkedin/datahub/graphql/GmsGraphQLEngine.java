@@ -562,7 +562,7 @@ public class GmsGraphQLEngine {
     this.productUpdateService =
         new ProductUpdateService(
             args.featureFlags.getProductUpdatesJsonUrl(),
-            args.featureFlags.getProductUpdatesJsonFallbackResourceUrl());
+            args.featureFlags.getProductUpdatesJsonFallbackResource());
     this.lineageService = args.lineageService;
     this.queryService = args.queryService;
     this.erModelRelationshipService = args.erModelRelationshipService;
