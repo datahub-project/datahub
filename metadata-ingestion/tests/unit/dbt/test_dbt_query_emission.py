@@ -333,8 +333,10 @@ def test_empty_queries_list():
     assert source.report.num_queries_failed == 0
 
 
-def test_duplicate_query_names_create_same_urn():
-    """Test that duplicate query names on same model create the same URN (last one wins)."""
+def test_duplicate_query_names_create_same_urn(caplog):
+    """Test that duplicate query names emit a warning and create same URN (last wins)."""
+    import logging
+
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
     node.meta = {
@@ -345,16 +347,20 @@ def test_duplicate_query_names_create_same_urn():
     }
     node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    with caplog.at_level(logging.WARNING):
+        mcps = list(source._create_query_entity_mcps(node, node_urn))
 
     # Both queries are emitted (4 MCPs = 2 queries * 2 aspects)
     assert len(mcps) == 4
     assert source.report.num_queries_emitted == 2
 
-    # Both have the same URN (user's responsibility to have unique names)
+    # Both have the same URN (last one wins in DataHub)
     first_urn = mcps[0].entityUrn
     third_urn = mcps[2].entityUrn  # Second query's properties
     assert first_urn == third_urn
+
+    # Verify warning was logged about duplicate
+    assert any("Duplicate query name" in record.message for record in caplog.records)
 
 
 def test_query_with_special_characters_in_name():
@@ -437,3 +443,43 @@ def test_query_with_long_name():
     assert isinstance(properties, QueryPropertiesClass)
     assert properties.name == long_name
     assert len(properties.name) == 500
+
+
+def test_config_disable_query_emission():
+    """Test that query emission can be disabled via config."""
+    source = create_test_dbt_source()
+    source.config.enable_query_entity_emission = False
+    node = create_test_dbt_node_with_queries()
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 0
+    assert source.report.num_queries_emitted == 0
+
+
+def test_tags_with_empty_values_filtered():
+    """Test that empty/None values in tags list are filtered out."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node.meta = {
+        "queries": [
+            {
+                "name": "Test Query",
+                "sql": "SELECT 1",
+                "tags": ["valid", "", None, "  ", "another_valid"],
+                "terms": ["Term1", None, "", "Term2"],
+            }
+        ]
+    }
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 2
+    properties = mcps[0].aspect
+    assert isinstance(properties, QueryPropertiesClass)
+    # Empty/None values should be filtered out
+    assert properties.customProperties is not None
+    assert properties.customProperties["tags"] == "valid, another_valid"
+    assert properties.customProperties["terms"] == "Term1, Term2"

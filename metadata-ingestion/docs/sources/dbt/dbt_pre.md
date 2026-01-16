@@ -118,11 +118,14 @@ Each query in the `queries` list supports the following fields:
 
 #### Technical Details
 
+- **Config**: Enable/disable with `enable_query_entity_emission: true/false` (default: true)
 - **Actor**: All queries are attributed to the `dbt_executor` actor (consistent with other dbt-generated metadata)
 - **Timestamps**: Uses the manifest `generated_at` timestamp for consistency across ingestion runs
-- **Custom Properties**: Query entities don't currently support `globalTags` or `glossaryTerms` aspects, so tags and terms are stored in `customProperties` instead
+- **Custom Properties**: Query entities don't support `GlobalTags` or `GlossaryTerms` aspects natively (this is a DataHub schema limitation), so tags and terms are stored in `customProperties` as comma-separated strings. This means they won't appear in DataHub's tag/term filters or governance features
+- **SQL Truncation**: SQL statements exceeding 1MB are truncated (consistent with dbt compiled code handling)
 - **Validation**: Invalid queries (missing required fields, wrong types) are skipped with warnings logged
-- **URN Sanitization**: Query IDs are sanitized to ensure valid URN components (special characters except dots, hyphens, and underscores are replaced with underscores)
+- **Duplicate Detection**: Duplicate query names in the same model will log a warning (last one wins in DataHub)
+- **URN Sanitization**: Query IDs are sanitized (special characters replaced with underscores, Unicode converted)
 - **Backward Compatibility**: This feature is fully backward compatible - models without `meta.queries` are unaffected
 
 #### Example Output in DataHub
