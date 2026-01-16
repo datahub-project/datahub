@@ -769,9 +769,7 @@ nvidia-nvtx-cu12==12.8.90 ; platform_machine == 'x86_64' and sys_platform == 'li
 oauthlib==3.3.1
     # via databricks-sql-connector
 observe-models==0.1.0.dev30
-    # via
-    #   acryl-datahub-executor (pyproject.toml)
-    #   acryl-datahub-executor
+    # via acryl-datahub-executor (pyproject.toml)
 openpyxl==3.1.5
     # via
     #   databricks-sql-connector

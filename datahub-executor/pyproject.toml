@@ -44,7 +44,8 @@ dependencies = [
   "h11 >= 0.16", # Older versions h11 vulnerable to CVE-2025-43859.
   "azure-identity==1.21.0",
   "aws-msk-iam-sasl-signer-python==1.0.2",
-  "observe-models>=0.1.0.dev30,<1.0.0",  # Private package from Cloudsmith (CPU-only by default)
+  # NOTE: observe-models is intentionally NOT in core deps - it pulls in prophet (~300MB+)
+  # Use the 'observe' extra for full ML monitoring support
 ]
 
 [project.optional-dependencies]

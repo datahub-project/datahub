@@ -28,7 +28,7 @@ python-dotenv==1.0.1
 acryl-executor==0.3.4
 
 # Required for inference_utils integration tests
--e ../datahub-executor
+-e ../datahub-executor[observe]
 
 # Additional dependencies for telemetry API test
 confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
