@@ -642,6 +642,29 @@ public class AspectSizePayloadValidatorTest {
             eq(STATUS_ASPECT_NAME));
   }
 
+  @Test
+  public void testPrePatchSkipsValidationDuringRemediationDeletion() {
+    AspectSizeValidationConfiguration config =
+        createPrePatchConfig(100L, OversizedAspectRemediation.DELETE);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
+
+    // Create OperationContext with remediation deletion flag
+    io.datahubproject.metadata.context.ValidationContext validationContext =
+        mock(io.datahubproject.metadata.context.ValidationContext.class);
+    when(validationContext.isRemediationDeletion()).thenReturn(true);
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getValidationContext()).thenReturn(validationContext);
+
+    String metadata = generateLargeMetadata(1000); // Way over 100 byte threshold
+
+    // Should NOT throw - validation is skipped for remediation deletions
+    validator.validatePrePatch(metadata, urn, STATUS_ASPECT_NAME, opContext);
+
+    // Should not add deletion requests (validation was skipped)
+    verify(opContext, never()).addPendingDeletion(any());
+  }
+
   private AspectSizeValidationConfiguration createPrePatchConfig(long maxSize) {
     return createPrePatchConfig(maxSize, OversizedAspectRemediation.IGNORE);
   }
