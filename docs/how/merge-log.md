@@ -3111,3 +3111,76 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **79e9bbaa9a** - docs: Tiny fix, platform Window -> Windows. (#15849)
   *by Brett Randall <javabrett@gmail.com> on 2026-01-13*
+
+## Upstream Merge Session - 2026-01-16 14:40:44
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 20
+- **Strategy**: stacked
+- **Started**: 2026-01-16 14:40:44
+
+### Commits Included in This Merge
+
+- **ed9adccb68** - feat(cli) support extra-pip & extra-env options in config file (#15800)
+  *by Hugo Hobson <huh@trustpilot.com> on 2026-01-12*
+
+- **78d2d95ac8** - fix(ingest/hive): upgrade to acryl-pyhive 0.6.17 to fix "HTTPMessage object has no attribute pop" (#15737)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-01-12*
+
+- **616efdac31** - feat(ui): Add pagination and search support to role selector (#15858)
+  *by Pedro Silva <pedro@acryl.io> on 2026-01-12*
+
+- **2da659b556** - fix(ui): Improve More filters UX (#15794)
+  *by Saketh Varma <sakethvarma397@gmail.com> on 2026-01-13*
+
+- **c0fbb17867** - fix(ui): Adding a fallback icon for failed images on Lineage cards (#15539)
+  *by Saketh Varma <sakethvarma397@gmail.com> on 2026-01-13*
+
+- **529b87991e** - feat(ingest): Retry more often on 429 for rate limiting (#15862)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-01-12*
+
+- **01dd777c88** - feat(ingestion): Add recording and replay system for debugging ingestion runs (#15480)
+  *by Sergio Gómez Villamor <sgomezvillamor@gmail.com> on 2026-01-13*
+
+- **cec67d6a10** - fix(ingest/db2): the ibm_db package is not installable on Linux ARM (#15859)
+  *by Michael Maltese <michael.maltese@datahub.com> on 2026-01-13*
+
+- **42fbb82db7** - fix(ingestion): handle oversized viewProperties and check all aspect types (#15819)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-01-13*
+
+- **ea9dc81f3d** - Add devashish2203 to Team members list (#15873)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-01-14*
+
+- **c2ab07d0f1** - chore(docs): Added notes for 0.3.15.5 release (#15874)
+  *by skrydal <piotr.skrydalewicz@gmail.com> on 2026-01-14*
+
+- **48ad0b4356** - fix(ingestion): Ensure minimal version of pyiceberg dependency (#15878)
+  *by skrydal <piotr.skrydalewicz@gmail.com> on 2026-01-14*
+
+- **17c3f898eb** - fix(ingest/powerbi): strip Athena catalog prefix from ODBC column lineage URNs (#15746)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-01-14*
+
+- **3c010fbed7** - fix(ingest/airflow): emit DataFlow from task handler in Airflow 3 distributed deployments (#15875)
+  *by Tamas Nemeth <treff7es@gmail.com> on 2026-01-15*
+
+- **3888a3d92b** - fix(openlineage): Handle null fields in Trino OpenLineage COMPLETE events (#15867)
+  *by Alfiya S <alfiya.samiulla@datahub.com> on 2026-01-15*
+
+- **df37eb578c** - feat(ldap): add tls_verify config option to enable TLS certificate validation (#15877)
+  *by Alfiya S <alfiya.samiulla@datahub.com> on 2026-01-15*
+
+- **b1c3b8e930** - fix(ingestion/dagster): derive Dagster job URL from location_name (#15864)
+  *by Aviraj Gour <aviraj.gour@datahub.com> on 2026-01-15*
+
+- **02723318e2** - feat(sql-parsing): resolve TSQL UPDATE/DELETE alias to real table at parser level (#15863)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-01-15*
+
+- **73c304d587** - refactor: Update Google Analytics tracking ID (#15889)
+  *by Gray Ayer <grayayer@gmail.com> on 2026-01-15*
+
+- **e86783d01d** - feat(ingestion/deps): add upper bounds to dependency versions in setup.py (#15813)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-01-15*
