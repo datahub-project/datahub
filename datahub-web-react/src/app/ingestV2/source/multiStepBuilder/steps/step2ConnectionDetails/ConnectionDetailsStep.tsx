@@ -10,7 +10,7 @@ import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConne
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import { INGESTION_TYPE_ERROR } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
-import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvansedSection';
+import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
