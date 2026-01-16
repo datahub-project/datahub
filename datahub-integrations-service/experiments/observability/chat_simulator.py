@@ -121,35 +121,63 @@ LATENCY_BUCKETS = (
     180.0,
 )
 
-# Overall request-response latency (user question -> full answer)
-chat_request_latency = Histogram(
-    METRIC_CHAT_REQUEST_DURATION,
-    "Latency of chat requests from question to full response",
-    buckets=LATENCY_BUCKETS,
-)
+# Lazy initialization of metrics to avoid duplicate registration errors
+# when module is imported multiple times (e.g., in Streamlit)
+_metrics_initialized = False
+chat_request_latency = None
+llm_call_latency = None
+tool_call_latency = None
+chat_messages_total = None
 
-# LLM call latency (per LLM invocation)
-llm_call_latency = Histogram(
-    METRIC_LLM_CALL_DURATION,
-    "Latency of individual LLM calls",
-    [LABEL_MODEL],
-    buckets=LATENCY_BUCKETS,
-)
 
-# Tool call latency (per tool execution)
-tool_call_latency = Histogram(
-    METRIC_TOOL_CALL_DURATION,
-    "Latency of individual tool calls",
-    [LABEL_TOOL_NAME],
-    buckets=LATENCY_BUCKETS,
-)
+def _init_metrics():
+    """Initialize Prometheus metrics (idempotent)."""
+    global \
+        _metrics_initialized, \
+        chat_request_latency, \
+        llm_call_latency, \
+        tool_call_latency, \
+        chat_messages_total
 
-# Message counts
-chat_messages_total = Counter(
-    METRIC_CHAT_MESSAGES_TOTAL,
-    "Total number of chat messages sent",
-    [LABEL_STATUS],
-)
+    if _metrics_initialized:
+        return
+
+    try:
+        # Overall request-response latency (user question -> full answer)
+        chat_request_latency = Histogram(
+            METRIC_CHAT_REQUEST_DURATION,
+            "Latency of chat requests from question to full response",
+            buckets=LATENCY_BUCKETS,
+        )
+
+        # LLM call latency (per LLM invocation)
+        llm_call_latency = Histogram(
+            METRIC_LLM_CALL_DURATION,
+            "Latency of individual LLM calls",
+            [LABEL_MODEL],
+            buckets=LATENCY_BUCKETS,
+        )
+
+        # Tool call latency (per tool execution)
+        tool_call_latency = Histogram(
+            METRIC_TOOL_CALL_DURATION,
+            "Latency of individual tool calls",
+            [LABEL_TOOL_NAME],
+            buckets=LATENCY_BUCKETS,
+        )
+
+        # Message counts
+        chat_messages_total = Counter(
+            METRIC_CHAT_MESSAGES_TOTAL,
+            "Total number of chat messages sent",
+            [LABEL_STATUS],
+        )
+
+        _metrics_initialized = True
+    except ValueError as e:
+        # Metrics already registered - this is fine in Streamlit reloads
+        logger.debug(f"Metrics already registered (expected in Streamlit): {e}")
+        _metrics_initialized = True
 
 
 # =============================================================================
@@ -187,6 +215,7 @@ class DataHubSketch:
     top_dashboards: list[dict[str, Any]]
     sample_tags: list[str]
     sample_glossary_terms: list[str]
+    sample_domains: list[str] | None = None
 
     def to_context_string(self) -> str:
         """Convert sketch to context string for Anthropic."""
@@ -227,6 +256,10 @@ class DataHubSketch:
             context += (
                 f"\nGlossary Terms: {', '.join(self.sample_glossary_terms[:10])}\n"
             )
+
+        # Domains
+        if self.sample_domains:
+            context += f"\nDomains: {', '.join(self.sample_domains[:10])}\n"
 
         return context
 
@@ -313,28 +346,183 @@ class DataHubSketcher:
         return counts
 
     def get_platforms(self) -> list[str]:
-        """Get list of data platforms."""
-        result = self.search_entities("dataset", query="*", count=100)
+        """Get list of data platforms using GraphQL faceted aggregation."""
+        # Use the same approach as the frontend - aggregateAcrossEntities with platform facets
+        url = f"{self.gms_url}/api/graphql"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
+        # GraphQL query for platform aggregations
+        query = """
+        query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
+            aggregateAcrossEntities(input: $input) {
+                facets {
+                    field
+                    aggregations {
+                        value
+                        count
+                    }
+                }
+            }
+        }
+        """
+
+        variables = {
+            "input": {
+                "query": "*",
+                "facets": ["platform"],
+                "searchFlags": {"maxAggValues": 100},
+            }
+        }
+
+        try:
+            response = self.client.post(
+                url, json={"query": query, "variables": variables}, headers=headers
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            platforms = set()
+            facets = (
+                data.get("data", {})
+                .get("aggregateAcrossEntities", {})
+                .get("facets", [])
+            )
+
+            for facet in facets:
+                if facet.get("field") == "platform":
+                    for agg in facet.get("aggregations", []):
+                        platform_urn = agg.get("value")
+                        count = agg.get("count", 0)
+
+                        # Extract platform name from URN: urn:li:dataPlatform:snowflake -> snowflake
+                        if platform_urn and count > 0:
+                            if platform_urn.startswith("urn:li:dataPlatform:"):
+                                platform_name = platform_urn.split(
+                                    "urn:li:dataPlatform:"
+                                )[-1]
+                                # Skip "None" platform
+                                if platform_name != "None":
+                                    platforms.add(platform_name)
+
+            return sorted(list(platforms))
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to get platforms via GraphQL, falling back to search: {e}"
+            )
+            # Fallback to old method if GraphQL fails
+            return self._get_platforms_fallback()
+
+    def _get_platforms_fallback(self) -> list[str]:
+        """Fallback method to get platforms by sampling."""
+        result = self.search_entities("dataset", query="*", count=1000)
         platforms = set()
 
         for entity in result.get("value", {}).get("entities", []):
             urn = entity.get("entity")
-            if isinstance(urn, str) and urn.startswith("urn:li:dataset:"):
-                # Parse dataset URN: urn:li:dataset:(urn:li:dataPlatform:platform,name,env)
+            if isinstance(urn, str) and "dataPlatform:" in urn:
                 try:
-                    # Extract platform from URN
-                    # Format: urn:li:dataset:(urn:li:dataPlatform:bigquery,...)
                     platform_part = urn.split("(")[1].split(",")[0]
-                    if "dataPlatform:" in platform_part:
-                        platform = platform_part.split("dataPlatform:")[-1]
+                    platform = platform_part.split("dataPlatform:")[-1]
+                    if platform != "None":
                         platforms.add(platform)
                 except Exception:
                     pass
 
         return sorted(list(platforms))
 
-    def get_top_datasets(self, count: int = 20) -> list[dict]:
+    def _get_facet_aggregations(
+        self,
+        facets: list[str],
+        max_values: int = 1000,
+        entity_types: list[str] | None = None,
+    ) -> list[dict]:
+        """
+        Get faceted aggregations using GraphQL.
+
+        Args:
+            facets: List of facet fields to aggregate (e.g., ["tags", "glossaryTerms", "domains"])
+            max_values: Maximum number of values per facet
+            entity_types: Optional list of entity types to filter by
+
+        Returns:
+            List of facet dictionaries with aggregations
+        """
+        url = f"{self.gms_url}/api/graphql"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
+        query = """
+        query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
+            aggregateAcrossEntities(input: $input) {
+                facets {
+                    field
+                    aggregations {
+                        value
+                        count
+                        entity {
+                            urn
+                            type
+                            ... on Tag {
+                                name
+                                properties {
+                                    name
+                                }
+                            }
+                            ... on GlossaryTerm {
+                                name
+                                properties {
+                                    name
+                                }
+                            }
+                            ... on Domain {
+                                properties {
+                                    name
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        variables: dict = {
+            "input": {
+                "query": "*",
+                "facets": facets,
+                "searchFlags": {"maxAggValues": max_values},
+            }
+        }
+
+        if entity_types:
+            variables["input"]["types"] = entity_types
+
+        try:
+            response = self.client.post(
+                url, json={"query": query, "variables": variables}, headers=headers
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            return (
+                data.get("data", {})
+                .get("aggregateAcrossEntities", {})
+                .get("facets", [])
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to get facet aggregations: {e}")
+            return []
+
+    def get_top_datasets(self, count: int = 100) -> list[dict]:
         """Get top datasets with metadata."""
+        # Increased default to 100 to get better variety across platforms
         result = self.search_entities("dataset", query="*", count=count)
         datasets = []
 
@@ -347,9 +535,11 @@ class DataHubSketcher:
                     if len(parts) >= 2:
                         platform_part = parts[0].split(":")[-1]
                         name = parts[1]
-                        datasets.append(
-                            {"urn": urn, "platform": platform_part, "name": name}
-                        )
+                        # Skip "None" platform datasets for better context
+                        if platform_part != "None":
+                            datasets.append(
+                                {"urn": urn, "platform": platform_part, "name": name}
+                            )
                 except Exception:
                     pass
 
@@ -373,32 +563,91 @@ class DataHubSketcher:
 
         return dashboards
 
-    def get_sample_tags(self, count: int = 20) -> list[str]:
-        """Get sample tags."""
+    def get_sample_tags(self, count: int = 100) -> list[str]:
+        """Get sample tags using search API (facets limited to 20)."""
+        # Note: Facet aggregations have a backend hard limit of 20
+        # Use search API instead to get all tags
         result = self.search_entities("tag", query="*", count=count)
         tags = []
 
         for entity in result.get("value", {}).get("entities", []):
             urn = entity.get("entity")
             if isinstance(urn, str) and urn.startswith("urn:li:tag:"):
-                tag_name = urn.split(":")[-1]
+                tag_name = urn.split("urn:li:tag:")[-1]
                 tags.append(tag_name)
 
         return tags
 
-    def get_sample_glossary_terms(self, count: int = 20) -> list[str]:
-        """Get sample glossary terms."""
+    def get_sample_glossary_terms(self, count: int = 100) -> list[str]:
+        """Get sample glossary terms using search API (facets limited to 20)."""
+        # Note: Facet aggregations have a backend hard limit of 20
+        # Use search API instead to get all glossary terms
         result = self.search_entities("glossaryTerm", query="*", count=count)
         terms = []
 
         for entity in result.get("value", {}).get("entities", []):
             urn = entity.get("entity")
-            if isinstance(urn, str):
+            if isinstance(urn, str) and urn.startswith("urn:li:glossaryTerm:"):
                 # Extract term name from URN
-                term_name = urn.split(".")[-1] if "." in urn else urn.split(":")[-1]
+                term_name = urn.split("urn:li:glossaryTerm:")[-1]
                 terms.append(term_name)
 
         return terms
+
+    def get_sample_domains(self, count: int = 100) -> list[str]:
+        """Get sample domains using GraphQL listDomains query."""
+        url = f"{self.gms_url}/api/graphql"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
+        # GraphQL query to list domains (same as frontend)
+        query = """
+        query listDomains($input: ListDomainsInput!) {
+            listDomains(input: $input) {
+                start
+                count
+                total
+                domains {
+                    urn
+                    type
+                    properties {
+                        name
+                        description
+                    }
+                }
+            }
+        }
+        """
+
+        variables = {
+            "input": {
+                "start": 0,
+                "count": count,
+            }
+        }
+
+        try:
+            response = self.client.post(
+                url, json={"query": query, "variables": variables}, headers=headers
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            domains = []
+            domain_list = data.get("data", {}).get("listDomains", {}).get("domains", [])
+
+            for domain in domain_list:
+                domain_name = domain.get("properties", {}).get("name")
+                if domain_name:
+                    domains.append(domain_name)
+
+            return domains
+
+        except Exception as e:
+            logger.warning(f"Failed to get domains via GraphQL: {e}")
+            return []
 
     def create_sketch(self) -> DataHubSketch:
         """Create complete sketch of DataHub instance."""
@@ -411,6 +660,7 @@ class DataHubSketcher:
             top_dashboards=self.get_top_dashboards(),
             sample_tags=self.get_sample_tags(),
             sample_glossary_terms=self.get_sample_glossary_terms(),
+            sample_domains=self.get_sample_domains(),
         )
 
         logger.info(
@@ -454,6 +704,15 @@ class ConversationGenerator:
             return response_body["content"][0]["text"].strip()
 
         except Exception as e:
+            error_msg = str(e)
+
+            # Check if it's an SSO token expiry error
+            if "Token has expired" in error_msg or "TokenRetrievalError" in error_msg:
+                logger.error(f"AWS SSO token expired: {e}")
+                raise RuntimeError(
+                    "AWS SSO token has expired. Please run: aws sso login --profile <your-profile>"
+                ) from e
+
             logger.error(f"Bedrock invocation failed: {e}")
             raise
 
@@ -477,60 +736,98 @@ Examples of good questions:
 
 Return ONLY the question text, nothing else."""
 
-        try:
-            question = self._invoke_bedrock(prompt, max_tokens=200)
-            return question
-        except Exception as e:
-            logger.error(f"Failed to generate question: {e}")
-            # Fallback to generic question
-            return "What datasets are available?"
+        # No fallback - fail hard so we can see errors
+        question = self._invoke_bedrock(prompt, max_tokens=200)
+        return question
 
     def generate_followup_question(self, conversation_history: list[dict]) -> str:
         """Generate a follow-up question based on conversation history."""
-        # Build conversation context
+        # Filter to only user and assistant messages (skip tool calls, reasoning, etc.)
+        relevant_messages = [
+            msg
+            for msg in conversation_history
+            if msg.get("role") in ["user", "assistant"]
+        ]
+
+        # Use more context - last 10 messages or all if less (5 Q&A pairs)
+        recent_messages = relevant_messages[-10:]
+
+        # Build conversation context with cleaner formatting
+        # Limit message length to avoid overwhelming the prompt
         conversation_text = "\n".join(
             [
-                f"{msg['role'].upper()}: {msg['content']}"
-                for msg in conversation_history[-4:]  # Last 4 messages for context
+                f"{'USER' if msg['role'] == 'user' else 'ASSISTANT'}: {msg['content'][:500]}"
+                for msg in recent_messages
             ]
         )
 
-        prompt = f"""You are a data analyst having a conversation with a DataHub AI assistant. Based on the conversation history, generate a natural follow-up question.
+        # Count Q&A pairs for context
+        question_count = len([m for m in relevant_messages if m.get("role") == "user"])
+
+        prompt = f"""You are a data analyst having a conversation with a DataHub AI assistant. Based on the conversation history below, generate a natural follow-up question.
 
 DataHub Instance Context:
 {self.context_string}
 
-Recent Conversation:
+Conversation History ({question_count} questions asked so far):
 {conversation_text}
 
 Generate ONE realistic follow-up question that:
-- Builds on the previous conversation
-- Digs deeper or explores related areas
-- Is specific and actionable
-- Sounds natural and conversational
+- Builds naturally on the previous conversation
+- Explores a related aspect or digs deeper into what was discussed
+- References specific entities, platforms, or concepts mentioned earlier
+- Is specific and actionable (not vague like "tell me more")
+- Sounds conversational and natural
+
+Good follow-up patterns:
+- After getting a list: "Can you show me the lineage for [specific item from the list]?"
+- After seeing metrics: "How does this compare to [related metric/entity]?"
+- After exploring one domain: "What about datasets in the [different domain] domain?"
+- After one platform: "Are there similar tables in [different platform]?"
 
 Return ONLY the question text, nothing else."""
 
-        try:
-            question = self._invoke_bedrock(prompt, max_tokens=200)
-            return question
-        except Exception as e:
-            logger.error(f"Failed to generate follow-up: {e}")
-            # Fallback to related question
-            return "Tell me more about that"
+        # No fallback - fail hard so we can see errors
+        question = self._invoke_bedrock(prompt, max_tokens=200)
+        return question
 
 
 class ChatClient:
-    """Client for sending messages to DataHub chat API."""
+    """Client for sending messages to DataHub chat API.
+
+    Returns ChatHistory object with rich message types including:
+    - HumanMessage: User messages
+    - AssistantMessage: Bot responses
+    - ReasoningMessage: Internal thinking
+    - ToolCallRequest: Tool call requests
+    - ToolResult: Tool execution results
+    """
 
     def __init__(self, service_url: str, token: str):
         self.service_url = service_url
         self.token = token
 
-    def send_message(
+    def send_message_stream(
         self, message: str, conversation_urn: str, user_urn: str, timeout: int = 60
-    ) -> dict:
-        """Send a chat message and get response."""
+    ):
+        """Send a chat message and stream events as they arrive.
+
+        Yields:
+            dict with:
+                - event_type: str ("message", "complete", "error")
+                - message: ChatHistory message object (if event_type == "message")
+                - history: ChatHistory (if event_type == "complete")
+                - error: str (if event_type == "error")
+                - duration: float (if event_type == "complete")
+                - event_count: int (if event_type == "complete")
+        """
+        from datahub_integrations.chat.chat_history import (
+            AssistantMessage,
+            ChatHistory,
+            HumanMessage,
+            ReasoningMessage,
+        )
+
         url = f"{self.service_url}/private/api/chat/message"
         headers = {
             "Content-Type": "application/json",
@@ -544,9 +841,145 @@ class ChatClient:
         }
 
         start_time = time.time()
-        response_text = ""
+        history = ChatHistory()
         event_count = 0
         error = None
+
+        try:
+            with httpx.Client(timeout=timeout) as client:
+                with client.stream(
+                    "POST", url, headers=headers, json=payload
+                ) as response:
+                    response.raise_for_status()
+
+                    # Process SSE stream and yield events in real-time
+                    for line in response.iter_lines():
+                        if not line or line.startswith(":"):
+                            continue
+
+                        if line.startswith("event:"):
+                            event_count += 1
+                        elif line.startswith("data:"):
+                            data_str = line.split(":", 1)[1].strip()
+                            try:
+                                data = json.loads(data_str)
+
+                                # Check for error
+                                if "error" in data:
+                                    error = data["error"]
+                                    yield {"event_type": "error", "error": error}
+                                    continue
+
+                                # Check for completion event
+                                if "conversation_urn" in data and "message" not in data:
+                                    continue
+
+                                # Parse message
+                                if "message" not in data:
+                                    continue
+
+                                msg = data["message"]
+                                msg_type = data.get(
+                                    "message_type", msg.get("type", "TEXT")
+                                )
+                                content = msg.get("content", {})
+                                text = content.get("text", "")
+                                actor = msg.get("actor", {})
+                                actor_type = actor.get("type", "AGENT")
+
+                                # Map message types to ChatHistory message classes
+                                new_message = None
+                                if msg_type == "TEXT":
+                                    if actor_type == "USER":
+                                        new_message = HumanMessage(text=text)
+                                    else:
+                                        new_message = AssistantMessage(text=text)
+
+                                elif msg_type == "THINKING":
+                                    new_message = ReasoningMessage(text=text)
+
+                                elif msg_type == "TOOL_CALL":
+                                    new_message = ReasoningMessage(
+                                        text=f"[Tool Call] {text}"
+                                    )
+
+                                elif msg_type == "TOOL_RESULT":
+                                    new_message = ReasoningMessage(
+                                        text=f"[Tool Result] {text}"
+                                    )
+
+                                if new_message:
+                                    history.add_message(new_message)
+                                    # Yield the new message immediately with original message_type
+                                    yield {
+                                        "event_type": "message",
+                                        "message": new_message,
+                                        "message_type": msg_type,  # Preserve original type
+                                        "message_data": data["message"],  # Preserve original data
+                                    }
+
+                            except json.JSONDecodeError:
+                                continue
+
+            # Stream complete
+            duration = time.time() - start_time
+            yield {
+                "event_type": "complete",
+                "history": history,
+                "duration": duration,
+                "event_count": event_count,
+                "success": error is None,
+                "error": error,
+            }
+
+        except Exception as e:
+            duration = time.time() - start_time
+            error_msg = str(e)
+            yield {
+                "event_type": "error",
+                "error": error_msg,
+                "duration": duration,
+                "event_count": event_count,
+            }
+
+    def send_message(
+        self, message: str, conversation_urn: str, user_urn: str, timeout: int = 60
+    ) -> dict:
+        """Send a chat message and get response with full ChatHistory.
+
+        Returns:
+            dict with:
+                - history: ChatHistory object with all messages
+                - success: bool indicating if request succeeded
+                - duration: float time in seconds
+                - event_count: int number of SSE events
+                - error: Optional[str] error message if failed
+        """
+        # Import here to avoid circular dependency issues
+        from datahub_integrations.chat.chat_history import (
+            AssistantMessage,
+            ChatHistory,
+            HumanMessage,
+            ReasoningMessage,
+        )
+
+        url = f"{self.service_url}/private/api/chat/message"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+        payload = {
+            "text": message,
+            "conversation_urn": conversation_urn,
+            "user_urn": user_urn,
+            "agent_name": "DataCatalogExplorer",
+        }
+
+        start_time = time.time()
+        history = ChatHistory()
+        event_count = 0
+        error = None
+        last_assistant_text = ""  # Track last assistant response for legacy compat
 
         try:
             with httpx.Client(timeout=timeout) as client:
@@ -566,13 +999,63 @@ class ChatClient:
                             data_str = line.split(":", 1)[1].strip()
                             try:
                                 data = json.loads(data_str)
-                                if "message" in data and "content" in data["message"]:
-                                    text = data["message"]["content"].get("text", "")
-                                    if text:
-                                        response_text += text
-                                elif "error" in data:
+
+                                # Check for error
+                                if "error" in data:
                                     error = data["error"]
+                                    continue
+
+                                # Check for completion event
+                                if "conversation_urn" in data and "message" not in data:
+                                    # This is the completion event
+                                    continue
+
+                                # Parse message
+                                if "message" not in data:
+                                    continue
+
+                                msg = data["message"]
+                                msg_type = data.get(
+                                    "message_type", msg.get("type", "TEXT")
+                                )
+                                content = msg.get("content", {})
+                                text = content.get("text", "")
+                                actor = msg.get("actor", {})
+                                actor_type = actor.get("type", "AGENT")
+
+                                # Map message types to ChatHistory message classes
+                                if msg_type == "TEXT":
+                                    if actor_type == "USER":
+                                        history.add_message(HumanMessage(text=text))
+                                    else:
+                                        history.add_message(AssistantMessage(text=text))
+                                        last_assistant_text = text
+
+                                elif msg_type == "THINKING":
+                                    history.add_message(ReasoningMessage(text=text))
+
+                                elif msg_type == "TOOL_CALL":
+                                    # For now, store tool calls as reasoning messages
+                                    # TODO: Parse into proper ToolCallRequest objects
+                                    history.add_message(
+                                        ReasoningMessage(text=f"[Tool Call] {text}")
+                                    )
+
+                                elif msg_type == "TOOL_RESULT":
+                                    # For now, store tool results as reasoning messages
+                                    # TODO: Parse into proper ToolResult objects
+                                    history.add_message(
+                                        ReasoningMessage(text=f"[Tool Result] {text}")
+                                    )
+
+                                elif msg_type == "KEEPALIVE":
+                                    # Ignore keepalive messages
+                                    pass
+
                             except json.JSONDecodeError:
+                                logger.debug(
+                                    f"Failed to parse SSE data: {data_str[:100]}"
+                                )
                                 pass
 
         except httpx.HTTPStatusError as e:
@@ -585,7 +1068,8 @@ class ChatClient:
         return {
             "success": error is None,
             "duration": duration,
-            "response": response_text,
+            "history": history,
+            "response": last_assistant_text,  # Legacy field for backward compat
             "event_count": event_count,
             "error": error,
         }
@@ -775,6 +1259,9 @@ def run_traffic_generation(
     log_file: str | None = None,
 ) -> None:
     """Run the traffic generation."""
+
+    # Initialize Prometheus metrics (needed for CLI mode)
+    _init_metrics()
 
     # Initialize conversation log database
     if not log_file:

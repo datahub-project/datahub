@@ -1,0 +1,252 @@
+"""
+API Dependencies - Shared dependencies for FastAPI routes.
+
+Provides dependency injection for chat engine, config, and other shared resources.
+"""
+
+from typing import Optional
+
+from fastapi import Depends, HTTPException, Header
+from loguru import logger
+
+# Import from parent directory
+import sys
+from pathlib import Path
+
+parent_dir = Path(__file__).parent.parent.parent.parent
+if str(parent_dir) not in sys.path:
+    sys.path.insert(0, str(parent_dir))
+
+from connection_manager import ConnectionConfig, ConnectionManager, ConnectionMode
+
+# Add backend directory to path for core imports
+backend_dir = Path(__file__).parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from core.chat_engine import ChatEngine
+
+# Global instances
+_chat_engine: Optional[ChatEngine] = None
+_connection_manager: Optional[ConnectionManager] = None
+_config: Optional[ConnectionConfig] = None
+_integrations_service: Optional[dict] = None  # Store service process info
+
+
+def get_connection_manager() -> ConnectionManager:
+    """
+    Get or create the connection manager singleton.
+
+    Returns:
+        ConnectionManager instance
+    """
+    global _connection_manager
+
+    if _connection_manager is None:
+        _connection_manager = ConnectionManager()
+        logger.info("Created ConnectionManager singleton")
+
+    return _connection_manager
+
+
+def get_config(
+    manager: ConnectionManager = Depends(get_connection_manager),
+) -> ConnectionConfig:
+    """
+    Get the current connection configuration.
+
+    Always reloads from disk to pick up token updates from other processes.
+
+    Args:
+        manager: ConnectionManager instance (injected)
+
+    Returns:
+        Current ConnectionConfig
+    """
+    global _config
+
+    # Always reload from disk to pick up config changes (e.g., token updates from port 8001)
+    _config = manager.load_active_config()
+    logger.debug(f"Reloaded connection config with mode: {_config.mode}")
+
+    return _config
+
+
+def get_chat_engine(config: ConnectionConfig = Depends(get_config)) -> ChatEngine:
+    """
+    Get or create the chat engine singleton.
+
+    Updates the engine's config on every request to pick up token changes.
+
+    Args:
+        config: ConnectionConfig instance (injected, reloaded from disk)
+
+    Returns:
+        ChatEngine instance
+    """
+    global _chat_engine
+
+    if _chat_engine is None:
+        _chat_engine = ChatEngine(config)
+        logger.info("Created ChatEngine singleton")
+    else:
+        # Update config if it has changed (e.g., token was regenerated)
+        if _chat_engine.config.gms_token != config.gms_token:
+            logger.info("Token changed, updating ChatEngine config")
+            _chat_engine.update_config(config)
+
+    return _chat_engine
+
+
+def update_chat_engine_config(config: ConnectionConfig) -> None:
+    """
+    Update the global chat engine configuration.
+
+    Args:
+        config: New configuration
+    """
+    global _chat_engine, _config
+
+    _config = config
+
+    if _chat_engine is not None:
+        _chat_engine.update_config(config)
+        logger.info(f"Updated chat engine config to mode: {config.mode}")
+
+
+def verify_api_key(x_api_key: Optional[str] = Header(None)) -> None:
+    """
+    Verify API key (optional - for future authentication).
+
+    Args:
+        x_api_key: API key from header
+
+    Raises:
+        HTTPException: If API key is invalid
+    """
+    # For now, we don't require API key authentication
+    # This is a placeholder for future security enhancements
+    pass
+
+
+def get_conversation_or_404(
+    conv_id: str, engine: ChatEngine = Depends(get_chat_engine)
+):
+    """
+    Get a conversation or raise 404.
+
+    Args:
+        conv_id: Conversation ID
+        engine: ChatEngine instance (injected)
+
+    Returns:
+        Conversation object
+
+    Raises:
+        HTTPException: If conversation not found
+    """
+    conv = engine.get_conversation(conv_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail=f"Conversation {conv_id} not found")
+    return conv
+
+
+def ensure_integrations_service(config: ConnectionConfig) -> dict:
+    """
+    Auto-start integrations service on port 9003 if not running.
+
+    Args:
+        config: Connection configuration
+
+    Returns:
+        Service status dict
+    """
+    global _integrations_service
+
+    # Only auto-start for local_service mode
+    if config.mode != ConnectionMode.LOCAL_SERVICE:
+        return {"status": "not_needed", "mode": config.mode.value}
+
+    # Import the manager
+    from local_integrations_manager import LocalIntegrationsManager, IntegrationsServiceConfig, ServiceStatus
+
+    try:
+        manager = LocalIntegrationsManager()
+
+        # Check if we already started a service with this config
+        if _integrations_service is not None:
+            stored_config = _integrations_service.get("config")
+
+            # Verify config hasn't changed
+            if stored_config and (
+                stored_config.gms_url == config.gms_url
+                and stored_config.gms_token == config.gms_token
+                and stored_config.aws_region == config.aws_region
+                and stored_config.aws_profile == config.aws_profile
+            ):
+                logger.debug("Integrations service already running with correct config")
+                return {"status": "running", "port": 9003}
+            else:
+                # Config changed - restart service
+                logger.info("Config changed, restarting integrations service...")
+                try:
+                    process = _integrations_service["process"]
+                    manager.stop_service(process)
+                except Exception as e:
+                    logger.warning(f"Failed to stop old service: {e}")
+                _integrations_service = None
+
+        # Check if service already running on 9003 (started externally)
+        if manager.get_service_status(9003) == ServiceStatus.RUNNING:
+            logger.warning(
+                "Integrations service already running on port 9003 (started externally). "
+                "Using existing service - config may not match!"
+            )
+            return {"status": "running", "port": 9003, "external": True}
+
+        # Start service on port 9003
+        logger.info("Auto-starting integrations service on port 9003...")
+
+        if not config.gms_url or not config.gms_token:
+            return {"status": "error", "error": "Missing GMS URL or token"}
+
+        service_config = IntegrationsServiceConfig(
+            gms_url=config.gms_url,
+            gms_token=config.gms_token,
+            service_port=9003,
+            aws_region=config.aws_region,
+            aws_profile=config.aws_profile,
+        )
+
+        service_process = manager.start_service(service_config, wait_for_ready=True)
+
+        # Store for cleanup later with config for comparison
+        _integrations_service = {
+            "process": service_process,
+            "manager": manager,
+            "config": service_config,
+        }
+
+        logger.success(f"✓ Integrations service started (PID: {service_process.pid})")
+        return {"status": "started", "port": 9003}
+
+    except Exception as e:
+        logger.error(f"Failed to start integrations service: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+def cleanup_integrations_service():
+    """Clean up integrations service on shutdown."""
+    global _integrations_service
+
+    if _integrations_service is not None:
+        logger.info("Cleaning up integrations service...")
+        try:
+            manager = _integrations_service["manager"]
+            process = _integrations_service["process"]
+            manager.stop_service(process)
+            logger.success("✓ Integrations service cleaned up")
+        except Exception as e:
+            logger.error(f"Error cleaning up service: {e}")
+        finally:
+            _integrations_service = None

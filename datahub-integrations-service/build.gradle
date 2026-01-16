@@ -240,3 +240,30 @@ docker {
     buildArgs(dockerBuildArgs)
 }
 
+// Chat Admin tasks
+def chatAdminFrontendDir = "experiments/observability/chat-ui-web/frontend"
+def chatAdminBackendDir = "experiments/observability/chat-ui-web/backend"
+
+task chatAdminInstall(type: Exec) {
+    workingDir chatAdminFrontendDir
+    commandLine 'npm', 'install'
+}
+
+task chatAdminBuild(type: Exec, dependsOn: chatAdminInstall) {
+    workingDir chatAdminFrontendDir
+    commandLine 'npm', 'run', 'build'
+}
+
+task chatAdminServe(type: Exec, dependsOn: [installDev, chatAdminBuild]) {
+    workingDir chatAdminBackendDir
+    commandLine 'bash', '-c',
+        "set +x && source ../../../../${venv_name}/bin/activate && set -x && " +
+        "uvicorn api.main:app --host 0.0.0.0 --port 8765 --reload"
+}
+
+task chatAdminDev(type: Exec, dependsOn: installDev) {
+    workingDir chatAdminFrontendDir
+    commandLine 'bash', '-c',
+        "npm install && npm run dev"
+}
+
