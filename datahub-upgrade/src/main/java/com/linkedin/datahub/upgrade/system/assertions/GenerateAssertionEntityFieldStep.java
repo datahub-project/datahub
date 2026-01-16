@@ -46,4 +46,18 @@ public class GenerateAssertionEntityFieldStep extends AbstractMCPStep {
   public String getUrnLike() {
     return "urn:li:" + ASSERTION_ENTITY_NAME + ":%";
   }
+
+  /**
+   * Continue processing when validation fails.
+   *
+   * <p>Legacy assertion data may fail validation (e.g., missing entityUrn that AssertionInfoMutator
+   * would normally populate). Since this step's purpose is to trigger the mutator to fix such
+   * issues, we continue processing even when validation fails. Assertions that cannot be fixed will
+   * be logged and can be cleaned up separately.
+   */
+  @VisibleForTesting
+  @Override
+  public boolean continueOnValidationFailure() {
+    return true;
+  }
 }

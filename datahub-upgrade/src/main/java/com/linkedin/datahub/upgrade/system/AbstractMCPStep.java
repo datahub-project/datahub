@@ -14,6 +14,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -27,6 +28,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -81,6 +83,22 @@ public abstract class AbstractMCPStep implements UpgradeStep {
   @Nullable
   public abstract String getUrnLike();
 
+  /**
+   * Whether to continue processing subsequent batches when validation fails for a batch.
+   *
+   * <p>Override to return {@code true} in subclasses that need to continue processing even when
+   * some batches fail validation. This is useful for upgrade steps that process legacy data which
+   * may have validation issues that cannot be fixed by mutation hooks.
+   *
+   * <p>When {@code true}, validation failures are logged as errors but processing continues.
+   *
+   * @return {@code false} by default (fail fast on validation errors)
+   */
+  @VisibleForTesting
+  public boolean continueOnValidationFailure() {
+    return false;
+  }
+
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     log.info("Starting {}", id());
@@ -124,42 +142,62 @@ public abstract class AbstractMCPStep implements UpgradeStep {
                       String.join(",", getAspectNames()),
                       batchSize);
 
-                  AspectsBatch aspectsBatch =
-                      AspectsBatchImpl.builder()
-                          .retrieverContext(opContext.getRetrieverContext())
-                          .items(
-                              batch
-                                  .<SystemAspect>flatMap(
-                                      ebeanAspectV2 ->
-                                          EntityUtils.toSystemAspectFromEbeanAspects(
-                                              opContext.getRetrieverContext(),
-                                              Set.of(ebeanAspectV2))
-                                              .stream())
-                                  .map(
-                                      systemAspect ->
-                                          ChangeItemImpl.builder()
-                                              .changeType(ChangeType.UPSERT)
-                                              .urn(systemAspect.getUrn())
-                                              .entitySpec(systemAspect.getEntitySpec())
-                                              .aspectName(systemAspect.getAspectName())
-                                              .aspectSpec(systemAspect.getAspectSpec())
-                                              .recordTemplate(systemAspect.getRecordTemplate())
-                                              .auditStamp(systemAspect.getAuditStamp())
-                                              .systemMetadata(
-                                                  withAppSource(systemAspect.getSystemMetadata()))
-                                              .build(opContext.getAspectRetriever()))
-                                  .collect(Collectors.toList()))
-                          .build(opContext);
+                  // Collect batch items first so we can track progress even on failure
+                  List<ChangeItemImpl> batchItems =
+                      batch
+                          .<SystemAspect>flatMap(
+                              ebeanAspectV2 ->
+                                  EntityUtils.toSystemAspectFromEbeanAspects(
+                                      opContext.getRetrieverContext(), Set.of(ebeanAspectV2))
+                                      .stream())
+                          .map(
+                              systemAspect ->
+                                  ChangeItemImpl.builder()
+                                      .changeType(ChangeType.UPSERT)
+                                      .urn(systemAspect.getUrn())
+                                      .entitySpec(systemAspect.getEntitySpec())
+                                      .aspectName(systemAspect.getAspectName())
+                                      .aspectSpec(systemAspect.getAspectSpec())
+                                      .recordTemplate(systemAspect.getRecordTemplate())
+                                      .auditStamp(systemAspect.getAuditStamp())
+                                      .systemMetadata(
+                                          withAppSource(systemAspect.getSystemMetadata()))
+                                      .build(opContext.getAspectRetriever()))
+                          .collect(Collectors.toList());
 
-                  // re-ingest the aspects to trigger side effects
-                  entityService.ingestProposal(opContext, aspectsBatch, true);
+                  // Track last URN for progress regardless of validation outcome
+                  Urn lastUrn =
+                      batchItems.stream().reduce((a, b) -> b).map(ReadItem::getUrn).orElse(null);
+
+                  // Filter out invalid items if configured to continue on validation failure
+                  List<ChangeItemImpl> validItems = batchItems;
+                  if (continueOnValidationFailure()) {
+                    ValidationExceptionCollection exceptions =
+                        AspectsBatch.validateProposed(
+                            batchItems, opContext.getRetrieverContext(), null);
+                    if (!exceptions.isEmpty()) {
+                      validItems = new ArrayList<>(exceptions.successful(batchItems));
+                      log.error(
+                          "{}: Validation failed for {} items, continuing with {} valid items. Errors: {}",
+                          id(),
+                          batchItems.size() - validItems.size(),
+                          validItems.size(),
+                          exceptions);
+                    }
+                  }
+
+                  if (!validItems.isEmpty()) {
+                    AspectsBatch aspectsBatch =
+                        AspectsBatchImpl.builder()
+                            .retrieverContext(opContext.getRetrieverContext())
+                            .items(validItems)
+                            .build(opContext);
+
+                    // re-ingest the aspects to trigger side effects
+                    entityService.ingestProposal(opContext, aspectsBatch, true);
+                  }
 
                   // record progress
-                  Urn lastUrn =
-                      aspectsBatch.getItems().stream()
-                          .reduce((a, b) -> b)
-                          .map(ReadItem::getUrn)
-                          .orElse(null);
                   if (lastUrn != null) {
                     log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
                     context

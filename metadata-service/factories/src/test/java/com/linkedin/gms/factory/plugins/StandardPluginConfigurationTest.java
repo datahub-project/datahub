@@ -48,6 +48,7 @@ import org.testng.annotations.Test;
     properties = {
       "metadataChangeProposal.validation.ignoreUnknown=true",
       "metadataChangeProposal.validation.extensions.enabled=false",
+      "metadataChangeProposal.validation.monitorAssertion.enabled=true",
       "metadataChangeProposal.sideEffects.schemaField.enabled=true",
       "metadataChangeProposal.sideEffects.dataProductUnset.enabled=true"
     })
@@ -376,5 +377,22 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertEquals(
         sideEffect.getConfig().getClassName(), PropertyDefinitionDeleteSideEffect.class.getName());
     assertEquals(sideEffect.getConfig().getSupportedOperations(), List.of("DELETE"));
+  }
+
+  @Test
+  public void testMonitorAssertionValidatorBeanCreation() {
+    assertTrue(context.containsBean("monitorAssertionValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("monitorAssertionValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof MonitorAssertionValidator);
+
+    // Verify configuration
+    assertNotNull(validator.getConfig());
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(validator.getConfig().getClassName(), MonitorAssertionValidator.class.getName());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE"));
   }
 }

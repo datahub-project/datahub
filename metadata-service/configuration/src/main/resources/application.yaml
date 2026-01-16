@@ -1578,6 +1578,8 @@ metadataChangeProposal:
     monitorLimit:
       enabled: ${MCP_VALIDATION_MONITOR_LIMIT_ENABLED:true}
       maxMonitors: ${MCP_VALIDATION_MONITOR_LIMIT_MAX_MONITORS:1000}
+    monitorAssertion:
+      enabled: ${MCP_VALIDATION_MONITOR_ASSERTION_ENABLED:false}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}

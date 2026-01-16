@@ -84,6 +84,9 @@ public class SpringStandardPluginConfiguration {
   @Value("${metadataChangeProposal.validation.monitorLimit.maxMonitors:1000}")
   private int maxMonitors;
 
+  @Value("${metadataChangeProposal.validation.monitorAssertion.enabled:false}")
+  private boolean monitorAssertionValidationEnabled;
+
   @Bean
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.extensions.enabled",
@@ -650,12 +653,16 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.monitorAssertion.enabled",
+      havingValue = "true",
+      matchIfMissing = false)
   public AspectPayloadValidator monitorAssertionValidator() {
     return new MonitorAssertionValidator()
         .setConfig(
             AspectPluginConfig.builder()
                 .className(MonitorAssertionValidator.class.getName())
-                .enabled(true)
+                .enabled(monitorAssertionValidationEnabled)
                 .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
                 .supportedEntityAspectNames(
                     List.of(

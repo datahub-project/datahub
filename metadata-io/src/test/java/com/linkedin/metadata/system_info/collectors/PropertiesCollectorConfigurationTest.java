@@ -862,6 +862,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.throttle.versioned.threshold",
           "metadataChangeProposal.validation.extensions.enabled",
           "metadataChangeProposal.validation.ignoreUnknown",
+          "metadataChangeProposal.validation.monitorAssertion.enabled",
           "metadataChangeProposal.validation.monitorLimit.enabled",
           "metadataChangeProposal.validation.monitorLimit.maxMonitors",
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
