@@ -2035,4 +2035,285 @@ public class ConsistencyServiceTest {
     assertEquals(issues.size(), 1);
     assertEquals(issues.get(0).getCheckId(), "success-check");
   }
+
+  // ============================================================================
+  // consolidateIssues Tests
+  // ============================================================================
+
+  @Test
+  public void testConsolidateIssues_EmptyList() {
+    List<ConsistencyIssue> result = consistencyService.consolidateIssues(List.of());
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testConsolidateIssues_NullList() {
+    List<ConsistencyIssue> result = consistencyService.consolidateIssues(null);
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testConsolidateIssues_SingleIssue() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test1");
+    ConsistencyIssue issue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.SOFT_DELETE)
+            .description("Test issue")
+            .build();
+
+    List<ConsistencyIssue> result = consistencyService.consolidateIssues(List.of(issue));
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0), issue);
+  }
+
+  @Test
+  public void testConsolidateIssues_HardDeleteOverridesSoftDelete() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test1");
+
+    ConsistencyIssue softDeleteIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.SOFT_DELETE)
+            .description("Soft delete issue")
+            .build();
+
+    ConsistencyIssue hardDeleteIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check2")
+            .fixType(ConsistencyFixType.HARD_DELETE)
+            .description("Hard delete issue")
+            .hardDeleteUrns(List.of(urn))
+            .build();
+
+    List<ConsistencyIssue> result =
+        consistencyService.consolidateIssues(List.of(softDeleteIssue, hardDeleteIssue));
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getFixType(), ConsistencyFixType.HARD_DELETE);
+  }
+
+  @Test
+  public void testConsolidateIssues_HardDeleteOverridesUpsert() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test1");
+
+    ConsistencyIssue upsertIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.UPSERT)
+            .description("Upsert issue")
+            .build();
+
+    ConsistencyIssue hardDeleteIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check2")
+            .fixType(ConsistencyFixType.HARD_DELETE)
+            .description("Hard delete issue")
+            .hardDeleteUrns(List.of(urn))
+            .build();
+
+    List<ConsistencyIssue> result =
+        consistencyService.consolidateIssues(List.of(upsertIssue, hardDeleteIssue));
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getFixType(), ConsistencyFixType.HARD_DELETE);
+  }
+
+  @Test
+  public void testConsolidateIssues_DeleteIndexDocsOverridesOthers() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test1");
+
+    ConsistencyIssue softDeleteIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.SOFT_DELETE)
+            .description("Soft delete issue")
+            .build();
+
+    ConsistencyIssue deleteIndexDocsIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check2")
+            .fixType(ConsistencyFixType.DELETE_INDEX_DOCUMENTS)
+            .description("Delete index docs issue")
+            .hardDeleteUrns(List.of(urn))
+            .build();
+
+    List<ConsistencyIssue> result =
+        consistencyService.consolidateIssues(List.of(softDeleteIssue, deleteIndexDocsIssue));
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getFixType(), ConsistencyFixType.DELETE_INDEX_DOCUMENTS);
+  }
+
+  @Test
+  public void testConsolidateIssues_NonDestructiveIssuesKeptTogether() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test1");
+
+    ConsistencyIssue softDeleteIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.SOFT_DELETE)
+            .description("Soft delete issue")
+            .build();
+
+    ConsistencyIssue upsertIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check2")
+            .fixType(ConsistencyFixType.UPSERT)
+            .description("Upsert issue")
+            .build();
+
+    List<ConsistencyIssue> result =
+        consistencyService.consolidateIssues(List.of(softDeleteIssue, upsertIssue));
+
+    // Both should be kept since neither is HARD_DELETE
+    assertEquals(result.size(), 2);
+  }
+
+  @Test
+  public void testConsolidateIssues_MultipleUrns() {
+    Urn urn1 = UrnUtils.getUrn("urn:li:assertion:test1");
+    Urn urn2 = UrnUtils.getUrn("urn:li:assertion:test2");
+
+    ConsistencyIssue urn1SoftDelete =
+        ConsistencyIssue.builder()
+            .entityUrn(urn1)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.SOFT_DELETE)
+            .description("Soft delete for urn1")
+            .build();
+
+    ConsistencyIssue urn1HardDelete =
+        ConsistencyIssue.builder()
+            .entityUrn(urn1)
+            .entityType("assertion")
+            .checkId("check2")
+            .fixType(ConsistencyFixType.HARD_DELETE)
+            .description("Hard delete for urn1")
+            .hardDeleteUrns(List.of(urn1))
+            .build();
+
+    ConsistencyIssue urn2Upsert =
+        ConsistencyIssue.builder()
+            .entityUrn(urn2)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.UPSERT)
+            .description("Upsert for urn2")
+            .build();
+
+    List<ConsistencyIssue> result =
+        consistencyService.consolidateIssues(List.of(urn1SoftDelete, urn1HardDelete, urn2Upsert));
+
+    // urn1 should have only HARD_DELETE, urn2 should have UPSERT
+    assertEquals(result.size(), 2);
+
+    ConsistencyIssue urn1Result =
+        result.stream().filter(i -> i.getEntityUrn().equals(urn1)).findFirst().orElse(null);
+    assertNotNull(urn1Result);
+    assertEquals(urn1Result.getFixType(), ConsistencyFixType.HARD_DELETE);
+
+    ConsistencyIssue urn2Result =
+        result.stream().filter(i -> i.getEntityUrn().equals(urn2)).findFirst().orElse(null);
+    assertNotNull(urn2Result);
+    assertEquals(urn2Result.getFixType(), ConsistencyFixType.UPSERT);
+  }
+
+  @Test
+  public void testConsolidateIssues_MultipleHardDeletesForSameUrn() {
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test1");
+
+    ConsistencyIssue hardDelete1 =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.HARD_DELETE)
+            .description("Hard delete from check1")
+            .hardDeleteUrns(List.of(urn))
+            .build();
+
+    ConsistencyIssue hardDelete2 =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check2")
+            .fixType(ConsistencyFixType.HARD_DELETE)
+            .description("Hard delete from check2")
+            .hardDeleteUrns(List.of(urn))
+            .build();
+
+    List<ConsistencyIssue> result =
+        consistencyService.consolidateIssues(List.of(hardDelete1, hardDelete2));
+
+    // Both HARD_DELETE issues should be kept (unusual but execute both)
+    assertEquals(result.size(), 2);
+    assertTrue(result.stream().allMatch(i -> i.getFixType() == ConsistencyFixType.HARD_DELETE));
+  }
+
+  @Test
+  public void testConsolidateIssues_HardDeleteAndDeleteIndexDocs() {
+    // This is an unusual state but both should be executed
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test1");
+
+    ConsistencyIssue hardDelete =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check1")
+            .fixType(ConsistencyFixType.HARD_DELETE)
+            .description("Hard delete")
+            .hardDeleteUrns(List.of(urn))
+            .build();
+
+    ConsistencyIssue deleteIndexDocs =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check2")
+            .fixType(ConsistencyFixType.DELETE_INDEX_DOCUMENTS)
+            .description("Delete index docs")
+            .hardDeleteUrns(List.of(urn))
+            .build();
+
+    ConsistencyIssue upsertIssue =
+        ConsistencyIssue.builder()
+            .entityUrn(urn)
+            .entityType("assertion")
+            .checkId("check3")
+            .fixType(ConsistencyFixType.UPSERT)
+            .description("Upsert (should be discarded)")
+            .build();
+
+    List<ConsistencyIssue> result =
+        consistencyService.consolidateIssues(List.of(hardDelete, deleteIndexDocs, upsertIssue));
+
+    // Both destructive issues kept, upsert discarded
+    assertEquals(result.size(), 2);
+    assertTrue(
+        result.stream()
+            .allMatch(
+                i ->
+                    i.getFixType() == ConsistencyFixType.HARD_DELETE
+                        || i.getFixType() == ConsistencyFixType.DELETE_INDEX_DOCUMENTS));
+  }
 }
