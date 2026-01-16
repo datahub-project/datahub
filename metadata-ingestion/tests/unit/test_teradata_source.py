@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 from threading import Lock
 from typing import Any, Dict, List
@@ -16,6 +17,16 @@ from datahub.ingestion.source.sql.teradata import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Isolate TeradataSource class-level caches for each test.
+
+    Creates fresh cache instances before each test to prevent cross-contamination.
+    """
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config() -> Dict[str, Any]:
@@ -301,16 +312,10 @@ class TestTeradataSource:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Mock engine and query results
-            mock_entry = MagicMock()
-            mock_entry.DataBaseName = "test_db"
-            mock_entry.name = "test_table"
-            mock_entry.description = "Test table"
-            mock_entry.object_type = "Table"
-            mock_entry.CreateTimeStamp = None
-            mock_entry.LastAlterName = None
-            mock_entry.LastAlterTimeStamp = None
-            mock_entry.RequestText = None
+            # Use helper function for consistent mocking
+            mock_entry = _create_mock_table_entry(
+                "test_db", "test_table", description="Test table"
+            )
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
                 mock_engine = MagicMock()
@@ -1687,13 +1692,6 @@ class TestStreamingQueryReconstruction:
 
 class TestOwnershipExtraction:
     """Test ownership extraction functionality."""
-
-    def setup_method(self):
-        """Clear class-level caches before each test to ensure isolation."""
-        from datahub.ingestion.source.sql.teradata import TeradataSource
-
-        TeradataSource._tables_cache.clear()
-        TeradataSource._table_creator_cache.clear()
 
     def test_table_creator_cache_population(self):
         """Test that _table_creator_cache is populated during cache_tables_and_views."""
