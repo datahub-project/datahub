@@ -136,15 +136,15 @@ Each query in the `queries` list supports the following fields:
 
 #### Error Handling
 
-| Scenario                          | Behavior                                       |
-| --------------------------------- | ---------------------------------------------- |
-| `meta.queries` not a list         | Skipped with WARNING log                       |
-| Query missing `name` or `sql`     | Skipped, added to `queries_failed_list` report |
-| Duplicate query names             | WARNING logged, last definition wins           |
-| Invalid `tags`/`terms` (not list) | Field ignored with WARNING log                 |
-| Empty values in tags/terms list   | Filtered out automatically                     |
-| Manifest timestamp unparseable    | Falls back to current time with WARNING        |
-| More than 100 queries per model   | Only first 100 processed, WARNING logged       |
+| Scenario                          | Behavior                                           |
+| --------------------------------- | -------------------------------------------------- |
+| `meta.queries` not a list         | Skipped with WARNING log                           |
+| Query missing `name` or `sql`     | Skipped, added to `queries_failed_list` report     |
+| Duplicate query names             | Duplicate skipped, first definition wins (WARNING) |
+| Invalid `tags`/`terms` (not list) | Field ignored with WARNING log                     |
+| Empty values in tags/terms list   | Filtered out automatically                         |
+| Manifest timestamp unparseable    | Falls back to current time with WARNING/INFO       |
+| More than 100 queries per model   | Only first 100 processed, WARNING logged           |
 
 All validation errors are logged at WARNING level and tracked in the ingestion report.
 

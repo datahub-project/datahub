@@ -333,8 +333,8 @@ def test_empty_queries_list():
     assert source.report.num_queries_failed == 0
 
 
-def test_warns_on_duplicate_query_names_same_urn(caplog):
-    """Test that duplicate query names emit a warning and create same URN (last wins)."""
+def test_skips_duplicate_query_names_to_prevent_data_loss(caplog):
+    """Test that duplicate query names are skipped (first one wins)."""
     import logging
 
     source = create_test_dbt_source()
@@ -342,7 +342,7 @@ def test_warns_on_duplicate_query_names_same_urn(caplog):
     node.meta = {
         "queries": [
             {"name": "Same Name", "sql": "SELECT 1"},
-            {"name": "Same Name", "sql": "SELECT 2"},  # Duplicate name
+            {"name": "Same Name", "sql": "SELECT 2"},  # Duplicate - will be skipped
         ]
     }
     node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
@@ -350,17 +350,21 @@ def test_warns_on_duplicate_query_names_same_urn(caplog):
     with caplog.at_level(logging.WARNING):
         mcps = list(source._create_query_entity_mcps(node, node_urn))
 
-    # Both queries are emitted (4 MCPs = 2 queries * 2 aspects)
-    assert len(mcps) == 4
-    assert source.report.num_queries_emitted == 2
+    # Only first query is emitted (2 MCPs = 1 query * 2 aspects)
+    assert len(mcps) == 2
+    assert source.report.num_queries_emitted == 1
+    assert source.report.num_queries_failed == 1
 
-    # Both have the same URN (last one wins in DataHub)
-    first_urn = mcps[0].entityUrn
-    third_urn = mcps[2].entityUrn  # Second query's properties
-    assert first_urn == third_urn
+    # Verify it's the first query that was kept (SELECT 1)
+    properties = mcps[0].aspect
+    assert isinstance(properties, QueryPropertiesClass)
+    assert properties.statement.value == "SELECT 1"
 
-    # Verify warning was logged about duplicate
-    assert any("Duplicate query" in record.message for record in caplog.records)
+    # Verify warning was logged about duplicate being skipped
+    assert any(
+        "Duplicate query" in record.message and "skipped" in record.message
+        for record in caplog.records
+    )
 
 
 def test_sanitizes_special_characters_in_urn():
@@ -445,17 +449,22 @@ def test_accepts_very_long_query_names():
     assert len(properties.name) == 500
 
 
-def test_respects_enable_query_entity_emission_config_flag():
-    """Test that query emission can be disabled via config."""
+def test_disabling_query_emission_skips_all_queries_including_valid_ones():
+    """Test that disabling query emission completely bypasses query processing."""
     source = create_test_dbt_source()
     source.config.enable_query_entity_emission = False
     node = create_test_dbt_node_with_queries()
+    # Node has 2 valid queries defined
+    assert len(node.meta["queries"]) == 2
     node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
     mcps = list(source._create_query_entity_mcps(node, node_urn))
 
+    # No MCPs emitted even though queries are valid
     assert len(mcps) == 0
+    # Report counters should remain at zero (not even attempted)
     assert source.report.num_queries_emitted == 0
+    assert source.report.num_queries_failed == 0
 
 
 def test_filters_empty_and_none_values_from_tags_list():

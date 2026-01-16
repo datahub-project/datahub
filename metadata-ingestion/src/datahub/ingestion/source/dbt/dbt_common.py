@@ -143,8 +143,55 @@ DBT_PLATFORM = "dbt"
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
-_DBT_MAX_QUERIES_PER_MODEL = 100  # Prevent metadata explosion
+# Max queries per model to prevent metadata explosion. 100 is a reasonable limit
+# for most use cases - if you need more, consider splitting into multiple models.
+# This limit helps prevent accidental runaway ingestion from malformed manifests.
+_DBT_MAX_QUERIES_PER_MODEL = 100
 _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]")
+
+
+class DBTQueryDefinition(pydantic.BaseModel):
+    """Pydantic model for validating query definitions in meta.queries."""
+
+    model_config = pydantic.ConfigDict(extra="allow")
+
+    name: str = Field(..., min_length=1, description="Unique name for the query")
+    sql: str = Field(..., min_length=1, description="SQL statement for the query")
+    # Use Any for optional fields to allow lenient parsing
+    description: Optional[Any] = Field(None, description="Human-readable description")
+    tags: Optional[Any] = Field(None, description="Tags for categorization")
+    terms: Optional[Any] = Field(None, description="Glossary terms")
+
+    @field_validator("name", "sql", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                raise ValueError("cannot be empty or whitespace-only")
+        return v
+
+    def get_description(self) -> Optional[str]:
+        """Get description as string, or None if invalid."""
+        if isinstance(self.description, str):
+            stripped = self.description.strip()
+            return stripped if stripped else None
+        return None
+
+    def get_tags_csv(self) -> Optional[str]:
+        """Get tags as CSV string, filtering out invalid values."""
+        if not isinstance(self.tags, list):
+            return None
+        valid = [str(t).strip() for t in self.tags if t and str(t).strip()]
+        return ", ".join(valid) if valid else None
+
+    def get_terms_csv(self) -> Optional[str]:
+        """Get terms as CSV string, filtering out invalid values."""
+        if not isinstance(self.terms, list):
+            return None
+        valid = [str(t).strip() for t in self.terms if t and str(t).strip()]
+        return ", ".join(valid) if valid else None
+
 
 # =============================================================================
 # Regex patterns for Snowflake semantic view CLL (Column-Level Lineage) parsing
@@ -1917,21 +1964,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 result_type=model_performance.status,
             )
 
-    def _extract_list_to_csv(
-        self, values: Any, field_name: str, query_name: str, node_name: str
-    ) -> Optional[str]:
-        """Extract list field as CSV string, filtering empty values."""
-        if not values:
-            return None
-        if not isinstance(values, list):
-            logger.warning(
-                f"Invalid '{field_name}' for query '{query_name}' in {node_name}: expected list"
-            )
-            return None
-        # Use walrus operator to avoid redundant str() calls
-        valid = [s for v in values if v and (s := str(v).strip())]
-        return ", ".join(valid) if valid else None
-
     def _create_query_entity_mcps(
         self,
         node: DBTNode,
@@ -1972,51 +2004,38 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                 except (ValueError, TypeError) as e:
                     logger.warning(
-                        f"Failed to parse manifest timestamp '{generated_at}': {e}"
+                        f"Failed to parse manifest timestamp '{generated_at}': {e}, "
+                        "falling back to current time"
                     )
 
         # Fall back to current time if manifest timestamp unavailable
         if query_timestamp is None:
             query_timestamp = datetime_to_ts_millis(datetime.now())
+            logger.info(
+                f"Using current time for query timestamps in {node.dbt_name} "
+                "(manifest timestamp unavailable)"
+            )
 
         seen_urns: Dict[str, str] = {}
 
         for idx, query_def in enumerate(queries):
-            if not isinstance(query_def, dict):
+            # Validate using Pydantic model
+            try:
+                query = DBTQueryDefinition.model_validate(query_def)
+            except pydantic.ValidationError as e:
+                # Extract first error message for user-friendly logging
+                error_msg = e.errors()[0]["msg"] if e.errors() else str(e)
                 logger.warning(
-                    f"Invalid query at index {idx} in {node.dbt_name}: expected dict"
+                    f"Invalid query at index {idx} in {node.dbt_name}: {error_msg}"
                 )
                 self.report.num_queries_failed += 1
                 self.report.queries_failed_list.append(
-                    f"{node.dbt_name}[{idx}]: invalid type"
+                    f"{node.dbt_name}[{idx}]: {error_msg}"
                 )
                 continue
 
-            # Validate name
-            raw_name = query_def.get("name")
-            if not raw_name or not isinstance(raw_name, str) or not raw_name.strip():
-                logger.warning(
-                    f"Invalid query at index {idx} in {node.dbt_name}: missing 'name'"
-                )
-                self.report.num_queries_failed += 1
-                self.report.queries_failed_list.append(
-                    f"{node.dbt_name}[{idx}]: missing name"
-                )
-                continue
-            query_name = raw_name.strip()
-
-            # Validate sql
-            raw_sql = query_def.get("sql")
-            if not raw_sql or not isinstance(raw_sql, str) or not raw_sql.strip():
-                logger.warning(
-                    f"Invalid query '{query_name}' in {node.dbt_name}: missing 'sql'"
-                )
-                self.report.num_queries_failed += 1
-                self.report.queries_failed_list.append(
-                    f"{node.dbt_name}.{query_name}: missing sql"
-                )
-                continue
-            query_sql = raw_sql.strip()
+            query_name = query.name
+            query_sql = query.sql
 
             # Truncate very long SQL
             if len(query_sql) > _DBT_MAX_COMPILED_CODE_LENGTH:
@@ -2031,30 +2050,26 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             query_urn_str = QueryUrn(query_id).urn()
 
-            # Detect collision
+            # Skip duplicates to prevent data loss
             if query_urn_str in seen_urns:
                 logger.warning(
-                    f"Duplicate query '{query_name}' in {node.dbt_name} overwrites '{seen_urns[query_urn_str]}'"
+                    f"Duplicate query '{query_name}' in {node.dbt_name} skipped "
+                    f"(conflicts with '{seen_urns[query_urn_str]}')"
                 )
+                self.report.num_queries_failed += 1
+                self.report.queries_failed_list.append(
+                    f"{node.dbt_name}.{query_name}: duplicate name"
+                )
+                continue
             seen_urns[query_urn_str] = query_name
 
-            # Optional description
-            description = query_def.get("description")
-            description = (
-                description.strip()
-                if isinstance(description, str) and description.strip()
-                else None
-            )
+            # Extract optional fields using Pydantic model helpers
+            description = query.get_description()
 
-            # Extract tags/terms to custom properties
             custom_properties: Dict[str, str] = {}
-            if tags_csv := self._extract_list_to_csv(
-                query_def.get("tags"), "tags", query_name, node.dbt_name
-            ):
+            if tags_csv := query.get_tags_csv():
                 custom_properties["tags"] = tags_csv
-            if terms_csv := self._extract_list_to_csv(
-                query_def.get("terms"), "terms", query_name, node.dbt_name
-            ):
+            if terms_csv := query.get_terms_csv():
                 custom_properties["terms"] = terms_csv
 
             yield MetadataChangeProposalWrapper(
