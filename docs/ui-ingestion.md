@@ -17,15 +17,13 @@ DataHub helps you discover and understand your organization's data by automatica
 
 This makes it simple to connect to popular platforms like Snowflake, BigQuery, dbt, and more, schedule automatic updates, and manage credentials securely.
 
-### Demo: Setting Up Ingestion
-
-Watch this 90-second demo to see the ingestion setup process in action:
-
-<iframe width="100%" height="500" src="https://screen.studio/share/MRXaUzS7" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
 ## Prerequisites and Permissions
 
 To manage metadata ingestion in DataHub, you need appropriate permissions.
+
+:::note Ask DataHub for Ingestion (DataHub Cloud)
+**Ask DataHub** is available within the ingestion creation and troubleshooting workflow for DataHub Cloud deployments. Get AI-powered assistance with configuration, filtering, troubleshooting, and best practices—right in your workflow.
+:::
 
 ### Option 1: Admin-Level Access
 
@@ -40,7 +38,7 @@ These privileges can be granted in two ways:
 2. **Custom Policy with Platform Privileges** - Create a [Custom Policy](authorization/policies.md) that grants the `Manage Metadata Ingestion` and `Manage Secrets` platform privileges to specific users or groups
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-privileges.png"/>
 </p>
 
 ### Option 2: Resource-Specific Policies
@@ -61,26 +59,24 @@ For more granular control, administrators can create [Custom Policies](authoriza
 **Important**: Once this feature flag is enabled, any policies that apply to "All" resource types will now include Ingestion Sources, including the default read-only policies. This will make the Ingestion tab visible and potentially actionable depending on the applied privileges. Implement this with care if you have view-only policies that should not expose the Data Sources page.
 :::
 
-### Accessing the Ingestion Interface
+## Creating an Ingestion Source
 
 Once you have the appropriate privileges, navigate to the **Ingestion** tab in DataHub.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-tab.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-tab.png"/>
 </p>
 
 On this page, you'll see a list of active **Ingestion Sources**. An Ingestion Source represents a configured connection to an external data system from which DataHub extracts metadata.
 
 If you're just getting started, you won't have any sources configured. The following sections will guide you through creating your first ingestion source.
 
-## Creating an Ingestion Source
-
 ### Step 1: Select a Data Source
 
 Begin by clicking **+ Create new source** to start the ingestion source creation process.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-new-ingestion-source-button.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-new-ingestion-source-button.png"/>
 </p>
 
 Next, select the type of data source you want to connect. DataHub provides pre-built templates for popular platforms including:
@@ -92,7 +88,7 @@ Next, select the type of data source you want to connect. DataHub provides pre-b
 - **And many more...**
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/select-platform-template.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/select-platform-template.png"/>
 </p>
 
 Select the template that matches your data source. If your specific platform isn't listed, you can choose **Custom** to configure a source manually, though this requires more technical knowledge.
@@ -100,6 +96,10 @@ Select the template that matches your data source. If your specific platform isn
 ### Step 2: Configure Connection Details
 
 After selecting your data source template, you'll configure how DataHub connects to and extracts metadata from your source.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-connection-ask-datahub.png"/>
+</p>
 
 **Name and Owners**: First, provide a descriptive name for your ingestion source that will help you and your team identify it later. You can also assign **Users** and/or **Groups** as owners of this ingestion source. By default, you (the creator) will be assigned as an owner, but you can add additional owners or change this at any time after creation.
 
@@ -109,11 +109,20 @@ After selecting your data source template, you'll configure how DataHub connects
 - Database or project names
 - Authentication credentials
 
-**Data Selection**: Configure what metadata to extract:
+**Asset Filters**: Configure what metadata to extract:
 
 - Which databases, schemas, or tables to include
 - Filtering options to exclude certain data
-- Sampling and profiling settings
+
+**Ingestion Settings**: Configure ingestion behavior including profiling, stale metadata handling, and other operational settings. The defaults represent best practices for most use cases.
+
+:::note Ask DataHub for Configuration Help
+**Ask DataHub** can help you understand the behavior and options of each configuration setting. Get tailored recommendations for your data source and use case.
+:::
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub.png"/>
+</p>
 
 #### Managing Sensitive Information with Secrets
 
@@ -123,11 +132,6 @@ To create a secret:
 
 1. Navigate to the **Secrets** tab in the Ingestion interface
 2. Click **Create new secret**
-
-<p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-secret.png"/>
-</p>
-
 3. Provide a descriptive name (e.g., `BIGQUERY_PRIVATE_KEY`)
 4. Enter the sensitive value
 5. Optionally add a description
@@ -135,16 +139,20 @@ To create a secret:
 
 Once created, secrets can be referenced in your ingestion configuration forms using the dropdown menus provided for credential fields.
 
-> **Security Note**: Users with the `Manage Secrets` privilege can retrieve plaintext secret values through DataHub's GraphQL API. Ensure secrets are only accessible to trusted administrators.
+:::caution Security Note
+Users with the `Manage Secrets` privilege can retrieve plaintext secret values through DataHub's GraphQL API. Ensure secrets are only accessible to trusted administrators.
+:::
 
-**Test Your Connection**: Before proceeding, it's important to verify that DataHub can successfully connect to your data source. Most ingestion source forms include a **Test Connection** button that validates:
+#### Test Your Connection
+
+Before proceeding, it's important to verify that DataHub can successfully connect to your data source. Most ingestion source forms include a **Test Connection** button that validates:
 
 - Network connectivity to your data source
 - Authentication credentials
 - Required permissions for metadata extraction
 
 <p align="center">
-  <img width="75%" alt="Test BigQuery connection" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery-test-connection.png"/>
+  <img width="70%" alt="Test BigQuery connection" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery-test-connection.png"/>
 </p>
 
 If the connection test fails, review your configuration and ensure that:
@@ -153,7 +161,9 @@ If the connection test fails, review your configuration and ensure that:
 - Credentials are correct and have sufficient permissions
 - Any firewall rules allow the connection
 
-**Advanced Configuration Options**: For users who need additional control, DataHub provides advanced configuration options accessible in the Advanced Settings section:
+#### Advanced Settings
+
+For users who need additional control, DataHub provides advanced configuration options accessible in the Advanced Settings section:
 
 - **CLI Version:** Specify a particular version of the DataHub CLI for ingestion execution
 - **Environment Variables:** Set custom environment variables for the ingestion process
@@ -165,7 +175,7 @@ If the connection test fails, review your configuration and ensure that:
 Configure how often DataHub should sync metadata from your source. You can enable or disable scheduled execution using the toggle (recommended: enabled). This ensures your metadata stays up-to-date without manual intervention.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schedule-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schedule-ingestion.png"/>
 </p>
 
 If you prefer to run ingestion manually or on an ad-hoc basis, you can skip the scheduling step entirely.
@@ -186,13 +196,13 @@ Once you're happy with your configurations, click your preferred save option to 
 Once you've created your Ingestion Source, you can run it by clicking the 'Play' button. Shortly after, you should see the 'Last Status' column of the ingestion source change to `Running`, indicating that DataHub has successfully queued the ingestion job.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/running.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/running.png"/>
 </p>
 
 When ingestion completes successfully, the status will show as `Success` in green.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/success-run.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/success-run.png"/>
 </p>
 
 ### Viewing Run History
