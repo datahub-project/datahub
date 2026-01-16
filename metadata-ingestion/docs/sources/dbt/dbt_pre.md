@@ -122,7 +122,7 @@ Each query in the `queries` list supports the following fields:
 - **Timestamps**: Uses the manifest `generated_at` timestamp for consistency across ingestion runs
 - **Custom Properties**: Query entities don't currently support `globalTags` or `glossaryTerms` aspects, so tags and terms are stored in `customProperties` instead
 - **Validation**: Invalid queries (missing required fields, wrong types) are skipped with warnings logged
-- **URN Sanitization**: Query IDs are sanitized to ensure valid URN components (non-alphanumeric characters replaced with underscores)
+- **URN Sanitization**: Query IDs are sanitized to ensure valid URN components (special characters except dots, hyphens, and underscores are replaced with underscores)
 - **Backward Compatibility**: This feature is fully backward compatible - models without `meta.queries` are unaffected
 
 #### Example Output in DataHub

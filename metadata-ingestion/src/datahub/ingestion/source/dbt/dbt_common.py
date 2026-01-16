@@ -141,6 +141,7 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
+_DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 
 # =============================================================================
@@ -1917,28 +1918,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         query_name: str,
         node_name: str,
     ) -> Optional[str]:
-        """Extract a list field as comma-separated string, logging if invalid type."""
+        """Convert a list to comma-separated string. Returns None for non-list input."""
         if not value:
             return None
         if not isinstance(value, list):
             logger.debug(
-                f"Invalid {field_name} type for query '{query_name}' in {node_name}: "
-                f"expected list, got {type(value).__name__}. Ignoring {field_name}."
+                f"Invalid {field_name} for query '{query_name}' in {node_name}: "
+                f"expected list, got {type(value).__name__}"
             )
             return None
         return ", ".join(str(item) for item in value)
 
-    def _validate_required_string_field(
-        self,
-        field_name: str,
-        value: Any,
-    ) -> Optional[str]:
-        """
-        Validate a required string field.
-
-        Returns the stripped string if valid, None otherwise.
-        A valid field must be a non-empty string after stripping whitespace.
-        """
+    def _validate_required_string_field(self, value: Any) -> Optional[str]:
+        """Return stripped string if valid, None otherwise. Accepts any type safely."""
         if not value or not isinstance(value, str):
             return None
         stripped = value.strip()
@@ -1959,8 +1951,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return
 
         queries = node.meta.get("queries")
-        # Only skip if queries key is missing or None, not if it's an empty list
-        # An empty list is a valid (albeit no-op) configuration
         if queries is None:
             return
 
@@ -1970,44 +1960,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             return
 
-        # Use manifest generated_at timestamp if available (stable and reproducible),
-        # otherwise fall back to current time (for sources that don't provide manifest_info)
         manifest_info = getattr(self.report, "manifest_info", None)
-        if manifest_info and manifest_info.get("generated_at") != "unknown":
+        generated_at = manifest_info.get("generated_at") if manifest_info else None
+        if generated_at and generated_at != "unknown":
             try:
-                manifest_generated_at = dateutil.parser.parse(
-                    manifest_info["generated_at"]
-                )
+                manifest_generated_at = dateutil.parser.parse(generated_at)
                 query_timestamp = datetime_to_ts_millis(manifest_generated_at)
             except (ValueError, TypeError) as e:
-                # dateutil can throw ValueError on malformed timestamps, TypeError on wrong input types
-                logger.debug(
-                    f"Failed to parse manifest generated_at timestamp for {node.dbt_name}: {e}. Using current time."
+                logger.warning(
+                    f"Failed to parse manifest timestamp '{generated_at}': {e}. "
+                    f"Using current time for query entities in {node.dbt_name}."
                 )
                 query_timestamp = datetime_to_ts_millis(datetime.now())
         else:
             query_timestamp = datetime_to_ts_millis(datetime.now())
 
-        # Use dbt_executor as the actor for dbt-generated queries (consistent with schema metadata pattern)
-        actor_urn = mce_builder.make_user_urn("dbt_executor")
-
         for idx, query_def in enumerate(queries):
             try:
                 if not isinstance(query_def, dict):
-                    logger.debug(
-                        f"Skipping invalid query definition at index {idx} in {node.dbt_name}: expected dict, got {type(query_def).__name__}"
-                    )
                     self.report.num_queries_failed += 1
+                    self.report.queries_failed_list.append(
+                        f"{node.dbt_name}[{idx}]: not a dict"
+                    )
                     continue
 
-                # Validate required fields using helper
                 validated_name = self._validate_required_string_field(
-                    "name", query_def.get("name")
+                    query_def.get("name")
                 )
                 if not validated_name:
-                    logger.debug(
-                        f"Skipping query at index {idx} in {node.dbt_name}: missing or invalid 'name' field"
-                    )
                     self.report.num_queries_failed += 1
                     self.report.queries_failed_list.append(
                         f"{node.dbt_name}[{idx}]: missing name"
@@ -2015,60 +1995,48 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     continue
 
                 validated_sql = self._validate_required_string_field(
-                    "sql", query_def.get("sql")
+                    query_def.get("sql")
                 )
                 if not validated_sql:
-                    logger.debug(
-                        f"Skipping query '{validated_name}' in {node.dbt_name}: missing or invalid 'sql' field"
-                    )
                     self.report.num_queries_failed += 1
                     self.report.queries_failed_list.append(
                         f"{node.dbt_name}.{validated_name}: missing sql"
                     )
                     continue
 
-                # Generate a unique query ID based on the node and query name
-                # Keep dots but replace other special characters to reduce collision risk
-                # e.g., "model.test.foo" stays distinct from "model-test-foo"
                 query_id = f"{node.dbt_name}_{validated_name}"
-                # Replace only characters that are invalid in URNs, keeping dots for uniqueness
                 query_id = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", query_id)
                 query_urn = QueryUrn(query_id)
 
-                # Validate and get description (optional)
                 description = query_def.get("description")
                 if description is not None and not isinstance(description, str):
-                    logger.debug(
-                        f"Invalid description type for query '{validated_name}' in {node.dbt_name}: expected str, got {type(description).__name__}. Ignoring description."
-                    )
                     description = None
 
-                # Build custom properties to include tags and terms
-                custom_properties = {}
-
-                # Add tags and terms to custom properties if present
+                custom_properties: Dict[str, str] = {}
                 if tags_str := self._extract_list_as_string(
                     "tags", query_def.get("tags"), validated_name, node.dbt_name
                 ):
                     custom_properties["tags"] = tags_str
-
                 if terms_str := self._extract_list_as_string(
                     "terms", query_def.get("terms"), validated_name, node.dbt_name
                 ):
                     custom_properties["terms"] = terms_str
 
-                # Create QueryProperties aspect
                 query_properties = QueryPropertiesClass(
                     statement=QueryStatementClass(
                         value=validated_sql,
                         language=QueryLanguageClass.SQL,
                     ),
-                    source=QuerySourceClass.MANUAL,  # Manual/curated queries from dbt meta
+                    source=QuerySourceClass.MANUAL,
                     name=validated_name,
                     description=description.strip() if description else None,
-                    created=AuditStampClass(time=query_timestamp, actor=actor_urn),
-                    lastModified=AuditStampClass(time=query_timestamp, actor=actor_urn),
-                    origin=node_datahub_urn,  # Link back to the dbt model
+                    created=AuditStampClass(
+                        time=query_timestamp, actor=_DBT_EXECUTOR_ACTOR
+                    ),
+                    lastModified=AuditStampClass(
+                        time=query_timestamp, actor=_DBT_EXECUTOR_ACTOR
+                    ),
+                    origin=node_datahub_urn,
                     customProperties=custom_properties if custom_properties else None,
                 )
 
@@ -2077,11 +2045,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspect=query_properties,
                 )
 
-                # Create QuerySubjects aspect to link query to the dataset
                 query_subjects = QuerySubjectsClass(
-                    subjects=[
-                        QuerySubjectClass(entity=node_datahub_urn),
-                    ]
+                    subjects=[QuerySubjectClass(entity=node_datahub_urn)]
                 )
 
                 yield MetadataChangeProposalWrapper(
@@ -2089,23 +2054,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspect=query_subjects,
                 )
 
-                # Successfully emitted query
                 self.report.num_queries_emitted += 1
 
-            except (ValueError, TypeError, KeyError, AttributeError) as e:
-                # Catch specific validation and data access errors
-                # - ValueError: invalid data formats
-                # - TypeError: wrong types passed to constructors
-                # - KeyError: missing required keys in data structures
-                # - AttributeError: accessing attributes on wrong types
+            except (ValueError, TypeError) as e:
                 query_identifier = (
                     query_def.get("name", f"index_{idx}")
                     if isinstance(query_def, dict)
                     else f"index_{idx}"
                 )
                 logger.warning(
-                    f"Failed to emit query '{query_identifier}' for {node.dbt_name}: {e}",
-                    exc_info=True,
+                    f"Failed to emit query '{query_identifier}' for {node.dbt_name}: {e}"
                 )
                 self.report.num_queries_failed += 1
                 self.report.queries_failed_list.append(
