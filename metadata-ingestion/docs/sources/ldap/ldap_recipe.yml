@@ -11,5 +11,9 @@ source:
     # Options
     base_dn: "dc=example,dc=org"
 
+    # TLS Security - Certificate verification is enabled by default
+    # Set to false only for testing with self-signed certificates
+    # tls_verify: true
+
 sink:
   # sink configs

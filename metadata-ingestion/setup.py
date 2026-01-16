@@ -308,7 +308,9 @@ iceberg_common = {
     # especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`,
     # `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version
     # 0.8.0.
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.8.0",
+    # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
+    #   expected by the connector
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0",
     # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
     # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
     "pydantic<2.12",

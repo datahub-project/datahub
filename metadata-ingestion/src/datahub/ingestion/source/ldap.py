@@ -2,6 +2,7 @@
 
 import contextlib
 import dataclasses
+import logging
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
@@ -38,6 +39,8 @@ from datahub.metadata.schema_classes import (
     GroupMembershipClass,
 )
 from datahub.utilities.lossy_collections import LossyList
+
+logger = logging.getLogger(__name__)
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
@@ -154,6 +157,13 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Use email for users' usernames instead of username (disabled by default). \
             If enabled, the user and group urn would be having email as the id part of the urn.",
     )
+
+    tls_verify: bool = Field(
+        default=True,
+        description="Verify server TLS certificates for LDAPS connections. "
+        "Disabling in production exposes connections to Man-in-the-Middle attacks (CWE-295).",
+    )
+
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
@@ -221,7 +231,17 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         self.report = LDAPSourceReport()
 
-        ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
+        # Configure TLS certificate validation
+        # Setting tls_verify=True enforces certificate validation (recommended for production)
+        if self.config.tls_verify:
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+        else:
+            logger.warning(
+                "LDAP TLS certificate verification is disabled (tls_verify=False). "
+                "This makes the connection vulnerable to Man-in-the-Middle attacks. "
+                "Set tls_verify=True for production environments."
+            )
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
 
         self.ldap_client = ldap.initialize(self.config.ldap_server)

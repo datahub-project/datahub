@@ -1,0 +1,18 @@
+{
+    "query_type": "UPDATE",
+    "query_type_props": {},
+    "query_fingerprint": "0a1886daa57731074954e342496756697132cb3a1648f1e48e421dba5af1cb33",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+    ],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "UPDATE dst SET dst.col1 = sub.max_val FROM mydb.dbo.target_table AS dst JOIN (SELECT id AS id, MAX(value) AS max_val FROM mydb.dbo.source_table GROUP BY id) AS sub ON dst.id = sub.id"
+    }
+}
