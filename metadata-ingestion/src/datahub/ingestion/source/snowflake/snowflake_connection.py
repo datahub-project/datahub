@@ -537,10 +537,8 @@ def _is_retryable_account_usage_error(e: BaseException, query: str) -> bool:
 
     is_account_usage_query = "ACCOUNT_USAGE" in query_upper
 
-    is_generic_permission_error = (
-        "ACCOUNT_USAGE" in msg
-        and ("NOT AUTHORIZED" in msg or "DOES NOT EXIST" in msg)
-        and "002003" in msg
-    )
+    is_permission_error = (
+        "NOT AUTHORIZED" in msg or "DOES NOT EXIST" in msg
+    ) and "002003" in msg
 
-    return is_account_usage_query and is_generic_permission_error
+    return is_account_usage_query and is_permission_error
