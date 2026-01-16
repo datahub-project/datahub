@@ -584,7 +584,10 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     "Enabled by default when stateful ingestion is turned on",
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.OWNERSHIP, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Optionally enabled via configuration (extract_ownership)",
+)
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
@@ -731,7 +734,7 @@ SELECT
     t.LastAlterName,
     t.LastAlterTimeStamp,
     t.RequestText,
-    t.CreatorName
+    t.CreatorName  -- User who created the table/view, used for ownership extraction
 FROM dbc.TablesV t
 WHERE DataBaseName NOT IN ({",".join([f"'{db}'" for db in EXCLUDED_DATABASES])})
 AND t.TableKind in ('T', 'V', 'Q', 'O')
@@ -739,9 +742,8 @@ ORDER by DataBaseName, TableName;
      """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
-    _table_creator_cache: MutableMapping[
-        Tuple[str, str], str
-    ] = {}  # Name cache for table/view creators
+    # Cache mapping (schema, entity_name) -> creator_name for table/view ownership
+    _table_creator_cache: MutableMapping[Tuple[str, str], str] = {}
     _tables_cache_lock = Lock()  # Protect shared cache from concurrent access
     _pooled_engine: Optional[Engine] = None  # Reusable pooled engine
     _pooled_engine_lock = Lock()  # Protect engine creation
@@ -993,7 +995,7 @@ ORDER by DataBaseName, TableName;
     ) -> Iterable[MetadataWorkUnit]:
         """Emit ownership metadata for a dataset if creator information is available."""
         if not self.config.extract_ownership:
-            return
+            return iter([])
 
         creator_name = self._get_creator_for_entity(schema, entity_name)
         if creator_name:

@@ -3570,7 +3570,7 @@
         },
         {
           "capability": "OWNERSHIP",
-          "description": "Optionally enabled via configuration",
+          "description": "Optionally enabled via configuration (extract_ownership)",
           "subtype_modifier": null,
           "supported": true
         },
