@@ -5,6 +5,7 @@ Tests the retry behavior for ACCOUNT_USAGE intermittent unavailability.
 """
 
 import threading
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,6 +21,47 @@ class MockSnowflakeError(Exception):
     """Mock Snowflake error for testing."""
 
     pass
+
+
+@pytest.fixture
+def mock_snowflake_connection():
+    """Create a mock Snowflake connection with configurable cursor behavior."""
+    with patch("datahub.ingestion.source.snowflake.snowflake_connection.snowflake"):
+        mock_cursor = MagicMock()
+        mock_native_conn = MagicMock()
+        mock_native_conn.cursor.return_value = mock_cursor
+
+        yield mock_native_conn, mock_cursor
+
+
+def create_mock_execute_with_retry_behavior(
+    fail_count: int, error_message: str
+) -> tuple[Callable, Callable]:
+    """
+    Create a mock execute function that fails N times then succeeds.
+
+    Args:
+        fail_count: Number of times to fail before succeeding
+        error_message: Error message to raise during failures
+
+    Returns:
+        Tuple of (mock_execute_function, get_call_count_function)
+    """
+    call_count = 0
+
+    def mock_execute(_query):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= fail_count:
+            raise MockSnowflakeError(error_message)
+        result = MagicMock()
+        result.rowcount = 100
+        return result
+
+    def get_call_count():
+        return call_count
+
+    return mock_execute, get_call_count
 
 
 class TestRetryLogic:
@@ -64,58 +106,36 @@ class TestRetryLogic:
 class TestConnectionRetry:
     """Unit tests for connection retry behavior."""
 
-    @patch("datahub.ingestion.source.snowflake.snowflake_connection.snowflake")
-    def test_successful_retry_after_transient_error(self, mock_snowflake):
+    def test_successful_retry_after_transient_error(self, mock_snowflake_connection):
         """Test that query succeeds after transient ACCOUNT_USAGE error."""
-        mock_cursor = MagicMock()
-        mock_native_conn = MagicMock()
-        mock_native_conn.cursor.return_value = mock_cursor
+        mock_native_conn, mock_cursor = mock_snowflake_connection
 
-        call_count = 0
-
-        def mock_execute(query):
-            nonlocal call_count
-            call_count += 1
-            if call_count <= 2:
-                raise MockSnowflakeError(
-                    "002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized"
-                )
-            result = MagicMock()
-            result.rowcount = 100
-            return result
-
+        mock_execute, get_call_count = create_mock_execute_with_retry_behavior(
+            fail_count=2,
+            error_message="002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized",
+        )
         mock_cursor.execute = mock_execute
 
         conn = SnowflakeConnection(mock_native_conn)
-
         query = "SELECT * FROM snowflake.account_usage.tag_references"
         result = conn.query(query)
 
         assert result is not None
-        assert call_count == 3
+        assert get_call_count() == 3
 
-    @patch("datahub.ingestion.source.snowflake.snowflake_connection.snowflake")
     def test_all_retries_exhausted_raises_original_snowflake_error(
-        self, mock_snowflake
+        self, mock_snowflake_connection
     ):
         """Test that when all retries fail, the original Snowflake error is raised."""
-        mock_cursor = MagicMock()
-        mock_native_conn = MagicMock()
-        mock_native_conn.cursor.return_value = mock_cursor
+        mock_native_conn, mock_cursor = mock_snowflake_connection
 
-        call_count = 0
-
-        def mock_execute(query):
-            nonlocal call_count
-            call_count += 1
-            # All attempts fail with the same ACCOUNT_USAGE error
-            raise MockSnowflakeError(
-                "002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized"
-            )
-
+        mock_execute, get_call_count = create_mock_execute_with_retry_behavior(
+            fail_count=999,  # Never succeed, always fail
+            error_message="002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized",
+        )
         mock_cursor.execute = mock_execute
-        conn = SnowflakeConnection(mock_native_conn)
 
+        conn = SnowflakeConnection(mock_native_conn)
         query = "SELECT * FROM snowflake.account_usage.tag_references"
 
         # Should raise SnowflakePermissionError (which wraps the original error)
@@ -128,28 +148,20 @@ class TestConnectionRetry:
         assert "TAG_REFERENCES" in str(exc_info.value)
 
         # Should have tried 3 times (initial + 2 retries)
-        assert call_count == 3
+        assert get_call_count() == 3
 
-    @patch("datahub.ingestion.source.snowflake.snowflake_connection.snowflake")
     def test_real_permission_error_on_user_table_fails_immediately(
-        self, mock_snowflake
+        self, mock_snowflake_connection
     ):
         """Test that 002003 errors on non-ACCOUNT_USAGE tables fail without retry."""
-        mock_cursor = MagicMock()
-        mock_native_conn = MagicMock()
-        mock_native_conn.cursor.return_value = mock_cursor
+        mock_native_conn, mock_cursor = mock_snowflake_connection
 
-        call_count = 0
-
-        def mock_execute(query):
-            nonlocal call_count
-            call_count += 1
-            # Real permission error on a user table (not ACCOUNT_USAGE)
-            raise MockSnowflakeError(
-                "002003: Database 'MY_DATABASE' does not exist or not authorized"
-            )
-
+        mock_execute, get_call_count = create_mock_execute_with_retry_behavior(
+            fail_count=999,  # Would fail forever if retried
+            error_message="002003: Database 'MY_DATABASE' does not exist or not authorized",
+        )
         mock_cursor.execute = mock_execute
+
         conn = SnowflakeConnection(mock_native_conn)
 
         # Query to a user table, NOT ACCOUNT_USAGE
@@ -160,81 +172,81 @@ class TestConnectionRetry:
             conn.query(query)
 
         # CRITICAL: Should only try ONCE, not 3 times
-        assert call_count == 1
+        assert get_call_count() == 1
 
-    @patch("datahub.ingestion.source.snowflake.snowflake_connection.snowflake")
-    def test_concurrent_queries_with_retries_are_thread_safe(self, mock_snowflake):
+    def test_concurrent_queries_with_retries_are_thread_safe(self):
         """Test that retry logic works correctly with concurrent queries."""
-        # Track call counts globally across all cursor instances
-        call_counts = {}
-        lock = threading.Lock()
+        with patch("datahub.ingestion.source.snowflake.snowflake_connection.snowflake"):
+            # Track call counts globally across all cursor instances
+            call_counts = {}
+            lock = threading.Lock()
 
-        def mock_cursor_factory(cursor_class=None):
-            """Create a cursor that tracks calls per thread."""
-            mock_cursor = MagicMock()
+            def mock_cursor_factory(cursor_class=None):
+                """Create a cursor that tracks calls per thread."""
+                mock_cursor = MagicMock()
 
-            def mock_execute(query):
-                thread_name = threading.current_thread().name
-                with lock:
-                    if thread_name not in call_counts:
-                        call_counts[thread_name] = 0
-                    call_counts[thread_name] += 1
-                    current_count = call_counts[thread_name]
+                def mock_execute(_query):
+                    thread_name = threading.current_thread().name
+                    with lock:
+                        if thread_name not in call_counts:
+                            call_counts[thread_name] = 0
+                        call_counts[thread_name] += 1
+                        current_count = call_counts[thread_name]
 
-                # Fail first 2 attempts, succeed on 3rd
-                if current_count <= 2:
-                    raise MockSnowflakeError(
-                        "002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized"
-                    )
-                # On 3rd attempt, return success
-                result = MagicMock()
-                result.rowcount = 100
-                return result
+                    # Fail first 2 attempts, succeed on 3rd
+                    if current_count <= 2:
+                        raise MockSnowflakeError(
+                            "002003: Object 'SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES' does not exist or not authorized"
+                        )
+                    # On 3rd attempt, return success
+                    result = MagicMock()
+                    result.rowcount = 100
+                    return result
 
-            mock_cursor.execute = mock_execute
-            return mock_cursor
+                mock_cursor.execute = mock_execute
+                return mock_cursor
 
-        mock_native_conn = MagicMock()
-        mock_native_conn.cursor.side_effect = mock_cursor_factory
+            mock_native_conn = MagicMock()
+            mock_native_conn.cursor.side_effect = mock_cursor_factory
 
-        conn = SnowflakeConnection(mock_native_conn)
+            conn = SnowflakeConnection(mock_native_conn)
 
-        query = "SELECT * FROM snowflake.account_usage.tag_references"
-        results = []
-        errors = []
+            query = "SELECT * FROM snowflake.account_usage.tag_references"
+            results = []
+            errors = []
 
-        def run_query(thread_name):
-            threading.current_thread().name = thread_name
-            try:
-                result = conn.query(query)
-                with lock:
-                    results.append((thread_name, result))
-            except Exception as e:
-                with lock:
-                    errors.append((thread_name, e))
+            def run_query(thread_name):
+                threading.current_thread().name = thread_name
+                try:
+                    result = conn.query(query)
+                    with lock:
+                        results.append((thread_name, result))
+                except Exception as e:
+                    with lock:
+                        errors.append((thread_name, e))
 
-        # Run 2 queries concurrently
-        thread1 = threading.Thread(
-            target=run_query, args=("thread_1",), name="thread_1"
-        )
-        thread2 = threading.Thread(
-            target=run_query, args=("thread_2",), name="thread_2"
-        )
+            # Run 2 queries concurrently
+            thread1 = threading.Thread(
+                target=run_query, args=("thread_1",), name="thread_1"
+            )
+            thread2 = threading.Thread(
+                target=run_query, args=("thread_2",), name="thread_2"
+            )
 
-        thread1.start()
-        thread2.start()
-        thread1.join()
-        thread2.join()
+            thread1.start()
+            thread2.start()
+            thread1.join()
+            thread2.join()
 
-        # Debug: print errors if any
-        if errors:
-            for thread_name, error in errors:
-                print(f"{thread_name} error: {error}")
+            # Debug: print errors if any
+            if errors:
+                for thread_name, error in errors:
+                    print(f"{thread_name} error: {error}")
 
-        # Both threads should succeed after retries
-        assert len(results) == 2, (
-            f"Expected 2 results, got {len(results)}. Errors: {errors}"
-        )
-        assert len(errors) == 0, f"Expected no errors, got {len(errors)}: {errors}"
-        assert call_counts["thread_1"] == 3
-        assert call_counts["thread_2"] == 3
+            # Both threads should succeed after retries
+            assert len(results) == 2, (
+                f"Expected 2 results, got {len(results)}. Errors: {errors}"
+            )
+            assert len(errors) == 0, f"Expected no errors, got {len(errors)}: {errors}"
+            assert call_counts["thread_1"] == 3
+            assert call_counts["thread_2"] == 3
