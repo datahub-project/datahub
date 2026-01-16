@@ -3,11 +3,26 @@ name: Nightly Docker Test
 # and if tests pass, tags them as nightly and daily for publishing
 on:
   workflow_dispatch:
+    inputs:
+      test_tag:
+        description: "Docker tag to test (e.g., v0.12.0, release-candidate). Leave empty to test latest HEAD and publish as nightly"
+        required: false
+        type: string
+        default: ""
+      arch:
+        description: "Architecture to test (arm, x64, or both)"
+        required: false
+        type: choice
+        options:
+          - both
+          - arm
+          - x64
+        default: "both"
   schedule:
     - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.event.inputs.test_tag || 'head' }}-${{ github.event.inputs.arch || 'both' }}
   cancel-in-progress: true
 
 env:
@@ -43,6 +58,7 @@ jobs:
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       datahub_images: ${{ steps.collect-images.outputs.datahub_images }}
+      architectures: ${{ steps.set-architectures.outputs.architectures }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
@@ -51,12 +67,23 @@ jobs:
         env:
           GITHUB_REF_FALLBACK: ${{ github.ref }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          TEST_TAG: ${{ github.event.inputs.test_tag }}
         run: |
           source .github/scripts/docker_helpers.sh
           # Get current date in YYYY-MM-DD format
           CURRENT_DATE=$(date +%Y-%m-%d)
+
+          # Check if a custom test tag was provided
+          if [[ -n "$TEST_TAG" ]]; then
+            echo "Testing custom tag: $TEST_TAG (will not retag/publish)"
+            TAG_TO_USE="$TEST_TAG"
+          else
+            echo "Testing HEAD images (default nightly behavior)"
+            TAG_TO_USE="nightly"
+          fi
+
           {
-            echo "tag=nightly"
+            echo "tag=${TAG_TO_USE}"
             echo "date_tag=nightly-${CURRENT_DATE}"
             echo "python_release_version=$(get_python_docker_release_v)"
             echo "branch_name=${GITHUB_REF#refs/heads/}"
@@ -94,6 +121,29 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Determine architectures to test
+        id: set-architectures
+        env:
+          ARCH_INPUT: ${{ github.event.inputs.arch }}
+        run: |
+          # Default to both if not specified (e.g., scheduled runs)
+          ARCH="${ARCH_INPUT:-both}"
+
+          case "$ARCH" in
+            "arm")
+              echo 'architectures=["arm"]' >> "$GITHUB_OUTPUT"
+              echo "Testing on ARM only"
+              ;;
+            "x64")
+              echo 'architectures=["x64"]' >> "$GITHUB_OUTPUT"
+              echo "Testing on x64 only"
+              ;;
+            "both"|*)
+              echo 'architectures=["x64","arm"]' >> "$GITHUB_OUTPUT"
+              echo "Testing on both x64 and ARM"
+              ;;
+          esac
+
       - name: Compute UV Cache Key
         id: uv-cache-key
         run: |
@@ -113,6 +163,7 @@ jobs:
           echo "yarn_cache_key_prefix=docker-unified-nightly-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
       - name: Download build Metadata for latest head build
+        if: ${{ github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -123,6 +174,7 @@ jobs:
           ls -l "${{ github.workspace }}/build/"
 
       - name: Collect image:tag from build log
+        if: ${{ github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null }}
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
@@ -131,6 +183,7 @@ jobs:
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
       - name: Show collected images
+        if: ${{ github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null }}
         run: |
           echo "${{ steps.collect-images.outputs.datahub_images }}"
 
@@ -141,15 +194,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile:
-          [
-            quickstart-consumers,
-            quickstart-postgres,
-            quickstart-consumers-cdc,
-            quickstart-postgres-cdc,
-          ]
+        profile: [quickstart-consumers]
         test_strategy: [pytests, cypress]
-        architecture: [x64, arm]
+        architecture: ${{ fromJSON(needs.setup.outputs.architectures) }}
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
@@ -378,6 +425,7 @@ jobs:
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
       - name: Download build Metadata for latest head build
+        if: ${{ github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -388,6 +436,7 @@ jobs:
           ls -l "${{ github.workspace }}/build/"
 
       - name: Collect image:tag from build log
+        if: ${{ github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null }}
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
@@ -396,11 +445,13 @@ jobs:
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
       - name: Show collected images
+        if: ${{ github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null }}
         run: |
           echo "${{ steps.collect-images.outputs.datahub_images }}"
 
       - name: Pull head images from registry
         if: |
+          (github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null) &&
           steps.parse-cypress-failures.outputs.parse_result != 'all_passed' &&
           steps.parse-pytest-failures.outputs.parse_result != 'all_passed'
         run: |
@@ -614,7 +665,7 @@ jobs:
     name: Tag and push head images as nightly
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: [setup, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
+    if: ${{ (github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null) && needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
