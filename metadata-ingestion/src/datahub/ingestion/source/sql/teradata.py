@@ -32,6 +32,11 @@ from teradatasqlalchemy.options import configure
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_user_urn,
+)
+from datahub.emitter.mcp_builder import add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -43,8 +48,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
@@ -548,6 +554,18 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         "Controls the level of concurrency for operations like view processing.",
     )
 
+    extract_ownership: bool = Field(
+        default=True,
+        description=(
+            "Whether to extract ownership information for tables and views based on their creator. "
+            "When enabled, the table/view creator from Teradata's system tables "
+            "will be added as an owner with DATAOWNER type. "
+            "Ownership is applied using OVERWRITE mode, meaning any existing ownership "
+            "information (including manually added or modified owners from the UI) "
+            "will be replaced. Use with caution."
+        ),
+    )
+
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
@@ -711,7 +729,8 @@ SELECT
     t.CreateTimeStamp,
     t.LastAlterName,
     t.LastAlterTimeStamp,
-    t.RequestText
+    t.RequestText,
+    t.CreatorName
 FROM dbc.TablesV t
 WHERE DataBaseName NOT IN ({",".join([f"'{db}'" for db in EXCLUDED_DATABASES])})
 AND t.TableKind in ('T', 'V', 'Q', 'O')
@@ -719,6 +738,9 @@ ORDER by DataBaseName, TableName;
      """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
+    _table_creator_cache: MutableMapping[
+        Tuple[str, str], str
+    ] = {}  # Name cache for table/view creators
     _tables_cache_lock = Lock()  # Protect shared cache from concurrent access
     _pooled_engine: Optional[Engine] = None  # Reusable pooled engine
     _pooled_engine_lock = Lock()  # Protect engine creation
@@ -955,6 +977,65 @@ ORDER by DataBaseName, TableName;
                     properties["view_definition"] = entry.request_text
                 break
         return description, properties, location
+
+    def _get_creator_for_entity(self, schema: str, entity_name: str) -> Optional[str]:
+        """Get creator name for a table or view."""
+        if (schema, entity_name) in self._table_creator_cache:
+            return self._table_creator_cache[(schema, entity_name)]
+
+    def _emit_ownership_if_available(
+        self,
+        dataset_name: str,
+        schema: str,
+        entity_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit ownership metadata for a dataset if creator information is available."""
+        if not self.config.extract_ownership:
+            return
+
+        creator_name = self._get_creator_for_entity(schema, entity_name)
+        if creator_name:
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            owner_urn = make_user_urn(creator_name)
+            yield from add_owner_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                owner_urn=owner_urn,
+            )
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader] = None,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """Override to add ownership metadata based on table creator."""
+        yield from self._emit_ownership_if_available(dataset_name, schema, table)
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        )
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """Override to add ownership metadata based on view creator."""
+        yield from self._emit_ownership_if_available(dataset_name, schema, view)
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
+        )
 
     def cached_loop_views(
         self,
@@ -1321,6 +1402,10 @@ ORDER by DataBaseName, TableName;
                         if table.database not in self._tables_cache:
                             self._tables_cache[table.database] = []
                         self._tables_cache[table.database].append(table)
+                        if entry.CreatorName is not None:
+                            self._table_creator_cache[(table.database, table.name)] = (
+                                entry.CreatorName.strip()
+                            )
 
                 for database, counts in database_counts.items():
                     self.report.num_database_tables_to_scan[database] = counts["tables"]
