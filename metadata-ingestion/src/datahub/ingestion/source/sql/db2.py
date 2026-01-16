@@ -1,4 +1,5 @@
 import logging
+import platform
 from typing import (
     Any,
     Dict,
@@ -7,7 +8,6 @@ from typing import (
     Tuple,
 )
 
-import ibm_db_sa
 import pydantic
 import sqlalchemy
 import sqlglot
@@ -36,6 +36,11 @@ class CustomDb2SqlGlotDialect(sqlglot.Dialect):
 
 
 def patch_dialect(dialect: sqlalchemy.engine.interfaces.Dialect) -> None:
+    # Import ibm_db_sa here instead of at toplevel because ibm_db isn't installable on all
+    # architectures, but we still want to be able to import this source so that users get a
+    # helpful error message beyond just `db2 is disabled due to a missing dependency`.
+    import ibm_db_sa
+
     # NOTE: why is this manual patching an instance, and not just creating a new custom dialect class?
     # The ibm_db_sa package has multiple possible dialects based on the scheme — e.g.
     # DB2Dialect_ibm_db, DB2Dialect_pyodbc, AS400Dialect, AS400Dialect_pyodbc, etc.
@@ -114,7 +119,14 @@ def _quote_identifier(value: str) -> str:
 )
 class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
+        # The ibm_db package is not installable on ARM aside from macOS ARM
+        if not (platform.machine() == "x86_64" or platform.system() == "Darwin"):
+            raise NotImplementedError(
+                f"Db2 ingestion is not supported on {platform.system()}-{platform.machine()}"
+            )
+
         super().__init__(config, ctx, "db2")
+
         # register custom SQLGlot dialect if one doesn't exist. at the time of writing,
         # SQLGlot doesn't have a built-in Db2 dialect, but this is forward-compatible
         # in case it ever is added.
