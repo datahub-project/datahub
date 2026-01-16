@@ -37,7 +37,7 @@ Create documents from the **Documents** section in the left navigation.
 
 ## Publishing a Document
 
-Documents can be in **Draft** or **Published** states. Draft documents are only visible to you - the owner. Published documents are visible to everyone else. 
+Documents can be in **Draft** or **Published** states. Draft documents are only visible to you - the owner. Published documents are visible to everyone else.
 
 Toggle **Published** in the document header to publish or unpublish your documents.
 
@@ -84,7 +84,7 @@ When you ask a question in [Ask DataHub](../ask-datahub.md), the AI searches you
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-document-chat.png"/>
 </p>
 
-*Note: Ask DataHub is available in DataHub Cloud only.*
+_Note: Ask DataHub is available in DataHub Cloud only._
 
 ## Programmatic Access
 

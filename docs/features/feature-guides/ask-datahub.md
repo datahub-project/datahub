@@ -68,8 +68,8 @@ Ask DataHub is currently available **Public Beta** within DataHub in multiple pl
 
 - **Chat** tab in the left-hand navigation bar, where you can start new conversations with DataHub
 - **Data Sources** configuration flow, where DataHub can help you troubleshoot ingestion sources
-- **Asset Profile Sidebar** where you can start a chat about a specific DataHub asset. 
-- **Chrome Extension** sidebar under the **Ask Tab**. 
+- **Asset Profile Sidebar** where you can start a chat about a specific DataHub asset.
+- **Chrome Extension** sidebar under the **Ask Tab**.
 
 ### Slack
 
@@ -82,7 +82,6 @@ Learn more: [Ask DataHub in Slack](../../managed-datahub/slack/saas-slack-app.md
 Similarly, you can use Ask DataHub in Microsoft Teams by mentioning @DataHub in channels and chats.
 
 Learn more: [Ask DataHub in Teams](../../managed-datahub/teams/saas-teams-app.md#ask-datahub-in-slack)
-
 
 ## Customize Ask DataHub
 
