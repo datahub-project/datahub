@@ -1,5 +1,8 @@
 """Tests for dbt meta.queries Query entity emission."""
 
+import logging
+
+import dateutil.parser
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
@@ -9,6 +12,7 @@ from datahub.metadata.schema_classes import (
     QueryPropertiesClass,
     QuerySubjectsClass,
 )
+from datahub.utilities.time import datetime_to_ts_millis
 
 
 def create_test_dbt_node_with_queries() -> DBTNode:
@@ -335,8 +339,6 @@ def test_empty_queries_list():
 
 def test_skips_duplicate_query_names_to_prevent_data_loss(caplog):
     """Test that duplicate query names are skipped (first one wins)."""
-    import logging
-
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
     node.meta = {
@@ -608,3 +610,93 @@ def test_shows_all_validation_errors_not_just_first():
     # Both 'name' and 'sql' errors should be present
     assert "name" in failure_msg.lower()
     assert "sql" in failure_msg.lower()
+
+
+def test_uses_manifest_timestamp_when_available():
+    """Test that manifest generated_at timestamp is used for Query entities."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    manifest_timestamp = "2024-06-15T10:30:00Z"
+    # Calculate expected timestamp using same method as source
+    expected_ts = datetime_to_ts_millis(dateutil.parser.parse(manifest_timestamp))
+
+    # Set manifest_info with the timestamp
+    source.report.manifest_info = {
+        "generated_at": manifest_timestamp,
+        "dbt_version": "1.5.0",
+        "project_name": "test_project",
+    }
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 4  # 2 queries * 2 aspects
+    # Verify the timestamp matches what we expect from manifest
+    properties = mcps[0].aspect
+    assert isinstance(properties, QueryPropertiesClass)
+    assert properties.created.time == expected_ts
+    assert properties.lastModified.time == expected_ts
+    # Should not increment fallback counter
+    assert source.report.queries_using_fallback_timestamp == 0
+
+
+def test_uses_fallback_timestamp_when_manifest_unavailable():
+    """Test that current time is used when manifest timestamp is unavailable."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    # No manifest_info set (simulates missing manifest metadata)
+    source.report.manifest_info = None
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 4
+    # Verify fallback counter was incremented
+    assert source.report.queries_using_fallback_timestamp == 1
+
+
+def test_uses_fallback_timestamp_when_generated_at_is_unknown():
+    """Test that current time is used when generated_at is 'unknown'."""
+    source = create_test_dbt_source()
+    node = create_test_dbt_node_with_queries()
+    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+
+    # Set manifest_info with unknown timestamp
+    source.report.manifest_info = {
+        "generated_at": "unknown",
+        "dbt_version": "1.5.0",
+    }
+
+    mcps = list(source._create_query_entity_mcps(node, node_urn))
+
+    assert len(mcps) == 4
+    # Should use fallback
+    assert source.report.queries_using_fallback_timestamp == 1
+
+
+def test_timestamp_cached_across_nodes():
+    """Test that timestamp is computed once and cached across multiple nodes."""
+    source = create_test_dbt_source()
+    node1 = create_test_dbt_node_with_queries()
+    node2 = create_test_dbt_node_with_queries()
+    node2.dbt_name = "model.test.another_model"
+    node_urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
+    node_urn2 = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.another_model,PROD)"
+
+    # No manifest timestamp - will use fallback
+    source.report.manifest_info = None
+
+    # Process first node
+    mcps1 = list(source._create_query_entity_mcps(node1, node_urn1))
+    first_timestamp = mcps1[0].aspect.created.time
+
+    # Process second node
+    mcps2 = list(source._create_query_entity_mcps(node2, node_urn2))
+    second_timestamp = mcps2[0].aspect.created.time
+
+    # Timestamps should be identical (cached)
+    assert first_timestamp == second_timestamp
+    # Fallback counter should only be incremented once (not per-node)
+    assert source.report.queries_using_fallback_timestamp == 1

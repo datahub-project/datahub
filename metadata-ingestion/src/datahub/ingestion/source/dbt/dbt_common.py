@@ -153,12 +153,11 @@ class DBTQueryDefinition(pydantic.BaseModel):
 
     name: str = Field(..., min_length=1, description="Unique name for the query")
     sql: str = Field(..., min_length=1, description="SQL statement for the query")
-    # Use Any for optional fields to gracefully handle dbt YAML variations.
-    # dbt users may provide integers, nulls, or other types - we validate at access time
-    # rather than failing the entire query definition.
-    description: Optional[Any] = Field(None, description="Human-readable description")
-    tags: Optional[Any] = Field(None, description="Tags for categorization")
-    terms: Optional[Any] = Field(None, description="Glossary terms")
+    # Optional fields use lenient types to support varied dbt YAML formatting.
+    # Type coercion and filtering occurs via validators and helper methods.
+    description: Optional[str] = Field(None, description="Human-readable description")
+    tags: Optional[List[str]] = Field(None, description="Tags for categorization")
+    terms: Optional[List[str]] = Field(None, description="Glossary terms")
 
     @field_validator("name", "sql", mode="before")
     @classmethod
@@ -169,27 +168,33 @@ class DBTQueryDefinition(pydantic.BaseModel):
                 raise ValueError("cannot be empty or whitespace-only")
         return v
 
-    def get_description(self) -> Optional[str]:
-        """Get description as string, or None if invalid."""
-        if isinstance(self.description, str):
-            stripped = self.description.strip()
-            return stripped if stripped else None
-        return None
-
-    def _list_to_csv(self, values: Any) -> Optional[str]:
-        """Convert list to CSV string, filtering out empty/invalid values."""
-        if not isinstance(values, list):
+    @field_validator("description", mode="before")
+    @classmethod
+    def coerce_description(cls, v: Any) -> Optional[str]:
+        """Coerce description to string, returning None for invalid types."""
+        if v is None:
             return None
-        valid = [str(v).strip() for v in values if v and str(v).strip()]
-        return ", ".join(valid) if valid else None
+        if not isinstance(v, str):
+            return None  # Silently ignore non-string descriptions
+        stripped = v.strip()
+        return stripped if stripped else None
 
-    def get_tags_csv(self) -> Optional[str]:
-        """Get tags as CSV string, filtering out invalid values."""
-        return self._list_to_csv(self.tags)
+    @field_validator("tags", "terms", mode="before")
+    @classmethod
+    def coerce_string_list(cls, v: Any) -> Optional[List[str]]:
+        """Coerce to list of strings, filtering empty/invalid values."""
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            return None  # Silently ignore non-list values
+        return [str(item).strip() for item in v if item and str(item).strip()]
 
-    def get_terms_csv(self) -> Optional[str]:
-        """Get terms as CSV string, filtering out invalid values."""
-        return self._list_to_csv(self.terms)
+    @staticmethod
+    def list_to_csv(values: Optional[List[str]]) -> Optional[str]:
+        """Convert list to CSV string."""
+        if not values:
+            return None
+        return ", ".join(values)
 
 
 # =============================================================================
@@ -1156,6 +1161,10 @@ def get_column_type(
     "Enabled by default, configure using `include_column_lineage`",
 )
 class DBTSourceBase(StatefulIngestionSourceBase):
+    # Cached query timestamp (computed once from manifest, not per-node)
+    _query_timestamp_cache: Optional[int] = None
+    _query_timestamp_logged: bool = False
+
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.platform: str = "dbt"
@@ -1172,6 +1181,44 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, self.config, ctx
         )
+        # Reset cache for each source instance
+        self._query_timestamp_cache = None
+        self._query_timestamp_logged = False
+
+    def _get_query_timestamp(self) -> int:
+        """Get timestamp for Query entities (computed once from manifest, cached).
+
+        Uses manifest generated_at for reproducibility - same manifest produces
+        same timestamps across runs. Falls back to current time if unavailable.
+        """
+        if self._query_timestamp_cache is not None:
+            return self._query_timestamp_cache
+
+        manifest_info = getattr(self.report, "manifest_info", None)
+        if isinstance(manifest_info, dict):
+            generated_at = manifest_info.get("generated_at")
+            if generated_at and generated_at != "unknown":
+                try:
+                    self._query_timestamp_cache = datetime_to_ts_millis(
+                        dateutil.parser.parse(generated_at)
+                    )
+                    return self._query_timestamp_cache
+                except (ValueError, TypeError) as e:
+                    logger.warning(
+                        f"Failed to parse manifest timestamp '{generated_at}': {e}, "
+                        "using current time for Query entities"
+                    )
+
+        # Fallback to current time (log once, not per-node)
+        self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
+        self.report.queries_using_fallback_timestamp += 1
+        if not self._query_timestamp_logged:
+            logger.debug(
+                "Using current time for Query entity timestamps "
+                "(manifest generated_at unavailable)"
+            )
+            self._query_timestamp_logged = True
+        return self._query_timestamp_cache
 
     def create_test_entity_mcps(
         self,
@@ -1999,35 +2046,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             queries = queries[:max_queries]
 
-        # Get timestamp from manifest for reproducibility
-        query_timestamp: Optional[int] = None
-        using_fallback_timestamp = False
-        manifest_info = getattr(self.report, "manifest_info", None)
-        if isinstance(manifest_info, dict):
-            generated_at = manifest_info.get("generated_at")
-            if generated_at and generated_at != "unknown":
-                try:
-                    query_timestamp = datetime_to_ts_millis(
-                        dateutil.parser.parse(generated_at)
-                    )
-                except (ValueError, TypeError) as e:
-                    logger.warning(
-                        f"Failed to parse manifest timestamp '{generated_at}': {e}, "
-                        "falling back to current time"
-                    )
-                    using_fallback_timestamp = True
-
-        # Fall back to current time if manifest timestamp unavailable
-        if query_timestamp is None:
-            query_timestamp = datetime_to_ts_millis(datetime.now())
-            using_fallback_timestamp = True
-            logger.info(
-                f"Using current time for query timestamps in {node.dbt_name} "
-                "(manifest timestamp unavailable)"
-            )
-
-        if using_fallback_timestamp:
-            self.report.queries_using_fallback_timestamp += 1
+        # Get timestamp (computed once from manifest, cached for reproducibility)
+        query_timestamp = self._get_query_timestamp()
 
         seen_urns: Dict[str, str] = {}
 
@@ -2080,15 +2100,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
             seen_urns[query_urn_str] = query_name
 
-            # Extract optional fields using Pydantic model helpers
-            description = query.get_description()
-
+            # Extract optional fields (already validated/coerced by Pydantic)
             custom_properties: Dict[str, str] = {}
-            if tags_csv := query.get_tags_csv():
+            if tags_csv := DBTQueryDefinition.list_to_csv(query.tags):
                 custom_properties["tags"] = tags_csv
-            if terms_csv := query.get_terms_csv():
+            if terms_csv := DBTQueryDefinition.list_to_csv(query.terms):
                 custom_properties["terms"] = terms_csv
 
+            # Emit QueryProperties aspect
+            # - origin: The dataset this query was defined on (via meta.queries)
+            # - source: MANUAL indicates user-defined (vs SYSTEM for auto-discovered)
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn_str,
                 aspect=QueryPropertiesClass(
@@ -2097,7 +2118,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ),
                     source=QuerySourceClass.MANUAL,
                     name=query_name,
-                    description=description,
+                    description=query.description,
                     created=AuditStampClass(
                         time=query_timestamp, actor=_DBT_EXECUTOR_ACTOR
                     ),
@@ -2109,6 +2130,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ),
             )
 
+            # Emit QuerySubjects aspect to link query to dataset
+            # This makes the query appear in the dataset's Queries tab
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn_str,
                 aspect=QuerySubjectsClass(
