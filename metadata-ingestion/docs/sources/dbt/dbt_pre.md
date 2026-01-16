@@ -44,6 +44,16 @@ Following the above workflow should ensure that the catalog file is generated co
 
 DataHub can ingest Query entities from the `meta.queries` field in your dbt models. This allows you to document "blessed" or commonly-used query patterns directly in dbt and surface them in DataHub's Queries tab for easy discovery and reuse by your team.
 
+**Config Option:** This feature is enabled by default. To disable, set `enable_query_entity_emission: false` in your recipe:
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: target/manifest.json
+    enable_query_entity_emission: false # Disable Query entity creation
+```
+
 #### How to Configure
 
 The `meta.queries` field is defined in your dbt model's properties file (e.g., `schema.yml`, `models.yml`, or any `.yml` file in your dbt project). When you run `dbt docs generate` or `dbt compile`, this metadata is included in the `manifest.json` file, which DataHub then ingests.
@@ -118,15 +128,25 @@ Each query in the `queries` list supports the following fields:
 
 #### Technical Details
 
-- **Config**: Enable/disable with `enable_query_entity_emission: true/false` (default: true)
-- **Actor**: All queries are attributed to the `dbt_executor` actor (consistent with other dbt-generated metadata)
-- **Timestamps**: Uses the manifest `generated_at` timestamp for consistency across ingestion runs
-- **Custom Properties**: Query entities don't support `GlobalTags` or `GlossaryTerms` aspects natively (this is a DataHub schema limitation), so tags and terms are stored in `customProperties` as comma-separated strings. This means they won't appear in DataHub's tag/term filters or governance features
-- **SQL Truncation**: SQL statements exceeding 1MB are truncated (consistent with dbt compiled code handling)
-- **Validation**: Invalid queries (missing required fields, wrong types) are skipped with warnings logged
-- **Duplicate Detection**: Duplicate query names in the same model will log a warning (last one wins in DataHub)
-- **URN Sanitization**: Query IDs are sanitized (special characters replaced with underscores, Unicode converted)
-- **Backward Compatibility**: This feature is fully backward compatible - models without `meta.queries` are unaffected
+- **Actor**: All queries are attributed to the `dbt_executor` actor
+- **Timestamps**: Uses manifest `generated_at` for reproducibility; falls back to current time if unavailable
+- **Custom Properties**: Tags/terms stored in `customProperties` (Query entities don't support native GlobalTags/GlossaryTerms)
+- **SQL Truncation**: SQL exceeding 1MB is truncated with "..." suffix
+- **URN Sanitization**: Special characters replaced with underscores (`[^a-zA-Z0-9_\-\.]` → `_`)
+
+#### Error Handling
+
+| Scenario                          | Behavior                                       |
+| --------------------------------- | ---------------------------------------------- |
+| `meta.queries` not a list         | Skipped with WARNING log                       |
+| Query missing `name` or `sql`     | Skipped, added to `queries_failed_list` report |
+| Duplicate query names             | WARNING logged, last definition wins           |
+| Invalid `tags`/`terms` (not list) | Field ignored with WARNING log                 |
+| Empty values in tags/terms list   | Filtered out automatically                     |
+| Manifest timestamp unparseable    | Falls back to current time with WARNING        |
+| More than 100 queries per model   | Only first 100 processed, WARNING logged       |
+
+All validation errors are logged at WARNING level and tracked in the ingestion report.
 
 #### Example Output in DataHub
 

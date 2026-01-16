@@ -67,7 +67,7 @@ def create_test_dbt_source() -> DBTCoreSource:
 
 
 @freeze_time("2024-01-01 00:00:00")
-def test_query_entity_emission_from_meta_queries():
+def test_emits_query_properties_and_subjects_for_each_meta_query():
     """Test that Query entities are correctly emitted from meta.queries."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -125,7 +125,7 @@ def test_query_entity_emission_from_meta_queries():
     assert isinstance(second_query_subjects_mcp.aspect, QuerySubjectsClass)
 
 
-def test_query_entity_emission_with_no_queries():
+def test_skips_emission_when_no_queries_defined():
     """Test that no Query entities are emitted when meta.queries is absent."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -136,7 +136,7 @@ def test_query_entity_emission_with_no_queries():
     assert len(mcps) == 0
 
 
-def test_query_entity_emission_with_invalid_query():
+def test_skips_query_with_missing_required_fields():
     """Test that invalid query definitions are skipped with warnings."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -163,7 +163,7 @@ def test_query_entity_emission_with_invalid_query():
     assert source.report.num_queries_failed == 8
 
 
-def test_query_urn_generation():
+def test_generates_urn_from_model_and_query_name():
     """Test that query URNs are correctly generated and sanitized."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -180,7 +180,7 @@ def test_query_urn_generation():
     assert "model.test.test_model" in first_query_urn
 
 
-def test_query_entity_with_mixed_tags_and_terms():
+def test_stores_tags_and_terms_in_custom_properties():
     """Test that tags and terms lists are converted to comma-separated strings."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -211,7 +211,7 @@ def test_query_entity_with_mixed_tags_and_terms():
     assert properties_mcp.aspect.customProperties["terms"] == "CustomerData, PII"
 
 
-def test_query_entity_with_non_list_tags_and_terms():
+def test_ignores_non_list_tags_and_terms():
     """Test that non-list tags and terms are handled gracefully."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -234,7 +234,7 @@ def test_query_entity_with_non_list_tags_and_terms():
     assert source.report.num_queries_emitted == 1
 
 
-def test_query_entity_with_invalid_description():
+def test_ignores_non_string_description():
     """Test that invalid description types are handled."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -260,7 +260,7 @@ def test_query_entity_with_invalid_description():
     assert source.report.num_queries_emitted == 1
 
 
-def test_query_entity_reporting():
+def test_increments_report_counters_on_emit_and_fail():
     """Test that reporting correctly tracks successes and failures."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -333,7 +333,7 @@ def test_empty_queries_list():
     assert source.report.num_queries_failed == 0
 
 
-def test_duplicate_query_names_create_same_urn(caplog):
+def test_warns_on_duplicate_query_names_same_urn(caplog):
     """Test that duplicate query names emit a warning and create same URN (last wins)."""
     import logging
 
@@ -360,10 +360,10 @@ def test_duplicate_query_names_create_same_urn(caplog):
     assert first_urn == third_urn
 
     # Verify warning was logged about duplicate
-    assert any("Duplicate query name" in record.message for record in caplog.records)
+    assert any("Duplicate query" in record.message for record in caplog.records)
 
 
-def test_query_with_special_characters_in_name():
+def test_sanitizes_special_characters_in_urn():
     """Test that special characters in query names are sanitized in URN."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -390,7 +390,7 @@ def test_query_with_special_characters_in_name():
     assert "!" not in query_urn
 
 
-def test_query_with_unicode_characters():
+def test_handles_unicode_in_name_and_sql():
     """Test that Unicode characters in query names are handled."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -419,7 +419,7 @@ def test_query_with_unicode_characters():
     assert "région" in properties.statement.value
 
 
-def test_query_with_long_name():
+def test_accepts_very_long_query_names():
     """Test that very long query names are handled."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()
@@ -445,7 +445,7 @@ def test_query_with_long_name():
     assert len(properties.name) == 500
 
 
-def test_config_disable_query_emission():
+def test_respects_enable_query_entity_emission_config_flag():
     """Test that query emission can be disabled via config."""
     source = create_test_dbt_source()
     source.config.enable_query_entity_emission = False
@@ -458,7 +458,7 @@ def test_config_disable_query_emission():
     assert source.report.num_queries_emitted == 0
 
 
-def test_tags_with_empty_values_filtered():
+def test_filters_empty_and_none_values_from_tags_list():
     """Test that empty/None values in tags list are filtered out."""
     source = create_test_dbt_source()
     node = create_test_dbt_node_with_queries()

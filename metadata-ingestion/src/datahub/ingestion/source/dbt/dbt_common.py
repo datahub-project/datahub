@@ -143,6 +143,8 @@ DBT_PLATFORM = "dbt"
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
+_DBT_MAX_QUERIES_PER_MODEL = 100  # Prevent metadata explosion
+_QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]")
 
 # =============================================================================
 # Regex patterns for Snowflake semantic view CLL (Column-Level Lineage) parsing
@@ -1915,21 +1917,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 result_type=model_performance.status,
             )
 
+    def _extract_list_to_csv(
+        self, values: Any, field_name: str, query_name: str, node_name: str
+    ) -> Optional[str]:
+        """Extract list field as CSV string, filtering empty values."""
+        if not values:
+            return None
+        if not isinstance(values, list):
+            logger.warning(
+                f"Invalid '{field_name}' for query '{query_name}' in {node_name}: expected list"
+            )
+            return None
+        # Use walrus operator to avoid redundant str() calls
+        valid = [s for v in values if v and (s := str(v).strip())]
+        return ", ".join(valid) if valid else None
+
     def _create_query_entity_mcps(
         self,
         node: DBTNode,
         node_datahub_urn: str,
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Create Query entities from meta.queries field in dbt models.
-
-        This allows teams to document "blessed" query patterns directly in dbt
-        and surface them in DataHub's Queries tab for the dataset.
-
-        Note: Tags and terms are stored in customProperties as comma-separated strings
-        because Query entities don't support GlobalTags/GlossaryTerms aspects natively.
-        """
-        # Check config flag
+        """Create Query entities from meta.queries field in dbt models."""
         if not self.config.enable_query_entity_emission:
             return
 
@@ -1941,31 +1949,39 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return
 
         if not isinstance(queries, list):
-            logger.warning(
-                f"Invalid meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
-            )
+            logger.warning(f"Invalid meta.queries in {node.dbt_name}: expected list")
             return
 
-        # Get timestamp from manifest for reproducibility
-        manifest_info = getattr(self.report, "manifest_info", None)
-        generated_at = manifest_info.get("generated_at") if manifest_info else None
-        query_timestamp = datetime_to_ts_millis(datetime.now())
-        if generated_at and generated_at != "unknown":
-            try:
-                query_timestamp = datetime_to_ts_millis(
-                    dateutil.parser.parse(generated_at)
-                )
-            except (ValueError, TypeError) as e:
-                logger.warning(
-                    f"Failed to parse manifest timestamp '{generated_at}': {e}. "
-                    f"Using current time for query entities in {node.dbt_name}."
-                )
+        # Limit queries to prevent metadata explosion
+        if len(queries) > _DBT_MAX_QUERIES_PER_MODEL:
+            logger.warning(
+                f"Too many queries in {node.dbt_name}: {len(queries)} exceeds limit of "
+                f"{_DBT_MAX_QUERIES_PER_MODEL}, only processing first {_DBT_MAX_QUERIES_PER_MODEL}"
+            )
+            queries = queries[:_DBT_MAX_QUERIES_PER_MODEL]
 
-        # Track seen URNs to detect duplicates
-        seen_urns: Dict[str, str] = {}  # urn -> query_name
+        # Get timestamp from manifest for reproducibility
+        query_timestamp: Optional[int] = None
+        manifest_info = getattr(self.report, "manifest_info", None)
+        if isinstance(manifest_info, dict):
+            generated_at = manifest_info.get("generated_at")
+            if generated_at and generated_at != "unknown":
+                try:
+                    query_timestamp = datetime_to_ts_millis(
+                        dateutil.parser.parse(generated_at)
+                    )
+                except (ValueError, TypeError) as e:
+                    logger.warning(
+                        f"Failed to parse manifest timestamp '{generated_at}': {e}"
+                    )
+
+        # Fall back to current time if manifest timestamp unavailable
+        if query_timestamp is None:
+            query_timestamp = datetime_to_ts_millis(datetime.now())
+
+        seen_urns: Dict[str, str] = {}
 
         for idx, query_def in enumerate(queries):
-            # Validate query_def is a dict
             if not isinstance(query_def, dict):
                 logger.warning(
                     f"Invalid query at index {idx} in {node.dbt_name}: expected dict"
@@ -1976,7 +1992,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
                 continue
 
-            # Validate required 'name' field
+            # Validate name
             raw_name = query_def.get("name")
             if not raw_name or not isinstance(raw_name, str) or not raw_name.strip():
                 logger.warning(
@@ -1989,7 +2005,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
             query_name = raw_name.strip()
 
-            # Validate required 'sql' field
+            # Validate sql
             raw_sql = query_def.get("sql")
             if not raw_sql or not isinstance(raw_sql, str) or not raw_sql.strip():
                 logger.warning(
@@ -2002,71 +2018,50 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
             query_sql = raw_sql.strip()
 
-            # Truncate very long SQL (consistent with compiled_code handling)
+            # Truncate very long SQL
             if len(query_sql) > _DBT_MAX_COMPILED_CODE_LENGTH:
                 logger.warning(
-                    f"Query '{query_name}' in {node.dbt_name} has SQL exceeding 1MB, truncating"
+                    f"Query '{query_name}' in {node.dbt_name}: SQL exceeds 1MB, truncating"
                 )
                 query_sql = query_sql[:_DBT_MAX_COMPILED_CODE_LENGTH] + "..."
 
-            # Generate URN (sanitize for valid URN characters)
-            query_id = re.sub(
-                r"[^a-zA-Z0-9_\-\.]", "_", f"{node.dbt_name}_{query_name}"
+            # Generate URN
+            query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
+                "_", f"{node.dbt_name}_{query_name}"
             )
             query_urn_str = QueryUrn(query_id).urn()
 
-            # Detect URN collision (duplicate query names)
+            # Detect collision
             if query_urn_str in seen_urns:
                 logger.warning(
-                    f"Duplicate query name '{query_name}' in {node.dbt_name} - "
-                    f"will overwrite previous query '{seen_urns[query_urn_str]}'"
+                    f"Duplicate query '{query_name}' in {node.dbt_name} overwrites '{seen_urns[query_urn_str]}'"
                 )
             seen_urns[query_urn_str] = query_name
 
-            # Get optional description
+            # Optional description
             description = query_def.get("description")
-            if description and isinstance(description, str):
-                description = description.strip() or None
-            else:
-                description = None
+            description = (
+                description.strip()
+                if isinstance(description, str) and description.strip()
+                else None
+            )
 
-            # Build custom properties for tags/terms
-            # (Query entities don't support GlobalTags/GlossaryTerms aspects)
+            # Extract tags/terms to custom properties
             custom_properties: Dict[str, str] = {}
+            if tags_csv := self._extract_list_to_csv(
+                query_def.get("tags"), "tags", query_name, node.dbt_name
+            ):
+                custom_properties["tags"] = tags_csv
+            if terms_csv := self._extract_list_to_csv(
+                query_def.get("terms"), "terms", query_name, node.dbt_name
+            ):
+                custom_properties["terms"] = terms_csv
 
-            tags = query_def.get("tags")
-            if tags:
-                if isinstance(tags, list):
-                    # Filter out empty/None values
-                    valid_tags = [str(t).strip() for t in tags if t and str(t).strip()]
-                    if valid_tags:
-                        custom_properties["tags"] = ", ".join(valid_tags)
-                else:
-                    logger.warning(
-                        f"Invalid 'tags' for query '{query_name}' in {node.dbt_name}: expected list"
-                    )
-
-            terms = query_def.get("terms")
-            if terms:
-                if isinstance(terms, list):
-                    # Filter out empty/None values
-                    valid_terms = [
-                        str(t).strip() for t in terms if t and str(t).strip()
-                    ]
-                    if valid_terms:
-                        custom_properties["terms"] = ", ".join(valid_terms)
-                else:
-                    logger.warning(
-                        f"Invalid 'terms' for query '{query_name}' in {node.dbt_name}: expected list"
-                    )
-
-            # Create QueryProperties aspect
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn_str,
                 aspect=QueryPropertiesClass(
                     statement=QueryStatementClass(
-                        value=query_sql,
-                        language=QueryLanguageClass.SQL,
+                        value=query_sql, language=QueryLanguageClass.SQL
                     ),
                     source=QuerySourceClass.MANUAL,
                     name=query_name,
@@ -2082,7 +2077,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ),
             )
 
-            # Create QuerySubjects aspect to link query to dataset
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn_str,
                 aspect=QuerySubjectsClass(
