@@ -14,6 +14,7 @@ Install with: pip install 'acryl-datahub[hive-metastore-thrift]'
 """
 
 import logging
+import struct
 from dataclasses import dataclass
 from datetime import datetime
 from types import SimpleNamespace, TracebackType
@@ -176,6 +177,7 @@ class ThriftConnectionConfig:
     use_kerberos: bool = True
     kerberos_service_name: str = "hive"
     kerberos_hostname_override: Optional[str] = None
+    kerberos_qop: str = "auth"  # Quality of Protection: auth, auth-int, auth-conf
     timeout_seconds: int = 60
     max_retries: int = (
         3  # Uses exponential backoff internally (multiplier=2, max_wait=30s)
@@ -251,17 +253,48 @@ class HiveMetastoreThriftClient:
         # from the actual connection hostname (e.g., load balancer scenarios)
         sasl_host = self.config.kerberos_hostname_override or self.config.host
 
+        # PureSASLClient uses 'qops' (plural) as the list of acceptable QOP values
+        # The values must be bytes, not strings
+        qop_bytes = self.config.kerberos_qop.encode("utf-8")
+
         logger.debug(
             f"Setting up SASL/GSSAPI transport with service={self.config.kerberos_service_name}, "
-            f"host={sasl_host} (connection host={self.config.host})"
+            f"host={sasl_host}, qop={self.config.kerberos_qop} (connection host={self.config.host})"
         )
 
         def sasl_factory() -> PureSASLClient:
-            return PureSASLClient(
+            client = PureSASLClient(
                 sasl_host,
                 service=self.config.kerberos_service_name,
                 mechanism="GSSAPI",
+                qops=[qop_bytes],  # Use qops (plural) with bytes list
             )
+
+            # Fix bug in pyhive.sasl_compat where encode/decode methods are swapped:
+            # - encode() incorrectly calls unwrap() instead of wrap()
+            # - decode() incorrectly calls wrap() instead of unwrap()
+            # Additionally, thrift_sasl expects encode() to add a 4-byte length header
+            # and decode() to handle frames that include the header
+            def _fixed_encode(outgoing: bytes) -> tuple:
+                try:
+                    wrapped = client.wrap(outgoing)
+                    # Add 4-byte big-endian length header as thrift_sasl expects
+                    return True, struct.pack(">I", len(wrapped)) + wrapped
+                except Exception as e:
+                    logger.debug(f"SASL encode error: {e}")
+                    return False, None
+
+            def _fixed_decode(incoming: bytes) -> tuple:
+                try:
+                    # thrift_sasl passes header + data, skip the 4-byte header
+                    return True, client.unwrap(incoming[4:])
+                except Exception as e:
+                    logger.debug(f"SASL decode error: {e}")
+                    return False, None
+
+            client.encode = _fixed_encode
+            client.decode = _fixed_decode
+            return client
 
         return TSaslClientTransport(sasl_factory, "GSSAPI", socket)
 
