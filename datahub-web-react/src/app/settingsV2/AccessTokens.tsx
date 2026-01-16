@@ -3,7 +3,6 @@ import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/ic
 import { PageTitle } from '@components';
 import { Alert, Button, Divider, Dropdown, Empty, Pagination, Select, Typography, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';

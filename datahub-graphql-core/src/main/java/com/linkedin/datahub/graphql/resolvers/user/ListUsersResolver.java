@@ -54,31 +54,29 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return GraphQLConcurrencyUtils.supplyAsync(
-          () -> {
-            try {
-              // Build filters to exclude service accounts (subTypes.typeNames != SERVICE_ACCOUNT)
-              final List<FacetFilterInput> filters =
-                  ImmutableList.of(
-                      new FacetFilterInput(
-                          SUB_TYPES_FIELD,
-                          null,
-                          ImmutableList.of(SERVICE_ACCOUNT_SUB_TYPE),
-                          true, // negated = true to exclude service accounts
-                          FilterOperator.EQUAL));
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          try {
+            // Build filters to exclude service accounts (subTypes.typeNames != SERVICE_ACCOUNT)
+            final List<FacetFilterInput> filters =
+                ImmutableList.of(
+                    new FacetFilterInput(
+                        SUB_TYPES_FIELD,
+                        null,
+                        ImmutableList.of(SERVICE_ACCOUNT_SUB_TYPE),
+                        true, // negated = true to exclude service accounts
+                        FilterOperator.EQUAL));
 
-              // First, get all user Urns excluding service accounts.
-              final SearchResult gmsResult =
-                  _entityClient.search(
-                      context
-                          .getOperationContext()
-                          .withSearchFlags(flags -> flags.setFulltext(true)),
-                      CORP_USER_ENTITY_NAME,
-                      query,
-                      buildFilter(filters, Collections.emptyList()),
-                      Collections.emptyList(),
-                      start,
-                      count);
+            // First, get all user Urns excluding service accounts.
+            final SearchResult gmsResult =
+                _entityClient.search(
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+                    CORP_USER_ENTITY_NAME,
+                    query,
+                    buildFilter(filters, Collections.emptyList()),
+                    Collections.emptyList(),
+                    start,
+                    count);
 
             // Then, get hydrate all users.
             final Map<Urn, EntityResponse> entities =
