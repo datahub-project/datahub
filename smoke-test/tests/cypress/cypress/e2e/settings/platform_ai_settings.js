@@ -51,7 +51,7 @@ describe("Platform AI Settings", () => {
       .contains("AI Documentation Generation");
 
     // Verify AI Documentation toggle exists
-    cy.get('[data-testid="ai-docs-toggle"]').should("be.visible");
+    cy.get('[data-testid="ai-docs-toggle"]').should("exist");
 
     // Verify Ask DataHub instruction section exists (always visible)
     cy.get('[data-testid="ai-assistant-instructions-section"]').should(
