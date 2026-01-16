@@ -480,7 +480,9 @@ class SnowflakeConnection(Closeable):
             return resp
         except RetryError as retry_err:
             # If all retries failed, raise the original exception with its original traceback.
-            raise retry_err.last_attempt.exception()  # noqa: B904
+            exc = retry_err.last_attempt.exception()
+            assert exc is not None
+            raise exc  # noqa: B904
 
     def query(self, query: str) -> Any:
         try:
@@ -510,7 +512,7 @@ def _is_permission_error(e: Exception) -> bool:
     return "Insufficient privileges" in msg or "not authorized" in msg
 
 
-def _is_retryable_account_usage_error(e: Exception, query: str) -> bool:
+def _is_retryable_account_usage_error(e: BaseException, query: str) -> bool:
     """
     Check if a Snowflake error should be retried.
 
