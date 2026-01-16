@@ -548,4 +548,112 @@ public class AspectSizePayloadValidatorTest {
     // Verify deletion was added to OperationContext
     verify(mockOpContext, times(1)).addPendingDeletion(any(AspectDeletionRequest.class));
   }
+
+  // ========================================================================
+  // PRE-PATCH VALIDATION TESTS
+  // ========================================================================
+
+  @Test
+  public void testPrePatchValidationWithMetrics() {
+    com.linkedin.metadata.utils.metrics.MetricUtils metricUtils =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    AspectSizeValidationConfiguration config = createPrePatchConfig(1500L);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, metricUtils);
+
+    String metadata = generateLargeMetadata(1000); // 1KB
+
+    validator.validatePrePatch(metadata, urn, STATUS_ASPECT_NAME, null);
+
+    // Verify size distribution metric was emitted
+    verify(metricUtils)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.prePatch.sizeDistribution"),
+            eq(1.0),
+            eq("aspectName"),
+            eq(STATUS_ASPECT_NAME),
+            eq("sizeBucket"),
+            anyString());
+  }
+
+  @Test
+  public void testPrePatchOversizedWithDeleteAndMetrics() {
+    com.linkedin.metadata.utils.metrics.MetricUtils metricUtils =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    AspectSizeValidationConfiguration config =
+        createPrePatchConfig(1000L, OversizedAspectRemediation.DELETE);
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, metricUtils);
+
+    String metadata = generateLargeMetadata(2000); // 2KB over threshold
+
+    try {
+      validator.validatePrePatch(metadata, urn, STATUS_ASPECT_NAME, mockOpContext);
+      fail("Expected AspectSizeExceededException");
+    } catch (AspectSizeExceededException e) {
+      assertEquals(e.getValidationPoint(), "PRE_DB_PATCH");
+
+      // Verify both metrics were emitted
+      verify(metricUtils)
+          .incrementMicrometer(
+              eq("aspectSizeValidation.prePatch.sizeDistribution"),
+              eq(1.0),
+              anyString(),
+              anyString(),
+              anyString(),
+              anyString());
+      verify(metricUtils)
+          .incrementMicrometer(
+              eq("aspectSizeValidation.prePatch.oversized"),
+              eq(1.0),
+              anyString(),
+              anyString(),
+              anyString(),
+              anyString());
+
+      // Verify deletion request was added to OperationContext
+      assertEquals(pendingDeletions.size(), 1);
+      AspectDeletionRequest deletion = (AspectDeletionRequest) pendingDeletions.get(0);
+      assertEquals(deletion.getValidationPoint(), "PRE_DB_PATCH");
+    }
+  }
+
+  @Test
+  public void testPrePatchWarningThresholdWithMetrics() {
+    com.linkedin.metadata.utils.metrics.MetricUtils metricUtils =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
+    AspectCheckpointConfig prePatchConfig = new AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setWarnSizeBytes(500L);
+    prePatchConfig.setMaxSizeBytes(2000L);
+    prePatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
+    config.setPrePatch(prePatchConfig);
+
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, metricUtils);
+    String metadata = generateLargeMetadata(1000); // Above warn, below max
+
+    validator.validatePrePatch(metadata, urn, STATUS_ASPECT_NAME, null);
+
+    // Verify warning metric was emitted
+    verify(metricUtils)
+        .incrementMicrometer(
+            eq("aspectSizeValidation.prePatch.warning"),
+            eq(1.0),
+            eq("aspectName"),
+            eq(STATUS_ASPECT_NAME));
+  }
+
+  private AspectSizeValidationConfiguration createPrePatchConfig(long maxSize) {
+    return createPrePatchConfig(maxSize, OversizedAspectRemediation.IGNORE);
+  }
+
+  private AspectSizeValidationConfiguration createPrePatchConfig(
+      long maxSize, OversizedAspectRemediation remediation) {
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
+    AspectCheckpointConfig prePatchConfig = new AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setMaxSizeBytes(maxSize);
+    prePatchConfig.setOversizedRemediation(remediation);
+    config.setPrePatch(prePatchConfig);
+    return config;
+  }
 }
