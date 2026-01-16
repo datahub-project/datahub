@@ -23,6 +23,11 @@ base_requirements = {
     "pydantic_core!=2.41.3,<3.0.0",
     "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
+    "sentry-sdk>=1.33.1",
+    # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
+    # vulnerability), but Airflow 2.x constraints pin jaraco.context to older versions (e.g., 5.3.0).
+    # This constraint is NOT included here to maintain Airflow compatibility.
+    # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
     "sentry-sdk>=1.33.1,<3.0.0",
 }
 
@@ -187,6 +192,12 @@ aws_common = {
     "boto3<2.0.0",
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
+    "botocore!=1.23.0",
+    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
+    # fixed in urllib3>=2.6.0, but botocore requires urllib3<1.27 and does not yet support 2.x.
+    # This is blocked by upstream: https://github.com/boto/botocore/issues/3499
+    # Pin to latest 1.26.x until botocore adds urllib3 2.x support.
+    "urllib3>=1.26.20,<1.27",
     "botocore!=1.23.0,<2.0.0",
 }
 
