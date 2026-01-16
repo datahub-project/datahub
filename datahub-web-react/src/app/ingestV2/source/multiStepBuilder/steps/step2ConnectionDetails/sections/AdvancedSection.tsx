@@ -1,10 +1,9 @@
-import { Input, colors, spacing, transition } from '@components';
+import { Input, spacing, transition } from '@components';
 import { Form } from 'antd';
 import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { AntdFormCompatibleCheckbox } from '@app/ingestV2/source/multiStepBuilder/components/AntdCompatibleCheckbox';
 import { ExpandCollapseButton } from '@app/ingestV2/source/multiStepBuilder/components/ExpandCollapseButton';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
