@@ -145,8 +145,7 @@ _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_SQL_LENGTH = (
     1 * 1024 * 1024
 )  # 1MB limit for SQL strings (compiled code, queries)
-# Use + to collapse consecutive special chars into single underscore
-# e.g., "Revenue (USD)" and "Revenue [USD]" both become "Revenue_USD_" (not "Revenue__USD_")
+# Replaces runs of non-alphanumeric chars with a single underscore for clean URNs.
 _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
 
 
@@ -157,8 +156,6 @@ class DBTQueryDefinition(pydantic.BaseModel):
 
     name: str = Field(..., min_length=1, description="Unique name for the query")
     sql: str = Field(..., min_length=1, description="SQL statement for the query")
-    # Optional fields use lenient types to support varied dbt YAML formatting.
-    # Type coercion and filtering occurs via validators and helper methods.
     description: Optional[str] = Field(None, description="Human-readable description")
     tags: Optional[List[str]] = Field(None, description="Tags for categorization")
     terms: Optional[List[str]] = Field(None, description="Glossary terms")
@@ -175,31 +172,25 @@ class DBTQueryDefinition(pydantic.BaseModel):
     @field_validator("description", mode="before")
     @classmethod
     def coerce_description(cls, v: Any) -> Optional[str]:
-        # dbt YAML allows arbitrary types in meta fields (e.g., description: 123).
-        # We accept only strings to avoid serialization issues in DataHub.
         if v is None:
             return None
         if not isinstance(v, str):
             logger.warning(
-                f"Invalid description type {type(v).__name__}, expected string - ignoring"
+                f"meta.queries: description must be string, got {type(v).__name__}"
             )
             return None
-        stripped = v.strip()
-        return stripped if stripped else None
+        return v.strip() or None
 
     @field_validator("tags", "terms", mode="before")
     @classmethod
     def coerce_string_list(
         cls, v: Any, info: pydantic.ValidationInfo
     ) -> Optional[List[str]]:
-        # dbt YAML parsing can produce unexpected types (e.g., tags: "single-tag"
-        # instead of tags: ["single-tag"]). We require lists for proper handling.
         if v is None:
             return None
         if not isinstance(v, list):
-            field_name = info.field_name or "field"
             logger.warning(
-                f"Invalid {field_name} type {type(v).__name__}, expected list - ignoring"
+                f"meta.queries: {info.field_name} must be list, got {type(v).__name__}"
             )
             return None
         return [str(item).strip() for item in v if item and str(item).strip()]
@@ -525,6 +516,7 @@ class DBTCommonConfig(
     )
     max_queries_per_model: int = Field(
         default=100,
+        ge=0,
         description="Maximum number of Query entities to emit per dbt model. "
         "Prevents metadata explosion from malformed manifests. Set to 0 for unlimited.",
     )
@@ -1192,18 +1184,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, self.config, ctx
         )
-        # Query timestamp cache: computed once from manifest for reproducibility.
-        # Caching ensures identical re-runs produce the same timestamps, enabling
-        # proper change detection and avoiding duplicate MCPs in stateful ingestion.
+        # Cached timestamp for Query entities (ensures reproducible output)
         self._query_timestamp_cache: Optional[int] = None
-        self._query_timestamp_logged: bool = False
 
     def _get_query_timestamp(self) -> int:
-        """Get timestamp for Query entities (computed once from manifest, cached).
-
-        Uses manifest generated_at for reproducibility - same manifest produces
-        same timestamps across runs. Falls back to current time if unavailable.
-        """
+        """Get timestamp for Query entities, cached for reproducibility."""
         if self._query_timestamp_cache is not None:
             return self._query_timestamp_cache
 
@@ -1218,19 +1203,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     return self._query_timestamp_cache
                 except (ValueError, TypeError) as e:
                     logger.warning(
-                        f"Failed to parse manifest timestamp '{generated_at}': {e}, "
-                        "using current time for Query entities"
+                        f"Failed to parse manifest timestamp '{generated_at}': {e}"
                     )
 
-        # Fallback to current time (log once, not per-node)
+        # Fallback to current time
         self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
         self.report.queries_using_fallback_timestamp += 1
-        if not self._query_timestamp_logged:
-            logger.debug(
-                "Using current time for Query entity timestamps "
-                "(manifest generated_at unavailable)"
-            )
-            self._query_timestamp_logged = True
         return self._query_timestamp_cache
 
     def create_test_entity_mcps(
@@ -2065,19 +2043,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         seen_urns: Dict[str, str] = {}
 
         for idx, query_def in enumerate(queries):
-            # Validate using Pydantic model
             try:
                 query = DBTQueryDefinition.model_validate(query_def)
             except pydantic.ValidationError as e:
-                # Show all validation errors for better debugging
-                all_errors = [
+                error_msg = "; ".join(
                     f"{err['loc'][0]}: {err['msg']}" if err.get("loc") else err["msg"]
                     for err in e.errors()
-                ]
-                error_msg = "; ".join(all_errors) if all_errors else str(e)
-                logger.warning(
-                    f"Invalid query at index {idx} in {node.dbt_name}: {error_msg}"
                 )
+                logger.warning(f"Invalid query at {node.dbt_name}[{idx}]: {error_msg}")
                 self.report.num_queries_failed += 1
                 self.report.queries_failed_list.append(
                     f"{node.dbt_name}[{idx}]: {error_msg}"
@@ -2086,13 +2059,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             query_name = query.name
             query_sql = query.sql
-
-            # Truncate very long SQL
             if len(query_sql) > _DBT_MAX_SQL_LENGTH:
                 logger.warning(
                     f"Query '{query_name}' in {node.dbt_name}: SQL exceeds 1MB, truncating"
                 )
-                query_sql = query_sql[:_DBT_MAX_SQL_LENGTH] + "..."
+                query_sql = f"{query_sql[:_DBT_MAX_SQL_LENGTH]}..."
 
             # Generate URN
             query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
