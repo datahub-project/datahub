@@ -86,6 +86,7 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   }
   cy.clickOptionWithTestId("ingestion-schedule-next-button");
   cy.waitTextVisible("Give this data source a name");
+  cy.get('[data-testid="source-name-input"]').clear();
   cy.get('[data-testid="source-name-input"]').type(sourceName);
   cy.clickOptionWithTestId("ingestion-source-save-button");
   cy.waitTextVisible("Successfully created ingestion source!");
