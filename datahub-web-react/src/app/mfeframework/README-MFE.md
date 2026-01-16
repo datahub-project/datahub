@@ -65,7 +65,7 @@ cd run
 ./run-local-frontend
 ```
 
-By default, the above script ([run-local-frontend](/datahub-frontend/run/run-local-frontend)) uses the [`frontend.env`](/datahub-frontend/run/frontend.env) file, which sets the `DATAHUB_MFE_CONFIG_FILE` environment variable to point to your edited [`mfe.config.local.yaml`](/datahub-frontend/conf/mfe.config.local.yaml).
+By default, the above script ([run-local-frontend](/datahub-frontend/run/run-local-frontend)) uses the [`frontend.env`](/datahub-frontend/run/frontend.env) file, which sets the `MFE_CONFIG_FILE_PATH` environment variable to point to your edited [`mfe.config.local.yaml`](/datahub-frontend/conf/mfe.config.local.yaml).
 
 Additionally, this section in [`frontend.env`](/datahub-frontend/run/frontend.env):
 
