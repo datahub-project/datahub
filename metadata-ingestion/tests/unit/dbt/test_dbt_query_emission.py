@@ -362,11 +362,8 @@ def test_skips_duplicate_query_names_to_prevent_data_loss(caplog):
     assert isinstance(properties, QueryPropertiesClass)
     assert properties.statement.value == "SELECT 1"
 
-    # Verify warning was logged about duplicate being skipped
-    assert any(
-        "Duplicate query" in record.message and "skipped" in record.message
-        for record in caplog.records
-    )
+    # Verify warning was logged about URN collision
+    assert any("URN collision" in record.message for record in caplog.records)
 
 
 def test_sanitizes_special_characters_in_urn():
@@ -421,8 +418,8 @@ def test_query_names_collide_after_sanitization(caplog):
     assert isinstance(props, QueryPropertiesClass)
     assert props.statement.value == "SELECT 1"
 
-    # Verify warning about duplicate URN
-    assert any("Duplicate query" in record.message for record in caplog.records)
+    # Verify warning about URN collision
+    assert any("URN collision" in record.message for record in caplog.records)
 
 
 def test_handles_unicode_in_name_and_sql():

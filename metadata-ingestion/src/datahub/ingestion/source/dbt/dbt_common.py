@@ -151,7 +151,7 @@ _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
 class DBTQueryDefinition(pydantic.BaseModel):
     """Pydantic model for validating query definitions in meta.queries."""
 
-    model_config = pydantic.ConfigDict(extra="allow")
+    model_config = pydantic.ConfigDict(extra="forbid")  # Catch typos in field names
 
     name: str = Field(..., min_length=1, description="Unique name for the query")
     sql: str = Field(..., min_length=1, description="SQL statement for the query")
@@ -2058,37 +2058,41 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             query_name = query.name
             query_sql = query.sql
+            sql_truncated = False
             if len(query_sql) > _DBT_MAX_SQL_LENGTH:
                 logger.warning(
                     f"Query '{query_name}' in {node.dbt_name}: SQL exceeds 1MB, truncating"
                 )
                 query_sql = f"{query_sql[:_DBT_MAX_SQL_LENGTH]}..."
+                sql_truncated = True
 
-            # Generate URN
             query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
                 "_", f"{node.dbt_name}_{query_name}"
             )
             query_urn_str = QueryUrn(query_id).urn()
 
-            # Skip duplicates to prevent data loss
+            # Skip duplicates (can occur when different names sanitize to same URN)
             if query_urn_str in seen_urns:
-                logger.warning(
-                    f"Duplicate query '{query_name}' in {node.dbt_name} skipped "
-                    f"(conflicts with '{seen_urns[query_urn_str]}')"
-                )
+                msg = f"Query '{query_name}' in {node.dbt_name} skipped: URN collision with '{seen_urns[query_urn_str]}'"
+                logger.warning(msg)
+                self.report.report_warning(node.dbt_name, msg)
                 self.report.num_queries_failed += 1
                 self.report.queries_failed_list.append(
-                    f"{node.dbt_name}.{query_name}: duplicate name"
+                    f"{node.dbt_name}.{query_name}: URN collision"
                 )
                 continue
             seen_urns[query_urn_str] = query_name
 
-            # Extract optional fields (already validated/coerced by Pydantic)
+            # Build custom properties
+            # TODO: Tags/terms stored as CSV strings until Query entities support native aspects
+            # https://github.com/datahub-project/datahub/issues/XXXXX
             custom_properties: Dict[str, str] = {}
             if tags_csv := DBTQueryDefinition._list_to_csv(query.tags):
                 custom_properties["tags"] = tags_csv
             if terms_csv := DBTQueryDefinition._list_to_csv(query.terms):
                 custom_properties["terms"] = terms_csv
+            if sql_truncated:
+                custom_properties["sql_truncated"] = "true"
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn_str,
