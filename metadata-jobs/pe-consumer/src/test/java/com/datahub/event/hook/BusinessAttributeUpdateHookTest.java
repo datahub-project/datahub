@@ -29,6 +29,7 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -225,6 +226,7 @@ public class BusinessAttributeUpdateHookTest {
     when(mockRetrieverContext.getCachingAspectRetriever())
         .thenReturn(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     when(mockRetrieverContext.getGraphRetriever()).thenReturn(graphRetriever);
+    when(mockRetrieverContext.getSearchRetriever()).thenReturn(mock(SearchRetriever.class));
 
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(mockRetrieverContext);
