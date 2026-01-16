@@ -168,9 +168,15 @@ class HightouchSchemaHandler:
                 self.report.report_model_schemas_skipped("no_valid_fields")
                 return None
 
+        except (AttributeError, TypeError, KeyError) as e:
+            logger.error(
+                f"Model {model.id}: Programming error parsing schema: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
         except Exception as e:
             logger.warning(
-                f"Model {model.id}: Unexpected error parsing schema: {e}",
+                f"Model {model.id}: Could not parse schema from query_schema (malformed data): {e}",
                 exc_info=True,
             )
             self.report.report_model_schemas_skipped(f"parse_error: {str(e)}")
@@ -283,10 +289,15 @@ class HightouchSchemaHandler:
 
             return schema_fields
 
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.error(
+                f"Model {model.id} ({model.slug}): Failed to fetch schema from DataHub - {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
         except Exception as e:
             logger.warning(
-                f"Model {model.id} ({model.slug}): Error fetching schema from DataHub: {e}",
-                exc_info=True,
+                f"Model {model.id} ({model.slug}): Could not fetch schema from DataHub (continuing without it): {e}"
             )
             return None
 
@@ -312,8 +323,16 @@ class HightouchSchemaHandler:
                     f"Preloaded schema for {urn_description} {urn} ({len(schema_metadata.fields)} fields)"
                 )
                 return True
+        except (AttributeError, TypeError) as e:
+            logger.error(
+                f"Programming error preloading schema for {urn}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
         except Exception as e:
-            logger.debug(f"Could not preload schema for {urn}: {e}")
+            logger.debug(
+                f"Could not preload schema for {urn} (optional optimization): {e}"
+            )
 
         return False
 

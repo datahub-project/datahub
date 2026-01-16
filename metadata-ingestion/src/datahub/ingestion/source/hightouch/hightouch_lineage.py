@@ -137,9 +137,15 @@ class HightouchLineageHandler:
             )
             return field_casing_map
 
+        except (AttributeError, TypeError) as e:
+            logger.error(
+                f"Programming error fetching field casing for model {model.slug}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
         except Exception as e:
-            logger.warning(
-                f"Could not fetch upstream field casing for model {model.slug} from {upstream_urn}: {e}"
+            logger.debug(
+                f"Could not fetch upstream field casing for model {model.slug} from {upstream_urn} (optional feature): {e}"
             )
             return {}
 
@@ -216,9 +222,15 @@ class HightouchLineageHandler:
                     f"Generated {len(fine_grained_lineages)} column lineage edges for table model {model.slug}"
                 )
 
+        except (AttributeError, TypeError, KeyError) as e:
+            logger.error(
+                f"Programming error generating column lineage for {model.slug}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
         except Exception as e:
             logger.debug(
-                f"Failed to generate column lineage for table model {model.slug}: {e}"
+                f"Failed to generate column lineage for table model {model.slug} (optional feature): {e}"
             )
 
         return fine_grained_lineages
@@ -280,9 +292,15 @@ class HightouchLineageHandler:
                     f"Table model {model.slug} will have column lineage emitted directly via UpstreamLineage aspect"
                 )
 
+            except (AttributeError, TypeError) as e:
+                logger.error(
+                    f"Programming error registering lineage for {model.id}: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
+                raise
             except Exception as e:
                 logger.debug(
-                    f"Failed to register known lineage for model {model.id}: {e}"
+                    f"Failed to register known lineage for model {model.id} (optional SQL parsing feature): {e}"
                 )
 
         # For raw_sql models, register view definition for SQL parsing
@@ -305,6 +323,12 @@ class HightouchLineageHandler:
                     f"Registered view definition for model {model.id} in aggregator "
                     f"for platform {source_platform.platform}"
                 )
+            except (AttributeError, TypeError) as e:
+                logger.error(
+                    f"Programming error registering view definition for {model.id}: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
+                raise
             except Exception as e:
                 logger.debug(
                     f"Error registering view definition for model {model.id}: {e}"
@@ -389,8 +413,16 @@ class HightouchLineageHandler:
                     model_schema_fields = [
                         f.fieldPath for f in model_schema_metadata.fields
                     ]
+            except (AttributeError, TypeError) as e:
+                logger.error(
+                    f"Programming error fetching model schema: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
+                raise
             except Exception as e:
-                logger.debug(f"Could not fetch model schema for column matching: {e}")
+                logger.debug(
+                    f"Could not fetch model schema for column matching (optional): {e}"
+                )
 
             try:
                 dest_schema_metadata = self.graph.get_schema_metadata(str(outlet_urn))
@@ -398,9 +430,15 @@ class HightouchLineageHandler:
                     dest_schema_fields = [
                         f.fieldPath for f in dest_schema_metadata.fields
                     ]
+            except (AttributeError, TypeError) as e:
+                logger.error(
+                    f"Programming error fetching destination schema: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
+                raise
             except Exception as e:
                 logger.debug(
-                    f"Could not fetch destination schema for column matching: {e}"
+                    f"Could not fetch destination schema for column matching (optional): {e}"
                 )
 
         for mapping in field_mappings:

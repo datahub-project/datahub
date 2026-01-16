@@ -202,6 +202,12 @@ class HightouchSource(StatefulIngestionSourceBase):
                     generate_usage_statistics=False,
                     generate_operations=False,
                 )
+            except (AttributeError, TypeError, ValueError) as e:
+                logger.error(
+                    f"Programming error creating SQL aggregator for platform {platform}: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
+                raise
             except Exception as e:
                 logger.warning(
                     f"Failed to create SQL aggregator for platform {platform}. "

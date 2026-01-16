@@ -1,18 +1,9 @@
-# Hightouch Connector - Quickstart Recipe
-# This is the simplest possible configuration to get started with Hightouch ingestion.
-# Only the API key is required - all other settings use sensible defaults.
-
 source:
   type: hightouch
   config:
-    # REQUIRED: Your Hightouch API key
     api_config:
-      api_key: "${HIGHTOUCH_API_KEY}" # Set via environment variable
+      api_key: "${HIGHTOUCH_API_KEY}"
 
-    # Optional: Override environment (defaults to PROD)
-    # env: "PROD"
-
-# Output to DataHub
 sink:
   type: datahub-rest
   config:

@@ -183,8 +183,16 @@ class HightouchModelHandler:
                 ),
             )
             logger.debug(f"Registered model schema for {model.slug} with aggregator")
+        except (AttributeError, TypeError) as e:
+            logger.error(
+                f"Programming error registering schema for {model.slug}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
         except Exception as e:
-            logger.debug(f"Failed to register model schema for {model.slug}: {e}")
+            logger.debug(
+                f"Failed to register model schema for {model.slug} with aggregator (optional SQL parsing feature): {e}"
+            )
 
     def setup_table_model_upstream(
         self,
@@ -428,7 +436,15 @@ class HightouchModelHandler:
                     f"Extracted {len(sql_result.in_tables)} table references from SQL in model {model.slug}"
                 )
                 return [str(urn) for urn in sql_result.in_tables]
+        except (AttributeError, TypeError, KeyError) as e:
+            logger.error(
+                f"Programming error extracting tables from SQL for model {model.id}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
         except Exception as e:
-            logger.debug(f"Could not extract tables from SQL for model {model.id}: {e}")
+            logger.debug(
+                f"SQL parsing failed for model {model.id} (continuing without extracted lineage): {e}"
+            )
 
         return []
