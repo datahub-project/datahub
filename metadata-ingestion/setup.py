@@ -287,7 +287,8 @@ pyhive_common = {
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
-    "acryl-pyhive[hive-pure-sasl]==0.6.16",
+    # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
+    "acryl-pyhive[hive-pure-sasl]==0.6.17",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
