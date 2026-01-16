@@ -584,6 +584,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     "Enabled by default when stateful ingestion is turned on",
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.OWNERSHIP, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
