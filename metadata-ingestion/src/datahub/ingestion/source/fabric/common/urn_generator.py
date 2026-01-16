@@ -4,6 +4,8 @@ This module provides a single place for all URN generation logic,
 making it easy to update the pattern in the future if needed.
 """
 
+from typing import Optional
+
 # URN pattern configuration
 # Pattern: {workspaceGUID}.{itemGUID}.{schema}.{table}
 # This can be easily changed in the future if needed
@@ -63,7 +65,7 @@ def make_schema_name(workspace_id: str, item_id: str, schema_name: str) -> str:
 
 
 def make_table_name(
-    workspace_id: str, item_id: str, schema_name: str, table_name: str
+    workspace_id: str, item_id: str, schema_name: Optional[str], table_name: str
 ) -> str:
     """Generate table name for dataset URN.
 
@@ -72,10 +74,16 @@ def make_table_name(
     Args:
         workspace_id: Workspace GUID
         item_id: Lakehouse or Warehouse GUID
-        schema_name: Schema name (e.g., "dbo")
+        schema_name: Schema name (e.g., "dbo"). Use None or empty string for schemas-disabled lakehouses.
         table_name: Table name
 
     Returns:
-        Table name string: {workspaceGUID}.{itemGUID}.{schema}.{table}
+        Table name string:
+        - For schemas-enabled: {workspaceGUID}.{itemGUID}.{schema}.{table}
+        - For schemas-disabled: {workspaceGUID}.{itemGUID}.{table} (schema is skipped)
     """
-    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{item_id}{URN_PATTERN_SEPARATOR}{schema_name}{URN_PATTERN_SEPARATOR}{table_name}"
+    if schema_name:
+        return f"{workspace_id}{URN_PATTERN_SEPARATOR}{item_id}{URN_PATTERN_SEPARATOR}{schema_name}{URN_PATTERN_SEPARATOR}{table_name}"
+    else:
+        # Skip schema for schemas-disabled lakehouses
+        return f"{workspace_id}{URN_PATTERN_SEPARATOR}{item_id}{URN_PATTERN_SEPARATOR}{table_name}"

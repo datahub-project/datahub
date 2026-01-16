@@ -62,6 +62,22 @@ class TestURNGenerator:
         result = make_table_name(workspace_id, item_id, schema_name, table_name)
         assert result == f"{workspace_id}.{item_id}.{schema_name}.{table_name}"
 
+    def test_table_name_without_schema(self) -> None:
+        """Test table name generation for schemas-disabled lakehouses (None schema)."""
+        workspace_id = "workspace-123-guid"
+        item_id = "lakehouse-456-guid"
+        table_name = "customers"
+        result = make_table_name(workspace_id, item_id, None, table_name)
+        assert result == f"{workspace_id}.{item_id}.{table_name}"
+
+    def test_table_name_with_empty_schema(self) -> None:
+        """Test table name generation for schemas-disabled lakehouses (empty string schema)."""
+        workspace_id = "workspace-123-guid"
+        item_id = "lakehouse-456-guid"
+        table_name = "customers"
+        result = make_table_name(workspace_id, item_id, "", table_name)
+        assert result == f"{workspace_id}.{item_id}.{table_name}"
+
     def test_urn_pattern_consistency(self) -> None:
         """Test that URN pattern is consistent across all functions."""
         workspace_id = "ws-123"

@@ -26,6 +26,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
+    DatasetSubTypes,
     GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
@@ -340,19 +341,29 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
             # Group tables by schema
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
+
             for table in tables:
                 # Filter tables
-                table_full_name = f"{table.schema_name}.{table.name}"
+                # For schemas-disabled lakehouses, schema_name is empty, so use just table name
+                table_full_name = (
+                    f"{table.schema_name}.{table.name}"
+                    if table.schema_name
+                    else table.name
+                )
+
                 if not self.config.table_pattern.allowed(table_full_name):
                     self.report.report_table_filtered(table_full_name)
                     continue
 
                 self.report.report_table_scanned()
-                tables_by_schema[table.schema_name].append(table)
+                # Use empty string as key for schemas-disabled tables (schema_name is empty)
+                schema_dict_key = table.schema_name if table.schema_name else ""
+                tables_by_schema[schema_dict_key].append(table)
 
             # Process each schema
             for schema_name, schema_tables in tables_by_schema.items():
-                if self.config.extract_schemas:
+                # For schemas-disabled lakehouses, schema_name is empty string - skip schema container
+                if self.config.extract_schemas and schema_name:
                     # Create schema container
                     schema_key = SchemaKey(
                         platform=PLATFORM,
@@ -375,9 +386,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     yield from schema_container.as_workunits()
                     self.report.report_schema_scanned()
 
-                    parent_container_urn = schema_key.as_urn()
+                    parent_container_urn: str = schema_key.as_urn()
                 else:
-                    # Tables directly under item container
+                    # Tables directly under item container (schemas-disabled or extract_schemas=false)
                     parent_container_urn = item_container_key.as_urn()
 
                 # Create table datasets
@@ -441,6 +452,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             description=table.description,
             parent_container=parent_container_urn,
             schema=schema_fields,
+            subtype=DatasetSubTypes.TABLE,  # All Fabric tables are currently ingested as TABLE subtype
         )
 
         yield from dataset.as_workunits()

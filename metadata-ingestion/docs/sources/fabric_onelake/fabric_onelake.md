@@ -59,12 +59,27 @@ The service principal or user must have the following Microsoft Entra API permis
 - `Workspace.Read.All` (delegated) - Required to list and read workspace metadata
 - Or `Workspace.ReadWrite.All` (delegated) - Provides read and write access
 
-**Note:** The connector uses the Power BI API scope (`https://analysis.windows.net/powerbi/api/.default`) for authentication since Fabric REST APIs use the same authentication mechanism as Power BI.
+**Token Audiences:**
+The connector uses two different token audiences depending on the operation:
+
+- **Fabric REST API** (`https://api.fabric.microsoft.com`): Uses Power BI API scope (`https://analysis.windows.net/powerbi/api/.default`) for listing workspaces, lakehouses, warehouses, and basic table metadata
+- **OneLake Delta Table APIs** (`https://onelake.table.fabric.microsoft.com`): Uses Storage audience (`https://storage.azure.com/.default`) for accessing schemas and tables in **schemas-enabled lakehouses**
+
+The connector automatically handles both token audiences. For schemas-enabled lakehouses, it will use OneLake Delta Table APIs with Storage audience tokens. For schemas-disabled lakehouses, it uses the standard Fabric REST API.
+
+**OneLake Data Access Permissions:**
+For schemas-enabled lakehouses, you may also need OneLake data access permissions:
+
+- If OneLake security is enabled on your lakehouse, ensure your identity has **Read** or **ReadWrite** permissions on the lakehouse item
+- These permissions are separate from workspace roles and are managed in the Fabric portal under the lakehouse's security settings
+
+**Note:** The connector automatically detects whether a lakehouse has schemas enabled and uses the appropriate API endpoint and token audience. No additional configuration is required.
 
 For detailed information on permissions, see:
 
 - [Fabric REST API Permissions](https://learn.microsoft.com/en-us/rest/api/fabric/articles/api-permissions)
 - [Workspace Roles and Permissions](https://learn.microsoft.com/en-us/fabric/admin/roles)
+- [OneLake Data Access Control](https://learn.microsoft.com/en-us/fabric/onelake/security/data-access-control-model)
 
 ### Granting Permissions
 
@@ -244,6 +259,15 @@ sink:
 ## Schema Extraction
 
 **Note:** Schema extraction (column metadata) is currently not implemented. The connector will ingest tables without column schemas. Schema extraction via SQL Analytics endpoint is planned for a future release.
+
+## Schemas-Enabled vs Schemas-Disabled Lakehouses
+
+The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
+
+- **Schemas-Enabled Lakehouses**: The connector uses OneLake Delta Table APIs to list schemas first, then tables within each schema. This requires Storage audience tokens (`https://storage.azure.com/.default`).
+- **Schemas-Disabled Lakehouses**: The connector uses the standard Fabric REST API `/tables` endpoint, which lists all tables under the default `dbo` schema. This uses Power BI API scope tokens.
+
+The connector automatically detects the lakehouse type and uses the appropriate API endpoint. No configuration changes are needed.
 
 ## Stateful Ingestion
 
