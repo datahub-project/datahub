@@ -555,7 +555,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     )
 
     extract_ownership: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Whether to extract ownership information for tables and views based on their creator. "
             "When enabled, the table/view creator from Teradata's system tables "
