@@ -30,7 +30,9 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_result_from_freshness,
 )
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
     AssertionResultTypeClass,
+    AssertionRunEventClass,
     AssertionTypeClass,
     CalendarIntervalClass,
     FreshnessAssertionTypeClass,
@@ -1759,7 +1761,10 @@ def test_make_assertion_from_freshness() -> None:
         {}, node, "urn:li:assertion:test", "urn:li:dataset:test"
     )
 
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
     assert mcp.aspect.type == AssertionTypeClass.FRESHNESS
+    assert mcp.aspect.freshnessAssertion is not None
     assert (
         mcp.aspect.freshnessAssertion.type == FreshnessAssertionTypeClass.DATASET_CHANGE
     )
@@ -1821,4 +1826,6 @@ def test_make_assertion_result_from_freshness(
         if expected_success
         else AssertionResultTypeClass.FAILURE
     )
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result.type == expected

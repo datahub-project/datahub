@@ -62,8 +62,8 @@ class DBTFreshnessCriteria:
     count: int
     period: str  # minute, hour, day
 
-    def to_calendar_interval(self) -> CalendarIntervalClass:
-        """Convert dbt period to CalendarIntervalClass"""
+    def to_calendar_interval(self) -> str:
+        """Convert dbt period to CalendarIntervalClass string"""
         period_map = {
             "minute": CalendarIntervalClass.MINUTE,
             "hour": CalendarIntervalClass.HOUR,
@@ -317,6 +317,7 @@ def make_assertion_from_freshness(
 
     # Prefer error_after, fall back to warn_after
     criteria = freshness_info.error_after or freshness_info.warn_after
+    assert criteria  # At least one of error_after/warn_after must be set
 
     schedule = FreshnessAssertionScheduleClass(
         type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
