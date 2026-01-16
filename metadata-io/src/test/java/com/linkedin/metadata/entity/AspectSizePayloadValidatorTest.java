@@ -10,8 +10,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.config.AspectSizeValidationConfig;
-import com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration.AspectCheckpointConfig;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
@@ -85,7 +85,7 @@ public class AspectSizePayloadValidatorTest {
 
   @Test
   public void testValidationDisabled() {
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     config.setPostPatch(null);
 
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
@@ -107,7 +107,7 @@ public class AspectSizePayloadValidatorTest {
 
   @Test
   public void testValidationDisabledWhenNotEnabled() {
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(false);
     config.setPostPatch(postPatchConfig);
@@ -131,7 +131,7 @@ public class AspectSizePayloadValidatorTest {
 
   @Test
   public void testValidationWithNullMetadata() {
-    AspectSizeValidationConfig config =
+    AspectSizeValidationConfiguration config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
@@ -152,7 +152,7 @@ public class AspectSizePayloadValidatorTest {
 
   @Test
   public void testValidationPassesForSmallAspect() {
-    AspectSizeValidationConfig config =
+    AspectSizeValidationConfiguration config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
@@ -173,7 +173,7 @@ public class AspectSizePayloadValidatorTest {
 
   @Test
   public void testValidationFailsWithDeleteRemediation() {
-    AspectSizeValidationConfig config =
+    AspectSizeValidationConfiguration config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
@@ -208,7 +208,7 @@ public class AspectSizePayloadValidatorTest {
 
   @Test
   public void testValidationFailsWithIgnoreRemediation() {
-    AspectSizeValidationConfig config =
+    AspectSizeValidationConfiguration config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.IGNORE);
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
@@ -234,7 +234,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testValidationAtExactThreshold() {
     long threshold = 15728640L;
-    AspectSizeValidationConfig config =
+    AspectSizeValidationConfiguration config =
         createEnabledConfig(threshold, OversizedAspectRemediation.DELETE);
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
@@ -256,7 +256,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testValidationOneByteOverThreshold() {
     long threshold = 15728640L;
-    AspectSizeValidationConfig config =
+    AspectSizeValidationConfiguration config =
         createEnabledConfig(threshold, OversizedAspectRemediation.DELETE);
     AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, null);
 
@@ -283,7 +283,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testValidationWithWarningThreshold() {
     // Test warning threshold: size above warning but below max - should NOT throw
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setWarnSizeBytes(1000L); // Warn at 1KB
@@ -311,7 +311,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testValidationWithNullWarningThreshold() {
     // Test that null warnSizeBytes is handled correctly
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setWarnSizeBytes(null); // No warning threshold
@@ -336,9 +336,9 @@ public class AspectSizePayloadValidatorTest {
     assertEquals(deletions.size(), 0);
   }
 
-  private AspectSizeValidationConfig createEnabledConfig(
+  private AspectSizeValidationConfiguration createEnabledConfig(
       long maxSizeBytes, OversizedAspectRemediation remediation) {
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setMaxSizeBytes(maxSizeBytes);
@@ -358,7 +358,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testConfigurableSizeBucketing() {
     // Test custom bucket configuration
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setMaxSizeBytes(100_000_000L);
@@ -366,8 +366,8 @@ public class AspectSizePayloadValidatorTest {
     config.setPostPatch(postPatchConfig);
 
     // Configure custom buckets: 512KB, 2MB, 8MB
-    AspectSizeValidationConfig.MetricsConfig metricsConfig =
-        new AspectSizeValidationConfig.MetricsConfig();
+    AspectSizeValidationConfiguration.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfiguration.MetricsConfig();
     metricsConfig.setSizeBuckets(List.of(524288L, 2097152L, 8388608L));
     config.setMetrics(metricsConfig);
 
@@ -380,7 +380,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testDefaultSizeBucketing() {
     // Test default bucket configuration (when metrics config is null)
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setMaxSizeBytes(100_000_000L);
@@ -397,7 +397,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testSizeBucketingEdgeCases() {
     // Test edge cases: sizes exactly at bucket boundaries
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setMaxSizeBytes(100_000_000L);
@@ -405,8 +405,8 @@ public class AspectSizePayloadValidatorTest {
     config.setPostPatch(postPatchConfig);
 
     // Configure buckets: 1KB, 1MB
-    AspectSizeValidationConfig.MetricsConfig metricsConfig =
-        new AspectSizeValidationConfig.MetricsConfig();
+    AspectSizeValidationConfiguration.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfiguration.MetricsConfig();
     metricsConfig.setSizeBuckets(List.of(1024L, 1048576L));
     config.setMetrics(metricsConfig);
 
@@ -461,15 +461,15 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testEmptyBucketConfiguration() {
     // Test with empty bucket list - should handle gracefully
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setMaxSizeBytes(100_000_000L);
     postPatchConfig.setOversizedRemediation(OversizedAspectRemediation.IGNORE);
     config.setPostPatch(postPatchConfig);
 
-    AspectSizeValidationConfig.MetricsConfig metricsConfig =
-        new AspectSizeValidationConfig.MetricsConfig();
+    AspectSizeValidationConfiguration.MetricsConfig metricsConfig =
+        new AspectSizeValidationConfiguration.MetricsConfig();
     metricsConfig.setSizeBuckets(List.of()); // Empty list
     config.setMetrics(metricsConfig);
 
@@ -485,7 +485,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testWarningThresholdWithMetrics() {
     // Test warning threshold emission
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setWarnSizeBytes(1000L);
@@ -511,7 +511,7 @@ public class AspectSizePayloadValidatorTest {
   @Test
   public void testDeleteRemediationWithMetrics() {
     // Test DELETE remediation path with OperationContext and metrics
-    AspectSizeValidationConfig config = new AspectSizeValidationConfig();
+    AspectSizeValidationConfiguration config = new AspectSizeValidationConfiguration();
     AspectCheckpointConfig postPatchConfig = new AspectCheckpointConfig();
     postPatchConfig.setEnabled(true);
     postPatchConfig.setMaxSizeBytes(1000L);

@@ -303,5 +303,5 @@ public interface AspectDao {
   List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
 
   @Nullable
-  com.linkedin.metadata.config.AspectSizeValidationConfig getValidationConfig();
+  com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }

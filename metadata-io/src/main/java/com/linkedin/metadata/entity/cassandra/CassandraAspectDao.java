@@ -27,7 +27,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
-import com.linkedin.metadata.config.AspectSizeValidationConfig;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -65,12 +65,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   private boolean canWrite = true;
   @Setter private boolean connectionValidated = false;
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
-  @Getter @Nullable private final AspectSizeValidationConfig validationConfig;
+  @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
 
   public CassandraAspectDao(
       @Nonnull final CqlSession cqlSession,
       @Nonnull List<SystemAspectValidator> systemAspectValidators,
-      @Nullable AspectSizeValidationConfig validationConfig) {
+      @Nullable AspectSizeValidationConfiguration validationConfig) {
     _cqlSession = cqlSession;
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;

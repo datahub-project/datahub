@@ -9,7 +9,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
-import com.linkedin.metadata.config.AspectSizeValidationConfig;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -63,7 +63,7 @@ public class EbeanSystemAspect implements SystemAspect {
 
   @Nullable private List<SystemAspectValidator> systemAspectValidators;
 
-  @Nullable private AspectSizeValidationConfig validationConfig;
+  @Nullable private AspectSizeValidationConfiguration validationConfig;
 
   @Nullable private io.datahubproject.metadata.context.OperationContext operationContext;
 

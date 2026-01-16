@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AspectSizeValidationConfig {
+public class AspectSizeValidationConfiguration {
   /**
    * Validates existing aspect in DB before patch application (measures: raw JSON string character
    * count from database). Use to catch pre-existing oversized aspects.

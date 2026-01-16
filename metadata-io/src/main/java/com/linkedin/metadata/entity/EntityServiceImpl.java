@@ -270,7 +270,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       ChangeMCP changeMCP,
       SystemAspect latestAspect,
       @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> systemAspectValidators,
-      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfig validationConfig,
+      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfiguration validationConfig,
       @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
 
     try {

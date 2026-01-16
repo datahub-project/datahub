@@ -319,10 +319,12 @@ public class EbeanSystemAspectTest {
 
   @Test
   public void testPrePatchValidationNotEnabledExplicitly() throws Exception {
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig();
-    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfiguration();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration.AspectCheckpointConfig
+        prePatchConfig =
+            new com.linkedin.metadata.config.AspectSizeValidationConfiguration
+                .AspectCheckpointConfig();
     prePatchConfig.setEnabled(false);
     config.setPrePatch(prePatchConfig);
 
@@ -339,7 +341,7 @@ public class EbeanSystemAspectTest {
 
   @Test
   public void testPrePatchValidationNullMetadata() throws Exception {
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
         createPrePatchConfig(1000L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
 
     when(ebeanAspectV2.getMetadata()).thenReturn(null);
@@ -355,7 +357,7 @@ public class EbeanSystemAspectTest {
 
   @Test
   public void testPrePatchValidationSmallAspectPasses() throws Exception {
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
         createPrePatchConfig(2000L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
 
     when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
@@ -372,7 +374,7 @@ public class EbeanSystemAspectTest {
   @Test
   public void testPrePatchValidationAtThreshold() throws Exception {
     long threshold = 1000L;
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
         createPrePatchConfig(
             threshold, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
 
@@ -391,7 +393,7 @@ public class EbeanSystemAspectTest {
       expectedExceptions =
           com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
   public void testPrePatchValidationOversizedWithIgnore() throws Exception {
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
         createPrePatchConfig(1000L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
 
     when(ebeanAspectV2.getMetadata())
@@ -416,7 +418,7 @@ public class EbeanSystemAspectTest {
       expectedExceptions =
           com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
   public void testPrePatchValidationOversizedWithDelete() throws Exception {
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
         createPrePatchConfig(1000L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
 
     when(ebeanAspectV2.getMetadata())
@@ -440,10 +442,12 @@ public class EbeanSystemAspectTest {
   @Test
   public void testPrePatchValidationWithWarningThreshold() throws Exception {
     // Test warning threshold: size above warning but below max - should NOT throw
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig();
-    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfiguration();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration.AspectCheckpointConfig
+        prePatchConfig =
+            new com.linkedin.metadata.config.AspectSizeValidationConfiguration
+                .AspectCheckpointConfig();
     prePatchConfig.setEnabled(true);
     prePatchConfig.setWarnSizeBytes(500L); // Warn at 500 bytes
     prePatchConfig.setMaxSizeBytes(2000L); // Block at 2000 bytes
@@ -469,10 +473,12 @@ public class EbeanSystemAspectTest {
   @Test
   public void testPrePatchValidationWithNullWarningThreshold() throws Exception {
     // Test that null warnSizeBytes is handled correctly
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig();
-    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfiguration();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration.AspectCheckpointConfig
+        prePatchConfig =
+            new com.linkedin.metadata.config.AspectSizeValidationConfiguration
+                .AspectCheckpointConfig();
     prePatchConfig.setEnabled(true);
     prePatchConfig.setWarnSizeBytes(null); // No warning threshold
     prePatchConfig.setMaxSizeBytes(2000L);
@@ -493,12 +499,14 @@ public class EbeanSystemAspectTest {
     assertNotNull(aspect);
   }
 
-  private com.linkedin.metadata.config.AspectSizeValidationConfig createPrePatchConfig(
+  private com.linkedin.metadata.config.AspectSizeValidationConfiguration createPrePatchConfig(
       long maxSizeBytes, com.linkedin.metadata.config.OversizedAspectRemediation remediation) {
-    com.linkedin.metadata.config.AspectSizeValidationConfig config =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig();
-    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
-        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfiguration();
+    com.linkedin.metadata.config.AspectSizeValidationConfiguration.AspectCheckpointConfig
+        prePatchConfig =
+            new com.linkedin.metadata.config.AspectSizeValidationConfiguration
+                .AspectCheckpointConfig();
     prePatchConfig.setEnabled(true);
     prePatchConfig.setMaxSizeBytes(maxSizeBytes);
     prePatchConfig.setOversizedRemediation(remediation);

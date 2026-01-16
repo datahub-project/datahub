@@ -13,7 +13,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.config.AspectSizeValidationConfig;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -92,14 +92,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
-  @Getter @Nullable private final AspectSizeValidationConfig validationConfig;
+  @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
 
   public EbeanAspectDao(
       @Nonnull final Database server,
       EbeanConfiguration ebeanConfiguration,
       MetricUtils metricUtils,
       @Nonnull List<SystemAspectValidator> systemAspectValidators,
-      @Nullable AspectSizeValidationConfig validationConfig) {
+      @Nullable AspectSizeValidationConfiguration validationConfig) {
     this.server = server;
     this.batchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null

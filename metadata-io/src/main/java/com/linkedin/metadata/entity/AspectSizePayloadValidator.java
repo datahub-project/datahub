@@ -4,7 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.SystemAspectValidator;
-import com.linkedin.metadata.config.AspectSizeValidationConfig;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
@@ -41,13 +41,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AspectSizePayloadValidator implements SystemAspectValidator {
 
-  private final AspectSizeValidationConfig config;
+  private final AspectSizeValidationConfiguration config;
   private final MetricUtils metricUtils;
   private final long[] sizeBucketBoundaries; // Primitive array for performance
   private final String[] sizeBucketLabels; // Pre-computed labels (cached)
 
   public AspectSizePayloadValidator(
-      @Nonnull AspectSizeValidationConfig config, @Nullable MetricUtils metricUtils) {
+      @Nonnull AspectSizeValidationConfiguration config, @Nullable MetricUtils metricUtils) {
     this.config = config;
     this.metricUtils = metricUtils;
 

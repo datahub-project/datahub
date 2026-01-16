@@ -522,7 +522,7 @@ public class AspectDaoTest {
 
     @Nullable
     @Override
-    public com.linkedin.metadata.config.AspectSizeValidationConfig getValidationConfig() {
+    public com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig() {
       return null;
     }
   }
