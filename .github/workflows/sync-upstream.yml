@@ -1,0 +1,103 @@
+name: Sync Upstream DataHub
+
+on:
+  schedule:
+    # Run at 12:00 AM (midnight) every Monday (UTC)
+    - cron: '0 0 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/datahub-project/datahub.git || true
+          git remote -v
+      
+      - name: Fetch upstream
+        run: |
+          git fetch upstream --no-tags
+      
+      - name: Create or update datahub-pure-copy branch
+        run: |
+          # Check if branch exists locally
+          if git show-ref --verify --quiet refs/heads/datahub-pure-copy; then
+            echo "Branch datahub-pure-copy exists locally, checking out..."
+            git checkout datahub-pure-copy
+          else
+            # Check if branch exists remotely
+            if git ls-remote --heads origin datahub-pure-copy | grep -q datahub-pure-copy; then
+              echo "Branch datahub-pure-copy exists remotely, checking out..."
+              git checkout -b datahub-pure-copy origin/datahub-pure-copy
+            else
+              echo "Branch datahub-pure-copy does not exist, creating new branch..."
+              git checkout -b datahub-pure-copy upstream/master
+            fi
+          fi
+      
+      - name: Sync with upstream master
+        run: |
+          # Reset to upstream/master to get exact copy with full history
+          git reset --hard upstream/master
+      
+      - name: Push to datahub-pure-copy
+        run: |
+          git push origin datahub-pure-copy --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create Pull Request to develop (if not exists)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if a PR already exists from datahub-pure-copy to develop
+          existing_pr=$(gh pr list --head datahub-pure-copy --base develop --state open --json number --jq '.[0].number')
+          
+          if [ -n "$existing_pr" ]; then
+            echo "ℹ️ Pull request #$existing_pr already exists from datahub-pure-copy to develop"
+            echo "PR URL: $(gh pr view $existing_pr --json url --jq '.url')"
+          else
+            echo "Creating new pull request from datahub-pure-copy to develop..."
+            pr_url=$(gh pr create \
+              --base develop \
+              --head datahub-pure-copy \
+              --title "Sync upstream DataHub changes - $(date +%Y-%m-%d)" \
+              --body "This PR syncs the latest changes from the upstream DataHub repository (https://github.com/datahub-project/datahub) master branch.
+
+**Automated sync performed on:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+**Latest upstream commit:**
+\`\`\`
+$(git log -1 --oneline upstream/master)
+\`\`\`
+
+Please review the changes before merging into develop." \
+              --label "upstream-sync" 2>&1) || true
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Pull request created successfully: $pr_url"
+            else
+              echo "⚠️ Could not create PR. This might be because:"
+              echo "   - The develop branch doesn't exist"
+              echo "   - There are no differences between the branches"
+              echo "   - The label 'upstream-sync' doesn't exist (this is optional)"
+            fi
+          fi
+      
+      - name: Summary
+        run: |
+          echo "✅ Successfully synced upstream/master to datahub-pure-copy branch"
+          echo "Latest commit: $(git log -1 --oneline)"
