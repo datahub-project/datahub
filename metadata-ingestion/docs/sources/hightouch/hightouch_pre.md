@@ -77,7 +77,7 @@ You can configure how Hightouch models are represented in DataHub:
 The connector extracts comprehensive lineage:
 
 1. **Coarse-grained Lineage**: Table-to-table relationships showing data flow
-2. **Fine-grained Lineage**: Column-to-column mappings (when `include_column_lineage: true`)
+2. **Fine-grained Lineage**: Column-to-column mappings extracted from sync field mappings
 3. **Multi-hop Lineage**: Complete path from source databases through models to destinations
 
 ## Concept Mapping
@@ -360,16 +360,6 @@ max_sync_runs_per_sync: 10 # Last 10 runs per sync
 ```
 
 Set `include_sync_runs: false` to skip sync run history entirely.
-
-### Column-Level Lineage
-
-Enable detailed field-level lineage extraction:
-
-```yaml
-include_column_lineage: true
-```
-
-This extracts field mappings from sync configurations and creates fine-grained lineage showing exactly which source columns map to which destination columns.
 
 ### Container Organization
 

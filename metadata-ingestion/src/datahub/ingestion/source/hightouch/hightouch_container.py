@@ -53,9 +53,9 @@ class HightouchContainerHandler:
             for workspace in workspaces:
                 self._workspaces_cache[workspace.id] = workspace.name
             logger.info(f"Preloaded {len(workspaces)} workspace names")
-        except Exception:
+        except Exception as e:
             logger.warning(
-                "Failed to preload workspaces - will use workspace IDs as fallback",
+                f"Failed to preload workspaces (will use workspace IDs as fallback): {e}",
                 exc_info=True,
             )
 

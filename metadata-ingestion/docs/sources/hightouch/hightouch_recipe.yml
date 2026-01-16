@@ -8,7 +8,6 @@ source:
     platform_instance: "hightouch-prod"
 
     emit_models_as_datasets: true
-    include_column_lineage: true
     extract_workspaces_to_containers: true
 
     include_sync_runs: true

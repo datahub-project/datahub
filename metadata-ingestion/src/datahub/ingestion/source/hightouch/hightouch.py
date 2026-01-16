@@ -273,8 +273,12 @@ class HightouchSource(StatefulIngestionSourceBase):
                 self.report.info(
                     title="Unknown source platform type",
                     message=f"Source type '{source.type}' is not in the known platform mapping. "
-                    f"Using source type as platform name. Consider adding a mapping in "
-                    f"sources_to_platform_instance config for source_id '{source.id}'.",
+                    f"Using source type as platform name. To fix this, add a mapping in your recipe:\n\n"
+                    f"sources_to_platform_instance:\n"
+                    f'  "{source.id}":\n'
+                    f'    platform: "your_platform_name"  # e.g., snowflake, bigquery, postgres\n'
+                    f'    platform_instance: "your_instance"  # optional\n'
+                    f'    env: "PROD"  # optional',
                     context=f"source_name: {source.name} (source_id: {source.id}, type: {source.type})",
                     log_category=StructuredLogCategory.LINEAGE,
                 )
@@ -304,8 +308,12 @@ class HightouchSource(StatefulIngestionSourceBase):
                 self.report.info(
                     title="Unknown destination platform type",
                     message=f"Destination type '{destination.type}' is not in the known platform mapping. "
-                    f"Using destination type as platform name. Consider adding a mapping in "
-                    f"destinations_to_platform_instance config for destination_id '{destination.id}'.",
+                    f"Using destination type as platform name. To fix this, add a mapping in your recipe:\n\n"
+                    f"destinations_to_platform_instance:\n"
+                    f'  "{destination.id}":\n'
+                    f'    platform: "your_platform_name"  # e.g., salesforce, hubspot, postgres\n'
+                    f'    platform_instance: "your_instance"  # optional\n'
+                    f'    env: "PROD"  # optional',
                     context=f"destination_name: {destination.name} (destination_id: {destination.id}, type: {destination.type})",
                     log_category=StructuredLogCategory.LINEAGE,
                 )

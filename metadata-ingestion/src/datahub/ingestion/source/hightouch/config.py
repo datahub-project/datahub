@@ -35,6 +35,26 @@ class HightouchAPIConfig(ConfigModel):
         default=30, description="Request timeout in seconds"
     )
 
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("base_url cannot be empty")
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+        return v.rstrip("/")
+
+    @field_validator("request_timeout_sec")
+    @classmethod
+    def validate_request_timeout(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("request_timeout_sec must be positive")
+        if v > 300:
+            logger.warning(
+                f"request_timeout_sec is {v} seconds (>5min). This may cause timeouts for large API responses."
+            )
+        return v
+
 
 class PlatformDetail(ConfigModel):
     platform: Optional[str] = Field(
@@ -248,4 +268,11 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
                 f"This may result in many API calls and slower ingestion. "
                 f"Consider using a value below {Constant.MAX_SYNC_RUNS_WARNING_THRESHOLD}."
             )
+        return v
+
+    @field_validator("max_contract_runs_per_contract")
+    @classmethod
+    def validate_max_contract_runs(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("max_contract_runs_per_contract must be non-negative")
         return v

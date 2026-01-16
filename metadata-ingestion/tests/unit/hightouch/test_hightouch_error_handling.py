@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import ValidationError
-from requests.exceptions import ConnectionError, HTTPError, RequestException, Timeout
+from requests.exceptions import ConnectionError, HTTPError, Timeout
 
 from datahub.ingestion.run.pipeline import PipelineContext
 from datahub.ingestion.source.hightouch.config import (
@@ -409,17 +409,13 @@ class TestHightouchConfigValidation:
             HightouchSourceConfig(api_config={})
 
     def test_invalid_base_url_format(self):
-        config = HightouchSourceConfig(
-            api_config={
-                "api_key": "test_key",
-                "base_url": "not-a-valid-url",
-            }
-        )
-        ctx = PipelineContext(run_id="test_run")
-
-        with pytest.raises(RequestException):
-            source = HightouchSource(config, ctx)
-            list(source.get_workunits())
+        with pytest.raises(ValidationError):
+            HightouchSourceConfig(
+                api_config={
+                    "api_key": "test_key",
+                    "base_url": "not-a-valid-url",
+                }
+            )
 
     def test_negative_max_sync_runs(self):
         with pytest.raises(ValidationError) as exc_info:
@@ -429,3 +425,36 @@ class TestHightouchConfigValidation:
             )
 
         assert "max_sync_runs_per_sync must be non-negative" in str(exc_info.value)
+
+    def test_negative_max_contract_runs(self):
+        with pytest.raises(ValidationError) as exc_info:
+            HightouchSourceConfig(
+                api_config={"api_key": "test_key"},
+                max_contract_runs_per_contract=-1,
+            )
+
+        assert "max_contract_runs_per_contract must be non-negative" in str(
+            exc_info.value
+        )
+
+    def test_invalid_request_timeout(self):
+        with pytest.raises(ValidationError) as exc_info:
+            HightouchSourceConfig(
+                api_config={"api_key": "test_key", "request_timeout_sec": 0}
+            )
+
+        assert "request_timeout_sec must be positive" in str(exc_info.value)
+
+    def test_invalid_base_url_no_protocol(self):
+        with pytest.raises(ValidationError) as exc_info:
+            HightouchSourceConfig(
+                api_config={"api_key": "test_key", "base_url": "api.hightouch.com"}
+            )
+
+        assert "base_url must start with http:// or https://" in str(exc_info.value)
+
+    def test_empty_base_url(self):
+        with pytest.raises(ValidationError) as exc_info:
+            HightouchSourceConfig(api_config={"api_key": "test_key", "base_url": "   "})
+
+        assert "base_url cannot be empty" in str(exc_info.value)
