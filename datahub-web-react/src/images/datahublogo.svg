@@ -1,18 +1,40 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   width="180"
-   height="180"
-   viewBox="0 0 180 180"
+   width="108"
+   height="108"
+   viewBox="0 0 108 108"
    fill="none"
    version="1.1"
    id="svg3"
+   sodipodi:docname="datahublogo.svg"
+   inkscape:version="1.4 (e7c3feb1, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
   <defs
      id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="8.4083333"
+     inkscape:cx="60.535183"
+     inkscape:cy="60"
+     inkscape:window-width="2560"
+     inkscape:window-height="1382"
+     inkscape:window-x="1728"
+     inkscape:window-y="30"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3" />
   <g
      id="g3"
-     transform="matrix(1.0666667,0,0,1.0666667,21.655815,25.999998)">
+     transform="matrix(0.9,0,0,0.9,-3.6654043,0)">
     <path
        d="M 8.40165,90.0111 C 13.5905,98.9778 21.0239,106.467 29.9461,111.722 38.8683,116.978 49.2794,120 60.3683,120 76.9239,120 91.9461,113.278 102.791,102.422 113.646,91.5778 120.368,76.5444 120.368,60 120.368,43.4444 113.646,28.4222 102.791,17.5778 91.9461,6.72222 76.9239,0 60.3683,0 c -2.5444,0 -4.6111,2.06667 -4.6111,4.61111 0,2.54445 2.0667,4.61111 4.6111,4.61111 14.0334,0 26.7,5.67778 35.9,14.86668 9.1887,9.2 14.8667,21.8667 14.8667,35.9 0,14.0333 -5.678,26.7 -14.8667,35.9 -9.2,9.2001 -21.8666,14.8671 -35.9,14.8671 -9.4111,0 -18.1889,-2.556 -25.7333,-7 C 27.0905,99.3111 20.7794,92.9556 16.3905,85.3667 15.1128,83.1556 12.2905,82.4111 10.0794,83.6889 7.86832,84.9667 7.12388,87.7889 8.40165,90 Z"
        fill="#006dcd"
