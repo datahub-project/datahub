@@ -165,7 +165,7 @@ export function ConnectionDetailsStep() {
                     setIsRecipeValid={setIsRecipeValid}
                 />
 
-                <AdvancedSection state={state} updateState={updateState} isEditing={isEditing} />
+                <AdvancedSection state={state} updateState={updateState} />
             </Container>
         </>
     );
