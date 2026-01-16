@@ -209,7 +209,9 @@ class TestTeradataConfig:
             ({"extract_ownership": False}, False),
         ],
     )
-    def test_extract_ownership_config(self, override: Dict[str, Any], expected: bool):
+    def test_extract_ownership_config(
+        self, override: Dict[str, Any], expected: bool
+    ) -> None:
         config_dict = {**_base_config(), **override}
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected

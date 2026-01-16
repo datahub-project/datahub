@@ -983,6 +983,7 @@ ORDER by DataBaseName, TableName;
         """Get creator name for a table or view."""
         if (schema, entity_name) in self._table_creator_cache:
             return self._table_creator_cache[(schema, entity_name)]
+        return None
 
     def _emit_ownership_if_available(
         self,
