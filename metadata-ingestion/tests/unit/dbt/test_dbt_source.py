@@ -1768,6 +1768,7 @@ def test_make_assertion_from_freshness() -> None:
     assert (
         mcp.aspect.freshnessAssertion.type == FreshnessAssertionTypeClass.DATASET_CHANGE
     )
+    assert mcp.aspect.freshnessAssertion.schedule.fixedInterval is not None
     assert mcp.aspect.freshnessAssertion.schedule.fixedInterval.multiple == 24
     assert (
         mcp.aspect.freshnessAssertion.schedule.fixedInterval.unit
@@ -1828,4 +1829,5 @@ def test_make_assertion_result_from_freshness(
     )
     assert mcp.aspect is not None
     assert isinstance(mcp.aspect, AssertionRunEventClass)
+    assert mcp.aspect.result is not None
     assert mcp.aspect.result.type == expected
