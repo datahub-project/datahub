@@ -13,6 +13,7 @@ import {
     addGroupToListGroupsCache,
     removeGroupFromListGroupsCache,
 } from '@app/identity/group/cacheUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '@app/onboarding/config/GroupsOnboardingConfig';
 import { SearchBar } from '@app/search/SearchBar';
@@ -21,8 +22,7 @@ import { scrollToTop } from '@app/shared/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListGroupsQuery } from '@graphql/group.generated';
-import { useListRolesQuery } from '@graphql/role.generated';
-import { CorpGroup, DataHubRole } from '@types';
+import { CorpGroup } from '@types';
 
 const GroupContainer = styled.div`
     display: flex;
@@ -89,17 +89,14 @@ export const GroupList = () => {
         removeGroupFromListGroupsCache(urn, client, page, pageSize);
     };
 
-    const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
-
-    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const {
+        roles: selectRoleOptions,
+        loading: rolesLoading,
+        hasMore: rolesHasMore,
+        observerRef: rolesObserverRef,
+        searchQuery: rolesSearchQuery,
+        setSearchQuery: setRolesSearchQuery,
+    } = useRoleSelector();
 
     return (
         <>
@@ -143,6 +140,11 @@ export const GroupList = () => {
                             onDelete={() => handleDelete(item.urn)}
                             group={item as CorpGroup}
                             selectRoleOptions={selectRoleOptions}
+                            rolesLoading={rolesLoading}
+                            rolesHasMore={rolesHasMore}
+                            rolesObserverRef={rolesObserverRef}
+                            rolesSearchQuery={rolesSearchQuery}
+                            setRolesSearchQuery={setRolesSearchQuery}
                             refetch={groupRefetch}
                         />
                     )}
