@@ -21,8 +21,8 @@ This makes it simple to connect to popular platforms like Snowflake, BigQuery, d
 
 To manage metadata ingestion in DataHub, you need appropriate permissions.
 
-:::note Ask DataHub for Ingestion (DataHub Cloud)
-**Ask DataHub** is available within the ingestion creation and troubleshooting workflow for DataHub Cloud deployments. Get AI-powered assistance with configuration, filtering, troubleshooting, and best practices—right in your workflow.
+:::note Ask DataHub for Ingestion (Public Beta - DataHub Cloud)
+**Ask DataHub** (Public Beta) is available within the ingestion creation and troubleshooting workflow for DataHub Cloud deployments. Get AI-powered assistance with configuration, filtering, troubleshooting, and best practices—right in your workflow.
 :::
 
 ### Option 1: Admin-Level Access
@@ -73,7 +73,7 @@ If you're just getting started, you won't have any sources configured. The follo
 
 ### Step 1: Select a Data Source
 
-Begin by clicking **+ Create new source** to start the ingestion source creation process.
+Begin by clicking **+ Create source** to start the ingestion source creation process.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-new-ingestion-source-button.png"/>
@@ -101,6 +101,8 @@ After selecting your data source template, you'll configure how DataHub connects
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-connection-ask-datahub.png"/>
 </p>
 
+_Ask DataHub (Public Beta - Cloud only) provides contextual assistance throughout the ingestion configuration process_
+
 **Name and Owners**: First, provide a descriptive name for your ingestion source that will help you and your team identify it later. You can also assign **Users** and/or **Groups** as owners of this ingestion source. By default, you (the creator) will be assigned as an owner, but you can add additional owners or change this at any time after creation.
 
 **Connection Information**: Next, you'll configure the connection details using a user-friendly form. The exact fields will vary depending on your chosen platform, but typically include:
@@ -116,13 +118,15 @@ After selecting your data source template, you'll configure how DataHub connects
 
 **Ingestion Settings**: Configure ingestion behavior including profiling, stale metadata handling, and other operational settings. The defaults represent best practices for most use cases.
 
-:::note Ask DataHub for Configuration Help
-**Ask DataHub** can help you understand the behavior and options of each configuration setting. Get tailored recommendations for your data source and use case.
+:::note Ask DataHub for Configuration Help (Public Beta)
+**Ask DataHub** (Public Beta) can help you understand the behavior and options of each configuration setting. Get tailored recommendations for your data source and use case.
 :::
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-configuration-ask-datahub.png"/>
 </p>
+
+_Ask DataHub (Public Beta - Cloud only) helps you understand configuration options and provides tailored recommendations for your data source_
 
 #### Managing Sensitive Information with Secrets
 
@@ -250,11 +254,13 @@ This is useful when encountering issues like:
 
 ### Common Failure Reasons
 
-When ingestion fails, the most common causes include:
+When an ingestion run fails, you'll see a failed status indicator in your sources list.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/failed-source.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/failed-source.png"/>
 </p>
+
+Common causes of ingestion failures include:
 
 1. **Configuration Errors**: Incorrect connection details, missing required fields, or invalid parameter values
 2. **Authentication Issues**: Wrong credentials, expired tokens, or insufficient permissions
@@ -267,7 +273,7 @@ When ingestion fails, the most common causes include:
 To diagnose ingestion failures, click on a run history status (Failed, Aborted) value to view and download comprehensive ingestion run logs.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-run-log.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-run-log.png"/>
 </p>
 
 The logs provide detailed information about:
