@@ -1,0 +1,33 @@
+source:
+  type: starrocks
+  config:
+    # Coordinates
+    host_port: "localhost:9030"
+
+    # Credentials
+    username: root
+    password: password
+
+    # Optional: Ingest specific database (catalog.database format)
+    # database: "default_catalog.my_database"
+
+    # Multi-catalog discovery: Include external catalogs (Hive, Iceberg, Hudi, Delta Lake)
+    # include_external_catalogs: true
+
+    # Filter catalogs to ingest
+    # catalog_pattern:
+    #   allow:
+    #     - "^default_catalog$"
+    #     - "^iceberg_.*"
+
+    # Filter databases within catalogs (StarRocks databases, not schemas)
+    # schema_pattern:
+    #   allow:
+    #     - "^production_.*"
+    #     - "^analytics$"
+    #   deny:
+    #     - "^information_schema$"
+    #     - "^_statistics_$"
+
+sink:
+  # sink configs

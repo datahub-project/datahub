@@ -17,15 +17,12 @@ def test_resources_dir(pytestconfig):
 
 def is_starrocks_up(container_name: str) -> bool:
     """Check if StarRocks is ready to accept connections and has BE available."""
-    # First check if FE is responsive
-    cmd = f"docker exec {container_name} mysql -h 127.0.0.1 -P 9030 -u root -e 'SELECT 1' 2>/dev/null"
-    ret = subprocess.run(cmd, shell=True, capture_output=True)
-    if ret.returncode != 0:
+    try:
+        cmd = f"docker exec {container_name} mysql -h 127.0.0.1 -P 9030 -u root -e 'SELECT 1'"
+        ret = subprocess.run(cmd, shell=True, capture_output=True)
+        return ret.returncode == 0
+    except Exception:
         return False
-    # Check if BE is alive and has available capacity by trying to create a simple table
-    cmd = f"docker exec {container_name} mysql -h 127.0.0.1 -P 9030 -u root -e \"CREATE DATABASE IF NOT EXISTS _healthcheck; USE _healthcheck; CREATE TABLE IF NOT EXISTS _test (id INT) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES ('replication_num'='1'); DROP DATABASE _healthcheck;\" 2>/dev/null"
-    ret = subprocess.run(cmd, shell=True, capture_output=True)
-    return ret.returncode == 0
 
 
 @pytest.fixture(scope="module")

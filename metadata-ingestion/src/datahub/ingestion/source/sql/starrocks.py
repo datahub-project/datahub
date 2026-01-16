@@ -19,6 +19,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
@@ -98,6 +99,14 @@ class StarRocksConfig(StarRocksConnectionConfig, BasicSQLAlchemyConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.CATALOG,
+        SourceCapabilityModifier.DATABASE,
+    ],
+)
 class StarRocksSource(SQLAlchemySource):
     """
     DataHub ingestion source for StarRocks with multi-catalog support.
@@ -129,18 +138,15 @@ class StarRocksSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url:{url}")
         engine = create_engine(url, **self.config.options)
 
-        # Discover all catalogs
         catalogs = self._discover_catalogs(engine)
 
         for catalog in catalogs:
-            # Filter catalogs based on include_external_catalogs and catalog_pattern
             if catalog.is_external and not self.config.include_external_catalogs:
                 logger.debug(
                     f"Skipping external catalog {catalog.name} "
                     "(include_external_catalogs=False)"
                 )
                 continue
-
             if not self.config.catalog_pattern.allowed(catalog.name):
                 logger.debug(
                     f"Skipping catalog {catalog.name} - not in catalog_pattern"
@@ -148,8 +154,6 @@ class StarRocksSource(SQLAlchemySource):
                 continue
 
             self._current_catalog = catalog
-
-            # Discover databases within this catalog
             databases = self._discover_databases(engine, catalog)
 
             logger.info(
@@ -157,12 +161,10 @@ class StarRocksSource(SQLAlchemySource):
             )
 
             for db_name in databases:
-                # Filter databases based on schema_pattern (databases are "schemas" in three-tier)
                 if not self.config.schema_pattern.allowed(db_name):
                     continue
                 logger.debug(f"Processing: {catalog.name}.{db_name}")
 
-                # Create connection URL for this catalog.database
                 # StarRocks SQLAlchemy dialect uses catalog.database format
                 db_url = self.config.get_sql_alchemy_url(
                     database=f"{catalog.name}.{db_name}"
@@ -180,8 +182,9 @@ class StarRocksSource(SQLAlchemySource):
                     continue
 
     """
-    Catalog discovery and all resulting metadata discovery is 
-    not currently supported through starrocks-sqlalchemy. 
+    Catalog discovery and all resulting metadata discovery is
+    not currently supported through starrocks-sqlalchemy v1.3.3.
+    We implement direct SQL-based discovery using SHOW CATALOGS and SHOW DATABASES.
     """
 
     def _discover_catalogs(self, engine: Engine) -> List[StarRocksCatalog]:
@@ -224,17 +227,12 @@ class StarRocksSource(SQLAlchemySource):
     ) -> List[str]:
         """
         Discover databases within a catalog.
-
-        Uses SET CATALOG to switch context, then SHOW DATABASES.
         """
         databases: List[str] = []
 
         try:
             with engine.connect() as conn:
-                # Switch to the catalog
                 conn.execute(text(f"SET CATALOG `{catalog.name}`"))
-
-                # Get databases
                 result = conn.execute(text("SHOW DATABASES"))
                 for row in result:
                     db_name = row[0]
@@ -258,8 +256,6 @@ class StarRocksSource(SQLAlchemySource):
             backcompat_env_as_instance=True,
         )
 
-    # ==================== Catalog Container Generation ====================
-
     def gen_catalog_containers(
         self, catalog: StarRocksCatalog
     ) -> Iterable[MetadataWorkUnit]:
@@ -274,8 +270,6 @@ class StarRocksSource(SQLAlchemySource):
             extra_properties={"catalog_type": catalog.catalog_type},
         )
 
-    # ==================== Identifier and Database Name Handling ====================
-
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
     ) -> str:
@@ -283,7 +277,6 @@ class StarRocksSource(SQLAlchemySource):
         Get the dataset identifier with catalog prefix.
 
         For StarRocks: catalog.database.table
-        The schema parameter is just the database name; we prepend the current catalog.
         """
         catalog_name = (
             self._current_catalog.name if self._current_catalog else "default_catalog"
@@ -295,22 +288,16 @@ class StarRocksSource(SQLAlchemySource):
         Get the database identifier from the inspector.
 
         Returns the full catalog.database identifier for proper container hierarchy.
-        The URL database field contains "catalog.database" format.
         """
         engine = inspector.engine
         if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
             db = str(engine.url.database).strip('"')
-            # Return the full catalog.database identifier
             return db
         raise Exception("Unable to get database name from SQLAlchemy inspector")
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         """
         Parse dataset identifier into (database, schema).
-
-        For StarRocks three-tier hierarchy (catalog.database.table):
-        - catalog → database (in SQLAlchemy terms)
-        - database → schema (in SQLAlchemy terms)
 
         Returns: (catalog, database)
         """
@@ -323,9 +310,6 @@ class StarRocksSource(SQLAlchemySource):
     def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
         """
         Return the database portion as the schema.
-
-        In StarRocks three-tier hierarchy, the database IS the schema level.
-        db_name is "catalog.database", so we extract just the database part.
         """
         # db_name is "catalog.database", extract just the database portion
         if "." in db_name:
@@ -355,17 +339,16 @@ class StarRocksSource(SQLAlchemySource):
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Add table to database container (not schema container).
+        Add table to database container.
 
         StarRocks has two-tier hierarchy, so tables go directly into database containers.
-        db_name is "catalog.database" and schema is just "database" portion.
+        db_name is "catalog.database" and schema is "database" portion.
         """
         from datahub.ingestion.source.sql.sql_utils import (
             add_table_to_schema_container,
         )
 
         # For StarRocks, db_name is already "catalog.database" which is what we want
-        # Create database container key (not schema container key)
         database_container_key = gen_database_key(
             database=db_name,
             platform=self.platform,
@@ -387,14 +370,12 @@ class StarRocksSource(SQLAlchemySource):
         Overrides base class to inject catalog container generation.
         database parameter is "catalog.database" format.
         """
-        # Generate catalog container first (parent of database) - only once per catalog
         if self._current_catalog:
             catalog_name = self._current_catalog.name
-            if catalog_name not in self._catalog_containers_emitted:
+            if catalog_name not in self._catalog_containers_emitted:  # once per catalog
                 yield from self.gen_catalog_containers(self._current_catalog)
                 self._catalog_containers_emitted.add(catalog_name)
 
-        # Generate database container (calls parent implementation)
         yield from super().get_database_level_workunits(
             inspector=inspector, database=database
         )
@@ -412,12 +393,10 @@ class StarRocksSource(SQLAlchemySource):
         from datahub.emitter.mcp_builder import gen_containers
         from datahub.ingestion.source.sql.sql_utils import gen_domain_urn
 
-        # Parse catalog and database from "catalog.database" format
         catalog_name, db_name = (
             database.split(".", 1) if "." in database else ("default_catalog", database)
         )
 
-        # Create database container key
         database_container_key = gen_database_key(
             database,
             platform=self.platform,
@@ -425,10 +404,8 @@ class StarRocksSource(SQLAlchemySource):
             env=self.config.env,
         )
 
-        # Create catalog parent key
         catalog_parent_key = self.gen_catalog_key(catalog_name)
 
-        # Get domain URN if domain registry is configured
         domain_urn: Optional[str] = None
         if self.domain_registry:
             domain_urn = gen_domain_urn(
@@ -437,7 +414,6 @@ class StarRocksSource(SQLAlchemySource):
                 domain_registry=self.domain_registry,
             )
 
-        # Generate database container with catalog as parent
         # Use db_name (without catalog prefix) for display name
         yield from gen_containers(
             container_key=database_container_key,
@@ -448,21 +424,16 @@ class StarRocksSource(SQLAlchemySource):
             extra_properties=extra_properties,
         )
 
-    # ==================== Table Processing ====================
-
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         """
         Get table properties with catalog information.
-
-        Adds catalog metadata to properties for all tables.
         """
         description, properties, location = super().get_table_properties(
             inspector, schema, table
         )
 
-        # Add catalog information
         if self._current_catalog:
             properties["catalog"] = self._current_catalog.name
             properties["catalog_type"] = self._current_catalog.catalog_type
