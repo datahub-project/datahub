@@ -995,7 +995,7 @@ ORDER by DataBaseName, TableName;
     ) -> Iterable[MetadataWorkUnit]:
         """Emit ownership metadata for a dataset if creator information is available."""
         if not self.config.extract_ownership:
-            return iter([])
+            return
 
         creator_name = self._get_creator_for_entity(schema, entity_name)
         if creator_name:
