@@ -129,6 +129,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         usePropagationsFramework: false,
         displayExecutorPools: false,
         onlineSmartAssertionsEnabled: false,
+        aiPluginsEnabled: true,
         showDefaultExternalLinks: true,
         tagPropagationV2Enabled: false,
         termPropagationV2Enabled: false,

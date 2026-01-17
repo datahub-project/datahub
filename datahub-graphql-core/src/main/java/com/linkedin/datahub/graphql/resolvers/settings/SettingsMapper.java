@@ -9,7 +9,11 @@ import com.linkedin.datahub.graphql.generated.AiAssistantSettings;
 import com.linkedin.datahub.graphql.generated.AiInstruction;
 import com.linkedin.datahub.graphql.generated.AiInstructionState;
 import com.linkedin.datahub.graphql.generated.AiInstructionType;
+import com.linkedin.datahub.graphql.generated.AiPluginAuthType;
+import com.linkedin.datahub.graphql.generated.AiPluginConfig;
+import com.linkedin.datahub.graphql.generated.AiPluginType;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
+import com.linkedin.datahub.graphql.generated.AuthInjectionLocation;
 import com.linkedin.datahub.graphql.generated.DocumentationAiSettings;
 import com.linkedin.datahub.graphql.generated.EmailIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalIntegrationSettings;
@@ -17,12 +21,17 @@ import com.linkedin.datahub.graphql.generated.GlobalNotificationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.datahub.graphql.generated.GlobalVisualSettings;
 import com.linkedin.datahub.graphql.generated.HelpLink;
+import com.linkedin.datahub.graphql.generated.OAuthAiPluginConfig;
+import com.linkedin.datahub.graphql.generated.OAuthAuthorizationServer;
 import com.linkedin.datahub.graphql.generated.OidcSettings;
 import com.linkedin.datahub.graphql.generated.SampleDataSettings;
+import com.linkedin.datahub.graphql.generated.Service;
+import com.linkedin.datahub.graphql.generated.SharedApiKeyAiPluginConfig;
 import com.linkedin.datahub.graphql.generated.SlackIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.SsoSettings;
 import com.linkedin.datahub.graphql.generated.TeamsChannel;
 import com.linkedin.datahub.graphql.generated.TeamsIntegrationSettings;
+import com.linkedin.datahub.graphql.generated.UserApiKeyAiPluginConfig;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -32,6 +41,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.SampleDataStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -101,6 +111,10 @@ public class SettingsMapper {
     // Map AI Assistant Settings
     AiAssistantSettings aiAssistantSettings = mapAiAssistantSettings(input);
     result.setAiAssistant(aiAssistantSettings);
+
+    // Map AI Plugins
+    List<AiPluginConfig> aiPlugins = mapAiPlugins(input);
+    result.setAiPlugins(aiPlugins);
 
     return result;
   }
@@ -333,5 +347,117 @@ public class SettingsMapper {
     graphqlAuditStamp.setTime(auditStamp.getTime());
     graphqlAuditStamp.setActor(auditStamp.getActor().toString());
     return graphqlAuditStamp;
+  }
+
+  private List<AiPluginConfig> mapAiPlugins(@Nonnull GlobalSettingsInfo input) {
+    if (!input.hasAiPluginSettings()
+        || input.getAiPluginSettings() == null
+        || !input.getAiPluginSettings().hasPlugins()) {
+      return Collections.emptyList();
+    }
+
+    List<AiPluginConfig> result = new ArrayList<>();
+    for (com.linkedin.settings.global.AiPluginConfig gmsConfig :
+        input.getAiPluginSettings().getPlugins()) {
+      result.add(mapAiPluginConfig(gmsConfig));
+    }
+    return result;
+  }
+
+  private AiPluginConfig mapAiPluginConfig(
+      @Nonnull com.linkedin.settings.global.AiPluginConfig gmsConfig) {
+    AiPluginConfig result = new AiPluginConfig();
+    result.setId(gmsConfig.getId());
+    result.setType(AiPluginType.valueOf(gmsConfig.getType().toString()));
+    result.setServiceUrn(gmsConfig.getServiceUrn().toString());
+    result.setEnabled(gmsConfig.isEnabled());
+
+    if (gmsConfig.hasInstructions()) {
+      result.setInstructions(gmsConfig.getInstructions());
+    }
+
+    result.setAuthType(AiPluginAuthType.valueOf(gmsConfig.getAuthType().toString()));
+
+    // Map oauthConfig (for USER_OAUTH)
+    if (gmsConfig.hasOauthConfig()) {
+      com.linkedin.settings.global.OAuthAiPluginConfig gmsOauthConfig = gmsConfig.getOauthConfig();
+      OAuthAiPluginConfig oauthConfig = new OAuthAiPluginConfig();
+      oauthConfig.setServerUrn(gmsOauthConfig.getServerUrn().toString());
+
+      // Set partial OAuthAuthorizationServer for resolution by type resolver
+      OAuthAuthorizationServer partialServer = new OAuthAuthorizationServer();
+      partialServer.setUrn(gmsOauthConfig.getServerUrn().toString());
+      oauthConfig.setServer(partialServer);
+
+      if (gmsOauthConfig.hasRequiredScopes()) {
+        oauthConfig.setRequiredScopes(new ArrayList<>(gmsOauthConfig.getRequiredScopes()));
+      }
+
+      result.setOauthConfig(oauthConfig);
+    }
+
+    // Map sharedApiKeyConfig (for SHARED_API_KEY)
+    if (gmsConfig.hasSharedApiKeyConfig()) {
+      com.linkedin.settings.global.SharedApiKeyAiPluginConfig gmsSharedConfig =
+          gmsConfig.getSharedApiKeyConfig();
+      if (gmsSharedConfig != null
+          && gmsSharedConfig.hasCredentialUrn()
+          && gmsSharedConfig.getCredentialUrn() != null) {
+        SharedApiKeyAiPluginConfig sharedConfig = new SharedApiKeyAiPluginConfig();
+        sharedConfig.setCredentialUrn(gmsSharedConfig.getCredentialUrn().toString());
+
+        // Map auth injection settings with defaults matching PDL
+        sharedConfig.setAuthLocation(
+            gmsSharedConfig.hasAuthLocation()
+                ? AuthInjectionLocation.valueOf(gmsSharedConfig.getAuthLocation().toString())
+                : AuthInjectionLocation.HEADER);
+        sharedConfig.setAuthHeaderName(
+            gmsSharedConfig.hasAuthHeaderName()
+                ? gmsSharedConfig.getAuthHeaderName()
+                : "Authorization");
+        if (gmsSharedConfig.hasAuthScheme()) {
+          sharedConfig.setAuthScheme(gmsSharedConfig.getAuthScheme());
+        }
+        if (gmsSharedConfig.hasAuthQueryParam()) {
+          sharedConfig.setAuthQueryParam(gmsSharedConfig.getAuthQueryParam());
+        }
+
+        result.setSharedApiKeyConfig(sharedConfig);
+      }
+    }
+
+    // Map userApiKeyConfig (for USER_API_KEY)
+    if (gmsConfig.hasUserApiKeyConfig()) {
+      com.linkedin.settings.global.UserApiKeyAiPluginConfig gmsUserConfig =
+          gmsConfig.getUserApiKeyConfig();
+      if (gmsUserConfig != null) {
+        UserApiKeyAiPluginConfig userConfig = new UserApiKeyAiPluginConfig();
+
+        // Map auth injection settings with defaults matching PDL
+        userConfig.setAuthLocation(
+            gmsUserConfig.hasAuthLocation()
+                ? AuthInjectionLocation.valueOf(gmsUserConfig.getAuthLocation().toString())
+                : AuthInjectionLocation.HEADER);
+        userConfig.setAuthHeaderName(
+            gmsUserConfig.hasAuthHeaderName()
+                ? gmsUserConfig.getAuthHeaderName()
+                : "Authorization");
+        if (gmsUserConfig.hasAuthScheme()) {
+          userConfig.setAuthScheme(gmsUserConfig.getAuthScheme());
+        }
+        if (gmsUserConfig.hasAuthQueryParam()) {
+          userConfig.setAuthQueryParam(gmsUserConfig.getAuthQueryParam());
+        }
+
+        result.setUserApiKeyConfig(userConfig);
+      }
+    }
+
+    // Set partial Service for resolution by type resolver
+    Service partialService = new Service();
+    partialService.setUrn(gmsConfig.getServiceUrn().toString());
+    result.setService(partialService);
+
+    return result;
   }
 }

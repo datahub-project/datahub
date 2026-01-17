@@ -94,4 +94,5 @@ public class FeatureFlags {
   private boolean supportTicketsEnabled = false;
   private boolean freshnessAssertionTuningEnabled = false;
   private boolean contextDocumentsEnabled = false;
+  private boolean aiPluginsEnabled = true;
 }

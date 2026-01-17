@@ -509,6 +509,19 @@ public class Constants {
   public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_TASK_NAME =
       "NOTIFICATION_CONNECTION_TEST";
 
+  // Service (MCP servers, etc.)
+  public static final String SERVICE_ENTITY_NAME = "service";
+  public static final String SERVICE_KEY_ASPECT_NAME = "serviceKey";
+  public static final String SERVICE_PROPERTIES_ASPECT_NAME = "serviceProperties";
+  public static final String MCP_SERVER_PROPERTIES_ASPECT_NAME = "mcpServerProperties";
+
+  // OAuth Authorization Server
+  public static final String OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME = "oauthAuthorizationServer";
+  public static final String OAUTH_AUTHORIZATION_SERVER_KEY_ASPECT_NAME =
+      "oauthAuthorizationServerKey";
+  public static final String OAUTH_AUTHORIZATION_SERVER_PROPERTIES_ASPECT_NAME =
+      "oauthAuthorizationServerProperties";
+
   // Actions Pipeline
   public static final String ACTIONS_PIPELINE_ENTITY_NAME = "dataHubAction";
   public static final String ACTIONS_PIPELINE_INFO_ASPECT_NAME = "dataHubActionInfo";

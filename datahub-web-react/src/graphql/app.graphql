@@ -180,6 +180,7 @@ query appConfig {
             documentationFileUploadV1
             freshnessAssertionTuningEnabled
             contextDocumentsEnabled
+            aiPluginsEnabled
         }
         chromeExtensionConfig {
             enabled

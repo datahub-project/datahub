@@ -438,6 +438,28 @@ entities:
     keyAspect: dataHubSecretKey
     aspects:
       - dataHubSecretValue
+  - name: service
+    doc: A Service represents an external service that can be integrated with DataHub, such as an MCP server.
+    category: core
+    keyAspect: serviceKey
+    searchGroup: primary
+    aspects:
+      - serviceProperties
+      - mcpServerProperties
+      - subTypes
+      - ownership
+      - status
+      - globalTags
+      - dataPlatformInstance
+  - name: oauthAuthorizationServer
+    doc: An OAuth Authorization Server that DataHub can use to obtain tokens for calling external APIs.
+    category: core
+    keyAspect: oauthAuthorizationServerKey
+    searchGroup: primary
+    aspects:
+      - oauthAuthorizationServerProperties
+      - ownership
+      - status
   - name: dataHubExecutionRequest
     category: internal
     keyAspect: dataHubExecutionRequestKey

@@ -8,10 +8,12 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AiInstructionInput;
+import com.linkedin.datahub.graphql.generated.AiPluginConfigInput;
 import com.linkedin.datahub.graphql.generated.TeamsChannelInput;
 import com.linkedin.datahub.graphql.generated.UpdateAiAssistantSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentationAiSettingsInput;
@@ -33,19 +35,30 @@ import com.linkedin.settings.global.AiAssistantSettings;
 import com.linkedin.settings.global.AiInstruction;
 import com.linkedin.settings.global.AiInstructionArray;
 import com.linkedin.settings.global.AiInstructionType;
+import com.linkedin.settings.global.AiPluginAuthType;
+import com.linkedin.settings.global.AiPluginConfig;
+import com.linkedin.settings.global.AiPluginConfigArray;
+import com.linkedin.settings.global.AiPluginSettings;
+import com.linkedin.settings.global.AiPluginType;
 import com.linkedin.settings.global.DocumentationAiSettings;
 import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.settings.global.OAuthAiPluginConfig;
 import com.linkedin.settings.global.OidcSettings;
+import com.linkedin.settings.global.SharedApiKeyAiPluginConfig;
 import com.linkedin.settings.global.SlackIntegrationSettings;
 import com.linkedin.settings.global.SsoSettings;
 import com.linkedin.settings.global.TeamsChannel;
 import com.linkedin.settings.global.TeamsIntegrationSettings;
+import com.linkedin.settings.global.UserApiKeyAiPluginConfig;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -140,6 +153,9 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
               : new AiAssistantSettings();
       updateAiAssistantSettings(aiAssistantSettings, update.getAiAssistant(), context);
       existingSettings.setAiAssistant(aiAssistantSettings);
+    }
+    if (update.getAiPlugins() != null) {
+      updateAiPlugins(existingSettings, update.getAiPlugins());
     }
   }
 
@@ -408,5 +424,127 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       default:
         throw new IllegalArgumentException("Unknown GraphQL AiInstructionState: " + graphqlState);
     }
+  }
+
+  /**
+   * Updates AI plugin configurations using merge/upsert semantics.
+   *
+   * <p>Per the GraphQL schema documentation: "Plugins not included will remain unchanged." This
+   * method merges the provided updates with existing plugins by ID:
+   *
+   * <ul>
+   *   <li>Plugins in updates with matching ID → replaced with updated config
+   *   <li>Plugins in updates with new ID → added
+   *   <li>Existing plugins not in updates → preserved unchanged
+   * </ul>
+   *
+   * @param existingSettings The current global settings
+   * @param updates The plugin configurations to upsert
+   */
+  private void updateAiPlugins(
+      final GlobalSettingsInfo existingSettings, final List<AiPluginConfigInput> updates) {
+    // Get or create the aiPluginSettings wrapper
+    AiPluginSettings pluginSettings =
+        existingSettings.hasAiPluginSettings() && existingSettings.getAiPluginSettings() != null
+            ? existingSettings.getAiPluginSettings()
+            : new AiPluginSettings();
+
+    // Build a map of existing plugins by ID for efficient lookup
+    Map<String, AiPluginConfig> existingPluginsById = new HashMap<>();
+    if (pluginSettings.hasPlugins() && pluginSettings.getPlugins() != null) {
+      for (AiPluginConfig existing : pluginSettings.getPlugins()) {
+        existingPluginsById.put(existing.getId(), existing);
+      }
+    }
+
+    // Apply updates (upsert by ID)
+    for (AiPluginConfigInput input : updates) {
+      AiPluginConfig config = mapAiPluginConfigInput(input);
+      existingPluginsById.put(config.getId(), config); // Replace or add
+    }
+
+    // Build final plugins array from merged map
+    AiPluginConfigArray pluginsArray = new AiPluginConfigArray(existingPluginsById.values());
+
+    pluginSettings.setPlugins(pluginsArray);
+    existingSettings.setAiPluginSettings(pluginSettings);
+  }
+
+  private AiPluginConfig mapAiPluginConfigInput(final AiPluginConfigInput input) {
+    AiPluginConfig config = new AiPluginConfig();
+
+    config.setId(input.getId());
+    config.setType(AiPluginType.valueOf(input.getType().toString()));
+    config.setServiceUrn(UrnUtils.getUrn(input.getServiceUrn()));
+    config.setEnabled(input.getEnabled() != null ? input.getEnabled() : true);
+
+    if (input.getInstructions() != null) {
+      config.setInstructions(input.getInstructions());
+    }
+
+    config.setAuthType(AiPluginAuthType.valueOf(input.getAuthType().toString()));
+
+    // Map oauthConfig (for USER_OAUTH)
+    if (input.getOauthConfig() != null) {
+      OAuthAiPluginConfig oauthConfig = new OAuthAiPluginConfig();
+      oauthConfig.setServerUrn(UrnUtils.getUrn(input.getOauthConfig().getServerUrn()));
+      if (input.getOauthConfig().getRequiredScopes() != null
+          && !input.getOauthConfig().getRequiredScopes().isEmpty()) {
+        oauthConfig.setRequiredScopes(new StringArray(input.getOauthConfig().getRequiredScopes()));
+      }
+      config.setOauthConfig(oauthConfig);
+    }
+
+    // Map sharedApiKeyConfig (for SHARED_API_KEY)
+    if (input.getSharedApiKeyConfig() != null) {
+      SharedApiKeyAiPluginConfig sharedConfig = new SharedApiKeyAiPluginConfig();
+      if (input.getSharedApiKeyConfig().getCredentialUrn() != null) {
+        sharedConfig.setCredentialUrn(
+            UrnUtils.getUrn(input.getSharedApiKeyConfig().getCredentialUrn()));
+      }
+
+      // Map auth injection settings
+      if (input.getSharedApiKeyConfig().getAuthLocation() != null) {
+        sharedConfig.setAuthLocation(
+            com.linkedin.settings.global.AuthInjectionLocation.valueOf(
+                input.getSharedApiKeyConfig().getAuthLocation().toString()));
+      }
+      if (input.getSharedApiKeyConfig().getAuthHeaderName() != null) {
+        sharedConfig.setAuthHeaderName(input.getSharedApiKeyConfig().getAuthHeaderName());
+      }
+      if (input.getSharedApiKeyConfig().getAuthScheme() != null) {
+        sharedConfig.setAuthScheme(input.getSharedApiKeyConfig().getAuthScheme());
+      }
+      if (input.getSharedApiKeyConfig().getAuthQueryParam() != null) {
+        sharedConfig.setAuthQueryParam(input.getSharedApiKeyConfig().getAuthQueryParam());
+      }
+
+      config.setSharedApiKeyConfig(sharedConfig);
+    }
+
+    // Map userApiKeyConfig (for USER_API_KEY)
+    if (input.getUserApiKeyConfig() != null) {
+      UserApiKeyAiPluginConfig userConfig = new UserApiKeyAiPluginConfig();
+
+      // Map auth injection settings
+      if (input.getUserApiKeyConfig().getAuthLocation() != null) {
+        userConfig.setAuthLocation(
+            com.linkedin.settings.global.AuthInjectionLocation.valueOf(
+                input.getUserApiKeyConfig().getAuthLocation().toString()));
+      }
+      if (input.getUserApiKeyConfig().getAuthHeaderName() != null) {
+        userConfig.setAuthHeaderName(input.getUserApiKeyConfig().getAuthHeaderName());
+      }
+      if (input.getUserApiKeyConfig().getAuthScheme() != null) {
+        userConfig.setAuthScheme(input.getUserApiKeyConfig().getAuthScheme());
+      }
+      if (input.getUserApiKeyConfig().getAuthQueryParam() != null) {
+        userConfig.setAuthQueryParam(input.getUserApiKeyConfig().getAuthQueryParam());
+      }
+
+      config.setUserApiKeyConfig(userConfig);
+    }
+
+    return config;
   }
 }

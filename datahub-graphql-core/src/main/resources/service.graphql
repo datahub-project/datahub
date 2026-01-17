@@ -1,0 +1,671 @@
+# Service and OAuth Authorization Server GraphQL types
+# For AI Plugin infrastructure (MCP servers, etc.)
+
+extend type Query {
+  """
+  Get a Service entity by URN.
+  Services represent external services like MCP servers that can be integrated with DataHub.
+  """
+  service(urn: String!): Service
+
+  """
+  List all Service entities.
+  Supports filtering by subType (e.g., MCP_SERVER).
+  """
+  listServices(input: ListServicesInput!): ListServicesResult!
+
+  """
+  Get an OAuth Authorization Server entity by URN.
+  These represent external OAuth providers for obtaining tokens to call external APIs.
+  """
+  oauthAuthorizationServer(urn: String!): OAuthAuthorizationServer
+
+  """
+  List all OAuth Authorization Server entities.
+  """
+  listOAuthAuthorizationServers(
+    input: ListOAuthAuthorizationServersInput!
+  ): ListOAuthAuthorizationServersResult!
+}
+
+extend type Mutation {
+  """
+  Create or update a Service entity.
+  Requires the MANAGE_SERVICES platform privilege.
+  """
+  upsertService(input: UpsertServiceInput!): Service!
+
+  """
+  Delete a Service entity.
+  Requires the MANAGE_SERVICES platform privilege.
+  """
+  deleteService(urn: String!): Boolean!
+
+  """
+  Create or update an OAuth Authorization Server entity.
+  Requires the MANAGE_CONNECTIONS platform privilege.
+  """
+  upsertOAuthAuthorizationServer(
+    input: UpsertOAuthAuthorizationServerInput!
+  ): OAuthAuthorizationServer!
+
+  """
+  Delete an OAuth Authorization Server entity.
+  Requires the MANAGE_CONNECTIONS platform privilege.
+  """
+  deleteOAuthAuthorizationServer(urn: String!): Boolean!
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SERVICE ENTITY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+A Service entity representing an external service that can be integrated with DataHub.
+Currently supports MCP servers, with future support for other service types.
+"""
+type Service implements Entity {
+  """
+  The URN of the Service entity.
+  """
+  urn: String!
+
+  """
+  The standard Entity Type.
+  """
+  type: EntityType!
+
+  """
+  Common properties for this service.
+  """
+  properties: ServiceProperties
+
+  """
+  The subtype of service (e.g., MCP_SERVER).
+  Set via the standard subTypes aspect for consistency with other entities.
+  """
+  subType: ServiceSubType
+
+  """
+  MCP-specific properties. Present when subType is MCP_SERVER.
+  """
+  mcpServerProperties: McpServerProperties
+
+  """
+  Ownership information for this service.
+  """
+  ownership: Ownership
+
+  """
+  Soft deletion status.
+  """
+  status: Status
+
+  """
+  Tags associated with this service.
+  """
+  tags: GlobalTags
+
+  """
+  The data platform instance this service is associated with.
+  """
+  platform: DataPlatform
+
+  """
+  Granular API for querying edges extending from this entity.
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Common properties for a Service entity.
+"""
+type ServiceProperties {
+  """
+  Display name shown in UI.
+  """
+  displayName: String!
+
+  """
+  Description of what this service provides.
+  """
+  description: String
+}
+
+"""
+Type of service.
+"""
+enum ServiceSubType {
+  """
+  Model Context Protocol (MCP) server.
+  """
+  MCP_SERVER
+}
+
+"""
+MCP-specific properties for a Service entity.
+"""
+type McpServerProperties {
+  """
+  MCP server endpoint URL.
+  """
+  url: String!
+
+  """
+  Transport protocol for MCP communication.
+  """
+  transport: McpTransport!
+
+  """
+  Connection timeout in seconds.
+  """
+  timeout: Float!
+
+  """
+  Custom headers to send with every request (non-auth).
+  """
+  customHeaders: [StringMapEntry!]
+}
+
+"""
+Transport protocol for MCP server communication.
+"""
+enum McpTransport {
+  """
+  Standard HTTP/HTTPS transport.
+  """
+  HTTP
+
+  """
+  Server-Sent Events for streaming responses.
+  """
+  SSE
+
+  """
+  WebSocket for bidirectional communication.
+  """
+  WEBSOCKET
+}
+
+"""
+Input for listing services.
+"""
+input ListServicesInput {
+  """
+  Optional search query string.
+  """
+  query: String
+
+  """
+  Optional filter by service subtype.
+  """
+  subType: ServiceSubType
+
+  """
+  Start offset for pagination.
+  """
+  start: Int = 0
+
+  """
+  Number of results to return.
+  """
+  count: Int = 20
+}
+
+"""
+Result of listing services.
+"""
+type ListServicesResult {
+  """
+  The starting offset of the result set.
+  """
+  start: Int!
+
+  """
+  The number of results in the result set.
+  """
+  count: Int!
+
+  """
+  The total number of results available.
+  """
+  total: Int!
+
+  """
+  The list of services.
+  """
+  services: [Service!]!
+}
+
+"""
+Input for creating or updating a Service entity.
+"""
+input UpsertServiceInput {
+  """
+  Optional ID for the service URN. If not provided, a UUID will be generated.
+  """
+  id: String
+
+  """
+  Display name shown in UI.
+  """
+  displayName: String!
+
+  """
+  Description of what this service provides.
+  """
+  description: String
+
+  """
+  The subtype of service.
+  """
+  subType: ServiceSubType!
+
+  """
+  MCP-specific properties. Required when subType is MCP_SERVER.
+  """
+  mcpServerProperties: McpServerPropertiesInput
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AI Plugin Configuration (stored in GlobalSettings.aiPlugins)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  """
+  Whether this plugin is enabled for Ask DataHub. Defaults to true.
+  """
+  enabled: Boolean = true
+
+  """
+  Custom instructions for the LLM when using this plugin's tools.
+  """
+  instructions: String
+
+  """
+  How this plugin authenticates requests. Defaults to NONE.
+  """
+  authType: AiPluginAuthType = NONE
+
+  """
+  URN of an existing OAuthAuthorizationServer.
+  Use this OR newOAuthServer, not both.
+  Required when authType is not NONE and newOAuthServer is not provided.
+  """
+  oauthServerUrn: String
+
+  """
+  Create a new OAuthAuthorizationServer inline.
+  Use this OR oauthServerUrn, not both.
+  The new server will be created first, then linked to this plugin.
+  """
+  newOAuthServer: UpsertOAuthAuthorizationServerInput
+
+  """
+  Shared API key value for SHARED_API_KEY auth type.
+  Will be encrypted and stored in a DataHubConnection owned by the Service.
+  Pass null to keep existing value (when editing).
+  """
+  sharedApiKey: String
+
+  # ─── Shared API Key Auth Injection Settings ─────────────────────────────────
+  # Used when authType is SHARED_API_KEY.
+
+  """
+  Where to inject the shared API key in HTTP requests.
+  Defaults to HEADER. Only used when authType is SHARED_API_KEY.
+  """
+  sharedApiKeyAuthLocation: AuthInjectionLocation = HEADER
+
+  """
+  For HEADER: which header name to use for the shared API key.
+  Defaults to "Authorization". Only used when authType is SHARED_API_KEY.
+  """
+  sharedApiKeyAuthHeaderName: String = "Authorization"
+
+  """
+  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+  Only used when authType is SHARED_API_KEY.
+  """
+  sharedApiKeyAuthScheme: String
+
+  """
+  For QUERY_PARAM: which query parameter name to use for the shared API key.
+  Only used when authType is SHARED_API_KEY.
+  """
+  sharedApiKeyAuthQueryParam: String
+
+  # ─── User API Key Auth Injection Settings ───────────────────────────────────
+  # Used when authType is USER_API_KEY. These define how to inject the user's API key.
+
+  """
+  Where to inject the user API key in HTTP requests.
+  Defaults to HEADER. Only used when authType is USER_API_KEY.
+  """
+  userApiKeyAuthLocation: AuthInjectionLocation = HEADER
+
+  """
+  For HEADER: which header name to use for the user API key.
+  Defaults to "Authorization". Only used when authType is USER_API_KEY.
+  """
+  userApiKeyAuthHeaderName: String = "Authorization"
+
+  """
+  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+  Only used when authType is USER_API_KEY.
+  """
+  userApiKeyAuthScheme: String
+
+  """
+  For QUERY_PARAM: which query parameter name to use for the user API key.
+  Only used when authType is USER_API_KEY.
+  """
+  userApiKeyAuthQueryParam: String
+
+  """
+  Additional OAuth scopes required by this plugin.
+  Only used when authType is USER_OAUTH.
+  """
+  requiredScopes: [String!]
+}
+
+"""
+Input for MCP server properties.
+"""
+input McpServerPropertiesInput {
+  """
+  MCP server endpoint URL.
+  """
+  url: String!
+
+  """
+  Transport protocol for MCP communication.
+  """
+  transport: McpTransport = HTTP
+
+  """
+  Connection timeout in seconds. Defaults to 30.0 if not specified.
+  """
+  timeout: Float
+
+  """
+  Custom headers to send with every request (non-auth).
+  """
+  customHeaders: [StringMapEntryInput!]
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OAUTH AUTHORIZATION SERVER ENTITY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+An OAuth Authorization Server entity.
+Represents an external OAuth provider that DataHub can use to obtain tokens
+for calling external APIs (OUTBOUND OAuth).
+"""
+type OAuthAuthorizationServer implements Entity {
+  """
+  The URN of the OAuth Authorization Server entity.
+  """
+  urn: String!
+
+  """
+  The standard Entity Type.
+  """
+  type: EntityType!
+
+  """
+  Properties of this authorization server.
+  """
+  properties: OAuthAuthorizationServerProperties
+
+  """
+  Ownership information.
+  """
+  ownership: Ownership
+
+  """
+  Soft deletion status.
+  """
+  status: Status
+
+  """
+  Granular API for querying edges extending from this entity.
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Properties of an OAuth Authorization Server.
+"""
+type OAuthAuthorizationServerProperties {
+  """
+  Display name shown in UI.
+  """
+  displayName: String!
+
+  """
+  Description of what this authorization server provides access to.
+  """
+  description: String
+
+  """
+  OAuth client ID (public, safe to expose).
+  """
+  clientId: String
+
+  """
+  Whether a client secret is configured.
+  The actual secret value is never exposed.
+  """
+  hasClientSecret: Boolean!
+
+  """
+  OAuth authorization endpoint URL.
+  """
+  authorizationUrl: String
+
+  """
+  OAuth token endpoint URL.
+  """
+  tokenUrl: String
+
+  """
+  Default OAuth scopes to request.
+  """
+  scopes: [String!]
+
+  """
+  How to authenticate at the token endpoint.
+  """
+  tokenAuthMethod: TokenAuthMethod!
+
+  """
+  Additional parameters for token requests.
+  """
+  additionalTokenParams: [StringMapEntry!]
+
+  """
+  Additional parameters for authorization URL.
+  """
+  additionalAuthParams: [StringMapEntry!]
+
+  """
+  Where to inject the credential in HTTP requests.
+  """
+  authLocation: AuthLocation!
+
+  """
+  Header name for auth injection (when authLocation is HEADER).
+  """
+  authHeaderName: String!
+
+  """
+  Scheme prefix for auth injection (e.g., "Bearer").
+  """
+  authScheme: String
+
+  """
+  Query parameter name for auth injection (when authLocation is QUERY_PARAM).
+  """
+  authQueryParam: String
+}
+
+"""
+How to authenticate at the OAuth token endpoint.
+"""
+enum TokenAuthMethod {
+  """
+  HTTP Basic Auth.
+  """
+  BASIC
+
+  """
+  Form POST body.
+  """
+  POST_BODY
+
+  """
+  No client authentication.
+  """
+  NONE
+}
+
+"""
+Where to inject credentials in API requests.
+"""
+enum AuthLocation {
+  """
+  Send credential in HTTP header.
+  """
+  HEADER
+
+  """
+  Send credential as query parameter.
+  """
+  QUERY_PARAM
+}
+
+"""
+Input for listing OAuth Authorization Servers.
+"""
+input ListOAuthAuthorizationServersInput {
+  """
+  Optional search query string.
+  """
+  query: String
+
+  """
+  Start offset for pagination.
+  """
+  start: Int = 0
+
+  """
+  Number of results to return.
+  """
+  count: Int = 20
+}
+
+"""
+Result of listing OAuth Authorization Servers.
+"""
+type ListOAuthAuthorizationServersResult {
+  """
+  The starting offset of the result set.
+  """
+  start: Int!
+
+  """
+  The number of results in the result set.
+  """
+  count: Int!
+
+  """
+  The total number of results available.
+  """
+  total: Int!
+
+  """
+  The list of authorization servers.
+  """
+  authorizationServers: [OAuthAuthorizationServer!]!
+}
+
+"""
+Input for creating or updating an OAuth Authorization Server.
+"""
+input UpsertOAuthAuthorizationServerInput {
+  """
+  Optional ID for the URN. If not provided, a UUID will be generated.
+  """
+  id: String
+
+  """
+  Display name shown in UI.
+  """
+  displayName: String!
+
+  """
+  Description of what this authorization server provides access to.
+  """
+  description: String
+
+  """
+  OAuth client ID.
+  """
+  clientId: String
+
+  """
+  OAuth client secret. Will be encrypted and stored as a DataHubSecret.
+  Pass null to keep existing value, empty string to clear.
+  """
+  clientSecret: String
+
+  """
+  OAuth authorization endpoint URL.
+  """
+  authorizationUrl: String
+
+  """
+  OAuth token endpoint URL.
+  """
+  tokenUrl: String
+
+  """
+  Default OAuth scopes to request.
+  """
+  scopes: [String!]
+
+  """
+  How to authenticate at the token endpoint.
+  """
+  tokenAuthMethod: TokenAuthMethod = POST_BODY
+
+  """
+  Additional parameters for token requests.
+  """
+  additionalTokenParams: [StringMapEntryInput!]
+
+  """
+  Additional parameters for authorization URL.
+  """
+  additionalAuthParams: [StringMapEntryInput!]
+
+  """
+  Where to inject the credential in HTTP requests.
+  """
+  authLocation: AuthLocation = HEADER
+
+  """
+  Header name for auth injection.
+  """
+  authHeaderName: String = "Authorization"
+
+  """
+  Scheme prefix for auth injection (e.g., "Bearer").
+  """
+  authScheme: String = "Bearer"
+
+  """
+  Query parameter name for auth injection.
+  """
+  authQueryParam: String
+}

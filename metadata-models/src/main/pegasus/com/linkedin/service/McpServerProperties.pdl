@@ -1,0 +1,57 @@
+namespace com.linkedin.service
+
+/**
+ * MCP-specific properties for Services of subtype MCP_SERVER.
+ *
+ * Only attached to Service entities where subType = MCP_SERVER.
+ * Contains connection details for the MCP server.
+ *
+ * Note: This contains only connection information (URL, transport, timeout).
+ * Authentication and Ask DataHub configuration are in GlobalSettings.aiPlugins.
+ */
+@Aspect = {
+  "name": "mcpServerProperties"
+}
+record McpServerProperties {
+
+  /**
+   * MCP server endpoint URL.
+   * Example: https://mcp.glean.com/v1
+   */
+  @Searchable = {
+    "fieldType": "TEXT"
+  }
+  url: string
+
+  /**
+   * Transport protocol for MCP communication.
+   */
+  transport: enum McpTransport {
+    /**
+     * Standard HTTP/HTTPS transport.
+     */
+    HTTP
+
+    /**
+     * Server-Sent Events for streaming responses.
+     */
+    SSE
+
+    /**
+     * WebSocket for bidirectional communication.
+     */
+    WEBSOCKET
+  } = "HTTP"
+
+  /**
+   * Connection timeout in seconds.
+   */
+  timeout: float = 30.0
+
+  /**
+   * Custom headers to send with every request.
+   * These are non-auth headers (e.g., X-Tenant-ID, X-Client-Version).
+   * Auth headers are configured in GlobalSettings.aiPlugins.
+   */
+  customHeaders: optional map[string, string]
+}

@@ -67,6 +67,12 @@ extend type Mutation {
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 
   """
+  Delete an AI plugin configuration.
+  Requires the 'Manage Platform Settings' Platform Privilege.
+  """
+  deleteAiPlugin(id: String!): Boolean!
+
+  """
   Update the sample data settings (enable/disable sample data visibility).
   When disabled, sample data entities are soft-deleted and hidden from search/browse.
   Requires the 'Manage Global Settings' Platform Privilege.
@@ -829,6 +835,12 @@ type GlobalSettings {
   Settings related to AI-powered chat assistant (Ask DataHub).
   """
   aiAssistant: AiAssistantSettings
+
+  """
+  AI plugin configurations for Ask DataHub.
+  Maps plugin ID to plugin configuration.
+  """
+  aiPlugins: [AiPluginConfig!]
 }
 
 """
@@ -1241,6 +1253,13 @@ input UpdateGlobalSettingsInput {
   Input required to update AI assistant settings
   """
   aiAssistant: UpdateAiAssistantSettingsInput
+
+  """
+  Input required to update AI plugin configurations.
+  This is a map of plugin ID to plugin configuration.
+  Plugins not included will remain unchanged.
+  """
+  aiPlugins: [AiPluginConfigInput!]
 }
 
 """
@@ -1845,6 +1864,12 @@ type FeatureFlagsConfig {
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!
+
+  """
+  If enabled, shows the AI Plugins configuration in settings.
+  Allows admins to configure MCP servers and other AI integrations.
+  """
+  aiPluginsEnabled: Boolean!
 }
 
 """
@@ -2145,6 +2170,321 @@ input UpdateAiAssistantSettingsInput {
   Note: This will replace the entire set of existing instructions.
   """
   instructions: [AiInstructionInput!]!
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI PLUGIN CONFIGURATION TYPES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+Configuration for an AI plugin in Ask DataHub.
+This links a Service entity (e.g., MCP server) to authentication settings.
+"""
+type AiPluginConfig {
+  """
+  Unique identifier for this plugin configuration.
+  """
+  id: String!
+
+  """
+  Type of AI plugin.
+  """
+  type: AiPluginType!
+
+  """
+  URN of the Service entity this plugin uses.
+  """
+  serviceUrn: String!
+
+  """
+  The resolved Service entity.
+  """
+  service: Service
+
+  """
+  Whether this plugin is enabled for Ask DataHub.
+  """
+  enabled: Boolean!
+
+  """
+  Custom instructions to provide to the AI when using this plugin.
+  """
+  instructions: String
+
+  """
+  How this plugin authenticates requests.
+  """
+  authType: AiPluginAuthType!
+
+  """
+  OAuth configuration.
+  Used when authType is USER_OAUTH.
+  """
+  oauthConfig: OAuthAiPluginConfig
+
+  """
+  Shared API key configuration.
+  Used when authType is SHARED_API_KEY.
+  """
+  sharedApiKeyConfig: SharedApiKeyAiPluginConfig
+
+  """
+  User API key configuration.
+  Used when authType is USER_API_KEY.
+  """
+  userApiKeyConfig: UserApiKeyAiPluginConfig
+}
+
+"""
+OAuth configuration for an AI plugin.
+Used when authType is USER_OAUTH.
+"""
+type OAuthAiPluginConfig {
+  """
+  URN of the OAuthAuthorizationServer that provides auth configuration.
+  """
+  serverUrn: String!
+
+  """
+  The resolved OAuth Authorization Server entity.
+  """
+  server: OAuthAuthorizationServer
+
+  """
+  Additional scopes required by this plugin (for USER_OAUTH).
+  Merged with the authorization server's base scopes when user connects.
+  """
+  requiredScopes: [String!]
+}
+
+"""
+Shared API key configuration for an AI plugin.
+Auth injection settings are embedded directly.
+"""
+type SharedApiKeyAiPluginConfig {
+  """
+  URN of DataHubConnection containing the shared API key.
+  """
+  credentialUrn: String!
+
+  """
+  Where to inject the API key in HTTP requests.
+  """
+  authLocation: AuthInjectionLocation!
+
+  """
+  For HEADER: which header name to use.
+  """
+  authHeaderName: String!
+
+  """
+  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+  """
+  authScheme: String
+
+  """
+  For QUERY_PARAM: which query parameter name to use.
+  """
+  authQueryParam: String
+}
+
+"""
+User API key configuration for an AI plugin.
+Auth injection settings are embedded directly.
+User credentials are stored in DataHubConnection keyed by (userUrn, serviceId).
+"""
+type UserApiKeyAiPluginConfig {
+  """
+  Where to inject the API key in HTTP requests.
+  """
+  authLocation: AuthInjectionLocation!
+
+  """
+  For HEADER: which header name to use.
+  """
+  authHeaderName: String!
+
+  """
+  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+  """
+  authScheme: String
+
+  """
+  For QUERY_PARAM: which query parameter name to use.
+  """
+  authQueryParam: String
+}
+
+"""
+Where to inject credentials in HTTP requests.
+"""
+enum AuthInjectionLocation {
+  HEADER
+  QUERY_PARAM
+}
+
+"""
+Type of AI plugin.
+"""
+enum AiPluginType {
+  """
+  Model Context Protocol (MCP) server.
+  """
+  MCP_SERVER
+}
+
+"""
+How an AI plugin authenticates API requests.
+"""
+enum AiPluginAuthType {
+  """
+  No authentication required (public API).
+  """
+  NONE
+
+  """
+  System-wide API key shared across all users.
+  """
+  SHARED_API_KEY
+
+  """
+  User provides their own API key.
+  """
+  USER_API_KEY
+
+  """
+  User authenticates via OAuth2 flow.
+  """
+  USER_OAUTH
+}
+
+"""
+Input for creating or updating an AI plugin configuration.
+"""
+input AiPluginConfigInput {
+  """
+  Unique identifier for this plugin configuration.
+  Required for updates; for new plugins, one will be generated if not provided.
+  """
+  id: String!
+
+  """
+  Type of AI plugin.
+  """
+  type: AiPluginType!
+
+  """
+  URN of the Service entity this plugin uses.
+  """
+  serviceUrn: String!
+
+  """
+  Whether this plugin is enabled for Ask DataHub.
+  """
+  enabled: Boolean = true
+
+  """
+  Custom instructions to provide to the AI when using this plugin.
+  """
+  instructions: String
+
+  """
+  How this plugin authenticates requests.
+  """
+  authType: AiPluginAuthType!
+
+  """
+  OAuth configuration.
+  Required when authType is USER_OAUTH.
+  """
+  oauthConfig: OAuthAiPluginConfigInput
+
+  """
+  Shared API key configuration.
+  Required when authType is SHARED_API_KEY.
+  """
+  sharedApiKeyConfig: SharedApiKeyAiPluginConfigInput
+
+  """
+  User API key configuration.
+  Required when authType is USER_API_KEY.
+  """
+  userApiKeyConfig: UserApiKeyAiPluginConfigInput
+}
+
+"""
+Input for OAuth configuration.
+"""
+input OAuthAiPluginConfigInput {
+  """
+  URN of the OAuthAuthorizationServer that provides auth configuration.
+  """
+  serverUrn: String!
+
+  """
+  Additional scopes required by this plugin (for USER_OAUTH).
+  """
+  requiredScopes: [String!]
+}
+
+"""
+Input for shared API key configuration.
+"""
+input SharedApiKeyAiPluginConfigInput {
+  """
+  URN of DataHubConnection containing the shared API key.
+  If not provided, a new one will be created using sharedApiKey value.
+  """
+  credentialUrn: String
+
+  """
+  Where to inject the API key in HTTP requests.
+  Defaults to HEADER if not specified.
+  """
+  authLocation: AuthInjectionLocation = HEADER
+
+  """
+  For HEADER: which header name to use.
+  Defaults to "Authorization".
+  """
+  authHeaderName: String = "Authorization"
+
+  """
+  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+  """
+  authScheme: String
+
+  """
+  For QUERY_PARAM: which query parameter name to use.
+  """
+  authQueryParam: String
+}
+
+"""
+Input for user API key configuration.
+"""
+input UserApiKeyAiPluginConfigInput {
+  """
+  Where to inject the API key in HTTP requests.
+  Defaults to HEADER if not specified.
+  """
+  authLocation: AuthInjectionLocation = HEADER
+
+  """
+  For HEADER: which header name to use.
+  Defaults to "Authorization".
+  """
+  authHeaderName: String = "Authorization"
+
+  """
+  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+  """
+  authScheme: String
+
+  """
+  For QUERY_PARAM: which query parameter name to use.
+  """
+  authQueryParam: String
 }
 
 """

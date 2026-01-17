@@ -368,6 +368,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setFreshnessAssertionTuningEnabled(_featureFlags.isFreshnessAssertionTuningEnabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
+            .setAiPluginsEnabled(_featureFlags.isAiPluginsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -1,0 +1,204 @@
+# AI Plugins GraphQL Operations
+
+# Query for AI plugins from GlobalSettings (primary list source)
+query GetAiPlugins {
+    globalSettings {
+        aiPlugins {
+            id
+            type
+            serviceUrn
+            service {
+                urn
+                type
+                subType
+                properties {
+                    displayName
+                    description
+                }
+                mcpServerProperties {
+                    url
+                    transport
+                    timeout
+                    customHeaders {
+                        key
+                        value
+                    }
+                }
+            }
+            enabled
+            instructions
+            authType
+            oauthConfig {
+                serverUrn
+                server {
+                    urn
+                    properties {
+                        displayName
+                        description
+                    }
+                }
+                requiredScopes
+            }
+            sharedApiKeyConfig {
+                credentialUrn
+                authLocation
+                authHeaderName
+                authScheme
+                authQueryParam
+            }
+            userApiKeyConfig {
+                authLocation
+                authHeaderName
+                authScheme
+                authQueryParam
+            }
+        }
+    }
+}
+
+# Query for a single service
+query Service($urn: String!) {
+    service(urn: $urn) {
+        urn
+        subType
+        properties {
+            displayName
+            description
+        }
+        mcpServerProperties {
+            url
+            transport
+            timeout
+            customHeaders {
+                key
+                value
+            }
+        }
+    }
+}
+
+# Query for a single OAuth Authorization Server
+query OAuthAuthorizationServer($urn: String!) {
+    oauthAuthorizationServer(urn: $urn) {
+        urn
+        properties {
+            displayName
+            description
+            # Secret presence flag (actual value is never exposed)
+            hasClientSecret
+            # OAuth config
+            clientId
+            authorizationUrl
+            tokenUrl
+            scopes
+            tokenAuthMethod
+            # Auth injection
+            authLocation
+            authHeaderName
+            authScheme
+        }
+    }
+}
+
+# Query for listing services
+query ListServices($input: ListServicesInput!) {
+    listServices(input: $input) {
+        start
+        count
+        total
+        services {
+            urn
+            subType
+            properties {
+                displayName
+                description
+            }
+            mcpServerProperties {
+                url
+                transport
+                timeout
+                customHeaders {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}
+
+# Query for listing OAuth Authorization Servers
+query ListOAuthAuthorizationServers($input: ListOAuthAuthorizationServersInput!) {
+    listOAuthAuthorizationServers(input: $input) {
+        start
+        count
+        total
+        authorizationServers {
+            urn
+            type
+            properties {
+                displayName
+                description
+                # Secret presence flag
+                hasClientSecret
+                # OAuth config
+                clientId
+                authorizationUrl
+                tokenUrl
+                scopes
+                tokenAuthMethod
+                # Auth injection
+                authLocation
+                authHeaderName
+                authScheme
+            }
+        }
+    }
+}
+
+# Mutation to create/update a Service
+mutation UpsertService($input: UpsertServiceInput!) {
+    upsertService(input: $input) {
+        urn
+        subType
+        properties {
+            displayName
+            description
+        }
+        mcpServerProperties {
+            url
+            transport
+            timeout
+        }
+    }
+}
+
+# Mutation to delete a Service
+mutation DeleteService($urn: String!) {
+    deleteService(urn: $urn)
+}
+
+# Mutation to create/update an OAuth Authorization Server
+mutation UpsertOAuthAuthorizationServer($input: UpsertOAuthAuthorizationServerInput!) {
+    upsertOAuthAuthorizationServer(input: $input) {
+        urn
+        properties {
+            displayName
+            description
+        }
+    }
+}
+
+# Mutation to delete an OAuth Authorization Server
+mutation DeleteOAuthAuthorizationServer($urn: String!) {
+    deleteOAuthAuthorizationServer(urn: $urn)
+}
+
+# Mutation to update AI plugin settings in GlobalSettings
+mutation UpdateAiPluginSettings($input: UpdateGlobalSettingsInput!) {
+    updateGlobalSettings(input: $input)
+}
+
+# Mutation to delete an AI plugin from GlobalSettings
+mutation DeleteAiPlugin($id: String!) {
+    deleteAiPlugin(id: $id)
+}

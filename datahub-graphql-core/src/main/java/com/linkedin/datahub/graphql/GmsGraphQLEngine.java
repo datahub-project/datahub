@@ -43,10 +43,13 @@ import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultRes
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertCustomAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.DeleteOAuthAuthorizationServerResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.ListOAuthAuthorizationServersResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.UpsertOAuthAuthorizationServerResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -226,6 +229,10 @@ import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.service.DeleteServiceResolver;
+import com.linkedin.datahub.graphql.resolvers.service.ListServicesResolver;
+import com.linkedin.datahub.graphql.resolvers.service.UpsertServiceResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.DeleteAiPluginResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
@@ -280,6 +287,7 @@ import com.linkedin.datahub.graphql.types.application.ApplicationType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.assertion.AssertionType;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
+import com.linkedin.datahub.graphql.types.auth.OAuthAuthorizationServerType;
 import com.linkedin.datahub.graphql.types.businessattribute.BusinessAttributeType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
@@ -328,6 +336,7 @@ import com.linkedin.datahub.graphql.types.restricted.RestrictedType;
 import com.linkedin.datahub.graphql.types.role.DataHubRoleType;
 import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
+import com.linkedin.datahub.graphql.types.service.ServiceType;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.template.PageTemplateType;
@@ -489,6 +498,8 @@ public class GmsGraphQLEngine {
   private final GlossaryNodeType glossaryNodeType;
   private final AspectType aspectType;
   private final DataHubConnectionType connectionType;
+  private final ServiceType serviceType;
+  private final OAuthAuthorizationServerType oauthAuthorizationServerType;
   private final ContainerType containerType;
   private final DomainType domainType;
   private final DocumentType documentType;
@@ -653,6 +664,8 @@ public class GmsGraphQLEngine {
     this.glossaryNodeType = new GlossaryNodeType(entityClient);
     this.aspectType = new AspectType(entityClient);
     this.connectionType = new DataHubConnectionType(entityClient, secretService, featureFlags);
+    this.serviceType = new ServiceType(entityClient);
+    this.oauthAuthorizationServerType = new OAuthAuthorizationServerType(entityClient);
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
     this.documentType = new DocumentType(entityClient);
@@ -712,6 +725,8 @@ public class GmsGraphQLEngine {
                 glossaryTermType,
                 glossaryNodeType,
                 connectionType,
+                serviceType,
+                oauthAuthorizationServerType,
                 containerType,
                 notebookType,
                 domainType,
@@ -845,6 +860,8 @@ public class GmsGraphQLEngine {
     configureBusinessAttributeResolver(builder);
     configureBusinessAttributeAssociationResolver(builder);
     configureConnectionResolvers(builder);
+    configureServiceResolvers(builder);
+    configureOAuthAuthorizationServerResolvers(builder);
     configureDeprecationResolvers(builder);
     configureMetadataAttributionResolver(builder);
     configureVersionPropertiesResolvers(builder);
@@ -853,6 +870,7 @@ public class GmsGraphQLEngine {
     configurePageTemplateResolvers(builder);
     configureDataHubFileResolvers(builder);
     configureAssetSettingsResolver(builder);
+    configureAiPluginConfigResolver(builder);
 
     /* Start SaaS Only */
     configureMetadataAttributionResolver(builder);
@@ -924,7 +942,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(SERVICE_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1550,7 +1569,8 @@ public class GmsGraphQLEngine {
                   "updateApplicationsSettings",
                   new UpdateApplicationsSettingsResolver(this.settingsService))
               .dataFetcher(
-                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
+                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient))
+              .dataFetcher("deleteAiPlugin", new DeleteAiPluginResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
@@ -3953,6 +3973,56 @@ public class GmsGraphQLEngine {
                     })));
   }
 
+  private void configureServiceResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "upsertService", new UpsertServiceResolver(entityClient, secretService))
+                .dataFetcher("deleteService", new DeleteServiceResolver(entityClient)));
+    builder.type(
+        "Query",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("service", getResolver(this.serviceType))
+                .dataFetcher("listServices", new ListServicesResolver(entityClient)));
+    builder.type(
+        "Service",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "platform",
+                new LoadableTypeResolver<>(
+                    this.dataPlatformType,
+                    (env) -> {
+                      final com.linkedin.datahub.graphql.generated.Service service =
+                          env.getSource();
+                      return service.getPlatform() != null ? service.getPlatform().getUrn() : null;
+                    })));
+  }
+
+  private void configureOAuthAuthorizationServerResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "upsertOAuthAuthorizationServer",
+                    new UpsertOAuthAuthorizationServerResolver(entityClient, secretService))
+                .dataFetcher(
+                    "deleteOAuthAuthorizationServer",
+                    new DeleteOAuthAuthorizationServerResolver(entityClient)));
+    builder.type(
+        "Query",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "oauthAuthorizationServer", getResolver(this.oauthAuthorizationServerType))
+                .dataFetcher(
+                    "listOAuthAuthorizationServers",
+                    new ListOAuthAuthorizationServersResolver(entityClient)));
+  }
+
   private void configureDeprecationResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Deprecation",
@@ -4134,5 +4204,38 @@ public class GmsGraphQLEngine {
                       }
                       return null;
                     })));
+  }
+
+  private void configureAiPluginConfigResolver(final RuntimeWiring.Builder builder) {
+    builder
+        .type(
+            "AiPluginConfig",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "service",
+                    new LoadableTypeResolver<>(
+                        serviceType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.AiPluginConfig pluginConfig =
+                              env.getSource();
+                          return pluginConfig.getService() != null
+                              ? pluginConfig.getService().getUrn()
+                              : null;
+                        })))
+        .type(
+            "OAuthAiPluginConfig",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "server",
+                    new LoadableTypeResolver<>(
+                        oauthAuthorizationServerType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.OAuthAiPluginConfig
+                              oauthConfig = env.getSource();
+                          return oauthConfig.getServer() != null
+                              ? oauthConfig.getServer().getUrn()
+                              : null;
+                        })));
+    // Auth injection settings are embedded directly in the config.
   }
 }

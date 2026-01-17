@@ -1,0 +1,14 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Settings for AI plugins (MCP servers, etc.) in Ask DataHub.
+ * This is a wrapper object following the GlobalSettings pattern.
+ */
+record AiPluginSettings {
+
+  /**
+   * List of configured AI plugins.
+   * Each plugin references a Service entity and provides agent-specific settings.
+   */
+  plugins: array[AiPluginConfig] = []
+}

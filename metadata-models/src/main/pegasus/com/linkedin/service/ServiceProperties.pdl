@@ -1,0 +1,40 @@
+namespace com.linkedin.service
+
+/**
+ * Common properties for all Service types.
+ *
+ * A Service is a catalog entry for an external service (MCP server, REST API, etc.).
+ * This aspect contains identity and descriptive information.
+ * Subtype-specific properties are in separate aspects (e.g., McpServerProperties).
+ *
+ * Note: This contains only catalog information (identity, description).
+ * Ask DataHub configuration (auth, instructions) is in GlobalSettings.aiPlugins.
+ */
+@Aspect = {
+  "name": "serviceProperties"
+}
+record ServiceProperties {
+
+  /**
+   * Display name shown in UI and search results.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  displayName: string
+
+  /**
+   * Description of what this service provides.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  // Note: Service subtype is stored in the standard "subTypes" aspect
+  // for consistency with other entities and built-in search indexing.
+  // Example subtypes: "MCP_SERVER", "REST_API", "OPEN_API", "GRPC"
+}

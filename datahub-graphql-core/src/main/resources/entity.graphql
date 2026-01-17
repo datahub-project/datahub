@@ -1343,6 +1343,16 @@ enum EntityType {
   DATAHUB_CONNECTION
 
   """
+  A Service entity (MCP server, etc.).
+  """
+  SERVICE
+
+  """
+  An OAuth Authorization Server for obtaining tokens to call external APIs.
+  """
+  OAUTH_AUTHORIZATION_SERVER
+
+  """
   A datahub actions pipeline.
   """
   ACTIONS_PIPELINE

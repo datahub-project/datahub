@@ -1,0 +1,158 @@
+namespace com.linkedin.oauth
+
+import com.linkedin.common.Urn
+
+/**
+ * Properties of an OAuth Authorization Server.
+ *
+ * This represents an authorization server that DataHub can use to obtain tokens
+ * for calling external APIs (OUTBOUND OAuth). It may be:
+ * - The service's own OAuth server (e.g., Glean, GitHub)
+ * - A third-party IDP configured for a service (e.g., Okta, Azure AD)
+ *
+ * This entity contains OAuth configuration (how to get tokens) and auth injection
+ * settings (how to use tokens). Actual credentials are stored separately in
+ * DataHubConnection entities.
+ *
+ * For API key services, set supportedCredentialTypes to [API_KEY]. The auth injection
+ * settings will be used, but OAuth config fields are optional.
+ */
+@Aspect = {
+  "name": "oauthAuthorizationServerProperties"
+}
+record OAuthAuthorizationServerProperties {
+
+  /**
+   * Display name shown in UI.
+   * Examples: Glean, Snowflake via Okta, Internal Tools API
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  displayName: string
+
+  /**
+   * Description of what this authorization server provides access to.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  // Note: This entity is strictly for OAuth2 configuration.
+  // API key auth injection is configured directly in AiPluginConfig
+  // (sharedApiKeyConfig or userApiKeyConfig).
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OAUTH CONFIGURATION (for services using OAuth)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * OAuth client ID (public, safe to expose in UI).
+   */
+  clientId: optional string
+
+  /**
+   * URN of DataHubSecret containing OAuth client secret.
+   * Never stored as plain string - always encrypted.
+   */
+  clientSecretUrn: optional Urn
+
+  /**
+   * OAuth authorization endpoint URL.
+   * Example: https://accounts.google.com/o/oauth2/v2/auth
+   */
+  authorizationUrl: optional string
+
+  /**
+   * OAuth token endpoint URL.
+   * Example: https://oauth2.googleapis.com/token
+   */
+  tokenUrl: optional string
+
+  /**
+   * Default OAuth scopes to request.
+   * Stored as array for UI chip rendering and scope merging.
+   */
+  scopes: optional array[string]
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TOKEN ENDPOINT BEHAVIOR (provider-specific quirks)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * How to authenticate at the token endpoint.
+   * - BASIC: client_id:client_secret in Authorization header
+   * - POST_BODY: client_id and client_secret in request body
+   * - NONE: No client authentication (public clients)
+   */
+  tokenAuthMethod: enum TokenAuthMethod {
+    /**
+     * HTTP Basic Auth: client_id:client_secret in Authorization header.
+     */
+    BASIC
+
+    /**
+     * Form POST body: client_id and client_secret as form parameters.
+     */
+    POST_BODY
+
+    /**
+     * No client authentication (for public clients).
+     */
+    NONE
+  } = "POST_BODY"
+
+  /**
+   * Additional parameters for token requests.
+   * Examples: Auth0 audience, Azure AD resource
+   */
+  additionalTokenParams: optional map[string, string]
+
+  /**
+   * Additional parameters for authorization URL.
+   * Examples: prompt=consent, tenant=my-org
+   */
+  additionalAuthParams: optional map[string, string]
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TOKEN INJECTION (how tokens are sent to APIs)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Where to inject the credential in HTTP requests.
+   */
+  authLocation: enum AuthLocation {
+    /**
+     * Send credential in HTTP header.
+     */
+    HEADER
+
+    /**
+     * Send credential as query parameter.
+     */
+    QUERY_PARAM
+  } = "HEADER"
+
+  /**
+   * For HEADER: which header name.
+   * Default: Authorization
+   */
+  authHeaderName: string = "Authorization"
+
+  /**
+   * For HEADER: scheme prefix before the token.
+   * Default: Bearer (produces Authorization: Bearer TOKEN).
+   * Set to empty string for raw token (e.g., X-API-Key: TOKEN).
+   */
+  authScheme: optional string = "Bearer"
+
+  /**
+   * For QUERY_PARAM: parameter name.
+   * Example: access_token produces ?access_token=TOKEN
+   */
+  authQueryParam: optional string
+}

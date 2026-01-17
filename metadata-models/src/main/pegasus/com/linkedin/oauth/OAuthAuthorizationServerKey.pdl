@@ -1,0 +1,20 @@
+namespace com.linkedin.oauth
+
+/**
+ * Key for an OAuth Authorization Server entity.
+ *
+ * An OAuth Authorization Server represents an external OAuth provider
+ * that DataHub can use to obtain tokens for calling external APIs.
+ * This is for OUTBOUND OAuth (DataHub as client), not INBOUND auth
+ * (users authenticating to DataHub).
+ */
+@Aspect = {
+  "name": "oauthAuthorizationServerKey"
+}
+record OAuthAuthorizationServerKey {
+  /**
+   * Unique identifier for this authorization server.
+   * Examples: glean, snowflake, github
+   */
+  id: string
+}

@@ -1,0 +1,172 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Ask DataHub configuration for an AI plugin.
+ *
+ * This record configures how a Service entity is used by the Ask DataHub agent.
+ * The Service entity contains catalog info (URL, transport), while this record
+ * contains agent-specific settings (auth, instructions, enabled).
+ *
+ * Stored in AiPluginSettings.plugins array.
+ */
+record AiPluginConfig {
+
+  /**
+   * Unique identifier for this plugin configuration.
+   * Typically the service URN string for easy correlation.
+   * Example: urn:li:service:glean-search
+   */
+  id: string
+
+  /**
+   * Type of AI plugin (determines how the agent uses it).
+   */
+  type: enum AiPluginType {
+    /**
+     * Model Context Protocol (MCP) server.
+     * Service entity should have McpServerProperties aspect.
+     */
+    MCP_SERVER
+
+    // Future types as needed
+  }
+
+  /**
+   * Reference to the Service entity (catalog entry).
+   * Example: urn:li:service:glean-search
+   */
+  serviceUrn: Urn
+
+  /**
+   * Whether this plugin is enabled for Ask DataHub.
+   * Disabled plugins are not available to the agent.
+   */
+  enabled: boolean = true
+
+  /**
+   * Custom instructions for the LLM when using this plugin's tools.
+   * Injected into the agent's system prompt.
+   * Example: Use Glean for searching company documentation and wikis.
+   */
+  instructions: optional string
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTHENTICATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * How this plugin authenticates requests.
+   */
+  authType: enum AiPluginAuthType {
+    /**
+     * No authentication required (public API).
+     */
+    NONE
+
+    /**
+     * System-wide API key shared across all users.
+     * Configuration in sharedApiKeyConfig.
+     */
+    SHARED_API_KEY
+
+    /**
+     * User provides their own API key.
+     * Configuration in userApiKeyConfig.
+     */
+    USER_API_KEY
+
+    /**
+     * User authenticates via OAuth2 flow.
+     * Configuration in oauthConfig.
+     */
+    USER_OAUTH
+  }
+
+  /**
+   * OAuth configuration.
+   * Required when authType is USER_OAUTH.
+   */
+  oauthConfig: optional record OAuthAiPluginConfig {
+    /**
+     * URN of the OAuthAuthorizationServer that provides OAuth configuration.
+     * Contains clientId, authorization URL, token URL, scopes, and auth injection settings.
+     */
+    serverUrn: Urn
+
+    /**
+     * Additional scopes required by this plugin.
+     * Merged with the authorization server's base scopes when user connects.
+     */
+    requiredScopes: optional array[string]
+  }
+
+  /**
+   * Shared API key configuration.
+   * Required when authType is SHARED_API_KEY.
+   *
+   * Auth injection settings are embedded directly because shared API keys
+   * don't need OAuth configuration.
+   */
+  sharedApiKeyConfig: optional record SharedApiKeyAiPluginConfig {
+    /**
+     * URN of DataHubConnection containing the shared API key.
+     * The DataHubConnection is owned by the Service entity.
+     * Example: urn:li:dataHubConnection:(urn:li:service:internal-tools,apiKey)
+     */
+    credentialUrn: Urn
+
+    /**
+     * Where to inject the API key in HTTP requests.
+     */
+    authLocation: enum AuthInjectionLocation {
+      HEADER
+      QUERY_PARAM
+    } = "HEADER"
+
+    /**
+     * For HEADER: which header name to use.
+     */
+    authHeaderName: string = "Authorization"
+
+    /**
+     * For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+     */
+    authScheme: optional string
+
+    /**
+     * For QUERY_PARAM: which query parameter name to use.
+     */
+    authQueryParam: optional string
+  }
+
+  /**
+   * User API key configuration.
+   * Required when authType is USER_API_KEY.
+   *
+   * User credentials are stored in DataHubConnection keyed by (userUrn, serviceId).
+   * This config defines how to inject the user's API key into requests.
+   */
+  userApiKeyConfig: optional record UserApiKeyAiPluginConfig {
+    /**
+     * Where to inject the API key in HTTP requests.
+     */
+    authLocation: AuthInjectionLocation = "HEADER"
+
+    /**
+     * For HEADER: which header name to use.
+     */
+    authHeaderName: string = "Authorization"
+
+    /**
+     * For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
+     */
+    authScheme: optional string
+
+    /**
+     * For QUERY_PARAM: which query parameter name to use.
+     */
+    authQueryParam: optional string
+  }
+}
