@@ -26,11 +26,18 @@ if str(backend_dir) not in sys.path:
 
 from core.chat_engine import ChatEngine
 
+try:
+    from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
+except ImportError:
+    DataHubGraph = None  # type: ignore
+    DatahubClientConfig = None  # type: ignore
+
 # Global instances
 _chat_engine: Optional[ChatEngine] = None
 _connection_manager: Optional[ConnectionManager] = None
 _config: Optional[ConnectionConfig] = None
 _integrations_service: Optional[dict] = None  # Store service process info
+_datahub_graph: Optional["DataHubGraph"] = None  # type: ignore
 
 
 def get_connection_manager() -> ConnectionManager:
@@ -70,6 +77,54 @@ def get_config(
     logger.debug(f"Reloaded connection config with mode: {_config.mode}")
 
     return _config
+
+
+def get_datahub_graph(config: ConnectionConfig = Depends(get_config)) -> "DataHubGraph":  # type: ignore
+    """
+    Get or create the DataHub graph client singleton.
+
+    Updates the client's token on every request to pick up token changes.
+
+    Args:
+        config: ConnectionConfig instance (injected, reloaded from disk)
+
+    Returns:
+        DataHubGraph instance
+
+    Raises:
+        HTTPException: If DataHub SDK is not installed
+    """
+    global _datahub_graph
+
+    if DataHubGraph is None:
+        raise HTTPException(
+            status_code=500,
+            detail="DataHub SDK not installed. Install with: pip install acryl-datahub",
+        )
+
+    if _datahub_graph is None:
+        # Strip /api/gms suffix if present - DataHubGraph will append /api/graphql
+        server_url = config.gms_url
+        if server_url.endswith("/api/gms"):
+            server_url = server_url[:-8]  # Remove /api/gms
+        graph_config = DatahubClientConfig(server=server_url, token=config.gms_token)
+        _datahub_graph = DataHubGraph(config=graph_config)
+        logger.info(f"Created DataHubGraph singleton with server: {server_url}, token: {config.gms_token[:20]}...")
+    else:
+        # Update token if it has changed
+        old_token = _datahub_graph.config.token
+        new_token = config.gms_token
+        logger.debug(f"Checking token: old={old_token[:20] if old_token else 'None'}..., new={new_token[:20] if new_token else 'None'}...")
+        if old_token != new_token:
+            logger.info("Token changed, recreating DataHubGraph")
+            server_url = config.gms_url
+            if server_url.endswith("/api/gms"):
+                server_url = server_url[:-8]  # Remove /api/gms
+            graph_config = DatahubClientConfig(server=server_url, token=config.gms_token)
+            _datahub_graph = DataHubGraph(config=graph_config)
+            logger.info(f"Recreated DataHubGraph with new token: {new_token[:20]}...")
+
+    return _datahub_graph
 
 
 def get_chat_engine(config: ConnectionConfig = Depends(get_config)) -> ChatEngine:

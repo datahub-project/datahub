@@ -43,6 +43,44 @@ export DATAHUB_GMS_URL="http://localhost:8080"
 export DATAHUB_GMS_TOKEN="your-token-here"
 ```
 
+## Trial Cluster Access
+
+To view conversation history from trial clusters, you need AWS access to the trial DMZ account.
+
+### Prerequisites
+
+1. **AWS Profile with DMZ Access**: You need an AWS profile configured with credentials for account `243536687406` (DMZ)
+
+2. **Add kubectl Contexts for Trial Clusters** (one-time setup):
+
+```bash
+# US West 2 trial cluster
+aws eks update-kubeconfig --region us-west-2 --name usw2-trials-01-dmz --profile <your-dmz-profile>
+
+# EU Central 1 trial cluster
+aws eks update-kubeconfig --region eu-central-1 --name euc1-trials-01-dmz --profile <your-dmz-profile>
+```
+
+Replace `<your-dmz-profile>` with the name of your AWS profile that has access to account 243536687406.
+
+### How It Works
+
+The backend automatically:
+
+- Detects trial clusters by the `-trials-` pattern in the cluster name
+- Discovers the correct AWS profile by scanning `~/.aws/config` and matching the account ID
+- Uses the full cluster name for Parameter Store paths (e.g., `/namespace/usw2-trials-01-dmz/datahub/password`)
+
+**No manual configuration needed** - the tool auto-detects everything once you have:
+
+- AWS profile with DMZ account access
+- kubectl contexts for the trial clusters
+
+### Available Trial Clusters
+
+- `usw2-trials-01-dmz` - US West 2 (Oregon)
+- `euc1-trials-01-dmz` - EU Central 1 (Frankfurt)
+
 ## Running the Server
 
 ### Development Mode (with auto-reload)

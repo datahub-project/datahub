@@ -561,19 +561,20 @@ class KubectlManager:
 
     def parse_cluster_info_from_context(self, context: str) -> dict[str, str]:
         """
-        Parse AWS region and cluster name from kubectl context ARN.
+        Parse AWS region, cluster name, and account from kubectl context ARN.
 
         Args:
             context: Kubectl context (e.g., "arn:aws:eks:us-west-2:...:cluster/usw2-saas-01-staging")
 
         Returns:
-            Dict with 'region' and 'cluster' keys
+            Dict with 'region', 'cluster', 'cluster_full', and 'account' keys
         """
         # Example: arn:aws:eks:us-west-2:795586375822:cluster/usw2-saas-01-staging
         if context.startswith("arn:aws:eks:"):
             parts = context.split(":")
             if len(parts) >= 6:
                 region = parts[3]  # us-west-2
+                account = parts[4]  # 795586375822 or 243536687406
                 cluster_part = parts[5]  # cluster/usw2-saas-01-staging
                 if "/" in cluster_part:
                     cluster_name = cluster_part.split("/")[1]  # usw2-saas-01-staging
@@ -586,11 +587,92 @@ class KubectlManager:
                         region_prefix = cluster_name.split("-")[0]  # usw2
                         env = cluster_name.split("-")[-1]  # staging or prod
                         cluster_normalized = f"{region_prefix}-{env}"
+                    elif "-trials-" in cluster_name:
+                        # Trial clusters: usw2-trials-01-dmz, euc1-trials-01-dmz
+                        # No normalization needed - use full name for Parameter Store paths
+                        cluster_normalized = cluster_name
 
-                    return {"region": region, "cluster": cluster_normalized, "cluster_full": cluster_name}
+                    return {
+                        "region": region,
+                        "cluster": cluster_normalized,
+                        "cluster_full": cluster_name,
+                        "account": account,
+                    }
 
         # Fallback defaults
-        return {"region": "us-west-2", "cluster": "usw2-staging", "cluster_full": "unknown"}
+        return {"region": "us-west-2", "cluster": "usw2-staging", "cluster_full": "unknown", "account": "unknown"}
+
+    def detect_aws_profile_for_account(self, account_id: str) -> Optional[str]:
+        """
+        Automatically detect which AWS profile to use based on account ID.
+
+        Dynamically discovers all AWS profiles and finds one matching the account.
+
+        Args:
+            account_id: AWS account ID (e.g., "795586375822" or "243536687406")
+
+        Returns:
+            Profile name if found, None otherwise
+        """
+        # First, try AWS_PROFILE environment variable
+        aws_profile = os.environ.get("AWS_PROFILE")
+        if aws_profile:
+            try:
+                result = subprocess.run(
+                    ["aws", "sts", "get-caller-identity", "--profile", aws_profile],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    import json
+                    identity = json.loads(result.stdout)
+                    if identity["Account"] == account_id:
+                        logger.debug(f"Using AWS_PROFILE={aws_profile} for account {account_id}")
+                        return aws_profile
+            except Exception:
+                pass
+
+        # Discover all AWS profiles from config
+        try:
+            config_path = Path.home() / ".aws" / "config"
+            if not config_path.exists():
+                logger.debug("No AWS config file found")
+                return None
+
+            profiles = []
+            with open(config_path) as f:
+                for line in f:
+                    if line.startswith("[profile "):
+                        profile_name = line.strip()[9:-1]  # Extract name from "[profile NAME]"
+                        profiles.append(profile_name)
+
+            logger.debug(f"Found {len(profiles)} AWS profiles in config")
+
+            # Try each profile and check if it matches the account
+            for profile in profiles:
+                try:
+                    result = subprocess.run(
+                        ["aws", "sts", "get-caller-identity", "--profile", profile],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if result.returncode == 0:
+                        import json
+                        identity = json.loads(result.stdout)
+                        if identity["Account"] == account_id:
+                            logger.info(f"Auto-detected AWS profile '{profile}' for account {account_id}")
+                            return profile
+                except Exception as e:
+                    logger.debug(f"Profile '{profile}' not authenticated or failed: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Failed to discover AWS profiles: {e}")
+
+        logger.warning(f"Could not find authenticated AWS profile for account {account_id}")
+        return None
 
     def get_datahub_token(
         self,
@@ -626,8 +708,16 @@ class KubectlManager:
             region = cluster_info["region"]
             cluster_full = cluster_info["cluster_full"]
             cluster_short = cluster_info["cluster"]
+            account_id = cluster_info["account"]
 
-            logger.info(f"Generating token for namespace={namespace}, region={region}, cluster={cluster_full} (short={cluster_short})")
+            logger.info(f"Generating token for namespace={namespace}, region={region}, cluster={cluster_full} (short={cluster_short}), account={account_id}")
+
+            # Auto-detect AWS profile if not provided
+            if not profile:
+                profile = self.detect_aws_profile_for_account(account_id)
+                if not profile:
+                    logger.error(f"Could not find AWS profile for account {account_id}. Trial clusters require DMZ account access.")
+                    return None
 
             # Import and use token generator
             from token_generator import TokenGenerator, TokenValidity

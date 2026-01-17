@@ -197,3 +197,62 @@ class CreateProfileRequest(BaseModel):
     gms_token: Optional[str] = Field(default=None, description="GMS authentication token")
     kube_context: Optional[str] = Field(default=None, description="Kubernetes context")
     kube_namespace: Optional[str] = Field(default=None, description="Kubernetes namespace")
+
+
+class ArchivedMessageModel(BaseModel):
+    """Message in an archived conversation."""
+
+    role: str = Field(..., description="Message role (user or assistant)")
+    content: str = Field(..., description="Message content")
+    timestamp: int = Field(..., description="Message timestamp (milliseconds)")
+    message_type: str = Field(
+        default="TEXT",
+        description="Message type (TEXT, THINKING, TOOL_CALL, TOOL_RESULT)",
+    )
+    agent_name: Optional[str] = Field(
+        default=None, description="Agent that generated this message"
+    )
+    user_name: Optional[str] = Field(
+        default=None, description="Username extracted from actor URN"
+    )
+    actor_urn: Optional[str] = Field(
+        default=None, description="Full actor URN (e.g., urn:li:corpuser:admin)"
+    )
+
+
+class ArchivedConversationModel(BaseModel):
+    """Archived conversation from DataHub."""
+
+    id: str = Field(..., description="Conversation URN (used as ID)")
+    urn: str = Field(..., description="Conversation URN")
+    title: str = Field(..., description="Conversation title")
+    messages: List[ArchivedMessageModel] = Field(
+        default_factory=list, description="Conversation messages"
+    )
+    created_at: float = Field(..., description="Creation timestamp (seconds)")
+    updated_at: float = Field(..., description="Last update timestamp (seconds)")
+    origin_type: str = Field(
+        ..., description="Origin type (DATAHUB_UI, SLACK, TEAMS)"
+    )
+    message_count: int = Field(..., description="Number of messages")
+    context: Optional[Dict[str, Any]] = Field(
+        default=None, description="Conversation context"
+    )
+    is_archived: bool = Field(
+        default=True, description="Always true for archived conversations"
+    )
+    max_thinking_time_ms: int = Field(
+        default=0, description="Maximum thinking time across all turns in milliseconds"
+    )
+    num_turns: int = Field(
+        default=0, description="Number of conversation turns"
+    )
+
+
+class ArchivedConversationListModel(BaseModel):
+    """List of archived conversations with pagination."""
+
+    conversations: List[ArchivedConversationModel] = Field(default_factory=list)
+    total: int = Field(..., description="Total number of archived conversations")
+    start: int = Field(..., description="Starting offset")
+    count: int = Field(..., description="Number of results returned")

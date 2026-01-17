@@ -4,6 +4,7 @@ export interface Message {
   content: string;
   timestamp: string;
   tokens?: number;
+  user_name?: string;
 }
 
 export interface Conversation {
@@ -118,3 +119,42 @@ export interface AwsHealthStatus {
     bedrock_accessible?: boolean;
   };
 }
+
+export interface ArchivedMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  message_type: 'TEXT' | 'THINKING' | 'TOOL_CALL' | 'TOOL_RESULT';
+  agent_name?: string;
+  user_name?: string;
+  actor_urn?: string;
+}
+
+export interface ArchivedConversation {
+  id: string;
+  urn: string;
+  title: string;
+  messages: ArchivedMessage[];
+  created_at: number;
+  updated_at: number;
+  origin_type: 'DATAHUB_UI' | 'SLACK' | 'TEAMS' | 'INGESTION_UI';
+  message_count: number;
+  context?: {
+    text: string;
+    entityUrns?: string[];
+  };
+  is_archived: true;
+  max_thinking_time_ms: number;
+  num_turns: number;
+}
+
+export interface ArchivedConversationList {
+  conversations: ArchivedConversation[];
+  total: number;
+  start: number;
+  count: number;
+}
+
+export type ConversationOriginType = 'DATAHUB_UI' | 'SLACK' | 'TEAMS' | 'INGESTION_UI' | null;
+
+export type ConversationSortBy = 'max_thinking_time' | 'num_turns' | 'created';

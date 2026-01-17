@@ -78,7 +78,7 @@ export function MessageRenderer({ message, isStreaming = false }: MessageRendere
     return (
       <div className="message message-user">
         <div className="message-header">
-          <span className="message-role">You</span>
+          <span className="message-role">{message.user_name || 'You'}</span>
           <span className="message-time">{formatTime(message.timestamp)}</span>
         </div>
         <div className="message-content">

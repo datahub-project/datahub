@@ -155,9 +155,9 @@ class TokenGenerator:
 
         ssm_client = session.client(service_name="ssm", region_name=region)
 
-        # Generate possible paths with two basic naming patterns
-        # Pattern 1: Full cluster name (e.g., usw2-saas-01-prod)
-        # Pattern 2: Short cluster name (e.g., usw2-prod)
+        # Generate possible paths based on cluster type
+        # - SaaS clusters: Try both full (usw2-saas-01-prod) and short (usw2-prod) names
+        # - Trial clusters: Use full name only (usw2-trials-01-dmz, euc1-trials-01-dmz)
         paths_to_try = []
 
         # Always try the provided cluster name first
@@ -170,6 +170,8 @@ class TokenGenerator:
             if len(parts) >= 4:  # e.g., ['usw2', 'saas', '01', 'prod']
                 short_cluster = f"{parts[0]}-{parts[-1]}"  # usw2-prod
                 paths_to_try.append(f"/{namespace}/{short_cluster}/datahub/password")
+        # Trial clusters use full cluster name in Parameter Store (no shortened version needed)
+        # Example: /4f9bdc1186-loved-raven-6a50a05/usw2-trials-01-dmz/datahub/password
 
         # Try each path pattern
         last_error = None

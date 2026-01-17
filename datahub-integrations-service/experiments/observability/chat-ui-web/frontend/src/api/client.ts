@@ -6,6 +6,10 @@ import type {
   Message,
   Profile,
   AwsHealthStatus,
+  ArchivedConversationList,
+  ArchivedConversation,
+  ConversationOriginType,
+  ConversationSortBy,
 } from './types';
 
 const API_BASE = '/api';
@@ -133,6 +137,39 @@ class ApiClient {
     }
 
     return { deleted, failed };
+  }
+
+  async listArchivedConversations(
+    start: number = 0,
+    count: number = 20,
+    originType?: ConversationOriginType,
+    sortBy?: ConversationSortBy,
+    sortDesc?: boolean
+  ): Promise<ArchivedConversationList> {
+    const params = new URLSearchParams({
+      start: start.toString(),
+      count: count.toString(),
+    });
+    if (originType) {
+      params.append('origin_type', originType);
+    }
+    if (sortBy) {
+      params.append('sort_by', sortBy);
+    }
+    if (sortDesc !== undefined) {
+      params.append('sort_desc', sortDesc.toString());
+    }
+
+    return this.request<ArchivedConversationList>(
+      `/archived-conversations?${params.toString()}`
+    );
+  }
+
+  async getArchivedConversation(urn: string): Promise<ArchivedConversation> {
+    const encodedUrn = encodeURIComponent(urn);
+    return this.request<ArchivedConversation>(
+      `/archived-conversations/${encodedUrn}`
+    );
   }
 
   async getMessages(conversationId: string): Promise<Message[]> {

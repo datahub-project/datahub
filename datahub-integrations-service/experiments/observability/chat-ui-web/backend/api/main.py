@@ -20,7 +20,15 @@ backend_dir = Path(__file__).parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from api.routes import auto_chat, chat, config, health, kubectl, profiles
+from api.routes import (
+    archived_conversations,
+    auto_chat,
+    chat,
+    config,
+    health,
+    kubectl,
+    profiles,
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -53,6 +61,7 @@ app.include_router(profiles.router)
 app.include_router(kubectl.router)
 app.include_router(chat.router)
 app.include_router(auto_chat.router)
+app.include_router(archived_conversations.router)
 
 # Serve React app static files
 frontend_dist = backend_dir.parent / "frontend" / "dist"
