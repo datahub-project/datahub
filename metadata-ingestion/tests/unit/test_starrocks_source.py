@@ -3,12 +3,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.starrocks import (
     StarRocksCatalog,
     StarRocksConfig,
     StarRocksSource,
 )
+from datahub.metadata.schema_classes import ContainerClass, ContainerPropertiesClass
 
 
 def _base_config() -> Dict[str, Any]:
@@ -266,26 +268,29 @@ class TestStarRocksContainerHierarchy:
 
         container_props_wu = None
         for wu in workunits:
-            if (
-                hasattr(wu, "metadata")
-                and wu.metadata.aspectName == "containerProperties"
-            ):
+            assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            if wu.metadata.aspectName == "containerProperties":
                 container_props_wu = wu
                 break
         assert container_props_wu is not None
+        assert isinstance(container_props_wu.metadata, MetadataChangeProposalWrapper)
 
         container_props = container_props_wu.metadata.aspect
         # "warehouse", not "iceberg_catalog.warehouse"
+        assert isinstance(container_props, ContainerPropertiesClass)
         assert container_props.name == "warehouse"
 
         # Find parent reference
         container_wu = None
         for wu in workunits:
-            if hasattr(wu, "metadata") and wu.metadata.aspectName == "container":
+            assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            if wu.metadata.aspectName == "container":
                 container_wu = wu
                 break
 
         assert container_wu is not None
+        assert isinstance(container_wu.metadata, MetadataChangeProposalWrapper)
         parent_container = container_wu.metadata.aspect
+        assert isinstance(parent_container, ContainerClass)
         parent_urn = parent_container.container
         assert "container:" in parent_urn

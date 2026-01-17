@@ -633,7 +633,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
-    "starrocks": sql_common | {"starrocks>=1.3.3"},
+    "starrocks": sql_common | {"starrocks>=1.3.3,<2.0"},
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
