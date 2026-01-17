@@ -276,7 +276,7 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
                         "max_sync_runs_per_sync": 5,
                         "parse_model_sql": True,
                         "include_contracts": False,
-                        "include_table_lineage_to_sibling": False,
+                        "include_sibling_relationships": False,
                         "sources_to_platform_instance": {
                             "source_1": {
                                 "platform": "snowflake",

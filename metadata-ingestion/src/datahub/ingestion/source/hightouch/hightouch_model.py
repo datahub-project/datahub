@@ -331,7 +331,7 @@ class HightouchModelHandler:
                 source_table_urn = sql_table_urns[0]
 
         if source_table_urn:
-            if self.config.include_table_lineage_to_sibling:
+            if self.config.include_sibling_relationships:
                 yield from self.lineage_handler.emit_sibling_aspects(
                     dataset_urn, str(source_table_urn)
                 )

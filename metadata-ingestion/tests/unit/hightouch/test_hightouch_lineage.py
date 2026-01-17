@@ -746,13 +746,13 @@ def test_siblings_emission_for_single_table_raw_sql_models(
 ):
     """
     Test that siblings ARE emitted for raw_sql models with a single upstream table
-    when include_table_lineage_to_sibling=True.
+    when include_sibling_relationships=True.
     """
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
         emit_models_as_datasets=True,
-        include_table_lineage_to_sibling=True,
+        include_sibling_relationships=True,
     )
 
     mock_client = MagicMock()
@@ -812,13 +812,13 @@ def test_no_siblings_for_multi_table_raw_sql_models(
 ):
     """
     Test that siblings are NOT emitted for raw_sql models that reference multiple tables,
-    even with include_table_lineage_to_sibling=True.
+    even with include_sibling_relationships=True.
     """
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
         emit_models_as_datasets=True,
-        include_table_lineage_to_sibling=True,
+        include_sibling_relationships=True,
     )
 
     mock_client = MagicMock()
@@ -865,17 +865,17 @@ def test_no_siblings_for_multi_table_raw_sql_models(
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_no_siblings_when_include_table_lineage_to_sibling_false(
+def test_no_siblings_when_include_sibling_relationships_false(
     mock_api_client_class, pipeline_context
 ):
     """
-    Test that siblings are NOT emitted when include_table_lineage_to_sibling=False.
+    Test that siblings are NOT emitted when include_sibling_relationships=False.
     """
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
         emit_models_as_datasets=True,
-        include_table_lineage_to_sibling=False,
+        include_sibling_relationships=False,
     )
 
     mock_client = MagicMock()

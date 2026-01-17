@@ -365,7 +365,7 @@ Set `include_sync_runs: false` to skip sync run history entirely.
 For table-type models and simple raw_sql models, you can establish sibling relationships between the Hightouch model and its upstream source table:
 
 ```yaml
-include_table_lineage_to_sibling: true # Create sibling relationships (default: false)
+include_sibling_relationships: true # Create sibling relationships (default: true)
 ```
 
 When enabled:

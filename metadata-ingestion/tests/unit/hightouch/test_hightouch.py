@@ -36,7 +36,7 @@ def hightouch_config():
         ),
         env="PROD",
         emit_models_as_datasets=True,
-        include_table_lineage_to_sibling=False,
+        include_sibling_relationships=False,
         include_sync_runs=True,
         max_sync_runs_per_sync=5,
     )

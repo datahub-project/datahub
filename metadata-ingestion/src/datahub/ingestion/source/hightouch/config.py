@@ -233,7 +233,7 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
-    include_table_lineage_to_sibling: bool = Field(
+    include_sibling_relationships: bool = Field(
         default=True,
         description="Controls sibling relationship between Hightouch table models and their source warehouse tables. "
         "When True (default), the Hightouch model is designated as primary and the source warehouse table "

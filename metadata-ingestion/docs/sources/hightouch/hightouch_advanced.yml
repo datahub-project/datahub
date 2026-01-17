@@ -36,7 +36,7 @@ source:
 
     # Create sibling relationships between Hightouch models and their source tables
     # Requires proper sources_to_platform_instance configuration
-    include_table_lineage_to_sibling: true
+    include_sibling_relationships: true
 
     # ============================================
     # Execution History

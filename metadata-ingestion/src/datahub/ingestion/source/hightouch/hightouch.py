@@ -11,9 +11,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
+    CapabilityReport,
     MetadataWorkUnitProcessor,
     SourceReport,
     StructuredLogCategory,
+    TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -331,6 +333,20 @@ class HightouchSource(StatefulIngestionSourceBase):
                 self, self.config, self.ctx
             ).workunit_processor,
         ]
+
+    def test_connection(self) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            self.api_client.get_workspaces()
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False,
+                failure_reason=f"Failed to connect to Hightouch API: {str(e)}",
+            )
+            return test_report
+
+        return test_report
 
     def get_workunits_internal(
         self,

@@ -30,7 +30,7 @@ def hightouch_config():
         ),
         env="PROD",
         platform_instance="prod-instance",
-        include_table_lineage_to_sibling=True,
+        include_sibling_relationships=True,
     )
 
 
@@ -58,7 +58,7 @@ def test_urn_builder_make_model_urn_on_hightouch_platform(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
         platform_instance="prod-instance",
-        include_table_lineage_to_sibling=False,
+        include_sibling_relationships=False,
     )
 
     source = HightouchIngestionSource(config, pipeline_context)
@@ -106,7 +106,7 @@ def test_urn_builder_make_model_urn_on_source_platform(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
         platform_instance="prod-instance",
-        include_table_lineage_to_sibling=True,
+        include_sibling_relationships=True,
         sources_to_platform_instance={
             "source_1": PlatformDetail(
                 platform="snowflake",
