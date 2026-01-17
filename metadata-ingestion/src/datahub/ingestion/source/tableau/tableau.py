@@ -2302,7 +2302,11 @@ class TableauSiteSource:
                 )
                 continue
 
-            custom_sql_name = original_datasource_name if original_datasource_name else csql.get(c.NAME)
+            custom_sql_name = (
+                original_datasource_name
+                if original_datasource_name
+                else csql.get(c.NAME)
+            )
             dataset_properties = DatasetPropertiesClass(
                 name=custom_sql_name,
                 description=csql.get(c.DESCRIPTION),
