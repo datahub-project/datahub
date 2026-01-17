@@ -2200,6 +2200,7 @@ class TableauSiteSource:
             logger.debug(f"Processing custom sql = {csql}")
 
             datasource_name = None
+            original_datasource_name = None
             project = None
             columns: List[Dict[Any, Any]] = []
             if len(csql[c.DATA_SOURCES]) > 0:
@@ -2210,6 +2211,7 @@ class TableauSiteSource:
 
                 datasource = csql[c.DATA_SOURCES][0]
                 datasource_name = datasource.get(c.NAME)
+                original_datasource_name = datasource_name
                 if datasource.get(
                     c.TYPE_NAME
                 ) == c.EMBEDDED_DATA_SOURCE and datasource.get(c.WORKBOOK):
@@ -2300,8 +2302,9 @@ class TableauSiteSource:
                 )
                 continue
 
+            custom_sql_name = original_datasource_name if original_datasource_name else csql.get(c.NAME)
             dataset_properties = DatasetPropertiesClass(
-                name=csql.get(c.NAME),
+                name=custom_sql_name,
                 description=csql.get(c.DESCRIPTION),
             )
 
