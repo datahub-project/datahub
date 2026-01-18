@@ -669,7 +669,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
-    "rdf": {"rdflib==6.3.2"} | rest_common,
+    "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
     "redshift": sql_common
     | redshift_common
     | usage_common
