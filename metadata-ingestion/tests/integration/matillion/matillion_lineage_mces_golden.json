@@ -1,0 +1,330 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "project_id": "proj-1",
+                "platform": "matillion"
+            },
+            "name": "Data Warehouse",
+            "description": "Data warehouse project",
+            "created": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200594,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200595,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200286,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200595,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d40b61b43866340724fa304b53b28e61",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "environment_id": "env-1",
+                "project_id": "proj-1",
+                "platform": "matillion"
+            },
+            "name": "Production",
+            "description": "Production environment",
+            "created": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200597,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d40b61b43866340724fa304b53b28e61",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200598,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d40b61b43866340724fa304b53b28e61",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Environment"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200289,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d40b61b43866340724fa304b53b28e61",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+                },
+                {
+                    "id": "urn:li:container:d40b61b43866340724fa304b53b28e61"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200599,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Data Warehouse.pipe-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "pipeline_id": "pipe-1",
+                "project_id": "proj-1",
+                "project_name": "Data Warehouse",
+                "pipeline_type": "transformation",
+                "environment_id": "env-1",
+                "version": "1.0.0"
+            },
+            "externalUrl": "http://localhost:8080/api/pipelines/pipe-1",
+            "name": "Customer Transform",
+            "description": "Transform customer data"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200602,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Data Warehouse.pipe-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200603,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Data Warehouse.pipe-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d40b61b43866340724fa304b53b28e61"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200604,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Data Warehouse.pipe-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+                },
+                {
+                    "id": "urn:li:container:d40b61b43866340724fa304b53b28e61"
+                },
+                {
+                    "id": "urn:li:dataFlow:(matillion,Data Warehouse.pipe-1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200604,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,curated.dim_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,raw.customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200605,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200606,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d40b61b43866340724fa304b53b28e61",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200607,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,curated.dim_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200608,
+        "runId": "matillion-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

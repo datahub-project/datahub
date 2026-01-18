@@ -1,0 +1,35 @@
+source:
+  type: matillion
+  config:
+    # REQUIRED: Matillion API bearer token
+    api_config:
+      api_token: "${MATILLION_API_TOKEN}"
+      # Optional: Change to US1 region if needed (default: EU1)
+      region: "EU1" # Options: EU1, US1
+
+    # Optional: Environment for all assets (default: PROD)
+    env: "PROD"
+
+    # Lineage extraction (default: true)
+    include_lineage: true
+    include_column_lineage: true
+
+    # Streaming pipelines (CDC pipelines)
+    include_streaming_pipelines: true
+
+    # Pipeline executions
+    include_pipeline_executions: true
+    max_executions_per_pipeline: 10
+
+    # Container organization
+    extract_projects_to_containers: true
+
+    # Stateful ingestion
+    stateful_ingestion:
+      enabled: true
+
+# Output to DataHub
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

@@ -38,6 +38,7 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    CONNECTION = "Connection"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -60,6 +61,8 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    MATILLION_PROJECT = "Project"
+    MATILLION_ENVIRONMENT = "Environment"
 
 
 class BIContainerSubTypes(StrEnum):

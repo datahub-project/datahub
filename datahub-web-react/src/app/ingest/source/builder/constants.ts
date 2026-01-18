@@ -22,6 +22,7 @@ import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
+import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
@@ -88,6 +89,8 @@ export const LOOK_ML = 'lookml';
 export const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
 export const MARIA_DB = 'mariadb';
 export const MARIA_DB_URN = `urn:li:dataPlatform:${MARIA_DB}`;
+export const MATILLION = 'matillion';
+export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 export const METABASE = 'metabase';
 export const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
 export const MLFLOW = 'mlflow';
@@ -181,6 +184,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
+    [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,

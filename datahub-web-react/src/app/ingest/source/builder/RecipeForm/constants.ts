@@ -118,6 +118,21 @@ import {
     MARIADB_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/mariadb';
 import {
+    MATILLION_API_TOKEN,
+    MATILLION_ENV,
+    MATILLION_EXTRACT_CONTAINERS,
+    MATILLION_INCLUDE_EXECUTIONS,
+    MATILLION_MAX_EXECUTIONS,
+    MATILLION_PIPELINE_ALLOW,
+    MATILLION_PIPELINE_DENY,
+    MATILLION_PLATFORM_INSTANCE,
+    MATILLION_PROJECT_ALLOW,
+    MATILLION_PROJECT_DENY,
+    MATILLION_REGION,
+    MATILLION_REQUEST_TIMEOUT,
+    MATILLION_STATEFUL_INGESTION,
+} from '@app/ingest/source/builder/RecipeForm/matillion';
+import {
     MSSQL,
     MSSQL_DATABASE,
     MSSQL_HOST_PORT,
@@ -236,6 +251,7 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    MATILLION,
     MYSQL,
     OKTA,
     POWER_BI,
@@ -499,6 +515,23 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [MATILLION]: {
+        fields: [MATILLION_API_TOKEN, MATILLION_REGION, MATILLION_ENV, MATILLION_PLATFORM_INSTANCE],
+        filterFields: [
+            MATILLION_PROJECT_ALLOW,
+            MATILLION_PROJECT_DENY,
+            MATILLION_PIPELINE_ALLOW,
+            MATILLION_PIPELINE_DENY,
+        ],
+        advancedFields: [
+            MATILLION_INCLUDE_EXECUTIONS,
+            MATILLION_MAX_EXECUTIONS,
+            MATILLION_EXTRACT_CONTAINERS,
+            MATILLION_REQUEST_TIMEOUT,
+            MATILLION_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Projects and Pipelines from ingestion.',
+    },
     [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
@@ -616,4 +649,4 @@ export const RECIPE_FIELDS: RecipeFields = {
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, DATABRICKS, SAC]);
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, DATABRICKS, MATILLION, SAC]);
