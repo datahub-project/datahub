@@ -151,7 +151,7 @@ class TestUrnGeneratorPlatformNormalization:
         generator = UrnGeneratorBase()
 
         with pytest.raises(ValueError, match="must be a string"):
-            generator._normalize_platform(123)
+            generator._normalize_platform(123)  # type: ignore[arg-type]
 
     def test_normalize_platform_invalid_urn(self):
         """Test platform normalization with invalid URN."""
