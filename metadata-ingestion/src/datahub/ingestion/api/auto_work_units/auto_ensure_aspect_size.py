@@ -1,7 +1,8 @@
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Iterable, List
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Iterable, List, Optional
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -13,10 +14,20 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
+
+
+@dataclass
+class _TruncationResult:
+    """Result of a field truncation operation."""
+
+    truncated_value: str
+    original_size: int
+    retained_length: int  # Length of the retained content (0 if removed entirely)
 
 
 # TODO: ordering
@@ -191,6 +202,44 @@ class EnsureAspectSizeProcessor:
                 title="Upstream lineage truncated due to size constraint",
                 message="Upstream lineage contained too much data and would have caused ingestion to fail",
                 context=f"Skipped {skipped_count} {item_type} for {entity_urn} due to aspect size constraints",
+            )
+
+    def _truncate_or_remove_field(
+        self, field_value: Optional[str], reduction_needed: int
+    ) -> Optional[_TruncationResult]:
+        """Truncate or remove a text field to reduce aspect size.
+
+        Args:
+            field_value: The current value of the field (may be None)
+            reduction_needed: Number of bytes to reduce
+
+        Returns:
+            _TruncationResult with the new value and whether it was removed entirely,
+            or None if field_value was None or empty.
+        """
+        if not field_value:
+            return None
+
+        field_size = len(field_value)
+
+        if field_size > reduction_needed > 0:
+            # Truncate to fit
+            retained_length = field_size - reduction_needed
+            truncated_content = field_value[:retained_length]
+            truncation_msg = (
+                f"... [truncated from {field_size} to {retained_length} chars]"
+            )
+            return _TruncationResult(
+                truncated_value=truncated_content + truncation_msg,
+                original_size=field_size,
+                retained_length=retained_length,
+            )
+        else:
+            # Cannot truncate enough - remove entirely
+            return _TruncationResult(
+                truncated_value=f"[removed due to size - original was {field_size} chars]",
+                original_size=field_size,
+                retained_length=0,
             )
 
     def ensure_upstream_lineage_size(  # noqa: C901
@@ -371,6 +420,95 @@ class EnsureAspectSizeProcessor:
                 f"Cannot truncate query statement for {entity_urn} as it is smaller than or equal to the required reduction size {reduction_needed}. That means that 'ensure_query_properties_size' must be extended to trim other fields different than statement."
             )
 
+    def ensure_view_properties_size(
+        self, entity_urn: str, view_properties: ViewPropertiesClass
+    ) -> None:
+        """
+        Ensure view properties aspect does not exceed allowed size by truncating
+        viewLogic and/or formattedViewLogic if necessary.
+
+        viewLogic contains the raw SQL code which can be very large for complex dbt models.
+        formattedViewLogic contains compiled SQL (usually already truncated by dbt source).
+
+        This method truncates content while preserving as much as possible (following
+        the pattern used by ensure_query_properties_size).
+        """
+        if not view_properties.viewLogic and not view_properties.formattedViewLogic:
+            return
+
+        current_size = len(json.dumps(pre_json_transform(view_properties.to_obj())))
+        logger.debug(
+            f"ViewProperties size check for {entity_urn}: {current_size} bytes "
+            f"(constraint: {self.payload_constraint})"
+        )
+
+        if current_size < self.payload_constraint:
+            return
+
+        logger.info(
+            f"ViewProperties exceeds size constraint for {entity_urn}: "
+            f"{current_size} bytes > {self.payload_constraint} bytes. "
+            f"viewLogic size: {len(view_properties.viewLogic) if view_properties.viewLogic else 0}, "
+            f"formattedViewLogic size: {len(view_properties.formattedViewLogic) if view_properties.formattedViewLogic else 0}"
+        )
+
+        # Calculate reduction needed with buffer for truncation message
+        reduction_needed = (
+            current_size - self.payload_constraint + QUERY_STATEMENT_TRUNCATION_BUFFER
+        )
+
+        # First try to truncate formattedViewLogic (usually less important than raw viewLogic)
+        result = self._truncate_or_remove_field(
+            view_properties.formattedViewLogic, reduction_needed
+        )
+        if result:
+            view_properties.formattedViewLogic = result.truncated_value
+            self._warn_view_properties_truncation(
+                entity_urn, "formattedViewLogic", result
+            )
+
+        # Re-check size after handling formattedViewLogic
+        current_size = len(json.dumps(pre_json_transform(view_properties.to_obj())))
+        if current_size < self.payload_constraint:
+            logger.info(
+                f"ViewProperties truncation complete for {entity_urn}: "
+                f"final size {current_size} bytes"
+            )
+            return
+
+        # Still too large - need to truncate viewLogic as well
+        reduction_needed = (
+            current_size - self.payload_constraint + QUERY_STATEMENT_TRUNCATION_BUFFER
+        )
+
+        result = self._truncate_or_remove_field(
+            view_properties.viewLogic, reduction_needed
+        )
+        if result:
+            if result.retained_length == 0:
+                logger.warning(
+                    f"Cannot truncate viewLogic for {entity_urn} as it is smaller than "
+                    f"or equal to the required reduction size {reduction_needed}. "
+                    f"Removing viewLogic entirely."
+                )
+            view_properties.viewLogic = result.truncated_value
+            self._warn_view_properties_truncation(entity_urn, "viewLogic", result)
+
+    def _warn_view_properties_truncation(
+        self, entity_urn: str, field_name: str, result: _TruncationResult
+    ) -> None:
+        """Log warning for view properties field truncation."""
+        if result.retained_length == 0:
+            context = f"{field_name} was removed for {entity_urn} (original was {result.original_size} chars)"
+        else:
+            context = f"{field_name} was truncated from {result.original_size} to {result.retained_length} chars for {entity_urn}"
+
+        self.report.warning(
+            title="View properties truncated due to size constraint",
+            message="View properties contained too much data and would have caused ingestion to fail",
+            context=context,
+        )
+
     def ensure_aspect_size(
         self,
         stream: Iterable[MetadataWorkUnit],
@@ -380,16 +518,21 @@ class EnsureAspectSizeProcessor:
         on GMS side and failure of the entire ingestion. This processor will attempt to trim suspected aspects.
         """
         for wu in stream:
-            # logger.debug(f"Ensuring size of workunit: {wu.id}")
+            urn = wu.get_urn()
 
+            # Use 'if' instead of 'elif' to check ALL aspect types.
+            # This is critical for MCE workunits (e.g., from dbt) that contain
+            # DatasetSnapshot with multiple aspects (schemaMetadata, viewProperties, etc.)
             if schema := wu.get_aspect_of_type(SchemaMetadataClass):
-                self.ensure_schema_metadata_size(wu.get_urn(), schema)
-            elif profile := wu.get_aspect_of_type(DatasetProfileClass):
-                self.ensure_dataset_profile_size(wu.get_urn(), profile)
-            elif query_subjects := wu.get_aspect_of_type(QuerySubjectsClass):
-                self.ensure_query_subjects_size(wu.get_urn(), query_subjects)
-            elif upstream_lineage := wu.get_aspect_of_type(UpstreamLineageClass):
-                self.ensure_upstream_lineage_size(wu.get_urn(), upstream_lineage)
-            elif query_properties := wu.get_aspect_of_type(QueryPropertiesClass):
-                self.ensure_query_properties_size(wu.get_urn(), query_properties)
+                self.ensure_schema_metadata_size(urn, schema)
+            if profile := wu.get_aspect_of_type(DatasetProfileClass):
+                self.ensure_dataset_profile_size(urn, profile)
+            if query_subjects := wu.get_aspect_of_type(QuerySubjectsClass):
+                self.ensure_query_subjects_size(urn, query_subjects)
+            if upstream_lineage := wu.get_aspect_of_type(UpstreamLineageClass):
+                self.ensure_upstream_lineage_size(urn, upstream_lineage)
+            if query_properties := wu.get_aspect_of_type(QueryPropertiesClass):
+                self.ensure_query_properties_size(urn, query_properties)
+            if view_properties := wu.get_aspect_of_type(ViewPropertiesClass):
+                self.ensure_view_properties_size(urn, view_properties)
             yield wu

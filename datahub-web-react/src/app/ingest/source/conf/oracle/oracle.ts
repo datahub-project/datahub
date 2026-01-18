@@ -17,6 +17,8 @@ source:
 
         # Optional service name
         # service_name: # Your service name, e.g. svc # omit database if using this option
+        stateful_ingestion:
+            enabled: true
 `;
 
 const oracleConfig: SourceConfig = {

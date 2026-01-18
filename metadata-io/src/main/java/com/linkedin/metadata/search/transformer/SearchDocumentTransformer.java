@@ -7,6 +7,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchDocumentSanitizer;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
@@ -68,6 +70,12 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
+
+  /**
+   * Aspects that contain semantic/embedding data for vector search. These aspects are transformed
+   * specially to extract embeddings and write them to the search index.
+   */
+  public static final Set<String> SEMANTIC_DATA_ASPECTS = Set.of("semanticContent");
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -227,6 +235,12 @@ public class SearchDocumentTransformer {
       result = Optional.of(searchDocument);
     }
 
+    // Handle semantic data aspects (embeddings for vector search)
+    if (SEMANTIC_DATA_ASPECTS.contains(aspectSpec.getName())) {
+      setSemanticContentSearchValue(aspect, searchDocument, forDelete);
+      result = Optional.of(searchDocument);
+    }
+
     return result;
   }
 
@@ -316,7 +330,9 @@ public class SearchDocumentTransformer {
         fieldValues
             .subList(0, Math.min(fieldValues.size(), maxArrayLength))
             .forEach(
-                value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
+                value ->
+                    getNodeForValue(valueType, value, fieldType, fieldSpec)
+                        .ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
     } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
@@ -384,7 +400,7 @@ public class SearchDocumentTransformer {
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
-      getNodeForValue(valueType, fieldValues.get(0), fieldType)
+      getNodeForValue(valueType, fieldValues.get(0), fieldType, fieldSpec)
           .ifPresent(node -> searchDocument.set(fieldName, node));
     }
   }
@@ -431,7 +447,10 @@ public class SearchDocumentTransformer {
   }
 
   private Optional<JsonNode> getNodeForValue(
-      final DataSchema.Type schemaFieldType, final Object fieldValue, final FieldType fieldType) {
+      final DataSchema.Type schemaFieldType,
+      final Object fieldValue,
+      final FieldType fieldType,
+      final SearchableFieldSpec fieldSpec) {
     switch (schemaFieldType) {
       case BOOLEAN:
         return Optional.of(JsonNodeFactory.instance.booleanNode((Boolean) fieldValue));
@@ -446,6 +465,12 @@ public class SearchDocumentTransformer {
         // By default run toString
       default:
         String value = fieldValue.toString();
+        // Sanitize text fields based on annotation flag
+        // This prevents OpenSearch indexing failures due to the 32KB term limit
+        if ((fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL)
+            && fieldSpec.getSearchableAnnotation().isSanitizeRichText()) {
+          value = SearchDocumentSanitizer.sanitizeForIndexing(value);
+        }
         return value.isEmpty()
             ? Optional.of(JsonNodeFactory.instance.nullNode())
             : Optional.of(JsonNodeFactory.instance.textNode(value));
@@ -570,6 +595,24 @@ public class SearchDocumentTransformer {
                 searchDocument.set(fieldName, arrayNode);
               }
             });
+  }
+
+  /** Sets semantic content (embeddings) in the search document for vector search. */
+  private void setSemanticContentSearchValue(
+      final RecordTemplate aspect, final ObjectNode searchDocument, final Boolean forDelete) {
+    if (forDelete || aspect == null) {
+      searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      return;
+    }
+    try {
+      // Direct pass-through - PDL camelCase matches OpenSearch camelCase
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode embeddingsNode = mapper.valueToTree(aspect.data().get("embeddings"));
+      searchDocument.set("embeddings", embeddingsNode);
+      log.debug("Set semantic content embeddings in search document");
+    } catch (Exception e) {
+      log.error("Error transforming SemanticContent aspect to search document", e);
+    }
   }
 
   public void setSearchableRefValue(

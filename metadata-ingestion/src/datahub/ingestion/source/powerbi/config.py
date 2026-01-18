@@ -172,6 +172,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="bigquery",
     )
 
+    AMAZON_ATHENA = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
     AMAZON_REDSHIFT = DataPlatformPair(
         powerbi_data_platform_name="AmazonRedshift",
         datahub_data_platform_name="redshift",
@@ -287,6 +292,33 @@ class PowerBiProfilingConfig(ConfigModel):
     )
 
 
+class AthenaPlatformOverride(ConfigModel):
+    """
+    Configuration for overriding the platform of Athena federated tables.
+
+    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
+    and you want the lineage to point to the actual source platform instead of Athena.
+    """
+
+    database: str = pydantic.Field(
+        min_length=1,
+        description="The database name in the Athena query (after catalog stripping).",
+    )
+    table: str = pydantic.Field(
+        min_length=1,
+        description="The table name in the Athena query.",
+    )
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
+    )
+    dsn: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional DSN to scope this override to a specific data source. "
+        "If specified, this override only applies when the query comes from this DSN.",
+    )
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
@@ -359,6 +391,17 @@ class PowerBiDashboardSourceConfig(
         "For example with an ODBC connection string 'DSN=database' where the database "
         "is 'prod' you would configure the mapping as 'database: prod'. "
         "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
+    )
+    # Athena federated table platform override
+    athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
+        default=[],
+        description="List of platform overrides for Athena federated queries. "
+        "Use this to override the platform when Athena queries data from federated sources "
+        "(e.g., MySQL, PostgreSQL) via ODBC. The lineage will point to the actual source "
+        "platform instead of Athena. "
+        "This override is applied AFTER catalog stripping, so use 2-part names "
+        "(database.table), not 3-part names (catalog.database.table). "
+        "Overrides with a DSN specified take precedence over those without.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -639,5 +682,27 @@ class PowerBiDashboardSourceConfig(
                     raise ValueError(
                         f"dsn_to_database_schema invalid mapping value: {value}"
                     )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_athena_table_platform_override(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        if not self.athena_table_platform_override:
+            return self
+
+        # Build set of known DataHub platform names for validation
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+
+        for override in self.athena_table_platform_override:
+            if override.platform not in known_platforms:
+                raise ValueError(
+                    f"athena_table_platform_override: platform '{override.platform}' "
+                    f"for {override.database}.{override.table} is not a recognized DataHub platform. "
+                    f"Known platforms: {sorted(known_platforms)}."
+                )
 
         return self

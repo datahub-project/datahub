@@ -1,11 +1,11 @@
-import { useApolloClient } from '@apollo/client';
 import { useCallback, useEffect } from 'react';
 
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
+import { documentToTreeNode, sortDocumentsByCreationTime } from '@app/document/utils/documentUtils';
 
-import { SearchDocumentsDocument } from '@graphql/document.generated';
-import { Document, DocumentState } from '@types';
+import { useSearchDocumentsLazyQuery } from '@graphql/document.generated';
+import { Document, DocumentSourceType } from '@types';
 
 /**
  * Hook to load and populate the document tree from backend queries.
@@ -16,47 +16,31 @@ import { Document, DocumentState } from '@types';
  * - Loading children on demand
  */
 
-function documentToTreeNode(doc: Document, hasChildren: boolean): DocumentTreeNode {
-    return {
-        urn: doc.urn,
-        title: doc.info?.title || 'Untitled',
-        parentUrn: doc.info?.parentDocument?.document?.urn || null,
-        hasChildren,
-        children: undefined, // Not loaded yet
-    };
-}
-
 export function useLoadDocumentTree() {
     const { initializeTree, setNodeChildren, getRootNodes } = useDocumentTree();
-    const apolloClient = useApolloClient();
+    const [searchDocumentsQuery] = useSearchDocumentsLazyQuery();
 
     // Load root documents
     const { documents: rootDocuments, loading: loadingRoot } = useSearchDocuments({
         query: '*',
         rootOnly: true,
-        states: [DocumentState.Published, DocumentState.Unpublished],
-        includeDrafts: false,
         start: 0,
         count: 100,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
+        sourceTypes: [DocumentSourceType.Native],
     });
 
     // Check if multiple documents have children (batch query)
-    // TODO: Consider refactoring to use useLazyQuery for better type safety
-    // once Apollo is updated to support returning data directly from lazy queries
     const checkForChildren = useCallback(
         async (urns: string[]): Promise<Record<string, boolean>> => {
             if (urns.length === 0) return {};
 
             try {
-                const result = await apolloClient.query({
-                    query: SearchDocumentsDocument,
+                const result = await searchDocumentsQuery({
                     variables: {
                         input: {
                             query: '*',
                             parentDocuments: urns, // Batch query
-                            states: [DocumentState.Published, DocumentState.Unpublished],
-                            includeDrafts: false,
                             start: 0,
                             count: urns.length * 100,
                         },
@@ -84,38 +68,29 @@ export function useLoadDocumentTree() {
                 return {};
             }
         },
-        [apolloClient],
+        [searchDocumentsQuery],
     );
 
     // Load children for a specific parent
-    // TODO: Consider refactoring to use useLazyQuery for better type safety
-    // once Apollo is updated to support returning data directly from lazy queries
     const loadChildren = useCallback(
         async (parentUrn: string | null) => {
             try {
-                const result = await apolloClient.query({
-                    query: SearchDocumentsDocument,
+                const result = await searchDocumentsQuery({
                     variables: {
                         input: {
                             query: '*',
-                            parentDocument: parentUrn,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
-                            includeDrafts: false,
+                            parentDocuments: parentUrn ? [parentUrn] : undefined,
                             start: 0,
                             count: 100,
                         },
                     },
-                    fetchPolicy: 'cache-first', // Can use cache for children
+                    fetchPolicy: 'network-only',
                 });
 
-                const documents = result.data?.searchDocuments?.documents || [];
+                const documents = (result.data?.searchDocuments?.documents || []) as Document[];
 
                 // Sort by creation time (most recent first)
-                const sortedDocuments = [...documents].sort((a, b) => {
-                    const timeA = a.info?.created?.time || 0;
-                    const timeB = b.info?.created?.time || 0;
-                    return timeB - timeA; // DESC order
-                });
+                const sortedDocuments = sortDocumentsByCreationTime(documents);
 
                 // Check if these documents have children
                 const childUrns = sortedDocuments.map((doc) => doc.urn);
@@ -135,7 +110,7 @@ export function useLoadDocumentTree() {
                 return [];
             }
         },
-        [apolloClient, checkForChildren, setNodeChildren],
+        [searchDocumentsQuery, checkForChildren, setNodeChildren],
     );
 
     // Initialize tree with root documents on mount (ONLY if tree is empty)
@@ -148,11 +123,7 @@ export function useLoadDocumentTree() {
 
                 if (isTreeEmpty) {
                     // Sort root documents by creation time (most recent first)
-                    const sortedRootDocuments = [...rootDocuments].sort((a, b) => {
-                        const timeA = a.info?.created?.time || 0;
-                        const timeB = b.info?.created?.time || 0;
-                        return timeB - timeA; // DESC order
-                    });
+                    const sortedRootDocuments = sortDocumentsByCreationTime(rootDocuments);
 
                     // Check which root documents have children
                     const rootDocUrns = sortedRootDocuments.map((doc) => doc.urn);

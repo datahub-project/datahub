@@ -193,7 +193,7 @@ services:
   mysql-setup-cdc:
     <<: *mysql-setup-common
     environment: &mysql-setup-env-cdc
-      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}
+      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-false}
     profiles:
       - quickstart-consumers-cdc
   mysql-setup-dev:
@@ -231,7 +231,7 @@ services:
   postgres-setup-cdc:
     <<: *postgres-setup-common
     environment: &postgres-setup-env-cdc
-      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}
+      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-false}
     profiles:
       - quickstart-postgres-cdc
   postgres-setup-dev:
@@ -405,10 +405,6 @@ services:
     environment:
       - discovery.type=single-node
       - DISABLE_SECURITY_PLUGIN=true
-    deploy:
-      resources:
-        limits:
-          memory: 2G
     healthcheck:
       test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
       start_period: 60s

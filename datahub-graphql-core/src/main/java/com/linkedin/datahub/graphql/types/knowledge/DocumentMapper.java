@@ -4,8 +4,10 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Documentation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
@@ -13,19 +15,20 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentContent;
-import com.linkedin.datahub.graphql.generated.DocumentDraftOf;
 import com.linkedin.datahub.graphql.generated.DocumentInfo;
 import com.linkedin.datahub.graphql.generated.DocumentParentDocument;
 import com.linkedin.datahub.graphql.generated.DocumentRelatedAsset;
 import com.linkedin.datahub.graphql.generated.DocumentRelatedDocument;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
@@ -38,6 +41,8 @@ import javax.annotation.Nullable;
 
 /** Maps GMS EntityResponse representing a Document to a GraphQL Document object. */
 public class DocumentMapper {
+
+  private static final String DATAHUB_DATA_PLATFORM_URN = "urn:li:dataPlatform:datahub";
 
   public static Document map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Document result = new Document();
@@ -72,14 +77,28 @@ public class DocumentMapper {
       }
     }
 
-    // Map DataPlatformInstance aspect
+    // Map DataPlatformInstance aspect (following pattern from
+    // DataJobMapper/DataProcessInstanceMapper)
     final EnvelopedAspect envelopedDataPlatformInstance =
         aspects.get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
     if (envelopedDataPlatformInstance != null) {
       final DataPlatformInstance dataPlatformInstance =
           new DataPlatformInstance(envelopedDataPlatformInstance.getValue().data());
-      result.setDataPlatformInstance(
-          DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance));
+      final com.linkedin.datahub.graphql.generated.DataPlatformInstance value =
+          DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance);
+      // Always set platform directly (resolved by platform resolver)
+      result.setPlatform(value.getPlatform());
+      // Only set dataPlatformInstance if there's an actual instance (to avoid null urn/type errors)
+      if (dataPlatformInstance.hasInstance()) {
+        result.setDataPlatformInstance(value);
+      }
+    } else {
+      // Platform is ALWAYS required, so we set the platform to "datahub" for internal documents.
+      result.setPlatform(
+          com.linkedin.datahub.graphql.generated.DataPlatform.builder()
+              .setType(EntityType.DATA_PLATFORM)
+              .setUrn(DATAHUB_DATA_PLATFORM_URN)
+              .build());
     }
 
     // Map Ownership aspect
@@ -107,6 +126,17 @@ public class DocumentMapper {
           StructuredPropertiesMapper.map(
               context,
               new StructuredProperties(envelopedStructuredProps.getValue().data()),
+              entityUrn));
+    }
+
+    // Map Institutional Memory aspect (links)
+    final EnvelopedAspect envelopedInstitutionalMemory =
+        aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
+    if (envelopedInstitutionalMemory != null) {
+      result.setInstitutionalMemory(
+          InstitutionalMemoryMapper.map(
+              context,
+              new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()),
               entityUrn));
     }
 
@@ -141,6 +171,14 @@ public class DocumentMapper {
     final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
     if (envelopedStatus != null) {
       result.setExists(!new Status(envelopedStatus.getValue().data()).isRemoved());
+    }
+
+    // Map Documentation aspect
+    final EnvelopedAspect envelopedDocumentation = aspects.get(Constants.DOCUMENTATION_ASPECT_NAME);
+    if (envelopedDocumentation != null) {
+      result.setDocumentation(
+          DocumentationMapper.map(
+              context, new Documentation(envelopedDocumentation.getValue().data())));
     }
 
     // Note: Relationships are handled separately via batch resolvers in GraphQL
@@ -179,10 +217,10 @@ public class DocumentMapper {
     result.setContents(graphqlContent);
 
     // Map created audit stamp
-    result.setCreated(AuditStampMapper.map(null, info.getCreated()));
+    result.setCreated(MapperUtils.createResolvedAuditStamp(info.getCreated()));
 
     // Map lastModified audit stamp
-    result.setLastModified(AuditStampMapper.map(null, info.getLastModified()));
+    result.setLastModified(MapperUtils.createResolvedAuditStamp(info.getLastModified()));
 
     // Map related assets - create stubs that will be resolved by GraphQL batch loaders
     if (info.hasRelatedAssets()) {
@@ -223,16 +261,6 @@ public class DocumentMapper {
       stubParent.setType(EntityType.DOCUMENT);
       parentInfo.setDocument(stubParent);
       result.setParentDocument(parentInfo);
-    }
-
-    // Map draftOf - create stub that will be resolved by GraphQL batch loaders
-    if (info.hasDraftOf()) {
-      final DocumentDraftOf draftOfInfo = new DocumentDraftOf();
-      final Document stubDraftOf = new Document();
-      stubDraftOf.setUrn(info.getDraftOf().getDocument().toString());
-      stubDraftOf.setType(EntityType.DOCUMENT);
-      draftOfInfo.setDocument(stubDraftOf);
-      result.setDraftOf(draftOfInfo);
     }
 
     // Map custom properties (included via CustomProperties mixin in PDL)

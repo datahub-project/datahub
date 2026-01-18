@@ -49,6 +49,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,9 +112,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return true;
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(server)) {
-      log.error(
-          "GMS is on a newer version than your storage layer. Please refer to "
-              + "https://docs.datahub.com/docs/advanced/no-code-upgrade to view the upgrade guide.");
+      log.error("Table metadata_aspect_v2 does not exist.");
       canWrite = false;
       return false;
     } else {
@@ -191,6 +190,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                             aspect ->
                                 new EbeanAspectV2.PrimaryKey(
                                     entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
+            .sorted(
+                Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
+                    .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
+                    .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
             .collect(Collectors.toList());
 
     final List<EbeanAspectV2> results;
@@ -892,6 +895,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
     // max(version) was invalidated
     if (canWrite) {
+      // Sorting is required to ensure consistent lock ordering and avoid deadlocks
+      Collections.sort(forUpdateKeys);
       server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
     }
 

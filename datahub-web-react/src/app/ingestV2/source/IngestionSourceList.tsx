@@ -1,36 +1,51 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, message } from 'antd';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDebounce } from 'react-use';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+import { useDebounce, usePrevious } from 'react-use';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import EmptySources from '@app/ingestV2/EmptySources';
-import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { CLI_EXECUTOR_ID, DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
 import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
+import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import {
     addToListIngestionSourcesCache,
     removeFromListIngestionSourcesCache,
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
-import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
-import { TabType } from '@app/ingestV2/types';
+import {
+    DEFAULT_SOURCE_SORT_CRITERION,
+    buildOwnerEntities,
+    getIngestionSourceMutationInput,
+    getIngestionSourceSystemFilter,
+    getSortInput,
+    mapSourceTypeAliases,
+    removeExecutionsFromIngestionSource,
+} from '@app/ingestV2/source/utils';
+import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import usePagination from '@app/sharedV2/pagination/usePagination';
+import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
+import useUrlParamsPagination from '@app/sharedV2/pagination/useUrlParamsPagination';
+import { useQueryParamSortCriterion } from '@app/sharedV2/sorting/useQueryParamSortCriterion';
+import { PageRoutes } from '@conf/Global';
 
 import {
     useCreateIngestionExecutionRequestMutation,
@@ -39,18 +54,7 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import {
-    Entity,
-    EntityType,
-    IngestionSource,
-    Owner,
-    OwnerEntityType,
-    OwnershipTypeEntity,
-    SortCriterion,
-    UpdateIngestionSourceInput,
-} from '@types';
+import { Entity, IngestionSource, Owner, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -112,32 +116,6 @@ export enum IngestionSourceType {
     CLI,
 }
 
-const DEFAULT_PAGE_SIZE = 25;
-
-const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
-    if (source) {
-        let { type } = source;
-        if (type === 'unity-catalog') {
-            type = 'databricks';
-        }
-        return { ...source, type };
-    }
-    return undefined;
-};
-
-const removeExecutionsFromIngestionSource = (source) => {
-    if (source) {
-        return {
-            name: source.name,
-            type: source.type,
-            schedule: source.schedule,
-            config: source.config,
-            source: source.source,
-        };
-    }
-    return undefined;
-};
-
 interface Props {
     showCreateModal: boolean;
     setShowCreateModal: (show: boolean) => void;
@@ -165,9 +143,29 @@ export const IngestionSourceList = ({
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    const [searchInput, setSearchInput] = useState('');
+    const location = useLocation();
+
+    // Query inputs after redirect to restore initial state of query and sorting
+    const redirectQueryInputs = useMemo(() => location.state?.sourcesListQueryInputs, [location.state]);
+
+    const [query, setQuery] = useState<undefined | string>(redirectQueryInputs?.query);
+    const [searchInput, setSearchInput] = useState(redirectQueryInputs?.query ?? '');
+    const previousSearchInput = usePrevious(searchInput);
     const searchInputRef = useRef<InputRef>(null);
+
+    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
+
+    const history = useHistory();
+
+    const createdOrUpdatedSourceUrnFromLocation = useMemo(
+        () => location.state?.createdOrUpdatedSourceUrn,
+        [location.state],
+    );
+    const shouldRunCreatedOrUpdatedSourceFromLocation = useMemo(() => location.state?.shouldRun, [location.state]);
+    const hasCreatedOrUpdatedSourceFromLocation = useMemo(
+        () => !!createdOrUpdatedSourceUrnFromLocation,
+        [createdOrUpdatedSourceUrnFromLocation],
+    );
 
     // Initialize search input from URL parameter
     useEffect(() => {
@@ -184,7 +182,7 @@ export const IngestionSourceList = ({
         setSearchInput(value);
     };
 
-    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
+    const { page, setPage, start, count: pageSize } = useUrlParamsPagination(DEFAULT_PAGE_SIZE);
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
@@ -200,25 +198,31 @@ export const IngestionSourceList = ({
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    const [sort, setSort] = useState<SortCriterion>();
 
-    const sourceFilter = sourceFilterFromUrl ?? IngestionSourceType.ALL;
+    const { sort, setSort } = useQueryParamSortCriterion(redirectQueryInputs?.sort);
+
+    const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
+    const prevSourceFilter = usePrevious(sourceFilter);
 
     // Debounce the search query
     useDebounce(
         () => {
-            setPage(1);
-            setQuery(searchInput);
-            setSearchQueryFromUrl(searchInput);
+            if (previousSearchInput !== undefined && previousSearchInput !== searchInput) {
+                setPage(1);
+                setQuery(searchInput);
+                setSearchQueryFromUrl(searchInput);
+            }
         },
         300,
-        [searchInput],
+        [searchInput, previousSearchInput],
     );
 
     // When source filter changes, reset page to 1
     useEffect(() => {
-        setPage(1);
-    }, [sourceFilter, setPage]);
+        if (prevSourceFilter !== undefined && prevSourceFilter !== sourceFilter) {
+            setPage(1);
+        }
+    }, [sourceFilter, setPage, prevSourceFilter]);
 
     /**
      * Show or hide system ingestion sources using a hidden command S command.
@@ -226,40 +230,41 @@ export const IngestionSourceList = ({
     useCommandS(() => setHideSystemSources(!hideSystemSources));
 
     // Ingestion Source Default Filters
-    const filters = [getIngestionSourceSystemFilter(hideSystemSources)];
-    if (sourceFilter !== IngestionSourceType.ALL) {
-        filters.push({
-            field: 'sourceExecutorId',
-            values: [CLI_EXECUTOR_ID],
-            negated: sourceFilter !== IngestionSourceType.CLI,
-        });
-    }
+    const filters = useMemo(() => {
+        const draftFilters = [getIngestionSourceSystemFilter(hideSystemSources)];
+        if (sourceFilter !== IngestionSourceType.ALL) {
+            draftFilters.push({
+                field: 'sourceExecutorId',
+                values: [CLI_EXECUTOR_ID],
+                negated: sourceFilter !== IngestionSourceType.CLI,
+            });
+        }
+        return draftFilters;
+    }, [sourceFilter, hideSystemSources]);
 
-    const queryInputs = {
-        start,
-        count: pageSize,
-        query: query?.length ? query : undefined,
-        filters: filters.length ? filters : undefined,
-        sort,
-    };
+    const queryInputs = useMemo(
+        () => ({
+            start,
+            count: pageSize,
+            query: query?.length ? query : undefined,
+            filters: filters.length ? filters : undefined,
+            sort: !query && !sort ? DEFAULT_SOURCE_SORT_CRITERION : sort,
+        }),
+        [start, pageSize, query, filters, sort],
+    );
 
     // Fetch list of Ingestion Sources
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
             input: queryInputs,
         },
-        fetchPolicy: 'cache-and-network',
+        // As a created or updated source via separated page was passed to apollo cache we use cache-first to show it
+        fetchPolicy: hasCreatedOrUpdatedSourceFromLocation ? 'cache-first' : 'cache-and-network',
         nextFetchPolicy: 'cache-first',
     });
 
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
+    const { defaultOwnershipType } = useOwnershipTypes();
 
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
         setFinalSources(sources);
@@ -268,8 +273,9 @@ export const IngestionSourceList = ({
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
-    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
-    const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
+
+    const addOwners = useAddOwners();
+    const updateOwners = useUpdateOwners();
 
     // Execution Request queries
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
@@ -279,12 +285,6 @@ export const IngestionSourceList = ({
     const isLastPage = totalSources <= pageSize * page;
     // this is required when the ingestion source has not been created
     const [selectedSourceType, setSelectedSourceType] = useState<string | undefined>(undefined);
-
-    useEffect(() => {
-        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
-        setFinalSources(sources);
-        setTotalSources(data?.listIngestionSources?.total || 0);
-    }, [data?.listIngestionSources]);
 
     useEffect(() => {
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
@@ -344,13 +344,6 @@ export const IngestionSourceList = ({
         setFocusSourceUrn(undefined);
     };
 
-    const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
-        if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs
-            .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
-            .map((entry) => ({ key: entry.key, value: entry.value }));
-    };
-
     const createOrUpdateIngestionSource = (
         input: UpdateIngestionSourceInput,
         resetState: () => void,
@@ -360,47 +353,11 @@ export const IngestionSourceList = ({
     ) => {
         setIsModalWaiting(true);
 
-        // excluding `existingOwners` from `owners` to get only added owners
-        const ownersToAdd: Entity[] = (owners ?? []).filter(
-            (owner) => !(existingOwners ?? []).some((existingOwner) => existingOwner.owner.urn === owner.urn),
-        );
-        const ownersToAddInputs = ownersToAdd.map((owner) => ({
-            ownerUrn: owner.urn,
-            ownerEntityType: owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
-            ownershipTypeUrn: defaultOwnerType?.urn,
-        }));
-
-        // excluding `owners` from `existingOwners` to get only removed owners
-        const ownersToRemove: Owner[] = (existingOwners ?? []).filter(
-            (existingOwner) => !owners?.some((owner) => existingOwner.owner.urn === owner.urn),
-        );
-        const ownersToRemoveUrns: string[] = ownersToRemove.map((owner) => owner.owner.urn);
-
         if (focusSourceUrn) {
             // Update
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (ownersToAddInputs?.length) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners: ownersToAddInputs,
-                                    resources: [{ resourceUrn: focusSourceUrn }],
-                                },
-                            },
-                        });
-                    }
-
-                    if (ownersToRemoveUrns?.length) {
-                        batchRemoveOwnersMutation({
-                            variables: {
-                                input: {
-                                    ownerUrns: ownersToRemoveUrns,
-                                    resources: [{ resourceUrn: focusSourceUrn }],
-                                },
-                            },
-                        });
-                    }
+                    updateOwners(owners, existingOwners, focusSourceUrn);
 
                     const updatedSource = {
                         config: {
@@ -412,7 +369,7 @@ export const IngestionSourceList = ({
                         schedule: input.schedule || null,
                         urn: focusSourceUrn,
                         ownership: {
-                            owners: buildOwnerEntities(focusSourceUrn, owners, defaultOwnerType) || [],
+                            owners: buildOwnerEntities(focusSourceUrn, owners, defaultOwnershipType) || [],
                         },
                     };
                     updateListIngestionSourcesCache(client, updatedSource, queryInputs, false);
@@ -465,7 +422,7 @@ export const IngestionSourceList = ({
                         executions: null,
                         source: input.source || null,
                         ownership: {
-                            owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
+                            owners: buildOwnerEntities(newUrn, owners, defaultOwnershipType),
                             lastModified: {
                                 time: 0,
                             },
@@ -474,17 +431,7 @@ export const IngestionSourceList = ({
                         __typename: 'IngestionSource' as const,
                     };
 
-                    if (ownersToAdd?.length) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners: ownersToAddInputs,
-                                    resources: [{ resourceUrn: newSource.urn }],
-                                },
-                            },
-                        });
-                    }
-
+                    addOwners(owners, newSource.urn);
                     addToListIngestionSourcesCache(client, newSource, queryInputs);
                     setFinalSources((currSources) => [newSource, ...currSources]);
 
@@ -493,7 +440,7 @@ export const IngestionSourceList = ({
                         sourceType: input.type,
                         sourceUrn: newSource.urn,
                         interval: input.schedule?.interval,
-                        numOwners: ownersToAdd?.length,
+                        numOwners: owners?.length,
                         outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
@@ -521,6 +468,29 @@ export const IngestionSourceList = ({
                 });
         }
     };
+
+    // Handle executing or refetching of a created or updated source via the separated page
+    const [isCreatedOrUpdatedSourceFromLocationHandled, setIsCreatedOrUpdatedSourceFromLocationHandled] =
+        useState<boolean>(false);
+    useEffect(() => {
+        if (createdOrUpdatedSourceUrnFromLocation && !isCreatedOrUpdatedSourceFromLocationHandled) {
+            setIsCreatedOrUpdatedSourceFromLocationHandled(true);
+            if (shouldRunCreatedOrUpdatedSourceFromLocation) {
+                executeIngestionSource(createdOrUpdatedSourceUrnFromLocation);
+            } else {
+                setSourcesToRefetch((prev) => new Set([...prev, createdOrUpdatedSourceUrnFromLocation]));
+            }
+            // clear browser state vars for shouldRun to prevent duplicate runs
+            history.replace(history.location.pathname, { ...location.state, shouldRun: undefined });
+        }
+    }, [
+        isCreatedOrUpdatedSourceFromLocationHandled,
+        createdOrUpdatedSourceUrnFromLocation,
+        shouldRunCreatedOrUpdatedSourceFromLocation,
+        executeIngestionSource,
+        history,
+        location,
+    ]);
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -563,33 +533,7 @@ export const IngestionSourceList = ({
         const existingOwners: Owner[] = focusSource?.ownership?.owners ?? [];
 
         createOrUpdateIngestionSource(
-            {
-                type: recipeBuilderState.type as string,
-                name: recipeBuilderState.name as string,
-                config: {
-                    recipe: recipeBuilderState.config?.recipe as string,
-                    version:
-                        (recipeBuilderState.config?.version?.length &&
-                            (recipeBuilderState.config?.version as string)) ||
-                        undefined,
-                    executorId:
-                        (recipeBuilderState.config?.executorId?.length &&
-                            (recipeBuilderState.config?.executorId as string)) ||
-                        DEFAULT_EXECUTOR_ID,
-                    debugMode: recipeBuilderState.config?.debugMode || false,
-                    extraArgs: formatExtraArgs(recipeBuilderState.config?.extraArgs || []),
-                },
-                schedule: recipeBuilderState.schedule && {
-                    interval: recipeBuilderState.schedule?.interval as string,
-                    timezone: recipeBuilderState.schedule?.timezone as string,
-                },
-                // Preserve source field when editing existing sources (especially system sources)
-                source: focusSource?.source
-                    ? {
-                          type: focusSource.source.type,
-                      }
-                    : undefined,
-            },
+            getIngestionSourceMutationInput(recipeBuilderState, focusSource),
             resetState,
             shouldRun,
             existingOwners,
@@ -599,10 +543,17 @@ export const IngestionSourceList = ({
 
     const onEdit = useCallback(
         (urn: string) => {
-            setShowCreateModal(true);
-            setFocusSourceUrn(urn);
+            if (showIngestionOnboardingRedesignV1) {
+                history.push(PageRoutes.INGESTION_UPDATE.replace(':urn', urn), {
+                    queryInputs, // The current queryInputs to update apollo cache
+                    backUrl: `${location.pathname}${location.search}`, // The url to come back on cancel or update
+                });
+            } else {
+                setShowCreateModal(true);
+                setFocusSourceUrn(urn);
+            }
         },
-        [setShowCreateModal],
+        [setShowCreateModal, showIngestionOnboardingRedesignV1, history, queryInputs, location],
     );
 
     const onView = useCallback((urn: string) => {
@@ -650,11 +601,25 @@ export const IngestionSourceList = ({
         setFocusSourceUrn(undefined);
     };
 
-    const onChangeSort = useCallback((field, order) => {
-        setSort(getSortInput(field, order));
-    }, []);
+    const onChangeSort = useCallback(
+        (field, order) => {
+            setSort(getSortInput(field, order));
+        },
+        [setSort],
+    );
 
-    const handleSetFocusExecutionUrn = useCallback((val) => setFocusExecutionUrn(val), []);
+    const handleSetFocusExecutionUrn = useCallback(
+        (val) => {
+            if (showIngestionOnboardingRedesignV1) {
+                history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', val), {
+                    fromUrl: tabUrlMap[TabType.Sources],
+                });
+            } else {
+                setFocusExecutionUrn(val);
+            }
+        },
+        [history, showIngestionOnboardingRedesignV1],
+    );
 
     return (
         <>
