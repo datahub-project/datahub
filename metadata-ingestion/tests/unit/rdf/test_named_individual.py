@@ -159,10 +159,10 @@ class TestNamedIndividualSupport(unittest.TestCase):
         self.assertEqual(len(terms), 0)
 
     def test_named_individual_without_dialect(self):
-        """Test that NamedIndividual requires a dialect, but current dialects don't support it."""
+        """Test that extractor defaults to GenericDialect when no dialect is provided."""
         from datahub.ingestion.source.rdf.dialects.generic import GenericDialect
 
-        # Without dialect, extractor won't work
+        # Without explicit dialect, extractor defaults to GenericDialect
         extractor_no_dialect = GlossaryTermExtractor()
         extractor_with_dialect = GlossaryTermExtractor(dialect=GenericDialect())
 
@@ -170,11 +170,11 @@ class TestNamedIndividualSupport(unittest.TestCase):
         self.graph.add((uri, RDF.type, OWL.NamedIndividual))
         self.graph.add((uri, RDFS.label, Literal("Test Individual")))
 
-        # Without dialect, can_extract will fail
-        with self.assertRaises(AttributeError):
-            extractor_no_dialect.can_extract(self.graph, uri)
+        # Without explicit dialect, extractor defaults to GenericDialect
+        # GenericDialect doesn't support NamedIndividual, so can_extract returns False
+        self.assertFalse(extractor_no_dialect.can_extract(self.graph, uri))
 
-        # With dialect, it still won't work because GenericDialect doesn't support NamedIndividual
+        # With explicit dialect, it still won't work because GenericDialect doesn't support NamedIndividual
         self.assertFalse(extractor_with_dialect.can_extract(self.graph, uri))
 
         # extract_all with dialect won't find it because dialect filters it out

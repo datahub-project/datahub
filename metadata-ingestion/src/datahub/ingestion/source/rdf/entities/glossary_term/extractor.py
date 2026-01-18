@@ -6,7 +6,7 @@ Supports SKOS Concepts, OWL Classes, and other glossary-like entities.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from rdflib import RDF, RDFS, Graph, Literal, URIRef
 from rdflib.namespace import DC, DCTERMS, OWL, SKOS
@@ -16,6 +16,9 @@ from datahub.ingestion.source.rdf.entities.glossary_term.ast import DataHubGloss
 from datahub.ingestion.source.rdf.entities.glossary_term.urn_generator import (
     GlossaryTermUrnGenerator,
 )
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.rdf.dialects.base import RDFDialectInterface
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +75,10 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
             if rdf_type in excluded_types:
                 return False
 
-        # Dialect is always provided by RDF source
+        # Dialect is always provided by RDF source (or defaults to GenericDialect for tests)
         # Let dialect decide - it knows what types it supports (SKOS.Concept, OWL.Class, etc.)
-        return self.dialect.looks_like_glossary_term(graph, uri)
+        dialect = self._get_dialect()
+        return dialect.looks_like_glossary_term(graph, uri)
 
     def extract(
         self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
@@ -160,6 +164,7 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
 
         # Get dialect to use its filtering logic
         # Dialect is always provided by RDF source via context
+        # (or defaults to GenericDialect for tests)
         dialect = self._get_dialect(context)
 
         # Use dialect to decide what's a glossary term
@@ -240,27 +245,37 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
 
         return None
 
-    def _get_dialect(self, context: Optional[Dict[str, Any]] = None):
+    def _get_dialect(
+        self, context: Optional[Dict[str, Any]] = None
+    ) -> "RDFDialectInterface":
         """
         Get the dialect instance from context or self.dialect.
 
-        Dialect is always provided by RDF source, so this should never return None.
+        If no dialect is provided, returns GenericDialect as a default.
+        In production, RDF source always provides dialect via context.
 
         Returns:
-            Dialect instance (always non-null)
+            Dialect instance (never None)
         """
         # Dialect comes from context (preferred) or self.dialect (fallback)
         # RDF source always provides dialect in context
         dialect = (
             context.get("dialect") if context and isinstance(context, dict) else None
         ) or self.dialect
+
+        # Provide default dialect if none is available (for tests and flexibility)
+        if dialect is None:
+            from datahub.ingestion.source.rdf.dialects.generic import GenericDialect
+
+            dialect = GenericDialect()
+
         return dialect
 
     def _extract_custom_properties(
         self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Extract custom properties, including dialect-specific ones."""
-        # Dialect is always provided by RDF source
+        # Dialect is always provided by RDF source (or defaults to GenericDialect for tests)
         dialect = self._get_dialect(context)
         # Let dialect extract its own custom properties
         return dialect.extract_custom_properties(graph, uri)
