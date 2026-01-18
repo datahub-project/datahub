@@ -191,6 +191,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         container_key = WorkspaceKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
+            env=self.config.env,
             workspace_id=workspace.id,
         )
 
@@ -261,12 +262,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         workspace_key = WorkspaceKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
+            env=self.config.env,
             workspace_id=workspace.id,
         )
 
         lakehouse_key = LakehouseKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
+            env=self.config.env,
             workspace_id=workspace.id,
             lakehouse_id=lakehouse.id,
         )
@@ -295,12 +298,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         workspace_key = WorkspaceKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
+            env=self.config.env,
             workspace_id=workspace.id,
         )
 
         warehouse_key = WarehouseKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
+            env=self.config.env,
             workspace_id=workspace.id,
             warehouse_id=warehouse.id,
         )
@@ -371,6 +376,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                             LakehouseSchemaKey(
                                 platform=PLATFORM,
                                 instance=self.config.platform_instance,
+                                env=self.config.env,
                                 workspace_id=workspace.id,
                                 lakehouse_id=item_id,
                                 schema_name=schema_name,
@@ -380,6 +386,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         schema_key = WarehouseSchemaKey(
                             platform=PLATFORM,
                             instance=self.config.platform_instance,
+                            env=self.config.env,
                             workspace_id=workspace.id,
                             warehouse_id=item_id,
                             schema_name=schema_name,
