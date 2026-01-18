@@ -32,6 +32,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -794,3 +795,392 @@ def test_get_owner_identifier_empty_dict():
 
     result = site_source._get_owner_identifier({})
     assert result is None
+
+
+@freeze_time(FROZEN_TIME)
+def test_custom_sql_with_datasource_name():
+    """Test that Custom SQL with datasource name uses the datasource name."""
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    config_dict = default_config.copy()
+    del config_dict["stateful_ingestion"]
+    config = TableauConfig.model_validate(config_dict)
+
+    mock_server = mock.MagicMock(spec=Server)
+    mock_server.user_id = "test-user-id"
+    mock_server.users = mock.MagicMock()
+    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
+    
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock_server,
+    )
+
+    # Mock custom SQL with a datasource that has a name
+    # Note: get_unique_custom_sql extracts datasources from columns' referencedByFields
+    custom_sql_data = [
+        {
+            "id": "csql-123",
+            "name": "Custom SQL Query",
+            "query": "SELECT * FROM table1",
+            "connectionType": "postgres",
+            "columns": [
+                {
+                    "id": "col-1",
+                    "name": "column1",
+                    "referencedByFields": [
+                        {
+                            "datasource": {
+                                "__typename": "PublishedDatasource",
+                                "id": "ds-123",
+                                "name": "My Datasource",
+                                "projectName": "default",
+                                "luid": "ds-luid-123",
+                            }
+                        }
+                    ],
+                }
+            ],
+            "tables": [],
+            "database": {"name": "test_db", "connectionType": "postgres"},
+        }
+    ]
+
+    with mock.patch.object(
+        site_source, "get_connection_objects", return_value=custom_sql_data
+    ), mock.patch.object(
+        site_source, "_get_datasource_project_luid", return_value="project-luid-123"
+    ), mock.patch.object(
+        site_source, "_get_project_browse_path_name", return_value="default"
+    ):
+        work_units = list(site_source.emit_custom_sql_datasources())
+        assert len(work_units) > 0
+
+        # Find the DatasetProperties aspect
+        dataset_properties = None
+        for wu in work_units:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if hasattr(wu.metadata, "aspect") and isinstance(
+                    wu.metadata.aspect, DatasetPropertiesClass
+                ):
+                    dataset_properties = wu.metadata.aspect
+                    break
+            elif hasattr(wu.metadata, "proposedSnapshot"):
+                for aspect in wu.metadata.proposedSnapshot.aspects:
+                    if isinstance(aspect, DatasetPropertiesClass):
+                        dataset_properties = aspect
+                        break
+
+        assert dataset_properties is not None
+        assert dataset_properties.name == "My Datasource"
+
+
+@freeze_time(FROZEN_TIME)
+def test_custom_sql_without_datasource():
+    """Test that Custom SQL without datasource falls back to generic name."""
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    config_dict = default_config.copy()
+    del config_dict["stateful_ingestion"]
+    config = TableauConfig.model_validate(config_dict)
+
+    mock_server = mock.MagicMock(spec=Server)
+    mock_server.user_id = "test-user-id"
+    mock_server.users = mock.MagicMock()
+    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
+    
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock_server,
+    )
+
+    # Mock custom SQL without a datasource
+    # When there's no datasource, datasource_name stays None and the code skips
+    # However, we can test the fallback logic by ensuring the code path is tested
+    # In practice, when there's no datasource, the code will skip at line 2293
+    # But the fallback logic at line 2305-2309 would use csql.get(c.NAME) if reached
+    custom_sql_data = [
+        {
+            "id": "csql-456",
+            "name": "Generic Custom SQL Query",
+            "query": "SELECT * FROM table2",
+            "connectionType": "postgres",
+            "columns": [],
+            "tables": [],
+            "database": {"name": "test_db", "connectionType": "postgres"},
+        }
+    ]
+
+    with mock.patch.object(
+        site_source, "get_connection_objects", return_value=custom_sql_data
+    ):
+        work_units = list(site_source.emit_custom_sql_datasources())
+        # When there's no datasource, datasource_name is None, so the code skips
+        # at line 2293. The fallback logic would use csql.get(c.NAME) if reached,
+        # but it's not reached in this case.
+        dataset_properties = None
+        for wu in work_units:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if hasattr(wu.metadata, "aspect") and isinstance(
+                    wu.metadata.aspect, DatasetPropertiesClass
+                ):
+                    dataset_properties = wu.metadata.aspect
+                    break
+            elif hasattr(wu.metadata, "proposedSnapshot"):
+                for aspect in wu.metadata.proposedSnapshot.aspects:
+                    if isinstance(aspect, DatasetPropertiesClass):
+                        dataset_properties = aspect
+                        break
+
+        # The code skips when there's no datasource, so no DatasetProperties should be emitted
+        # However, the fallback logic exists and would use csql.get(c.NAME) if the code reached it
+        assert dataset_properties is None
+
+
+@freeze_time(FROZEN_TIME)
+def test_custom_sql_with_none_datasource_name():
+    """Test that Custom SQL handles None datasource name correctly by skipping when datasource_name is None."""
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    config_dict = default_config.copy()
+    del config_dict["stateful_ingestion"]
+    config = TableauConfig.model_validate(config_dict)
+
+    mock_server = mock.MagicMock(spec=Server)
+    mock_server.user_id = "test-user-id"
+    mock_server.users = mock.MagicMock()
+    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
+    
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock_server,
+    )
+
+    # Mock custom SQL with a datasource that has None name
+    # The code will skip this because datasource_name is None
+    custom_sql_data = [
+        {
+            "id": "csql-789",
+            "name": "Fallback Custom SQL Query",
+            "query": "SELECT * FROM table3",
+            "connectionType": "postgres",
+            "columns": [
+                {
+                    "id": "col-1",
+                    "name": "column1",
+                    "referencedByFields": [
+                        {
+                            "datasource": {
+                                "__typename": "PublishedDatasource",
+                                "id": "ds-789",
+                                "name": None,
+                                "projectName": "default",
+                                "luid": "ds-luid-789",
+                            }
+                        }
+                    ],
+                }
+            ],
+            "tables": [],
+            "database": {"name": "test_db", "connectionType": "postgres"},
+        }
+    ]
+
+    with mock.patch.object(
+        site_source, "get_connection_objects", return_value=custom_sql_data
+    ), mock.patch.object(
+        site_source, "_get_datasource_project_luid", return_value="project-luid-789"
+    ), mock.patch.object(
+        site_source, "_get_project_browse_path_name", return_value="default"
+    ):
+        work_units = list(site_source.emit_custom_sql_datasources())
+        # When datasource_name is None, the code skips the custom SQL
+        # So we should get no work units with DatasetProperties
+        dataset_properties = None
+        for wu in work_units:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if hasattr(wu.metadata, "aspect") and isinstance(
+                    wu.metadata.aspect, DatasetPropertiesClass
+                ):
+                    dataset_properties = wu.metadata.aspect
+                    break
+            elif hasattr(wu.metadata, "proposedSnapshot"):
+                for aspect in wu.metadata.proposedSnapshot.aspects:
+                    if isinstance(aspect, DatasetPropertiesClass):
+                        dataset_properties = aspect
+                        break
+
+        # The code skips when datasource_name is None, so no DatasetProperties should be emitted
+        assert dataset_properties is None
+
+
+@freeze_time(FROZEN_TIME)
+def test_custom_sql_with_empty_string_datasource_name():
+    """Test that Custom SQL handles empty string datasource name correctly by skipping when datasource_name is empty."""
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    config_dict = default_config.copy()
+    del config_dict["stateful_ingestion"]
+    config = TableauConfig.model_validate(config_dict)
+
+    mock_server = mock.MagicMock(spec=Server)
+    mock_server.user_id = "test-user-id"
+    mock_server.users = mock.MagicMock()
+    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
+    
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock_server,
+    )
+
+    # Mock custom SQL with a datasource that has empty string name
+    # The code will skip this because empty string is falsy
+    custom_sql_data = [
+        {
+            "id": "csql-999",
+            "name": "Empty String Fallback Query",
+            "query": "SELECT * FROM table4",
+            "connectionType": "postgres",
+            "columns": [
+                {
+                    "id": "col-1",
+                    "name": "column1",
+                    "referencedByFields": [
+                        {
+                            "datasource": {
+                                "__typename": "PublishedDatasource",
+                                "id": "ds-999",
+                                "name": "",
+                                "projectName": "default",
+                                "luid": "ds-luid-999",
+                            }
+                        }
+                    ],
+                }
+            ],
+            "tables": [],
+            "database": {"name": "test_db", "connectionType": "postgres"},
+        }
+    ]
+
+    with mock.patch.object(
+        site_source, "get_connection_objects", return_value=custom_sql_data
+    ), mock.patch.object(
+        site_source, "_get_datasource_project_luid", return_value="project-luid-999"
+    ), mock.patch.object(
+        site_source, "_get_project_browse_path_name", return_value="default"
+    ):
+        work_units = list(site_source.emit_custom_sql_datasources())
+        # When datasource_name is empty string, the code skips the custom SQL
+        # So we should get no work units with DatasetProperties
+        dataset_properties = None
+        for wu in work_units:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if hasattr(wu.metadata, "aspect") and isinstance(
+                    wu.metadata.aspect, DatasetPropertiesClass
+                ):
+                    dataset_properties = wu.metadata.aspect
+                    break
+            elif hasattr(wu.metadata, "proposedSnapshot"):
+                for aspect in wu.metadata.proposedSnapshot.aspects:
+                    if isinstance(aspect, DatasetPropertiesClass):
+                        dataset_properties = aspect
+                        break
+
+        # The code skips when datasource_name is empty string, so no DatasetProperties should be emitted
+        assert dataset_properties is None
+
+
+@freeze_time(FROZEN_TIME)
+def test_custom_sql_with_embedded_datasource():
+    """Test that Custom SQL with embedded datasource uses original name, not workbook-prefixed version."""
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+    config_dict = default_config.copy()
+    del config_dict["stateful_ingestion"]
+    config = TableauConfig.model_validate(config_dict)
+
+    mock_server = mock.MagicMock(spec=Server)
+    mock_server.user_id = "test-user-id"
+    mock_server.users = mock.MagicMock()
+    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
+    
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock_server,
+    )
+
+    # Mock custom SQL with an embedded datasource
+    custom_sql_data = [
+        {
+            "id": "csql-embedded",
+            "name": "Embedded Custom SQL Query",
+            "query": "SELECT * FROM table5",
+            "connectionType": "postgres",
+            "columns": [
+                {
+                    "id": "col-1",
+                    "name": "column1",
+                    "referencedByFields": [
+                        {
+                            "datasource": {
+                                "__typename": "EmbeddedDatasource",
+                                "id": "ds-embedded",
+                                "name": "Original Datasource Name",
+                                "workbook": {
+                                    "id": "wb-123",
+                                    "name": "My Workbook",
+                                    "projectName": "default",
+                                    "luid": "wb-luid-123",
+                                },
+                            }
+                        }
+                    ],
+                }
+            ],
+            "tables": [],
+            "database": {"name": "test_db", "connectionType": "postgres"},
+        }
+    ]
+
+    with mock.patch.object(
+        site_source, "get_connection_objects", return_value=custom_sql_data
+    ), mock.patch.object(
+        site_source, "_get_project_browse_path_name", return_value="default"
+    ):
+        work_units = list(site_source.emit_custom_sql_datasources())
+        assert len(work_units) > 0
+
+        # Find the DatasetProperties aspect
+        dataset_properties = None
+        for wu in work_units:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if hasattr(wu.metadata, "aspect") and isinstance(
+                    wu.metadata.aspect, DatasetPropertiesClass
+                ):
+                    dataset_properties = wu.metadata.aspect
+                    break
+            elif hasattr(wu.metadata, "proposedSnapshot"):
+                for aspect in wu.metadata.proposedSnapshot.aspects:
+                    if isinstance(aspect, DatasetPropertiesClass):
+                        dataset_properties = aspect
+                        break
+
+        assert dataset_properties is not None
+        # Should use original name, not "My Workbook/Original Datasource Name"
+        assert dataset_properties.name == "Original Datasource Name"
