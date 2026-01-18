@@ -16,6 +16,7 @@ import { useGraphQLOperations } from '@app/glossaryV2/import/shared/hooks/useGra
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 import { colors } from '@src/alchemy-components';
+import { PROGRESS_PERCENTAGES, QUERY_LIMITS, VALIDATION_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
 
 // Styled components following IngestionSourceList pattern
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -83,11 +84,114 @@ export const WizardPage = () => {
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [parsedCsvData, setParsedCsvData] = useState<Entity[] | null>(null);
+
+    const fetchAndCompareEntities = async (normalizedEntities: Entity[]) => {
+                const fetchedEntities = await executeUnifiedGlossaryQuery({
+                    input: {
+                        types: ['GLOSSARY_TERM', 'GLOSSARY_NODE'],
+                        query: '*',
+                        count: QUERY_LIMITS.DEFAULT_COUNT,
+                    },
+                });
+
+        const urnToNameMap = new Map<string, string>();
+        fetchedEntities.forEach((entity: any) => {
+            const name = entity.properties?.name || entity.name || '';
+            if (name) {
+                urnToNameMap.set(entity.urn, name);
+            }
+        });
+
+        const convertedExistingEntities: Entity[] = fetchedEntities.map((entity: any) => {
+            const isTerm = entity.__typename === 'GlossaryTerm';
+            const properties = entity.properties || {};
+            const parentNodes = entity.parentNodes?.nodes || [];
+
+            const immediateParentNode = parentNodes.length > 0 ? [parentNodes[0]] : [];
+            const immediateParentName =
+                immediateParentNode.length > 0 ? immediateParentNode[0].properties?.name || '' : '';
+
+            return {
+                id: entity.urn,
+                name: properties.name || entity.name || '',
+                type: (isTerm ? 'glossaryTerm' : 'glossaryNode') as 'glossaryTerm' | 'glossaryNode',
+                urn: entity.urn,
+                parentNames: immediateParentName ? [immediateParentName] : [],
+                parentUrns: immediateParentNode.map((node: any) => node.urn),
+                level: immediateParentNode.length,
+                data: {
+                    entity_type: (isTerm ? 'glossaryTerm' : 'glossaryNode') as 'glossaryTerm' | 'glossaryNode',
+                    urn: entity.urn,
+                    name: properties.name || entity.name || '',
+                    description: properties.description || '',
+                    term_source: properties.termSource || '',
+                    source_ref: properties.sourceRef || '',
+                    source_url: properties.sourceUrl || '',
+                    ownership_users:
+                        entity.ownership?.owners
+                            ?.filter((owner: any) => owner.owner.__typename === 'CorpUser')
+                            .map(
+                                (owner: any) =>
+                                    `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`,
+                            )
+                            .join('|') || '',
+                    ownership_groups:
+                        entity.ownership?.owners
+                            ?.filter((owner: any) => owner.owner.__typename === 'CorpGroup')
+                            .map(
+                                (owner: any) =>
+                                    `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`,
+                            )
+                            .join('|') || '',
+                    parent_nodes: immediateParentName || '',
+                    related_contains: convertRelationshipsToHierarchicalNames(
+                        entity.contains?.relationships || [],
+                    ),
+                    related_inherits: convertRelationshipsToHierarchicalNames(
+                        entity.inherits?.relationships || [],
+                    ),
+                    domain_urn: entity.domain?.domain.urn || '',
+                    domain_name: entity.domain?.domain.properties.name || '',
+                    custom_properties:
+                        properties.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || '',
+                    status: 'existing',
+                },
+                status: 'existing' as const,
+                originalRow: undefined,
+            };
+        });
+
+        setExistingEntities(convertedExistingEntities);
+
+        const comparison = categorizeEntities(normalizedEntities, convertedExistingEntities);
+
+        const updatedEntities = [
+            ...comparison.newEntities.map((entity) => ({ ...entity, status: 'new' as const })),
+            ...comparison.updatedEntities.map((entity) => ({
+                ...entity,
+                urn: entity.existingEntity?.urn || entity.urn,
+                status: 'updated' as const,
+            })),
+            ...comparison.unchangedEntities.map((entity) => ({
+                ...entity,
+                urn: entity.existingEntity?.urn || entity.urn,
+                status: 'existing' as const,
+            })),
+            ...comparison.conflictedEntities.map((entity) => ({
+                ...entity,
+                urn: entity.existingEntity?.urn || entity.urn,
+                status: 'conflict' as const,
+            })),
+        ];
+
+        setEntities(updatedEntities);
+    };
 
     const handleFileSelect = async (file: File) => {
         setUploadFile(file);
         setUploadError(null);
-        setUploadProgress(10);
+        setUploadProgress(PROGRESS_PERCENTAGES.START);
 
         try {
             const csvText = await new Promise<string>((resolve, reject) => {
@@ -97,7 +201,7 @@ export const WizardPage = () => {
                 reader.readAsText(file);
             });
 
-            setUploadProgress(50);
+            setUploadProgress(PROGRESS_PERCENTAGES.MID);
 
             const parseResult = csvProcessing.parseCsvText(csvText);
 
@@ -111,130 +215,46 @@ export const WizardPage = () => {
             }
 
             const normalizedEntities = entityManagement.normalizeCsvData(parseResult.data);
+            setParsedCsvData(normalizedEntities);
             setEntities(normalizedEntities);
 
-            setUploadProgress(90);
+            setUploadProgress(PROGRESS_PERCENTAGES.NEAR_COMPLETE);
             try {
-                const fetchedEntities = await executeUnifiedGlossaryQuery({
-                    input: {
-                        types: ['GLOSSARY_TERM', 'GLOSSARY_NODE'],
-                        query: '*',
-                        count: 1000,
-                    },
-                });
-
-                const urnToNameMap = new Map<string, string>();
-                fetchedEntities.forEach((entity: any) => {
-                    const name = entity.properties?.name || entity.name || '';
-                    if (name) {
-                        urnToNameMap.set(entity.urn, name);
-                    }
-                });
-
-                // SPECIALIZED converter for CSV import comparison flow - differs from glossary.utils.convertGraphQLEntityToEntity()
-                // Uses URN as ID, extracts only immediate parent, converts relationships to hierarchical names
-                const convertedExistingEntities: Entity[] = fetchedEntities.map((entity: any) => {
-                    const isTerm = entity.__typename === 'GlossaryTerm';
-                    const properties = entity.properties || {};
-                    const parentNodes = entity.parentNodes?.nodes || [];
-
-                    // GraphQL returns all ancestors, but we only need immediate parent (first node) for CSV matching
-                    const immediateParentNode = parentNodes.length > 0 ? [parentNodes[0]] : [];
-                    const immediateParentName =
-                        immediateParentNode.length > 0 ? immediateParentNode[0].properties?.name || '' : '';
-
-                    return {
-                        id: entity.urn,
-                        name: properties.name || entity.name || '',
-                        type: (isTerm ? 'glossaryTerm' : 'glossaryNode') as 'glossaryTerm' | 'glossaryNode',
-                        urn: entity.urn,
-                        parentNames: immediateParentName ? [immediateParentName] : [],
-                        parentUrns: immediateParentNode.map((node: any) => node.urn),
-                        level: immediateParentNode.length,
-                        data: {
-                            entity_type: (isTerm ? 'glossaryTerm' : 'glossaryNode') as 'glossaryTerm' | 'glossaryNode',
-                            urn: entity.urn,
-                            name: properties.name || entity.name || '',
-                            description: properties.description || '',
-                            term_source: properties.termSource || '',
-                            source_ref: properties.sourceRef || '',
-                            source_url: properties.sourceUrl || '',
-                            ownership_users:
-                                entity.ownership?.owners
-                                    ?.filter((owner: any) => owner.owner.__typename === 'CorpUser')
-                                    .map(
-                                        (owner: any) =>
-                                            `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`,
-                                    )
-                                    .join('|') || '',
-                            ownership_groups:
-                                entity.ownership?.owners
-                                    ?.filter((owner: any) => owner.owner.__typename === 'CorpGroup')
-                                    .map(
-                                        (owner: any) =>
-                                            `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`,
-                                    )
-                                    .join('|') || '',
-                            parent_nodes: immediateParentName || '',
-                            related_contains: convertRelationshipsToHierarchicalNames(
-                                entity.contains?.relationships || [],
-                            ),
-                            related_inherits: convertRelationshipsToHierarchicalNames(
-                                entity.inherits?.relationships || [],
-                            ),
-                            domain_urn: entity.domain?.domain.urn || '',
-                            domain_name: entity.domain?.domain.properties.name || '',
-                            custom_properties:
-                                properties.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || '',
-                            status: 'existing',
-                        },
-                        status: 'existing' as const,
-                        originalRow: undefined,
-                    };
-                });
-
-                setExistingEntities(convertedExistingEntities);
-
-                const comparison = categorizeEntities(normalizedEntities, convertedExistingEntities);
-
-                const updatedEntities = [
-                    ...comparison.newEntities.map((entity) => ({ ...entity, status: 'new' as const })),
-                    ...comparison.updatedEntities.map((entity) => ({
-                        ...entity,
-                        urn: entity.existingEntity?.urn || entity.urn,
-                        status: 'updated' as const,
-                    })),
-                    ...comparison.unchangedEntities.map((entity) => ({
-                        ...entity,
-                        urn: entity.existingEntity?.urn || entity.urn,
-                        status: 'existing' as const,
-                    })),
-                    ...comparison.conflictedEntities.map((entity) => ({
-                        ...entity,
-                        urn: entity.existingEntity?.urn || entity.urn,
-                        status: 'conflict' as const,
-                    })),
-                ];
-
-                setEntities(updatedEntities);
+                await fetchAndCompareEntities(normalizedEntities);
             } catch (error) {
-                console.error('Failed to fetch existing entities:', error);
-                setEntities([]);
-                setExistingEntities([]);
-                setUploadFile(null);
-                setUploadProgress(0);
                 setUploadError(
-                    `Failed to validate import data. Unable to fetch existing glossary entities. Please ensure the DataHub backend is running and try again. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    `Failed to fetch existing entities. Please ensure the DataHub backend is running and try again. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 );
+                setUploadProgress(PROGRESS_PERCENTAGES.NEAR_COMPLETE);
                 return;
             }
 
-            setUploadProgress(100);
+            setUploadProgress(PROGRESS_PERCENTAGES.COMPLETE);
             handleNext();
         } catch (error) {
             setUploadFile(null);
+            setParsedCsvData(null);
             setUploadProgress(0);
             setUploadError(`Failed to parse CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    };
+
+    const handleRetryFetch = async () => {
+        if (!parsedCsvData) {
+            return;
+        }
+
+        setUploadError(null);
+        setUploadProgress(PROGRESS_PERCENTAGES.NEAR_COMPLETE);
+        try {
+            await fetchAndCompareEntities(parsedCsvData);
+            setUploadProgress(PROGRESS_PERCENTAGES.COMPLETE);
+            handleNext();
+        } catch (error) {
+            setUploadError(
+                `Failed to fetch existing entities. Please ensure the DataHub backend is running and try again. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+            setUploadProgress(90);
         }
     };
 
@@ -242,6 +262,7 @@ export const WizardPage = () => {
         setUploadFile(null);
         setUploadError(null);
         setUploadProgress(0);
+        setParsedCsvData(null);
     };
 
     const handleRestart = () => {
@@ -249,6 +270,7 @@ export const WizardPage = () => {
         setUploadFile(null);
         setUploadError(null);
         setUploadProgress(0);
+        setParsedCsvData(null);
         setEntities([]);
         setExistingEntities([]);
     };
@@ -279,11 +301,13 @@ export const WizardPage = () => {
                             onFileSelect={handleFileSelect}
                             onFileRemove={handleFileRemove}
                             file={uploadFile}
-                            isProcessing={uploadProgress > 0 && uploadProgress < 100}
+                            isProcessing={uploadProgress > 0 && uploadProgress < PROGRESS_PERCENTAGES.COMPLETE}
                             progress={uploadProgress}
                             error={uploadError}
                             acceptedFileTypes={['.csv']}
-                            maxFileSize={10}
+                            maxFileSize={VALIDATION_LIMITS.MAX_FILE_SIZE_MB}
+                            onRetry={handleRetryFetch}
+                            canRetry={!!parsedCsvData && !!uploadError && uploadProgress === PROGRESS_PERCENTAGES.NEAR_COMPLETE}
                         />
                     ) : (
                         <GlossaryImportList

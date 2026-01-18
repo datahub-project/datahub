@@ -31,30 +31,6 @@ export function toCommaSeparated(values: string[]): string {
     return values.filter((value) => value && value.trim() !== '').join(', ');
 }
 
-/**
- * Validate URN format
- * @deprecated Use UrnManager.isValidUrn instead
- */
-export function isValidUrn(urn: string): boolean {
-    return UrnManager.isValidUrn(urn, true);
-}
-
-/**
- * Generate URN for glossary entity
- * @deprecated Use UrnManager.generateGlossaryUrn instead
- */
-export function generateGlossaryUrn(entityType: 'glossaryTerm' | 'glossaryNode', name: string): string {
-    return UrnManager.generateGlossaryUrn(entityType, name);
-}
-
-/**
- * Extract entity type from URN
- * @deprecated Use UrnManager.extractEntityTypeFromUrn instead
- */
-export function extractEntityTypeFromUrn(urn: string): 'glossaryTerm' | 'glossaryNode' | null {
-    const entityType = UrnManager.extractEntityTypeFromUrn(urn);
-    return entityType === 'glossaryTerm' || entityType === 'glossaryNode' ? entityType : null;
-}
 
 export function validateEntityName(name: string): ValidationResult {
     const errors: ValidationError[] = [];

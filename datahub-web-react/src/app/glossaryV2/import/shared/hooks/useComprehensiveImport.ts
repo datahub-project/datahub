@@ -13,6 +13,7 @@ import {
     convertPlanToPatchInputs,
     createComprehensiveImportPlan,
 } from '@app/glossaryV2/import/shared/utils/comprehensiveImportUtils';
+import { QUERY_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
 
 export interface ComprehensiveImportProgress {
     total: number;
@@ -100,12 +101,19 @@ export const useComprehensiveImport = ({ onProgress }: UseComprehensiveImportPro
         }));
     }, []);
 
+    const addWarning = useCallback((warning: ImportWarning) => {
+        setProgress((prev) => ({
+            ...prev,
+            warnings: [...prev.warnings, warning],
+        }));
+    }, []);
+
     const loadExistingOwnershipTypes = useCallback(async (): Promise<Map<string, string>> => {
         try {
             const result = await executeGetOwnershipTypesQuery({
                 input: {
                     start: 0,
-                    count: 1000,
+                    count: QUERY_LIMITS.DEFAULT_COUNT,
                 },
             });
 
@@ -146,11 +154,15 @@ export const useComprehensiveImport = ({ onProgress }: UseComprehensiveImportPro
                 ];
 
                 updateProgress({ currentPhase: 'Planning import...' });
-                const plan = createComprehensiveImportPlan(allEntities, existingEntities, existingOwnershipTypes);
+                const plan = createComprehensiveImportPlan(allEntities, existingEntities, existingOwnershipTypes, (entityId, entityName, operation, message) => {
+                    addWarning({ entityId, entityName, operation, message });
+                });
                 currentPlanRef.current = plan;
 
                 updateProgress({ currentPhase: 'Preparing patch operations...' });
-                const patchInputs = convertPlanToPatchInputs(plan, entitiesToProcess, existingEntities);
+                const patchInputs = convertPlanToPatchInputs(plan, entitiesToProcess, existingEntities, (entityId, entityName, operation, message) => {
+                    addWarning({ entityId, entityName, operation, message });
+                });
 
                 const regularPatches = patchInputs.filter((input) => input.aspectName !== 'addRelatedTerms');
                 const relationshipPatches = patchInputs.filter((input) => input.aspectName === 'addRelatedTerms');
@@ -277,6 +289,7 @@ export const useComprehensiveImport = ({ onProgress }: UseComprehensiveImportPro
             executeAddRelatedTermsMutation,
             updateProgress,
             addError,
+            addWarning,
             categorizeEntities,
             progress.total,
         ],

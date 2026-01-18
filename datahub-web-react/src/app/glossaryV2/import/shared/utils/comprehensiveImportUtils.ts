@@ -16,6 +16,7 @@ import {
     PatchBuilder,
 } from '@app/glossaryV2/import/shared/utils/patchBuilder';
 import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
+import { hasEntityInfoChanged } from '@app/glossaryV2/import/shared/utils/entityComparisonUtils';
 
 // Re-export types for backward compatibility
 export type { ComprehensivePatchInput, ArrayPrimaryKeyInput, OwnershipTypeInput };
@@ -30,6 +31,8 @@ export interface ComprehensiveImportPlan {
     domainAssignmentPatches: ComprehensivePatchInput[];
 }
 
+export type WarningCallback = (entityId: string, entityName: string, operation: string, message: string) => void;
+
 /**
  * Create comprehensive import plan with proper ordering
  */
@@ -37,6 +40,7 @@ export function createComprehensiveImportPlan(
     entities: Entity[],
     existingEntities: Entity[],
     existingOwnershipTypes: Map<string, string>,
+    onWarning?: WarningCallback,
 ): ComprehensiveImportPlan {
     const urnMap = UrnManager.preGenerateUrns(entities);
     const sortedEntities = sortEntitiesByHierarchy(entities);
@@ -53,9 +57,9 @@ export function createComprehensiveImportPlan(
         ownershipTypes,
         entities: sortedEntities,
         urnMap,
-        ownershipPatches: createOwnershipPatches(sortedEntities, urnMap, completeOwnershipTypeMap, existingEntities),
+        ownershipPatches: createOwnershipPatches(sortedEntities, urnMap, completeOwnershipTypeMap, existingEntities, onWarning),
         parentRelationshipPatches: [], // Parent relationships are now handled directly in createEntityPatches
-        relatedTermPatches: createRelatedTermPatches(sortedEntities, urnMap, existingEntities),
+        relatedTermPatches: createRelatedTermPatches(sortedEntities, urnMap, existingEntities, onWarning),
         domainAssignmentPatches: createDomainAssignmentPatches(sortedEntities, urnMap, existingEntities),
     };
 
@@ -95,44 +99,13 @@ function extractOwnershipTypes(entities: Entity[], existingOwnershipTypes: Map<s
     }));
 }
 
-/**
- * Create ownership type patches
- * @deprecated Wrapper function - uses PatchBuilder.createOwnershipTypePatches
- */
-function createOwnershipTypePatches(ownershipTypes: OwnershipTypeInput[]): ComprehensivePatchInput[] {
-    return PatchBuilder.createOwnershipTypePatches(ownershipTypes);
-}
 
-function hasEntityInfoChanged(newEntity: Entity, existingEntity: Entity): boolean {
-    if (newEntity.name !== existingEntity.name) return true;
-
-    const newDescription = newEntity.data.description || '';
-    const existingDescription = existingEntity.data.description || '';
-    if (newDescription !== existingDescription) return true;
-
-    const newTermSource = newEntity.data.term_source || '';
-    const existingTermSource = existingEntity.data.term_source || '';
-    if (newTermSource !== existingTermSource) return true;
-
-    const newSourceRef = newEntity.data.source_ref || '';
-    const existingSourceRef = existingEntity.data.source_ref || '';
-    if (newSourceRef !== existingSourceRef) return true;
-
-    const newSourceUrl = newEntity.data.source_url || '';
-    const existingSourceUrl = existingEntity.data.source_url || '';
-    if (newSourceUrl !== existingSourceUrl) return true;
-
-    const newParentNames = newEntity.parentNames || [];
-    const existingParentNames = existingEntity.parentNames || [];
-    if (JSON.stringify(newParentNames) !== JSON.stringify(existingParentNames)) return true;
-
-    return false;
-}
 
 function createEntityPatches(
     entities: Entity[],
     urnMap: Map<string, string>,
     existingEntities: Entity[] = [],
+    onWarning?: WarningCallback,
 ): ComprehensivePatchInput[] {
     return entities
         .filter((entity) => {
@@ -174,9 +147,12 @@ function createEntityPatches(
                     const termSource = entity.data.term_source || 'INTERNAL';
                     const normalizedTermSource = termSource.trim().toUpperCase();
                     if (normalizedTermSource !== 'INTERNAL' && normalizedTermSource !== 'EXTERNAL') {
-                        console.warn(
-                            `Invalid term_source "${termSource}" for entity "${entity.name}", defaulting to INTERNAL`,
-                        );
+                        const message = `Invalid term_source "${termSource}" for entity "${entity.name}", defaulting to INTERNAL`;
+                        if (onWarning) {
+                            onWarning(entity.id || entity.urn || '', entity.name, 'term_source_validation', message);
+                        } else {
+                            console.warn(message);
+                        }
                         patch.push({ op: 'ADD' as const, path: '/termSource', value: 'INTERNAL' });
                     } else {
                         patch.push({ op: 'ADD' as const, path: '/termSource', value: normalizedTermSource });
@@ -193,7 +169,12 @@ function createEntityPatches(
                     const termSource = entity.data.term_source;
                     const normalizedTermSource = termSource.trim().toUpperCase();
                     if (normalizedTermSource !== 'INTERNAL' && normalizedTermSource !== 'EXTERNAL') {
-                        console.warn(`Invalid term_source "${termSource}" for entity "${entity.name}", skipping`);
+                        const message = `Invalid term_source "${termSource}" for entity "${entity.name}", skipping`;
+                        if (onWarning) {
+                            onWarning(entity.id || entity.urn || '', entity.name, 'term_source_validation', message);
+                        } else {
+                            console.warn(message);
+                        }
                     } else {
                         patch.push({ op: 'ADD' as const, path: '/termSource', value: normalizedTermSource });
                     }
@@ -222,7 +203,12 @@ function createEntityPatches(
                         });
                     });
                 } catch (error) {
-                    console.warn(`Failed to parse custom properties for ${entity.name}:`, error);
+                    const message = `Failed to parse custom properties for ${entity.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+                    if (onWarning) {
+                        onWarning(entity.id || entity.urn || '', entity.name, 'custom_properties_parsing', message);
+                    } else {
+                        console.warn(message, error);
+                    }
                 }
             }
 
@@ -252,9 +238,12 @@ function createEntityPatches(
                     });
                 } else {
                     const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentName);
-                    console.warn(
-                        `Parent entity "${parentName}" (resolved to "${actualParentName}") not found for "${entity.name}"`,
-                    );
+                    const message = `Parent entity "${parentName}" (resolved to "${actualParentName}") not found for "${entity.name}"`;
+                    if (onWarning) {
+                        onWarning(entity.id || entity.urn || '', entity.name, 'parent_resolution', message);
+                    } else {
+                        console.warn(message);
+                    }
                 }
             }
 
@@ -310,6 +299,7 @@ function createOwnershipPatches(
     urnMap: Map<string, string>,
     ownershipTypeMap: Map<string, string>,
     existingEntities: Entity[] = [],
+    onWarning?: WarningCallback,
 ): ComprehensivePatchInput[] {
     const patches: ComprehensivePatchInput[] = [];
 
@@ -355,7 +345,12 @@ function createOwnershipPatches(
                 });
             }
         } catch (error) {
-            console.warn(`Failed to create ownership patches for ${entity.name}:`, error);
+            const message = `Failed to create ownership patches for ${entity.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+            if (onWarning) {
+                onWarning(entity.id || entity.urn || '', entity.name, 'ownership_patch_creation', message);
+            } else {
+                console.warn(message, error);
+            }
         }
     });
 
@@ -369,6 +364,7 @@ function createRelatedTermPatches(
     entities: Entity[],
     urnMap: Map<string, string>,
     existingEntities: Entity[] = [],
+    onWarning?: WarningCallback,
 ): ComprehensivePatchInput[] {
     const patches: ComprehensivePatchInput[] = [];
 
@@ -405,7 +401,12 @@ function createRelatedTermPatches(
                     const relatedUrn = UrnManager.resolveEntityUrn(relatedEntity, urnMap);
                     relatedUrns.push(relatedUrn);
                 } else {
-                    console.warn(`🔗 Related entity not found for contains: "${relatedName}"`);
+                    const message = `Related entity not found for contains: "${relatedName}"`;
+                    if (onWarning) {
+                        onWarning(entity.id || entity.urn || '', entity.name, 'related_term_resolution', message);
+                    } else {
+                        console.warn(`🔗 ${message}`);
+                    }
                 }
             });
 
@@ -446,7 +447,12 @@ function createRelatedTermPatches(
                     const relatedUrn = UrnManager.resolveEntityUrn(relatedEntity, urnMap);
                     relatedUrns.push(relatedUrn);
                 } else {
-                    console.warn(`🔗 Related entity not found for inherits: "${relatedName}"`);
+                    const message = `Related entity not found for inherits: "${relatedName}"`;
+                    if (onWarning) {
+                        onWarning(entity.id || entity.urn || '', entity.name, 'related_term_resolution', message);
+                    } else {
+                        console.warn(`🔗 ${message}`);
+                    }
                 }
             });
 
@@ -519,12 +525,13 @@ export function convertPlanToPatchInputs(
     plan: ComprehensiveImportPlan,
     entitiesToProcess: Entity[],
     existingEntities: Entity[] = [],
+    onWarning?: WarningCallback,
 ): ComprehensivePatchInput[] {
     const patchInputs: ComprehensivePatchInput[] = [];
 
     // Ownership types must exist before entities can reference them
-    patchInputs.push(...createOwnershipTypePatches(plan.ownershipTypes));
-    patchInputs.push(...createEntityPatches(entitiesToProcess, plan.urnMap, existingEntities));
+    patchInputs.push(...PatchBuilder.createOwnershipTypePatches(plan.ownershipTypes));
+    patchInputs.push(...createEntityPatches(entitiesToProcess, plan.urnMap, existingEntities, onWarning));
     patchInputs.push(...plan.ownershipPatches);
     // Parent relationships are now handled directly in createEntityPatches
     patchInputs.push(...plan.relatedTermPatches);

@@ -4,50 +4,40 @@
 import { describe, expect, it } from 'vitest';
 
 import { Entity } from '@app/glossaryV2/import/glossary.types';
-import {
-    AUTO_GENERATE_ALLOWED_ENTITY_TYPES,
-    createExistingEntityUrnMap,
-    extractEntityTypeFromUrn,
-    generateEntityUrn,
-    generateGuid,
-    generateOwnershipTypeUrn,
-    isValidUrn,
-    preGenerateUrns,
-    resolveEntityUrn,
-} from '@app/glossaryV2/import/shared/utils/urnGenerationUtils';
+import { UrnManager, AUTO_GENERATE_ALLOWED_ENTITY_TYPES } from '@app/glossaryV2/import/shared/utils/urnManager';
 
 describe('URN Generation Utils', () => {
     describe('generateGuid', () => {
         it('should generate a valid GUID', () => {
-            const guid = generateGuid();
+            const guid = UrnManager.generateGuid();
             expect(guid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
         });
 
         it('should generate unique GUIDs', () => {
-            const guid1 = generateGuid();
-            const guid2 = generateGuid();
+            const guid1 = UrnManager.generateGuid();
+            const guid2 = UrnManager.generateGuid();
             expect(guid1).not.toBe(guid2);
         });
     });
 
     describe('generateEntityUrn', () => {
         it('should generate URN for allowed entity types', () => {
-            const urn = generateEntityUrn('glossaryTerm');
+            const urn = UrnManager.generateEntityUrn('glossaryTerm');
             expect(urn).toMatch(/^urn:li:glossaryTerm:[0-9a-f-]+$/);
         });
 
         it('should generate URN for glossaryNode', () => {
-            const urn = generateEntityUrn('glossaryNode');
+            const urn = UrnManager.generateEntityUrn('glossaryNode');
             expect(urn).toMatch(/^urn:li:glossaryNode:[0-9a-f-]+$/);
         });
 
         it('should generate URN for ownershipType', () => {
-            const urn = generateEntityUrn('ownershipType');
+            const urn = UrnManager.generateEntityUrn('ownershipType');
             expect(urn).toMatch(/^urn:li:ownershipType:[0-9a-f-]+$/);
         });
 
         it('should throw error for disallowed entity types', () => {
-            expect(() => generateEntityUrn('invalidType')).toThrow(
+            expect(() => UrnManager.generateEntityUrn('invalidType')).toThrow(
                 'Auto-generated URNs are only supported for entity types',
             );
         });
@@ -55,12 +45,12 @@ describe('URN Generation Utils', () => {
 
     describe('generateOwnershipTypeUrn', () => {
         it('should generate URN for ownership type', () => {
-            const urn = generateOwnershipTypeUrn('Technical Owner');
+            const urn = UrnManager.generateOwnershipTypeUrn('Technical Owner');
             expect(urn).toBe('urn:li:ownershipType:technical-owner');
         });
 
         it('should sanitize special characters', () => {
-            const urn = generateOwnershipTypeUrn('Owner/Manager & Lead');
+            const urn = UrnManager.generateOwnershipTypeUrn('Owner/Manager & Lead');
             expect(urn).toBe('urn:li:ownershipType:owner-manager---lead');
         });
     });
@@ -91,7 +81,7 @@ describe('URN Generation Utils', () => {
                 },
             ];
 
-            const urnMap = preGenerateUrns(entities);
+            const urnMap = UrnManager.preGenerateUrns(entities);
 
             expect(urnMap.size).toBe(2); // Both new and existing entities are in the map
             expect(urnMap.has('1')).toBe(true);
@@ -115,7 +105,7 @@ describe('URN Generation Utils', () => {
                 },
             ];
 
-            const urnMap = preGenerateUrns(entities);
+            const urnMap = UrnManager.preGenerateUrns(entities);
             expect(urnMap.size).toBe(1); // Existing URN is stored in the map
             expect(urnMap.get('1')).toBe('urn:li:glossaryTerm:existing'); // Uses existing URN
         });
@@ -136,7 +126,7 @@ describe('URN Generation Utils', () => {
             };
 
             const urnMap = new Map<string, string>();
-            const urn = resolveEntityUrn(entity, urnMap);
+            const urn = UrnManager.resolveEntityUrn(entity, urnMap);
             expect(urn).toBe('urn:li:glossaryTerm:existing');
         });
 
@@ -155,7 +145,7 @@ describe('URN Generation Utils', () => {
             const urnMap = new Map<string, string>();
             urnMap.set('1', 'urn:li:glossaryTerm:generated');
 
-            const urn = resolveEntityUrn(entity, urnMap);
+            const urn = UrnManager.resolveEntityUrn(entity, urnMap);
             expect(urn).toBe('urn:li:glossaryTerm:generated');
         });
 
@@ -178,29 +168,29 @@ describe('URN Generation Utils', () => {
 
     describe('isValidUrn', () => {
         it('should validate correct URNs', () => {
-            expect(isValidUrn('urn:li:glossaryTerm:test')).toBe(true);
-            expect(isValidUrn('urn:li:glossaryNode:test')).toBe(true);
-            expect(isValidUrn('urn:li:ownershipType:test')).toBe(true);
+            expect(UrnManager.isValidUrn('urn:li:glossaryTerm:test')).toBe(true);
+            expect(UrnManager.isValidUrn('urn:li:glossaryNode:test')).toBe(true);
+            expect(UrnManager.isValidUrn('urn:li:ownershipType:test')).toBe(true);
         });
 
         it('should reject invalid URNs', () => {
-            expect(isValidUrn('')).toBe(false);
-            expect(isValidUrn('invalid')).toBe(false);
-            expect(isValidUrn('urn:li:')).toBe(false);
-            expect(isValidUrn('urn:li:glossaryTerm')).toBe(false);
+            expect(UrnManager.isValidUrn('')).toBe(false);
+            expect(UrnManager.isValidUrn('invalid')).toBe(false);
+            expect(UrnManager.isValidUrn('urn:li:')).toBe(false);
+            expect(UrnManager.isValidUrn('urn:li:glossaryTerm')).toBe(false);
         });
     });
 
     describe('extractEntityTypeFromUrn', () => {
         it('should extract entity type from valid URNs', () => {
-            expect(extractEntityTypeFromUrn('urn:li:glossaryTerm:test')).toBe('glossaryTerm');
-            expect(extractEntityTypeFromUrn('urn:li:glossaryNode:test')).toBe('glossaryNode');
-            expect(extractEntityTypeFromUrn('urn:li:ownershipType:test')).toBe('ownershipType');
+            expect(UrnManager.extractEntityTypeFromUrn('urn:li:glossaryTerm:test')).toBe('glossaryTerm');
+            expect(UrnManager.extractEntityTypeFromUrn('urn:li:glossaryNode:test')).toBe('glossaryNode');
+            expect(UrnManager.extractEntityTypeFromUrn('urn:li:ownershipType:test')).toBe('ownershipType');
         });
 
         it('should return null for invalid URNs', () => {
-            expect(extractEntityTypeFromUrn('invalid')).toBe(null);
-            expect(extractEntityTypeFromUrn('urn:li:')).toBe(null);
+            expect(UrnManager.extractEntityTypeFromUrn('invalid')).toBeNull();
+            expect(UrnManager.extractEntityTypeFromUrn('urn:li:')).toBeNull();
         });
     });
 
@@ -231,7 +221,7 @@ describe('URN Generation Utils', () => {
                 },
             ];
 
-            const urnMap = createExistingEntityUrnMap(entities);
+            const urnMap = UrnManager.createExistingEntityUrnMap(entities);
 
             expect(urnMap.size).toBe(4); // 2 by ID + 2 by name
             expect(urnMap.get('1')).toBe('urn:li:glossaryTerm:entity1');

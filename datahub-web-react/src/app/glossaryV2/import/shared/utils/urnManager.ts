@@ -166,19 +166,3 @@ export class UrnManager {
     }
 }
 
-/**
- * Legacy function exports for backward compatibility
- * @deprecated Use UrnManager class methods instead
- */
-export const generateGuid = () => UrnManager.generateGuid();
-export const generateEntityUrn = (entityType: string) => UrnManager.generateEntityUrn(entityType);
-export const generateOwnershipTypeUrn = (name: string) => UrnManager.generateOwnershipTypeUrn(name);
-export const generateGlossaryUrn = (entityType: 'glossaryTerm' | 'glossaryNode', name: string) =>
-    UrnManager.generateGlossaryUrn(entityType, name);
-export const isValidUrn = (urn: string, allowEmpty?: boolean) => UrnManager.isValidUrn(urn, allowEmpty);
-export const extractEntityTypeFromUrn = (urn: string) => UrnManager.extractEntityTypeFromUrn(urn);
-export const preGenerateUrns = (entities: Entity[]) => UrnManager.preGenerateUrns(entities);
-export const resolveEntityUrn = (entity: Entity, urnMap: Map<string, string>) =>
-    UrnManager.resolveEntityUrn(entity, urnMap);
-export const createExistingEntityUrnMap = (existingEntities: Entity[]) =>
-    UrnManager.createExistingEntityUrnMap(existingEntities);

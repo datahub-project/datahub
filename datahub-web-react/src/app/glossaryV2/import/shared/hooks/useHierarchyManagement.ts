@@ -89,8 +89,10 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
     };
 }
 
+import { VALIDATION_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
+
 function validateHierarchyDepth(entities: Entity[], errors: ValidationError[], _warnings: ValidationWarning[]): void {
-    const maxDepth = 10;
+    const maxDepth = VALIDATION_LIMITS.MAX_HIERARCHY_DEPTH;
 
     entities.forEach((entity) => {
         if (entity.level > maxDepth) {

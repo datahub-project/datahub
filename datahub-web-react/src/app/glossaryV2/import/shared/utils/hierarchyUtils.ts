@@ -88,18 +88,3 @@ export class HierarchyNameResolver {
     }
 }
 
-/**
- * @deprecated Use HierarchyNameResolver.findParentEntity instead
- */
-export function findParentEntity(parentPath: string, entityMap: Map<string, Entity>): Entity | null {
-    const pathParts = parentPath
-        .split('.')
-        .map((part) => part.trim())
-        .filter(Boolean);
-
-    if (pathParts.length === 1) {
-        return entityMap.get(pathParts[0]) || null;
-    }
-    const actualParentName = pathParts[pathParts.length - 1];
-    return entityMap.get(actualParentName) || null;
-}

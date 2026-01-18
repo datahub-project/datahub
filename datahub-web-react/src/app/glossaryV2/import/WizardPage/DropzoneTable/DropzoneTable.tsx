@@ -121,6 +121,8 @@ interface DropzoneTableProps {
     error: string | null;
     acceptedFileTypes?: string[];
     maxFileSize?: number; // in MB
+    onRetry?: () => void;
+    canRetry?: boolean;
 }
 
 export default function DropzoneTable({
@@ -132,6 +134,8 @@ export default function DropzoneTable({
     error,
     acceptedFileTypes = ['.csv'],
     maxFileSize = 10,
+    onRetry,
+    canRetry = false,
 }: DropzoneTableProps) {
     const validateAndSelectFile = useCallback(
         (selectedFile: File) => {
@@ -266,12 +270,17 @@ export default function DropzoneTable({
                                 maxWidth: 400,
                             }}
                         >
-                            <strong>Upload Error:</strong> {error}
+                            <strong>Error:</strong> {error}
                         </div>
                     )}
 
                     {!isProcessing && (
                         <ActionButtons>
+                            {canRetry && onRetry && (
+                                <Button variant="filled" color="primary" onClick={onRetry}>
+                                    Retry
+                                </Button>
+                            )}
                             <Button onClick={handleClick} disabled={isProcessing}>
                                 Choose Different File
                             </Button>

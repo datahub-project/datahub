@@ -9,6 +9,7 @@ import {
     parseOwnershipFromColumns,
 } from '@app/glossaryV2/import/shared/utils/ownershipParsingUtils';
 import { UrnManager } from '@app/glossaryV2/import/shared/utils/urnManager';
+import { hasEntityInfoChanged } from '@app/glossaryV2/import/shared/utils/entityComparisonUtils';
 
 /**
  * Input type for ownership type patches
@@ -70,29 +71,7 @@ export class PatchBuilder {
     }
 
     static hasEntityInfoChanged(newEntity: Entity, existingEntity: Entity): boolean {
-        if (newEntity.name !== existingEntity.name) return true;
-
-        const newDescription = newEntity.data.description || '';
-        const existingDescription = existingEntity.data.description || '';
-        if (newDescription !== existingDescription) return true;
-
-        const newTermSource = newEntity.data.term_source || '';
-        const existingTermSource = existingEntity.data.term_source || '';
-        if (newTermSource !== existingTermSource) return true;
-
-        const newSourceRef = newEntity.data.source_ref || '';
-        const existingSourceRef = existingEntity.data.source_ref || '';
-        if (newSourceRef !== existingSourceRef) return true;
-
-        const newSourceUrl = newEntity.data.source_url || '';
-        const existingSourceUrl = existingEntity.data.source_url || '';
-        if (newSourceUrl !== existingSourceUrl) return true;
-
-        const newParentNames = newEntity.parentNames || [];
-        const existingParentNames = existingEntity.parentNames || [];
-        if (JSON.stringify(newParentNames) !== JSON.stringify(existingParentNames)) return true;
-
-        return false;
+        return hasEntityInfoChanged(newEntity, existingEntity);
     }
 
     static createEntityPatches(
@@ -105,7 +84,7 @@ export class PatchBuilder {
                 if (entity.status === 'new' || entity.status === 'updated') return true;
 
                 const existingEntity = existingEntities.find((e) => e.urn === entity.urn);
-                if (existingEntity && this.hasEntityInfoChanged(entity, existingEntity)) return true;
+                if (existingEntity && hasEntityInfoChanged(entity, existingEntity)) return true;
 
                 return false;
             })
@@ -343,24 +322,3 @@ export class PatchBuilder {
     }
 }
 
-/**
- * Legacy function exports for backward compatibility
- * @deprecated Use PatchBuilder class methods instead
- */
-export const createOwnershipTypePatches = (ownershipTypes: OwnershipTypeInput[]) =>
-    PatchBuilder.createOwnershipTypePatches(ownershipTypes);
-
-export const createEntityPatches = (entities: Entity[], urnMap: Map<string, string>, existingEntities: Entity[] = []) =>
-    PatchBuilder.createEntityPatches(entities, urnMap, existingEntities);
-
-export const createOwnershipPatches = (
-    entities: Entity[],
-    urnMap: Map<string, string>,
-    ownershipTypeMap: Map<string, string>,
-) => PatchBuilder.createOwnershipPatches(entities, urnMap, ownershipTypeMap);
-
-export const createRelatedTermPatches = (entities: Entity[], urnMap: Map<string, string>) =>
-    PatchBuilder.createRelatedTermPatches(entities, urnMap);
-
-export const createDomainAssignmentPatches = (entities: Entity[], urnMap: Map<string, string>) =>
-    PatchBuilder.createDomainAssignmentPatches(entities, urnMap);

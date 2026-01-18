@@ -73,9 +73,27 @@ const ErrorItem = styled.div`
     }
 `;
 
+const WarningList = styled.div`
+    max-height: 200px;
+    overflow-y: auto;
+`;
+
+const WarningItem = styled.div`
+    padding: 8px 12px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    margin-bottom: 8px;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+`;
+
 export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ visible, onClose, progress }) => {
     const progressPercent = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
     const hasErrors = progress.errors.length > 0;
+    const hasWarnings = progress.warnings.length > 0;
     const isCompleted = progress.processed === progress.total && progress.total > 0;
     const hasFailed = progress.failed > 0;
 
@@ -111,6 +129,28 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({ visibl
                         <br />
                         <span style={{ color: '#6b7280' }}>Entity: {progress.currentEntity.name}</span>
                     </CurrentOperation>
+                )}
+
+                {hasWarnings && (
+                    <div style={{ marginBottom: '16px' }}>
+                        <h5 style={{ color: '#d97706', margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>
+                            Warnings ({progress.warnings.length})
+                        </h5>
+                        <WarningList>
+                            {progress.warnings.slice(0, 5).map((warning, index) => (
+                                <WarningItem key={warning.entityId || index}>
+                                    <strong>{warning.entityName || 'Import'}</strong>
+                                    <br />
+                                    <span style={{ color: '#6b7280' }}>{warning.message}</span>
+                                </WarningItem>
+                            ))}
+                            {progress.warnings.length > 5 && (
+                                <span style={{ color: '#6b7280' }}>
+                                    ... and {progress.warnings.length - 5} more warnings
+                                </span>
+                            )}
+                        </WarningList>
+                    </div>
                 )}
 
                 {hasErrors && (

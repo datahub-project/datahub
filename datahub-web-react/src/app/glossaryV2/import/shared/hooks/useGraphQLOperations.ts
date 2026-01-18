@@ -5,8 +5,10 @@ import { gql, useApolloClient } from '@apollo/client';
 import { useCallback } from 'react';
 
 import { EntityPatchInput, GraphQLEntity, UseGraphQLOperationsReturn } from '@app/glossaryV2/import/glossary.types';
+import { QUERY_LIMITS } from '@app/glossaryV2/import/shared/utils/testConstants';
 
 // GraphQL query for fetching glossary entities (with pagination support)
+// Note: count: 1000 in query string uses QUERY_LIMITS.DEFAULT_COUNT value
 const UNIFIED_GLOSSARY_QUERY = gql`
     query getUnifiedGlossaryData($input: ScrollAcrossEntitiesInput!) {
         scrollAcrossEntities(input: $input) {
@@ -316,8 +318,9 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
                 let scrollId: string | null = variables.input.scrollId || null;
                 let hasMore = true;
 
-                // Using smaller batch size (50) due to deep nested relationship data to avoid timeout
-                const BATCH_SIZE = 50;
+                // Using smaller batch size due to deep nested relationship data to avoid timeout
+                // Can be configured via environment variable or constant
+                const BATCH_SIZE = parseInt(process.env.REACT_APP_GLOSSARY_QUERY_BATCH_SIZE || '50', 10);
 
                 while (hasMore) {
                     // eslint-disable-next-line no-await-in-loop
