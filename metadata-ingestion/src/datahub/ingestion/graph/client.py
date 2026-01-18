@@ -2331,8 +2331,28 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 def get_default_graph(
     client_mode: Optional[ClientMode] = None,
     datahub_component: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> DataHubGraph:
-    graph_config = config_utils.load_client_config()
+    """
+    Get or create the default DataHub graph client.
+
+    This function is cached, so repeated calls with the same parameters will return
+    the same instance. The cache key includes the profile name.
+
+    Args:
+        client_mode: Optional client mode (CLI, SDK, INGESTION)
+        datahub_component: Optional component name for telemetry
+        profile: Optional profile name to use. If not provided, uses precedence order
+                (--profile flag > DATAHUB_PROFILE env > current_profile > "default")
+
+    Returns:
+        Configured and connected DataHubGraph instance
+
+    Raises:
+        GraphError: If connection test fails
+        MissingConfigError: If no configuration is found
+    """
+    graph_config = config_utils.load_client_config(profile=profile)
     graph_config.client_mode = client_mode
     graph_config.datahub_component = datahub_component
     graph = DataHubGraph(graph_config)

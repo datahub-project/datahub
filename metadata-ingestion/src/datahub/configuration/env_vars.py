@@ -49,6 +49,11 @@ def get_skip_config() -> bool:
     return os.getenv("DATAHUB_SKIP_CONFIG", "").lower() == "true"
 
 
+def get_active_profile() -> Optional[str]:
+    """Get the active profile name from environment."""
+    return os.getenv("DATAHUB_PROFILE")
+
+
 def get_gms_base_path() -> str:
     """Base path for GMS API endpoints."""
     return os.getenv("DATAHUB_GMS_BASE_PATH", "")

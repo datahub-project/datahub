@@ -43,8 +43,11 @@ def put() -> None:
     required=False,
     help="Run ID into which we should log the aspect.",
 )
+@click.pass_context
 @upgrade.check_upgrade
-def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> None:
+def aspect(
+    ctx: click.Context, urn: str, aspect: str, aspect_data: str, run_id: Optional[str]
+) -> None:
     """Update a single aspect of an entity"""
 
     entity_type = guess_entity_type(urn)
@@ -52,7 +55,9 @@ def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> No
         aspect_data, allow_stdin=True, resolve_env_vars=False, process_directives=False
     )
 
-    client = get_default_graph(ClientMode.CLI)
+    # Get profile from context
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     system_metadata: Union[None, SystemMetadataClass] = None
     if run_id:
@@ -116,7 +121,9 @@ def platform(
         displayName=display_name or platform_name,
         logoUrl=logo,
     )
-    datahub_graph = get_default_graph(ClientMode.CLI)
+    # Get profile from context
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    datahub_graph = get_default_graph(ClientMode.CLI, profile=profile_name)
     mcp = MetadataChangeProposalWrapper(
         entityUrn=str(platform_urn),
         aspect=data_platform_info,

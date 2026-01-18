@@ -25,6 +25,7 @@ from datahub.cli.get_cli import get
 from datahub.cli.graphql_cli import graphql
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
+from datahub.cli.profile_cli import profile
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
 from datahub.cli.specific.assertions_cli import assertions
@@ -66,6 +67,13 @@ if sys.version_info >= (3, 12):
     ),
 )
 @click.option(
+    "--profile",
+    type=str,
+    default=None,
+    help="Profile to use for this command. Overrides DATAHUB_PROFILE env var and config file setting.",
+    envvar="DATAHUB_PROFILE",
+)
+@click.option(
     "--debug/--no-debug",
     type=bool,
     is_flag=True,
@@ -82,10 +90,17 @@ if sys.version_info >= (3, 12):
     version=datahub_version.nice_version_name(),
     prog_name=datahub_version.__package_name__,
 )
+@click.pass_context
 def datahub(
+    ctx: click.Context,
+    profile: Optional[str],
     debug: bool,
     log_file: Optional[str],
 ) -> None:
+    # Store profile in context for subcommands to access
+    ctx.ensure_object(dict)
+    ctx.obj["profile"] = profile
+
     debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
 
     # Note that we're purposely leaking the context manager here.
@@ -187,6 +202,7 @@ datahub.add_command(datacontract)
 datahub.add_command(assertions)
 datahub.add_command(container)
 datahub.add_command(recording)
+datahub.add_command(profile)
 
 try:
     from datahub.cli.iceberg_cli import iceberg

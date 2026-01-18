@@ -12,7 +12,7 @@ import progressbar
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
-from datahub.cli import cli_utils
+from datahub.cli import cli_utils, config_utils
 from datahub.configuration.datetimes import ClickDatetime
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
@@ -369,8 +369,10 @@ def undo_by_filter(
 @click.option(
     "--workers", type=int, default=1, help="Num of workers to use for deletion."
 )
+@click.pass_context
 @upgrade.check_upgrade
-def by_filter(
+def by_filter(  # noqa: C901
+    ctx: click.Context,
     urn: Optional[str],
     urn_file: Optional[str],
     aspect: Optional[str],
@@ -391,6 +393,9 @@ def by_filter(
     workers: int = 1,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters."""
+
+    # Get profile from context
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
 
     # Validate the cli arguments.
     _validate_user_urn_and_filters(
@@ -427,8 +432,38 @@ def by_filter(
                 abort=True,
             )
 
-    graph = get_default_graph(ClientMode.CLI)
+    graph = get_default_graph(ClientMode.CLI, profile=profile_name)
     logger.info(f"Using {graph}")
+
+    # Profile-based confirmation for destructive operations
+    if not dry_run:
+        operation_desc = "soft delete" if soft else "hard delete"
+        if urn:
+            extra_info = f"Target: {urn}"
+        elif urn_file:
+            extra_info = f"Target: URNs from file {urn_file}"
+        else:
+            filters = []
+            if entity_type:
+                filters.append(f"entity_type={entity_type}")
+            if platform:
+                filters.append(f"platform={platform}")
+            if env:
+                filters.append(f"env={env}")
+            if query:
+                filters.append(f"query={query}")
+            extra_info = (
+                f"Filters: {', '.join(filters) if filters else 'none (all entities)'}"
+            )
+
+        if not config_utils.confirm_destructive_operation(
+            operation=operation_desc,
+            profile_name=profile_name,
+            force=force,
+            extra_info=extra_info,
+        ):
+            click.echo("Operation cancelled.")
+            return
 
     # Determine which urns to delete.
     delete_by_urn = bool(urn) and not recursive

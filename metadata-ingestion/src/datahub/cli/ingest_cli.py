@@ -323,8 +323,10 @@ def run(
     required=False,
     default=None,
 )
+@click.pass_context
 @upgrade.check_upgrade
 def deploy(
+    ctx: click.Context,
     name: Optional[str],
     config: str,
     urn: Optional[str],
@@ -343,7 +345,9 @@ def deploy(
     urn:li:dataHubIngestionSource:<name>
     """
 
-    datahub_graph = get_default_graph(ClientMode.CLI)
+    # Get profile from context
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    datahub_graph = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     variables = deploy_source_vars(
         name=name,
