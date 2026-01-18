@@ -37,6 +37,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.CLONE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -261,6 +262,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

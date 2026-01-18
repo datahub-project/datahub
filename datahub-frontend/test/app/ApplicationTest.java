@@ -89,6 +89,7 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_ATTEMPTS", value = "5")
 @SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_DELAY", value = "500")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
+@SetEnvironmentVariable(key = "MFE_CONFIG_FILE_PATH", value = "mfe.config.local.yaml")
 public class ApplicationTest extends WithBrowser {
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
   private static final String ISSUER_ID = "testIssuer";

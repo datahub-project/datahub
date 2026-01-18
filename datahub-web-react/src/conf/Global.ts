@@ -21,9 +21,13 @@ export enum PageRoutes {
     PERMISSIONS = '/permissions',
     IDENTITIES = '/identities',
     INGESTION = '/ingestion',
+    INGESTION_CREATE = '/ingestion/create',
+    INGESTION_UPDATE = '/ingestion/update/:urn',
+    INGESTION_RUN_DETAILS = '/ingestion/run-details/:urn',
     SETTINGS = '/settings',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
+    DOCUMENT = '/document',
     GLOSSARY = '/glossary',
     GLOSSARY_IMPORT = '/glossary/import',
     STRUCTURED_PROPERTIES = '/structured-properties',
@@ -37,6 +41,8 @@ export enum PageRoutes {
     DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
     MANAGE_TAGS = '/tags',
     MANAGE_APPLICATIONS = '/applications',
+    CONTEXT = '/context',
+    CONTEXT_DOCUMENTS = '/context/documents',
 }
 
 export enum HelpLinkRoutes {

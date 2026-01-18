@@ -1,7 +1,7 @@
 import { EditOutlined } from '@ant-design/icons';
-import { Collapse, Form, Input, Modal, Typography, message } from 'antd';
+import { Collapse, Form, Input, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
@@ -12,7 +12,7 @@ import DescriptionModal from '@app/entityV2/shared/components/legacy/Description
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
 import { EntityType } from '@types';
@@ -25,13 +25,6 @@ const OptionalWrapper = styled.span`
     font-weight: normal;
 `;
 
-const ButtonContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    gap: 16px;
-`;
-
 interface Props {
     entityType: EntityType;
     onClose: () => void;
@@ -39,6 +32,7 @@ interface Props {
     // acryl-main only prop
     canCreateGlossaryEntity: boolean;
     canSelectParentUrn?: boolean;
+    isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
@@ -50,7 +44,11 @@ function CreateGlossaryEntityModal(props: Props) {
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
     const [selectedParentUrn, setSelectedParentUrn] = useState<string | undefined>(
-        canSelectParentUrn ? entityData.urn || '' : undefined,
+        props.isCloning 
+            ? '' 
+            : canSelectParentUrn 
+                ? entityData.urn || '' 
+                : undefined
     );
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
@@ -59,6 +57,21 @@ function CreateGlossaryEntityModal(props: Props) {
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
+
+    useEffect(() => {
+        if (props.isCloning && entityData.entityData) {
+            const { properties } = entityData.entityData;
+
+            if (properties?.name) {
+                setStagedName(`${properties.name} (copy)`);
+                form.setFieldValue('name', `${properties.name} (copy)`);
+            }
+
+            if (properties?.description) {
+                setDocumentation(properties.description);
+            }
+        }
+    }, [props.isCloning, entityData.entityData, form]);
 
     function createGlossaryEntity() {
         const mutation =
@@ -133,22 +146,21 @@ function CreateGlossaryEntityModal(props: Props) {
                     ? 'Glossary'
                     : entityRegistry.getEntityName(entityType)
             }`}
-            visible
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    onClick: createGlossaryEntity,
+                    variant: 'filled',
+                    disabled: createButtonDisabled || !canCreateGlossaryEntity,
+                    buttonDataTestId: 'glossary-entity-modal-create-button',
+                },
+            ]}
             onCancel={onClose}
-            footer={
-                <ButtonContainer>
-                    <Button color="gray" onClick={onClose} variant="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        data-testid="glossary-entity-modal-create-button"
-                        onClick={createGlossaryEntity}
-                        disabled={createButtonDisabled || !canCreateGlossaryEntity}
-                    >
-                        Create
-                    </Button>
-                </ButtonContainer>
-            }
         >
             <Form
                 form={form}

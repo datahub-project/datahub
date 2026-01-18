@@ -1,6 +1,6 @@
 import * as utils from "./utils";
 
-const TEST_USER_DISPLAY_NAME = "John Doe";
+const TEST_USER_URN = "urn:li:corpuser:jdoe";
 const TEST_GLOSSARY_TERM_URN = "urn:li:glossaryTerm:CypressNode.CypressTerm";
 const TEST_DOMAIN_NAME = "Testing";
 const TEST_RELATED_TERM_NAME = "RelatedCypressTerm";
@@ -16,17 +16,13 @@ describe("summary tab - glossary term", () => {
   it("glossary term - header section", () => {
     utils.testPropertiesSection([
       { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: TEST_USER_DISPLAY_NAME },
+      { name: "Owners", type: "OWNERS", dataTestId: `owner-${TEST_USER_URN}` },
       { name: "Domain", type: "DOMAIN", value: TEST_DOMAIN_NAME },
     ]);
-  });
 
-  it("glossary term - description section", () => {
-    utils.testAboutSection();
-  });
+    utils.ensureAboutSectionIsVisible();
 
-  it("glossary term - modules section", () => {
-    const defaultModules = [
+    utils.testTemplateSection([
       {
         type: "assets",
         name: "Assets",
@@ -37,8 +33,6 @@ describe("summary tab - glossary term", () => {
         name: "Related Terms",
         value: TEST_RELATED_TERM_NAME,
       },
-    ];
-
-    utils.testTemplateSection(defaultModules);
+    ]);
   });
 });

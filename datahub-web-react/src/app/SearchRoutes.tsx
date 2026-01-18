@@ -6,6 +6,7 @@ import { AnalyticsPage as AnalyticsPageV2 } from '@app/analyticsDashboardV2/comp
 import { ManageApplications } from '@app/applications/ManageApplications';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
 import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
+import ContextRoutes from '@app/context/ContextRoutes';
 import { useUserContext } from '@app/context/useUserContext';
 import DomainRoutes from '@app/domain/DomainRoutes';
 import { ManageDomainsPage } from '@app/domain/ManageDomainsPage';
@@ -18,7 +19,8 @@ import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import WizardPage from '@app/glossaryV2/import/WizardPage/WizardPage';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
-import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
+import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
+import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -31,11 +33,14 @@ import {
     useAppConfig,
     useBusinessAttributesFlag,
     useIsAppConfigContextLoaded,
+    useIsContextDocumentsEnabled,
     useIsNestedDomainsEnabled,
 } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { PageRoutes } from '@conf/Global';
+
+import { EntityType } from '@types';
 
 /**
  * Container for all searchable page routes
@@ -44,9 +49,15 @@ export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
-    const entities = isNestedDomainsEnabled
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
+
+    // Get entities, filtering out Document when context documents is enabled (handled by ContextRoutes)
+    const allEntities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
+    const entities = isContextDocumentsEnabled
+        ? allEntities.filter((entity) => entity.type !== EntityType.Document)
+        : allEntities;
     const { config, loaded } = useAppConfig();
     const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
@@ -75,6 +86,13 @@ export const SearchRoutes = (): JSX.Element => {
     return (
         <FinalSearchablePage>
             <Switch>
+                {/* Context Documents routes - must be before entity routes */}
+                {isContextDocumentsEnabled && (
+                    <Route path={`${PageRoutes.DOCUMENT}/:urn`} render={() => <ContextRoutes />} />
+                )}
+                {isContextDocumentsEnabled && (
+                    <Route path={`${PageRoutes.CONTEXT}*`} render={() => <ContextRoutes />} />
+                )}
                 {entities.map((entity) => (
                     <Route
                         key={entity.getPathName()}
@@ -117,7 +135,7 @@ export const SearchRoutes = (): JSX.Element => {
                 )}
 
                 {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
-                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPageV2 />} />}
+                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
 
                 <Route path={PageRoutes.GLOSSARY_IMPORT} render={() => <WizardPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
@@ -140,6 +158,7 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
+                <Route path="/mfe*" component={MFERoutes} />
                 {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
         </FinalSearchablePage>

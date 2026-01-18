@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import dateutil.parser
 import requests
 from packaging import version
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datahub.configuration.git import GitReference
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -211,8 +211,8 @@ def extract_dbt_entities(
         catalog_type = None
 
         if catalog_node is None:
-            if materialization in {"test", "ephemeral"}:
-                # Test and ephemeral nodes will never show up in the catalog.
+            if materialization in {"test", "ephemeral", "semantic_view"}:
+                # Test, ephemeral, and semantic_view nodes will never show up in the catalog.
                 missing_from_catalog = False
             else:
                 if all_catalog_entities is not None and not only_include_if_in_catalog:
@@ -312,6 +312,7 @@ def extract_dbt_entities(
         if dbtNode.materialization not in [
             "ephemeral",
             "test",
+            "semantic_view",  # semantic views have custom column handling
         ]:
             dbtNode.columns = get_columns(
                 dbtNode.dbt_name,
@@ -341,8 +342,7 @@ class DBTRunTiming(BaseModel):
 
 
 class DBTRunResult(BaseModel):
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     status: str
     timing: List[DBTRunTiming] = []

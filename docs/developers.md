@@ -7,12 +7,14 @@ title: "Local Development"
 ## Requirements
 
 - [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
-- [Python 3.10](https://www.python.org/downloads/release/python-3100/)
+- [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
 - [Docker Compose >=2.20](https://docs.docker.com/compose/)
 - [Yarn >=v1.22](https://yarnpkg.com/en/docs/cli/) for documentation building
 - Docker engine with at least 8GB of memory to run tests.
+
+### Option 1: Using Homebrew on Mac
 
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
@@ -21,11 +23,47 @@ On macOS, these can be installed using [Homebrew](https://brew.sh/).
 brew install openjdk@17
 
 # Install Python
-brew install python@3.10  # you may need to add this to your PATH
+brew install python@3.11  # you may need to add this to your PATH
 # alternatively, you can use pyenv to manage your python versions
 
 # Install docker and docker compose
 brew install --cask docker
+```
+
+### Option 2: Using mise
+
+Alternatively you can use [mise en place](https://mise.jdx.dev/) for managing tool installation.
+You can see the existing mise.toml file in the repository and let mise manage the tool versions.
+
+You can install mise cli by following the instructions on https://mise.jdx.dev/getting-started.html
+
+Fork and clone the repo if you haven't done so already. Refer: [Building the Project](#building-the-project)
+
+```shell
+# Enter the root folder of the repo
+> cd datahub
+
+# Needed the first time to allow mise to auto activate the tools
+# mentioned in mise.toml
+> mise trust
+
+# Needed once if the required tools haven't been installed via mise before
+# or if a new tool is added or tool version changed since last use
+> mise install
+```
+
+After this the required tools should be auto activated as soon as you enter the folder where the repo is cloned
+
+You can verify the tools are activated correctly by running
+
+```shell
+# Check tool versions installed
+❯ mise ls --local
+Tool    Version  Source                             Requested
+java    17.0.2   ~/path/to/datahub/mise.toml  17
+node    22.21.1  ~/path/to/datahub/mise.toml  22
+python  3.11.14  ~/path/to/datahub/mise.toml  3.11
+yarn    4.12.0   ~/path/to/datahub/mise.toml  latest
 ```
 
 ## Building the Project
@@ -77,6 +115,120 @@ We suggest partially compiling DataHub according to your needs:
   # To preview the documentation
   ./gradlew :docs-website:serve
   ```
+
+## Dependency Management
+
+### Dependency Locking
+
+DataHub uses Gradle's [dependency locking](https://docs.gradle.org/current/userguide/dependency_locking.html) to ensure reproducible builds across all environments. Dependency locks guarantee that the exact same dependency versions are used everywhere - in development, CI, and production - preventing unexpected behavior from transitive dependency updates.
+
+#### Why Dependency Locking?
+
+- **Reproducible Builds**: Same dependency versions across all environments
+- **Security**: Prevents unexpected transitive dependency updates that could introduce vulnerabilities
+- **Stability**: Explicit control over when dependencies change
+- **Audit Trail**: Lock files in git provide clear history of dependency changes
+
+#### How It Works
+
+Each sub-project has a `gradle.lockfile` that records the exact version of every direct and transitive dependency used across all configurations (compile, runtime, test, etc.). When you build the project, Gradle uses these locked versions instead of resolving the latest versions.
+
+#### Viewing Locked Dependencies
+
+To see the locked dependencies for a project:
+
+```bash
+./gradlew :project-name:dependencies --configuration runtimeClasspath
+```
+
+For example:
+
+```bash
+./gradlew :metadata-io:dependencies --configuration runtimeClasspath
+```
+
+#### Updating Dependencies
+
+When you update dependencies in `build.gradle` files, you must regenerate the lock files. There are several ways to do this depending on your needs:
+
+##### Update All Lock Files (Complete Refresh)
+
+After changing dependencies in any `build.gradle` file, run:
+
+```bash
+./gradlew resolveAndLockAll --write-locks
+```
+
+This resolves all configurations across all sub-projects and updates all lock files. This is the recommended approach when:
+
+- Adding or removing dependencies
+- Changing dependency versions
+- After pulling changes that modify `build.gradle` files
+
+##### Update a Specific Dependency Version
+
+To update a specific dependency to a newer version:
+
+```bash
+./gradlew dependencies --update-locks group:artifact
+```
+
+For example, to update Jackson:
+
+```bash
+./gradlew dependencies --update-locks com.fasterxml.jackson.core:jackson-databind
+```
+
+##### Update Lock Files for a Single Project
+
+If you only changed dependencies in one sub-project:
+
+```bash
+./gradlew :project-name:dependencies --write-locks
+```
+
+Note: This only locks configurations that get resolved by the `dependencies` task. For complete coverage, use `resolveAndLockAll` instead.
+
+#### Common Workflows
+
+**Adding a new dependency:**
+
+1. Add the dependency to the appropriate `build.gradle` file
+2. Run `./gradlew resolveAndLockAll --write-locks`
+3. Verify the build works: `./gradlew :project-name:build`
+4. Commit both the `build.gradle` change and updated lock files
+
+**Updating an existing dependency:**
+
+1. Change the version in `build.gradle`
+2. Run `./gradlew resolveAndLockAll --write-locks`
+3. Review the lock file changes to see what transitive dependencies changed
+4. Test thoroughly, especially if major version upgrades
+5. Commit the changes
+
+**After pulling changes:**
+If someone else updated dependencies and you pull their changes, just build normally:
+
+```bash
+./gradlew build
+```
+
+Gradle will automatically use the locked versions from the updated lock files. You don't need to regenerate locks unless you're making your own dependency changes.
+
+#### Troubleshooting
+
+**Build fails with dependency resolution error:**
+
+- Ensure you've run `./gradlew resolveAndLockAll --write-locks` after dependency changes
+- Check that lock files are committed and up to date
+- Try `./gradlew --refresh-dependencies build` to refresh Gradle's cache
+
+**Lock file is out of sync:**
+If you see warnings about lock state, regenerate the locks:
+
+```bash
+./gradlew resolveAndLockAll --write-locks
+```
 
 ## Deploying Local Versions
 

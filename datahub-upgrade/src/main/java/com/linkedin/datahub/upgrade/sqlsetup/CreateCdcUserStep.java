@@ -80,11 +80,16 @@ public class CreateCdcUserStep implements UpgradeStep {
           stmt.executeUpdate();
         }
 
-        String grantCdcPrivilegesSql =
+        java.util.List<String> grantCdcPrivilegesStmts =
             dbOps.grantCdcPrivilegesSql(args.getCdcUser(), args.getDatabaseName());
-        try (PreparedStatement grantStmt = connection.prepareStatement(grantCdcPrivilegesSql)) {
-          grantStmt.executeUpdate();
+        for (String grantSql : grantCdcPrivilegesStmts) {
+          try (PreparedStatement grantStmt = connection.prepareStatement(grantSql)) {
+            grantStmt.executeUpdate();
+          }
         }
+
+        // Commit the transaction to persist the user creation and grants
+        connection.commit();
 
         result.setCdcUserCreated(true);
         log.info("CDC user '{}' created successfully", args.getCdcUser());

@@ -51,7 +51,7 @@ class TestEvent(Event, DictWrapper):
 
 
 def test_returns_none_when_diff_event_type():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {"event_type": "EntityChangeEvent_v1", "event": {"field1": "a", "field2": "b"}}
     )
     filter_transformer = FilterTransformer(filter_transformer_config)
@@ -68,7 +68,7 @@ def test_returns_none_when_diff_event_type():
 
 
 def test_does_exact_match():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {"event_type": "EntityChangeEvent_v1", "event": {"field1": "a", "field2": "b"}}
     )
     filter_transformer = FilterTransformer(filter_transformer_config)
@@ -83,7 +83,7 @@ def test_does_exact_match():
 
 
 def test_returns_none_when_no_match():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {"event_type": "EntityChangeEvent_v1", "event": {"field1": "a", "field2": "b"}}
     )
     filter_transformer = FilterTransformer(filter_transformer_config)
@@ -97,7 +97,7 @@ def test_returns_none_when_no_match():
 
 
 def test_matches_on_nested_event():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {
             "event_type": "EntityChangeEvent_v1",
             "event": {"field1": {"nested_1": {"nested_b": "a"}}},
@@ -112,7 +112,7 @@ def test_matches_on_nested_event():
 
 
 def test_returns_none_when_no_match_nested_event():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {
             "event_type": "EntityChangeEvent_v1",
             "event": {"field1": {"nested_1": {"nested_b": "a"}}},
@@ -127,7 +127,7 @@ def test_returns_none_when_no_match_nested_event():
 
 
 def test_returns_none_when_different_data_type():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {
             "event_type": "EntityChangeEvent_v1",
             "event": {"field1": {"nested_1": {"nested_b": "a"}}},
@@ -142,7 +142,7 @@ def test_returns_none_when_different_data_type():
 
 
 def test_returns_match_when_either_is_present():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {
             "event_type": "EntityChangeEvent_v1",
             "event": {"field1": {"nested_1": ["a", "b"]}},
@@ -157,7 +157,7 @@ def test_returns_match_when_either_is_present():
 
 
 def test_returns_none_when_neither_is_present():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {
             "event_type": "EntityChangeEvent_v1",
             "event": {"field1": {"nested_1": ["a", "b"]}},
@@ -172,7 +172,7 @@ def test_returns_none_when_neither_is_present():
 
 
 def test_no_match_when_list_filter_on_dict_obj():
-    filter_transformer_config = FilterTransformerConfig.parse_obj(
+    filter_transformer_config = FilterTransformerConfig.model_validate(
         {
             "event_type": "EntityChangeEvent_v1",
             "event": {"field1": {"nested_1": ["a", "b"]}},
