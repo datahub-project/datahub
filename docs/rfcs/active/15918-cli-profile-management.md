@@ -94,17 +94,20 @@ profiles:
 1. **Single Environment Limitation**: The current `~/.datahubenv` file only supports one DataHub connection at a time. Users working across multiple environments (local dev, staging, production, customer instances) must manually edit the configuration file or use environment variables each time they switch contexts.
 
 2. **Context Switching Friction**: Common workflows require frequent environment switching:
+
    - Testing ingestion changes locally before deploying to production
    - Comparing metadata between environments
    - Working with customer DataHub instances for support
    - Managing different DataHub instances for different projects
 
 3. **Credential Management Risks**:
+
    - Users often store tokens directly in the config file, creating security risks
    - No built-in guidance for secure credential management
    - Difficult to use different credential storage strategies per environment
 
 4. **Production Safety Concerns**:
+
    - No safety rails to prevent accidentally running destructive operations against production
    - Easy to forget which environment you're connected to
    - No confirmation prompts for dangerous operations
@@ -143,11 +146,13 @@ profiles:
 ### Functional Requirements
 
 1. **Multi-Profile Configuration**
+
    - Support multiple named profiles in a single configuration file
    - Each profile contains connection details (server, token, timeout, etc.)
    - Profiles are stored in `~/.datahub/config.yaml` in human-readable YAML format
 
 2. **Profile Selection with Clear Precedence**
+
    - Command-line flag: `--profile <name>` (highest priority)
    - Environment variable: `DATAHUB_PROFILE=<name>`
    - Current profile setting in config: `current_profile: <name>`
@@ -155,6 +160,7 @@ profiles:
    - Legacy `~/.datahubenv` file (backward compatibility)
 
 3. **Profile Management Commands**
+
    - `datahub profile list` - List all profiles
    - `datahub profile current` - Show active profile
    - `datahub profile show <name>` - Display profile details
@@ -166,18 +172,21 @@ profiles:
    - `datahub profile export <name>` - Export profile (secrets redacted)
 
 4. **Environment Variable Interpolation**
+
    - Support `${VAR_NAME}` syntax for variable substitution
    - Support `${VAR_NAME:-default}` for default values
    - Support `${VAR_NAME:?error}` for required variables
    - Interpolation happens at config load time
 
 5. **Security Features**
+
    - Token redaction in CLI output
    - Guidance toward environment variable storage for tokens
    - Warning when storing tokens directly in config
    - `require_confirmation` flag per profile for destructive operations
 
 6. **Production Safety**
+
    - Confirmation prompts for destructive operations on flagged profiles
    - User must type profile name (uppercase) to confirm
    - Clear warnings showing profile, server, and operation details
@@ -193,16 +202,19 @@ profiles:
 ### Non-Functional Requirements
 
 8. **Performance**
+
    - Profile loading adds negligible overhead to CLI commands (< 50ms)
    - Configuration file parsing is efficient for typical sizes (< 100 profiles)
 
 9. **Usability**
+
    - Clear, actionable error messages with suggestions
    - Consistent command-line interface patterns
    - Visual indicators for current profile
    - Color-coded output for different environments (dev=green, staging=yellow, prod=red)
 
 10. **Testability**
+
     - Comprehensive unit tests for all profile operations
     - Integration tests for end-to-end workflows
     - Tests for precedence ordering
@@ -217,6 +229,7 @@ profiles:
 ### Extensibility
 
 12. **Future-Proof Design**
+
     - Profile model uses Pydantic, allowing easy addition of new fields
     - Configuration format version field (`version: "1.0"`) enables future migrations
     - Plugin architecture for additional profile validation rules
@@ -376,6 +389,7 @@ class DataHubConfig(ConfigModel):
 ```
 
 Key design decisions:
+
 - **Extends existing models**: `ProfileConfig` extends `DatahubClientConfig` for compatibility
 - **Environment variable interpolation**: Happens at validation time via pydantic validators
 - **Version field**: Enables future migrations with backward compatibility
@@ -437,6 +451,7 @@ def load_profile_config(profile_name: Optional[str] = None) -> DatahubClientConf
 ```
 
 Key design decisions:
+
 - **Clear precedence chain**: Each step is explicit and documented
 - **Backward compatible**: Legacy config and env vars still work
 - **Helpful defaults**: "default" profile provides good UX
@@ -445,6 +460,7 @@ Key design decisions:
 #### 3. Profile Management Commands (`profile_cli.py`)
 
 All commands follow consistent patterns:
+
 - Accept profile name as argument or use current profile
 - Provide clear success/error messages
 - Show helpful context (server URL, description)
@@ -532,6 +548,7 @@ def confirm_destructive_operation(
 ```
 
 Key safety features:
+
 - **Profile-specific**: Only applies to profiles with `require_confirmation: true`
 - **Clear context**: Shows exactly what will be affected
 - **Explicit confirmation**: Must type profile name (not just "yes")
@@ -636,6 +653,7 @@ profiles:
 ```
 
 **Design decisions:**
+
 - **YAML format**: Human-readable, supports comments, widely understood
 - **Flat structure**: No unnecessary nesting
 - **Optional fields**: Only `server` is required per profile
@@ -695,6 +713,7 @@ def migrate_legacy_config() -> bool:
 ```
 
 **Key migration features:**
+
 - Non-destructive: Legacy file remains intact
 - Automatic detection: Happens transparently on first use
 - Clear communication: User informed about migration
@@ -705,6 +724,7 @@ def migrate_legacy_config() -> bool:
 The implementation provides clear, actionable error messages:
 
 **Profile not found:**
+
 ```
 Error: Profile 'staging' not found.
 Available profiles: dev, prod
@@ -714,6 +734,7 @@ Run 'datahub profile add staging' to create a new profile.
 ```
 
 **Missing environment variable:**
+
 ```
 Error: Required environment variable not set: DATAHUB_PROD_TOKEN
 Profile 'prod' requires this variable to be set.
@@ -723,6 +744,7 @@ Set it with:
 ```
 
 **Invalid YAML syntax:**
+
 ```
 Error: Failed to parse configuration file: ~/.datahub/config.yaml
 Line 5: mapping values are not allowed here
@@ -736,6 +758,7 @@ See: https://yaml.org/spec/ for YAML syntax help.
 The implementation includes comprehensive tests:
 
 1. **Unit Tests** (`tests/unit/`)
+
    - Configuration model validation (25 tests)
    - Profile loading with precedence (44 tests)
    - CLI command functionality (28 tests)
@@ -743,6 +766,7 @@ The implementation includes comprehensive tests:
    - Error handling and edge cases
 
 2. **Integration Tests** (future work)
+
    - End-to-end workflow tests
    - Tests with real DataHub instance
    - Migration scenarios
@@ -778,6 +802,7 @@ These terms are intuitive and align with industry standards.
 ### Documentation Changes
 
 1. **Getting Started Guide**: Add profile setup to initial onboarding
+
    ```
    # Quick Start
    1. Install DataHub CLI: pip install acryl-datahub
@@ -787,17 +812,20 @@ These terms are intuitive and align with industry standards.
    ```
 
 2. **CLI Reference**: Update command documentation
+
    - Add global `--profile` flag to all commands
    - Document `datahub profile` command group
    - Include profile selection precedence
 
 3. **Configuration Guide**: New section on profile management
+
    - Configuration file structure
    - Profile setup best practices
    - Environment variable interpolation
    - Security recommendations
 
 4. **Migration Guide**: Help existing users upgrade
+
    - Why profiles are useful
    - Step-by-step migration from `~/.datahubenv`
    - Common patterns (dev/staging/prod setup)
@@ -849,7 +877,7 @@ Existing users experience a seamless transition:
 
 Example documentation:
 
-```markdown
+````markdown
 ## Upgrading to Profile-Based Configuration
 
 ### What's New?
@@ -865,6 +893,7 @@ detects your `~/.datahubenv` file.
 ### Why Upgrade?
 
 Profiles give you:
+
 - Easy switching between dev/staging/prod
 - Better security with environment variable support
 - Safety confirmations for production operations
@@ -876,8 +905,10 @@ Profiles give you:
    ```bash
    datahub profile migrate
    ```
+````
 
 2. Add additional profiles:
+
    ```bash
    datahub profile add staging --server https://staging.datahub.com
    datahub profile add prod --server https://prod.datahub.com --require-confirmation
@@ -889,7 +920,8 @@ Profiles give you:
    ```
 
 Your old config file remains unchanged as a backup.
-```
+
+````
 
 ## Drawbacks
 
@@ -980,14 +1012,16 @@ export DATAHUB_GMS_TOKEN=$DEV_TOKEN
 # Prod
 export DATAHUB_GMS_URL=https://prod.datahub.com
 export DATAHUB_GMS_TOKEN=$PROD_TOKEN
-```
+````
 
 **Pros**:
+
 - Simple implementation
 - No new configuration files
 - Works with existing patterns
 
 **Cons**:
+
 - No persistence - must set variables in each shell session
 - No named profiles - rely on user memory or scripts
 - No built-in safety features
@@ -1001,17 +1035,20 @@ export DATAHUB_GMS_TOKEN=$PROD_TOKEN
 **Description**: Use separate files for each environment: `~/.datahubenv.dev`, `~/.datahubenv.prod`, etc.
 
 **Example**:
+
 ```bash
 # Switch environments by symlinking
 ln -sf ~/.datahubenv.dev ~/.datahubenv
 ```
 
 **Pros**:
+
 - Simple to understand
 - Each environment isolated in separate file
 - Easy to version control per-environment
 
 **Cons**:
+
 - No built-in profile switching
 - Manual symlinking is error-prone
 - No "current profile" visibility
@@ -1026,6 +1063,7 @@ ln -sf ~/.datahubenv.dev ~/.datahubenv
 **Description**: Similar to `.git/config`, use directory-local configuration files.
 
 **Example**:
+
 ```bash
 # Each project has .datahub/config
 project1/.datahub/config  # Points to dev
@@ -1033,11 +1071,13 @@ project2/.datahub/config  # Points to staging
 ```
 
 **Pros**:
+
 - Automatic profile selection based on current directory
 - Works well for project-specific configurations
 - Can be committed to version control
 
 **Cons**:
+
 - Doesn't work for global tools
 - Secrets in project directories are dangerous
 - No cross-project profile sharing
@@ -1051,6 +1091,7 @@ project2/.datahub/config  # Points to staging
 **Description**: Single config file with all environments, use environment variable to select.
 
 **Example**:
+
 ```yaml
 # ~/.datahub/config.yaml
 environments:
@@ -1063,10 +1104,12 @@ datahub get --urn "..."
 ```
 
 **Pros**:
+
 - Single source of truth
 - No profile precedence complexity
 
 **Cons**:
+
 - No command-line flag for profile selection
 - No "current environment" setting
 - Still requires environment variable for switching
@@ -1080,16 +1123,19 @@ datahub get --urn "..."
 **Description**: Build a separate tool (`datahub-profile`) to manage profiles.
 
 **Example**:
+
 ```bash
 datahub-profile set dev
 datahub get --urn "..."
 ```
 
 **Pros**:
+
 - Separation of concerns
 - Could be used by multiple tools
 
 **Cons**:
+
 - Additional tool to install and maintain
 - Complex integration with CLI
 - Poor user experience (two tools instead of one)
@@ -1158,12 +1204,14 @@ The proposed profile system strikes the right balance:
 Users have multiple migration paths:
 
 **Automatic Migration** (recommended):
+
 ```bash
 # Detects legacy config and offers to migrate
 datahub init
 ```
 
 **Manual Migration**:
+
 ```bash
 # Explicit migration command
 datahub profile migrate
@@ -1175,6 +1223,7 @@ datahub profile add default \
 ```
 
 **Hybrid Approach** (during transition):
+
 ```bash
 # Keep legacy config as backup
 # Add new profiles alongside it
@@ -1225,6 +1274,7 @@ The profile system provides a foundation for several future enhancements:
 **Use Case**: Teams want to share standard profile configurations.
 
 **Possible Implementation**:
+
 ```bash
 # Export profile template (with secrets redacted)
 datahub profile export prod --template > prod-template.yaml
@@ -1243,6 +1293,7 @@ git add .datahub/templates/prod.yaml
 **Use Case**: Enforce organization policies on profile configurations.
 
 **Possible Implementation**:
+
 ```yaml
 # ~/.datahub/config.yaml
 version: "1.0"
@@ -1267,6 +1318,7 @@ profiles:
 **Use Case**: Manage related profiles together (e.g., all dev environments).
 
 **Possible Implementation**:
+
 ```bash
 # Create profile group
 datahub profile group create dev-group --profiles dev1,dev2,dev3
@@ -1282,6 +1334,7 @@ datahub profile group run dev-group -- get --urn "..."
 **Use Case**: Encrypt tokens stored in config file.
 
 **Possible Implementation**:
+
 ```bash
 # Enable encryption for profile
 datahub profile encrypt prod --key ~/.datahub/keys/prod.key
@@ -1299,6 +1352,7 @@ datahub --profile prod get --urn "..."
 **Use Case**: Share common settings across profiles (e.g., timeout, headers).
 
 **Possible Implementation**:
+
 ```yaml
 profiles:
   base:
@@ -1319,6 +1373,7 @@ profiles:
 **Use Case**: Sync profiles across machines, share team profiles centrally.
 
 **Possible Implementation**:
+
 ```bash
 # Pull profiles from remote
 datahub profile pull --remote https://config.company.com/datahub/profiles
@@ -1334,6 +1389,7 @@ datahub profile push --remote https://config.company.com/datahub/profiles
 **Use Case**: Always know which profile is being used.
 
 **Possible Implementation**:
+
 ```bash
 # Show profile in command output
 $ datahub --profile prod get --urn "..."
@@ -1354,6 +1410,7 @@ export DATAHUB_SHOW_PROFILE=true
 **Use Case**: Python SDK users want profile support.
 
 **Already Supported**:
+
 ```python
 from datahub.sdk import DataHubClient
 
@@ -1362,6 +1419,7 @@ client = DataHubClient.from_env(profile="staging")
 ```
 
 **Future Enhancement**:
+
 ```python
 # List available profiles
 profiles = DataHubClient.list_profiles()
@@ -1377,6 +1435,7 @@ client.switch_profile("prod")
 **Use Case**: Store profile-specific settings beyond connection details.
 
 **Possible Implementation**:
+
 ```yaml
 profiles:
   dev:
@@ -1395,6 +1454,7 @@ profiles:
 **Use Case**: Understand profile usage patterns within organization.
 
 **Possible Implementation**:
+
 - Web dashboard showing profile usage across team
 - Most common profiles, operations per profile
 - Error rates by profile
@@ -1411,6 +1471,7 @@ profiles:
 **Current State**: No restrictions implemented yet.
 
 **Options**:
+
 - **Option A**: Allow any string (maximum flexibility)
 - **Option B**: Restrict to alphanumeric + hyphens/underscores (DNS-like)
 - **Option C**: Restrict to alphanumeric only (simplest)
@@ -1428,10 +1489,12 @@ profiles:
 **Current State**: YAML only.
 
 **Pros of Additional Formats**:
+
 - JSON: Machine-friendly, already used by some tools
 - TOML: Gaining popularity, clear syntax
 
 **Cons**:
+
 - Increased complexity
 - Multiple formats to document
 - Format detection logic needed
@@ -1449,6 +1512,7 @@ profiles:
 **Current State**: Manual YAML file sharing (users can copy config.yaml).
 
 **Options**:
+
 - **Option A**: File-based sharing (current approach)
 - **Option B**: Built-in import/export commands
 - **Option C**: Central profile repository
@@ -1467,6 +1531,7 @@ profiles:
 **Current State**: Fixed prompt format (type profile name in uppercase).
 
 **Options**:
+
 - **Option A**: Fixed format (current)
 - **Option B**: Configurable prompt format per profile
 - **Option C**: Custom confirmation messages
@@ -1485,11 +1550,13 @@ profiles:
 **Current State**: Fully supported with no deprecation date.
 
 **Considerations**:
+
 - Need time for users to adopt profiles
 - Breaking change requires major version bump
 - Large enterprises may need years to migrate
 
 **Recommendation**:
+
 - Maintain support for at least 2 major versions (minimum 1-2 years)
 - Start showing migration prompts in version 0.15.0 (6 months after launch)
 - Re-evaluate deprecation timeline based on adoption metrics
@@ -1507,6 +1574,7 @@ profiles:
 **Issue**: Switching profiles doesn't invalidate cache, could return stale config.
 
 **Options**:
+
 - **Option A**: Include profile name in cache key
 - **Option B**: Clear cache on profile switch
 - **Option C**: Per-profile cache instances
@@ -1527,6 +1595,7 @@ profiles:
 **Current State**: Not supported.
 
 **Use Cases**:
+
 - Compare metadata across environments
 - Bulk validation across all profiles
 - Cross-environment reporting
@@ -1544,6 +1613,7 @@ profiles:
 **Current State**: No autocomplete support.
 
 **Options**:
+
 - **Option A**: Generate shell completion scripts (bash/zsh/fish)
 - **Option B**: Manual autocomplete setup in docs
 - **Option C**: No autocomplete (current)
@@ -1563,6 +1633,7 @@ profiles:
 **Current State**: Basic Pydantic validation only.
 
 **Options**:
+
 - **Option A**: Plugin system for custom validators
 - **Option B**: Configuration file with validation rules
 - **Option C**: No custom validation (current)
@@ -1580,6 +1651,7 @@ profiles:
 **Current State**: No enforced convention, users choose their own names.
 
 **Options**:
+
 - **Option A**: Recommend pattern (e.g., `DATAHUB_<PROFILE>_TOKEN`)
 - **Option B**: No recommendations (current)
 - **Option C**: Auto-generate env var names
