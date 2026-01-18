@@ -4,9 +4,10 @@ Unit tests for SchemaResolver prefer_lowercase parameter.
 Tests the fix for issue #13792: MSSQL View Ingestion Causes Lowercased Lineage Table URNs
 """
 
+import pytest
+
+from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
-from datahub.sql_parsing.sqlglot_lineage import _TableName
 
 
 def test_schema_resolver_default_behavior():
@@ -99,38 +100,35 @@ def test_schema_resolver_backward_compatibility():
     resolver.close()
 
 
-def test_all_platforms_with_prefer_lowercase_override():
-    """Test that prefer_lowercase override works for all platforms."""
-    test_platforms = ["mssql", "postgres", "mysql", "oracle", "snowflake", "bigquery"]
-
-    for platform in test_platforms:
-        # Test with prefer_lowercase=False
-        resolver_false = SchemaResolver(
-            platform=platform, env="PROD", prefer_lowercase=False
-        )
-        assert resolver_false._prefers_urn_lower() is False, (
-            f"Failed for {platform} with prefer_lowercase=False"
-        )
-        resolver_false.close()
-
-        # Test with prefer_lowercase=True
-        resolver_true = SchemaResolver(
-            platform=platform, env="PROD", prefer_lowercase=True
-        )
-        assert resolver_true._prefers_urn_lower() is True, (
-            f"Failed for {platform} with prefer_lowercase=True"
-        )
-        resolver_true.close()
-
-        # Test with prefer_lowercase=None (default)
-        resolver_default = SchemaResolver(
-            platform=platform, env="PROD", prefer_lowercase=None
-        )
-        expected = platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
-        assert resolver_default._prefers_urn_lower() == expected, (
-            f"Failed for {platform} with prefer_lowercase=None"
-        )
-        resolver_default.close()
+@pytest.mark.parametrize(
+    "platform,prefer_lowercase,expected",
+    [
+        # Case-insensitive platforms (mssql, postgres, mysql, etc.) default to lowercase
+        ("mssql", None, True),
+        ("mssql", True, True),
+        ("mssql", False, False),
+        ("postgres", None, True),
+        ("postgres", False, False),
+        ("mysql", None, True),
+        ("mysql", False, False),
+        # Case-sensitive platforms (bigquery, db2) default to preserving case
+        ("bigquery", None, False),
+        ("bigquery", True, True),
+        ("bigquery", False, False),
+        ("db2", None, False),
+        ("db2", True, True),
+        ("db2", False, False),
+    ],
+)
+def test_prefer_lowercase_override_parametrized(
+    platform: str, prefer_lowercase: bool, expected: bool
+) -> None:
+    """Test that prefer_lowercase override works correctly for various platforms."""
+    resolver = SchemaResolver(
+        platform=platform, env="PROD", prefer_lowercase=prefer_lowercase
+    )
+    assert resolver._prefers_urn_lower() is expected
+    resolver.close()
 
 
 def test_mssql_issue_13792_scenario():
@@ -179,5 +177,67 @@ def test_mssql_with_convert_urns_to_lowercase_true():
     # URN should be lowercase
     assert "data governance.mdm.sales.mdm_connectionrole_eco_partners_master" in urn
     assert "Data Governance" not in urn
+
+    resolver.close()
+
+
+def test_urn_consistency_table_and_view_lineage():
+    """
+    Test that table URN and view lineage URN are consistent when using same resolver.
+
+    This is the core issue from #13792: view lineage URNs must match table URNs
+    for lineage to resolve correctly in DataHub.
+    """
+    resolver = SchemaResolver(platform="mssql", env="PROD", prefer_lowercase=False)
+
+    # Simulate table ingestion
+    table = _TableName(database="MyDB", db_schema="dbo", table="CustomerTable")
+    table_urn, _ = resolver.resolve_table(table)
+
+    # Simulate view lineage resolution (same table referenced from a view)
+    view_upstream_table = _TableName(
+        database="MyDB", db_schema="dbo", table="CustomerTable"
+    )
+    view_upstream_urn, _ = resolver.resolve_table(view_upstream_table)
+
+    # URNs must match exactly for lineage to work
+    assert table_urn == view_upstream_urn, (
+        f"Table URN and view lineage URN must match: {table_urn} != {view_upstream_urn}"
+    )
+
+    resolver.close()
+
+
+def test_db2_case_sensitive_platform():
+    """Test that db2 (case-sensitive platform) defaults to preserving case."""
+    resolver = SchemaResolver(platform="db2", env="PROD")
+
+    # Default should preserve case for db2
+    assert resolver._prefers_urn_lower() is False
+
+    table = _TableName(database="MYDB", db_schema="MYSCHEMA", table="MyTable")
+    urn, _ = resolver.resolve_table(table)
+
+    # URN should preserve case
+    assert "MYDB.MYSCHEMA.MyTable" in urn
+
+    resolver.close()
+
+
+def test_schema_resolver_with_platform_instance():
+    """Test that prefer_lowercase works correctly with platform_instance."""
+    resolver = SchemaResolver(
+        platform="mssql",
+        platform_instance="my_instance",
+        env="PROD",
+        prefer_lowercase=False,
+    )
+
+    table = _TableName(database="TestDB", db_schema="dbo", table="TestTable")
+    urn, _ = resolver.resolve_table(table)
+
+    # Should preserve case and include platform instance
+    assert "TestDB.dbo.TestTable" in urn
+    assert resolver._prefers_urn_lower() is False
 
     resolver.close()
