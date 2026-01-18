@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { Button, PageTitle, Pill } from '@src/alchemy-components';
+import { Button, Icon, PageTitle, Pill, Text } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
 export const PageContainer = styled.div`
@@ -62,27 +62,99 @@ export const TabTitleWithCount = ({ name, count }: TabTitleWithCountProps) => (
 type ManageUsersAndGroupsHeaderProps = {
     version?: string;
     canManageUsers: boolean;
-    onInviteUsers?: () => void;
+    canManageServiceAccounts: boolean;
+    activeTab: string;
+    onInviteUsers: () => void;
+    onCreateServiceAccount: () => void;
 };
 
 export const ManageUsersAndGroupsHeader = ({
     version,
     canManageUsers,
+    canManageServiceAccounts,
+    activeTab,
     onInviteUsers,
-}: ManageUsersAndGroupsHeaderProps) => (
-    <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-        <HeaderLeft>
-            <PageTitle
-                title="Manage Users &amp; Groups"
-                subTitle="View your DataHub users &amp; groups. Take administrative actions."
-            />
-        </HeaderLeft>
-        {onInviteUsers && (
+    onCreateServiceAccount,
+}: ManageUsersAndGroupsHeaderProps) => {
+    const isServiceAccountsTab = activeTab === 'service-accounts';
+
+    return (
+        <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
+            <HeaderLeft>
+                <PageTitle
+                    title="Manage Users &amp; Groups"
+                    subTitle="View your DataHub users &amp; groups. Take administrative actions."
+                />
+            </HeaderLeft>
             <HeaderRight>
-                <Button variant="filled" size="md" onClick={onInviteUsers} disabled={!canManageUsers}>
-                    Invite Users
-                </Button>
+                {isServiceAccountsTab ? (
+                    <Button
+                        variant="filled"
+                        disabled={!canManageServiceAccounts}
+                        onClick={onCreateServiceAccount}
+                        data-testid="create-service-account-button"
+                    >
+                        Create Service Account
+                    </Button>
+                ) : (
+                    <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
+                        Invite Users
+                    </Button>
+                )}
             </HeaderRight>
-        )}
-    </PageHeaderContainer>
+        </PageHeaderContainer>
+    );
+};
+
+const SsoWarningContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: ${colors.blue[0]};
+    border-radius: 8px;
+    color: ${colors.blue[1000]};
+    padding: 8px;
+`;
+
+const SsoWarningContent = styled.div`
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+`;
+
+const SsoWarningText = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
+type SsoWarningBannerProps = {
+    onConfigureSso: () => void;
+};
+
+export const SsoWarningBanner = ({ onConfigureSso }: SsoWarningBannerProps) => (
+    <SsoWarningContainer>
+        <SsoWarningContent>
+            <Icon
+                icon="Info"
+                source="phosphor"
+                size="xl"
+                weight="fill"
+                style={{ marginTop: '3px', marginRight: '-8px' }}
+            />
+            <SsoWarningText>
+                <Text weight="semiBold">Single Sign-On has not been enabled</Text>
+                <Text size="sm">
+                    Setting up SSO allows teammates within your organization to sign up with their existing accounts.
+                </Text>
+            </SsoWarningText>
+        </SsoWarningContent>
+        <Button
+            variant="link"
+            onClick={onConfigureSso}
+            size="sm"
+            style={{ color: colors.blue[1000], whiteSpace: 'nowrap' }}
+        >
+            Configure SSO
+        </Button>
+    </SsoWarningContainer>
 );

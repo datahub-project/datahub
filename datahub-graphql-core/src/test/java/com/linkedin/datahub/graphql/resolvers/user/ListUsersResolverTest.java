@@ -3,6 +3,9 @@ package com.linkedin.datahub.graphql.resolvers.user;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -110,11 +113,20 @@ public class ListUsersResolverTest {
     Mockito.when(
             mockClient.search(
                 any(),
+<<<<<<< HEAD
                 Mockito.eq(CORP_USER_ENTITY_NAME),
                 Mockito.eq("test query"),
                 Mockito.eq(Collections.emptyMap()),
                 Mockito.eq(10),
                 Mockito.eq(5)))
+=======
+                eq(CORP_USER_ENTITY_NAME),
+                anyString(),
+                any(), // Filter object
+                any(), // Sort criteria list
+                anyInt(),
+                anyInt()))
+>>>>>>> cc176977892 (Add support for Service Accounts)
         .thenReturn(searchResult);
 
     // Mock batchGetV2 result (empty)
@@ -146,7 +158,7 @@ public class ListUsersResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .search(any(), any(), Mockito.eq(""), Mockito.anyMap(), Mockito.anyInt(), Mockito.anyInt());
+        .search(any(), any(), anyString(), any(), any(), anyInt(), anyInt());
     ListUsersResolver resolver = new ListUsersResolver(mockClient);
 
     // Execute resolver
