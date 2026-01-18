@@ -808,8 +808,10 @@ def test_custom_sql_with_datasource_name():
     mock_server = mock.MagicMock(spec=Server)
     mock_server.user_id = "test-user-id"
     mock_server.users = mock.MagicMock()
-    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
-    
+    mock_server.users.get_by_id = mock.MagicMock(
+        return_value=mock.MagicMock(site_role="SiteAdministratorExplorer")
+    )
+
     site_source = TableauSiteSource(
         config=config,
         ctx=context,
@@ -849,12 +851,16 @@ def test_custom_sql_with_datasource_name():
         }
     ]
 
-    with mock.patch.object(
-        site_source, "get_connection_objects", return_value=custom_sql_data
-    ), mock.patch.object(
-        site_source, "_get_datasource_project_luid", return_value="project-luid-123"
-    ), mock.patch.object(
-        site_source, "_get_project_browse_path_name", return_value="default"
+    with (
+        mock.patch.object(
+            site_source, "get_connection_objects", return_value=custom_sql_data
+        ),
+        mock.patch.object(
+            site_source, "_get_datasource_project_luid", return_value="project-luid-123"
+        ),
+        mock.patch.object(
+            site_source, "_get_project_browse_path_name", return_value="default"
+        ),
     ):
         work_units = list(site_source.emit_custom_sql_datasources())
         assert len(work_units) > 0
@@ -889,8 +895,10 @@ def test_custom_sql_without_datasource():
     mock_server = mock.MagicMock(spec=Server)
     mock_server.user_id = "test-user-id"
     mock_server.users = mock.MagicMock()
-    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
-    
+    mock_server.users.get_by_id = mock.MagicMock(
+        return_value=mock.MagicMock(site_role="SiteAdministratorExplorer")
+    )
+
     site_source = TableauSiteSource(
         config=config,
         ctx=context,
@@ -954,8 +962,10 @@ def test_custom_sql_with_none_datasource_name():
     mock_server = mock.MagicMock(spec=Server)
     mock_server.user_id = "test-user-id"
     mock_server.users = mock.MagicMock()
-    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
-    
+    mock_server.users.get_by_id = mock.MagicMock(
+        return_value=mock.MagicMock(site_role="SiteAdministratorExplorer")
+    )
+
     site_source = TableauSiteSource(
         config=config,
         ctx=context,
@@ -995,12 +1005,16 @@ def test_custom_sql_with_none_datasource_name():
         }
     ]
 
-    with mock.patch.object(
-        site_source, "get_connection_objects", return_value=custom_sql_data
-    ), mock.patch.object(
-        site_source, "_get_datasource_project_luid", return_value="project-luid-789"
-    ), mock.patch.object(
-        site_source, "_get_project_browse_path_name", return_value="default"
+    with (
+        mock.patch.object(
+            site_source, "get_connection_objects", return_value=custom_sql_data
+        ),
+        mock.patch.object(
+            site_source, "_get_datasource_project_luid", return_value="project-luid-789"
+        ),
+        mock.patch.object(
+            site_source, "_get_project_browse_path_name", return_value="default"
+        ),
     ):
         work_units = list(site_source.emit_custom_sql_datasources())
         # When datasource_name is None, the code skips the custom SQL
@@ -1034,8 +1048,10 @@ def test_custom_sql_with_empty_string_datasource_name():
     mock_server = mock.MagicMock(spec=Server)
     mock_server.user_id = "test-user-id"
     mock_server.users = mock.MagicMock()
-    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
-    
+    mock_server.users.get_by_id = mock.MagicMock(
+        return_value=mock.MagicMock(site_role="SiteAdministratorExplorer")
+    )
+
     site_source = TableauSiteSource(
         config=config,
         ctx=context,
@@ -1075,12 +1091,16 @@ def test_custom_sql_with_empty_string_datasource_name():
         }
     ]
 
-    with mock.patch.object(
-        site_source, "get_connection_objects", return_value=custom_sql_data
-    ), mock.patch.object(
-        site_source, "_get_datasource_project_luid", return_value="project-luid-999"
-    ), mock.patch.object(
-        site_source, "_get_project_browse_path_name", return_value="default"
+    with (
+        mock.patch.object(
+            site_source, "get_connection_objects", return_value=custom_sql_data
+        ),
+        mock.patch.object(
+            site_source, "_get_datasource_project_luid", return_value="project-luid-999"
+        ),
+        mock.patch.object(
+            site_source, "_get_project_browse_path_name", return_value="default"
+        ),
     ):
         work_units = list(site_source.emit_custom_sql_datasources())
         # When datasource_name is empty string, the code skips the custom SQL
@@ -1114,8 +1134,10 @@ def test_custom_sql_with_embedded_datasource():
     mock_server = mock.MagicMock(spec=Server)
     mock_server.user_id = "test-user-id"
     mock_server.users = mock.MagicMock()
-    mock_server.users.get_by_id = mock.MagicMock(return_value=mock.MagicMock(site_role="SiteAdministratorExplorer"))
-    
+    mock_server.users.get_by_id = mock.MagicMock(
+        return_value=mock.MagicMock(site_role="SiteAdministratorExplorer")
+    )
+
     site_source = TableauSiteSource(
         config=config,
         ctx=context,
@@ -1158,10 +1180,13 @@ def test_custom_sql_with_embedded_datasource():
         }
     ]
 
-    with mock.patch.object(
-        site_source, "get_connection_objects", return_value=custom_sql_data
-    ), mock.patch.object(
-        site_source, "_get_project_browse_path_name", return_value="default"
+    with (
+        mock.patch.object(
+            site_source, "get_connection_objects", return_value=custom_sql_data
+        ),
+        mock.patch.object(
+            site_source, "_get_project_browse_path_name", return_value="default"
+        ),
     ):
         work_units = list(site_source.emit_custom_sql_datasources())
         assert len(work_units) > 0
