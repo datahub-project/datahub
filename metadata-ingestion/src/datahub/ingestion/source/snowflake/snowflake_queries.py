@@ -494,7 +494,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
                 assert isinstance(row, dict)
                 try:
-                    entry = self._parse_audit_log_row(row, users)
+                    parsed_result = self._parse_audit_log_row(row, users)
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing query log row",
@@ -502,8 +502,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         exc=e,
                     )
                 else:
-                    if entry:
-                        yield entry
+                    if parsed_result:
+                        # Handle both single entries and lists of entries (for multi-table INSERT)
+                        if isinstance(parsed_result, list):
+                            for entry in parsed_result:
+                                yield entry
+                        else:
+                            yield parsed_result
 
     @classmethod
     def _has_temp_keyword(cls, query_text: str) -> bool:
@@ -515,7 +520,14 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
     ) -> Optional[
-        Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery, StoredProcCall]
+        Union[
+            TableRename,
+            TableSwap,
+            PreparsedQuery,
+            ObservedQuery,
+            StoredProcCall,
+            List[PreparsedQuery],
+        ]
     ]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
@@ -665,16 +677,75 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             upstreams.append(dataset)
             column_usage[dataset] = columns
 
-        downstream = None
-        column_lineage = None
-        for obj in objects_modified:
-            # We don't expect there to be more than one object modified.
-            if downstream:
-                self.structured_reporter.report_warning(
-                    message="Unexpectedly got multiple downstream entities from the Snowflake audit log.",
-                    context=f"{row}",
-                )
+        # Handle multiple downstream tables (e.g., conditional multi-table INSERT)
+        # If there are multiple objects_modified, create one PreparsedQuery entry per downstream table
+        if len(objects_modified) > 1:
+            downstream_entries = []
 
+            for obj in objects_modified:
+                obj_downstream = self.identifiers.gen_dataset_urn(
+                    self.identifiers.get_dataset_identifier_from_qualified_name(
+                        obj["objectName"]
+                    )
+                )
+                obj_column_lineage = []
+                for modified_column in obj["columns"]:
+                    obj_column_lineage.append(
+                        ColumnLineageInfo(
+                            downstream=DownstreamColumnRef(
+                                dataset=obj_downstream,
+                                column=self.identifiers.snowflake_identifier(
+                                    modified_column["columnName"]
+                                ),
+                            ),
+                            upstreams=[
+                                ColumnRef(
+                                    table=self.identifiers.gen_dataset_urn(
+                                        self.identifiers.get_dataset_identifier_from_qualified_name(
+                                            upstream["objectName"]
+                                        )
+                                    ),
+                                    column=self.identifiers.snowflake_identifier(
+                                        upstream["columnName"]
+                                    ),
+                                )
+                                for upstream in modified_column["directSources"]
+                                if upstream["objectDomain"]
+                                in SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS
+                            ],
+                        )
+                    )
+
+                entry = PreparsedQuery(
+                    query_id=get_query_fingerprint(
+                        query_text,
+                        self.identifiers.platform,
+                        fast=True,
+                        secondary_id=res["query_secondary_fingerprint"],
+                    ),
+                    query_text=query_text,
+                    upstreams=upstreams,
+                    downstream=obj_downstream,
+                    column_lineage=obj_column_lineage,
+                    column_usage=column_usage,
+                    inferred_schema=None,
+                    confidence_score=1.0,
+                    query_count=res["query_count"],
+                    user=user,
+                    timestamp=timestamp,
+                    session_id=res["session_id"],
+                    query_type=query_type,
+                    extra_info=extra_info,
+                )
+                downstream_entries.append(entry)
+
+            # Return list of entries for multi-table INSERT
+            return downstream_entries
+
+        # Single or no downstream table - use original logic (backward compatible)
+        downstream: Optional[str] = None
+        column_lineage: Optional[List[ColumnLineageInfo]] = None
+        for obj in objects_modified:
             downstream = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
                     obj["objectName"]
