@@ -501,20 +501,20 @@ def export(profile_name: str) -> None:
         prof = config_utils.get_profile(profile_name)
 
         # Create export dict with redacted secrets
-        export_data = {
-            "profile": profile_name,
-            "config": {
-                "server": prof.server,
-                "token": _redact_token(prof.token),
-                "timeout_sec": prof.timeout_sec,
-                "description": prof.description,
-                "require_confirmation": prof.require_confirmation,
-            },
+        config_dict: dict = {
+            "server": prof.server,
+            "token": _redact_token(prof.token),
+            "timeout_sec": prof.timeout_sec,
+            "description": prof.description,
+            "require_confirmation": prof.require_confirmation,
         }
 
         # Remove None values
-        export_data["config"] = {
-            k: v for k, v in export_data["config"].items() if v is not None
+        config_dict = {k: v for k, v in config_dict.items() if v is not None}
+
+        export_data = {
+            "profile": profile_name,
+            "config": config_dict,
         }
 
         # Output as YAML

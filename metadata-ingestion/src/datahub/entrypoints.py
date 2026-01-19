@@ -166,9 +166,18 @@ def init(use_password: bool = False) -> None:
             # Migration path - load legacy config
             try:
                 legacy_config_dict = config_utils.get_raw_client_config()
-                legacy_datahub_config = DataHubConfig.model_validate(legacy_config_dict)
-                server = legacy_datahub_config.gms.server
-                token = legacy_datahub_config.gms.token
+                if not legacy_config_dict:
+                    raise ValueError("Failed to load legacy config")
+
+                if "gms" in legacy_config_dict:
+                    # Legacy format with nested gms structure
+                    gms_config = legacy_config_dict["gms"]
+                    server = gms_config.get("server", "http://localhost:8080")
+                    token = gms_config.get("token", "")
+                else:
+                    # Direct format
+                    server = legacy_config_dict.get("server", "http://localhost:8080")
+                    token = legacy_config_dict.get("token", "")
                 click.echo("✓ Loaded existing configuration")
             except Exception as e:
                 click.secho(f"Failed to load legacy config: {e}", fg="red", err=True)

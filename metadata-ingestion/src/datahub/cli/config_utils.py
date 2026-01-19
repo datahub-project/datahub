@@ -575,9 +575,11 @@ def confirm_destructive_operation(
 
     # Get profile details for display
     config = _load_new_config()
-    selected_profile = (
-        _determine_profile_name(profile_name, config) if config else "unknown"
-    )
+    selected_profile = "unknown"
+    if config:
+        determined_name = _determine_profile_name(profile_name, config)
+        if determined_name:
+            selected_profile = determined_name
     server_url = profile.server if profile.server else "unknown"
 
     # Show warning
