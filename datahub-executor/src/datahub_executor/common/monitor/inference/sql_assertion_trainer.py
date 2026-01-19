@@ -13,6 +13,11 @@ from datahub.metadata.schema_classes import (
 
 from datahub_executor.common.aspect_builder import get_assertion_info
 from datahub_executor.common.metric.types import Metric
+from datahub_executor.common.monitor.adjustment_utils import (
+    extract_lookback_days,
+    get_metric_cube_urn,
+    get_sensitivity_level,
+)
 from datahub_executor.common.monitor.inference.base_assertion_trainer import (
     BaseAssertionTrainer,
 )
@@ -110,11 +115,9 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
         """
         Fetch metric data for SQL metric training.
         """
-        metric_cube_urn = self.get_metric_cube_urn(monitor.urn)
+        metric_cube_urn = get_metric_cube_urn(monitor.urn)
 
-        lookback_days = self.extract_lookback_days_from_adjustment_settings(
-            adjustment_settings
-        )
+        lookback_days = extract_lookback_days(adjustment_settings)
         training_window_duration = timedelta(days=lookback_days)
         min_window_duration = timedelta(
             seconds=self.get_min_training_samples_timespan_seconds() + 60 * 60
@@ -178,8 +181,10 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
         if not assertion.sql_assertion:
             raise RuntimeError(f"Missing SQL assertion for assertion {assertion.urn}")
 
-        # 1) Determine teh sensitivty level
-        sensitivity = self._get_sensitivity_level(adjustment_settings)
+        # 1) Determine the sensitivity level
+        sensitivity = get_sensitivity_level(
+            adjustment_settings, SQL_METRIC_DEFAULT_SENSITIVITY_LEVEL
+        )
 
         # 2) Predict boundaries
         boundaries = self.metrics_predictor.predict_metric_boundaries(
@@ -237,20 +242,6 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
             f"[{current_boundary.lower_bound.value}, {current_boundary.upper_bound.value}]"
         )
         return updated_assertion
-
-    def _get_sensitivity_level(
-        self, adjustment_settings: Optional[AssertionAdjustmentSettings]
-    ) -> int:
-        """
-        Get the sensitivity level from settings or use the default.
-        """
-        if (
-            adjustment_settings
-            and adjustment_settings.sensitivity
-            and adjustment_settings.sensitivity.level is not None
-        ):
-            return adjustment_settings.sensitivity.level
-        return SQL_METRIC_DEFAULT_SENSITIVITY_LEVEL
 
     def _get_assertion_info(self, assertion: Assertion) -> AssertionInfoClass:
         """

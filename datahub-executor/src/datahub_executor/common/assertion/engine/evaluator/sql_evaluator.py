@@ -10,7 +10,7 @@ from datahub_executor.common.assertion.engine.evaluator.utils import (
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     apply_runtime_parameters,
-    is_training_required,
+    is_smart_assertion,
     make_monitor_metric_cube_urn,
 )
 from datahub_executor.common.assertion.types import AssertionState, AssertionStateType
@@ -81,7 +81,7 @@ class SQLAssertionEvaluator(AssertionEvaluator):
     ) -> AssertionEvaluationResult:
         # If smart assertions are enabled and this assertion is in training (no conditions inferred),
         # short-circuit with INIT to mirror field/freshness behavior.
-        if context.online_smart_assertions and is_training_required(assertion):
+        if context.online_smart_assertions and is_smart_assertion(assertion):
             if context.evaluation_spec:
                 last_inferred_at = (
                     context.evaluation_spec.context.inference_details.generated_at
@@ -172,7 +172,7 @@ class SQLAssertionEvaluator(AssertionEvaluator):
     ) -> AssertionEvaluationResult:
         # If smart assertions are enabled and this assertion is in training (no conditions inferred),
         # short-circuit with INIT to mirror field/freshness behavior.
-        if context.online_smart_assertions and is_training_required(assertion):
+        if context.online_smart_assertions and is_smart_assertion(assertion):
             if context.evaluation_spec:
                 last_inferred_at = (
                     context.evaluation_spec.context.inference_details.generated_at
@@ -286,7 +286,7 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         entity_urn = assertion.entity.urn
 
         # Determine if this is a smart assertion (AI-inferred), requiring training.
-        is_training_required_for_assertion = is_training_required(assertion=assertion)
+        is_training_required_for_assertion = is_smart_assertion(assertion=assertion)
 
         # Stage 1: Collect metric & optionally save for training
         metric = self._evaluate_metric_collection_step(

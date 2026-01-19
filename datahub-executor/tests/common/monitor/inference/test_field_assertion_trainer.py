@@ -35,15 +35,12 @@ from datahub_executor.common.monitor.inference.utils import coalesce_metrics
 from datahub_executor.common.types import (
     Anomaly,
     Assertion,
-    AssertionAdjustmentSettings,
     AssertionEvaluationSpec,
-    AssertionMonitorSensitivity,
     AssertionType,
     Monitor,
     RawAspect,
 )
 from datahub_executor.config import (
-    FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL,
     FIELD_METRIC_MIN_TRAINING_INTERVAL_SECONDS,
     FIELD_METRIC_MIN_TRAINING_SAMPLES,
     FIELD_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS,
@@ -393,7 +390,7 @@ def test_get_min_training_samples_timespan_seconds(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data(
     mock_get_metric_cube_urn: MagicMock,
@@ -427,7 +424,7 @@ def test_get_metric_data(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data_with_anomalies(
     mock_get_metric_cube_urn: MagicMock,
@@ -469,7 +466,7 @@ def test_get_metric_data_with_anomalies(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data_with_prefetched_metrics(
     mock_get_metric_cube_urn: MagicMock,
@@ -531,7 +528,7 @@ def test_remove_inferred_assertion(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
@@ -585,7 +582,7 @@ def test_train_and_update_assertion(
 
     # Assert
     # Check sensitivity level was retrieved
-    mock_get_sensitivity_level.assert_called_once_with(None)
+    mock_get_sensitivity_level.assert_called_once_with(None, 5)
 
     # Check boundaries were predicted
     mock_dependencies[
@@ -634,7 +631,7 @@ def test_train_and_update_assertion(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
@@ -733,7 +730,7 @@ def test_train_and_update_assertion_preserves_filter(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
@@ -806,7 +803,7 @@ def test_train_and_update_assertion_with_floor_and_ceiling(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_ceiling_value"
 )
 @patch(
-    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
@@ -878,7 +875,7 @@ def test_train_and_update_assertion_calls_metric_name_not_str_metric(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_ceiling_value"
 )
 @patch(
-    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
@@ -943,7 +940,7 @@ def test_train_and_update_assertion_with_string_metric_type(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
@@ -1007,33 +1004,6 @@ def test_train_and_update_assertion_with_no_floor_or_ceiling(
         floor_value=None,
         ceiling_value=None,
     )
-
-
-def test_get_sensitivity_level_with_settings(
-    trainer: FieldAssertionTrainer,
-) -> None:
-    """Test getting sensitivity level from adjustment settings."""
-    # Arrange
-    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
-    adjustment_settings.sensitivity = Mock(spec=AssertionMonitorSensitivity)
-    adjustment_settings.sensitivity.level = 3
-
-    # Act
-    result = trainer._get_sensitivity_level(adjustment_settings)
-
-    # Assert
-    assert result == 3
-
-
-def test_get_sensitivity_level_no_settings(
-    trainer: FieldAssertionTrainer,
-) -> None:
-    """Test getting default sensitivity level when no settings provided."""
-    # Act
-    result = trainer._get_sensitivity_level(None)
-
-    # Assert
-    assert result == FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL
 
 
 @patch(

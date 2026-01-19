@@ -1036,14 +1036,14 @@ class TestFieldEvaluator:
             )
 
     @patch(
-        "datahub_executor.common.assertion.engine.evaluator.field_evaluator.is_training_required"
+        "datahub_executor.common.assertion.engine.evaluator.field_evaluator.is_smart_assertion"
     )
     def test_evaluate_field_metric_assertion_step_smart_assertions(
-        self, mock_is_training_required: Mock
+        self, mock_is_smart_assertion: Mock
     ) -> None:
         """Test _evaluate_field_metric_assertion_step with smart assertions."""
         # Configure smart assertions to be required
-        mock_is_training_required.return_value = True
+        mock_is_smart_assertion.return_value = True
 
         context = AssertionEvaluationContext(
             monitor_urn="urn:li:monitor:test", online_smart_assertions=True

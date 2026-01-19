@@ -789,10 +789,10 @@ class TestVolumeEvaluator:
                 )
 
     @patch(
-        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_training_required"
+        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_smart_assertion"
     )
     def test_evaluate_smart_assertion_v2_inference_required_no_inferred_at(
-        self, mock_is_training_required: Mock
+        self, mock_is_smart_assertion: Mock
     ) -> None:
         """Test smart assertion v2 logic when inference is required but no last_inferred_at is present."""
         # Setup volume assertion
@@ -806,7 +806,7 @@ class TestVolumeEvaluator:
         self.assertion.volume_assertion = volume_assertion
 
         # Mock is_training_required to return True
-        mock_is_training_required.return_value = True
+        mock_is_smart_assertion.return_value = True
 
         # Setup evaluation spec with no inference details
         evaluation_context = Mock(AssertionEvaluationContext)
@@ -835,10 +835,10 @@ class TestVolumeEvaluator:
         assert result.type == AssertionResultType.INIT
 
     @patch(
-        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_training_required"
+        "datahub_executor.common.assertion.engine.evaluator.volume_evaluator.is_smart_assertion"
     )
     def test_evaluate_smart_assertion_v2_inference_required_with_inference(
-        self, mock_is_training_required: Mock
+        self, mock_is_smart_assertion: Mock
     ) -> None:
         """Test smart assertion v2 logic when inference is required and last_inferred_at is present."""
         # Setup a volume assertion with valid row_count_total
@@ -861,7 +861,7 @@ class TestVolumeEvaluator:
         self.assertion.volume_assertion = volume_assertion
 
         # Mock is_training_required to return True
-        mock_is_training_required.return_value = True
+        mock_is_smart_assertion.return_value = True
 
         # Setup evaluation spec with inference details
         inference_details = Mock(spec=AssertionInferenceDetails)

@@ -13,17 +13,17 @@ The data model leverages existing assertion/monitor aspects:
 Public API:
 ===========
 
-Serialization namespaces:
+Assertion conversion namespaces:
+- ForecastAssertions.from_df() / .to_df()
+- AnomalyAssertions.from_df() / .to_df()
+- FreshnessAssertions.from_df() / .to_df()
+
+Serialization namespaces (in observe_adapter/serialization.py):
 - PreprocessingConfigSerializer.serialize() / .deserialize()
 - ForecastConfigSerializer.serialize() / .deserialize()
 - AnomalyConfigSerializer.serialize() / .deserialize()
 - ForecastEvalsSerializer.serialize() / .deserialize()
 - AnomalyEvalsSerializer.serialize() / .deserialize()
-
-Assertion conversion namespaces:
-- ForecastAssertions.from_df() / .to_df()
-- AnomalyAssertions.from_df() / .to_df()
-- FreshnessAssertions.from_df() / .to_df()
 
 Field Mappings:
 ===============
@@ -76,42 +76,16 @@ EmbeddedAssertion (Anomaly Detection):
     └── "detectionBandUpper"              ← Detection upper (same as maxValue.value)
 """
 
-import json
 import logging
 from typing import (
-    TYPE_CHECKING,
     Any,
-    Callable,
     Dict,
     List,
     Optional,
-    Type,
-    TypeVar,
-    Union,
 )
 
 import pandas as pd
 from pydantic import BaseModel
-
-# Type hints for observe-models (optional dependency)
-if TYPE_CHECKING:
-    from datahub_observe.algorithms.anomaly_detection.config import AnomalyModelConfig
-    from datahub_observe.algorithms.forecasting.config import ForecastModelConfig
-    from datahub_observe.algorithms.preprocessing.field_metric_preprocessor import (
-        FieldMetricPreprocessorConfig,
-    )
-    from datahub_observe.algorithms.preprocessing.preprocessor import (
-        PreprocessingConfig,
-    )
-    from datahub_observe.algorithms.preprocessing.volume_preprocessor import (
-        VolumePreprocessorConfig,
-    )
-    from datahub_observe.algorithms.training.anomaly_evals import AnomalyTrainingEvals
-    from datahub_observe.algorithms.training.forecast_evals import ForecastTrainingEvals
-
-    PreprocessingConfigTypes = Union[
-        PreprocessingConfig, VolumePreprocessorConfig, FieldMetricPreprocessorConfig
-    ]
 
 # Get observe-models package version
 try:
@@ -145,236 +119,6 @@ from datahub.metadata.schema_classes import (
 from datahub_executor.common.monitor.inference.utils import create_inference_source
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
-
-
-# =============================================================================
-# Generic Serialization Helpers (private)
-# =============================================================================
-
-
-def _serialize(obj: Optional[T], type_name: str) -> Optional[str]:
-    """
-    Generic serializer for objects with to_json() method.
-
-    Args:
-        obj: Object to serialize (must have to_json() method)
-        type_name: Name for logging
-
-    Returns:
-        JSON string, or None on failure
-    """
-    if obj is None:
-        return None
-    try:
-        return obj.to_json()  # type: ignore
-    except Exception as e:
-        logger.warning(f"Failed to serialize {type_name}: {e}")
-        return None
-
-
-def _deserialize(
-    json_str: str,
-    importer: Callable[[], Type[T]],
-    type_name: str,
-) -> Optional[Union[T, Dict[str, Any]]]:
-    """
-    Generic deserializer for classes with from_json() method.
-
-    Args:
-        json_str: JSON string to deserialize
-        importer: Callable that imports and returns the class (deferred import)
-        type_name: Name for logging
-
-    Returns:
-        Deserialized object, raw dict as fallback, or None on complete failure
-    """
-    try:
-        cls = importer()
-        return cls.from_json(json_str)  # type: ignore
-    except ImportError:
-        logger.warning(f"observe-models not available for {type_name}")
-        return None
-    except json.JSONDecodeError as e:
-        logger.warning(f"Invalid JSON in {type_name}: {e}")
-        return None
-    except Exception as e:
-        logger.warning(f"Failed to deserialize {type_name}: {e}")
-        try:
-            return json.loads(json_str)
-        except Exception:
-            return None
-
-
-# =============================================================================
-# Serialization Namespace Classes
-# =============================================================================
-
-
-class PreprocessingConfigSerializer:
-    """Namespace for preprocessing config serialization."""
-
-    @staticmethod
-    def serialize(config: "PreprocessingConfigTypes") -> Optional[str]:
-        """
-        Serialize observe-models preprocessing config to JSON.
-
-        Args:
-            config: PreprocessingConfig, VolumePreprocessorConfig,
-                   or FieldMetricPreprocessorConfig
-
-        Returns:
-            JSON string, or None on failure
-        """
-        if config is None:
-            return None
-        try:
-            from datahub_observe.algorithms.preprocessing.serialization import (
-                config_to_dict,
-            )
-
-            return json.dumps(config_to_dict(config))
-        except ImportError:
-            logger.warning(
-                "observe-models not available, skipping preprocessing serialization"
-            )
-            return None
-        except Exception as e:
-            logger.warning(f"Failed to serialize preprocessing config: {e}")
-            return None
-
-    @staticmethod
-    def deserialize(
-        json_str: str,
-    ) -> Optional[Union["PreprocessingConfigTypes", Dict[str, Any]]]:
-        """
-        Deserialize preprocessing config from JSON.
-
-        Args:
-            json_str: JSON string representation
-
-        Returns:
-            Configuration object, raw dict as fallback, or None on failure
-        """
-        try:
-            from datahub_observe.algorithms.preprocessing.serialization import (
-                config_from_json,
-                pipeline_config_from_json,
-            )
-
-            result = pipeline_config_from_json(json_str)
-            if result is not None:
-                return result
-            return config_from_json(json_str)
-        except ImportError:
-            logger.warning("observe-models not available for deserialization")
-            return None
-        except json.JSONDecodeError as e:
-            logger.warning(f"Invalid JSON in preprocessing config: {e}")
-            return None
-        except Exception as e:
-            logger.warning(f"Failed to deserialize preprocessing config: {e}")
-            try:
-                return json.loads(json_str)
-            except Exception:
-                return None
-
-
-class ForecastConfigSerializer:
-    """Namespace for ForecastModelConfig serialization."""
-
-    @staticmethod
-    def serialize(config: "ForecastModelConfig") -> Optional[str]:
-        """Serialize ForecastModelConfig to JSON."""
-        return _serialize(config, "ForecastModelConfig")
-
-    @staticmethod
-    def deserialize(
-        json_str: str,
-    ) -> Optional[Union["ForecastModelConfig", Dict[str, Any]]]:
-        """Deserialize ForecastModelConfig from JSON."""
-
-        def _import():
-            from datahub_observe.algorithms.forecasting.config import (
-                ForecastModelConfig,
-            )
-
-            return ForecastModelConfig
-
-        return _deserialize(json_str, _import, "ForecastModelConfig")
-
-
-class AnomalyConfigSerializer:
-    """Namespace for AnomalyModelConfig serialization."""
-
-    @staticmethod
-    def serialize(config: "AnomalyModelConfig") -> Optional[str]:
-        """Serialize AnomalyModelConfig to JSON."""
-        return _serialize(config, "AnomalyModelConfig")
-
-    @staticmethod
-    def deserialize(
-        json_str: str,
-    ) -> Optional[Union["AnomalyModelConfig", Dict[str, Any]]]:
-        """Deserialize AnomalyModelConfig from JSON."""
-
-        def _import():
-            from datahub_observe.algorithms.anomaly_detection.config import (
-                AnomalyModelConfig,
-            )
-
-            return AnomalyModelConfig
-
-        return _deserialize(json_str, _import, "AnomalyModelConfig")
-
-
-class ForecastEvalsSerializer:
-    """Namespace for ForecastTrainingEvals serialization."""
-
-    @staticmethod
-    def serialize(evals: "ForecastTrainingEvals") -> Optional[str]:
-        """Serialize ForecastTrainingEvals to JSON."""
-        return _serialize(evals, "ForecastTrainingEvals")
-
-    @staticmethod
-    def deserialize(
-        json_str: str,
-    ) -> Optional[Union["ForecastTrainingEvals", Dict[str, Any]]]:
-        """Deserialize ForecastTrainingEvals from JSON."""
-
-        def _import():
-            from datahub_observe.algorithms.training.forecast_evals import (
-                ForecastTrainingEvals,
-            )
-
-            return ForecastTrainingEvals
-
-        return _deserialize(json_str, _import, "ForecastTrainingEvals")
-
-
-class AnomalyEvalsSerializer:
-    """Namespace for AnomalyTrainingEvals serialization."""
-
-    @staticmethod
-    def serialize(evals: "AnomalyTrainingEvals") -> Optional[str]:
-        """Serialize AnomalyTrainingEvals to JSON."""
-        return _serialize(evals, "AnomalyTrainingEvals")
-
-    @staticmethod
-    def deserialize(
-        json_str: str,
-    ) -> Optional[Union["AnomalyTrainingEvals", Dict[str, Any]]]:
-        """Deserialize AnomalyTrainingEvals from JSON."""
-
-        def _import():
-            from datahub_observe.algorithms.training.anomaly_evals import (
-                AnomalyTrainingEvals,
-            )
-
-            return AnomalyTrainingEvals
-
-        return _deserialize(json_str, _import, "AnomalyTrainingEvals")
 
 
 # =============================================================================

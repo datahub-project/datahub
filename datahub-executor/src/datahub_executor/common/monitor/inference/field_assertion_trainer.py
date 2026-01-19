@@ -20,6 +20,11 @@ from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     is_field_metric_assertion,
 )
 from datahub_executor.common.metric.types import Metric
+from datahub_executor.common.monitor.adjustment_utils import (
+    extract_lookback_days,
+    get_metric_cube_urn,
+    get_sensitivity_level,
+)
 from datahub_executor.common.monitor.inference.base_assertion_trainer import (
     BaseAssertionTrainer,
 )
@@ -128,12 +133,10 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         Fetch metric data for field metric training.
         """
         # Construct the metric cube URN
-        metric_cube_urn = self.get_metric_cube_urn(monitor.urn)
+        metric_cube_urn = get_metric_cube_urn(monitor.urn)
 
         # Calculate lookback period
-        lookback_days = self.extract_lookback_days_from_adjustment_settings(
-            adjustment_settings
-        )
+        lookback_days = extract_lookback_days(adjustment_settings)
         training_window_duration = timedelta(days=lookback_days)
         min_window_duration = timedelta(
             seconds=self.get_min_training_samples_timespan_seconds() + 60 * 60
@@ -205,7 +208,9 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         Train and update a field metric assertion with new boundaries.
         """
         # 1) Determine sensitivity level
-        sensitivity = self._get_sensitivity_level(adjustment_settings)
+        sensitivity = get_sensitivity_level(
+            adjustment_settings, FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL
+        )
 
         # 2) Get assertion info and extract field and metric information
         assertion_info, field, metric = self._get_field_assertion_details(assertion)
@@ -262,20 +267,6 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
             f"[{current_boundary.lower_bound.value}, {current_boundary.upper_bound.value}]"
         )
         return updated_assertion
-
-    def _get_sensitivity_level(
-        self, adjustment_settings: Optional[AssertionAdjustmentSettings]
-    ) -> int:
-        """
-        Get the sensitivity level from settings or use the default.
-        """
-        if (
-            adjustment_settings
-            and adjustment_settings.sensitivity
-            and adjustment_settings.sensitivity.level is not None
-        ):
-            return adjustment_settings.sensitivity.level
-        return FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL
 
     def _get_field_assertion_details(
         self, assertion: Assertion

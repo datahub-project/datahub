@@ -1,7 +1,6 @@
 """Tests for inference_utils module."""
 
 import json
-from typing import Dict
 
 import pandas as pd
 import pytest
@@ -19,24 +18,21 @@ from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     encode_monitor_urn,
     make_monitor_metric_cube_urn,
 )
-from datahub_executor.common.monitor.inference.inference_utils import (
+from datahub_executor.common.monitor.inference_v2.inference_utils import (
     OBSERVE_MODELS_VERSION,
     AnomalyAssertions,
-    AnomalyConfigSerializer,
     ForecastAssertions,
-    ForecastConfigSerializer,
     FreshnessAssertions,
     ModelConfig,
-    # Serialization namespaces
-    PreprocessingConfigSerializer,
     # Inference details
     build_evaluation_context,
     build_inference_details,
     parse_inference_details,
 )
-from datahub_executor.common.monitor.inference.parsing_utils import (
-    parse_float,
-    parse_int,
+from datahub_executor.common.monitor.inference_v2.observe_adapter.serialization import (
+    AnomalyConfigSerializer,
+    ForecastConfigSerializer,
+    PreprocessingConfigSerializer,
 )
 
 # =============================================================================
@@ -126,45 +122,6 @@ class TestModelType:
         """Test that ModelType values can be accessed for serialization."""
         assert ModelType.FORECAST.value == "forecast"
         assert ModelType.ANOMALY.name == "ANOMALY"
-
-
-# =============================================================================
-# Safe Type Parsing Tests
-# =============================================================================
-
-
-class TestTypeParsing:
-    """Tests for type parsing helpers."""
-
-    def test_parse_int_valid(self) -> None:
-        """Test parse_int with valid integer string."""
-        params = {"value": "42"}
-        assert parse_int(params, "value") == 42
-
-    def test_parse_int_missing(self) -> None:
-        """Test parse_int with missing key."""
-        params: Dict[str, str] = {}
-        assert parse_int(params, "value") is None
-
-    def test_parse_int_invalid(self) -> None:
-        """Test parse_int with invalid value."""
-        params = {"value": "not_a_number"}
-        assert parse_int(params, "value") is None
-
-    def test_parse_float_valid(self) -> None:
-        """Test parse_float with valid float string."""
-        params = {"value": "3.14"}
-        assert parse_float(params, "value") == 3.14
-
-    def test_parse_float_missing(self) -> None:
-        """Test parse_float with missing key."""
-        params: Dict[str, str] = {}
-        assert parse_float(params, "value") is None
-
-    def test_parse_float_invalid(self) -> None:
-        """Test parse_float with invalid value."""
-        params = {"value": "not_a_float"}
-        assert parse_float(params, "value") is None
 
 
 # =============================================================================

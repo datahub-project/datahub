@@ -1000,11 +1000,12 @@ class AssertionInfo(PermissiveBaseModel):
     @model_validator(mode="before")
     @classmethod
     def extract_assertion_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if "info" in values and "type" in values["info"]:
+        if "info" in values and values["info"] is not None and "type" in values["info"]:
             values["type"] = values["info"]["type"]
 
         if (
             "info" in values
+            and values["info"] is not None
             and "source" in values["info"]
             and values["info"]["source"] is not None
         ):
@@ -1029,6 +1030,7 @@ class AssertionInfo(PermissiveBaseModel):
         if (
             "freshnessAssertion" not in values
             and "info" in values
+            and values["info"] is not None
             and "freshnessAssertion" in values["info"]
         ):
             values["freshnessAssertion"] = values["info"]["freshnessAssertion"]
@@ -1036,6 +1038,7 @@ class AssertionInfo(PermissiveBaseModel):
         if (
             "volumeAssertion" not in values
             and "info" in values
+            and values["info"] is not None
             and "volumeAssertion" in values["info"]
         ):
             values["volumeAssertion"] = values["info"]["volumeAssertion"]
@@ -1043,6 +1046,7 @@ class AssertionInfo(PermissiveBaseModel):
         if (
             "sqlAssertion" not in values
             and "info" in values
+            and values["info"] is not None
             and "sqlAssertion" in values["info"]
         ):
             values["sqlAssertion"] = values["info"]["sqlAssertion"]
@@ -1050,6 +1054,7 @@ class AssertionInfo(PermissiveBaseModel):
         if (
             "fieldAssertion" not in values
             and "info" in values
+            and values["info"] is not None
             and "fieldAssertion" in values["info"]
         ):
             values["fieldAssertion"] = values["info"]["fieldAssertion"]
@@ -1057,6 +1062,7 @@ class AssertionInfo(PermissiveBaseModel):
         if (
             "schemaAssertion" not in values
             and "info" in values
+            and values["info"] is not None
             and "schemaAssertion" in values["info"]
         ):
             values["schemaAssertion"] = values["info"]["schemaAssertion"]
@@ -1609,10 +1615,18 @@ class Anomaly(PermissiveBaseModel):
 
     timestamp_ms: int
     metric: Optional[Metric] = None
+    status: Optional[str] = (
+        None  # Anomaly status: CONFIRMED, REJECTED, UNCONFIRMED, or None
+    )
 
     def timestamp(self) -> datetime:
         """Convert timestamp_ms to a datetime object."""
         return datetime.fromtimestamp(self.timestamp_ms / 1000, timezone.utc)
 
+    @property
+    def is_confirmed(self) -> bool:
+        """Check if anomaly is confirmed (not rejected)."""
+        return self.status != "REJECTED"
+
     def __repr__(self) -> str:
-        return f"Anomaly(timestamp_ms={self.timestamp_ms}, metric={self.metric})"
+        return f"Anomaly(timestamp_ms={self.timestamp_ms}, metric={self.metric}, status={self.status})"

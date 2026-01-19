@@ -33,14 +33,11 @@ from datahub_executor.common.monitor.inference.volume_assertion_trainer import (
 from datahub_executor.common.types import (
     Anomaly,
     Assertion,
-    AssertionAdjustmentSettings,
     AssertionEvaluationSpec,
-    AssertionMonitorSensitivity,
     AssertionType,
     Monitor,
 )
 from datahub_executor.config import (
-    VOLUME_DEFAULT_SENSITIVITY_LEVEL,
     VOLUME_MIN_TRAINING_INTERVAL_SECONDS,
     VOLUME_MIN_TRAINING_SAMPLES,
     VOLUME_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS,
@@ -329,7 +326,7 @@ def test_get_min_training_samples_timespan_seconds(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data(
     mock_get_metric_cube_urn: MagicMock,
@@ -363,7 +360,7 @@ def test_get_metric_data(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data_with_anomalies(
     mock_get_metric_cube_urn: MagicMock,
@@ -406,7 +403,7 @@ def test_get_metric_data_with_anomalies(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data_with_prefetched_metrics(
     mock_get_metric_cube_urn: MagicMock,
@@ -470,7 +467,7 @@ def test_remove_inferred_assertion(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._get_assertion_info"
@@ -516,7 +513,7 @@ def test_train_and_update_assertion(
 
     # Assert
     # Check sensitivity level was retrieved
-    mock_get_sensitivity_level.assert_called_once_with(None)
+    mock_get_sensitivity_level.assert_called_once_with(None, 5)
 
     # Check boundaries were predicted
     mock_dependencies[
@@ -555,7 +552,7 @@ def test_train_and_update_assertion(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._get_assertion_info"
@@ -644,33 +641,6 @@ def test_train_and_update_assertion_preserves_filter(
         volume_assertion_info.volumeAssertion is not None
         and volume_assertion_info.volumeAssertion.filter == original_filter
     )
-
-
-def test_get_sensitivity_level_with_settings(
-    trainer: VolumeAssertionTrainer,
-) -> None:
-    """Test getting sensitivity level from adjustment settings."""
-    # Arrange
-    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
-    adjustment_settings.sensitivity = Mock(spec=AssertionMonitorSensitivity)
-    adjustment_settings.sensitivity.level = 3
-
-    # Act
-    result = trainer._get_sensitivity_level(adjustment_settings)
-
-    # Assert
-    assert result == 3
-
-
-def test_get_sensitivity_level_no_settings(
-    trainer: VolumeAssertionTrainer,
-) -> None:
-    """Test getting default sensitivity level when no settings provided."""
-    # Act
-    result = trainer._get_sensitivity_level(None)
-
-    # Assert
-    assert result == VOLUME_DEFAULT_SENSITIVITY_LEVEL
 
 
 @patch(
@@ -983,7 +953,7 @@ def test_try_get_historical_data_for_bootstrap_no_source_created_time(
     "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._check_can_bootstrap_with_dataset_profile"
 )
 @patch(
-    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer.extract_lookback_days_from_adjustment_settings"
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.extract_lookback_days"
 )
 def test_try_get_historical_data_for_bootstrap_success(
     mock_extract_lookback_days: MagicMock,

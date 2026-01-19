@@ -8,7 +8,7 @@ from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     ASSERTION_TYPES_REQUIRING_TRAINING,
     encode_monitor_urn,
     is_field_metric_assertion,
-    is_training_required,
+    is_smart_assertion,
 )
 from datahub_executor.common.types import (
     Assertion,
@@ -83,50 +83,50 @@ class TestSharedUtils:
         assertion.field_assertion = None
         return assertion
 
-    def test_is_training_required_volume_inferred(
+    def test_is_smart_assertion_volume_inferred(
         self, volume_assertion: MagicMock
     ) -> None:
-        """Test is_training_required with an inferred volume assertion."""
-        assert is_training_required(volume_assertion) is True
+        """Test is_smart_assertion with an inferred volume assertion."""
+        assert is_smart_assertion(volume_assertion) is True
 
-    def test_is_training_required_freshness_inferred(
+    def test_is_smart_assertion_freshness_inferred(
         self, freshness_assertion: MagicMock
     ) -> None:
-        """Test is_training_required with an inferred freshness assertion."""
-        assert is_training_required(freshness_assertion) is True
+        """Test is_smart_assertion with an inferred freshness assertion."""
+        assert is_smart_assertion(freshness_assertion) is True
 
-    def test_is_training_required_field_inferred(
+    def test_is_smart_assertion_field_inferred(
         self, field_assertion: MagicMock
     ) -> None:
-        """Test is_training_required with an inferred field assertion."""
-        assert is_training_required(field_assertion) is True
+        """Test is_smart_assertion with an inferred field assertion."""
+        assert is_smart_assertion(field_assertion) is True
 
-    def test_is_training_required_schema_inferred(
+    def test_is_smart_assertion_schema_inferred(
         self, schema_assertion: MagicMock
     ) -> None:
-        """Test is_training_required with an inferred schema assertion."""
-        assert is_training_required(schema_assertion) is False
+        """Test is_smart_assertion with an inferred schema assertion."""
+        assert is_smart_assertion(schema_assertion) is False
 
-    def test_is_training_required_volume_not_inferred(
+    def test_is_smart_assertion_volume_not_inferred(
         self, volume_assertion: MagicMock
     ) -> None:
-        """Test is_training_required with a non-inferred volume assertion."""
+        """Test is_smart_assertion with a non-inferred volume assertion."""
         volume_assertion.is_inferred = False
-        assert is_training_required(volume_assertion) is False
+        assert is_smart_assertion(volume_assertion) is False
 
-    def test_is_training_required_freshness_not_inferred(
+    def test_is_smart_assertion_freshness_not_inferred(
         self, freshness_assertion: MagicMock
     ) -> None:
-        """Test is_training_required with a non-inferred freshness assertion."""
+        """Test is_smart_assertion with a non-inferred freshness assertion."""
         freshness_assertion.is_inferred = False
-        assert is_training_required(freshness_assertion) is False
+        assert is_smart_assertion(freshness_assertion) is False
 
-    def test_is_training_required_field_not_inferred(
+    def test_is_smart_assertion_field_not_inferred(
         self, field_assertion: MagicMock
     ) -> None:
-        """Test is_training_required with a non-inferred field assertion."""
+        """Test is_smart_assertion with a non-inferred field assertion."""
         field_assertion.is_inferred = False
-        assert is_training_required(field_assertion) is False
+        assert is_smart_assertion(field_assertion) is False
 
     def test_is_field_metric_assertion_with_field_metric(
         self, field_metric_assertion: MagicMock

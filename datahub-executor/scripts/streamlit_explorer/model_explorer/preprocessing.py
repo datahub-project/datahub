@@ -25,7 +25,7 @@ from ..common.preprocessing_ui import (
 
 # Serializers for deserializing stored configs
 try:
-    from datahub_executor.common.monitor.inference.inference_utils import (
+    from datahub_executor.common.monitor.inference_v2.observe_adapter.serialization import (
         PreprocessingConfigSerializer,
     )
 

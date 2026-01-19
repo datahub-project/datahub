@@ -186,6 +186,11 @@ ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS = env_to_int(
 VOLUME_MIN_TRAINING_INTERVAL_SECONDS = env_to_int(
     "VOLUME_MIN_TRAINING_INTERVAL_SECONDS", 4 * 60 * 60
 )
+# The interval after which hyperparameters are considered stale and should be retuned.
+# Default: 6 days (518400 seconds)
+VOLUME_RETUNE_INTERVAL_SECONDS = env_to_int(
+    "VOLUME_RETUNE_INTERVAL_SECONDS", 6 * 24 * 60 * 60
+)
 VOLUME_MIN_TRAINING_SAMPLES = env_to_int("VOLUME_MIN_TRAINING_SAMPLES", 10)
 VOLUME_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS = env_to_int(
     "VOLUME_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS", 7 * 24 * 60 * 60
@@ -220,6 +225,11 @@ FRESHNESS_DEFAULT_EVALUATION_CRON_SCHEDULE = os.getenv(
 FIELD_METRIC_MIN_TRAINING_INTERVAL_SECONDS = env_to_int(
     "FIELD_METRIC_MIN_TRAINING_INTERVAL_SECONDS", 4 * 60 * 60
 )
+# The interval after which hyperparameters are considered stale and should be retuned.
+# Default: 6 days (518400 seconds)
+FIELD_METRIC_RETUNE_INTERVAL_SECONDS = env_to_int(
+    "FIELD_METRIC_RETUNE_INTERVAL_SECONDS", 6 * 24 * 60 * 60
+)
 FIELD_METRIC_MIN_TRAINING_SAMPLES = env_to_int("FIELD_METRIC_MIN_TRAINING_SAMPLES", 10)
 FIELD_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS = env_to_int(
     "FIELD_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS", 7 * 24 * 60 * 60
@@ -232,6 +242,11 @@ FIELD_METRIC_DEFAULT_SENSITIVITY_LEVEL = env_to_int(
 # SQL Assertion Training Configuration
 SQL_METRIC_MIN_TRAINING_INTERVAL_SECONDS = env_to_int(
     "SQL_METRIC_MIN_TRAINING_INTERVAL_SECONDS", 4 * 60 * 60
+)
+# The interval after which hyperparameters are considered stale and should be retuned.
+# Default: 6 days (518400 seconds)
+SQL_METRIC_RETUNE_INTERVAL_SECONDS = env_to_int(
+    "SQL_METRIC_RETUNE_INTERVAL_SECONDS", 6 * 24 * 60 * 60
 )
 SQL_METRIC_MIN_TRAINING_SAMPLES = env_to_int("SQL_METRIC_MIN_TRAINING_SAMPLES", 10)
 SQL_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS = env_to_int(
@@ -251,6 +266,12 @@ DATAHUB_EXECUTOR_SERVER_CONFIG_REFRESH_INTERVAL = env_to_int(
 )
 DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE = string_to_bool(
     os.getenv("DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE", "True")
+)
+
+# Feature flag for enabling observe-models integration.
+# Requires both this flag AND the package to be available.
+DATAHUB_USE_OBSERVE_MODELS = string_to_bool(
+    os.getenv("DATAHUB_USE_OBSERVE_MODELS", "False")
 )
 
 # Config fetcher retry configuration

@@ -68,12 +68,22 @@ def graphql_to_monitors(graphql_monitors: List[Dict]) -> List[Monitor]:
         except Exception as e:
             error_message = str(e)
             # Check if the specific validation error is in the exception message
+            # These are known data quality issues from orphaned monitors with missing assertion info
             if (
                 "assertion_monitor -> assertions -> 0 -> assertion -> entity"
                 in error_message
             ):
-                logger.error(
-                    f"Validation error ignored for monitor. {graphql_monitor}: {error_message}"
+                logger.debug(
+                    f"Validation error ignored for monitor (missing entity). {graphql_monitor.get('urn')}: {error_message}"
+                )
+            elif (
+                "assertion_monitor.assertions.0.assertion.type" in error_message
+                or "assertion_monitor -> assertions -> 0 -> assertion -> type"
+                in error_message
+            ):
+                # Orphaned monitor with assertion that has no info aspect (type is 'ASSERTION' instead of valid AssertionType)
+                logger.debug(
+                    f"Validation error ignored for monitor (missing assertion info). {graphql_monitor.get('urn')}: {error_message}"
                 )
             else:
                 METRIC("ASSERTION_FETCHER_ITEMS_ERRORED", exception="exception").inc()

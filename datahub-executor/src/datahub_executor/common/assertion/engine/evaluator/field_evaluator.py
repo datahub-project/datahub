@@ -17,7 +17,7 @@ from datahub_executor.common.assertion.engine.evaluator.utils.field import (
     convert_field_parameters_to_metric_resolver_strategy,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
-    is_training_required,
+    is_smart_assertion,
     make_monitor_metric_cube_urn,
 )
 from datahub_executor.common.assertion.types import (
@@ -409,7 +409,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         we are using DataHub's Dataset Profile or a direct (query-based) source.
         """
         # Determine if this is a smart assertion, requiring stored sampling.
-        is_training_required_for_assertion = is_training_required(assertion=assertion)
+        is_training_required_for_assertion = is_smart_assertion(assertion=assertion)
 
         logger.debug("About to run metric collection step...")
 
@@ -532,7 +532,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             "Missing required field metric assertion!"
         )
 
-        if context.online_smart_assertions and is_training_required(assertion):
+        if context.online_smart_assertions and is_smart_assertion(assertion):
             # If we have smart assertions v2, there might not be an assertion present yet.
             if context.evaluation_spec:
                 last_inferred_at = (

@@ -29,9 +29,7 @@ from datahub_executor.common.monitor.inference.sql_assertion_trainer import (
 from datahub_executor.common.types import (
     Anomaly,
     Assertion,
-    AssertionAdjustmentSettings,
     AssertionEvaluationSpec,
-    AssertionMonitorSensitivity,
     AssertionType,
     AssertionValueChangeType,
     Monitor,
@@ -39,7 +37,6 @@ from datahub_executor.common.types import (
     SQLAssertionType,
 )
 from datahub_executor.config import (
-    SQL_METRIC_DEFAULT_SENSITIVITY_LEVEL,
     SQL_METRIC_MIN_TRAINING_INTERVAL_SECONDS,
     SQL_METRIC_MIN_TRAINING_SAMPLES,
     SQL_METRIC_MIN_TRAINING_SAMPLES_TIMESPAN_SECONDS,
@@ -348,7 +345,7 @@ def test_try_get_historical_data_for_bootstrap(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.sql_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data(
     mock_get_metric_cube_urn: MagicMock,
@@ -382,7 +379,7 @@ def test_get_metric_data(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.sql_assertion_trainer.get_metric_cube_urn"
 )
 def test_get_metric_data_filters_anomalies(
     mock_get_metric_cube_urn: MagicMock,
@@ -476,7 +473,7 @@ def test_train_and_update_assertion_missing_sql_assertion(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.sql_assertion_trainer.SqlAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.sql_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.sql_assertion_trainer.SqlAssertionTrainer._get_assertion_info"
@@ -522,7 +519,7 @@ def test_train_and_update_assertion(
 
     # Assert
     # Check sensitivity level was retrieved
-    mock_get_sensitivity_level.assert_called_once_with(None)
+    mock_get_sensitivity_level.assert_called_once_with(None, 6)
 
     # Check boundaries were predicted with correct parameters for SQL metrics
     mock_dependencies[
@@ -568,7 +565,7 @@ def test_train_and_update_assertion(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.sql_assertion_trainer.SqlAssertionTrainer._get_sensitivity_level"
+    "datahub_executor.common.monitor.inference.sql_assertion_trainer.get_sensitivity_level"
 )
 @patch(
     "datahub_executor.common.monitor.inference.sql_assertion_trainer.SqlAssertionTrainer._get_assertion_info"
@@ -623,33 +620,6 @@ def test_train_and_update_assertion_with_change_type(
 
     # Check result
     assert result == mock_assertion_with_change_type
-
-
-def test_get_sensitivity_level_with_settings(
-    trainer: SqlAssertionTrainer,
-) -> None:
-    """Test getting sensitivity level from adjustment settings."""
-    # Arrange
-    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
-    adjustment_settings.sensitivity = Mock(spec=AssertionMonitorSensitivity)
-    adjustment_settings.sensitivity.level = 3
-
-    # Act
-    result = trainer._get_sensitivity_level(adjustment_settings)
-
-    # Assert
-    assert result == 3
-
-
-def test_get_sensitivity_level_no_settings(
-    trainer: SqlAssertionTrainer,
-) -> None:
-    """Test getting default sensitivity level when no settings provided."""
-    # Act
-    result = trainer._get_sensitivity_level(None)
-
-    # Assert
-    assert result == SQL_METRIC_DEFAULT_SENSITIVITY_LEVEL
 
 
 @patch(

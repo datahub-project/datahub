@@ -158,10 +158,14 @@ def null_monitor() -> Mock:
     return monitor
 
 
+@patch(
+    "datahub_executor.common.monitor.inference.monitor_training_engine.USE_OBSERVE_MODELS",
+    False,
+)
 def test_initialize_trainers(
     mock_dependencies: Dict[str, Union[MagicMock, Mock]],
 ) -> None:
-    """Test that trainers are properly initialized."""
+    """Test that trainers are properly initialized when USE_OBSERVE_MODELS is False."""
     # Act
     engine = MonitorTrainingEngine(
         cast(DataHubGraph, mock_dependencies["graph"]),
@@ -219,16 +223,16 @@ def test_train_empty_monitor(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.monitor_training_engine.is_training_required"
+    "datahub_executor.common.monitor.inference.monitor_training_engine.is_smart_assertion"
 )
 def test_train_volume_monitor(
-    mock_is_training_required: MagicMock,
+    mock_is_smart_assertion: MagicMock,
     engine: MonitorTrainingEngine,
     volume_monitor: Mock,
 ) -> None:
     """Test train method with a volume assertion monitor."""
     # Arrange
-    mock_is_training_required.return_value = True
+    mock_is_smart_assertion.return_value = True
 
     # Act
     engine.train(volume_monitor)
@@ -243,16 +247,16 @@ def test_train_volume_monitor(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.monitor_training_engine.is_training_required"
+    "datahub_executor.common.monitor.inference.monitor_training_engine.is_smart_assertion"
 )
 def test_train_freshness_monitor(
-    mock_is_training_required: MagicMock,
+    mock_is_smart_assertion: MagicMock,
     engine: MonitorTrainingEngine,
     freshness_monitor: Mock,
 ) -> None:
     """Test train method with a freshness assertion monitor."""
     # Arrange
-    mock_is_training_required.return_value = True
+    mock_is_smart_assertion.return_value = True
 
     # Act
     engine.train(freshness_monitor)
@@ -267,16 +271,16 @@ def test_train_freshness_monitor(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.monitor_training_engine.is_training_required"
+    "datahub_executor.common.monitor.inference.monitor_training_engine.is_smart_assertion"
 )
 def test_train_field_monitor(
-    mock_is_training_required: MagicMock,
+    mock_is_smart_assertion: MagicMock,
     engine: MonitorTrainingEngine,
     field_monitor: Mock,
 ) -> None:
     """Test train method with a field assertion monitor."""
     # Arrange
-    mock_is_training_required.return_value = True
+    mock_is_smart_assertion.return_value = True
 
     # Act
     engine.train(field_monitor)
@@ -291,16 +295,16 @@ def test_train_field_monitor(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.monitor_training_engine.is_training_required"
+    "datahub_executor.common.monitor.inference.monitor_training_engine.is_smart_assertion"
 )
 def test_train_unsupported_monitor(
-    mock_is_training_required: MagicMock,
+    mock_is_smart_assertion: MagicMock,
     engine: MonitorTrainingEngine,
     unsupported_monitor: Mock,
 ) -> None:
     """Test train method with an unsupported assertion type."""
     # Arrange
-    mock_is_training_required.return_value = True
+    mock_is_smart_assertion.return_value = True
 
     # Act
     engine.train(unsupported_monitor)
@@ -312,16 +316,16 @@ def test_train_unsupported_monitor(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.monitor_training_engine.is_training_required"
+    "datahub_executor.common.monitor.inference.monitor_training_engine.is_smart_assertion"
 )
 def test_train_skip_non_inference_monitor(
-    mock_is_training_required: MagicMock,
+    mock_is_smart_assertion: MagicMock,
     engine: MonitorTrainingEngine,
     volume_monitor: Mock,
 ) -> None:
     """Test train method skips assertions not marked for inference."""
     # Arrange
-    mock_is_training_required.return_value = False
+    mock_is_smart_assertion.return_value = False
 
     # Act
     engine.train(volume_monitor)
@@ -333,16 +337,16 @@ def test_train_skip_non_inference_monitor(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.monitor_training_engine.is_training_required"
+    "datahub_executor.common.monitor.inference.monitor_training_engine.is_smart_assertion"
 )
 def test_train_handles_trainer_exception(
-    mock_is_training_required: MagicMock,
+    mock_is_smart_assertion: MagicMock,
     engine: MonitorTrainingEngine,
     volume_monitor: Mock,
 ) -> None:
     """Test train method handles exceptions from trainers."""
     # Arrange
-    mock_is_training_required.return_value = True
+    mock_is_smart_assertion.return_value = True
 
     # Make the volume trainer raise an exception
     engine._trainers[AssertionType.VOLUME].train.side_effect = Exception(  # type: ignore

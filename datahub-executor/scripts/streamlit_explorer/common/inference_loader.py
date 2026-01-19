@@ -14,14 +14,16 @@ import pandas as pd
 import requests
 from datahub.metadata.schema_classes import AssertionInferenceDetailsClass
 
-from datahub_executor.common.monitor.inference.inference_utils import (
+from datahub_executor.common.monitor.inference_v2.inference_utils import (
+    ModelConfig,
+    parse_inference_details,
+)
+from datahub_executor.common.monitor.inference_v2.observe_adapter.serialization import (
     AnomalyConfigSerializer,
     AnomalyEvalsSerializer,
     ForecastConfigSerializer,
     ForecastEvalsSerializer,
-    ModelConfig,
     PreprocessingConfigSerializer,
-    parse_inference_details,
 )
 
 logger = logging.getLogger(__name__)

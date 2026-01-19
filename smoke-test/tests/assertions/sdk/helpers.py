@@ -55,12 +55,44 @@ def get_nested_value(data: dict, path: str, default: Any = None) -> Any:
     return current
 
 
+GRAPHQL_GET_ASSERTION_MONITOR = """
+    query getAssertionMonitor($assertionUrn: String!) {
+        assertion(urn: $assertionUrn) {
+            monitor {
+                urn
+            }
+        }
+    }
+"""
+
+
 def cleanup_assertion(graph_client: DataHubGraph, assertion_urn: str) -> None:
-    """Helper to clean up an assertion after test.
+    """Helper to clean up an assertion and its associated monitor after test.
 
     Uses a shorter 10-second timeout since cleanup doesn't need
     to verify the deletion is visible in search indexes.
+
+    Args:
+        graph_client: The DataHub graph client
+        assertion_urn: The URN of the assertion to delete
     """
+    # First, try to find and delete the associated monitor
+    try:
+        result = graph_client.execute_graphql(
+            query=GRAPHQL_GET_ASSERTION_MONITOR,
+            variables={"assertionUrn": assertion_urn},
+        )
+        monitor = result.get("assertion", {}).get("monitor")
+        if monitor and monitor.get("urn"):
+            monitor_urn = monitor["urn"]
+            graph_client.delete_entity(monitor_urn, hard=True)
+            logger.debug(f"Deleted monitor: {monitor_urn}")
+    except Exception as e:
+        logger.debug(
+            f"Could not find/delete monitor for assertion {assertion_urn}: {e}"
+        )
+
+    # Delete the assertion
     graph_client.delete_entity(assertion_urn, hard=True)
     wait_for_writes_to_sync(max_timeout_in_sec=10)
 

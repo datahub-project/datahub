@@ -20,7 +20,7 @@ from datahub_executor.common.types import (
 
 __all__: Tuple[str, ...] = (
     "ASSERTION_TYPES_REQUIRING_TRAINING",
-    "is_training_required",
+    "is_smart_assertion",
     "is_field_metric_assertion",
     "encode_monitor_urn",
     "decode_monitor_urn",
@@ -40,7 +40,7 @@ ASSERTION_TYPES_REQUIRING_TRAINING: Tuple[AssertionType, ...] = (
 )
 
 
-def is_training_required(
+def is_smart_assertion(
     assertion: Assertion,
 ) -> bool:
     # Currently, we'll assume that all smart assertions

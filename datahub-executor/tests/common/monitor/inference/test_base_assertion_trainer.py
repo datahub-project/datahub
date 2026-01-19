@@ -25,9 +25,6 @@ from datahub_executor.common.types import (
     AssertionMonitorMetricsCubeBootstrapState,
     Monitor,
 )
-from datahub_executor.config import (
-    ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
-)
 
 
 class TestableAssertionTrainer(BaseAssertionTrainer[Metric]):
@@ -330,32 +327,6 @@ def test_perform_training_enough_samples_and_time(
     assert trainer.train_called
 
 
-def test_extract_lookback_days_from_adjustment_settings_with_settings(
-    trainer: TestableAssertionTrainer,
-) -> None:
-    """Test extracting lookback days from adjustment settings."""
-    # Arrange
-    adjustment_settings = Mock(spec=AssertionAdjustmentSettings)
-    adjustment_settings.training_data_lookback_window_days = 30
-
-    # Act
-    result = trainer.extract_lookback_days_from_adjustment_settings(adjustment_settings)
-
-    # Assert
-    assert result == 30
-
-
-def test_extract_lookback_days_from_adjustment_settings_no_settings(
-    trainer: TestableAssertionTrainer,
-) -> None:
-    """Test extracting default lookback days when no adjustment settings are provided."""
-    # Act
-    result = trainer.extract_lookback_days_from_adjustment_settings(None)
-
-    # Assert
-    assert result == ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
-
-
 def test_filter_training_timeseries_no_exclusions(
     trainer: TestableAssertionTrainer,
 ) -> None:
@@ -494,24 +465,6 @@ def test_create_empty_context(trainer: TestableAssertionTrainer) -> None:
 
 
 @patch(
-    "datahub_executor.common.assertion.engine.evaluator.utils.shared.encode_monitor_urn"
-)
-def test_get_metric_cube_urn(
-    mock_encode_monitor_urn: MagicMock, trainer: TestableAssertionTrainer
-) -> None:
-    """Test getting metric cube URN for a monitor."""
-    # Arrange
-    mock_encode_monitor_urn.return_value = "encoded-monitor-urn"
-
-    # Act
-    result = trainer.get_metric_cube_urn("test-monitor-urn")
-
-    # Assert
-    mock_encode_monitor_urn.assert_called_once_with("test-monitor-urn")
-    assert result == "urn:li:dataHubMetricCube:encoded-monitor-urn"
-
-
-@patch(
     "datahub_executor.common.monitor.inference.utils.try_extract_metrics_cube_bootstrap_status"
 )
 def test_check_is_metrics_cube_bootstrapped_completed(
@@ -573,7 +526,7 @@ def test_check_is_metrics_cube_bootstrapped_no_status(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.get_metric_cube_urn"
 )
 def test_bootstrap_metrics_cube_with_data(
     mock_get_metric_cube_urn: MagicMock, trainer: TestableAssertionTrainer
@@ -597,7 +550,7 @@ def test_bootstrap_metrics_cube_with_data(
 
 
 @patch(
-    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.get_metric_cube_urn"
 )
 def test_bootstrap_metrics_cube_with_data_empty_metrics(
     mock_get_metric_cube_urn: MagicMock, trainer: TestableAssertionTrainer

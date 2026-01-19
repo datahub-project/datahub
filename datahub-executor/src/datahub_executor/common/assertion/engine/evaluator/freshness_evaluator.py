@@ -15,7 +15,7 @@ from datahub_executor.common.assertion.engine.evaluator.utils.freshness import (
     get_event_type_parameters_from_parameters,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
-    is_training_required,
+    is_smart_assertion,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.time import (
     get_fixed_interval_start,
@@ -638,7 +638,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         # If there is no freshness condition yet, we are still in training.
         # Note that training depends on Operations being present, obtained from the a
         # audit log. Currently, this only happens based on ingestion.
-        if context.online_smart_assertions and is_training_required(assertion):
+        if context.online_smart_assertions and is_smart_assertion(assertion):
             # Check whether there is an assertion that has been generated!
             # if not, reporting an initializing state.
             if context.evaluation_spec:

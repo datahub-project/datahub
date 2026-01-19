@@ -25,7 +25,7 @@ from typing import Generator, List
 
 import pandas as pd
 import pytest
-from datahub_executor.common.monitor.inference.inference_utils import (
+from datahub_executor.common.monitor.inference_v2.inference_utils import (
     OBSERVE_MODELS_VERSION,
     AnomalyAssertions,
     # Assertion conversion namespaces

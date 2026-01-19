@@ -1578,7 +1578,7 @@ def _render_config_json(
 
     HAS_SERIALIZERS = (
         importlib.util.find_spec(
-            "datahub_executor.common.monitor.inference.inference_utils"
+            "datahub_executor.common.monitor.inference_v2.inference_utils"
         )
         is not None
     )
@@ -1668,7 +1668,7 @@ def _render_config_editor(
         # Additional validation with serializers if available
         if has_serializers:
             try:
-                from datahub_executor.common.monitor.inference.inference_utils import (
+                from datahub_executor.common.monitor.inference_v2.observe_adapter.serialization import (
                     AnomalyConfigSerializer,
                     ForecastConfigSerializer,
                     PreprocessingConfigSerializer,

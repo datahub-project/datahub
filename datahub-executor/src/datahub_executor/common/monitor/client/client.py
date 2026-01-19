@@ -51,6 +51,13 @@ class MonitorClient:
     ) -> List[Anomaly]:
         """
         Fetch anomaly events for a given monitor urn.
+
+        Rejected anomalies are always filtered out.
+
+        Args:
+            urn: The monitor's URN.
+            lookback: How far back to look for anomalies.
+            limit: Maximum number of anomalies to return.
         """
         end_time = datetime.now(timezone.utc)
         start_time = end_time - lookback
@@ -72,6 +79,8 @@ class MonitorClient:
         """
         Fetch anomaly events for a given monitor urn.
 
+        Rejected anomalies are always filtered out.
+
         Args:
             monitor_urn (str): The monitor's URN.
             start_time_ms (int): Start timestamp (milliseconds).
@@ -82,7 +91,7 @@ class MonitorClient:
         """
         logger.info("Fetching historical anomalies for monitor %s", monitor_urn)
 
-        # Fetch all anomaly events, including rejected ones
+        # Fetch all anomaly events
         monitor_event_aspects = self.graph.get_timeseries_values(
             entity_urn=monitor_urn,
             aspect_type=MonitorAnomalyEventClass,
@@ -101,20 +110,26 @@ class MonitorClient:
         # Get the latest anomaly report for each run event
         latest_anomaly_events = self._get_latest_anomaly_events(monitor_event_aspects)
 
-        # Filter out rejected anomalies, and return the rest
+        # Build anomaly list, filtering out rejected ones
         anomalies = []
         for anomaly in latest_anomaly_events:
-            if anomaly.state != "REJECTED":
-                assert (
-                    anomaly.source is not None
-                    and anomaly.source.sourceEventTimestampMillis is not None
+            # Always skip rejected anomalies
+            if anomaly.state == "REJECTED":
+                continue
+
+            assert (
+                anomaly.source is not None
+                and anomaly.source.sourceEventTimestampMillis is not None
+            )
+            # Convert state to string (may be str or AnomalyReviewStateClass enum)
+            status_str = str(anomaly.state) if anomaly.state is not None else None
+            anomalies.append(
+                Anomaly(
+                    timestamp_ms=anomaly.source.sourceEventTimestampMillis,
+                    metric=self._get_monitor_anomaly_event_metric(anomaly),
+                    status=status_str,
                 )
-                anomalies.append(
-                    Anomaly(
-                        timestamp_ms=anomaly.source.sourceEventTimestampMillis,
-                        metric=self._get_monitor_anomaly_event_metric(anomaly),
-                    )
-                )
+            )
 
         return anomalies
 

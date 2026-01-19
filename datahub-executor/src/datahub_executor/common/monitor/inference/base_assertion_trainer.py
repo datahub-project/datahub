@@ -14,6 +14,9 @@ from datahub.metadata.schema_classes import (
 
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
+from datahub_executor.common.monitor.adjustment_utils import (
+    get_metric_cube_urn,
+)
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricPredictor,
@@ -30,10 +33,7 @@ from datahub_executor.common.types import (
     AssertionExclusionWindow,
     Monitor,
 )
-from datahub_executor.config import (
-    ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
-    ONLINE_SMART_ASSERTIONS_ENABLED,
-)
+from datahub_executor.config import ONLINE_SMART_ASSERTIONS_ENABLED
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +241,7 @@ class BaseAssertionTrainer(Generic[Event], ABC):
     ) -> None:
         if len(datahub_profile_metrics) > 0:
             # 1. Store the metrics in the metrics cube
-            metric_cube_urn = self.get_metric_cube_urn(monitor.urn)
+            metric_cube_urn = get_metric_cube_urn(monitor.urn)
             self.metrics_client.save_metric_values(
                 metric_cube_urn,
                 datahub_profile_metrics,
@@ -257,20 +257,6 @@ class BaseAssertionTrainer(Generic[Event], ABC):
                 monitor.urn,
                 metrics_cube_bootstrap_status,
             )
-
-    @classmethod
-    def extract_lookback_days_from_adjustment_settings(
-        cls, adjustment_settings: Optional[AssertionAdjustmentSettings]
-    ) -> int:
-        """
-        Extract the lookback window in days from adjustment settings or use the default.
-        """
-        if (
-            adjustment_settings
-            and adjustment_settings.training_data_lookback_window_days
-        ):
-            return adjustment_settings.training_data_lookback_window_days
-        return ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
 
     @classmethod
     def filter_training_timeseries(
@@ -374,13 +360,3 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         return AssertionEvaluationContextClass(
             embeddedAssertions=[], inferenceDetails=inference_details
         )
-
-    def get_metric_cube_urn(self, monitor_urn: str) -> str:
-        """
-        Get the metric cube URN for a monitor.
-        """
-        from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
-            encode_monitor_urn,
-        )
-
-        return f"urn:li:dataHubMetricCube:{encode_monitor_urn(monitor_urn)}"
