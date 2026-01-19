@@ -48,8 +48,9 @@ def assertions() -> None:
 
 @assertions.command()
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@click.pass_context
 @upgrade.check_upgrade
-def upsert(file: str) -> None:
+def upsert(ctx: click.Context, file: str) -> None:
     """Upsert (create or update) a set of assertions in DataHub.
 
     ⚠️  DEPRECATED: This command is deprecated and no longer supported.
@@ -63,7 +64,8 @@ def upsert(file: str) -> None:
 
     assertions_spec: AssertionsConfigSpec = AssertionsConfigSpec.from_yaml(file)
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         for assertion_spec in assertions_spec.assertions:
             try:
                 mcp = MetadataChangeProposalWrapper(

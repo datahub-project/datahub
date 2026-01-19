@@ -76,12 +76,19 @@ def dataproduct() -> None:
     pass
 
 
-def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -> None:
+def mutate(
+    ctx: click.Context,
+    file: Path,
+    validate_assets: bool,
+    external_url: str,
+    upsert: bool,
+) -> None:
     """Update or Upsert a Data Product in DataHub"""
 
     config_dict = load_file(pathlib.Path(file))
     id = config_dict.get("id") if isinstance(config_dict, dict) else None
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         data_product: DataProduct = DataProduct.from_yaml(file, graph)
         external_url_override = (
             external_url or get_dataproduct_external_url() or data_product.external_url
@@ -126,11 +133,14 @@ def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
 @click.option("--external-url", required=False, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def update(file: Path, validate_assets: bool, external_url: str) -> None:
+def update(
+    ctx: click.Context, file: Path, validate_assets: bool, external_url: str
+) -> None:
     """Create or Update a Data Product in DataHub. Use upsert if you want to apply partial updates."""
 
-    mutate(file, validate_assets, external_url, upsert=False)
+    mutate(ctx, file, validate_assets, external_url, upsert=False)
 
 
 @dataproduct.command(
@@ -141,11 +151,14 @@ def update(file: Path, validate_assets: bool, external_url: str) -> None:
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
 @click.option("--external-url", required=False, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
+def upsert(
+    ctx: click.Context, file: Path, validate_assets: bool, external_url: str
+) -> None:
     """Upsert attributes to a Data Product in DataHub."""
 
-    mutate(file, validate_assets, external_url, upsert=True)
+    mutate(ctx, file, validate_assets, external_url, upsert=True)
 
 
 @dataproduct.command(
@@ -153,11 +166,13 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option("--update", required=False, is_flag=True, default=False)
+@click.pass_context
 @upgrade.check_upgrade
-def diff(file: Path, update: bool) -> None:
+def diff(ctx: click.Context, file: Path, update: bool) -> None:
     """Diff a Data Product file with its twin in DataHub"""
 
-    with get_default_graph(ClientMode.CLI) as emitter:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as emitter:
         id: Optional[str] = None
         try:
             data_product_local: DataProduct = DataProduct.from_yaml(file, emitter)
@@ -199,8 +214,9 @@ def diff(file: Path, update: bool) -> None:
     help="The file containing the data product definition",
 )
 @click.option("--hard/--soft", required=False, is_flag=True, default=False)
+@click.pass_context
 @upgrade.check_upgrade
-def delete(urn: str, file: Path, hard: bool) -> None:
+def delete(ctx: click.Context, urn: str, file: Path, hard: bool) -> None:
     """Delete a Data Product in DataHub. Defaults to a soft-delete. Use --hard to completely erase metadata."""
 
     if not urn and not file:
@@ -209,8 +225,9 @@ def delete(urn: str, file: Path, hard: bool) -> None:
         )
         raise click.Abort()
 
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
     graph: DataHubGraph
-    with get_default_graph(ClientMode.CLI) as graph:
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         data_product_urn = (
             urn if urn.startswith("urn:li:dataProduct") else f"urn:li:dataProduct:{urn}"
         )
@@ -234,14 +251,16 @@ def delete(urn: str, file: Path, hard: bool) -> None:
 )
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def get(urn: str, to_file: str) -> None:
+def get(ctx: click.Context, urn: str, to_file: str) -> None:
     """Get a Data Product from DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
         urn = f"urn:li:dataProduct:{urn}"
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         if graph.exists(urn):
             dataproduct: DataProduct = DataProduct.from_datahub(graph=graph, id=urn)
             click.secho(
@@ -270,8 +289,11 @@ def get(urn: str, to_file: str) -> None:
     type=click.Path(exists=True),
     help="A markdown file that contains documentation for this data product",
 )
+@click.pass_context
 @upgrade.check_upgrade
-def set_description(urn: str, description: str, md_file: Path) -> None:
+def set_description(
+    ctx: click.Context, urn: str, description: str, md_file: Path
+) -> None:
     """Set description for a Data Product in DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
@@ -298,7 +320,8 @@ def set_description(urn: str, description: str, md_file: Path) -> None:
 
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.set_description(description)
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         _abort_if_non_existent_urn(graph, urn, "set description")
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
@@ -320,8 +343,9 @@ def set_description(urn: str, description: str, md_file: Path) -> None:
     ),
     default=OwnershipTypeClass.TECHNICAL_OWNER,
 )
+@click.pass_context
 @upgrade.check_upgrade
-def add_owner(urn: str, owner: str, owner_type: str) -> None:
+def add_owner(ctx: click.Context, urn: str, owner: str, owner_type: str) -> None:
     """Add owner for a Data Product in DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
@@ -333,7 +357,8 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
             owner=_get_owner_urn(owner), type=owner_type, typeUrn=owner_type_urn
         )
     )
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         _abort_if_non_existent_urn(graph, urn, "add owners")
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
@@ -342,15 +367,17 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
 @dataproduct.command(name="remove_owner", help="Remove an owner from a Data Product")
 @click.option("--urn", required=True, type=str)
 @click.argument("owner_urn", required=True, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def remove_owner(urn: str, owner_urn: str) -> None:
+def remove_owner(ctx: click.Context, urn: str, owner_urn: str) -> None:
     """Remove owner for a Data Product in DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.remove_owner(owner=_get_owner_urn(owner_urn))
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         _abort_if_non_existent_urn(graph, urn, "remove owners")
         for mcp in dataproduct_patcher.build():
             click.echo(json.dumps(mcp.to_obj()))
@@ -363,15 +390,17 @@ def remove_owner(urn: str, owner_urn: str) -> None:
 @click.option(
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
+@click.pass_context
 @upgrade.check_upgrade
-def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
+def add_asset(ctx: click.Context, urn: str, asset: str, validate_assets: bool) -> None:
     """Add asset for a Data Product in DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.add_asset(asset)
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         _abort_if_non_existent_urn(graph, urn, "add assets")
         if validate_assets:
             _abort_if_non_existent_urn(
@@ -389,15 +418,19 @@ def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
 @click.option(
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
+@click.pass_context
 @upgrade.check_upgrade
-def remove_asset(urn: str, asset: str, validate_assets: bool) -> None:
+def remove_asset(
+    ctx: click.Context, urn: str, asset: str, validate_assets: bool
+) -> None:
     """Remove asset for a Data Product in DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.remove_asset(asset)
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         _abort_if_non_existent_urn(graph, urn, "remove assets")
         if validate_assets:
             _abort_if_non_existent_urn(

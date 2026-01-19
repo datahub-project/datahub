@@ -35,4 +35,7 @@ def urn(ctx: Any, urn: Optional[str]) -> None:
             raise click.UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
-    click.echo(json.dumps(get_default_graph(ClientMode.CLI).exists(urn)))
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    click.echo(
+        json.dumps(get_default_graph(ClientMode.CLI, profile=profile_name).exists(urn))
+    )

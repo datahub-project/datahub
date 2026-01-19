@@ -20,14 +20,16 @@ def state() -> None:
 @state.command()
 @click.option("--pipeline-name", required=True, type=str)
 @click.option("--platform", required=True, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def inspect(pipeline_name: str, platform: str) -> None:
+def inspect(ctx: click.Context, pipeline_name: str, platform: str) -> None:
     """
     Get the latest stateful ingestion state for a given pipeline.
     Only works for state entity removal for now.
     """
 
-    datahub_graph = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    datahub_graph = get_default_graph(ClientMode.CLI, profile=profile_name)
     checkpoint = datahub_graph.get_latest_pipeline_checkpoint(pipeline_name, platform)
     if not checkpoint:
         click.secho("No ingestion state found.", fg="red")

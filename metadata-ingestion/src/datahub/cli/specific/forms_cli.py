@@ -34,10 +34,12 @@ def upsert(file: Path) -> None:
 )
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def get(urn: str, to_file: str) -> None:
+def get(ctx: click.Context, urn: str, to_file: str) -> None:
     """Get form from DataHub"""
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         if graph.exists(urn):
             form: Forms = Forms.from_datahub(graph=graph, urn=urn)
             click.secho(

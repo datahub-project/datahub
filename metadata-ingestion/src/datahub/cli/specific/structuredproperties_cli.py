@@ -28,11 +28,13 @@ def properties() -> None:
     name="upsert",
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@click.pass_context
 @upgrade.check_upgrade
-def upsert(file: Path) -> None:
+def upsert(ctx: click.Context, file: Path) -> None:
     """Upsert structured properties in DataHub."""
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         StructuredProperties.create(str(file), graph)
 
 
@@ -41,12 +43,14 @@ def upsert(file: Path) -> None:
 )
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def get(urn: str, to_file: str) -> None:
+def get(ctx: click.Context, urn: str, to_file: str) -> None:
     """Get structured properties from DataHub"""
     urn = Urn.make_structured_property_urn(urn)
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         if graph.exists(urn):
             structuredproperties: StructuredProperties = (
                 StructuredProperties.from_datahub(graph=graph, urn=urn)
@@ -68,8 +72,9 @@ def get(urn: str, to_file: str) -> None:
 )
 @click.option("--details/--no-details", is_flag=True, default=True)
 @click.option("--to-file", required=False, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def list(details: bool, to_file: str) -> None:
+def list(ctx: click.Context, details: bool, to_file: str) -> None:
     """List structured properties in DataHub"""
 
     def to_yaml_list(
@@ -115,7 +120,8 @@ def list(details: bool, to_file: str) -> None:
         with open(file, "w") as fp:
             yaml.dump(serialized_objects, fp)
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         if details:
             logger.info(
                 "Listing structured properties with details. Use --no-details for urns only"

@@ -62,8 +62,9 @@ def get_timeline(
     end_time: Optional[int],
     diff: bool,
     graph: Optional[DataHubGraph] = None,
+    profile: Optional[str] = None,
 ) -> Any:
-    client = graph if graph else get_default_graph(ClientMode.CLI)
+    client = graph if graph else get_default_graph(ClientMode.CLI, profile=profile)
     session = client._session
     host = client.config.server
     if urn.startswith("urn%3A"):
@@ -175,12 +176,14 @@ def timeline(
         else:
             end_time_millis = int(end)
 
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
     timeline = get_timeline(
         urn=urn,
         category=category,
         start_time=start_time_millis,
         end_time=end_time_millis,
         diff=raw,
+        profile=profile_name,
     )
 
     if isinstance(timeline, list) and not verbose:

@@ -33,13 +33,15 @@ def group() -> None:
     default=False,
     help="When set, writes to the editable section of the metadata graph, overwriting writes from the UI",
 )
+@click.pass_context
 @upgrade.check_upgrade
-def upsert(file: Path, override_editable: bool) -> None:
+def upsert(ctx: click.Context, file: Path, override_editable: bool) -> None:
     """Create or Update a Group with embedded Users"""
 
     config_dict = load_file(file)
     group_configs = config_dict if isinstance(config_dict, list) else [config_dict]
-    with get_default_graph(ClientMode.CLI) as emitter:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as emitter:
         for group_config in group_configs:
             try:
                 datahub_group = CorpGroup.model_validate(group_config)

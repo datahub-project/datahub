@@ -44,14 +44,16 @@ def upsert(file: Path, dry_run: bool) -> None:
 )
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
+@click.pass_context
 @upgrade.check_upgrade
-def get(urn: str, to_file: str) -> None:
+def get(ctx: click.Context, urn: str, to_file: str) -> None:
     """Get a Dataset from DataHub"""
 
     if not urn.startswith("urn:li:dataset:"):
         urn = f"urn:li:dataset:{urn}"
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         if graph.exists(urn):
             dataset: Dataset = Dataset.from_datahub(graph=graph, urn=urn)
             click.secho(
@@ -73,13 +75,15 @@ def get(urn: str, to_file: str) -> None:
     help="URN of secondary sibling(s)",
     multiple=True,
 )
+@click.pass_context
 @upgrade.check_upgrade
-def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
+def add_sibling(ctx: click.Context, urn: str, sibling_urns: Tuple[str]) -> None:
     all_urns = set()
     all_urns.add(urn)
     for sibling_urn in sibling_urns:
         all_urns.add(sibling_urn)
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         for _urn in all_urns:
             _emit_sibling(graph, urn, _urn, all_urns)
 
@@ -168,14 +172,16 @@ def file(lintcheck: bool, lintfix: bool, file: str) -> None:
 @click.option(
     "-n", "--dry-run", type=bool, is_flag=True, default=False, help="Perform a dry run"
 )
+@click.pass_context
 @upgrade.check_upgrade
-def sync(file: str, to_datahub: bool, dry_run: bool) -> None:
+def sync(ctx: click.Context, file: str, to_datahub: bool, dry_run: bool) -> None:
     """Sync a Dataset file to/from DataHub"""
 
     dry_run_prefix = "[dry-run]: " if dry_run else ""  # prefix to use in messages
 
     failures: List[str] = []
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         datasets = Dataset.from_yaml(file)
         for dataset in datasets:
             assert (

@@ -164,9 +164,11 @@ def validate_warehouse(data_root: str) -> None:
     type=int,
     help=f"Expiration duration for temporary credentials used for role. Defaults to {DEFAULT_CREDS_EXPIRY_DURATION_SECONDS} seconds if unspecified",
 )
+@click.pass_context
 @telemetry.with_telemetry(capture_kwargs=["duration_seconds"])
 @upgrade.check_upgrade
 def create(
+    ctx: click.Context,
     warehouse: str,
     description: Optional[str],
     data_root: str,
@@ -181,7 +183,8 @@ def create(
     Create an iceberg warehouse.
     """
 
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     urn = iceberg_data_platform_instance_urn(warehouse)
 
@@ -318,9 +321,11 @@ def create(
     type=int,
     help=f"Expiration duration for temporary credentials used for role. Defaults to {DEFAULT_CREDS_EXPIRY_DURATION_SECONDS} seconds if unspecified",
 )
+@click.pass_context
 @telemetry.with_telemetry(capture_kwargs=["duration_seconds"])
 @upgrade.check_upgrade
 def update(
+    ctx: click.Context,
     warehouse: str,
     data_root: str,
     description: Optional[str],
@@ -335,7 +340,8 @@ def update(
     Update iceberg warehouses. Can only update credentials, and role. Cannot update region
     """
 
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     urn = iceberg_data_platform_instance_urn(warehouse)
 
@@ -405,14 +411,16 @@ def update(
 
 
 @iceberg.command()
+@click.pass_context
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
-def list() -> None:
+def list(ctx: click.Context) -> None:
     """
     List iceberg warehouses
     """
 
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     for warehouse in get_all_warehouses(client):
         click.echo(warehouse)
@@ -422,11 +430,13 @@ def list() -> None:
 @click.option(
     "-w", "--warehouse", required=True, type=str, help="The name of the warehouse"
 )
+@click.pass_context
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
-def get(warehouse: str) -> None:
+def get(ctx: click.Context, warehouse: str) -> None:
     """Fetches the details of the specified iceberg warehouse"""
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
     urn = iceberg_data_platform_instance_urn(warehouse)
 
     if client.exists(urn):
@@ -453,15 +463,17 @@ def get(warehouse: str) -> None:
     is_flag=True,
     help="force the delete if set without confirmation",
 )
+@click.pass_context
 @telemetry.with_telemetry(capture_kwargs=["dry_run", "force"])
-def delete(warehouse: str, dry_run: bool, force: bool) -> None:
+def delete(ctx: click.Context, warehouse: str, dry_run: bool, force: bool) -> None:
     """
     Delete warehouse
     """
 
     urn = iceberg_data_platform_instance_urn(warehouse)
 
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     if not client.exists(urn):
         raise click.ClickException(f"urn {urn} not found")
