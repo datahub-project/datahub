@@ -8,11 +8,42 @@ Starting in version `0.8.25`, DataHub supports grouping data assets into logical
 
 ## Domains Setup, Prerequisites, and Permissions
 
-What you need to create and add domains:
+What you need to work with domains:
 
-- **Manage Domains** platform privilege to add domains at the entity level
+### Platform-Level Privilege
 
-You can create this privileges by creating a new [Metadata Policy](./authorization/policies.md).
+- **Manage Domains**: Global privilege that allows creating, editing, and deleting any domain across the organization, as well as assigning assets to domains.
+
+### Domain-Level Privileges (for Hierarchical Management and Access Control)
+
+DataHub supports fine-grained, hierarchical domain management and visibility control through domain-specific privileges:
+
+#### Management Privileges
+
+- **Manage Direct Domain Children**: Allows creating, editing, and deleting immediate child domains under a specific parent domain. Does not grant permissions for grandchild domains or deeper descendants.
+
+  _Use case_: Department leads managing their immediate sub-domains.
+
+- **Manage All Domain Children**: Allows creating, editing, and deleting any domain in the entire subtree under a specific parent domain, regardless of depth.
+
+  _Use case_: Executive leadership managing an entire business unit's domain structure.
+
+#### View/Visibility Privileges
+
+- **View Direct Domain Children**: Allows viewing immediate child domains under a specific parent domain. Users can see direct children but not grandchildren or deeper descendants.
+
+  _Use case_: Restricting visibility to immediate organizational units while hiding deeper structure.
+
+- **View All Domain Children**: Allows viewing any domain in the entire subtree under a specific parent domain, regardless of depth.
+
+  _Use case_: Granting read-only access to entire domain hierarchies based on organizational affiliation (e.g., all Finance employees can view all Finance sub-domains) without explicitly managing policies for each sub-domain. This is particularly useful when restricting domain visibility by operating company or business unit.
+
+These domain-level privileges enable distributed domain management and visibility control without requiring global admin access. For example:
+
+- Grant a VP of Engineering the "Manage All Domain Children" privilege on the "Engineering" domain to manage all sub-domains
+- Grant all Finance department members the "View All Domain Children" privilege on the "Finance" domain to see the entire Finance domain structure
+
+You can create these privileges by creating a new [Metadata Policy](./authorization/policies.md) and selecting the appropriate privilege and target domain.
 
 ## Using Domains
 
