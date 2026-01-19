@@ -259,13 +259,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     ) -> Iterable[Union[Container, Dataset]]:
         """Process a lakehouse and its tables."""
         # Create lakehouse container
-        workspace_key = WorkspaceKey(
-            platform=PLATFORM,
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            workspace_id=workspace.id,
-        )
-
         lakehouse_key = LakehouseKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
@@ -279,7 +272,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             display_name=lakehouse.name,
             description=lakehouse.description,
             subtype=DatasetContainerSubTypes.FABRIC_LAKEHOUSE,
-            parent_container=workspace_key,
+            parent_container=lakehouse_key.parent_key(),
             qualified_name=make_lakehouse_name(workspace.id, lakehouse.id),
         )
 
@@ -295,13 +288,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     ) -> Iterable[Union[Container, Dataset]]:
         """Process a warehouse and its tables."""
         # Create warehouse container
-        workspace_key = WorkspaceKey(
-            platform=PLATFORM,
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            workspace_id=workspace.id,
-        )
-
         warehouse_key = WarehouseKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
@@ -315,7 +301,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             display_name=warehouse.name,
             description=warehouse.description,
             subtype=DatasetContainerSubTypes.FABRIC_WAREHOUSE,
-            parent_container=workspace_key,
+            parent_container=warehouse_key.parent_key(),
             qualified_name=make_warehouse_name(workspace.id, warehouse.id),
         )
 
@@ -396,7 +382,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         container_key=schema_key,
                         display_name=schema_name,
                         subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
-                        parent_container=item_container_key,
+                        parent_container=schema_key.parent_key(),
                         qualified_name=make_schema_name(
                             workspace.id, item_id, schema_name
                         ),
