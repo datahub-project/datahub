@@ -77,7 +77,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.report = report
 
         # Store the prefer_lowercase override. If None, use platform-based defaults.
-        self._prefer_lowercase_override = prefer_lowercase
+        self._prefer_lowercase_override: Optional[bool] = prefer_lowercase
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
@@ -189,10 +189,19 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _prefers_urn_lower(self) -> bool:
         # Check for explicit override first (e.g., from source config)
         if self._prefer_lowercase_override is not None:
+            logger.debug(
+                f"URN case preference for platform={self.platform}: "
+                f"using explicit override prefer_lowercase={self._prefer_lowercase_override}"
+            )
             return self._prefer_lowercase_override
 
         # Fall back to platform-based defaults
-        return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
+        prefers_lower = self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
+        logger.debug(
+            f"URN case preference for platform={self.platform}: "
+            f"using platform default prefer_lowercase={prefers_lower}"
+        )
+        return prefers_lower
 
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None

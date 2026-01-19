@@ -7,6 +7,7 @@ Tests the fix for issue #13792: MSSQL View Ingestion Causes Lowercased Lineage T
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import SecretStr
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
@@ -19,7 +20,7 @@ def test_mssql_get_prefer_lowercase_true():
         host_port="localhost:1433",
         database="test_db",
         username="test_user",
-        password="test_password",
+        password=SecretStr("test_password"),
         convert_urns_to_lowercase=True,
     )
 
@@ -36,7 +37,7 @@ def test_mssql_get_prefer_lowercase_false():
         host_port="localhost:1433",
         database="test_db",
         username="test_user",
-        password="test_password",
+        password=SecretStr("test_password"),
         convert_urns_to_lowercase=False,
     )
 
@@ -53,7 +54,7 @@ def test_mssql_aggregator_receives_prefer_lowercase():
         host_port="localhost:1433",
         database="test_db",
         username="test_user",
-        password="test_password",
+        password=SecretStr("test_password"),
         convert_urns_to_lowercase=False,
     )
 
@@ -72,7 +73,7 @@ def test_mssql_aggregator_with_convert_urns_to_lowercase_true():
         host_port="localhost:1433",
         database="test_db",
         username="test_user",
-        password="test_password",
+        password=SecretStr("test_password"),
         convert_urns_to_lowercase=True,
     )
 
@@ -91,7 +92,7 @@ def test_mssql_default_config():
         host_port="localhost:1433",
         database="test_db",
         username="test_user",
-        password="test_password",
+        password=SecretStr("test_password"),
         # convert_urns_to_lowercase defaults to False
     )
 
@@ -105,13 +106,17 @@ def test_mssql_default_config():
         assert source.aggregator._schema_resolver._prefers_urn_lower() is False
 
 
-def test_mssql_no_warning_after_fix():
-    """Test that the warning about lineage issues is removed after the fix."""
+def test_mssql_source_init_does_not_warn_about_lineage():
+    """Test that source initialization does not generate lineage-related warnings.
+
+    This ensures that the fix for issue #13792 doesn't introduce unnecessary
+    warnings when using the default convert_urns_to_lowercase=False setting.
+    """
     config = SQLServerConfig(
         host_port="localhost:1433",
         database="test_db",
         username="test_user",
-        password="test_password",
+        password=SecretStr("test_password"),
         convert_urns_to_lowercase=False,
         include_lineage=True,
     )
@@ -121,13 +126,12 @@ def test_mssql_no_warning_after_fix():
     with patch.object(SQLServerSource, "get_inspectors", return_value=[]):
         source = SQLServerSource(config, ctx)
 
-        # Check that no warning about lineage was issued
-        # Note: warnings is a LossyList[StructuredLogEntry], each entry has a .message attribute
+        # Verify no lineage-related warnings are generated during initialization
         lineage_warnings = [
             w for w in source.report.warnings if "lineage" in w.message.lower()
         ]
         assert not lineage_warnings, (
-            "Warning about lineage should not be present after fix"
+            f"Unexpected lineage warnings during source init: {lineage_warnings}"
         )
 
 
@@ -159,7 +163,7 @@ def test_mssql_get_prefer_lowercase_parametrized(
         host_port="localhost:1433",
         database="test_db",
         username="test_user",
-        password="test_password",
+        password=SecretStr("test_password"),
         convert_urns_to_lowercase=convert_urns_to_lowercase,
     )
 

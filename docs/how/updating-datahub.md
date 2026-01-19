@@ -53,6 +53,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #13792: MSSQL view lineage URNs now correctly respect the `convert_urns_to_lowercase` setting. Previously, view lineage always used lowercase table references regardless of the config, causing lineage to not resolve when `convert_urns_to_lowercase: false`. If you set `convert_urns_to_lowercase: true` as a workaround for this issue and prefer preserving original case, you can now remove that setting (default is `false`).
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
