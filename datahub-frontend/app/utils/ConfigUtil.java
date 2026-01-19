@@ -2,8 +2,21 @@ package utils;
 
 import com.linkedin.util.Configuration;
 import com.typesafe.config.Config;
+import io.datahubproject.metadata.services.SecretService;
 
 public class ConfigUtil {
+
+  private static final SecretService secretService;
+
+  static {
+    // Initialize SecretService once at class load
+    String base64Key = System.getenv("SECRET_SERVICE_ENCRYPTION_KEY");
+    if (base64Key != null && !base64Key.isEmpty()) {
+      secretService = new SecretService(base64Key); // Assuming constructor accepts key
+    } else {
+      secretService = null; // no encryption key provided
+    }
+  }
 
   private ConfigUtil() {}
 
@@ -48,19 +61,46 @@ public class ConfigUtil {
   public static final String DEFAULT_METADATA_SERVICE_SSL_PROTOCOL =
       Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR);
 
-  public static boolean getBoolean(Config config, String key) {
-    return config.hasPath(key) && config.getBoolean(key);
+  /** Decrypt only if encryption key and SecretService are available. */
+  private static String decryptIfNeeded(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      if (secretService != null && isEncrypted(value)) {
+        String cipherText = value.substring(4, value.length() - 1);
+        return secretService.decrypt(cipherText);
+      }
+      return value; // plain text
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to decrypt config value: " + value, e);
+    }
+  }
+
+  /** Example check — adjust based on your encryption format. */
+  private static boolean isEncrypted(String value) {
+    // Example: values stored as ENC(<ciphertext>)
+    return value.startsWith("ENC(") && value.endsWith(")");
   }
 
   public static boolean getBoolean(Config config, String key, boolean defaultValue) {
-    return config.hasPath(key) ? config.getBoolean(key) : defaultValue;
+    if (!config.hasPath(key)) {
+      return defaultValue;
+    }
+    return Boolean.parseBoolean(decryptIfNeeded(config.getString(key)));
   }
 
   public static int getInt(Config config, String key, int defaultValue) {
-    return config.hasPath(key) ? config.getInt(key) : defaultValue;
+    if (!config.hasPath(key)) {
+      return defaultValue;
+    }
+    return Integer.parseInt(decryptIfNeeded(config.getString(key)));
   }
 
   public static String getString(Config config, String key, String defaultValue) {
-    return config.hasPath(key) ? config.getString(key) : defaultValue;
+    if (!config.hasPath(key)) {
+      return defaultValue;
+    }
+    return decryptIfNeeded(config.getString(key));
   }
 }
