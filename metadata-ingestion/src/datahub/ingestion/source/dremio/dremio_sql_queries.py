@@ -4,7 +4,7 @@ from typing import Optional
 
 class DremioSQLQueries:
     QUERY_DATASETS_CE = """
-    SELECT* FROM
+    SELECT * FROM
     (
     SELECT
         T.TABLE_SCHEMA,
@@ -12,6 +12,7 @@ class DremioSQLQueries:
         CONCAT(T.TABLE_SCHEMA, '.', T.TABLE_NAME) AS FULL_TABLE_PATH,
         V.VIEW_DEFINITION,
         C.COLUMN_NAME,
+        C.ORDINAL_POSITION,
         C.IS_NULLABLE,
         C.DATA_TYPE,
         C.COLUMN_SIZE
@@ -34,11 +35,13 @@ class DremioSQLQueries:
         {deny_schema_pattern}
     ORDER BY
         TABLE_SCHEMA ASC,
-        TABLE_NAME ASC
+        TABLE_NAME ASC,
+        ORDINAL_POSITION ASC
+    {limit_clause}
     """
 
     QUERY_DATASETS_EE = """
-        SELECT* FROM
+        SELECT * FROM
         (
         SELECT
             RESOURCE_ID,
@@ -135,7 +138,9 @@ class DremioSQLQueries:
             {deny_schema_pattern}
         ORDER BY
             TABLE_SCHEMA ASC,
-            TABLE_NAME ASC
+            TABLE_NAME ASC,
+            ORDINAL_POSITION ASC
+        {limit_clause}
         """
 
     QUERY_DATASETS_CLOUD = """
@@ -236,8 +241,10 @@ class DremioSQLQueries:
             {deny_schema_pattern}
         ORDER BY
             TABLE_SCHEMA ASC,
-            TABLE_NAME ASC
-            """
+            TABLE_NAME ASC,
+            ORDINAL_POSITION ASC
+        {limit_clause}
+        """
 
     @staticmethod
     def _get_default_start_timestamp_millis() -> str:
@@ -291,6 +298,8 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        ORDER BY submitted_ts DESC
+        {{limit_clause}}
         """
 
     @staticmethod
@@ -331,6 +340,8 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        ORDER BY submitted_ts DESC
+        {{limit_clause}}
         """
 
     QUERY_TYPES = [
