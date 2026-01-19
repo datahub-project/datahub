@@ -16,8 +16,6 @@ DEFAULT_DATABASE_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
 DEFAULT_DATABASE_BATCH_SIZE = 10_000
 DEFAULT_EXCLUDE_ASPECTS = {
-    "dataHubIngestionSourceKey",
-    "dataHubIngestionSourceInfo",
     "datahubIngestionRunSummary",
     "datahubIngestionCheckpoint",
     "dataHubSecretKey",
