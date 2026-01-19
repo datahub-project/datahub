@@ -16,7 +16,16 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 
-const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
+const TOP_FILTERS = [
+    'degree',
+    ENTITY_FILTER_NAME,
+    'typeNames',
+    'platform',
+    'tags',
+    'glossaryTerms',
+    'domains',
+    'owners',
+];
 
 const FILTERS_TO_EXCLUDE = [
     LEGACY_ENTITY_FILTER_NAME,
