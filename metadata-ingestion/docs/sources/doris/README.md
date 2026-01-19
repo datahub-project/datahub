@@ -51,6 +51,7 @@ See the [recipe documentation](https://datahubproject.io/docs/generated/ingestio
 If you encounter bugs or compatibility issues:
 
 1. **Gather Information**:
+
    - Doris version: `SELECT version();`
    - SQLAlchemy version: `pip show sqlalchemy`
    - DataHub version: `datahub version`
@@ -64,6 +65,7 @@ If you encounter bugs or compatibility issues:
 3. **Create GitHub Issue**: https://github.com/datahub-project/datahub/issues/new
 
    Include:
+
    - Doris version
    - SQLAlchemy version
    - Error message and full stack trace
