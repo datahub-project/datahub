@@ -1,5 +1,6 @@
 """Unit tests for PipelineProcessor."""
 
+from typing import Optional
 from unittest.mock import Mock
 
 import pytest
@@ -938,8 +939,8 @@ class TestEmitCollectorDataJob:
                 all_aspects.append(wu.metadata.aspect)
 
         # Find DataJobInfoClass aspect
-        job_info: DataJobInfoClass | None = None
-        input_output: DataJobInputOutputClass | None = None
+        job_info: Optional[DataJobInfoClass] = None
+        input_output: Optional[DataJobInputOutputClass] = None
         for aspect in all_aspects:
             if isinstance(aspect, DataJobInfoClass) and aspect.name == "Collector":
                 job_info = aspect
