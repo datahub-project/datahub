@@ -48,7 +48,9 @@ public class DocumentType
           Constants.SUB_TYPES_ASPECT_NAME,
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           Constants.GLOBAL_TAGS_ASPECT_NAME,
-          Constants.GLOSSARY_TERMS_ASPECT_NAME);
+          Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          Constants.DOCUMENTATION_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
