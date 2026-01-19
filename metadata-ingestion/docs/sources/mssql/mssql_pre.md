@@ -77,4 +77,16 @@ source:
 
 **Lineage resolution:** DataHub matches lineage using exact URN strings. This fix ensures view lineage URNs match table URNs when `convert_urns_to_lowercase: false`, so lineage resolves correctly.
 
+**Troubleshooting lineage:** If lineage isn't showing, check that URNs match exactly:
+
+```
+# Working (URNs match)
+Table URN:   urn:li:dataset:(...,MyDB.dbo.CustomerTable,PROD)
+Lineage URN: urn:li:dataset:(...,MyDB.dbo.CustomerTable,PROD)  ✅
+
+# Broken (case mismatch)
+Table URN:   urn:li:dataset:(...,MyDB.dbo.CustomerTable,PROD)
+Lineage URN: urn:li:dataset:(...,mydb.dbo.customertable,PROD)  ❌
+```
+
 ---

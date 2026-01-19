@@ -189,7 +189,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _prefers_urn_lower(self) -> bool:
         # Check for explicit override first (e.g., from source config)
         if self._prefer_lowercase_override is not None:
-            logger.debug(
+            logger.info(
                 f"URN case preference for platform={self.platform}: "
                 f"using explicit override prefer_lowercase={self._prefer_lowercase_override}"
             )
