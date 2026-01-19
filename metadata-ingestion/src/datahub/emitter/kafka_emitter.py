@@ -2,7 +2,7 @@ import logging
 from typing import Callable, Dict, Optional, Union
 
 import pydantic
-from confluent_kafka import SerializingProducer
+from confluent_kafka import KafkaError, Message, SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import SerializationContext, StringSerializer
@@ -25,6 +25,10 @@ from datahub.metadata.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Type alias for Kafka delivery callback (confluent-kafka's on_delivery signature).
+# Called with (KafkaError, Message) on failure, (None, Message) on success.
+KafkaCallback = Callable[[Union[KafkaError, None], Message], None]
 
 
 DEFAULT_MCE_KAFKA_TOPIC = "MetadataChangeEvent_v4"
@@ -131,14 +135,14 @@ class DatahubKafkaEmitter(Closeable, Emitter):
                 producer.poll(0)  # Non-blocking - just triggers OAuth callback
             logger.debug("OAuth callbacks triggered for Kafka producers")
 
-    def emit(
+    def emit(  # type: ignore[override]
         self,
         item: Union[
             MetadataChangeEvent,
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
         ],
-        callback: Optional[Callable[[Exception, str], None]] = None,
+        callback: Optional[KafkaCallback] = None,
     ) -> None:
         if isinstance(item, (MetadataChangeProposal, MetadataChangeProposalWrapper)):
             return self.emit_mcp_async(item, callback or _error_reporting_callback)
@@ -148,15 +152,12 @@ class DatahubKafkaEmitter(Closeable, Emitter):
     def emit_mce_async(
         self,
         mce: MetadataChangeEvent,
-        callback: Callable[[Exception, str], None],
+        callback: KafkaCallback,
     ) -> None:
-        # Report error via callback if MCE_KEY is not configured
         if MCE_KEY not in self.config.topic_routes:
-            error = Exception(
+            raise ValueError(
                 f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
             )
-            callback(error, "MCE emission failed - topic not configured")
-            return
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCE_KEY]
         producer.poll(0)
@@ -170,7 +171,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
     def emit_mcp_async(
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
-        callback: Callable[[Exception, str], None],
+        callback: KafkaCallback,
     ) -> None:
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCP_KEY]
@@ -190,6 +191,8 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         self.flush()
 
 
-def _error_reporting_callback(err: Exception, msg: str) -> None:
+def _error_reporting_callback(err: Union[KafkaError, None], msg: Message) -> None:
+    # Kafka's on_delivery callback is invoked for both successes (err=None) and
+    # failures (err=KafkaError). We only log on failure.
     if err:
         logger.error(f"Failed to emit to kafka: {err} {msg}")
