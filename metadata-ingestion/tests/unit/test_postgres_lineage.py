@@ -2,11 +2,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datahub.ingestion.source.sql.postgres_lineage import (
+from datahub.ingestion.source.sql.postgres.lineage import (
     PostgresLineageExtractor,
     PostgresQueryEntry,
 )
-from datahub.ingestion.source.sql.postgres_query import PostgresQuery
+from datahub.ingestion.source.sql.postgres.query import PostgresQuery
 
 
 class TestPostgresQuery:
@@ -48,8 +48,11 @@ class TestPostgresQuery:
             exclude_patterns=["%temp_%", "%staging%"],
         )
 
-        assert "NOT ILIKE '%%temp_%%'" in query
-        assert "NOT ILIKE '%%staging%%'" in query
+        # Patterns are now escaped for SQL injection prevention
+        # Input: "%temp_%" becomes escaped: "\%temp\_\%"
+        # Input: "%staging%" becomes escaped: "\%staging\%"
+        assert "NOT ILIKE '%\\%temp\\_\\%%'" in query
+        assert "NOT ILIKE '%\\%staging\\%%'" in query
 
     def test_get_queries_by_type(self):
         """Test filtering queries by SQL command type."""
@@ -103,9 +106,20 @@ class TestPostgresLineageExtractor:
 
     def test_check_prerequisites_success(self, lineage_extractor, mock_connection):
         """Test successful prerequisites check."""
-        mock_result = MagicMock()
-        mock_result.fetchone.return_value = [True]
-        mock_connection.execute.return_value = mock_result
+        # First call checks extension is installed, second call checks permissions
+        mock_result_extension = MagicMock()
+        mock_result_extension.fetchone.return_value = [True]
+
+        mock_result_permissions = MagicMock()
+        mock_result_permissions.fetchone.return_value = [
+            True,
+            True,
+        ]  # has_stats_role, is_superuser
+
+        mock_connection.execute.side_effect = [
+            mock_result_extension,
+            mock_result_permissions,
+        ]
 
         is_ready, message = lineage_extractor.check_prerequisites()
 

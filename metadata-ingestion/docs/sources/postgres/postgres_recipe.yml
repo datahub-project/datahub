@@ -40,7 +40,7 @@ source:
     #   1. CREATE EXTENSION pg_stat_statements;
     #   2. GRANT pg_read_all_stats TO datahub_user;
     # include_query_lineage: true
-    # max_queries_to_extract: 5000
+    # max_queries_to_extract: 1000  # Default: 1000
     # min_query_calls: 10
     # query_exclude_patterns:
     #   - "%pg_catalog%"

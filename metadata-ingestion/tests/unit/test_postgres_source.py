@@ -1,6 +1,9 @@
 from unittest import mock
 from unittest.mock import patch
 
+import pytest
+from pydantic import ValidationError
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 
@@ -82,3 +85,50 @@ def test_current_sqlalchemy_database_in_identifier():
         )
         == "current_db.superset.logs"
     )
+
+
+def test_max_queries_to_extract_validation():
+    """Test that max_queries_to_extract is validated."""
+    # Valid value
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "max_queries_to_extract": 5000}
+    )
+    assert config.max_queries_to_extract == 5000
+
+    # Zero should fail
+    with pytest.raises(
+        ValidationError, match="max_queries_to_extract must be positive"
+    ):
+        PostgresConfig.model_validate({**_base_config(), "max_queries_to_extract": 0})
+
+    # Negative should fail
+    with pytest.raises(
+        ValidationError, match="max_queries_to_extract must be positive"
+    ):
+        PostgresConfig.model_validate(
+            {**_base_config(), "max_queries_to_extract": -100}
+        )
+
+    # Too large should fail
+    with pytest.raises(
+        ValidationError,
+        match="max_queries_to_extract must be <= 100000 to avoid performance issues",
+    ):
+        PostgresConfig.model_validate(
+            {**_base_config(), "max_queries_to_extract": 200000}
+        )
+
+
+def test_min_query_calls_validation():
+    """Test that min_query_calls is validated."""
+    # Valid value
+    config = PostgresConfig.model_validate({**_base_config(), "min_query_calls": 10})
+    assert config.min_query_calls == 10
+
+    # None is valid (uses default)
+    config = PostgresConfig.model_validate({**_base_config(), "min_query_calls": None})
+    assert config.min_query_calls is None
+
+    # Negative should fail
+    with pytest.raises(ValidationError, match="min_query_calls must be non-negative"):
+        PostgresConfig.model_validate({**_base_config(), "min_query_calls": -5})
