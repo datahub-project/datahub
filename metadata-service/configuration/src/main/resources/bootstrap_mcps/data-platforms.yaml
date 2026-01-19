@@ -258,7 +258,7 @@
     name: mariadb
     displayName: MariaDB
     type: RELATIONAL_DB
-    logoUrl: "assets/platforms/mariadblogo.png"
+    logoUrl: "assets/platforms/mariadblogo.svg"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -527,7 +527,7 @@
     name: powerbi
     displayName: Power BI
     type: OTHERS
-    logoUrl: "assets/platforms/powerbilogo.png"
+    logoUrl: "assets/platforms/powerbilogo.svg"
 - entityUrn: urn:li:dataPlatform:presto-on-hive
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -786,7 +786,7 @@
     name: neo4j
     displayName: Neo4j
     type: OTHERS
-    logoUrl: "assets/platforms/neo4j.png"
+    logoUrl: "assets/platforms/neo4j.svg"
 - entityUrn: urn:li:dataPlatform:vertexai
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -847,6 +847,16 @@
     displayName: Informatica
     type: OTHERS
     logoUrl: "assets/platforms/informaticalogo.png"
+- entityUrn: urn:li:dataPlatform:snaplogic
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: snaplogic
+    displayName: SnapLogic
+    type: OTHERS
+    logoUrl: "assets/platforms/snaplogic.svg"
 - entityUrn: urn:li:dataPlatform:google_sheets
   entityType: dataPlatform
   aspectName: dataPlatformInfo

@@ -19,4 +19,5 @@ export interface CardProps {
     noOfSubtitleLines?: number;
     iconStyles?: React.CSSProperties;
     pillLabel?: string;
+    pill?: React.ReactNode;
 }

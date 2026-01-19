@@ -192,14 +192,19 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-// Create testIntegrationBatch0 through testIntegrationBatch5 tasks
-(0..5).each { batchNum ->
-    tasks.register("testIntegrationBatch${batchNum}", Exec) {
+// Create testIntegrationBatch tasks for all batches including recording
+def integrationBatchIds = ["0", "1", "2", "3", "4", "5", "Recording"]
+integrationBatchIds.each { batchId ->
+    def markerName = "integration_batch_${batchId.toLowerCase()}"
+    def taskName = "testIntegrationBatch${batchId}"
+    def junitXml = "junit.integrationbatch${batchId.toLowerCase()}.xml"
+    def cvgArg = get_coverage_args("intBatch${batchId}")
+    
+    tasks.register(taskName, Exec) {
         dependsOn installDevTest
-        def cvg_arg = get_coverage_args("intBatch${batchNum}")
         commandLine 'bash', '-c',
             venv_activate_command +
-            "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_${batchNum}' --junit-xml=junit.integrationbatch${batchNum}.xml"
+            "${pytest_default_env} pytest ${cvgArg} ${pytest_default_args} -m '${markerName}' --junit-xml=${junitXml}"
     }
 }
 
