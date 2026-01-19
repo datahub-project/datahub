@@ -34,5 +34,21 @@ source:
     # When auth_mode is "AWS_IAM", the password field is ignored
     # AWS credentials can be configured via AWS CLI, environment variables, or IAM role
 
+    # Query-based Lineage (optional)
+    # Extract lineage from executed queries using pg_stat_statements extension
+    # Prerequisites:
+    #   1. CREATE EXTENSION pg_stat_statements;
+    #   2. GRANT pg_read_all_stats TO datahub_user;
+    # include_query_lineage: true
+    # max_queries_to_extract: 5000
+    # min_query_calls: 10
+    # query_exclude_patterns:
+    #   - "%pg_catalog%"
+    #   - "%temp_%"
+
+    # Usage Statistics (optional, requires include_query_lineage: true)
+    # include_usage_statistics: true
+    # top_n_queries: 20
+
 sink:
   # sink configs
