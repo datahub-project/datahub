@@ -33,7 +33,7 @@ export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: s
 
 export const FiltersContainer = styled.div`
     display: flex;
-    gap: 16px;
+    gap: 8px;
 `;
 
 export const StyledFilterContainer = styled.div`
