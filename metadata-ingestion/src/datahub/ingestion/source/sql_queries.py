@@ -4,8 +4,8 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import partial
-from typing import Any, ClassVar, Iterable, List, Optional, Union, cast
+from functools import cached_property, partial
+from typing import Any, ClassVar, Iterable, List, Optional, Pattern, Union, cast
 
 import smart_open
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -91,6 +91,11 @@ class SqlQueriesSourceConfig(
         "that don't have native temp tables but use naming patterns for fake temp tables.",
         default=[],
     )
+
+    @cached_property
+    def compiled_temp_table_patterns(self) -> List[Pattern]:
+        """Pre-compiled regex patterns for temp table filtering (performance optimization)."""
+        return [re.compile(pattern, re.IGNORECASE) for pattern in self.temp_table_patterns]
 
     enable_lazy_schema_loading: bool = Field(
         default=True,
@@ -422,15 +427,15 @@ class SqlQueriesSource(Source):
             return False
 
         try:
-            for pattern in self.config.temp_table_patterns:
-                if re.match(pattern, name, flags=re.IGNORECASE):
+            for pattern in self.config.compiled_temp_table_patterns:
+                if pattern.match(name):
                     logger.debug(
-                        f"Table '{name}' matched temp table pattern: {pattern}"
+                        f"Table '{name}' matched temp table pattern: {pattern.pattern}"
                     )
                     self.report.num_temp_tables_detected += 1
                     return True
         except re.error as e:
-            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
+            logger.warning(f"Invalid regex pattern: {e}")
 
         return False
 

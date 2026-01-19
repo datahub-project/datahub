@@ -28,6 +28,12 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
     "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
 
+# Pre-compiled regex patterns for performance (used in ingestion hot path)
+_COMPILED_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: Pattern = re.compile(
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX, re.IGNORECASE
+)
+_COMPILED_BIGQUERY_WILDCARD_REGEX: Pattern = re.compile("((_(\\d+)?)\\*$)|\\*$")
+
 
 @dataclass(frozen=True, order=True)
 class BigqueryTableIdentifier:
@@ -58,11 +64,7 @@ class BigqueryTableIdentifier:
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
         new_table_name = table_name
-        match = re.match(
-            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-            table_name,
-            re.IGNORECASE,
-        )
+        match = _COMPILED_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX.match(table_name)
         if match:
             shard: str = match[3]
             if shard:
@@ -96,7 +98,7 @@ class BigqueryTableIdentifier:
             - removes partition ids (table$20210101 -> table or table$__UNPARTITIONED__ -> table)
         """
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
-        shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
+        shortened_table_name = _COMPILED_BIGQUERY_WILDCARD_REGEX.sub("", self.table)
 
         matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
@@ -133,11 +135,8 @@ class BigqueryTableIdentifier:
         if shard:
             return True
 
-        if re.match(
-            f".*({BigqueryTableIdentifier._BIGQUERY_WILDCARD_REGEX})",
-            self.raw_table_name(),
-            re.IGNORECASE,
-        ):
+        # Check if table name contains wildcard pattern
+        if _COMPILED_BIGQUERY_WILDCARD_REGEX.search(self.raw_table_name()):
             return True
 
         return False
