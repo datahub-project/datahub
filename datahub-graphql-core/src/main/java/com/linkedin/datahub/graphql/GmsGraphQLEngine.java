@@ -157,9 +157,11 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
@@ -1260,6 +1262,12 @@ public class GmsGraphQLEngine {
               .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService, entityClient))
               .dataFetcher(
                   "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
+              .dataFetcher(
+                  "batchAddStructuredProperties",
+                  new BatchAddStructuredPropertiesResolver(entityClient))
+              .dataFetcher(
+                  "batchRemoveStructuredProperties",
+                  new BatchRemoveStructuredPropertiesResolver(entityClient))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
               .dataFetcher(
                   "patchEntity",
