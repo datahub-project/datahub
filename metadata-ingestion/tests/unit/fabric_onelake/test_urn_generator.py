@@ -4,6 +4,10 @@ Tests the centralized URN generation logic to ensure patterns are correct
 and can be easily updated in the future.
 """
 
+from typing import Any, Callable
+
+import pytest
+
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_schema_name,
@@ -16,67 +20,95 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 class TestURNGenerator:
     """Tests for URN generation functions."""
 
-    def test_workspace_name(self) -> None:
-        """Test workspace name generation."""
-        workspace_id = "workspace-123-guid"
-        result = make_workspace_name(workspace_id)
-        assert result == workspace_id
-
-    def test_lakehouse_name(self) -> None:
-        """Test lakehouse name generation."""
-        workspace_id = "workspace-123-guid"
-        lakehouse_id = "lakehouse-456-guid"
-        result = make_lakehouse_name(workspace_id, lakehouse_id)
-        assert result == f"{workspace_id}.{lakehouse_id}"
-
-    def test_warehouse_name(self) -> None:
-        """Test warehouse name generation."""
-        workspace_id = "workspace-123-guid"
-        warehouse_id = "warehouse-789-guid"
-        result = make_warehouse_name(workspace_id, warehouse_id)
-        assert result == f"{workspace_id}.{warehouse_id}"
-
-    def test_schema_name(self) -> None:
-        """Test schema name generation."""
-        workspace_id = "workspace-123-guid"
-        item_id = "lakehouse-456-guid"
-        schema_name = "dbo"
-        result = make_schema_name(workspace_id, item_id, schema_name)
-        assert result == f"{workspace_id}.{item_id}.{schema_name}"
-
-    def test_table_name(self) -> None:
-        """Test table name generation with full pattern."""
-        workspace_id = "workspace-123-guid"
-        item_id = "lakehouse-456-guid"
-        schema_name = "dbo"
-        table_name = "customers"
-        result = make_table_name(workspace_id, item_id, schema_name, table_name)
-        assert result == f"{workspace_id}.{item_id}.{schema_name}.{table_name}"
-
-    def test_table_name_with_different_schema(self) -> None:
-        """Test table name with non-default schema."""
-        workspace_id = "workspace-123-guid"
-        item_id = "warehouse-789-guid"
-        schema_name = "sales"
-        table_name = "orders"
-        result = make_table_name(workspace_id, item_id, schema_name, table_name)
-        assert result == f"{workspace_id}.{item_id}.{schema_name}.{table_name}"
-
-    def test_table_name_without_schema(self) -> None:
-        """Test table name generation for schemas-disabled lakehouses (None schema)."""
-        workspace_id = "workspace-123-guid"
-        item_id = "lakehouse-456-guid"
-        table_name = "customers"
-        result = make_table_name(workspace_id, item_id, None, table_name)
-        assert result == f"{workspace_id}.{item_id}.{table_name}"
-
-    def test_table_name_with_empty_schema(self) -> None:
-        """Test table name generation for schemas-disabled lakehouses (empty string schema)."""
-        workspace_id = "workspace-123-guid"
-        item_id = "lakehouse-456-guid"
-        table_name = "customers"
-        result = make_table_name(workspace_id, item_id, "", table_name)
-        assert result == f"{workspace_id}.{item_id}.{table_name}"
+    @pytest.mark.parametrize(
+        "func,kwargs,expected",
+        [
+            # Workspace name
+            (
+                make_workspace_name,
+                {"workspace_id": "workspace-123-guid"},
+                "workspace-123-guid",
+            ),
+            # Lakehouse name
+            (
+                make_lakehouse_name,
+                {
+                    "workspace_id": "workspace-123-guid",
+                    "lakehouse_id": "lakehouse-456-guid",
+                },
+                "workspace-123-guid.lakehouse-456-guid",
+            ),
+            # Warehouse name
+            (
+                make_warehouse_name,
+                {
+                    "workspace_id": "workspace-123-guid",
+                    "warehouse_id": "warehouse-789-guid",
+                },
+                "workspace-123-guid.warehouse-789-guid",
+            ),
+            # Schema name
+            (
+                make_schema_name,
+                {
+                    "workspace_id": "workspace-123-guid",
+                    "item_id": "lakehouse-456-guid",
+                    "schema_name": "dbo",
+                },
+                "workspace-123-guid.lakehouse-456-guid.dbo",
+            ),
+            # Table name - full pattern with schema
+            (
+                make_table_name,
+                {
+                    "workspace_id": "workspace-123-guid",
+                    "item_id": "lakehouse-456-guid",
+                    "schema_name": "dbo",
+                    "table_name": "customers",
+                },
+                "workspace-123-guid.lakehouse-456-guid.dbo.customers",
+            ),
+            # Table name - different schema
+            (
+                make_table_name,
+                {
+                    "workspace_id": "workspace-123-guid",
+                    "item_id": "warehouse-789-guid",
+                    "schema_name": "sales",
+                    "table_name": "orders",
+                },
+                "workspace-123-guid.warehouse-789-guid.sales.orders",
+            ),
+            # Table name - schemas-disabled (None schema)
+            (
+                make_table_name,
+                {
+                    "workspace_id": "workspace-123-guid",
+                    "item_id": "lakehouse-456-guid",
+                    "schema_name": None,
+                    "table_name": "customers",
+                },
+                "workspace-123-guid.lakehouse-456-guid.customers",
+            ),
+            # Table name - schemas-disabled (empty string schema)
+            (
+                make_table_name,
+                {
+                    "workspace_id": "workspace-123-guid",
+                    "item_id": "lakehouse-456-guid",
+                    "schema_name": "",
+                    "table_name": "customers",
+                },
+                "workspace-123-guid.lakehouse-456-guid.customers",
+            ),
+        ],
+    )
+    def test_urn_generation(
+        self, func: Callable[..., str], kwargs: dict[str, Any], expected: str
+    ) -> None:
+        """Test URN generation for all functions with various configurations."""
+        result = func(**kwargs)
+        assert result == expected
 
     def test_urn_pattern_consistency(self) -> None:
         """Test that URN pattern is consistent across all functions."""
