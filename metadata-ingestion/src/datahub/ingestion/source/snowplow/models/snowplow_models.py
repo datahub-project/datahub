@@ -7,17 +7,18 @@ These models provide type safety and validation for data returned from:
 """
 
 import re
-from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Pattern
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from datahub.utilities.str_enum import StrEnum
 
 # ============================================
 # Enum Types for Discriminated Unions
 # ============================================
 
 
-class EventSpecFormat(str, Enum):
+class EventSpecFormat(StrEnum):
     """
     Discriminator for EventSpecification API formats.
 
