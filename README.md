@@ -24,7 +24,7 @@ HOSTED_DOCS_ONLY-->
 </p>
 <!-- -->
 
-# DataHub: The Data Discovery Platform for the Modern Data Stack
+# DataHub: The Data Discovery Platform for AI & Data Context Management
 
 ### Built with ❤️ by <img src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" width="20"/> [DataHub](https://datahub.com) and <img src="https://docs.datahub.com/img/LI-In-Bug.png" width="20"/> [LinkedIn](https://engineering.linkedin.com)
 
@@ -42,155 +42,115 @@ HOSTED_DOCS_ONLY-->
     <img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=flat&logo=youtube&label=subscribers&labelColor=133554&color=1890ff"/></a>
   <a href="https://medium.com/datahub-project/">
     <img alt="Medium" src="https://img.shields.io/badge/blog-DataHub-red.svg?style=flat&logo=medium&logoColor=white&labelColor=133554&color=1890ff" /></a>
-  <a href="https://x.com/datahubproject">
-    <img alt="X (formerly Twitter) Follow" src="https://img.shields.io/badge/follow-datahubproject-red.svg?style=flat&logo=x&labelColor=133554&color=1890ff" /></a>
 </div>
 
----
+## Overview
 
-### 🏠 Docs: [docs.datahub.com](https://docs.datahub.com/)
+Open-source data catalog for search, lineage, and governance. 100+ connectors, real-time metadata streaming, and enterprise-grade reliability — all under the Apache 2.0 license.
+
+### Docs: [docs.datahub.com](https://docs.datahub.com/)
 
 [Quickstart](https://docs.datahub.com/docs/quickstart) |
-[Features](https://docs.datahub.com/docs/features) |
-[Roadmap](https://feature-requests.datahubproject.io/roadmap) |
-[Adoption](#adoption) |
+[Features](https://datahub.com/products/) |
+[Adoption](https://datahub.com/resources/?2004611554=dh-stories) |
 [Demo](https://demo.datahub.com/) |
-[Town Hall](https://docs.datahub.com/docs/townhalls)
+[Town Hall](https://datahub.com/events/)
 
----
+## What is DataHub?
 
-> 📣 DataHub Town Hall is the 4th Thursday at 9am US PT of every month - [add it to your calendar!](https://lu.ma/datahubevents/)
->
-> - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
-> - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
+**DataHub is an open-source metadata platform** for data discovery, observability, and governance across your entire data stack. Built by LinkedIn and proven at enterprise scale (1,000,000+ datasets), DataHub provides a unified catalog where teams can find, understand, and trust their data.
 
-> ✨ DataHub Community Highlights:
->
-> - Read our Monthly Project Updates [here](https://medium.com/datahub-project/tagged/project-updates).
-> - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At DataHub: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
-> - Check out our most-read blog post, [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
-> - Join us on [Slack](docs/slack.md)! Ask questions and keep up with the latest announcements.
+Modern data stacks are fragmented across dozens of tools. DataHub solves this by acting as a **real-time metadata graph** that continuously streams metadata from all your data sources, creating a single source of truth.
 
-## Introduction
+## Why Choose DataHub Over Alternatives?
 
-DataHub is an open-source data catalog for the modern data stack. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our
-[LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented.
+- **Built for Scale**: Proven at LinkedIn managing 1,000,000+ datasets, 10M+ daily queries
+- **Real-Time Streaming**: Metadata updates in seconds, not hours or days
+- **Universal Connectors**: [70+ integrations](https://docs.datahub.com/integrations) for warehouses, databases, BI, ML, orchestration
+- **Developer-First**: Rich APIs (GraphQL, REST), Python SDK, CLI tools
+- **Enterprise Ready**: Battle-tested security, authentication, authorization, and audit trails
+- **Open Source**: [Apache 2.0 licensed](./LICENSE), vendor-neutral, community-driven
 
-## Features & Roadmap
-
-Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-requests.datahubproject.io/roadmap).
-
-## Demo and Screenshots
-
-There's a [hosted demo environment](https://demo.datahub.com/) courtesy of DataHub where you can explore DataHub without installing it locally.
-
-## Quickstart
-
-Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
-
-## Development
-
-If you're looking to build & modify datahub please take a look at our [Development Guide](https://docs.datahub.com/docs/developers).
+## Core Features
 
 <p align="center">
-<a href="https://demo.datahub.com/">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity.png"/>
-</a>
+  <a href="https://datahub.com/products/data-discovery/">
+    <img alt="DataHub Discovery" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs-website/static/img/quickstart_discovery.png" height="150" />
+  </a>
+  <a href="https://datahub.com/products/data-governance">
+    <img alt="DataHub Governance" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs-website/static/img/quickstart_governance.png" height="150" />
+  </a>
+  <a href="https://datahub.com/products/data-observability">
+    <img alt="DataHub Observability" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs-website/static/img/quickstart_observability.png" height="150" />
+  </a>
 </p>
+
+| Features                                                                     | Description                                                                                                  |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 🔍 [**Data Discovery**](https://datahub.com/products/data-discovery/)        | Effortlessly discover and get context on trustworthy data                                                    |
+| 👁️ [**Data Observability**](https://datahub.com/products/data-observability) | Detect, resolve, and prevent data quality issues before they impact your business                            |
+| 🏛️ [**Data Governance**](https://datahub.com/products/data-governance)       | Ensure every data asset is accounted for by continuously fulfilling governance standards                     |
+| 📊 [**Impact Analysis**](docs/act-on-metadata/impact-analysis)               | Understand downstream impact before making changes - [Lineage Docs](docs/features/feature-guides/lineage.md) |
+
+## How Do I Get Started with DataHub?
+
+Please follow the [DataHub Quickstart Guide](docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
+
+```bash
+python3 -m pip install --upgrade acryl-datahub
+datahub docker quickstart
+```
+
+**What you get:**
+
+- ✅ DataHub GMS (backend metadata service)
+- ✅ DataHub Frontend (React UI)
+- ✅ Elasticsearch (search & analytics)
+- ✅ MySQL (metadata storage)
+- ✅ Kafka + Schema Registry (streaming)
+
+> 💡 You can always try our [hosted demo](https://demo.datahub.com/) - Explore DataHub with sample data, no installation needed!
+
+## Trusted by Industry Leaders
+
+DataHub powers data discovery and governance at some of the world's most data-driven organizations.
+
+**Featured Adopters:** LinkedIn, Expedia Group, Coursera, Klarna, Optum, CVS Health, Udemy, Peloton, N26, ThoughtWorks, Wikimedia, Viasat, Wealthsimple, ClassDojo, SpotHero
+
+[See full list of 40+ companies →](https://datahub.com/resources/?2004611554=dh-stories)
+
+## Community
+
+Join our [Slack workspace](https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](https://datahub.com/events/) and view past recordings.
+
+## Contributing
+
+We welcome contributions from the community. Please refer to our [Contributing Guidelines](docs/CONTRIBUTING.md) for more details. If you need help getting started, feel free to reach out to the DataHub team in the [#contribute-code](https://datahubspace.slack.com/archives/C017W0NTZHR) channel in our Slack community.
+
+If you're looking to build & modify DataHub, please take a look at our [Development Guide](https://docs.datahub.com/docs/developers).
+
+## DataHub Cloud
+
+Looking for a fully managed solution? **DataHub Cloud** provides enterprise-grade data catalog with zero infrastructure management.
+
+☁️ **[Request Demo](https://datahub.com/demo/)** | **[Why Cloud?](https://datahub.com/products/why-datahub-cloud/)** | **[Cloud vs Core](https://datahub.com/products/cloud-vs-core/)**
 
 ## Source Code and Repositories
 
 - [datahub-project/datahub](https://github.com/datahub-project/datahub): This repository contains the complete source code for DataHub's metadata model, metadata services, integration connectors and the web application.
 - [acryldata/datahub-actions](https://github.com/acryldata/datahub-actions): DataHub Actions is a framework for responding to changes to your DataHub Metadata Graph in real time.
 - [acryldata/datahub-helm](https://github.com/acryldata/datahub-helm): Helm charts for deploying DataHub on a Kubernetes cluster
-- [acryldata/meta-world](https://github.com/acryldata/meta-world): A repository to store recipes, custom sources, transformations and other things to make your DataHub experience magical.
 - [dbt-impact-action](https://github.com/acryldata/dbt-impact-action): A github action for commenting on your PRs with a summary of the impact of changes within a dbt project.
 - [datahub-tools](https://github.com/makenotion/datahub-tools): Additional python tools to interact with the DataHub GraphQL endpoints, built by Notion.
 - [business-glossary-sync-action](https://github.com/acryldata/business-glossary-sync-action): A github action that opens PRs to update your business glossary yaml file.
 - [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub): A [Model Context Protocol](https://modelcontextprotocol.io/) server implementation for DataHub.
+- [cs-acryl-example-scripts](https://github.com/acryldata/cs-acryl-example-scripts): Example scripts shared publically for using DataHub Cloud.
 
-## Releases
+## 📖 More Information
 
-See [Releases](https://github.com/datahub-project/datahub/releases) page for more details. We follow the [SemVer Specification](https://semver.org) when versioning the releases and adopt the [Keep a Changelog convention](https://keepachangelog.com/) for the changelog format.
-
-## Contributing
-
-We welcome contributions from the community. Please refer to our [Contributing Guidelines](docs/CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubating experimental features.
-
-## Community
-
-Join our [Slack workspace](https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
-
-## Security
-
-See [Security Stance](docs/SECURITY_STANCE.md) for information on DataHub's Security.
-
-## Adoption
-
-Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
-
-- [ABLY](https://ably.team/)
-- [Adevinta](https://www.adevinta.com/)
-- [Banksalad](https://www.banksalad.com)
-- [Cabify](https://cabify.tech/)
-- [ClassDojo](https://www.classdojo.com/)
-- [Coursera](https://www.coursera.org/)
-- [CVS Health](https://www.cvshealth.com/)
-- [DefinedCrowd](http://www.definedcrowd.com)
-- [DFDS](https://www.dfds.com/)
-- [Digital Turbine](https://www.digitalturbine.com/)
-- [Expedia Group](http://expedia.com)
-- [Experius](https://www.experius.nl)
-- [Geotab](https://www.geotab.com)
-- [Grofers](https://grofers.com)
-- [Haibo Technology](https://www.botech.com.cn)
-- [hipages](https://hipages.com.au/)
-- [inovex](https://www.inovex.de/)
-- [Inter&Co](https://inter.co/)
-- [IOMED](https://iomed.health)
-- [Klarna](https://www.klarna.com)
-- [LinkedIn](http://linkedin.com)
-- [Moloco](https://www.moloco.com/en)
-- [N26](https://n26brasil.com/)
-- [Optum](https://www.optum.com/)
-- [Peloton](https://www.onepeloton.com)
-- [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
-- [Razer](https://www.razer.com)
-- [Rippling](https://www.rippling.com/)
-- [Showroomprive](https://www.showroomprive.com/)
-- [SpotHero](https://spothero.com)
-- [Stash](https://www.stash.com)
-- [Shanghai HuaRui Bank](https://www.shrbank.com)
-- [s7 Airlines](https://www.s7.ru/)
-- [ThoughtWorks](https://www.thoughtworks.com)
-- [TypeForm](http://typeform.com)
-- [Udemy](https://www.udemy.com/)
-- [Uphold](https://uphold.com)
-- [Viasat](https://viasat.com)
-- [Wealthsimple](https://www.wealthsimple.com)
-- [Wikimedia](https://www.wikimedia.org)
-- [Wolt](https://wolt.com)
-- [Zynga](https://www.zynga.com)
-
-## Select Articles & Talks
-
-- [DataHub Blog](https://medium.com/datahub-project/)
-- [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
-- [Optum: Data Mesh via DataHub](https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub)
-- [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
-- [Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At DataHub](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
-- [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained)
-- [Driving DataOps Culture with LinkedIn DataHub](https://www.youtube.com/watch?v=ccsIKK9nVxk) @ [DataOps Unleashed 2021](https://dataopsunleashed.com/#shirshanka-session)
-- [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) @ [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
-- [Journey of metadata at LinkedIn](https://www.youtube.com/watch?v=OB-O0Y6OYDE) @ [Crunch Data Conference 2019](https://crunchconf.com/2019)
-- [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
-- [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
-- [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
-- [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
-- [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
-- [Emerging Architectures for Modern Data Infrastructure](https://future.com/emerging-architectures-for-modern-data-infrastructure-2020/)
-
-See the full list [here](docs/links.md).
+- **Releases:** [Release notes](https://github.com/datahub-project/datahub/releases)
+- **Security:** [Security stance & policies](docs/SECURITY_STANCE.md) - Information on DataHub's security posture
+- **Architecture:** [System design docs](docs/architecture/architecture.md) - Understand how DataHub is built
 
 ## License
 
