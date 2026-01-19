@@ -314,16 +314,83 @@ class TestPiiPseudonymizationLineageExtractor:
         )
         assert result == []
 
-    def test_returns_empty_list_not_yet_implemented(self, extractor, mock_enrichment):
-        """Test returns empty list (configuration parsing not yet implemented)."""
+    def test_returns_empty_when_no_content(self, extractor):
+        """Test returns empty list when enrichment has no content."""
+        enrichment = Mock()
+        enrichment.content = None
+
         result = extractor.extract_lineage(
-            enrichment=mock_enrichment,
+            enrichment=enrichment,
             event_schema_urn="urn:li:dataset:event",
             warehouse_table_urn="urn:li:dataset:warehouse",
         )
-
-        # Configuration parsing not yet implemented
         assert result == []
+
+    def test_returns_empty_when_no_pii_config(self, extractor):
+        """Test returns empty list when no PII config in parameters."""
+        enrichment = Mock()
+        enrichment.content = Mock()
+        enrichment.content.data = Mock()
+        enrichment.content.data.parameters = {"other": "value"}
+
+        result = extractor.extract_lineage(
+            enrichment=enrichment,
+            event_schema_urn="urn:li:dataset:event",
+            warehouse_table_urn="urn:li:dataset:warehouse",
+        )
+        assert result == []
+
+    def test_extracts_pojo_field_lineage(self, extractor):
+        """Test extracting lineage for POJO fields."""
+        enrichment = Mock()
+        enrichment.content = Mock()
+        enrichment.content.data = Mock()
+        enrichment.content.data.parameters = {
+            "pii": {"pojo": [{"field": "user_id"}, {"field": "user_ipaddress"}]}
+        }
+        enrichment.filename = "pii.json"
+
+        result = extractor.extract_lineage(
+            enrichment=enrichment,
+            event_schema_urn="urn:li:dataset:(urn:li:dataPlatform:snowplow,event,PROD)",
+            warehouse_table_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse,PROD)",
+        )
+
+        # Should extract 2 lineages (one per POJO field)
+        assert len(result) == 2
+        assert result[0].transformation_type == "IN_PLACE"
+        assert "user_id" in result[0].upstream_fields[0]
+        assert "user_id" in result[0].downstream_fields[0]
+
+    def test_extracts_json_field_lineage(self, extractor):
+        """Test extracting lineage for JSON fields."""
+        enrichment = Mock()
+        enrichment.content = Mock()
+        enrichment.content.data = Mock()
+        enrichment.content.data.parameters = {
+            "pii": {
+                "json": [
+                    {
+                        "field": "contexts",
+                        "schemaCriterion": "iglu:com.acme/checkout/jsonschema/1-*-*",
+                        "jsonPath": "$.customer.email",
+                    }
+                ]
+            }
+        }
+        enrichment.filename = "pii.json"
+
+        result = extractor.extract_lineage(
+            enrichment=enrichment,
+            event_schema_urn="urn:li:dataset:(urn:li:dataPlatform:snowplow,event,PROD)",
+            warehouse_table_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse,PROD)",
+        )
+
+        # Should extract 1 lineage for the JSON field
+        assert len(result) == 1
+        assert result[0].transformation_type == "IN_PLACE"
+        assert "customer.email" in result[0].upstream_fields[0]
+        assert "email" in result[0].downstream_fields[0]
 
 
 class TestFieldLineageDataclass:

@@ -2542,6 +2542,48 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "pipelineId": "a44e4bc8-6948-4844-91c4-96bfb1f7f3dc",
+                "pipelineName": "Default",
+                "pipelineStatus": "ready",
+                "eventSpecCount": "0",
+                "architecture": "single_physical_pipeline",
+                "pipelineLabel": "prod",
+                "collectorEndpoints": "com-datahub-stpgw.collector.snplow.net"
+            },
+            "name": "Snowplow Pipeline: Default",
+            "description": "Snowplow event processing pipeline: Default\n\nThis pipeline processes **0 event specifications** through:\n1. **Collector**: Receives raw events from trackers\n2. **Enrichments**: Add computed fields (IP Lookup, UA Parser, etc.)\n3. **Loader**: Writes enriched data to warehouse\n\nAll events share the same enrichments - this is how Snowplow works physically."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-n0n0p3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-n0n0p3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:snowplow_event_user",
     "changeType": "UPSERT",
@@ -2558,6 +2600,22 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-n0n0p3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "schemaField",
     "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),currency)",
     "changeType": "UPSERT",
@@ -2570,6 +2628,27 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-n0n0p3",
         "lastRunId": "no-run-id-provided"
     }
 },

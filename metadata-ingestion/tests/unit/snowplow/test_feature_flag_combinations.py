@@ -169,9 +169,10 @@ class TestEnrichmentsWithoutEventSpecProcessor:
         """
         Test that enrichments are created even when extract_event_specifications=False.
 
-        When EventSpecProcessor is disabled:
-        1. PipelineProcessor._extract_pipelines() should populate emitted_event_spec_ids
-        2. PipelineProcessor._extract_enrichments() should create enrichments for all event specs
+        With OPTION A (Single Physical Pipeline) architecture:
+        1. PipelineProcessor._extract_pipelines() creates single pipeline DataFlow
+        2. PipelineProcessor._extract_pipelines() populates emitted_event_spec_ids
+        3. PipelineProcessor._extract_enrichments() creates enrichments ONCE for pipeline
         """
         # Setup mocks
         mock_deps.bdp_client.get_event_specifications.return_value = sample_event_specs
@@ -189,16 +190,16 @@ class TestEnrichmentsWithoutEventSpecProcessor:
         assert "spec-2" in mock_state.emitted_event_spec_ids
         assert "spec-3" in mock_state.emitted_event_spec_ids
 
-        # Verify DataFlow URNs were created for all event specs
-        assert len(mock_state.event_spec_dataflow_urns) == 3
+        # Verify single pipeline DataFlow URN was created (not per-event-spec)
+        assert mock_state.pipeline_dataflow_urn is not None
+        assert "pipeline-123" in mock_state.pipeline_dataflow_urn
 
-        # Verify enrichments were extracted
-        # 3 event specs × 2 enrichments = 6 enrichment DataJobs expected
-        # (Plus 3 DataFlows and 3 Loader jobs if warehouse configured)
-        assert mock_deps.report.report_enrichment_found.call_count == 6
-        assert mock_deps.report.report_enrichment_extracted.call_count == 6
+        # Verify enrichments were extracted ONCE for the pipeline
+        # Option A: 2 enrichments (shared by all 3 event specs)
+        assert mock_deps.report.report_enrichment_found.call_count == 2
+        assert mock_deps.report.report_enrichment_extracted.call_count == 2
 
-    def test_all_event_specs_get_dataflows(
+    def test_single_pipeline_dataflow_created(
         self,
         mock_deps,
         mock_state,
@@ -206,10 +207,10 @@ class TestEnrichmentsWithoutEventSpecProcessor:
         sample_pipeline,
     ):
         """
-        Test that ALL event specs get DataFlows, not just the first one.
+        Test that a SINGLE pipeline DataFlow is created (Option A architecture).
 
-        This tests Bug 2: Previously, the filter condition checked emitted_event_spec_ids
-        but IDs were added DURING the loop, so only the first iteration passed.
+        With Option A, we create one DataFlow for the physical pipeline,
+        not one per event spec. All event specs share this DataFlow.
         """
         # Setup mocks (no enrichments, just test DataFlow creation)
         mock_deps.config.extract_enrichments = False
@@ -220,16 +221,20 @@ class TestEnrichmentsWithoutEventSpecProcessor:
         processor = PipelineProcessor(mock_deps, mock_state)
         list(processor.extract())
 
-        # Verify ALL 3 event specs got DataFlows
-        assert len(mock_state.event_spec_dataflow_urns) == 3
-        assert "spec-1" in mock_state.event_spec_dataflow_urns
-        assert "spec-2" in mock_state.event_spec_dataflow_urns
-        assert "spec-3" in mock_state.event_spec_dataflow_urns
+        # Verify SINGLE pipeline DataFlow created (not per-event-spec)
+        assert mock_state.pipeline_dataflow_urn is not None
+        assert "pipeline-123" in mock_state.pipeline_dataflow_urn
 
-        # Verify report was called for all 3
-        assert mock_deps.report.report_pipeline_extracted.call_count == 3
+        # All event specs tracked for enrichment input
+        assert len(mock_state.emitted_event_spec_ids) == 3
+        assert "spec-1" in mock_state.emitted_event_spec_ids
+        assert "spec-2" in mock_state.emitted_event_spec_ids
+        assert "spec-3" in mock_state.emitted_event_spec_ids
 
-    def test_event_spec_filter_respects_event_spec_processor_state(
+        # Single pipeline extracted
+        assert mock_deps.report.report_pipeline_extracted.call_count == 1
+
+    def test_event_spec_processor_state_preserved_by_pipeline_processor(
         self,
         mock_deps,
         mock_state,
@@ -237,10 +242,10 @@ class TestEnrichmentsWithoutEventSpecProcessor:
         sample_pipeline,
     ):
         """
-        Test that when EventSpecProcessor IS enabled, PipelineProcessor filters correctly.
+        Test that when EventSpecProcessor has already run, PipelineProcessor preserves state.
 
         When extract_event_specifications=True and EventSpecProcessor has already run,
-        PipelineProcessor should only process event specs that were emitted.
+        PipelineProcessor should preserve the emitted_event_spec_ids.
         """
         # Enable EventSpecProcessor
         mock_deps.config.extract_event_specifications = True
@@ -258,14 +263,17 @@ class TestEnrichmentsWithoutEventSpecProcessor:
         processor = PipelineProcessor(mock_deps, mock_state)
         list(processor.extract())
 
-        # Verify only spec-1 and spec-3 got DataFlows (spec-2 was filtered)
-        assert len(mock_state.event_spec_dataflow_urns) == 2
-        assert "spec-1" in mock_state.event_spec_dataflow_urns
-        assert "spec-3" in mock_state.event_spec_dataflow_urns
-        assert "spec-2" not in mock_state.event_spec_dataflow_urns
+        # Verify single pipeline DataFlow created
+        assert mock_state.pipeline_dataflow_urn is not None
 
-        # Verify report was called only for 2
-        assert mock_deps.report.report_pipeline_extracted.call_count == 2
+        # Verify emitted_event_spec_ids preserved (not overwritten)
+        assert len(mock_state.emitted_event_spec_ids) == 2
+        assert "spec-1" in mock_state.emitted_event_spec_ids
+        assert "spec-3" in mock_state.emitted_event_spec_ids
+        assert "spec-2" not in mock_state.emitted_event_spec_ids
+
+        # Single pipeline extracted
+        assert mock_deps.report.report_pipeline_extracted.call_count == 1
 
 
 class TestAllEventSpecsProcessed:
@@ -437,6 +445,10 @@ class TestProcessorCoordination:
 
         This simulates the real flow where EventSpecProcessor runs first,
         then PipelineProcessor uses the populated state.
+
+        With Option A (Single Physical Pipeline) architecture:
+        - Single DataFlow is created for the pipeline
+        - All event specs' URNs become inputs to enrichments
         """
         # Setup event specs
         event_specs = [
@@ -488,22 +500,25 @@ class TestProcessorCoordination:
         pipeline_processor = PipelineProcessor(pipeline_deps, shared_state)
         list(pipeline_processor.extract())
 
-        # Verify PipelineProcessor used the state correctly
-        # Should only create DataFlows for event specs in emitted_event_spec_ids
-        assert len(shared_state.event_spec_dataflow_urns) == 2
+        # Verify PipelineProcessor created single pipeline DataFlow (Option A)
+        assert shared_state.pipeline_dataflow_urn is not None
+        assert "pipeline-123" in shared_state.pipeline_dataflow_urn
 
-        # Verify enrichments were created for all processed event specs
-        # 2 event specs × 1 enrichment = 2 enrichment DataJobs
-        assert pipeline_deps.report.report_enrichment_extracted.call_count == 2
+        # Verify enrichments were created ONCE for the pipeline
+        # Option A: 1 enrichment (shared by all 2 event specs)
+        assert pipeline_deps.report.report_enrichment_extracted.call_count == 1
 
-    def test_filtered_event_specs_dont_get_enrichments(
+    def test_filtered_event_specs_affect_enrichment_inputs(
         self, event_spec_deps, pipeline_deps, shared_state
     ):
         """
-        Test that filtered event specs don't get enrichments.
+        Test that filtered event specs don't become enrichment inputs.
 
         If EventSpecProcessor filters out an event spec (via pattern),
-        PipelineProcessor should not create enrichments for it.
+        PipelineProcessor should only use allowed event specs as enrichment inputs.
+
+        With Option A: Enrichments are created once, but only allowed event specs
+        are used as inputs.
         """
         # Setup event specs
         event_specs = [
@@ -567,10 +582,9 @@ class TestProcessorCoordination:
         pipeline_processor = PipelineProcessor(pipeline_deps, shared_state)
         list(pipeline_processor.extract())
 
-        # Verify only allowed event spec got DataFlow
-        assert len(shared_state.event_spec_dataflow_urns) == 1
-        assert "spec-allowed" in shared_state.event_spec_dataflow_urns
+        # Verify single pipeline DataFlow created (Option A)
+        assert shared_state.pipeline_dataflow_urn is not None
 
-        # Verify enrichments only created for allowed event spec
-        # 1 event spec × 1 enrichment = 1 enrichment DataJob
+        # Verify enrichments created once (only allowed event spec as input)
+        # Option A: 1 enrichment
         assert pipeline_deps.report.report_enrichment_extracted.call_count == 1

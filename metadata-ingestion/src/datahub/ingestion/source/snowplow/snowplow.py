@@ -98,6 +98,9 @@ from datahub.ingestion.source.snowplow.snowplow_client import SnowplowBDPClient
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.ingestion.source.snowplow.snowplow_report import SnowplowSourceReport
 from datahub.ingestion.source.snowplow.utils.cache_manager import CacheManager
+from datahub.ingestion.source.snowplow.utils.field_reference_parser import (
+    FieldReferenceParser,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -482,11 +485,12 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
         # Get parameters from enrichment content
         params = self._get_enrichment_parameters(enrichment)
-        if not params or "pii" not in params:
+        if not params:
             return
 
-        pii_config = params["pii"]
-        self._parse_pii_config(pii_config, pii_fields)
+        # Parse using the generic field reference parser
+        field_config = FieldReferenceParser.parse_from_key(params, "pii")
+        pii_fields.update(field_config.get_all_field_names())
 
     @staticmethod
     def _get_enrichment_parameters(enrichment: Enrichment) -> Optional[Dict[str, Any]]:
@@ -496,22 +500,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         if not enrichment.content.data:
             return None
         return enrichment.content.data.parameters
-
-    @staticmethod
-    def _parse_pii_config(pii_config: Any, pii_fields: set) -> None:
-        """Parse PII configuration and add field names to the set."""
-        # Format 1: List of field configurations with "fieldName" key
-        if isinstance(pii_config, list):
-            for field_config in pii_config:
-                if isinstance(field_config, dict) and "fieldName" in field_config:
-                    pii_fields.add(field_config["fieldName"])
-            return
-
-        # Format 2: Dict with "fieldNames" key containing a list
-        if isinstance(pii_config, dict) and "fieldNames" in pii_config:
-            field_names = pii_config["fieldNames"]
-            if isinstance(field_names, list):
-                pii_fields.update(field_names)
 
     def get_report(self) -> SnowplowSourceReport:
         return self.report

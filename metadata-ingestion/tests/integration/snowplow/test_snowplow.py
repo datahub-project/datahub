@@ -771,9 +771,9 @@ def test_snowplow_enrichments_without_event_spec_processor(
     - PipelineProcessor should populate emitted_event_spec_ids from its own
       event spec fetching, not depend on EventSpecProcessor.
 
-    This test verifies:
-    1. DataFlows are created for event specs (via PipelineProcessor)
-    2. Enrichment DataJobs are created for each event spec
+    This test verifies (with Option A single pipeline architecture):
+    1. Single pipeline DataFlow is created for the physical pipeline
+    2. Enrichment DataJobs are created ONCE (shared by all event specs)
     3. The full enrichment pipeline works without EventSpecProcessor
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
@@ -882,15 +882,16 @@ def test_snowplow_enrichments_without_event_spec_processor(
         elif entity_urn.startswith("urn:li:dataFlow:"):
             dataflow_urns.add(entity_urn)
 
-    # Verify: Should have DataFlows for event specs (2 in fixture)
-    assert len(dataflow_urns) >= 2, (
-        f"Expected at least 2 unique DataFlows, got {len(dataflow_urns)}: {dataflow_urns}"
+    # Verify: Should have single pipeline DataFlow (Option A architecture)
+    # With single physical pipeline architecture, we create ONE DataFlow for the pipeline
+    assert len(dataflow_urns) == 1, (
+        f"Expected 1 pipeline DataFlow (Option A architecture), got {len(dataflow_urns)}: {dataflow_urns}"
     )
 
-    # Verify: Should have DataJobs (2 event specs × 2 enabled enrichments = 4)
-    # 2 enrichments per event spec = 4 total enrichment DataJobs
-    assert len(datajob_urns) >= 4, (
-        f"Expected at least 4 unique DataJobs, got {len(datajob_urns)}: {datajob_urns}"
+    # Verify: Should have DataJobs (2 enabled enrichments, shared by all event specs)
+    # Option A architecture: enrichments are created ONCE for the pipeline
+    assert len(datajob_urns) >= 2, (
+        f"Expected at least 2 DataJobs (enabled enrichments), got {len(datajob_urns)}: {datajob_urns}"
     )
 
 
@@ -903,7 +904,11 @@ def test_snowplow_all_event_specs_processed(pytestconfig, tmp_path, mock_time):
     This is a regression test for Bug 2:
     - Previously, the filter condition in PipelineProcessor checked emitted_event_spec_ids
       but IDs were added DURING the loop, so only the first iteration passed.
-    - All event specs should get DataFlows and enrichments.
+    - All event specs should be tracked in emitted_event_spec_ids.
+
+    With Option A (single pipeline) architecture:
+    - All event spec datasets are created
+    - Single pipeline DataFlow is created (shared by all event specs)
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
 
@@ -1005,7 +1010,7 @@ def test_snowplow_all_event_specs_processed(pytestconfig, tmp_path, mock_time):
         output_mces = json.load(f)
 
     event_spec_datasets = set()
-    dataflows = set()
+    pipeline_dataflows = set()
 
     for mce in output_mces:
         entity_urn = mce.get("entityUrn", "")
@@ -1015,19 +1020,17 @@ def test_snowplow_all_event_specs_processed(pytestconfig, tmp_path, mock_time):
             and "event_spec.evt-spec" in entity_urn
         ):
             event_spec_datasets.add(entity_urn)
-        # DataFlow URNs for event specs
-        elif (
-            entity_urn.startswith("urn:li:dataFlow:")
-            and "_event_evt-spec" in entity_urn
-        ):
-            dataflows.add(entity_urn)
+        # Pipeline DataFlow URNs (Option A: single physical pipeline)
+        elif entity_urn.startswith("urn:li:dataFlow:"):
+            pipeline_dataflows.add(entity_urn)
 
     # Verify ALL 3 event specs got datasets
     assert len(event_spec_datasets) == 3, (
         f"Expected 3 event spec datasets, got {len(event_spec_datasets)}: {event_spec_datasets}"
     )
 
-    # Verify ALL 3 event specs got DataFlows
-    assert len(dataflows) == 3, (
-        f"Expected 3 DataFlows, got {len(dataflows)}: {dataflows}"
+    # Verify single pipeline DataFlow created (Option A architecture)
+    # All event specs share the same physical pipeline
+    assert len(pipeline_dataflows) == 1, (
+        f"Expected 1 pipeline DataFlow (Option A architecture), got {len(pipeline_dataflows)}: {pipeline_dataflows}"
     )

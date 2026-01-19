@@ -62,12 +62,13 @@ class IngestionState:
 
     # Pipeline state
     physical_pipeline: Optional["Pipeline"] = None  # Physical pipeline object
-    pipeline_dataflow_urn: Optional[str] = None
+    pipeline_dataflow_urn: Optional[str] = None  # Single pipeline DataFlow URN
     parsed_events_urn: Optional[str] = None
     warehouse_table_urn: Optional[str] = None
 
     # Event spec state
-    event_spec_dataflow_urns: Dict[str, str] = field(default_factory=dict)
+    # Note: event_spec_dataflow_urns removed in favor of single pipeline_dataflow_urn
+    # (Option A: Single Physical Pipeline architecture)
     emitted_event_spec_ids: Set[str] = field(default_factory=set)
     emitted_event_spec_urns: List[str] = field(
         default_factory=list
@@ -246,7 +247,6 @@ class IngestionState:
 
     def clear_event_spec_state(self) -> None:
         """Clear all event spec related state."""
-        self.event_spec_dataflow_urns.clear()
         self.emitted_event_spec_ids.clear()
         self.emitted_event_spec_urns.clear()
         self.event_spec_to_schema_urns.clear()

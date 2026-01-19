@@ -378,6 +378,29 @@ class EventSpecProcessor(EntityProcessor):
             all_fields.extend(schema_fields)
             matched_count = len(schema_fields)
 
+            # Debug: Log which schema URNs were looked up and which had fields
+            if upstream_schema_urns:
+                logger.debug(
+                    f"Event spec '{event_spec_name}' references {len(upstream_schema_urns)} schema URN(s): "
+                    f"{upstream_schema_urns}"
+                )
+                registered_urns = list(self.state.extracted_schema_fields_by_urn.keys())
+                logger.debug(
+                    f"Available schema URNs in state ({len(registered_urns)}): "
+                    f"{registered_urns[:5]}{'...' if len(registered_urns) > 5 else ''}"
+                )
+                # Check which upstream URNs are missing
+                missing_urns = [
+                    urn
+                    for urn in upstream_schema_urns
+                    if urn not in self.state.extracted_schema_fields_by_urn
+                ]
+                if missing_urns:
+                    logger.warning(
+                        f"Event spec '{event_spec_name}': {len(missing_urns)} referenced schema(s) not found "
+                        f"in extracted schemas: {missing_urns}"
+                    )
+
             logger.info(
                 f"Event spec '{event_spec_name}': "
                 f"Total fields = {len(all_fields)} "

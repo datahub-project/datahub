@@ -12,7 +12,7 @@ This processor coordinates pipeline and enrichment metadata extraction.
 
 import logging
 import time
-from typing import TYPE_CHECKING, Iterable, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional, Sequence
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
@@ -21,7 +21,10 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.constants import WAREHOUSE_PLATFORM_MAP
+from datahub.ingestion.source.snowplow.constants import (
+    SNOWPLOW_STANDARD_COLUMNS,
+    WAREHOUSE_PLATFORM_MAP,
+)
 from datahub.ingestion.source.snowplow.models.snowplow_models import (
     Enrichment,
 )
@@ -93,173 +96,121 @@ class PipelineProcessor(EntityProcessor):
 
     def _extract_pipelines(self) -> Iterable[MetadataWorkUnit]:
         """
-        Extract event-specific pipelines as DataFlow entities.
+        Extract physical pipeline as a single DataFlow entity.
 
-        NEW ARCHITECTURE (per event specification):
-        - One DataFlow per event specification (instead of per physical pipeline)
-        - DataFlow represents the data flow for a specific event through the pipeline
-        - Inputs: event schema + entity schemas from event specification
-        - Tagged with physical pipeline name/ID
+        OPTION A ARCHITECTURE (Single Physical Pipeline):
+        - One DataFlow per physical pipeline (typically just one)
+        - Represents the entire Snowplow event processing pipeline
+        - All event specs share the same enrichments in a single pipeline
+        - Scales O(enrichments) instead of O(events × enrichments)
 
-        This provides better visibility into which entities flow with which events.
+        This matches Snowplow's physical reality: one pipeline processes ALL events.
         """
         if not self.deps.bdp_client:
             return
 
         try:
-            # Get event specifications (with entity mappings)
-            event_specs = self.deps.bdp_client.get_event_specifications()
-            logger.info(
-                f"Extracting event-specific DataFlows from {len(event_specs)} event specifications"
-            )
-
-            # Get physical pipelines (for tagging)
+            # Get physical pipelines
             physical_pipelines = self.deps.bdp_client.get_pipelines()
             self.report.num_pipelines_found = len(physical_pipelines)
 
-            # Use first pipeline as default (most orgs have one pipeline)
-            default_pipeline = physical_pipelines[0] if physical_pipelines else None
+            if not physical_pipelines:
+                logger.warning(
+                    "No physical pipelines found - skipping pipeline extraction"
+                )
+                return
 
-            # Cache physical pipeline info for later use by enrichments
-            self.state.physical_pipeline = default_pipeline
+            # Use first pipeline (most orgs have one pipeline)
+            pipeline = physical_pipelines[0]
+            self.state.physical_pipeline = pipeline
 
-            # Determine if we should filter event specs based on EventSpecProcessor output
-            # When extract_event_specifications is enabled, EventSpecProcessor runs first and
-            # populates emitted_event_spec_ids. We should only process those event specs.
-            # When extract_event_specifications is disabled, we process ALL event specs.
-            filter_by_event_spec_processor = (
-                self.config.extract_event_specifications
-                and self.state.emitted_event_spec_ids
+            # Get event specifications count for metadata
+            event_specs = self.deps.bdp_client.get_event_specifications()
+            event_spec_count = len(event_specs)
+            logger.info(
+                f"Creating single DataFlow for pipeline '{pipeline.name}' "
+                f"(covers {event_spec_count} event specifications)"
             )
 
-            # Create DataFlow for each event specification
-            for event_spec in event_specs:
-                # Filter to match EventSpecProcessor's filter (only when that processor is enabled)
-                if (
-                    filter_by_event_spec_processor
-                    and event_spec.id not in self.state.emitted_event_spec_ids
-                ):
-                    logger.debug(
-                        f"Skipping event spec {event_spec.name} - not in emitted event specs"
-                    )
-                    continue
+            self.report.report_pipeline_found()
 
-                # Get event URI from DETAIL format, or derive from LEGACY format
-                event_iglu_uri = event_spec.get_event_iglu_uri()
-                entity_iglu_uris = event_spec.get_entity_iglu_uris()
+            # Create single DataFlow URN for the physical pipeline
+            dataflow_urn = make_data_flow_urn(
+                orchestrator="snowplow",
+                flow_id=pipeline.id,
+                cluster=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
 
-                # For LEGACY format (no event.source), derive identifier from first event schema
-                if not event_iglu_uri and event_spec.event_schemas:
-                    first_schema = event_spec.event_schemas[0]
-                    # Create a pseudo-URI from the first event schema
-                    event_iglu_uri = f"iglu:{first_schema.vendor}/{first_schema.name}/jsonschema/{first_schema.version}"
-                    logger.debug(
-                        f"Using LEGACY format for event spec {event_spec.name}: {event_iglu_uri}"
-                    )
+            # Store single pipeline DataFlow URN
+            self.state.pipeline_dataflow_urn = dataflow_urn
 
-                # Skip event specs with no schema information at all
-                if not event_iglu_uri:
-                    logger.debug(
-                        f"Skipping event spec {event_spec.name} - no event schema information"
-                    )
-                    continue
+            # Track event spec IDs for enrichment extraction
+            # When extract_event_specifications is enabled, EventSpecProcessor runs first
+            # and populates emitted_event_spec_ids. Otherwise, we track all event specs.
+            if not self.state.emitted_event_spec_ids:
+                for event_spec in event_specs:
+                    self.state.emitted_event_spec_ids.add(event_spec.id)
 
-                self.report.report_pipeline_found()
+            # Build custom properties
+            custom_properties = {
+                "pipelineId": pipeline.id,
+                "pipelineName": pipeline.name,
+                "pipelineStatus": pipeline.status,
+                "eventSpecCount": str(event_spec_count),
+                "architecture": "single_physical_pipeline",
+            }
 
-                # Create DataFlow URN for this event specification
-                # Include pipeline ID to ensure uniqueness across multiple pipelines
-                pipeline_id = default_pipeline.id if default_pipeline else "unknown"
-                dataflow_urn = make_data_flow_urn(
-                    orchestrator="snowplow",
-                    flow_id=f"{pipeline_id}_event_{event_spec.id}",
-                    cluster=self.config.env,
-                    platform_instance=self.config.platform_instance,
+            if pipeline.label:
+                custom_properties["pipelineLabel"] = pipeline.label
+
+            if pipeline.config and pipeline.config.collector_endpoints:
+                custom_properties["collectorEndpoints"] = ", ".join(
+                    pipeline.config.collector_endpoints
                 )
 
-                # Store mapping for enrichment extraction
-                self.state.event_spec_dataflow_urns[event_spec.id] = dataflow_urn
+            # Build description
+            description = (
+                f"Snowplow event processing pipeline: {pipeline.name}\n\n"
+                f"This pipeline processes **{event_spec_count} event specifications** through:\n"
+                "1. **Collector**: Receives raw events from trackers\n"
+                "2. **Enrichments**: Add computed fields (IP Lookup, UA Parser, etc.)\n"
+                "3. **Loader**: Writes enriched data to warehouse\n\n"
+                "All events share the same enrichments - this is how Snowplow works physically."
+            )
 
-                # Also register the event spec ID so enrichments can be extracted
-                # This is needed when extract_event_specifications is disabled but
-                # extract_pipelines is enabled - we still need to track which event specs
-                # were processed for enrichment creation
-                self.state.emitted_event_spec_ids.add(event_spec.id)
-
-                # Build custom properties
-                custom_properties = {
-                    "eventSpecId": event_spec.id,
-                    "eventIgluUri": event_iglu_uri,
-                    "entityCount": str(len(entity_iglu_uris)),
-                }
-
-                # Tag with physical pipeline info
-                if default_pipeline:
-                    custom_properties["physicalPipelineId"] = default_pipeline.id
-                    custom_properties["physicalPipelineName"] = default_pipeline.name
-                    custom_properties["pipelineStatus"] = default_pipeline.status
-
-                    if default_pipeline.label:
-                        custom_properties["pipelineLabel"] = default_pipeline.label
-
-                    if (
-                        default_pipeline.config
-                        and default_pipeline.config.collector_endpoints
-                    ):
-                        custom_properties["collectorEndpoints"] = ", ".join(
-                            default_pipeline.config.collector_endpoints
-                        )
-
-                # Add entity URIs as custom properties (for reference)
-                if entity_iglu_uris:
-                    custom_properties["entityIgluUris"] = ", ".join(
-                        entity_iglu_uris[:5]
-                    )  # Limit to avoid too long
-                    if len(entity_iglu_uris) > 5:
-                        custom_properties["entityIgluUris"] += (
-                            f" (+{len(entity_iglu_uris) - 5} more)"
-                        )
-
-                # Build description
-                pipeline_name = (
-                    default_pipeline.name if default_pipeline else "Unknown Pipeline"
+            # Build container aspect conditionally
+            container_aspect = None
+            if self.config.bdp_connection:
+                org_container_urn = self.urn_factory.make_organization_urn(
+                    self.config.bdp_connection.organization_id
                 )
-                description = f"Snowplow event flow for '{event_spec.name}'"
-                if entity_iglu_uris:
-                    description += f" with {len(entity_iglu_uris)} entity context(s)"
-                if default_pipeline:
-                    description += f" (Pipeline: {pipeline_name})"
+                container_aspect = ContainerClass(container=org_container_urn)
 
-                # Build container aspect conditionally
-                container_aspect = None
-                if self.config.bdp_connection:
-                    org_container_urn = self.urn_factory.make_organization_urn(
-                        self.config.bdp_connection.organization_id
-                    )
-                    container_aspect = ContainerClass(container=org_container_urn)
+            # Emit DataFlow aspects
+            yield from self.emit_aspects(
+                entity_urn=dataflow_urn,
+                aspects=[
+                    DataFlowInfoClass(
+                        name=f"Snowplow Pipeline: {pipeline.name}",
+                        description=description,
+                        customProperties=custom_properties,
+                    ),
+                    StatusClass(removed=False),
+                    container_aspect,
+                ],
+            )
 
-                # Emit all DataFlow aspects using SDK V2 batching pattern
-                yield from self.emit_aspects(
-                    entity_urn=dataflow_urn,
-                    aspects=[
-                        DataFlowInfoClass(
-                            name=f"{event_spec.name} ({pipeline_name})",
-                            description=description,
-                            customProperties=custom_properties,
-                        ),
-                        StatusClass(removed=False),
-                        container_aspect,
-                    ],
-                )
-
-                logger.debug(
-                    f"Extracted event-specific DataFlow: {event_spec.name} (event_spec_id={event_spec.id})"
-                )
-                self.report.report_pipeline_extracted()
+            logger.info(
+                f"✅ Created single DataFlow for pipeline '{pipeline.name}' "
+                f"(will contain enrichments shared by {event_spec_count} event specs)"
+            )
+            self.report.report_pipeline_extracted()
 
         except Exception as e:
             self.deps.error_handler.handle_api_error(
                 error=e,
-                operation="extract event-specific pipelines",
+                operation="extract physical pipeline",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
             )
 
@@ -343,17 +294,16 @@ class PipelineProcessor(EntityProcessor):
 
     def _extract_enrichments(self) -> Iterable[MetadataWorkUnit]:
         """
-        Extract enrichments as DataJob entities in per-Event-Spec DataFlows.
+        Extract enrichments as DataJob entities in the single physical pipeline DataFlow.
 
-        NEW ARCHITECTURE (per Event Spec):
-        - Creates one set of enrichments PER Event Spec
-        - Each enrichment is a DataJob within the Event Spec's DataFlow
-        - Input: Single Event Spec dataset (with its fields)
-        - Output: Warehouse table (with enriched fields added)
+        OPTION A ARCHITECTURE (Single Physical Pipeline):
+        - Creates enrichments ONCE for the entire pipeline
+        - All event specs share the same enrichments (this is how Snowplow works physically)
+        - Scales O(enrichments) instead of O(events × enrichments)
 
-        Flow: Atomic Event + Schemas → Event Spec → Enrichments → Warehouse
+        Flow: ALL Event Specs → Enrichments → Warehouse
 
-        Example: [Event Spec: Add to Cart] → [IP Lookup DataJob] → [Warehouse]
+        Example: [Event Specs: Add to Cart, Page View, ...] → [IP Lookup DataJob] → [Warehouse]
         """
         if not self.deps.bdp_client:
             return
@@ -362,6 +312,8 @@ class PipelineProcessor(EntityProcessor):
             # Get warehouse destination table URN (if configured)
             warehouse_table_urn = self._get_warehouse_table_urn()
             if warehouse_table_urn:
+                # Store in state for column lineage builder
+                self.state.warehouse_table_urn = warehouse_table_urn
                 logger.info(
                     f"✅ Enrichments will output to warehouse table: {warehouse_table_urn}"
                 )
@@ -374,10 +326,17 @@ class PipelineProcessor(EntityProcessor):
                     "⚠️  To enable column-level lineage, ensure your Snowplow pipeline has a destination configured"
                 )
 
-            # Get enrichments from physical pipeline (enrichments configured once, apply to all events)
+            # Validate prerequisites for enrichment extraction
             if not self.state.physical_pipeline:
                 logger.warning(
                     "No physical pipeline found - cannot extract enrichments. "
+                    "Make sure _extract_pipelines() ran first."
+                )
+                return
+
+            if not self.state.pipeline_dataflow_urn:
+                logger.warning(
+                    "No pipeline DataFlow URN available - cannot extract enrichments. "
                     "Make sure _extract_pipelines() ran first."
                 )
                 return
@@ -389,13 +348,7 @@ class PipelineProcessor(EntityProcessor):
                 )
                 return
 
-            if not self.state.event_spec_dataflow_urns:
-                logger.warning(
-                    "No event spec DataFlow URNs available - cannot extract enrichments. "
-                    "Make sure _extract_pipelines() ran first."
-                )
-                return
-
+            # Get enrichments from physical pipeline
             enrichments = self.deps.bdp_client.get_enrichments(
                 self.state.physical_pipeline.id
             )
@@ -403,73 +356,51 @@ class PipelineProcessor(EntityProcessor):
             logger.info(
                 f"Found {total_enrichments} enrichments in pipeline {self.state.physical_pipeline.name}"
             )
-
-            # Create enrichments PER Event Spec (instead of once for all Event Specs)
-            # Each Event Spec gets its own set of enrichments in its own DataFlow
-            for event_spec_id in self.state.emitted_event_spec_ids:
-                # Get the DataFlow URN for this Event Spec
-                event_spec_dataflow_urn = self.state.event_spec_dataflow_urns.get(
-                    event_spec_id
-                )
-                if not event_spec_dataflow_urn:
-                    logger.warning(
-                        f"No DataFlow URN found for event spec {event_spec_id} - skipping enrichments"
-                    )
-                    continue
-
-                # Generate Event Spec dataset URN (same as in event_spec_processor.py)
-                event_spec_urn = self.urn_factory.make_event_spec_dataset_urn(
-                    event_spec_id
-                )
-
-                logger.debug(
-                    f"Creating enrichments for Event Spec {event_spec_id} with DataFlow {event_spec_dataflow_urn}"
-                )
-
-                # Emit all enrichments for this Event Spec
-                for enrichment in enrichments:
-                    self.report.report_enrichment_found()
-
-                    if not enrichment.enabled:
-                        self.report.report_enrichment_filtered(enrichment.filename)
-                        logger.debug(
-                            f"Skipping disabled enrichment: {enrichment.filename}"
-                        )
-                        continue
-
-                    # Emit enrichment DataJob with all aspects
-                    # This enrichment reads from THIS Event Spec and writes to warehouse
-                    yield from self._emit_enrichment_datajob(
-                        enrichment=enrichment,
-                        dataflow_urn=event_spec_dataflow_urn,  # Use Event Spec's DataFlow
-                        input_dataset_urns=[
-                            event_spec_urn
-                        ],  # Read from THIS Event Spec only
-                        warehouse_table_urn=warehouse_table_urn,
-                    )
-
             self.report.num_enrichments_found = total_enrichments
 
-            # Emit Loader jobs (one per Event Spec → warehouse)
+            # Collect ALL event spec URNs as inputs (shared by all enrichments)
+            all_event_spec_urns = [
+                self.urn_factory.make_event_spec_dataset_urn(event_spec_id)
+                for event_spec_id in self.state.emitted_event_spec_ids
+            ]
+
+            logger.info(
+                f"Creating enrichments ONCE for pipeline (shared by {len(all_event_spec_urns)} event specs)"
+            )
+
+            # Emit enrichments ONCE for the entire pipeline
+            # All event specs share the same enrichments (this is how Snowplow works physically)
+            for enrichment in enrichments:
+                self.report.report_enrichment_found()
+
+                if not enrichment.enabled:
+                    self.report.report_enrichment_filtered(enrichment.filename)
+                    logger.debug(f"Skipping disabled enrichment: {enrichment.filename}")
+                    continue
+
+                # Emit enrichment DataJob with all aspects
+                # Input: ALL event specs (they all go through the same enrichments)
+                # Output: Warehouse table (where enriched data lands)
+                yield from self._emit_enrichment_datajob(
+                    enrichment=enrichment,
+                    dataflow_urn=self.state.pipeline_dataflow_urn,  # Single pipeline
+                    input_dataset_urns=all_event_spec_urns,  # ALL event specs
+                    warehouse_table_urn=warehouse_table_urn,
+                )
+
+            # Emit Collector job (receives raw events from trackers)
+            yield from self._emit_collector_datajob(
+                dataflow_urn=self.state.pipeline_dataflow_urn,  # Single pipeline
+                output_dataset_urns=all_event_spec_urns,  # ALL event specs
+            )
+
+            # Emit single Loader job (loads all enriched events to warehouse)
             if warehouse_table_urn:
-                for event_spec_id in self.state.emitted_event_spec_ids:
-                    event_spec_dataflow_urn = self.state.event_spec_dataflow_urns.get(
-                        event_spec_id
-                    )
-                    if not event_spec_dataflow_urn:
-                        continue
-
-                    event_spec_urn = self.urn_factory.make_event_spec_dataset_urn(
-                        event_spec_id
-                    )
-
-                    yield from self._emit_loader_datajob(
-                        dataflow_urn=event_spec_dataflow_urn,  # Use Event Spec's DataFlow
-                        input_dataset_urns=[
-                            event_spec_urn
-                        ],  # Load from THIS Event Spec only
-                        warehouse_table_urn=warehouse_table_urn,
-                    )
+                yield from self._emit_loader_datajob(
+                    dataflow_urn=self.state.pipeline_dataflow_urn,  # Single pipeline
+                    input_dataset_urns=all_event_spec_urns,  # ALL event specs
+                    warehouse_table_urn=warehouse_table_urn,
+                )
 
         except Exception as e:
             self.deps.error_handler.handle_api_error(
@@ -478,84 +409,11 @@ class PipelineProcessor(EntityProcessor):
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
             )
 
-    def _setup_pipeline_and_lineage(self) -> Iterable[MetadataWorkUnit]:
-        """
-        DEPRECATED: No longer used with per-Event-Spec pipeline architecture.
-
-        Previously created a single global Pipeline DataFlow for all enrichments.
-        Now each Event Spec has its own DataFlow (created in _extract_pipelines).
-
-        This method remains for reference but is not called.
-
-        Setup pipeline DataFlow for organizing enrichments and loader jobs.
-
-        With Option A architecture, Event Specs already have lineage from schemas,
-        so we only need to create the Pipeline DataFlow container for enrichments.
-
-        Flow: Atomic Event + Schemas → Event Specs → Enrichments → Warehouse
-        """
-        if not self.state.physical_pipeline:
-            logger.debug("No physical pipeline - skipping pipeline setup")
-            return
-
-        if not self.state.emitted_event_spec_urns:
-            logger.debug("No event spec URNs available - skipping pipeline setup")
-            return
-
-        # Create DataFlow for the pipeline
-        pipeline_dataflow_urn = make_data_flow_urn(
-            orchestrator="snowplow",
-            flow_id=f"{self.state.physical_pipeline.id}_pipeline",
-            cluster=self.config.env,
-        )
-
-        # Store for enrichments to use
-        self.state.pipeline_dataflow_urn = pipeline_dataflow_urn
-
-        # Build container aspect conditionally
-        container_aspect = None
-        if self.config.bdp_connection:
-            org_container_urn = self.urn_factory.make_organization_urn(
-                self.config.bdp_connection.organization_id
-            )
-            container_aspect = ContainerClass(container=org_container_urn)
-
-        # Emit all DataFlow aspects using SDK V2 batching pattern
-        yield from self.emit_aspects(
-            entity_urn=pipeline_dataflow_urn,
-            aspects=[
-                DataFlowInfoClass(
-                    name=f"Snowplow Pipeline ({self.state.physical_pipeline.name})",
-                    description=(
-                        f"Snowplow event processing pipeline for {self.state.physical_pipeline.name}.\n\n"
-                        "This pipeline processes events through:\n"
-                        "1. **Atomic Event**: Standard Snowplow atomic event fields\n"
-                        "2. **Schemas**: Event and entity schemas define custom fields\n"
-                        "3. **Event Specs**: Combine Atomic Event + Schemas (superset of all fields)\n"
-                        "4. **Enrichments**: Add computed fields (IP Lookup, UA Parser, Campaign Attribution, etc.)\n"
-                        "5. **Loader**: Writes enriched data to warehouse\n\n"
-                        "Flow: Atomic Event + Schemas → Event Specs → Enrichments → Warehouse"
-                    ),
-                    customProperties={
-                        "pipelineId": self.state.physical_pipeline.id,
-                        "pipelineName": self.state.physical_pipeline.name,
-                        "platform": "snowplow",
-                        "eventSpecCount": str(len(self.state.emitted_event_spec_urns)),
-                    },
-                ),
-                container_aspect,
-            ],
-        )
-
-        logger.info(
-            f"✅ Created Pipeline DataFlow for {len(self.state.emitted_event_spec_urns)} event spec(s)"
-        )
-
     def _emit_enrichment_datajob(
         self,
         enrichment: Enrichment,
         dataflow_urn: str,
-        input_dataset_urns: List[str],
+        input_dataset_urns: Sequence[str],
         warehouse_table_urn: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """Emit all aspects for a single enrichment DataJob."""
@@ -573,7 +431,7 @@ class PipelineProcessor(EntityProcessor):
         )
         fine_grained_lineages = self._extract_enrichment_field_lineage(
             enrichment=enrichment,
-            event_schema_urns=input_dataset_urns,  # Event Spec datasets as inputs
+            event_schema_urns=list(input_dataset_urns),  # Event Spec datasets as inputs
             warehouse_table_urn=warehouse_table_urn,  # Warehouse table as output
         )
         if fine_grained_lineages:
@@ -650,7 +508,7 @@ class PipelineProcessor(EntityProcessor):
                 ownership_aspect,
                 StatusClass(removed=False),
                 DataJobInputOutputClass(
-                    inputDatasets=input_dataset_urns,
+                    inputDatasets=list(input_dataset_urns),
                     outputDatasets=output_datasets,
                     fineGrainedLineages=fine_grained_lineages
                     if fine_grained_lineages
@@ -671,10 +529,99 @@ class PipelineProcessor(EntityProcessor):
         logger.debug(f"Extracted enrichment: {enrichment_name}")
         self.report.report_enrichment_extracted()
 
+    def _emit_collector_datajob(
+        self,
+        dataflow_urn: str,
+        output_dataset_urns: Sequence[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit Collector DataJob that receives raw events from trackers.
+
+        The Collector is the entry point of the Snowplow pipeline. It receives
+        events via HTTP from trackers (web, mobile, server-side SDKs) and outputs
+        them for validation and enrichment.
+
+        Inputs: External (trackers via HTTP - not modeled as datasets)
+        Outputs: Event Spec datasets (raw events before enrichment)
+        """
+        # Create DataJob URN
+        datajob_urn = make_data_job_urn_with_flow(
+            flow_urn=dataflow_urn,
+            job_id="collector",
+        )
+
+        # Get collector endpoints from pipeline config
+        collector_endpoints: List[str] = []
+        if (
+            self.state.physical_pipeline
+            and self.state.physical_pipeline.config
+            and self.state.physical_pipeline.config.collector_endpoints
+        ):
+            collector_endpoints = (
+                self.state.physical_pipeline.config.collector_endpoints
+            )
+
+        # Build custom properties
+        custom_properties = {
+            "pipelineId": self.state.physical_pipeline.id
+            if self.state.physical_pipeline
+            else "unknown",
+            "pipelineName": self.state.physical_pipeline.name
+            if self.state.physical_pipeline
+            else "unknown",
+            "stage": "collector",
+        }
+
+        if collector_endpoints:
+            custom_properties["collectorEndpoints"] = ", ".join(collector_endpoints)
+            custom_properties["endpointCount"] = str(len(collector_endpoints))
+
+        # Build description
+        description = (
+            "Snowplow Collector that receives raw events from trackers.\n\n"
+            "**Input**: HTTP requests from trackers (web, mobile, server-side SDKs)\n"
+            "**Output**: Event Spec datasets (raw events for validation and enrichment)\n\n"
+            "The Collector is the entry point of the Snowplow pipeline. It:\n"
+            "- Receives events from multiple sources via HTTP POST/GET\n"
+            "- Validates basic request format\n"
+            "- Attaches collector payload metadata (collector timestamp, IP, etc.)\n"
+            "- Outputs events to the enrichment stream"
+        )
+
+        if collector_endpoints:
+            endpoints_list = "\n".join(
+                f"- {endpoint}" for endpoint in collector_endpoints
+            )
+            description += f"\n\n**Collector Endpoints**:\n{endpoints_list}"
+
+        # Emit all Collector DataJob aspects
+        yield from self.emit_aspects(
+            entity_urn=datajob_urn,
+            aspects=[
+                DataJobInfoClass(
+                    name="Collector",
+                    type="STREAMING",  # Collector is a real-time streaming ingestion
+                    description=description,
+                    customProperties=custom_properties,
+                ),
+                DataJobInputOutputClass(
+                    inputDatasets=[],  # Collector receives from external HTTP - no dataset inputs
+                    outputDatasets=list(output_dataset_urns),
+                    fineGrainedLineages=None,
+                ),
+                StatusClass(removed=False),
+            ],
+        )
+
+        logger.info(
+            f"✅ Created Collector job with {len(collector_endpoints)} endpoints "
+            f"→ {len(output_dataset_urns)} event specs"
+        )
+
     def _emit_loader_datajob(
         self,
         dataflow_urn: str,
-        input_dataset_urns: List[str],
+        input_dataset_urns: Sequence[str],
         warehouse_table_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -717,7 +664,7 @@ class PipelineProcessor(EntityProcessor):
                     },
                 ),
                 DataJobInputOutputClass(
-                    inputDatasets=input_dataset_urns,
+                    inputDatasets=list(input_dataset_urns),
                     outputDatasets=[warehouse_table_urn],
                     fineGrainedLineages=None,
                 ),
@@ -735,6 +682,10 @@ class PipelineProcessor(EntityProcessor):
     ) -> List[FineGrainedLineageClass]:
         """
         Extract field-level lineage for an enrichment using registered extractors.
+
+        Creates lineage entries that connect ALL event specs to the warehouse table,
+        since all event specs share the same atomic fields (user_ipaddress, page_urlquery, etc.)
+        that enrichments read from.
 
         Args:
             enrichment: The enrichment to extract lineage for
@@ -777,25 +728,35 @@ class PipelineProcessor(EntityProcessor):
             )
             return fine_grained_lineages
 
-        # Use the first event spec URN for field lineage extraction
+        # Use the first event spec URN for field lineage extraction template
         # All event specs have the same atomic fields (Atomic Event), so we can use any one
-        event_spec_urn = event_schema_urns[0]
+        # to discover the field names, then expand to all event specs
+        template_event_spec_urn = event_schema_urns[0]
 
         # Extract field lineages using the registered extractor
-        # Pass event_spec_urn as input and warehouse_table_urn as output
+        # Pass template_event_spec_urn as input and warehouse_table_urn as output
         try:
             field_lineages = extractor.extract_lineage(
                 enrichment=enrichment,
-                event_schema_urn=event_spec_urn,  # Use Event Spec as source for fields
+                event_schema_urn=template_event_spec_urn,  # Use one Event Spec as template
                 warehouse_table_urn=warehouse_table_urn,  # Use warehouse table as output for enriched fields
             )
 
             # Convert FieldLineage objects to DataHub FineGrainedLineageClass
+            # IMPORTANT: Expand upstream field URNs to include ALL event specs
+            # This ensures lineage shows correctly for every event spec, not just the first
             for field_lineage in field_lineages:
+                # Expand upstream fields to include same field from ALL event specs
+                expanded_upstreams = self._expand_field_urns_to_all_event_specs(
+                    template_field_urns=field_lineage.upstream_fields,
+                    template_event_spec_urn=template_event_spec_urn,
+                    all_event_spec_urns=event_schema_urns,
+                )
+
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=field_lineage.upstream_fields,
+                        upstreams=expanded_upstreams,  # Include fields from ALL event specs
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
                         downstreams=field_lineage.downstream_fields,
                         transformOperation=field_lineage.transformation_type,
@@ -804,7 +765,8 @@ class PipelineProcessor(EntityProcessor):
 
             if fine_grained_lineages:
                 logger.debug(
-                    f"Extracted {len(fine_grained_lineages)} field lineages for enrichment {enrichment.filename}"
+                    f"Extracted {len(fine_grained_lineages)} field lineages for enrichment {enrichment.filename} "
+                    f"(expanded to {len(event_schema_urns)} event specs)"
                 )
 
         except Exception as e:
@@ -814,3 +776,181 @@ class PipelineProcessor(EntityProcessor):
             )
 
         return fine_grained_lineages
+
+    def _expand_field_urns_to_all_event_specs(
+        self,
+        template_field_urns: List[str],
+        template_event_spec_urn: str,
+        all_event_spec_urns: List[str],
+    ) -> List[str]:
+        """
+        Expand field URNs from one event spec to include the same fields from relevant event specs.
+
+        Expansion rules:
+        - ATOMIC fields (user_ipaddress, useragent, etc.): Expand to ALL event specs
+        - CUSTOM SCHEMA fields: Expand ONLY to event specs that have the schema containing the field
+
+        This ensures:
+        - Atomic fields: lineage shows correctly for ALL event specs (they all have atomic fields)
+        - Custom fields: lineage shows ONLY for event specs that actually have the field
+
+        Args:
+            template_field_urns: Field URNs from the template event spec
+            template_event_spec_urn: The URN of the template event spec used to extract fields
+            all_event_spec_urns: All event spec URNs to potentially expand to
+
+        Returns:
+            Expanded list of field URNs with correct event spec targeting
+        """
+        expanded_urns: List[str] = []
+
+        for template_field_urn in template_field_urns:
+            # Extract field name from URN
+            # Field URN format: urn:li:schemaField:(dataset_urn,field_name)
+            field_name = self._extract_field_name_from_urn(template_field_urn)
+
+            if field_name and field_name in SNOWPLOW_STANDARD_COLUMNS:
+                # Atomic field: expand to ALL event specs (they all have this field)
+                for event_spec_urn in all_event_spec_urns:
+                    expanded_urn = template_field_urn.replace(
+                        template_event_spec_urn, event_spec_urn
+                    )
+                    expanded_urns.append(expanded_urn)
+            else:
+                # Custom schema field: find which event specs have this field
+                event_specs_with_field = self._find_event_specs_with_field(
+                    field_name=field_name,
+                    all_event_spec_urns=all_event_spec_urns,
+                )
+
+                if event_specs_with_field:
+                    # Expand only to event specs that have this field
+                    for event_spec_urn in event_specs_with_field:
+                        expanded_urn = template_field_urn.replace(
+                            template_event_spec_urn, event_spec_urn
+                        )
+                        expanded_urns.append(expanded_urn)
+                    logger.debug(
+                        f"Custom field '{field_name}' expanded to {len(event_specs_with_field)} "
+                        f"event specs (out of {len(all_event_spec_urns)} total)"
+                    )
+                else:
+                    # Fallback: keep template if we can't determine which event specs have it
+                    expanded_urns.append(template_field_urn)
+                    if field_name:
+                        logger.debug(
+                            f"Custom field '{field_name}' - could not determine event specs, "
+                            f"keeping template only"
+                        )
+
+        return expanded_urns
+
+    def _find_event_specs_with_field(
+        self,
+        field_name: Optional[str],
+        all_event_spec_urns: List[str],
+    ) -> List[str]:
+        """
+        Find which event specs contain a specific field.
+
+        Uses the state to look up:
+        1. Which schemas contain the field (via extracted_schema_fields_by_urn)
+        2. Which event specs reference those schemas (via event_spec_to_schema_urns)
+
+        Args:
+            field_name: The field name to search for
+            all_event_spec_urns: All event spec URNs to check
+
+        Returns:
+            List of event spec URNs that have the field
+        """
+        if not field_name:
+            return []
+
+        # Step 1: Find which schemas contain this field
+        schemas_with_field: set[str] = set()
+
+        for schema_urn, fields in self.state.extracted_schema_fields_by_urn.items():
+            for schema_field in fields:
+                # Check if field path matches (could be exact or nested)
+                if self._field_matches(schema_field.fieldPath, field_name):
+                    schemas_with_field.add(schema_urn)
+                    break  # Found in this schema, move to next
+
+        if not schemas_with_field:
+            logger.debug(f"Field '{field_name}' not found in any extracted schema")
+            return []
+
+        logger.debug(
+            f"Field '{field_name}' found in {len(schemas_with_field)} schemas: "
+            f"{list(schemas_with_field)[:3]}..."  # Log first 3 for debugging
+        )
+
+        # Step 2: Find which event specs reference these schemas
+        event_specs_with_field: List[str] = []
+
+        for event_spec_urn in all_event_spec_urns:
+            # Get schemas referenced by this event spec
+            schema_urns = self.state.event_spec_to_schema_urns.get(event_spec_urn, [])
+
+            # Check if any of them contain our field
+            if schemas_with_field.intersection(schema_urns):
+                event_specs_with_field.append(event_spec_urn)
+
+        return event_specs_with_field
+
+    def _field_matches(self, field_path: Optional[str], target_field: str) -> bool:
+        """
+        Check if a field path matches the target field name.
+
+        Handles both exact matches and nested paths:
+        - Exact: "customer_email" matches "customer_email"
+        - Nested: "checkout.customer_email" matches "customer_email"
+        - Prefixed: "contexts_com_acme_checkout_1.customer_email" matches "customer_email"
+
+        Does NOT match partial field names:
+        - "customer_email" does NOT match "email" (partial suffix)
+
+        Args:
+            field_path: Full field path from schema (e.g., "checkout.customer_email")
+            target_field: Target field name to match (e.g., "customer_email")
+
+        Returns:
+            True if field matches
+        """
+        if not field_path or not target_field:
+            return False
+
+        # Exact match
+        if field_path == target_field:
+            return True
+
+        # Check if target is the last segment of a nested path
+        # e.g., "checkout.customer_email" ends with ".customer_email"
+        # This ensures we only match complete field names after a dot separator
+        if field_path.endswith(f".{target_field}"):
+            return True
+
+        return False
+
+    def _extract_field_name_from_urn(self, field_urn: str) -> Optional[str]:
+        """
+        Extract the field name from a schemaField URN.
+
+        Args:
+            field_urn: URN like 'urn:li:schemaField:(urn:li:dataset:(...),field_name)'
+
+        Returns:
+            Field name (e.g., 'user_ipaddress'), or None if extraction fails
+        """
+        try:
+            # Field URN ends with ,field_name)
+            # Find the last comma and extract everything after it until the closing paren
+            last_comma_idx = field_urn.rfind(",")
+            if last_comma_idx == -1:
+                return None
+            # Extract field_name from ",field_name)"
+            field_name = field_urn[last_comma_idx + 1 : -1]  # Remove , and )
+            return field_name.strip()
+        except Exception:
+            return None

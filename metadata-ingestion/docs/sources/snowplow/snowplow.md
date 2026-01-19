@@ -133,15 +133,26 @@ See the recipe files for complete configuration examples:
 
 ### Feature Options
 
-| Option                         | Type | Default | Description                                          | Required Permission       |
-| ------------------------------ | ---- | ------- | ---------------------------------------------------- | ------------------------- |
-| `extract_event_specifications` | bool | true    | Extract event specifications                         | `read:event-specs`        |
-| `extract_tracking_scenarios`   | bool | true    | Extract tracking scenarios                           | `read:tracking-scenarios` |
-| `extract_data_products`        | bool | false   | Extract data products (experimental)                 | `read:data-products`      |
-| `extract_pipelines`            | bool | true    | Extract pipelines as DataFlow entities               | `read:pipelines`          |
-| `extract_enrichments`          | bool | true    | Extract enrichments as DataJob entities with lineage | `read:enrichments`        |
-| `include_schema_definitions`   | bool | true    | Include full JSON Schema in properties               | N/A                       |
-| `include_hidden_schemas`       | bool | false   | Include schemas marked as hidden                     | N/A                       |
+| Option                         | Type   | Default                | Description                                          | Required Permission       |
+| ------------------------------ | ------ | ---------------------- | ---------------------------------------------------- | ------------------------- |
+| `extract_event_specifications` | bool   | true                   | Extract event specifications                         | `read:event-specs`        |
+| `extract_tracking_scenarios`   | bool   | true                   | Extract tracking scenarios                           | `read:tracking-scenarios` |
+| `extract_data_products`        | bool   | false                  | Extract data products (experimental)                 | `read:data-products`      |
+| `extract_pipelines`            | bool   | true                   | Extract pipelines as DataFlow entities               | `read:pipelines`          |
+| `extract_enrichments`          | bool   | true                   | Extract enrichments as DataJob entities with lineage | `read:enrichments`        |
+| `enrichment_owner`             | string | None                   | Default owner email for enrichment DataJobs          | N/A                       |
+| `include_hidden_schemas`       | bool   | false                  | Include schemas marked as hidden                     | N/A                       |
+| `include_version_in_urn`       | bool   | false                  | Include version in dataset URN (legacy behavior)     | N/A                       |
+| `extract_standard_schemas`     | bool   | true                   | Extract Snowplow standard schemas from Iglu Central  | N/A                       |
+| `iglu_central_url`             | string | http://iglucentral.com | URL for fetching standard schemas                    | N/A                       |
+
+### Schema Extraction Options
+
+| Option                    | Type   | Default               | Description                                                 |
+| ------------------------- | ------ | --------------------- | ----------------------------------------------------------- |
+| `schema_types_to_extract` | list   | `["event", "entity"]` | Schema types to extract                                     |
+| `deployed_since`          | string | None                  | Only extract schemas deployed since this ISO 8601 timestamp |
+| `schema_page_size`        | int    | 100                   | Number of schemas per API page                              |
 
 ### Warehouse Lineage Options (Advanced)
 
@@ -155,14 +166,36 @@ See the recipe files for complete configuration examples:
 | `warehouse_lineage.validate_urns`        | bool   | true    | Validate warehouse URNs exist in DataHub        | DataHub Graph API access |
 | `warehouse_lineage.destination_mappings` | list   | []      | Per-destination platform instance overrides     | N/A                      |
 
+### Field Tagging Options
+
+| Option                                              | Type | Default | Description                                             |
+| --------------------------------------------------- | ---- | ------- | ------------------------------------------------------- |
+| `field_tagging.enabled`                             | bool | true    | Enable automatic field tagging                          |
+| `field_tagging.tag_schema_version`                  | bool | true    | Tag fields with schema version                          |
+| `field_tagging.tag_event_type`                      | bool | true    | Tag fields with event type                              |
+| `field_tagging.tag_data_class`                      | bool | true    | Tag fields with data classification (PII, Sensitive)    |
+| `field_tagging.tag_authorship`                      | bool | true    | Tag fields with authorship info                         |
+| `field_tagging.track_field_versions`                | bool | false   | Track which version each field was added in             |
+| `field_tagging.use_structured_properties`           | bool | true    | Use structured properties instead of tags               |
+| `field_tagging.emit_tags_and_structured_properties` | bool | false   | Emit both tags and structured properties                |
+| `field_tagging.pii_tags_only`                       | bool | false   | Only emit tags for PII fields when using both           |
+| `field_tagging.use_pii_enrichment`                  | bool | true    | Extract PII fields from PII Pseudonymization enrichment |
+
+### Performance Options
+
+| Option                                 | Type | Default | Description                                          |
+| -------------------------------------- | ---- | ------- | ---------------------------------------------------- |
+| `performance.max_concurrent_api_calls` | int  | 10      | Maximum concurrent API calls for deployment fetching |
+| `performance.enable_parallel_fetching` | bool | true    | Enable parallel fetching of schema deployments       |
+
 ### Filtering Options
 
-| Option                      | Type             | Default               | Description                           |
-| --------------------------- | ---------------- | --------------------- | ------------------------------------- |
-| `schema_pattern`            | AllowDenyPattern | Allow all             | Filter schemas by vendor/name pattern |
-| `event_spec_pattern`        | AllowDenyPattern | Allow all             | Filter event specifications by name   |
-| `tracking_scenario_pattern` | AllowDenyPattern | Allow all             | Filter tracking scenarios by name     |
-| `schema_types_to_extract`   | list             | `["event", "entity"]` | Schema types to extract               |
+| Option                      | Type             | Default   | Description                           |
+| --------------------------- | ---------------- | --------- | ------------------------------------- |
+| `schema_pattern`            | AllowDenyPattern | Allow all | Filter schemas by vendor/name pattern |
+| `event_spec_pattern`        | AllowDenyPattern | Allow all | Filter event specifications by name   |
+| `tracking_scenario_pattern` | AllowDenyPattern | Allow all | Filter tracking scenarios by name     |
+| `data_product_pattern`      | AllowDenyPattern | Allow all | Filter data products by name          |
 
 ### Stateful Ingestion
 
@@ -304,68 +337,194 @@ In DataHub, schemas are represented as:
 - **Dataset name**: `{vendor}.{name}.{version}` (e.g., `com.example.page_view.1-0-0`)
 - **Schema version**: Tracked in dataset properties
 
-## Entity Types Extracted
+## Entity Mapping: Snowplow → DataHub
 
-### Event Schemas
+This section explains how Snowplow concepts are modeled as DataHub entities.
 
-Self-describing event definitions with:
+### Entity Type Mapping
 
-- Property names and types
-- Validation rules (required fields, formats)
-- Descriptions
-- Schema version history
+| Snowplow Concept    | DataHub Entity | DataHub Subtype          | Description                                      |
+| ------------------- | -------------- | ------------------------ | ------------------------------------------------ |
+| Organization        | Container      | `DATABASE`               | Top-level container for all Snowplow metadata    |
+| Event Schema        | Dataset        | `snowplow_event_schema`  | Self-describing event definition (JSON Schema)   |
+| Entity Schema       | Dataset        | `snowplow_entity_schema` | Context/entity schema attached to events         |
+| Event Specification | Dataset        | `snowplow_event_spec`    | Tracking requirement defining what to track      |
+| Tracking Scenario   | Container      | (custom)                 | Logical grouping of related event specifications |
+| Data Product        | Container      | `Data Product`           | Business-level data product grouping             |
+| Pipeline            | DataFlow       | -                        | Snowplow data pipeline (Collector → Warehouse)   |
+| Enrichment          | DataJob        | -                        | Data transformation job within a pipeline        |
+| Collector           | DataJob        | -                        | HTTP endpoint receiving tracking events          |
+| Atomic Events       | Dataset        | `atomic_event`           | Raw enriched events table in warehouse           |
+| Parsed Events       | Dataset        | `event`                  | Parsed event data combining all schemas          |
 
-**DataHub Entity**: Dataset with subtype `snowplow_event_schema`
+### Pipeline Architecture in DataHub
 
-### Entity Schemas
-
-Context and entity schemas that can be attached to events:
-
-- User properties
-- Session context
-- Custom entities
-
-**DataHub Entity**: Dataset with subtype `snowplow_entity_schema`
-
-### Event Specifications (BDP Only)
-
-Tracking requirements that define:
-
-- Which events should be tracked
-- Associated schemas
-- Trigger conditions
-- Ownership and status
-
-**DataHub Entity**: Dataset with subtype `snowplow_event_spec`
-
-### Tracking Scenarios (BDP Only)
-
-Logical groupings of related events:
-
-- User journey flows
-- Feature tracking groups
-- Business process events
-
-**DataHub Entity**: Container with related event specifications
-
-### Organizations
-
-Top-level containers for all schemas and specifications within a BDP organization.
-
-**DataHub Entity**: Container
-
-## Container Hierarchy
+Snowplow pipelines are modeled as **DataFlow** entities with **DataJob** children representing each processing stage:
 
 ```
-Organization (Container)
-├── Event Schema 1 (Dataset)
-├── Event Schema 2 (Dataset)
-├── Entity Schema 1 (Dataset)
-├── Event Specification 1 (Dataset)
-└── Tracking Scenario 1 (Container)
-    ├── Event Specification 2 (Dataset)
-    └── Event Specification 3 (Dataset)
+Tracker SDKs (Web, Mobile, Server)
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Pipeline (DataFlow)                                   │
+│  urn:li:dataFlow:(snowplow,pipeline-id,PROD)                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   ┌─────────────────┐                                                   │
+│   │    Collector    │  ◄── Receives HTTP tracking events                │
+│   │    (DataJob)    │                                                   │
+│   └────────┬────────┘                                                   │
+│            │                                                            │
+│            ▼                                                            │
+│   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐│
+│   │   IP Lookup     │  │   UA Parser     │  │  PII Pseudonymization   ││
+│   │   (DataJob)     │  │   (DataJob)     │  │       (DataJob)         ││
+│   │                 │  │                 │  │                         ││
+│   │ user_ipaddress  │  │ useragent       │  │ user_id, email          ││
+│   │  → geo_*, ip_*  │  │  → br_*, os_*   │  │  → (hashed values)      ││
+│   └────────┬────────┘  └────────┬────────┘  └────────────┬────────────┘│
+│            │                    │                        │              │
+│            └────────────────────┼────────────────────────┘              │
+│                                 ▼                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌─────────────────────────┐
+                    │  Atomic Events (Dataset)│
+                    │  Enriched event stream  │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   Warehouse Tables      │
+                    │ (Snowflake, BigQuery)   │
+                    └─────────────────────────┘
 ```
+
+### Lineage Relationships
+
+The connector creates the following lineage relationships:
+
+#### 1. Schema → Event Specification Lineage
+
+Event specifications reference the schemas they require:
+
+```
+┌──────────────────────────────┐
+│ Event Schema                 │
+│ (vendor.event_name.1-0-0)    │────┐
+└──────────────────────────────┘    │     ┌─────────────────────────┐
+                                    ├────▶│   Event Specification   │
+┌──────────────────────────────┐    │     │  (Tracking Requirement) │
+│ Entity Schema                │────┘     └─────────────────────────┘
+│ (vendor.context.1-0-0)       │
+└──────────────────────────────┘
+```
+
+#### 2. Enrichment Column-Level Lineage
+
+Enrichments transform specific fields. Example for IP Lookup:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        IP Lookup Enrichment                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   Input                          Output                             │
+│   ─────                          ──────                             │
+│                                  ┌─────────────────┐                │
+│                              ┌──▶│ geo_country     │                │
+│                              │   ├─────────────────┤                │
+│   ┌─────────────────┐        │   │ geo_city        │                │
+│   │ user_ipaddress  │────────┼──▶├─────────────────┤                │
+│   └─────────────────┘        │   │ geo_region      │                │
+│                              │   ├─────────────────┤                │
+│                              │   │ geo_latitude    │                │
+│                              ├──▶├─────────────────┤                │
+│                              │   │ geo_longitude   │                │
+│                              │   ├─────────────────┤                │
+│                              └──▶│ ip_isp          │                │
+│                                  ├─────────────────┤                │
+│                                  │ ip_organization │                │
+│                                  └─────────────────┘                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Supported enrichments with column-level lineage:
+
+- **IP Lookup**: `user_ipaddress` → `geo_*`, `ip_*` fields
+- **UA Parser**: `useragent` → `br_*`, `os_*` fields
+- **YAUAA**: `useragent` → browser, OS, device fields
+- **Referer Parser**: `page_referrer` → `refr_*` fields
+- **Campaign Attribution**: `page_urlquery` → `mkt_*` fields
+- **PII Pseudonymization**: configured fields → same fields (hashed)
+- **Currency Conversion**: currency fields → converted fields
+- **Event Fingerprint**: event fields → `event_fingerprint`
+- **IAB Spiders/Robots**: `useragent` → `iab_*` classification fields
+
+#### 3. Warehouse Lineage (Optional)
+
+When `warehouse_lineage.enabled: true`:
+
+```
+┌─────────────────────────┐                    ┌─────────────────────────┐
+│     Atomic Events       │   Data Models API  │     Derived Table       │
+│ (snowplow.atomic.events)│───────────────────▶│ (warehouse.schema.table)│
+└─────────────────────────┘                    └─────────────────────────┘
+```
+
+### Container Hierarchy
+
+```
+Organization (Container: DATABASE)
+│
+├── Event Schema: com.example.page_view.1-0-0 (Dataset)
+├── Event Schema: com.example.checkout.1-0-0 (Dataset)
+├── Entity Schema: com.example.user_context.1-0-0 (Dataset)
+├── Event Specification: "Page View Tracking" (Dataset)
+│
+├── Tracking Scenario: "Checkout Flow" (Container)
+│   ├── Event Specification: "Add to Cart" (Dataset)
+│   └── Event Specification: "Purchase Complete" (Dataset)
+│
+└── Data Product: "Web Analytics" (Container)
+    ├── Event Specification (linked)
+    └── Schema (linked)
+```
+
+### URN Formats
+
+| Entity Type         | URN Format                                                        |
+| ------------------- | ----------------------------------------------------------------- |
+| Organization        | `urn:li:container:{guid}`                                         |
+| Event/Entity Schema | `urn:li:dataset:(urn:li:dataPlatform:snowplow,vendor.name,ENV)`   |
+| Event Specification | `urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec_id,ENV)` |
+| Pipeline            | `urn:li:dataFlow:(snowplow,pipeline-id,ENV)`                      |
+| Enrichment/DataJob  | `urn:li:dataJob:(urn:li:dataFlow:(...),job-id)`                   |
+| Tracking Scenario   | `urn:li:container:{guid}`                                         |
+
+### Custom Properties
+
+Each entity type includes relevant custom properties:
+
+**Event/Entity Schemas:**
+
+- `vendor`, `name`, `version` (SchemaVer format)
+- `schema_type` (event/entity)
+- `json_schema` (full JSON Schema definition)
+- `deployed_environments` (PROD, DEV, etc.)
+
+**Event Specifications:**
+
+- `status` (draft, active, deprecated)
+- `trigger_conditions`
+- `referenced_schemas`
+
+**Enrichments:**
+
+- `enrichment_type`
+- `input_fields`, `output_fields`
+- `configuration` details
 
 ## Troubleshooting
 
