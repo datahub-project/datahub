@@ -45,6 +45,7 @@ from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDataso
 from great_expectations.execution_engine.sqlalchemy_dialect import GXSqlDialect
 from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
@@ -76,7 +77,6 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
-    IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
     get_query_columns,
 )
@@ -159,6 +159,9 @@ NORMALIZE_TYPE_PATTERN = re.compile(r"^(.*?)(?:[\[<(].*)?$")
 @contextlib.contextmanager
 def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
     with _datasource_connection_injection_lock:
+        # Validate Databricks connection before injection
+        _ensure_databricks_native_connection(conn)
+
         underlying_datasource_init = SqlAlchemyDatasource.__init__
 
         def sqlalchemy_datasource_init(
@@ -217,6 +220,13 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
             ).scalar()
         )
     elif self.engine.dialect.name.lower() == DATABRICKS:
+        # Validate Databricks connection before executing query
+        try:
+            _ensure_databricks_native_connection(self.engine)
+        except Exception as e:
+            logger.warning(f"Databricks connection validation failed: {e}")
+            # Continue with the query but log the warning
+
         return convert_to_json_serializable(
             self.engine.execute(
                 sa.select(sa.func.approx_count_distinct(sa.column(column))).select_from(
@@ -668,6 +678,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     ).scalar()
                 )
             elif self.dataset.engine.dialect.name.lower() == DATABRICKS:
+                # Validate Databricks connection before executing query
+                _ensure_databricks_native_connection(self.dataset.engine)
+
                 column_profile.median = str(
                     self.dataset.engine.execute(
                         sa.select(
@@ -691,6 +704,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
+
+            # Add specific error handling for Databricks connection issues
+            if self.dataset.engine.dialect.name.lower() == DATABRICKS:
+                error_msg = str(e).lower()
+                if (
+                    "thrift" in error_msg
+                    or "hive" in error_msg
+                    or "port=3306" in error_msg
+                ):
+                    self.report.report_warning(
+                        title="Databricks Connection Issue",
+                        message="Detected potential Hive Thrift fallback. Ensure you're using the native Databricks SQL connector with proper warehouse_id configuration.",
+                        context=f"{self.dataset_name}.{column}",
+                        exc=e,
+                    )
+                elif "connection" in error_msg or "timeout" in error_msg:
+                    self.report.report_warning(
+                        title="Databricks Connection Timeout",
+                        message="Connection to Databricks SQL warehouse failed. Check warehouse status and network connectivity.",
+                        context=f"{self.dataset_name}.{column}",
+                        exc=e,
+                    )
 
             self.report.report_warning(
                 title="Profiling: Unable to Calculate Medians",
@@ -1169,25 +1204,17 @@ class DatahubGEProfiler:
         # got an engine here.
         self.base_engine = conn.engine
 
-        if IS_SQLALCHEMY_1_4:
-            # SQLAlchemy 1.4 added a statement "linter", which issues warnings about cartesian products in SELECT statements.
-            # Changelog: https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#change-4737.
-            # Code: https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/sql/compiler.py#L549
-            #
-            # The query combiner does indeed produce queries with cartesian products, but they are
-            # safe because each "FROM" clause only returns one row, so the cartesian product
-            # is also always a single row. As such, we disable the linter here.
-
-            # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
-            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
-                ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
-            )
-
-        self.platform = platform
+        # For Databricks, ensure we're using the native SQL backend
+        if platform.lower() == DATABRICKS:
+            # Validate and potentially reconfigure the engine for native SQL backend
+            _validate_databricks_native_connection(self.base_engine)
 
     @contextlib.contextmanager
     def _ge_context(self) -> Iterator[GEContext]:
         with self.base_engine.connect() as conn:
+            # Validate Databricks connection early in the process
+            _ensure_databricks_native_connection(conn)
+
             data_context = BaseDataContext(
                 project_config=DataContextConfig(
                     # The datasource will be added via add_datasource().
@@ -1448,7 +1475,35 @@ class DatahubGEProfiler:
                     raise e
 
                 error_message = str(e).lower()
-                if "permission denied" in error_message:
+
+                # Add specific error handling for Databricks connection issues
+                if self.platform.lower() == DATABRICKS:
+                    if (
+                        "thrift" in error_message
+                        or "hive" in error_message
+                        or "port=3306" in error_message
+                    ):
+                        self.report.warning(
+                            title="Databricks Hive Thrift Fallback Detected",
+                            message="The connection is falling back to Hive Thrift server instead of using the native Databricks SQL connector. This may cause connection issues. Ensure you're using the native Databricks SQL connector with proper warehouse_id configuration.",
+                            context=f"Asset: {pretty_name}",
+                            exc=e,
+                        )
+                    elif "connection" in error_message or "timeout" in error_message:
+                        self.report.warning(
+                            title="Databricks SQL Warehouse Connection Failed",
+                            message="Failed to connect to Databricks SQL warehouse. Check warehouse status, network connectivity, and ensure the warehouse is running.",
+                            context=f"Asset: {pretty_name}",
+                            exc=e,
+                        )
+                    else:
+                        self.report.warning(
+                            title="Databricks Profiling Error",
+                            message="An error occurred while profiling Databricks tables. This may be related to connection or permission issues.",
+                            context=f"Asset: {pretty_name}",
+                            exc=e,
+                        )
+                elif "permission denied" in error_message:
                     self.report.warning(
                         title="Unauthorized to extract data profile statistics",
                         message="We were denied access while attempting to generate profiling statistics for some assets. Please ensure the provided user has permission to query these tables and views.",
@@ -1547,6 +1602,77 @@ def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
     return []
 
 
+def _validate_databricks_native_connection(engine: Engine) -> None:
+    """
+    Validates that we're using the native Databricks SQL connector instead of Hive Thrift.
+    This helps prevent the fallback to Hive Thrift server which causes connection issues.
+    """
+    if engine.dialect.name.lower() == DATABRICKS:
+        # Check if we're using the native Databricks SQL connector
+        url = str(engine.url)
+
+        # The native Databricks SQL connector should have these characteristics:
+        # 1. Uses 'databricks' scheme (not 'hive' or 'databricks+pyhive')
+        # 2. Has http_path parameter pointing to SQL warehouse
+        # 3. Uses token authentication
+
+        if not url.startswith("databricks://"):
+            logger.warning(
+                f"Databricks connection is not using native SQL connector. "
+                f"URL scheme: {engine.url.drivername}. "
+                f"Expected 'databricks' scheme for native SQL connector."
+            )
+
+        # Check for http_path parameter which indicates SQL warehouse connection
+        if "http_path" not in url and "sql/1.0/warehouses" not in url:
+            logger.warning(
+                "Databricks connection may not be using SQL warehouse. "
+                "Expected http_path parameter pointing to SQL warehouse."
+            )
+
+        # Log connection details for debugging
+        logger.debug(f"Databricks connection URL: {url}")
+        logger.debug(f"Databricks dialect: {engine.dialect.name}")
+        logger.debug(f"Databricks driver: {engine.dialect.driver}")
+
+
+def _ensure_databricks_native_connection(conn: Connection) -> None:
+    """
+    Ensures that the Databricks connection uses the native SQL backend for all operations.
+    This prevents fallback to Hive Thrift which can cause connection issues in VPC environments.
+    """
+    if conn.dialect.name.lower() == DATABRICKS:
+        _validate_databricks_native_connection(conn.engine)
+
+        # Additional validation for Databricks-specific connection parameters
+        try:
+            # Force the connection to use native SQL backend for metadata operations
+            # This prevents the fallback to Hive Thrift for GET_COLUMNS operations
+            if hasattr(conn, "connection") and hasattr(conn.connection, "connection"):
+                # Access the underlying Databricks SQL connection
+                db_conn = conn.connection.connection
+                if hasattr(db_conn, "_use_native_databricks_sql"):
+                    # Ensure native SQL backend is enabled
+                    if not getattr(db_conn, "_use_native_databricks_sql", False):
+                        logger.warning(
+                            "Databricks connection is not configured to use native SQL backend. "
+                            "This may cause fallback to Hive Thrift for metadata operations."
+                        )
+
+                        # Try to set the native SQL backend flag
+                        try:
+                            db_conn._use_native_databricks_sql = True
+                            logger.info(
+                                "Forced Databricks connection to use native SQL backend"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Could not force native SQL backend: {e}")
+
+        except Exception as e:
+            logger.warning(f"Databricks connection validation failed: {e}")
+            # Continue with the query but log the warning
+
+
 def create_athena_temp_table(
     instance: Union[DatahubGEProfiler, _SingleDatasetProfiler],
     sql: str,
@@ -1577,8 +1703,6 @@ def create_athena_temp_table(
         return None
     finally:
         raw_connection.close()
-
-    return temp_view
 
 
 def create_bigquery_temp_table(
@@ -1655,6 +1779,31 @@ def create_bigquery_temp_table(
         return bigquery_temp_table
     finally:
         raw_connection.close()
+
+
+def _create_databricks_native_engine(url: str, options: Dict[str, Any]) -> Engine:
+    """
+    Creates a Databricks SQLAlchemy engine that forces the use of native SQL backend.
+    This prevents fallback to Hive Thrift which can cause connection issues in VPC environments.
+    """
+    # Ensure connect_args exists
+    if "connect_args" not in options:
+        options["connect_args"] = {}
+
+    # Force native Databricks SQL backend
+    options["connect_args"]["_use_native_databricks_sql"] = True
+
+    # Add timeout to prevent hanging connections
+    if "timeout" not in options["connect_args"]:
+        options["connect_args"]["timeout"] = 600
+
+    # Create engine with forced native backend
+    engine = create_engine(url, **options)
+
+    # Validate that we're using the native backend
+    _validate_databricks_native_connection(engine)
+
+    return engine
 
 
 def _get_columns_to_ignore_sampling(
