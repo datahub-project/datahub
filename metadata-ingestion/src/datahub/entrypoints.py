@@ -15,7 +15,7 @@ from datahub.cli.cli_utils import (
     generate_access_token,
     make_shim_command,
 )
-from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
+from datahub.cli.config_utils import DATAHUB_CONFIG_PATH
 from datahub.cli.container_cli import container
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
@@ -149,35 +149,89 @@ def version(include_server: bool = False) -> None:
 )
 def init(use_password: bool = False) -> None:
     """Configure which datahub instance to connect to"""
+    from datahub.cli import config_utils
+    from datahub.configuration.config import DataHubConfig, ProfileConfig
 
+    # Check if new config exists
+    if os.path.isfile(config_utils.DATAHUB_NEW_CONFIG_PATH):
+        click.confirm(
+            f"{config_utils.DATAHUB_NEW_CONFIG_PATH} already exists. Overwrite?",
+            abort=True,
+        )
+
+    # Check if legacy config exists
     if os.path.isfile(DATAHUB_CONFIG_PATH):
-        click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
-
-    click.echo(
-        "Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)"
-    )
-    host = click.prompt(
-        "Enter your DataHub host", type=str, default="http://localhost:8080"
-    )
-    host = fixup_gms_url(host)
-    if use_password:
-        username = click.prompt("Enter your DataHub username", type=str)
-        password = click.prompt(
-            "Enter your DataHub password",
-            type=str,
-        )
-        _, token = generate_access_token(
-            username=username, password=password, gms_url=host
-        )
+        click.echo(f"\nFound legacy config at {DATAHUB_CONFIG_PATH}")
+        if click.confirm("Migrate to new profile-based config?", default=True):
+            # Migration path - load legacy config
+            try:
+                legacy_config_dict = config_utils.get_raw_client_config()
+                legacy_datahub_config = DataHubConfig.model_validate(legacy_config_dict)
+                server = legacy_datahub_config.gms.server
+                token = legacy_datahub_config.gms.token
+                click.echo("✓ Loaded existing configuration")
+            except Exception as e:
+                click.secho(f"Failed to load legacy config: {e}", fg="red", err=True)
+                raise click.Abort() from e
+        else:
+            raise click.Abort()
     else:
-        token = click.prompt(
-            "Enter your DataHub access token",
-            type=str,
-            default="",
+        # New config path
+        click.echo(
+            "Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)"
         )
-    write_gms_config(host, token, merge_with_previous=False)
+        host = click.prompt(
+            "Enter your DataHub host", type=str, default="http://localhost:8080"
+        )
+        server = fixup_gms_url(host)
+        if use_password:
+            username = click.prompt("Enter your DataHub username", type=str)
+            password = click.prompt(
+                "Enter your DataHub password",
+                type=str,
+            )
+            _, token = generate_access_token(
+                username=username, password=password, gms_url=server
+            )
+        else:
+            token = click.prompt(
+                "Enter your DataHub access token",
+                type=str,
+                default="",
+            )
 
-    click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
+    # Create profile-based config with "default" profile
+    default_profile = ProfileConfig(
+        server=server,
+        token=token,
+        timeout_sec=30,
+        description="Default profile",
+    )
+
+    new_config = DataHubConfig(
+        version="1.0",
+        profiles={"default": default_profile},
+        current_profile="default",
+    )
+
+    config_utils.save_profile_config(new_config)
+
+    click.secho(
+        f"\n✓ Configuration saved to {config_utils.DATAHUB_NEW_CONFIG_PATH}", fg="green"
+    )
+    click.secho("✓ Created 'default' profile", fg="green")
+    click.echo("\nYou can now:")
+    click.echo("  - Run commands without --profile flag (uses 'default')")
+    click.echo("  - Add more profiles: datahub profile add <name>")
+    click.echo("  - List profiles: datahub profile list")
+
+    # Optionally backup/remove legacy config
+    if os.path.isfile(DATAHUB_CONFIG_PATH):
+        if click.confirm(
+            f"\nRemove legacy config {DATAHUB_CONFIG_PATH}?", default=False
+        ):
+            os.rename(DATAHUB_CONFIG_PATH, f"{DATAHUB_CONFIG_PATH}.backup")
+            click.echo(f"✓ Backed up to {DATAHUB_CONFIG_PATH}.backup")
 
 
 datahub.add_command(check)
