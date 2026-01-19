@@ -159,7 +159,8 @@ class TestConfigUtils:
         with (
             patch.dict(os.environ, {}, clear=True),
             patch.object(config_utils, "_should_skip_config", return_value=False),
-            patch.object(config_utils, "_ensure_datahub_config"),
+            patch.object(config_utils, "_load_new_config", return_value=None),
+            patch.object(os.path, "isfile", return_value=True),
             patch.object(
                 config_utils, "get_raw_client_config", return_value=test_config
             ),
