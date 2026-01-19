@@ -127,16 +127,83 @@ export function useConfig() {
     }
   };
 
-  const ssoLogin = async () => {
+  const ssoLogin = async (profile?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiClient.ssoLogin();
+      const result = await apiClient.ssoLogin(profile);
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start SSO login';
       setError(message);
       return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const detectProfileForContext = async (context: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiClient.detectProfileForContext(context);
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to detect profile';
+      setError(message);
+      return { matching_profiles: [], setup_needed: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const listAwsProfiles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiClient.listAwsProfiles();
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to list AWS profiles';
+      setError(message);
+      return { success: false, profiles: [], error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setupAwsProfile = async (profileConfig: {
+    profile_name: string;
+    account_id: string;
+    sso_start_url: string;
+    sso_region: string;
+    role_name: string;
+    region?: string;
+  }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiClient.setupAwsProfile(profileConfig);
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to set up profile';
+      setError(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validateAwsProfile = async (profile: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiClient.validateAwsProfile(profile);
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to validate profile';
+      setError(message);
+      return { valid: false, error: message };
     } finally {
       setLoading(false);
     }
@@ -155,6 +222,10 @@ export function useConfig() {
     discoverGmsUrl,
     generateToken,
     ssoLogin,
+    detectProfileForContext,
+    listAwsProfiles,
+    setupAwsProfile,
+    validateAwsProfile,
     reloadConfig: loadConfig,
   };
 }

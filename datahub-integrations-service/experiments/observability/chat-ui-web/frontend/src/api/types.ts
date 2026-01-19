@@ -130,6 +130,42 @@ export interface ArchivedMessage {
   actor_urn?: string;
 }
 
+export interface ToolCall {
+  tool_name: string;
+  tool_input?: Record<string, any>;
+  execution_duration_sec?: number | null;
+  result_length?: number | null;
+  is_error: boolean;
+  error?: string | null;
+  timestamp: number;
+}
+
+export interface InteractionEvent {
+  message_id: string;
+  timestamp: number;
+  num_tool_calls: number;
+  response_generation_duration_sec: number;
+  full_history: string;
+}
+
+export interface ConversationTelemetry {
+  num_tool_calls: number;
+  num_tool_call_errors: number;
+  tool_calls: ToolCall[];
+  interaction_events: InteractionEvent[];
+  avg_response_time?: number | null;
+  total_thinking_time?: number | null;
+}
+
+export interface ConversationHealthStatus {
+  is_abandoned: boolean;
+  abandonment_reason?: string | null;
+  unanswered_questions_count: number;
+  completion_rate: number;
+  has_errors: boolean;
+  last_message_role?: string | null;
+}
+
 export interface ArchivedConversation {
   id: string;
   urn: string;
@@ -138,6 +174,7 @@ export interface ArchivedConversation {
   created_at: number;
   updated_at: number;
   origin_type: 'DATAHUB_UI' | 'SLACK' | 'TEAMS' | 'INGESTION_UI';
+  slack_conversation_type?: 'channel' | 'dm' | 'private_channel';
   message_count: number;
   context?: {
     text: string;
@@ -146,6 +183,8 @@ export interface ArchivedConversation {
   is_archived: true;
   max_thinking_time_ms: number;
   num_turns: number;
+  telemetry?: ConversationTelemetry;
+  health_status?: ConversationHealthStatus;
 }
 
 export interface ArchivedConversationList {
@@ -158,3 +197,23 @@ export interface ArchivedConversationList {
 export type ConversationOriginType = 'DATAHUB_UI' | 'SLACK' | 'TEAMS' | 'INGESTION_UI' | null;
 
 export type ConversationSortBy = 'max_thinking_time' | 'num_turns' | 'created';
+
+export interface ClusterInfo {
+  context: string;
+  context_name: string;
+  namespace: string;
+  customer_name?: string;
+  cluster_region?: string;
+  cluster_env?: string;
+  is_trial: boolean;
+}
+
+export interface ClusterIndexResponse {
+  clusters: ClusterInfo[];
+  total: number;
+  mode: string;
+  cached: boolean;
+  cache_age_seconds?: number;
+  error?: string;
+  vpn_required?: boolean;
+}

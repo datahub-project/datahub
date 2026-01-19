@@ -1,94 +1,180 @@
 import { useMemo } from 'react';
-import type { ArchivedConversation, ArchivedMessage, Message } from '../api/types';
+import type { ArchivedConversation, ArchivedMessage, Message, ConversationTelemetry } from '../api/types';
 import { MessageList } from './MessageList';
 
 interface ArchivedMessageListProps {
   conversation: ArchivedConversation;
 }
 
+
 /**
  * Convert archived messages from DataHub into the XML format expected by MessageRenderer.
- * This allows archived conversations to use the same rendering pipeline as active chats.
+ * Uses telemetry interaction events' full_history to reconstruct the exact sequence.
  */
-function reconstructMessagesWithXML(archivedMessages: ArchivedMessage[]): Message[] {
+function reconstructMessagesWithXML(
+  archivedMessages: ArchivedMessage[],
+  telemetry?: ConversationTelemetry
+): Message[] {
   const reconstructed: Message[] = [];
-  let currentAssistantContent: string[] = [];
-  let currentAssistantTimestamp: number | null = null;
-  let currentAssistantStartTime: number | null = null;
-  let lastMessageTime: number | null = null; // Track ANY previous message (user or assistant)
   let messageIdCounter = 0;
 
-  const flushAssistantMessage = () => {
-    if (currentAssistantContent.length > 0 && currentAssistantTimestamp) {
-      reconstructed.push({
-        id: `msg-${messageIdCounter++}`,
-        role: 'assistant',
-        content: currentAssistantContent.join('\n\n'),
-        timestamp: new Date(currentAssistantTimestamp).toISOString(),
-      });
-      currentAssistantContent = [];
-      currentAssistantTimestamp = null;
-      currentAssistantStartTime = null;
-    }
-  };
+  // If we have telemetry data, use it to add total duration metadata
+  // Backend now handles all message parsing including respond_to_user extraction
+  if (telemetry?.interaction_events && telemetry.interaction_events.length > 0) {
+    // Build map of timestamp ranges to interaction events for adding metadata
+    const interactionEvents = telemetry.interaction_events.sort((a, b) => a.timestamp - b.timestamp);
 
-  for (const msg of archivedMessages) {
-    if (msg.role === 'user') {
-      // Flush any pending assistant message before adding user message
-      flushAssistantMessage();
+    let currentAssistantMessages: ArchivedMessage[] = [];
+    let currentAssistantTimestamp: number | null = null;
+    let currentEventIndex = 0;
 
-      reconstructed.push({
-        id: `msg-${messageIdCounter++}`,
-        role: 'user',
-        content: msg.content,
-        timestamp: new Date(msg.timestamp).toISOString(),
-        user_name: msg.user_name,
-      });
+    const flushAssistantMessage = () => {
+      if (currentAssistantMessages.length > 0 && currentAssistantTimestamp) {
+        const thinkingMessages = currentAssistantMessages
+          .filter(m => m.message_type === 'THINKING')
+          .sort((a, b) => a.timestamp - b.timestamp);
 
-      // Track user message time for calculating first assistant response duration
-      lastMessageTime = msg.timestamp;
-    } else if (msg.role === 'assistant') {
-      // Track first timestamp for the combined message
-      if (currentAssistantTimestamp === null) {
-        currentAssistantTimestamp = msg.timestamp;
-        currentAssistantStartTime = msg.timestamp;
+        let cumulativeWallClockTime = 0;
+        const contentParts: string[] = [];
+        let thinkingIndex = 0;
+
+        // Get total duration from telemetry if available
+        let totalDuration = 0;
+        if (currentEventIndex < interactionEvents.length) {
+          const event = interactionEvents[currentEventIndex];
+          totalDuration = event.response_generation_duration_sec || 0;
+          currentEventIndex++;
+        }
+
+        // Add metadata with total duration at the start
+        if (totalDuration > 0) {
+          contentParts.push(`<metadata totalDuration="${totalDuration.toFixed(2)}"></metadata>`);
+        }
+
+        for (const msg of currentAssistantMessages) {
+          if (msg.message_type === 'THINKING') {
+            const currentMsg = thinkingMessages[thinkingIndex];
+            const nextMsg = thinkingMessages[thinkingIndex + 1];
+
+            let durationAttr = '';
+            if (nextMsg) {
+              const durationSec = (nextMsg.timestamp - currentMsg.timestamp) / 1000;
+
+              // Only show durations if timestamps are realistic (> 0.1s apart)
+              if (durationSec >= 0.1) {
+                cumulativeWallClockTime += durationSec;
+                durationAttr = ` duration="${durationSec.toFixed(2)}" wallClockTime="${cumulativeWallClockTime.toFixed(2)}"`;
+              }
+            }
+
+            contentParts.push(`<thinking${durationAttr}>${msg.content}</thinking>`);
+            thinkingIndex++;
+          } else if (msg.message_type === 'TEXT') {
+            // Include TEXT messages from backend (e.g., respond_to_user responses)
+            contentParts.push(msg.content);
+          }
+        }
+
+        reconstructed.push({
+          id: `msg-${messageIdCounter++}`,
+          role: 'assistant',
+          content: contentParts.filter(Boolean).join('\n\n'),
+          timestamp: new Date(currentAssistantTimestamp).toISOString(),
+        });
+        currentAssistantMessages = [];
+        currentAssistantTimestamp = null;
       }
+    };
 
-      // Calculate wall clock time from start of assistant response (cumulative)
-      const wallClockTime = currentAssistantStartTime
-        ? ((msg.timestamp - currentAssistantStartTime) / 1000).toFixed(1)
-        : '0.0';
-
-      // Calculate duration for this specific step (time since last message - user OR assistant)
-      const duration = lastMessageTime
-        ? ((msg.timestamp - lastMessageTime) / 1000).toFixed(1)
-        : '0.0';
-
-      // Update last message time
-      lastMessageTime = msg.timestamp;
-
-      // Wrap different message types in XML tags with timing attributes
-      if (msg.message_type === 'THINKING') {
-        currentAssistantContent.push(
-          `<thinking duration="${duration}" wallClockTime="${wallClockTime}">${msg.content}</thinking>`
-        );
-      } else if (msg.message_type === 'TOOL_CALL') {
-        // Try to parse tool call format if it's structured
-        currentAssistantContent.push(
-          `<tool_use duration="${duration}" wallClockTime="${wallClockTime}"><tool_name>unknown</tool_name><parameters>${msg.content}</parameters></tool_use>`
-        );
-      } else if (msg.message_type === 'TEXT') {
-        // Final text response - add without tags
-        currentAssistantContent.push(msg.content);
-      } else {
-        // Unknown type - add as-is
-        currentAssistantContent.push(msg.content);
+    for (const msg of archivedMessages) {
+      if (msg.role === 'user') {
+        flushAssistantMessage();
+        reconstructed.push({
+          id: `msg-${messageIdCounter++}`,
+          role: 'user',
+          content: msg.content,
+          timestamp: new Date(msg.timestamp).toISOString(),
+          user_name: msg.user_name,
+        });
+      } else if (msg.role === 'assistant') {
+        if (currentAssistantTimestamp === null) {
+          currentAssistantTimestamp = msg.timestamp;
+        }
+        currentAssistantMessages.push(msg);
       }
     }
+
+    flushAssistantMessage();
+  } else {
+    // Fallback: reconstruct without telemetry, but calculate timing from timestamps
+    let currentAssistantMessages: ArchivedMessage[] = [];
+    let currentAssistantTimestamp: number | null = null;
+
+    const flushAssistantMessage = () => {
+      if (currentAssistantMessages.length > 0 && currentAssistantTimestamp) {
+        const thinkingMessages = currentAssistantMessages
+          .filter(m => m.message_type === 'THINKING')
+          .sort((a, b) => a.timestamp - b.timestamp);
+
+        let cumulativeWallClockTime = 0;
+        const contentParts: string[] = [];
+        let thinkingIndex = 0;
+
+        for (const msg of currentAssistantMessages) {
+          if (msg.message_type === 'THINKING') {
+            const currentMsg = thinkingMessages[thinkingIndex];
+            const nextMsg = thinkingMessages[thinkingIndex + 1];
+
+            let durationAttr = '';
+            if (nextMsg) {
+              const durationSec = (nextMsg.timestamp - currentMsg.timestamp) / 1000;
+
+              // Only show durations if timestamps are realistic (> 0.1s apart)
+              if (durationSec >= 0.1) {
+                cumulativeWallClockTime += durationSec;
+                durationAttr = ` duration="${durationSec.toFixed(2)}" wallClockTime="${cumulativeWallClockTime.toFixed(2)}"`;
+              }
+            }
+            // Remove fake default duration for single blocks
+
+            contentParts.push(`<thinking${durationAttr}>${msg.content}</thinking>`);
+            thinkingIndex++;
+          } else if (msg.message_type === 'TEXT') {
+            contentParts.push(msg.content);
+          }
+        }
+
+        reconstructed.push({
+          id: `msg-${messageIdCounter++}`,
+          role: 'assistant',
+          content: contentParts.filter(Boolean).join('\n\n'),
+          timestamp: new Date(currentAssistantTimestamp).toISOString(),
+        });
+        currentAssistantMessages = [];
+        currentAssistantTimestamp = null;
+      }
+    };
+
+    for (const msg of archivedMessages) {
+      if (msg.role === 'user') {
+        flushAssistantMessage();
+        reconstructed.push({
+          id: `msg-${messageIdCounter++}`,
+          role: 'user',
+          content: msg.content,
+          timestamp: new Date(msg.timestamp).toISOString(),
+          user_name: msg.user_name,
+        });
+      } else if (msg.role === 'assistant') {
+        if (currentAssistantTimestamp === null) {
+          currentAssistantTimestamp = msg.timestamp;
+        }
+        currentAssistantMessages.push(msg);
+      }
+    }
+
+    flushAssistantMessage();
   }
-
-  // Flush any remaining assistant message
-  flushAssistantMessage();
 
   return reconstructed;
 }
@@ -97,19 +183,28 @@ export function ArchivedMessageList({
   conversation,
 }: ArchivedMessageListProps) {
   // Convert archived messages to the XML format expected by MessageList/MessageRenderer
+  // Pass telemetry data so full_history can be used to reconstruct the exact sequence
   const messages: Message[] = useMemo(() => {
-    return reconstructMessagesWithXML(conversation.messages);
-  }, [conversation.messages]);
+    return reconstructMessagesWithXML(
+      conversation.messages,
+      conversation.telemetry
+    );
+  }, [conversation.messages, conversation.telemetry]);
 
   const originLabel = conversation.origin_type?.replace(/_/g, ' ') || 'Unknown';
 
   return (
     <div className="archived-message-list">
       <div className="read-only-banner">
-        <span className="icon">🔒</span>
-        <span>
-          This is an archived conversation from {originLabel}. Read-only mode.
-        </span>
+        <div className="banner-content">
+          <span className="icon">🔒</span>
+          <span>
+            This is an archived conversation from {originLabel}. Read-only mode.
+          </span>
+        </div>
+        <div className="banner-id">
+          <code title="Conversation URN">{conversation.id}</code>
+        </div>
       </div>
 
       {conversation.context && (

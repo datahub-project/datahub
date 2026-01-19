@@ -114,6 +114,13 @@ export function MessageRenderer({ message, isStreaming = false }: MessageRendere
       });
     }
 
+    // FALLBACK: If no wallClockTime from events (e.g., telemetry data with synthetic timestamps),
+    // use totalDuration from metadata tag. This ensures DataHub UI conversations (with real
+    // wallClockTime) and telemetry conversations (with metadata totalDuration) both work.
+    if (wallClockTime === 0 && parsed.totalDuration) {
+      wallClockTime = parsed.totalDuration;
+    }
+
     return (
       <>
         {/* Thinking section - separate box */}
@@ -257,6 +264,12 @@ function formatTime(timestamp: string): string {
     return `${hours}h ago`;
   }
 
-  // Show date
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Less than 7 days ago
+  if (diff < 604800000) {
+    const days = Math.floor(diff / 86400000);
+    return `${days}d ago`;
+  }
+
+  // Show full date
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }

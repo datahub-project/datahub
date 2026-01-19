@@ -220,6 +220,35 @@ class ArchivedMessageModel(BaseModel):
     )
 
 
+class ConversationHealthStatus(BaseModel):
+    """Health and quality metrics for a conversation."""
+
+    is_abandoned: bool = Field(
+        default=False,
+        description="True if last turn has no response or incomplete response"
+    )
+    abandonment_reason: Optional[str] = Field(
+        default=None,
+        description="Reason for abandonment: 'no_response_at_all', 'incomplete_response', etc."
+    )
+    unanswered_questions_count: int = Field(
+        default=0,
+        description="Number of user questions without assistant TEXT responses"
+    )
+    completion_rate: float = Field(
+        default=1.0,
+        description="Percentage of turns with complete responses (0.0 to 1.0)"
+    )
+    has_errors: bool = Field(
+        default=False,
+        description="True if conversation contains error messages or failed tool calls"
+    )
+    last_message_role: Optional[str] = Field(
+        default=None,
+        description="Role of last message: 'user' or 'assistant'"
+    )
+
+
 class ArchivedConversationModel(BaseModel):
     """Archived conversation from DataHub."""
 
@@ -234,6 +263,9 @@ class ArchivedConversationModel(BaseModel):
     origin_type: str = Field(
         ..., description="Origin type (DATAHUB_UI, SLACK, TEAMS)"
     )
+    slack_conversation_type: Optional[str] = Field(
+        default=None, description="Slack conversation type (channel, dm, private_channel) - only for SLACK origin"
+    )
     message_count: int = Field(..., description="Number of messages")
     context: Optional[Dict[str, Any]] = Field(
         default=None, description="Conversation context"
@@ -247,6 +279,13 @@ class ArchivedConversationModel(BaseModel):
     num_turns: int = Field(
         default=0, description="Number of conversation turns"
     )
+    telemetry: Optional[Dict[str, Any]] = Field(
+        default=None, description="Telemetry data with interaction events (for Slack/Teams conversations)"
+    )
+    health_status: Optional[ConversationHealthStatus] = Field(
+        default=None,
+        description="Computed health and quality metrics for this conversation"
+    )
 
 
 class ArchivedConversationListModel(BaseModel):
@@ -256,3 +295,113 @@ class ArchivedConversationListModel(BaseModel):
     total: int = Field(..., description="Total number of archived conversations")
     start: int = Field(..., description="Starting offset")
     count: int = Field(..., description="Number of results returned")
+
+
+# Telemetry Models
+
+
+class ToolCallModel(BaseModel):
+    """Tool call execution details."""
+
+    tool_name: str = Field(..., description="Name of the tool that was called")
+    tool_input: Optional[Dict[str, Any]] = Field(
+        default=None, description="Input arguments passed to the tool"
+    )
+    execution_duration_sec: Optional[float] = Field(
+        default=None, description="Tool execution duration in seconds (null if not available)"
+    )
+    result_length: Optional[int] = Field(
+        default=None, description="Length of the tool result in characters"
+    )
+    is_error: bool = Field(..., description="Whether the tool call resulted in an error")
+    error: Optional[str] = Field(
+        default=None, description="Error message if the tool call failed"
+    )
+    timestamp: int = Field(..., description="Tool call timestamp (epoch milliseconds)")
+
+
+class InteractionEventModel(BaseModel):
+    """ChatbotInteraction event with full conversation history."""
+
+    message_id: str = Field(..., description="Message ID")
+    timestamp: int = Field(..., description="Event timestamp (epoch milliseconds)")
+    num_tool_calls: int = Field(..., description="Number of tool calls in this turn")
+    response_generation_duration_sec: float = Field(
+        ..., description="Response generation time for this turn"
+    )
+    full_history: str = Field(
+        ..., description="Complete conversation history JSON for this turn"
+    )
+
+
+class ConversationTelemetryModel(BaseModel):
+    """Telemetry data for a conversation."""
+
+    num_tool_calls: int = Field(..., description="Total number of tool calls")
+    num_tool_call_errors: int = Field(
+        ..., description="Number of tool calls that resulted in errors"
+    )
+    tool_calls: List[ToolCallModel] = Field(
+        default_factory=list, description="List of all tool call executions"
+    )
+    interaction_events: List[InteractionEventModel] = Field(
+        default_factory=list,
+        description="ChatbotInteraction events with full_history for reconstruction",
+    )
+    avg_response_time: Optional[float] = Field(
+        default=None,
+        description="Average response generation time in seconds (from interaction events)",
+    )
+    total_thinking_time: Optional[float] = Field(
+        default=None,
+        description="Total thinking/processing time across all turns in seconds",
+    )
+
+
+class ArchivedConversationWithTelemetryModel(ArchivedConversationModel):
+    """Archived conversation enriched with telemetry data."""
+
+    telemetry: Optional[ConversationTelemetryModel] = Field(
+        default=None, description="Tool call telemetry data (optional)"
+    )
+
+
+class ToolUsageAggregateModel(BaseModel):
+    """Aggregate tool usage statistics."""
+
+    tool_counts: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Number of calls per tool (tool_name -> count)",
+    )
+    tool_errors: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Number of errors per tool (tool_name -> error_count)",
+    )
+    avg_duration: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Average execution duration per tool in seconds (tool_name -> avg_seconds)",
+    )
+
+
+class ClusterInfo(BaseModel):
+    """Cluster information with context and namespace."""
+
+    context: str = Field(..., description="Full kubectl context ARN")
+    context_name: str = Field(..., description="Shortened cluster name (e.g., 'usw2-saas-01-prod')")
+    namespace: str = Field(..., description="Kubernetes namespace")
+    customer_name: Optional[str] = Field(default=None, description="Customer name extracted from namespace")
+    cluster_region: Optional[str] = Field(default=None, description="AWS region (e.g., 'us-west-2')")
+    cluster_env: Optional[str] = Field(default=None, description="Environment: 'prod', 'staging', or 'poc'")
+    is_trial: bool = Field(default=False, description="True for trial clusters")
+
+
+class ClusterIndexResponse(BaseModel):
+    """Response containing searchable cluster index."""
+
+    clusters: List[ClusterInfo] = Field(default_factory=list, description="List of clusters")
+    total: int = Field(..., description="Total number of clusters")
+    mode: str = Field(..., description="Filter mode: 'all' or 'trials'")
+    cached: bool = Field(..., description="Whether results are from cache")
+    cache_age_seconds: Optional[int] = Field(default=None, description="Cache age in seconds")
+    error: Optional[str] = Field(default=None, description="Error message if cluster discovery failed")
+    vpn_required: bool = Field(default=False, description="True if VPN connection is required")

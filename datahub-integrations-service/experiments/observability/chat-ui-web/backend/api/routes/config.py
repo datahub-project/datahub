@@ -2,8 +2,12 @@
 Configuration Routes - API endpoints for managing connection configuration.
 """
 
+import json
+import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from loguru import logger
@@ -575,10 +579,16 @@ async def test_transport(request: dict):
 
 
 @router.post("/sso/login")
-async def sso_login(engine: ChatEngine = Depends(get_chat_engine)):
+async def sso_login(
+    request: dict = None,
+    engine: ChatEngine = Depends(get_chat_engine)
+):
     """
     Trigger AWS SSO login with browser handoff.
     Also saves the AWS profile to config for future use.
+
+    Args:
+        request: Optional dict with 'profile' field to specify which profile to use
 
     Returns:
         Result of SSO login trigger
@@ -587,9 +597,16 @@ async def sso_login(engine: ChatEngine = Depends(get_chat_engine)):
     import subprocess
 
     try:
-        # Determine which AWS profile to use
-        profile_name = os.environ.get("AWS_PROFILE")
+        # Get profile from request body if provided
+        profile_name = None
+        if request:
+            profile_name = request.get("profile")
 
+        # Fall back to environment variable
+        if not profile_name:
+            profile_name = os.environ.get("AWS_PROFILE")
+
+        # Fall back to auto-detection
         if not profile_name:
             # Try to find available profiles
             try:
@@ -703,4 +720,305 @@ async def list_aws_profiles():
             "success": False,
             "error": f"Failed to list AWS profiles: {str(e)}",
             "profiles": [],
+        }
+
+
+@router.get("/aws/profile-for-context")
+async def detect_profile_for_context(context: str):
+    """
+    Detect which AWS profile is needed for a kubectl context.
+
+    Extracts the AWS account ID from the cluster ARN and finds matching profiles.
+
+    Args:
+        context: Kubernetes context name (may be cluster ARN)
+
+    Returns:
+        Detection result with matching profiles and setup guidance
+    """
+    try:
+        # Import AWS profile manager
+        from core.aws_profile_manager import AwsProfileManager
+
+        manager = AwsProfileManager()
+        result = manager.detect_profile_for_context(context)
+
+        response = {
+            "account_id": result.account_id,
+            "region": result.region,
+            "matching_profiles": result.matching_profiles,
+            "setup_needed": result.setup_needed,
+            "recommended_profile": result.recommended_profile,
+        }
+
+        # Add account info if available
+        if result.account_info:
+            response["account_info"] = {
+                "name": result.account_info.name,
+                "description": result.account_info.description,
+                "sso_start_url": result.account_info.sso_start_url,
+                "sso_region": result.account_info.sso_region,
+                "default_role": result.account_info.default_role,
+                "suggested_profile_name": result.account_info.suggested_profile_name,
+            }
+
+        logger.info(
+            f"Profile detection for context {context}: "
+            f"account={result.account_id}, matches={len(result.matching_profiles)}, "
+            f"setup_needed={result.setup_needed}"
+        )
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Profile detection failed: {e}")
+        return {
+            "error": f"Profile detection failed: {str(e)}",
+            "account_id": None,
+            "matching_profiles": [],
+            "setup_needed": False,
+        }
+
+
+@router.post("/aws/setup-profile")
+async def setup_aws_profile(request: dict):
+    """
+    Guide user through AWS profile setup.
+
+    Args:
+        request: Dict with profile configuration:
+            - profile_name: Name for the new profile
+            - account_id: AWS account ID
+            - sso_start_url: SSO start URL
+            - sso_region: SSO region
+            - role_name: IAM role name
+            - region: Default AWS region (optional, defaults to us-west-2)
+
+    Returns:
+        Setup instructions or error
+    """
+    try:
+        profile_name = request.get("profile_name")
+        account_id = request.get("account_id")
+        sso_start_url = request.get("sso_start_url")
+        sso_region = request.get("sso_region")
+        role_name = request.get("role_name")
+        region = request.get("region", "us-west-2")
+
+        if not all([profile_name, account_id, sso_start_url, sso_region, role_name]):
+            return {
+                "success": False,
+                "error": "Missing required fields: profile_name, account_id, sso_start_url, sso_region, role_name",
+            }
+
+        # Import AWS profile manager
+        from core.aws_profile_manager import AwsProfileManager
+
+        manager = AwsProfileManager()
+        success, instructions = manager.setup_profile(
+            profile_name=profile_name,
+            account_id=account_id,
+            sso_start_url=sso_start_url,
+            sso_region=sso_region,
+            role_name=role_name,
+            region=region,
+        )
+
+        if success:
+            logger.info(f"Generated setup instructions for profile: {profile_name}")
+            return {
+                "success": True,
+                "instructions": instructions,
+                "profile_name": profile_name,
+            }
+        else:
+            return {
+                "success": False,
+                "error": instructions,
+            }
+
+    except Exception as e:
+        logger.error(f"Profile setup failed: {e}")
+        return {
+            "success": False,
+            "error": f"Profile setup failed: {str(e)}",
+        }
+
+
+@router.post("/aws/validate-profile")
+async def validate_aws_profile(request: dict):
+    """
+    Validate that an AWS profile exists and has valid credentials.
+
+    Args:
+        request: Dict with 'profile' field
+
+    Returns:
+        Validation result
+    """
+    try:
+        profile_name = request.get("profile")
+        if not profile_name:
+            return {
+                "valid": False,
+                "error": "profile field is required",
+            }
+
+        # Import AWS profile manager
+        from core.aws_profile_manager import AwsProfileManager
+
+        manager = AwsProfileManager()
+        valid, error = manager.validate_profile(profile_name)
+
+        if valid:
+            logger.info(f"Profile '{profile_name}' validated successfully")
+            return {
+                "valid": True,
+                "profile": profile_name,
+            }
+        else:
+            logger.warning(f"Profile '{profile_name}' validation failed: {error}")
+            return {
+                "valid": False,
+                "error": error,
+                "profile": profile_name,
+            }
+
+    except Exception as e:
+        logger.error(f"Profile validation failed: {e}")
+        return {
+            "valid": False,
+            "error": f"Profile validation failed: {str(e)}",
+        }
+
+
+# Session status cache: {profile_name: (status_dict, timestamp)}
+_session_status_cache: dict[str, tuple[dict, datetime]] = {}
+_cache_ttl = timedelta(minutes=5)
+
+
+@router.get("/aws/session-status")
+async def get_aws_session_status(profile: Optional[str] = None):
+    """
+    Check AWS SSO session status for a profile.
+
+    Uses 5-minute caching to avoid excessive AWS STS calls.
+
+    Args:
+        profile: AWS profile name (optional, defaults to AWS_PROFILE env or auto-detect)
+
+    Returns:
+        Session status with account info, validity, and expiration
+    """
+    import os
+
+    try:
+        # Determine which profile to check
+        profile_name = profile
+        if not profile_name:
+            profile_name = os.environ.get("AWS_PROFILE")
+
+        # Auto-detect if still not set
+        if not profile_name:
+            try:
+                result = subprocess.run(
+                    ["aws", "configure", "list-profiles"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    profiles = result.stdout.strip().split("\n")
+                    # Look for acryl-related profiles first
+                    acryl_profiles = [p for p in profiles if 'acryl' in p.lower()]
+                    if acryl_profiles:
+                        profile_name = acryl_profiles[0]
+                    else:
+                        profile_name = profiles[0]
+            except Exception:
+                profile_name = "default"
+
+        if not profile_name:
+            return {
+                "valid": False,
+                "error": "No AWS profile configured",
+                "profile": None,
+            }
+
+        # Check cache first
+        now = datetime.now()
+        if profile_name in _session_status_cache:
+            cached_status, cached_time = _session_status_cache[profile_name]
+            if now - cached_time < _cache_ttl:
+                age_seconds = (now - cached_time).total_seconds()
+                logger.debug(f"Using cached session status for {profile_name} (age: {age_seconds:.1f}s)")
+                cached_status["from_cache"] = True
+                cached_status["cache_age_seconds"] = age_seconds
+                return cached_status
+
+        # Call AWS STS to get caller identity
+        logger.debug(f"Checking AWS session status for profile: {profile_name}")
+        result = subprocess.run(
+            ["aws", "sts", "get-caller-identity", "--profile", profile_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode == 0:
+            # Parse the JSON response
+            identity = json.loads(result.stdout)
+
+            status = {
+                "valid": True,
+                "profile": profile_name,
+                "account": identity.get("Account"),
+                "user_id": identity.get("UserId"),
+                "arn": identity.get("Arn"),
+                "checked_at": now.isoformat(),
+                "from_cache": False,
+            }
+
+            # Cache the successful result
+            _session_status_cache[profile_name] = (status.copy(), now)
+            logger.info(f"AWS session valid for profile '{profile_name}' (account: {status['account']})")
+
+            return status
+        else:
+            error = result.stderr.strip()
+            logger.warning(f"AWS session invalid for profile '{profile_name}': {error}")
+
+            # Check if it's an expired token error
+            is_expired = "expired" in error.lower() or "token" in error.lower()
+
+            status = {
+                "valid": False,
+                "profile": profile_name,
+                "error": error,
+                "expired": is_expired,
+                "checked_at": now.isoformat(),
+                "from_cache": False,
+            }
+
+            # Don't cache errors (they might be transient)
+            return status
+
+    except subprocess.TimeoutExpired:
+        return {
+            "valid": False,
+            "error": "AWS CLI timeout - took too long to respond",
+            "profile": profile_name,
+        }
+    except FileNotFoundError:
+        return {
+            "valid": False,
+            "error": "AWS CLI not found. Please install AWS CLI first.",
+            "profile": profile_name,
+        }
+    except Exception as e:
+        logger.error(f"Session status check failed: {e}")
+        return {
+            "valid": False,
+            "error": f"Session status check failed: {str(e)}",
+            "profile": profile_name,
         }

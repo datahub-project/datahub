@@ -1,24 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../api/client';
-import type { Profile } from '../api/types';
+import type { Profile, ClusterInfo } from '../api/types';
 import { Autocomplete } from './Autocomplete';
+import { ActiveProfileSummary } from './ActiveProfileSummary';
+import { ClusterSelector } from './ClusterSelector';
 
 interface ProfileManagerProps {
   onProfileSelect: (profile: Profile) => void;
   selectedProfile?: Profile;
+  onSwitchToChat: () => void;
 }
 
-export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileManagerProps) {
+export function ProfileManager({ onProfileSelect, selectedProfile, onSwitchToChat }: ProfileManagerProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Refs for scrolling to profiles
+  const profileListRef = useRef<HTMLDivElement>(null);
+  const profileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Kubectl discovery state
   const [kubectlContexts, setKubectlContexts] = useState<string[]>([]);
   const [kubectlNamespaces, setKubectlNamespaces] = useState<string[]>([]);
   const [loadingKubectl, setLoadingKubectl] = useState(false);
+
+  // Cluster selection state
+  const [clusterMode, setClusterMode] = useState<'search' | 'manual'>('search');
+  const [clusterSelectionMode, setClusterSelectionMode] = useState<'cloud' | 'trials'>('cloud');
+  const [selectedCluster, setSelectedCluster] = useState<ClusterInfo | null>(null);
 
   // Form state for add/edit
   const [formData, setFormData] = useState({
@@ -176,6 +189,29 @@ export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileMana
     }
   };
 
+  const handleChatWithProfile = async (profile: Profile) => {
+    try {
+      setLoading(true);
+      setMessage(`Activating profile "${profile.name}" and switching to chat...`);
+
+      // Activate the profile in the backend
+      await apiClient.activateProfile(profile.name);
+
+      // Update the UI
+      onProfileSelect(profile);
+
+      // Reload profiles to show updated active status
+      await loadProfiles();
+
+      // Switch to chat tab
+      onSwitchToChat();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to activate profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEditProfile = (profile: Profile) => {
     setEditingProfile(profile);
     setFormData({
@@ -228,6 +264,25 @@ export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileMana
     }
   };
 
+  const handleScrollToProfile = () => {
+    const activeProfile = profiles.find((p) => p.is_active);
+    if (!activeProfile) return;
+
+    const profileElement = profileRefs.current.get(activeProfile.name);
+    if (profileElement) {
+      profileElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+
+      // Flash effect to highlight
+      profileElement.classList.add('flash-highlight');
+      setTimeout(() => {
+        profileElement.classList.remove('flash-highlight');
+      }, 2000);
+    }
+  };
+
   const handleAutoDiscover = async () => {
     if (!formData.kube_context || !formData.kube_namespace) {
       setMessage('Please select both kubectl context and namespace first');
@@ -258,6 +313,22 @@ export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileMana
     }
   };
 
+  const handleClusterSelect = (cluster: ClusterInfo) => {
+    setSelectedCluster(cluster);
+
+    // Pre-fill context and namespace
+    setFormData({
+      ...formData,
+      kube_context: cluster.context,
+      kube_namespace: cluster.namespace,
+      // Also pre-fill profile name if empty and customer name is available
+      name: formData.name || cluster.customer_name || '',
+    });
+
+    // Load namespaces for the selected context (for manual mode switching)
+    loadKubectlNamespaces(cluster.context);
+  };
+
   const handleAddNew = () => {
     setEditingProfile(null);
     setFormData({
@@ -269,10 +340,28 @@ export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileMana
       kube_namespace: '',
     });
     setShowAddModal(true);
+    setClusterMode('search');
+    setSelectedCluster(null);
 
     // Load kubectl contexts when opening modal
     loadKubectlContexts();
   };
+
+  // Filter profiles based on search query
+  const filteredProfiles = profiles.filter((profile) => {
+    if (!searchQuery) return true;
+
+    const query = searchQuery.toLowerCase();
+    return (
+      profile.name.toLowerCase().includes(query) ||
+      profile.gms_url.toLowerCase().includes(query) ||
+      (profile.description && profile.description.toLowerCase().includes(query)) ||
+      (profile.kube_namespace && profile.kube_namespace.toLowerCase().includes(query))
+    );
+  });
+
+  // Find active profile
+  const activeProfile = profiles.find((p) => p.is_active) || null;
 
   return (
     <div className="profile-manager">
@@ -293,15 +382,52 @@ export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileMana
         </div>
       )}
 
-      <div className="profile-list">
+      {/* Active Profile Summary */}
+      <ActiveProfileSummary
+        profile={activeProfile}
+        onScrollToProfile={handleScrollToProfile}
+        onRefreshToken={handleRefreshToken}
+        formatRelativeTime={formatRelativeTime}
+      />
+
+      {/* Search input */}
+      {profiles.length > 0 && (
+        <div className="profile-search">
+          <input
+            type="text"
+            placeholder="🔍 Search profiles by name, URL, or namespace..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="profile-search-input"
+          />
+          {searchQuery && (
+            <button
+              className="profile-search-clear"
+              onClick={() => setSearchQuery('')}
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="profile-list" ref={profileListRef}>
         {profiles.length === 0 ? (
           <div className="profile-empty">
             No profiles saved. Click "Add Profile" to create one.
           </div>
+        ) : filteredProfiles.length === 0 ? (
+          <div className="profile-empty">
+            No profiles match "{searchQuery}". <button onClick={() => setSearchQuery('')} className="link-button">Clear search</button>
+          </div>
         ) : (
-          profiles.map((profile) => (
+          filteredProfiles.map((profile) => (
             <div
               key={profile.name}
+              ref={(el) => {
+                if (el) profileRefs.current.set(profile.name, el);
+              }}
               className={`profile-item ${selectedProfile?.name === profile.name ? 'selected' : ''} ${profile.is_active ? 'active' : ''}`}
             >
               <div className="profile-item-header">
@@ -342,6 +468,9 @@ export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileMana
               </div>
 
               <div className="profile-item-footer">
+                <button onClick={() => handleChatWithProfile(profile)} disabled={loading} className="btn-small btn-primary">
+                  💬 Chat
+                </button>
                 <button onClick={() => handleTestProfile(profile.name)} disabled={loading} className="btn-small">
                   Test
                 </button>
@@ -398,32 +527,61 @@ export function ProfileManager({ onProfileSelect, selectedProfile }: ProfileMana
             </div>
 
             <div className="config-section">
-              <Autocomplete
-                label="Kubectl Context"
-                options={kubectlContexts}
-                value={formData.kube_context}
-                onChange={(context) => {
-                  setFormData({ ...formData, kube_context: context, kube_namespace: '' });
-                  if (context) {
-                    loadKubectlNamespaces(context);
-                  }
-                }}
-                placeholder="Type to search contexts..."
-                disabled={loadingKubectl}
-              />
-              <small>Select the kubectl context where DataHub is deployed</small>
-            </div>
+              <label>Cluster Selection</label>
+              <div className="cluster-mode-toggle">
+                <button
+                  type="button"
+                  className={clusterMode === 'search' ? 'active' : ''}
+                  onClick={() => setClusterMode('search')}
+                >
+                  🔍 Search Clusters
+                </button>
+                <button
+                  type="button"
+                  className={clusterMode === 'manual' ? 'active' : ''}
+                  onClick={() => setClusterMode('manual')}
+                >
+                  ⚙️ Manual Entry
+                </button>
+              </div>
 
-            <div className="config-section">
-              <Autocomplete
-                label="Kubectl Namespace"
-                options={kubectlNamespaces}
-                value={formData.kube_namespace}
-                onChange={(namespace) => setFormData({ ...formData, kube_namespace: namespace })}
-                placeholder="Type to search namespaces..."
-                disabled={!formData.kube_context || loadingKubectl}
-              />
-              <small>Select the namespace where DataHub pods are running</small>
+              {clusterMode === 'search' ? (
+                <ClusterSelector
+                  mode={clusterSelectionMode}
+                  onModeChange={setClusterSelectionMode}
+                  onClusterSelect={handleClusterSelect}
+                  selectedCluster={selectedCluster}
+                />
+              ) : (
+                <>
+                  <Autocomplete
+                    label="Kubectl Context"
+                    options={kubectlContexts}
+                    value={formData.kube_context}
+                    onChange={(context) => {
+                      setFormData({ ...formData, kube_context: context, kube_namespace: '' });
+                      if (context) {
+                        loadKubectlNamespaces(context);
+                      }
+                    }}
+                    placeholder="Type to search contexts..."
+                    disabled={loadingKubectl}
+                  />
+                  <small>Select the kubectl context where DataHub is deployed</small>
+
+                  <div style={{ marginTop: '1rem' }}>
+                    <Autocomplete
+                      label="Kubectl Namespace"
+                      options={kubectlNamespaces}
+                      value={formData.kube_namespace}
+                      onChange={(namespace) => setFormData({ ...formData, kube_namespace: namespace })}
+                      placeholder="Type to search namespaces..."
+                      disabled={!formData.kube_context || loadingKubectl}
+                    />
+                    <small>Select the namespace where DataHub pods are running</small>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="config-section">

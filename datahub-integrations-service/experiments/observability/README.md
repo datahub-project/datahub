@@ -102,7 +102,7 @@ Save your connection settings as profiles for quick switching:
 
 - **Save**: Enter a profile name and click "Save Profile"
 - **Load**: Select from dropdown and click "Load"
-- **Profiles persist** across sessions in `~/.datahub_connection_profiles.json`
+- **Profiles persist** across sessions in `~/.datahub/chat_admin/connection_profiles.json`
 
 ### Example Workflow
 

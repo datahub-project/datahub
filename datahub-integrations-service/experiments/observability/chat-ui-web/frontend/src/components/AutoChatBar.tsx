@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ConnectionConfig, AwsHealthStatus } from '../api/types';
 import { apiClient } from '../api/client';
+import { JsonViewer } from './JsonViewer';
 
 interface AutoChatBarProps {
   onSendMessage: (content: string, conversationId?: string) => Promise<void>;
@@ -22,6 +23,12 @@ export function AutoChatBar({ onSendMessage, onCreateConversation }: AutoChatBar
   const [config, setConfig] = useState<ConnectionConfig | null>(null);
   const [awsHealth, setAwsHealth] = useState<AwsHealthStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sketch modal state
+  const [showSketchModal, setShowSketchModal] = useState(false);
+  const [sketch, setSketch] = useState<any>(null);
+  const [loadingSketch, setLoadingSketch] = useState(false);
+  const [sketchError, setSketchError] = useState<string | null>(null);
 
   // Track current conversation and counters for auto-chat loop (refs to avoid stale closures)
   const currentConversationIdRef = useRef<string | null>(null);
@@ -51,6 +58,23 @@ export function AutoChatBar({ onSendMessage, onCreateConversation }: AutoChatBar
         message: 'Failed to check AWS health',
         details: { error: String(err) }
       });
+    }
+  };
+
+  const handleShowSketch = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent header click from toggling expand
+    setShowSketchModal(true);
+    setLoadingSketch(true);
+    setSketchError(null);
+
+    try {
+      const sketchData = await apiClient.getSketch();
+      setSketch(sketchData);
+    } catch (err) {
+      console.error('Failed to fetch sketch:', err);
+      setSketchError(err instanceof Error ? err.message : 'Failed to load sketch');
+    } finally {
+      setLoadingSketch(false);
     }
   };
 
@@ -237,6 +261,13 @@ export function AutoChatBar({ onSendMessage, onCreateConversation }: AutoChatBar
             {isPausedState ? '⏸' : '▶'} {paused ? 'Paused' : 'Running'} | Conv {currentConversationCount}/{maxConversations}
           </span>
         )}
+        <button
+          className="sketch-info-btn"
+          onClick={handleShowSketch}
+          title="View DataHub Sketch"
+        >
+          📋
+        </button>
       </div>
 
       {expanded && (
@@ -330,6 +361,29 @@ export function AutoChatBar({ onSendMessage, onCreateConversation }: AutoChatBar
 
       {error && expanded && (
         <div className="auto-chat-error">{error}</div>
+      )}
+
+      {showSketchModal && (
+        <div className="sketch-modal-overlay" onClick={() => setShowSketchModal(false)}>
+          <div className="sketch-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="sketch-modal-header">
+              <h2>DataHub Sketch</h2>
+              <button
+                className="sketch-modal-close"
+                onClick={() => setShowSketchModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="sketch-modal-body">
+              {loadingSketch && <div className="sketch-loading">Loading sketch...</div>}
+              {sketchError && <div className="sketch-error">{sketchError}</div>}
+              {!loadingSketch && !sketchError && sketch && (
+                <JsonViewer data={sketch} />
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

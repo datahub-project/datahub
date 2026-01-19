@@ -150,3 +150,57 @@ async def check_aws_health(engine: ChatEngine = Depends(get_chat_engine)):
             "message": f"Health check failed: {str(e)}",
             "details": {"error": str(e)},
         }
+
+
+@router.get("/sketch")
+async def get_sketch(engine: ChatEngine = Depends(get_chat_engine)):
+    """
+    Get the DataHub sketch for the current instance.
+
+    Returns:
+        DataHub sketch with entity counts, platforms, top datasets, etc.
+    """
+    try:
+        generator = get_question_generator()
+
+        # Get GMS URL for this instance
+        gms_url = engine.config.gms_url
+        if not gms_url:
+            raise HTTPException(status_code=400, detail="GMS URL not configured")
+
+        # Check if sketch exists for this GMS URL
+        if gms_url not in generator.sketches:
+            # Initialize the generator which will create the sketch
+            generator._ensure_initialized(engine)
+
+        # Get the sketch for this GMS URL
+        sketch = generator.sketches.get(gms_url)
+        if not sketch:
+            raise HTTPException(
+                status_code=404, detail=f"No sketch available for {gms_url}"
+            )
+
+        # Helper to convert item to dict (handles both dicts and objects)
+        def to_dict(item):
+            if isinstance(item, dict):
+                return item
+            # If it's an object, convert to dict using vars() or __dict__
+            return vars(item) if hasattr(item, '__dict__') else item
+
+        # Convert sketch to dict for JSON response
+        return {
+            "gms_url": gms_url,
+            "entity_counts": sketch.entity_counts,
+            "platforms": sketch.platforms,
+            "top_datasets": [to_dict(ds) for ds in sketch.top_datasets],
+            "top_dashboards": [to_dict(db) for db in sketch.top_dashboards],
+            "sample_tags": sketch.sample_tags,
+            "sample_glossary_terms": sketch.sample_glossary_terms,
+            "sample_domains": sketch.sample_domains,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to get sketch")
+        raise HTTPException(status_code=500, detail=f"Failed to get sketch: {str(e)}")

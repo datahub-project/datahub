@@ -4,7 +4,7 @@ Connection Manager - Reusable module for managing DataHub service connections.
 This module provides connection profile management for DataHub services:
 - Save/load connection profiles
 - Manage local, remote, and custom connection modes
-- Persist profiles to ~/.datahub_connection_profiles.json
+- Persist profiles to ~/.datahub/chat_admin/connection_profiles.json
 - Support for integrations service and GMS configuration
 
 Can be used by any tool that needs to connect to DataHub services.
@@ -143,7 +143,7 @@ class ConnectionProfile:
 class ConnectionManager:
     """Manager for DataHub service connections and profiles."""
 
-    DEFAULT_PROFILE_PATH = Path.home() / ".datahub_connection_profiles.json"
+    DEFAULT_PROFILE_PATH = Path.home() / ".datahub" / "chat_admin" / "connection_profiles.json"
 
     def __init__(self, profile_path: Optional[Path] = None):
         """
@@ -158,6 +158,8 @@ class ConnectionManager:
     def _ensure_profile_file(self) -> None:
         """Ensure the profile file exists with proper structure."""
         if not self.profile_path.exists():
+            # Create parent directory if it doesn't exist
+            self.profile_path.parent.mkdir(parents=True, exist_ok=True)
             self._save_data({"profiles": {}, "active_profile": None, "connection_mode": "embedded"})
             # Set restrictive permissions (owner read/write only)
             self.profile_path.chmod(0o600)

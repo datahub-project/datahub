@@ -26,52 +26,59 @@ class AutoChatQuestionGenerator:
 
     def __init__(self):
         """Initialize question generator."""
-        self.sketch: Optional[DataHubSketch] = None
-        self.generator: Optional[ConversationGenerator] = None
+        # Cache sketches and generators per GMS URL to avoid cross-instance contamination
+        self.sketches: dict[str, DataHubSketch] = {}
+        self.generators: dict[str, ConversationGenerator] = {}
+        self.bedrock_client = None
 
     def _ensure_initialized(self, chat_engine, aws_profile: Optional[str] = None) -> None:
         """Ensure generator is initialized with sketch and Bedrock client."""
         import boto3
 
-        # Only initialize once
-        if self.generator:
+        # Get GMS URL as cache key
+        gms_url = chat_engine.config.gms_url
+        if not gms_url:
+            raise ValueError("GMS URL not configured")
+
+        # Only initialize once per GMS URL
+        if gms_url in self.generators:
+            logger.debug(f"Using cached generator for {gms_url}")
             return
 
         try:
-            # Create Bedrock client with profile if specified
-            session_kwargs = {}
-            if aws_profile:
-                session_kwargs["profile_name"] = aws_profile
+            # Create Bedrock client with profile if specified (reuse if already created)
+            if not self.bedrock_client:
+                session_kwargs = {}
+                if aws_profile:
+                    session_kwargs["profile_name"] = aws_profile
 
-            session = boto3.Session(**session_kwargs)
-            bedrock_client = session.client(
-                service_name="bedrock-runtime", region_name="us-west-2"
-            )
+                session = boto3.Session(**session_kwargs)
+                self.bedrock_client = session.client(
+                    service_name="bedrock-runtime", region_name="us-west-2"
+                )
 
-            # Create DataHub sketch for context
-            logger.info("Creating DataHub sketch for auto-chat context...")
+            # Create DataHub sketch for context (keyed by GMS URL)
+            logger.info(f"Creating DataHub sketch for {gms_url}...")
             try:
-                # Get GMS connection details from chat engine config
-                gms_url = chat_engine.config.gms_url
                 gms_token = chat_engine.config.gms_token
 
-                if gms_url and gms_token:
+                if gms_token:
                     logger.info(f"Fetching DataHub metadata from GMS: {gms_url}")
                     sketcher = DataHubSketcher(gms_url, gms_token)
-                    self.sketch = sketcher.create_sketch()
+                    sketch = sketcher.create_sketch()
                     logger.info(
-                        f"DataHub sketch created with {len(self.sketch.platforms)} platforms, "
-                        f"{len(self.sketch.top_datasets)} top datasets, "
-                        f"{len(self.sketch.top_dashboards)} top dashboards"
+                        f"DataHub sketch created for {gms_url} with {len(sketch.platforms)} platforms, "
+                        f"{len(sketch.top_datasets)} top datasets, "
+                        f"{len(sketch.top_dashboards)} top dashboards"
                     )
                 else:
-                    logger.warning("GMS URL or token not configured - creating empty sketch")
-                    raise ValueError("GMS URL or token not configured")
+                    logger.warning("GMS token not configured - creating empty sketch")
+                    raise ValueError("GMS token not configured")
             except Exception as sketch_error:
-                logger.warning(f"Failed to create sketch from GMS: {sketch_error}")
+                logger.warning(f"Failed to create sketch from GMS {gms_url}: {sketch_error}")
                 logger.info("Creating empty sketch as fallback")
                 # Fallback to empty sketch
-                self.sketch = DataHubSketch(
+                sketch = DataHubSketch(
                     entity_counts={},
                     platforms=[],
                     top_datasets=[],
@@ -81,9 +88,10 @@ class AutoChatQuestionGenerator:
                     sample_domains=[],
                 )
 
-            # Create conversation generator
-            self.generator = ConversationGenerator(bedrock_client, self.sketch)
-            logger.info("Auto-chat question generator initialized successfully")
+            # Store sketch and create conversation generator (keyed by GMS URL)
+            self.sketches[gms_url] = sketch
+            self.generators[gms_url] = ConversationGenerator(self.bedrock_client, sketch)
+            logger.info(f"Auto-chat question generator initialized for {gms_url}")
 
         except Exception as e:
             logger.error(f"Failed to initialize question generator: {e}")
@@ -107,17 +115,23 @@ class AutoChatQuestionGenerator:
         Raises:
             RuntimeError: If initialization fails
         """
-        # Ensure generator is initialized
+        # Ensure generator is initialized for this GMS URL
         self._ensure_initialized(chat_engine, aws_profile)
 
+        # Get the generator for this specific GMS URL
+        gms_url = chat_engine.config.gms_url
+        if not gms_url or gms_url not in self.generators:
+            raise RuntimeError(f"Generator not initialized for {gms_url}")
+
         try:
-            # Generate question
-            question = self.generator.generate_initial_question()
-            logger.info(f"Generated auto-chat question: {question[:100]}...")
+            # Generate question using the GMS-specific generator
+            generator = self.generators[gms_url]
+            question = generator.generate_initial_question()
+            logger.info(f"Generated auto-chat question for {gms_url}: {question[:100]}...")
             return question
 
         except Exception as e:
-            logger.error(f"Failed to generate question: {e}")
+            logger.error(f"Failed to generate question for {gms_url}: {e}")
             raise RuntimeError(f"Failed to generate question: {e}") from e
 
 

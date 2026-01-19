@@ -112,6 +112,22 @@ export function useArchivedConversations() {
     loadConversations(0, originFilter, sortBy, newSortDesc);
   }, [sortDesc, originFilter, sortBy, loadConversations]);
 
+  const refresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await apiClient.refreshArchivedConversations();
+      // Reload conversations after cache is cleared
+      await loadConversations(currentPage, originFilter, sortBy, sortDesc);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to refresh conversations'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, originFilter, sortBy, sortDesc, loadConversations]);
+
   return {
     conversations,
     currentConversation,
@@ -130,6 +146,7 @@ export function useArchivedConversations() {
     filterByOrigin,
     changeSortBy,
     toggleSortDirection,
+    refresh,
     hasNextPage: (currentPage + 1) * pageSize < total,
     hasPrevPage: currentPage > 0,
   };

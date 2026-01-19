@@ -10,6 +10,7 @@ import type {
   ArchivedConversation,
   ConversationOriginType,
   ConversationSortBy,
+  ClusterIndexResponse,
 } from './types';
 
 const API_BASE = '/api';
@@ -84,14 +85,55 @@ class ApiClient {
     });
   }
 
-  async ssoLogin(): Promise<{ success: boolean; message?: string; profile?: string; error?: string }> {
+  async ssoLogin(profile?: string): Promise<{ success: boolean; message?: string; profile?: string; error?: string }> {
     return this.request('/config/sso/login', {
       method: 'POST',
+      body: profile ? JSON.stringify({ profile }) : undefined,
     });
   }
 
   async listAwsProfiles(): Promise<{ success: boolean; profiles: string[]; error?: string }> {
     return this.request('/config/aws/profiles');
+  }
+
+  async detectProfileForContext(context: string): Promise<{
+    account_id?: string;
+    region?: string;
+    matching_profiles: string[];
+    setup_needed: boolean;
+    recommended_profile?: string;
+    account_info?: {
+      name: string;
+      description: string;
+      sso_start_url: string;
+      sso_region: string;
+      default_role: string;
+      suggested_profile_name: string;
+    };
+    error?: string;
+  }> {
+    return this.request(`/config/aws/profile-for-context?context=${encodeURIComponent(context)}`);
+  }
+
+  async setupAwsProfile(config: {
+    profile_name: string;
+    account_id: string;
+    sso_start_url: string;
+    sso_region: string;
+    role_name: string;
+    region?: string;
+  }): Promise<{ success: boolean; instructions?: string; profile_name?: string; error?: string }> {
+    return this.request('/config/aws/setup-profile', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async validateAwsProfile(profile: string): Promise<{ valid: boolean; profile?: string; error?: string }> {
+    return this.request('/config/aws/validate-profile', {
+      method: 'POST',
+      body: JSON.stringify({ profile }),
+    });
   }
 
   async testTransport(integrations_url: string, mode: string): Promise<{ success: boolean; message?: string; error?: string }> {
@@ -165,10 +207,23 @@ class ApiClient {
     );
   }
 
-  async getArchivedConversation(urn: string): Promise<ArchivedConversation> {
+  async getArchivedConversation(urn: string, includeTelemetry: boolean = true): Promise<ArchivedConversation> {
     const encodedUrn = encodeURIComponent(urn);
-    return this.request<ArchivedConversation>(
-      `/archived-conversations/${encodedUrn}`
+    const params = new URLSearchParams();
+    if (includeTelemetry) {
+      params.append('include_telemetry', 'true');
+    }
+    const queryString = params.toString();
+    const url = queryString
+      ? `/archived-conversations/${encodedUrn}?${queryString}`
+      : `/archived-conversations/${encodedUrn}`;
+    return this.request<ArchivedConversation>(url);
+  }
+
+  async refreshArchivedConversations(): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(
+      '/archived-conversations/refresh',
+      { method: 'POST' }
     );
   }
 
@@ -352,6 +407,19 @@ class ApiClient {
     return this.request<string[]>(`/kubectl/namespaces${query}`);
   }
 
+  async listClusters(mode: 'all' | 'trials' = 'all', search?: string, forceRefresh?: boolean): Promise<ClusterIndexResponse> {
+    const params = new URLSearchParams();
+    params.set('mode', mode);
+    if (search) {
+      params.set('search', search);
+    }
+    if (forceRefresh) {
+      params.set('force_refresh', 'true');
+    }
+
+    return this.request<ClusterIndexResponse>(`/kubectl/clusters?${params.toString()}`);
+  }
+
   async discoverProfileFromKubectl(context: string, namespace: string): Promise<{ gms_url: string; gms_token: string; context: string; namespace: string }> {
     return this.request('/kubectl/discover', {
       method: 'POST',
@@ -369,6 +437,10 @@ class ApiClient {
 
   async checkAwsHealth(): Promise<AwsHealthStatus> {
     return this.request<AwsHealthStatus>('/auto-chat/health/aws');
+  }
+
+  async getSketch(): Promise<any> {
+    return this.request('/auto-chat/sketch');
   }
 }
 

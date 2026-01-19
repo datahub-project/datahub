@@ -210,7 +210,7 @@ class DataHubSketch:
     """Sketch of DataHub backend for context."""
 
     entity_counts: dict[str, int]
-    platforms: list[str]
+    platforms: list[dict[str, Any]]  # List of {name: str, asset_count: int}
     top_datasets: list[dict[str, Any]]
     top_dashboards: list[dict[str, Any]]
     sample_tags: list[str]
@@ -228,9 +228,13 @@ class DataHubSketch:
         ):
             context += f"  - {entity_type}: {count:,}\n"
 
-        # Platforms
+        # Platforms with asset counts
         if self.platforms:
-            context += f"\nData Platforms: {', '.join(self.platforms)}\n"
+            context += "\nData Platforms:\n"
+            for platform in self.platforms:
+                name = platform.get("name", "unknown")
+                count = platform.get("asset_count", 0)
+                context += f"  - {name}: {count:,} assets\n"
 
         # Top datasets
         if self.top_datasets:
@@ -345,8 +349,12 @@ class DataHubSketcher:
             counts[entity_type] = result.get("value", {}).get("numEntities", 0)
         return counts
 
-    def get_platforms(self) -> list[str]:
-        """Get list of data platforms using GraphQL faceted aggregation."""
+    def get_platforms_with_counts(self) -> list[dict[str, Any]]:
+        """Get platforms with asset counts using GraphQL faceted aggregation.
+
+        Returns:
+            List of dicts with format: [{"name": "snowflake", "asset_count": 1234}, ...]
+        """
         # Use the same approach as the frontend - aggregateAcrossEntities with platform facets
         url = f"{self.gms_url}/api/graphql"
         headers = {
@@ -384,7 +392,7 @@ class DataHubSketcher:
             response.raise_for_status()
             data = response.json()
 
-            platforms = set()
+            platforms = []
             facets = (
                 data.get("data", {})
                 .get("aggregateAcrossEntities", {})
@@ -403,23 +411,33 @@ class DataHubSketcher:
                                 platform_name = platform_urn.split(
                                     "urn:li:dataPlatform:"
                                 )[-1]
-                                # Skip "None" platform
-                                if platform_name != "None":
-                                    platforms.add(platform_name)
+                                # Skip "None" and "acryl" platforms
+                                if platform_name not in ("None", "acryl"):
+                                    platforms.append({
+                                        "name": platform_name,
+                                        "asset_count": count
+                                    })
 
-            return sorted(list(platforms))
+            # Sort by asset count descending
+            platforms.sort(key=lambda p: p["asset_count"], reverse=True)
+            return platforms
 
         except Exception as e:
             logger.warning(
                 f"Failed to get platforms via GraphQL, falling back to search: {e}"
             )
             # Fallback to old method if GraphQL fails
-            return self._get_platforms_fallback()
+            return self._get_platforms_with_counts_fallback()
 
-    def _get_platforms_fallback(self) -> list[str]:
-        """Fallback method to get platforms by sampling."""
+    def get_platforms(self) -> list[str]:
+        """Get list of data platforms (for backwards compatibility)."""
+        platforms_with_counts = self.get_platforms_with_counts()
+        return sorted([p["name"] for p in platforms_with_counts])
+
+    def _get_platforms_with_counts_fallback(self) -> list[dict[str, Any]]:
+        """Fallback method to get platforms by sampling (estimates counts)."""
         result = self.search_entities("dataset", query="*", count=1000)
-        platforms = set()
+        platform_counts = {}
 
         for entity in result.get("value", {}).get("entities", []):
             urn = entity.get("entity")
@@ -427,12 +445,19 @@ class DataHubSketcher:
                 try:
                     platform_part = urn.split("(")[1].split(",")[0]
                     platform = platform_part.split("dataPlatform:")[-1]
-                    if platform != "None":
-                        platforms.add(platform)
+                    # Skip "None" and "acryl" platforms
+                    if platform not in ("None", "acryl"):
+                        platform_counts[platform] = platform_counts.get(platform, 0) + 1
                 except Exception:
                     pass
 
-        return sorted(list(platforms))
+        # Convert to list of dicts and sort by count
+        platforms = [
+            {"name": name, "asset_count": count}
+            for name, count in platform_counts.items()
+        ]
+        platforms.sort(key=lambda p: p["asset_count"], reverse=True)
+        return platforms
 
     def _get_facet_aggregations(
         self,
@@ -655,7 +680,7 @@ class DataHubSketcher:
 
         sketch = DataHubSketch(
             entity_counts=self.get_entity_counts(),
-            platforms=self.get_platforms(),
+            platforms=self.get_platforms_with_counts(),
             top_datasets=self.get_top_datasets(),
             top_dashboards=self.get_top_dashboards(),
             sample_tags=self.get_sample_tags(),

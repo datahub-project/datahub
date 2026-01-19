@@ -54,6 +54,7 @@ export interface ParsedMessage {
   toolResults?: ToolResult[];
   finalText?: string;
   rawText: string;
+  totalDuration?: number;  // Total duration in seconds (from <metadata> for telemetry data)
 }
 
 // Create XML parser instance
@@ -246,6 +247,7 @@ function parseXmlParameters(xmlText: string): Record<string, any> {
  */
 export function removeXmlTags(text: string): string {
   return text
+    .replace(/<metadata[^>]*>[\s\S]*?<\/metadata>/g, '')
     .replace(/<thinking[^>]*>[\s\S]*?<\/thinking>/g, '')
     .replace(/<tool_use[^>]*>[\s\S]*?<\/tool_use>/g, '')
     .replace(/<tool_result[^>]*>[\s\S]*?<\/tool_result>/g, '')
@@ -339,6 +341,19 @@ export function extractEventsInOrder(text: string): MessageEvent[] {
 }
 
 /**
+ * Extract total duration from metadata tag if present
+ */
+function extractTotalDuration(text: string): number | undefined {
+  const metadataRegex = /<metadata[^>]*totalDuration="([^"]*)"[^>]*>/;
+  const match = metadataRegex.exec(text);
+  if (match) {
+    const duration = parseFloat(match[1]);
+    return isNaN(duration) ? undefined : duration;
+  }
+  return undefined;
+}
+
+/**
  * Parse a complete AI message with thinking, tool calls, and final text
  */
 export function parseAiMessage(text: string): ParsedMessage {
@@ -346,13 +361,15 @@ export function parseAiMessage(text: string): ParsedMessage {
   const thinking = extractThinkingBlocks(text);
   const toolCalls = extractToolCalls(text);
   const finalText = removeXmlTags(text);
+  const totalDuration = extractTotalDuration(text);
 
   return {
     events,
     thinking,  // Kept for backward compat
     toolCalls,  // Kept for backward compat
     finalText: finalText || undefined,
-    rawText: text
+    rawText: text,
+    totalDuration
   };
 }
 
@@ -407,4 +424,27 @@ export function tryParseJson(text: string): any {
   } catch {
     return null;
   }
+}
+
+/**
+ * Format relative time from ISO timestamp to human-friendly string
+ * @param isoTimestamp ISO 8601 timestamp string
+ * @returns Human-friendly relative time (e.g., "2 mins ago", "just now")
+ */
+export function formatRelativeTime(isoTimestamp: string): string {
+  const now = new Date();
+  const then = new Date(isoTimestamp);
+  const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
+
+  if (seconds < 10) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }

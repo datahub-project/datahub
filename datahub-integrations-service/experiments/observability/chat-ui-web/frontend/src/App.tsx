@@ -15,6 +15,10 @@ export function App() {
     testConnection,
     generateToken,
     ssoLogin,
+    detectProfileForContext,
+    listAwsProfiles,
+    setupAwsProfile,
+    validateAwsProfile,
   } = useConfig();
 
   return (
@@ -38,7 +42,7 @@ export function App() {
       </header>
       {error && <div className="app-error">{error}</div>}
       <main className="app-main">
-        {activeTab === 'chat' && <ChatWindow />}
+        {activeTab === 'chat' && <ChatWindow config={config} />}
         {activeTab === 'settings' && (
           <SettingsTab
             config={config}
@@ -46,6 +50,11 @@ export function App() {
             onTest={testConnection}
             onGenerateToken={generateToken}
             onSsoLogin={ssoLogin}
+            onDetectProfile={detectProfileForContext}
+            onListProfiles={listAwsProfiles}
+            onSetupProfile={setupAwsProfile}
+            onValidateProfile={validateAwsProfile}
+            onSwitchToChat={() => setActiveTab('chat')}
             loading={loading}
           />
         )}

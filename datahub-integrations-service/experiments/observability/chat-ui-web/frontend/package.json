@@ -14,6 +14,7 @@
   "dependencies": {
     "@types/react-syntax-highlighter": "^15.5.13",
     "fast-xml-parser": "^5.3.3",
+    "phosphor-react": "^1.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",

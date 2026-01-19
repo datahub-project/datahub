@@ -7,10 +7,20 @@ import { ConversationList } from './ConversationList';
 import { ConversationTabs } from './ConversationTabs';
 import { ArchivedConversationList } from './ArchivedConversationList';
 import { ArchivedMessageList } from './ArchivedMessageList';
+import { ConnectionBanner } from './ConnectionBanner';
 import { apiClient } from '../api/client';
+import type { ConnectionConfig } from '../api/types';
 
-export function ChatWindow() {
-  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+interface ChatWindowProps {
+  config: ConnectionConfig;
+}
+
+export function ChatWindow({ config }: ChatWindowProps) {
+  // Restore tab from localStorage if available (for profile switching)
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>(() => {
+    const savedTab = localStorage.getItem('chatActiveTab');
+    return (savedTab === 'archived' ? 'archived' : 'active');
+  });
 
   const {
     conversations,
@@ -44,22 +54,29 @@ export function ChatWindow() {
     filterByOrigin,
     changeSortBy,
     toggleSortDirection,
+    refresh: refreshArchivedConversations,
     hasNextPage: archivedHasNext,
     hasPrevPage: archivedHasPrev,
   } = useArchivedConversations();
 
   const messageInputRef = useRef<MessageInputHandle>(null);
 
+  // Save active tab to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('chatActiveTab', activeTab);
+  }, [activeTab]);
+
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
   // Load archived conversations when switching to archived tab
+  // Only auto-load if there's no active filter (empty results from filtering should not trigger reload)
   useEffect(() => {
-    if (activeTab === 'archived' && archivedConversations.length === 0) {
+    if (activeTab === 'archived' && archivedConversations.length === 0 && !originFilter && sortBy === 'max_thinking_time' && sortDesc === true) {
       loadArchivedConversations();
     }
-  }, [activeTab, archivedConversations.length, loadArchivedConversations]);
+  }, [activeTab, archivedConversations.length, originFilter, sortBy, sortDesc, loadArchivedConversations]);
 
   // Auto-focus input whenever conversation changes
   useEffect(() => {
@@ -134,12 +151,14 @@ export function ChatWindow() {
             onSortChange={changeSortBy}
             sortDesc={sortDesc}
             onToggleSortDirection={toggleSortDirection}
+            onRefresh={refreshArchivedConversations}
             loading={archivedLoading}
           />
         )}
       </div>
 
       <div className="chat-main">
+        <ConnectionBanner config={config} />
         {activeTab === 'active' ? (
           <>
             {error && <div className="error-banner">{error}</div>}

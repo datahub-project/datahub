@@ -6,6 +6,7 @@ for real-time chat functionality. It serves as the backend for both the React
 and Streamlit frontends.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -28,7 +29,12 @@ from api.routes import (
     health,
     kubectl,
     profiles,
+    telemetry,
 )
+
+# Detect if we're in development mode
+DEV_MODE = os.getenv("DEV_MODE", "false").lower() == "true"
+VITE_DEV_SERVER = os.getenv("VITE_DEV_SERVER", "http://localhost:5173")
 
 # Create FastAPI app
 app = FastAPI(
@@ -48,6 +54,7 @@ app.add_middleware(
         "http://localhost:5173",  # Vite dev server
         "http://localhost:8501",  # Streamlit default
         "http://localhost:8502",  # Streamlit alternate
+        "http://localhost:8765",  # Backend server (for dev mode)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -62,16 +69,22 @@ app.include_router(kubectl.router)
 app.include_router(chat.router)
 app.include_router(auto_chat.router)
 app.include_router(archived_conversations.router)
+app.include_router(telemetry.router)
 
-# Serve React app static files
+# Serve React app static files (production mode)
 frontend_dist = backend_dir.parent / "frontend" / "dist"
-if frontend_dist.exists():
-    # Mount static assets (JS, CSS, etc.)
-    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
 
-    logger.info(f"Serving React app from {frontend_dist}")
+if not DEV_MODE:
+    # Production mode: Serve static files
+    if frontend_dist.exists():
+        # Mount static assets (JS, CSS, etc.)
+        app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+        logger.info(f"Serving React app from {frontend_dist}")
+    else:
+        logger.warning(f"Frontend dist directory not found: {frontend_dist}")
 else:
-    logger.warning(f"Frontend dist directory not found: {frontend_dist}")
+    # Development mode: Proxy to Vite dev server
+    logger.info(f"DEV_MODE enabled: Will proxy frontend requests to {VITE_DEV_SERVER}")
 
 
 @app.on_event("startup")
@@ -79,8 +92,12 @@ async def startup_event():
     """Initialize application on startup."""
     logger.info("Starting DataHub Chat API server")
     logger.info("API documentation available at /api/docs")
-    if frontend_dist.exists():
-        logger.info("React UI available at http://localhost:8001/")
+
+    if DEV_MODE:
+        logger.info(f"🔥 HOT-RELOAD MODE: Frontend proxied from {VITE_DEV_SERVER}")
+        logger.info("   Start Vite dev server: cd frontend && npm run dev")
+    elif frontend_dist.exists():
+        logger.info("React UI available at http://localhost:8765/")
 
 
 @app.on_event("shutdown")
@@ -99,25 +116,59 @@ async def serve_react_app(full_path: str):
     """
     Serve React app for all non-API routes.
 
+    In production: Serves static files from dist/
+    In development: Proxies to Vite dev server for hot-reload
+
     This allows React Router to handle client-side routing.
     API routes are handled by the routers above.
     """
     # If the path starts with /api, it should have been handled by API routers
+    # FastAPI strips leading slash, so check for "api/"
     if full_path.startswith("api/"):
-        return {"error": "Not found"}, 404
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not found")
 
-    # Serve index.html for all other routes (React handles routing)
-    index_file = frontend_dist / "index.html"
-    if index_file.exists():
-        return FileResponse(str(index_file))
+    if DEV_MODE:
+        # Development mode: Proxy to Vite dev server
+        import httpx
 
-    return {
-        "service": "DataHub Chat API",
-        "version": "1.0.0",
-        "docs": "/api/docs",
-        "health": "/api/health",
-        "error": "React app not built. Run 'cd frontend && npm run build'",
-    }
+        vite_url = f"{VITE_DEV_SERVER}/{full_path}" if full_path else VITE_DEV_SERVER
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    vite_url,
+                    follow_redirects=True,
+                    timeout=30.0,
+                )
+
+                # Return the response from Vite
+                from fastapi import Response
+                return Response(
+                    content=response.content,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                )
+        except Exception as e:
+            logger.error(f"Failed to proxy to Vite dev server: {e}")
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=503,
+                detail=f"Vite dev server not available at {VITE_DEV_SERVER}. Run: cd frontend && npm run dev"
+            )
+    else:
+        # Production mode: Serve static files
+        index_file = frontend_dist / "index.html"
+        if index_file.exists():
+            return FileResponse(str(index_file))
+
+        return {
+            "service": "DataHub Chat API",
+            "version": "1.0.0",
+            "docs": "/api/docs",
+            "health": "/api/health",
+            "error": "React app not built. Run 'cd frontend && npm run build'",
+        }
 
 
 if __name__ == "__main__":
@@ -126,7 +177,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8765,
         reload=True,
         log_level="info",
     )

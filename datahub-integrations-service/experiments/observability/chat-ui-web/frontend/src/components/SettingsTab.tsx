@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 import type { ConnectionConfig, Profile } from '../api/types';
 import { apiClient } from '../api/client';
 import { ProfileManager } from './ProfileManager';
+import { formatRelativeTime } from '../utils/messageParser';
 
 interface SettingsTabProps {
   config: ConnectionConfig;
   onUpdate: (config: ConnectionConfig) => void;
   onTest: () => Promise<{ success: boolean; error?: string }>;
   onGenerateToken: (gms_url: string) => Promise<{ token?: string; error?: string }>;
-  onSsoLogin: () => Promise<{ success: boolean; message?: string; profile?: string; error?: string }>;
+  onSsoLogin: (profile?: string) => Promise<{ success: boolean; message?: string; profile?: string; error?: string }>;
+  onDetectProfile: (context: string) => Promise<any>;
+  onListProfiles: () => Promise<{ success: boolean; profiles: string[]; error?: string }>;
+  onSetupProfile: (config: any) => Promise<{ success: boolean; instructions?: string; error?: string }>;
+  onValidateProfile?: (profile: string) => Promise<{ valid: boolean; error?: string }>;
+  onSwitchToChat: () => void;
   loading: boolean;
 }
 
@@ -18,6 +24,11 @@ export function SettingsTab({
   onTest,
   onGenerateToken,
   onSsoLogin,
+  onDetectProfile,
+  onListProfiles,
+  onSetupProfile,
+  // onValidateProfile,  // Reserved for future use
+  onSwitchToChat,
   loading,
 }: SettingsTabProps) {
   const [localConfig, setLocalConfig] = useState(config);
@@ -32,6 +43,12 @@ export function SettingsTab({
   const [selectedNamespace, setSelectedNamespace] = useState<string>('');
   const [awsProfiles, setAwsProfiles] = useState<string[]>([]);
   const [awsProfilesLoading, setAwsProfilesLoading] = useState(false);
+  const [selectedAwsProfile, setSelectedAwsProfile] = useState<string>('');
+  const [profileDetection, setProfileDetection] = useState<any>(null);
+  const [showSetupDialog, setShowSetupDialog] = useState(false);
+  const [setupInstructions, setSetupInstructions] = useState<string>('');
+  const [sessionStatus, setSessionStatus] = useState<any>(null);
+  const [sessionStatusLoading, setSessionStatusLoading] = useState(false);
 
   // Sync localConfig when parent config changes (e.g., after Save)
   useEffect(() => {
@@ -43,7 +60,7 @@ export function SettingsTab({
     const fetchAwsProfiles = async () => {
       setAwsProfilesLoading(true);
       try {
-        const result = await apiClient.listAwsProfiles();
+        const result = await onListProfiles();
         if (result.success && result.profiles.length > 0) {
           setAwsProfiles(result.profiles);
         }
@@ -56,6 +73,54 @@ export function SettingsTab({
 
     fetchAwsProfiles();
   }, []);
+
+  // Check AWS session status on mount
+  useEffect(() => {
+    checkSessionStatus();
+  }, []);
+
+  const checkSessionStatus = async (profile?: string) => {
+    setSessionStatusLoading(true);
+    try {
+      const params = profile ? `?profile=${encodeURIComponent(profile)}` : '';
+      const response = await fetch(`/api/config/aws/session-status${params}`);
+      const status = await response.json();
+      setSessionStatus(status);
+    } catch (err) {
+      console.error('Failed to check AWS session status:', err);
+      setSessionStatus({ valid: false, error: 'Failed to check session status' });
+    } finally {
+      setSessionStatusLoading(false);
+    }
+  };
+
+  // Auto-detect AWS profile when context changes
+  useEffect(() => {
+    const detectAwsProfile = async () => {
+      if (!selectedContext) return;
+
+      try {
+        const result = await onDetectProfile(selectedContext);
+        setProfileDetection(result);
+
+        // Auto-select recommended profile if available
+        if (result.recommended_profile) {
+          setSelectedAwsProfile(result.recommended_profile);
+        }
+
+        // Show setup dialog if no profiles found
+        if (result.setup_needed) {
+          setSsoResult(`⚠️ AWS profile setup required for account ${result.account_id}. Click "Set Up Profile" below to continue.`);
+        } else if (result.matching_profiles.length > 0) {
+          setSsoResult(`✅ Found ${result.matching_profiles.length} matching AWS profile(s) for this cluster.`);
+        }
+      } catch (err) {
+        console.error('Failed to detect AWS profile:', err);
+      }
+    };
+
+    detectAwsProfile();
+  }, [selectedContext]);
 
   const handleModeChange = (mode: ConnectionConfig['mode']) => {
     // Update mode and set appropriate integrations_url
@@ -195,11 +260,64 @@ export function SettingsTab({
 
   const handleSsoLogin = async () => {
     setSsoResult(null);
-    const result = await onSsoLogin();
+    const result = await onSsoLogin(selectedAwsProfile || undefined);
     if (result.success) {
       setSsoResult(`AWS SSO login started for profile: ${result.profile}. Browser should open automatically. After logging in, click "Auto-Discover" or "Generate Token" to continue.`);
+
+      // Refresh session status after SSO login
+      // Wait a bit for SSO to complete before checking
+      setTimeout(() => {
+        checkSessionStatus(result.profile);
+      }, 2000);
     } else {
       setSsoResult(result.error || 'SSO login failed');
+    }
+  };
+
+  const handleSetupProfile = async () => {
+    if (!profileDetection || !profileDetection.account_info) {
+      setSsoResult('Cannot set up profile - account information not available');
+      return;
+    }
+
+    const accountInfo = profileDetection.account_info;
+    const result = await onSetupProfile({
+      profile_name: accountInfo.suggested_profile_name,
+      account_id: profileDetection.account_id,
+      sso_start_url: accountInfo.sso_start_url,
+      sso_region: accountInfo.sso_region,
+      role_name: accountInfo.default_role,
+      region: profileDetection.region || 'us-west-2',
+    });
+
+    if (result.success && result.instructions) {
+      setSetupInstructions(result.instructions);
+      setShowSetupDialog(true);
+    } else {
+      setSsoResult(`Failed to generate setup instructions: ${result.error}`);
+    }
+  };
+
+  const handleRefreshProfiles = async () => {
+    setAwsProfilesLoading(true);
+    try {
+      const result = await onListProfiles();
+      if (result.success) {
+        setAwsProfiles(result.profiles);
+        // Re-run detection to update matching profiles
+        if (selectedContext) {
+          const detection = await onDetectProfile(selectedContext);
+          setProfileDetection(detection);
+          if (detection.recommended_profile) {
+            setSelectedAwsProfile(detection.recommended_profile);
+          }
+        }
+        setSsoResult(`✅ Refreshed profiles - found ${result.profiles.length} profile(s)`);
+      }
+    } catch (err) {
+      setSsoResult('Failed to refresh profiles');
+    } finally {
+      setAwsProfilesLoading(false);
     }
   };
 
@@ -234,138 +352,249 @@ export function SettingsTab({
 
   return (
     <div className="settings-tab">
-      <h2>Connection Settings</h2>
+      <div className="settings-layout">
+        {/* Main Content Area - Scrollable */}
+        <div className="settings-main-content">
+          <h2>Connection Settings</h2>
 
-      {/* Step 1: Select DataHub Instance (Profile) */}
-      <ProfileManager
-        onProfileSelect={handleProfileSelect}
-        selectedProfile={selectedProfile}
-      />
+          {/* Step 1: Choose Connection Transport (Mode) */}
+          <div className="connection-mode-section">
+            <div className="settings-section compact">
+              <label>Connection Mode</label>
+              <select
+                value={localConfig.mode}
+                onChange={(e) => handleModeChange(e.target.value as ConnectionConfig['mode'])}
+              >
+                <option value="embedded">Embedded Agent</option>
+              </select>
+              <p className="field-help">Uses local Agent class, bypasses Integrations Service (default)</p>
+            </div>
+          </div>
 
-      <div className="settings-section sso-section">
-        <h3>AWS SSO Login</h3>
-        <p>If you're getting SSO token expiration errors, click the button below to open the AWS SSO login page in your browser.</p>
-        <button onClick={handleSsoLogin} disabled={loading} className="sso-login-btn">
-          🌐 Open AWS SSO Login
-        </button>
-      </div>
+          <div className="settings-divider"></div>
 
-      {ssoResult && (
-        <div className={`settings-result ${ssoResult.includes('started') ? 'success' : 'error'}`}>
-          {ssoResult}
+          {/* Step 2: Select DataHub Instance (Profile) */}
+          <ProfileManager
+            onProfileSelect={handleProfileSelect}
+            selectedProfile={selectedProfile}
+            onSwitchToChat={onSwitchToChat}
+          />
+
+          <div className="settings-divider"></div>
+
+          {/* Advanced: Manual Override (Optional) */}
+          <details className="advanced-settings">
+            <summary>Advanced: Manual Configuration Override</summary>
+            <p className="section-help">
+              Override profile settings for this session only (not saved to profile).
+            </p>
+
+            <div className="settings-section">
+              <label>GMS URL</label>
+              <input
+                type="text"
+                value={localConfig.gms_url || ''}
+                onChange={(e) => setLocalConfig({ ...localConfig, gms_url: e.target.value })}
+                placeholder="http://localhost:8080"
+              />
+              <button onClick={handleDiscover} disabled={loading}>
+                Discover via kubectl
+              </button>
+            </div>
+
+            <div className="settings-section">
+              <label>Token</label>
+              <input
+                type="password"
+                value={localConfig.gms_token || ''}
+                onChange={(e) => setLocalConfig({ ...localConfig, gms_token: e.target.value })}
+                placeholder="Enter token..."
+              />
+              <button onClick={handleGenerateToken} disabled={loading}>
+                Generate Token
+              </button>
+            </div>
+          </details>
+
+          <div className="settings-actions">
+            <button onClick={handleTest} disabled={loading}>
+              Test Connection
+            </button>
+            <button onClick={handleSave} disabled={loading}>
+              Save
+            </button>
+          </div>
+
+          {testResult && (
+            <div className={`settings-result ${testResult.includes('success') ? 'success' : 'error'}`}>
+              {testResult}
+            </div>
+          )}
         </div>
-      )}
 
-      <div className="settings-section">
-        <h3>AWS Profile</h3>
-        <p>Select the AWS profile to use for all AWS operations (Bedrock, S3, etc.).</p>
-        {awsProfilesLoading ? (
-          <p>Loading AWS profiles...</p>
-        ) : awsProfiles.length > 0 ? (
-          <div className="settings-section">
-            <label>AWS Profile</label>
-            <select
-              value={localConfig.aws_profile || 'default'}
-              onChange={(e) => handleAwsProfileChange(e.target.value)}
-            >
-              <option value="">default</option>
-              {awsProfiles.map((profile) => (
-                <option key={profile} value={profile}>
-                  {profile}
-                </option>
-              ))}
-            </select>
-            <small>
-              Current: <strong>{localConfig.aws_profile || 'default'}</strong>
-            </small>
+        {/* Right Rail - Sticky AWS Section */}
+        <div className="settings-right-rail">
+          <div className="aws-sticky-section">
+            <h3>AWS SSO Login</h3>
+            <p className="section-description">Select an AWS profile to authenticate with AWS services.</p>
+
+        {/* Session Status Display */}
+        {sessionStatus && (
+          <div className={`session-status ${sessionStatus.valid ? 'session-valid' : 'session-invalid'}`}>
+            <div className="session-status-header">
+              <span className="session-status-icon">
+                {sessionStatusLoading ? '⏳' : sessionStatus.valid ? '🟢' : '🔴'}
+              </span>
+              <span className="session-status-text">
+                {sessionStatusLoading ? 'Checking...' : sessionStatus.valid ? 'Active' : 'Expired'}
+              </span>
+              <button
+                onClick={() => checkSessionStatus(selectedAwsProfile || undefined)}
+                disabled={sessionStatusLoading}
+                className="btn-refresh-status"
+                title="Refresh status"
+              >
+                🔄
+              </button>
+            </div>
+            {sessionStatus.valid && (
+              <div className="session-status-details">
+                <span className="session-status-compact">
+                  {sessionStatus.profile} • {sessionStatus.account}
+                </span>
+                {sessionStatus.checked_at && (
+                  <span className="session-status-timestamp">
+                    {formatRelativeTime(sessionStatus.checked_at)}
+                  </span>
+                )}
+              </div>
+            )}
+            {!sessionStatus.valid && sessionStatus.error && (
+              <div className="session-status-error">
+                {sessionStatus.expired ? '🔑 Session expired - please login' : sessionStatus.error}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Profile detection info */}
+        {profileDetection && profileDetection.account_id && (
+          <div className="profile-detection-info">
+            <p><strong>Detected AWS Account:</strong> {profileDetection.account_id}</p>
+            {profileDetection.account_info && (
+              <p><small>{profileDetection.account_info.name} - {profileDetection.account_info.description}</small></p>
+            )}
+          </div>
+        )}
+
+        {/* AWS Profile Selector */}
+        {awsProfiles.length > 0 ? (
+          <div className="form-group">
+            <label htmlFor="aws-profile">AWS Profile:</label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <select
+                id="aws-profile"
+                value={selectedAwsProfile}
+                onChange={(e) => setSelectedAwsProfile(e.target.value)}
+                disabled={awsProfilesLoading}
+              >
+                <option value="">Select a profile...</option>
+                {awsProfiles.map(profile => (
+                  <option key={profile} value={profile}>{profile}</option>
+                ))}
+              </select>
+              <button onClick={handleRefreshProfiles} disabled={awsProfilesLoading} className="btn-secondary">
+                🔄 Refresh
+              </button>
+            </div>
+            {profileDetection?.matching_profiles && profileDetection.matching_profiles.length > 0 && (
+              <small style={{ color: '#28a745' }}>
+                ✓ {profileDetection.matching_profiles.length} profile(s) match this cluster
+              </small>
+            )}
           </div>
         ) : (
-          <p>No AWS profiles found. Configure profiles in ~/.aws/config</p>
-        )}
-      </div>
-
-      <div className="settings-divider"></div>
-
-      {/* Step 2: Choose Connection Transport (Mode) */}
-      <div className="connection-mode-section">
-        <h3>Connection Transport</h3>
-        <p className="section-help">
-          Choose <strong>how</strong> to connect to the selected DataHub instance.
-        </p>
-
-        <div className="settings-section">
-          <label>Connection Mode</label>
-          <select
-            value={localConfig.mode}
-            onChange={(e) => handleModeChange(e.target.value as ConnectionConfig['mode'])}
-          >
-            <option value="embedded">Embedded Agent</option>
-            {/* Other modes temporarily hidden - backend code remains */}
-            {/* <option value="quickstart">Quickstart (local GMS + integrations)</option> */}
-            {/* <option value="local_service">Local Service (spawn integrations)</option> */}
-            {/* <option value="remote">Remote Service (kubectl port-forward)</option> */}
-            {/* <option value="local">Local Development</option> */}
-            {/* <option value="custom">Custom</option> */}
-          </select>
-        </div>
-
-        {localConfig.integrations_url && (
-          <div className="transport-info">
-            <small>
-              <strong>Integrations URL:</strong> {localConfig.integrations_url}
-            </small>
+          <div className="no-profiles-warning">
+            <p>⚠️ No AWS profiles found. You need to set up an AWS profile first.</p>
           </div>
         )}
-      </div>
 
-      <div className="settings-divider"></div>
-
-      {/* Advanced: Manual Override (Optional) */}
-      <details className="advanced-settings">
-        <summary>Advanced: Manual Configuration Override</summary>
-        <p className="section-help">
-          Override profile settings for this session only (not saved to profile).
-        </p>
-
-        <div className="settings-section">
-          <label>GMS URL</label>
-          <input
-            type="text"
-            value={localConfig.gms_url || ''}
-            onChange={(e) => setLocalConfig({ ...localConfig, gms_url: e.target.value })}
-            placeholder="http://localhost:8080"
-          />
-          <button onClick={handleDiscover} disabled={loading}>
-            Discover via kubectl
+        {/* Setup or Login buttons */}
+        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+          <button
+            onClick={handleSsoLogin}
+            disabled={loading || !selectedAwsProfile}
+            className="sso-login-btn"
+          >
+            🌐 AWS SSO Login {selectedAwsProfile && `(${selectedAwsProfile})`}
           </button>
+
+          {profileDetection?.setup_needed && profileDetection?.account_info && (
+            <button
+              onClick={handleSetupProfile}
+              disabled={loading}
+              className="btn-secondary"
+            >
+              📝 Set Up Profile
+            </button>
+          )}
         </div>
 
-        <div className="settings-section">
-          <label>Token</label>
-          <input
-            type="password"
-            value={localConfig.gms_token || ''}
-            onChange={(e) => setLocalConfig({ ...localConfig, gms_token: e.target.value })}
-            placeholder="Enter token..."
-          />
-          <button onClick={handleGenerateToken} disabled={loading}>
-            Generate Token
-          </button>
-        </div>
-      </details>
+        {ssoResult && (
+              <div className={`settings-result ${ssoResult.includes('✅') || ssoResult.includes('started') ? 'success' : ssoResult.includes('⚠️') ? 'warning' : 'error'}`}>
+                {ssoResult}
+              </div>
+            )}
 
-      <div className="settings-actions">
-        <button onClick={handleTest} disabled={loading}>
-          Test Connection
-        </button>
-        <button onClick={handleSave} disabled={loading}>
-          Save
-        </button>
+            <div className="settings-subsection-divider"></div>
+
+            <h4>AWS Profile for Bedrock/S3</h4>
+            <p className="section-description">Profile used for AI operations.</p>
+            {awsProfilesLoading ? (
+              <p className="loading-text">Loading AWS profiles...</p>
+            ) : awsProfiles.length > 0 ? (
+              <>
+                <select
+                  value={localConfig.aws_profile || 'default'}
+                  onChange={(e) => handleAwsProfileChange(e.target.value)}
+                  style={{ width: '100%', marginBottom: '8px' }}
+                >
+                  <option value="">default</option>
+                  {awsProfiles.map((profile) => (
+                    <option key={profile} value={profile}>
+                      {profile}
+                    </option>
+                  ))}
+                </select>
+                <small style={{ fontSize: '12px', color: '#666' }}>
+                  Current: <strong>{localConfig.aws_profile || 'default'}</strong>
+                </small>
+              </>
+            ) : (
+              <p className="warning-text">No AWS profiles found</p>
+            )}
+          </div>
+        </div>
       </div>
 
-      {testResult && (
-        <div className={`settings-result ${testResult.includes('success') ? 'success' : 'error'}`}>
-          {testResult}
+      {/* Setup Dialog */}
+      {showSetupDialog && setupInstructions && (
+        <div className="setup-dialog">
+          <div className="setup-dialog-content">
+            <h3>AWS Profile Setup Instructions</h3>
+            <pre>{setupInstructions}</pre>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+              <button onClick={() => {
+                navigator.clipboard.writeText(setupInstructions);
+                setSsoResult('✓ Setup instructions copied to clipboard');
+              }} className="btn-secondary">
+                📋 Copy Instructions
+              </button>
+              <button onClick={() => setShowSetupDialog(false)} className="btn-secondary">
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

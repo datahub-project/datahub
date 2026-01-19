@@ -158,6 +158,7 @@ class TokenGenerator:
         # Generate possible paths based on cluster type
         # - SaaS clusters: Try both full (usw2-saas-01-prod) and short (usw2-prod) names
         # - Trial clusters: Use full name only (usw2-trials-01-dmz, euc1-trials-01-dmz)
+        # - Legacy/demo clusters: Some customers use "demo" instead of cluster name
         paths_to_try = []
 
         # Always try the provided cluster name first
@@ -172,6 +173,10 @@ class TokenGenerator:
                 paths_to_try.append(f"/{namespace}/{short_cluster}/datahub/password")
         # Trial clusters use full cluster name in Parameter Store (no shortened version needed)
         # Example: /4f9bdc1186-loved-raven-6a50a05/usw2-trials-01-dmz/datahub/password
+
+        # Fallback: Try "demo" pattern (used by some legacy/demo customers)
+        # Example: /18ctce7lp6-chime/demo/datahub/password
+        paths_to_try.append(f"/{namespace}/demo/datahub/password")
 
         # Try each path pattern
         last_error = None

@@ -25,6 +25,8 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 from core.chat_engine import ChatEngine
+from core.telemetry_client import TelemetryClient
+from core.datahub_conversation_client import ChatUIDataHubClient
 
 try:
     from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
@@ -38,6 +40,8 @@ _connection_manager: Optional[ConnectionManager] = None
 _config: Optional[ConnectionConfig] = None
 _integrations_service: Optional[dict] = None  # Store service process info
 _datahub_graph: Optional["DataHubGraph"] = None  # type: ignore
+_telemetry_client: Optional[TelemetryClient] = None
+_conversation_clients: dict[str, ChatUIDataHubClient] = {}  # Per-profile clients keyed by server URL
 
 
 def get_connection_manager() -> ConnectionManager:
@@ -125,6 +129,77 @@ def get_datahub_graph(config: ConnectionConfig = Depends(get_config)) -> "DataHu
             logger.info(f"Recreated DataHubGraph with new token: {new_token[:20]}...")
 
     return _datahub_graph
+
+
+def get_telemetry_client(
+    graph: "DataHubGraph" = Depends(get_datahub_graph),  # type: ignore
+) -> TelemetryClient:
+    """
+    Get or create the TelemetryClient singleton.
+
+    Maintains a single client instance to preserve query cache across requests.
+
+    Args:
+        graph: DataHubGraph instance (injected)
+
+    Returns:
+        TelemetryClient instance
+    """
+    global _telemetry_client
+
+    if _telemetry_client is None:
+        _telemetry_client = TelemetryClient(graph, cache_ttl=300)
+        logger.info("Created TelemetryClient singleton with 5-minute cache")
+    else:
+        # Update graph reference if it changed (e.g., token refresh)
+        if _telemetry_client.graph != graph:
+            logger.info("Graph changed, updating TelemetryClient graph reference")
+            _telemetry_client.graph = graph
+            _telemetry_client.base_url = graph.config.server.rstrip("/")
+            _telemetry_client.token = graph.config.token
+
+    return _telemetry_client
+
+
+def get_conversation_client(
+    graph: "DataHubGraph" = Depends(get_datahub_graph),  # type: ignore
+) -> ChatUIDataHubClient:
+    """
+    Get or create the ChatUIDataHubClient for the current profile.
+
+    Maintains separate client instances per profile (keyed by server URL) to preserve
+    conversation caches when switching between profiles. This enables:
+    - Efficient filtering/sorting without re-fetching conversations
+    - Instant switching between profiles without losing cached data
+
+    Args:
+        graph: DataHubGraph instance (injected)
+
+    Returns:
+        ChatUIDataHubClient instance with cached conversation data for this profile
+    """
+    global _conversation_clients
+
+    server_key = graph.config.server.rstrip("/")
+
+    if server_key not in _conversation_clients:
+        _conversation_clients[server_key] = ChatUIDataHubClient(graph, cache_ttl=3600)
+        logger.info(f"Created ChatUIDataHubClient for profile: {server_key}, token: {graph.config.token[:20] if graph.config.token else 'None'}...")
+    else:
+        client = _conversation_clients[server_key]
+        # Update graph reference if token changed for this profile
+        old_token = client.graph.config.token
+        new_token = graph.config.token
+
+        if old_token != new_token:
+            logger.info(f"Token changed for profile {server_key}, updating graph reference (keeping caches)")
+            client.graph = graph
+        elif client.graph != graph:
+            # Graph object changed but token is same (shouldn't happen often)
+            logger.debug(f"Graph object changed for profile {server_key} (same token), updating reference")
+            client.graph = graph
+
+    return _conversation_clients[server_key]
 
 
 def get_chat_engine(config: ConnectionConfig = Depends(get_config)) -> ChatEngine:
