@@ -168,3 +168,42 @@ def test_profiler_excludes_doris_types():
     assert "QUANTILE_STATE" in ignored_types
     assert "ARRAY" in ignored_types
     assert "JSONB" in ignored_types
+
+
+def test_describe_query_failure_graceful_degradation():
+    """Test that DESCRIBE query failures degrade gracefully to MySQL types."""
+    from unittest.mock import Mock
+
+    from datahub.ingestion.source.sql.doris import _patch_doris_dialect
+
+    # Create a mock dialect
+    mock_dialect = Mock(spec=mysqldb.MySQLDialect_mysqldb)
+    mock_dialect.identifier_preparer = Mock()
+    mock_dialect.identifier_preparer.quote_identifier = lambda x: f"`{x}`"
+
+    # Mock original get_columns to return base columns
+    base_columns = [
+        {"name": "id", "type": "INTEGER", "full_type": "int"},
+        {"name": "hll_col", "type": "BLOB", "full_type": "blob"},
+    ]
+    mock_dialect.get_columns = Mock(return_value=base_columns)
+
+    # Patch the dialect
+    _patch_doris_dialect(mock_dialect)
+
+    # Create a mock connection that will fail on DESCRIBE
+    mock_connection = Mock()
+    mock_connection.engine.url.database = "test_db"
+    mock_connection.execute.side_effect = Exception("DESCRIBE query failed")
+
+    # Call get_columns - should gracefully fall back to MySQL types
+    columns = mock_dialect.get_columns(
+        mock_connection, table_name="test_table", schema="test_db"
+    )
+
+    # Should return columns despite DESCRIBE failure
+    assert len(columns) == 2
+    assert columns[0]["name"] == "id"
+    assert columns[1]["name"] == "hll_col"
+    # Types remain as MySQL types (graceful degradation)
+    assert columns[1]["full_type"] == "blob"

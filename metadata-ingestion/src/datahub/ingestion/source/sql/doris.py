@@ -2,6 +2,7 @@ import logging
 import warnings
 from typing import Any, List
 
+import sqlalchemy
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.dialects.mysql import base, mysqldb
@@ -97,6 +98,7 @@ def _patch_doris_dialect(dialect: mysqldb.MySQLDialect_mysqldb) -> None:
         if not current_schema:
             return columns
 
+        doris_types_preserved = 0
         try:
             quote = dialect.identifier_preparer.quote_identifier
             full_name = ".".join(
@@ -108,10 +110,26 @@ def _patch_doris_dialect(dialect: mysqldb.MySQLDialect_mysqldb) -> None:
 
             for col in columns:
                 if col["name"] in type_map:
-                    col["full_type"] = type_map[col["name"]]
+                    doris_type = type_map[col["name"]]
+                    col["full_type"] = doris_type
+                    # Track Doris-specific types for observability
+                    if any(
+                        dt in doris_type.upper()
+                        for dt in ["HLL", "BITMAP", "QUANTILE_STATE", "ARRAY", "JSONB"]
+                    ):
+                        doris_types_preserved += 1
+                        logger.debug(
+                            f"Preserved Doris type for {current_schema}.{table_name}.{col['name']}: {doris_type}"
+                        )
+
+            if doris_types_preserved > 0:
+                logger.info(
+                    f"Type preservation: {doris_types_preserved} Doris-specific columns in {current_schema}.{table_name}"
+                )
         except Exception as e:
-            logger.debug(
-                f"Could not fetch type names for {current_schema}.{table_name}: {e}"
+            logger.warning(
+                f"DESCRIBE query failed for {current_schema}.{table_name}: {e}. "
+                f"Falling back to MySQL types (Doris types may show as BLOB)."
             )
 
         return columns
@@ -145,10 +163,12 @@ def _patch_profiler() -> None:
             _get_column_types_to_ignore_with_doris  # type: ignore[assignment]
         )
         _profiler_patched = True
+        logger.debug("Profiler patched to exclude Doris-specific unprofilable types")
     except AttributeError as e:
         raise RuntimeError(
-            f"Failed to patch profiler (ge_data_profiler API may have changed): {e}. "
-            "This is required for correct data profiling."
+            f"Failed to patch profiler (Great Expectations API may have changed): {e}. "
+            f"This is required for correct data profiling. "
+            f"Please report this issue: https://github.com/datahub-project/datahub/issues/new"
         ) from e
 
 
@@ -213,10 +233,16 @@ class DorisSource(MySQLSource):
 
         try:
             _patch_doris_dialect(engine.dialect)
+            logger.info(
+                f"Created Doris engine for database '{database}' "
+                f"(SQLAlchemy {sqlalchemy.__version__}, dialect: {type(engine.dialect).__name__})"
+            )
         except (TypeError, AttributeError) as e:
             raise RuntimeError(
-                f"Failed to patch SQLAlchemy dialect for Doris type preservation: {e}. "
-                "This is required for correct metadata extraction."
+                f"Failed to patch SQLAlchemy (version {sqlalchemy.__version__}) "
+                f"dialect for Doris type preservation: {e}. "
+                f"This is required for correct metadata extraction. "
+                f"Please report this issue: https://github.com/datahub-project/datahub/issues/new"
             ) from e
 
         return engine

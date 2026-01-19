@@ -1,133 +1,78 @@
 ### Prerequisites
 
-In order to execute this source, the user credentials need the following privileges:
+Apache Doris connector requires:
+
+- **Doris version**: 2.0.x or higher recommended (see [version compatibility](#version-compatibility) below)
+- **Python driver**: `pymysql` (automatically installed with `acryl-datahub[doris]`)
+- **SQLAlchemy**: >= 1.4.39 (enforced by DataHub)
+
+### Connection Details
+
+Doris uses MySQL's wire protocol but requires the **FE (Frontend) query port**:
+
+- **Default Doris port**: `9030` (not MySQL's `3306`)
+- **Protocol**: MySQL-compatible via `pymysql`
+- **Authentication**: Standard username/password
+
+### Doris-Specific Features
+
+This connector preserves Doris-specific data types that would otherwise be lost when using the MySQL connector:
+
+| Doris Type         | MySQL Fallback | Description                                |
+| ------------------ | -------------- | ------------------------------------------ |
+| **HLL**            | BLOB           | HyperLogLog for approximate COUNT DISTINCT |
+| **BITMAP**         | BLOB           | Bitmap for efficient set operations        |
+| **QUANTILE_STATE** | BLOB           | For percentile calculations (Doris 2.0+)   |
+| **ARRAY**          | TEXT           | Array data types                           |
+| **JSONB**          | JSON           | Binary JSON storage                        |
+
+### Version Compatibility
+
+#### Supported Doris Versions
+
+| Doris Version | Status             | Notes                        |
+| ------------- | ------------------ | ---------------------------- |
+| 3.0.x         | ✅ Fully Supported | Tested with 3.0.8            |
+| 2.1.x         | ✅ Fully Supported | All Doris-specific types     |
+| 2.0.x         | ✅ Fully Supported | All Doris-specific types     |
+| 1.2.x         | ⚠️ Partial Support | QUANTILE_STATE not available |
+| < 1.2         | ❌ Not Recommended | Limited type support         |
+
+To check your Doris version:
 
 ```sql
--- Grant necessary privileges to the DataHub user
-GRANT SELECT_PRIV ON your_database.* TO 'datahub_user'@'%';
-GRANT SHOW_VIEW_PRIV ON your_database.* TO 'datahub_user'@'%';
-
--- For profiling (optional, if profiling is enabled)
-GRANT SELECT_PRIV ON your_database.* TO 'datahub_user'@'%';
+SELECT version();
 ```
 
-**Note:** `SELECT_PRIV` is required to read table structures and perform profiling operations. `SHOW_VIEW_PRIV` is required to ingest views.
+### Known Limitations
 
-#### Apache Doris Compatibility Notes
+#### Stored Procedures
 
-Apache Doris uses the MySQL protocol for client connections, but with some key differences:
+Doris's `information_schema.ROUTINES` is always empty, so stored procedure ingestion is disabled by default. This is a Doris limitation with no workaround.
 
-**Port Configuration:**
+#### Profiling Limitations
 
-- Default Doris query port: **9030** (FE MySQL protocol port)
-- **Not** MySQL's default 3306
-- Ensure you use `host_port: doris-server:9030` in your configuration
+Doris-specific types are automatically excluded from field-level profiling because they don't support `COUNT DISTINCT` operations:
 
-**Architecture:**
+- HLL, BITMAP, QUANTILE_STATE: Approximate/aggregate types
+- ARRAY, JSONB: Complex types
 
-- Doris uses a Frontend (FE) and Backend (BE) architecture
-- DataHub connects to the FE node on port 9030
-- Ensure the FE node is accessible and healthy
+Table-level statistics (row count, size) are still collected for all tables.
 
-**Data Types:**
+### Migration from MySQL Connector
 
-- Doris includes additional data types: `HLL`, `BITMAP`, `ARRAY`, `JSONB`, `QUANTILE_STATE`
-- These types are automatically mapped to appropriate DataHub types
-- No additional configuration needed
+If you were previously ingesting Doris using the MySQL connector:
 
-**Stored Procedures:**
+**What changes:**
 
-- Apache Doris does not support stored procedures
-- The `information_schema.ROUTINES` table is a MySQL compatibility stub (always empty)
-- The connector automatically handles this limitation
+- `type: mysql` → `type: doris`
+- `host_port: localhost:3306` → `host_port: localhost:9030`
+- Types preserved: MySQL types (INT, BLOB) → Doris types (INTEGER, HLL)
 
-### Troubleshooting
+**What stays the same:**
 
-#### Connection Issues
+- Connection config (username, password, SSL)
+- Schema/table filtering patterns
+- Profiling configuration
 
-**Problem:** `Can't connect to MySQL server` or connection timeouts
-
-**Solutions:**
-
-- Verify you're using port **9030** (query port), not 9050 (HTTP port) or 3306 (MySQL default)
-- Check that the Doris FE (Frontend) node is running: `curl http://fe-host:8030/api/bootstrap`
-- Ensure network connectivity and firewall rules allow connections to port 9030
-- Verify the FE node has registered BE nodes: `SHOW BACKENDS;`
-
-**Problem:** `Access denied for user`
-
-**Solutions:**
-
-- Verify the user has been granted `SELECT_PRIV` and `SHOW_VIEW_PRIV`
-- Check grants with: `SHOW GRANTS FOR 'datahub_user'@'%';`
-- Ensure the user is allowed to connect from your host: use `'%'` for any host or specify the IP
-
-#### Missing Metadata
-
-**Problem:** Tables or views are not being ingested
-
-**Solutions:**
-
-- Verify the user has `SELECT_PRIV` on the target databases/tables
-- Check that tables exist and are visible: `SHOW TABLES IN your_database;`
-- Review `schema_pattern` and `table_pattern` in your recipe configuration
-- Ensure the database is not filtered out by your configuration
-
-**Problem:** Column types showing as UNKNOWN
-
-**Solutions:**
-
-- This typically happens with Doris-specific types in older DataHub versions
-- Ensure you're using the latest DataHub version which includes Doris type mappings
-- Check Doris FE logs for any metadata query errors
-
-#### Performance Issues
-
-**Problem:** Ingestion is slow or timing out
-
-**Solutions:**
-
-- Use `schema_pattern` and `table_pattern` to limit scope: `schema_pattern: {"allow": ["important_db"]}`
-- Enable table-level-only profiling: `profiling.profile_table_level_only: true`
-- Disable profiling if not needed: `profiling.enabled: false`
-- Increase query timeouts if you have very large tables: `options.connect_timeout: 300`
-
-**Problem:** Doris FE or BE is overloaded during ingestion
-
-**Solutions:**
-
-- Reduce profiling sample size: `profiling.max_number_of_fields_to_profile: 10`
-- Schedule ingestion during off-peak hours
-- Increase `profiling.query_combiner_enabled: false` to avoid complex queries
-
-#### Profiling Issues
-
-**Problem:** Profiling fails or returns no statistics
-
-**Solutions:**
-
-- Verify user has `SELECT_PRIV` on target tables
-- Check that tables contain data (empty tables have no statistics)
-- Ensure Doris statistics are up to date: `ANALYZE TABLE your_table;`
-- Review Doris FE logs for query errors during profiling
-
-#### Doris-Specific Issues
-
-**Problem:** Warnings about `DUPLICATE KEY` or `DISTRIBUTED BY HASH`
-
-**Solutions:**
-
-- These are informational warnings from SQLAlchemy parsing Doris-specific table properties
-- They do not affect ingestion and can be safely ignored
-- The connector handles these properties correctly
-
-**Problem:** View lineage not being captured
-
-**Solutions:**
-
-- Ensure `include_view_lineage: true` (enabled by default)
-- Verify views are created with proper table references
-- Check that referenced tables are accessible to the DataHub user
-- Review `include_view_column_lineage` configuration
-
-For additional support, consult the [Apache Doris documentation](https://doris.apache.org/docs) or reach out to the DataHub community.
+**Important:** Dataset URNs will change from `platform:mysql` to `platform:doris`, creating new entities in DataHub. Plan for cleanup of old MySQL entities if needed.
