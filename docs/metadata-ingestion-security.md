@@ -4,12 +4,11 @@ DataHub supports three ways to ingest metadata. They differ primarily in where c
 
 ## Quick Comparison
 
-|                  | UI Ingestion                 | CLI Ingestion                                                 | Remote Executor                                  |
-| ---------------- | ---------------------------- | ------------------------------------------------------------- | ------------------------------------------------ |
-| **Credentials**  | Encrypted in DataHub         | Local files/env vars                                          | Your infrastructure (AWS Secrets, K8s, etc.)     |
-| **Runs From**    | DataHub's infrastructure     | Wherever you execute it (often personal machine, CI/CD, etc.) | Deployed in your infrastructure (K8s, ECS, etc.) |
-| **Network**      | DataHub → sources            | CLI → DataHub + sources                                       | Executor → DataHub + sources (outbound only)     |
-| **Firewall/VPN** | Required for private sources | Depends on where CLI runs                                     | Not required                                     |
+|                       | **Credentials**                          | **Runs From**                                                 | **Network**                                  | **Firewall/VPN**                 |
+| --------------------- | ---------------------------------------- | ------------------------------------------------------------- | -------------------------------------------- | -------------------------------- |
+| **UI Ingestion**      | Encrypted in DataHub                     | DataHub's infrastructure                                      | DataHub → sources                            | Required for private sources     |
+| **CLI Ingestion**     | Local files/env vars                     | Wherever you execute it (often personal machine, CI/CD, etc.) | CLI → DataHub + sources                      | Depends on where CLI runs        |
+| **Remote Executor** ☁️ | Your infrastructure (AWS Secrets, K8s, etc.) | Deployed in your infrastructure (K8s, ECS, etc.)              | Executor → DataHub + sources (outbound only) | Not required                     |
 
 ## Where Credentials Live
 
