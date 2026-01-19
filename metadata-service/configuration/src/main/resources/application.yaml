@@ -117,7 +117,11 @@ datahub:
   basePath: ${DATAHUB_BASE_PATH:}
   # For special deployment modes intended to point at read replicas. WARNING: THIS WILL DROP WRITE OPERATIONS WITHOUT ERRORS, intended for analytics based deploys to offload work from user serving deploys
   readOnly: ${DATAHUB_READ_ONLY:false}
-
+  server:
+    keystore:
+      path: ${SERVER_SSL_KEY_STORE:#{null}} # Required if useSSL is true
+      password: ${SERVER_SSL_KEY_STORE_PASSWORD:#{null}} # Required if useSSL is true
+      type: ${SERVER_SSL_KEY_STORE_TYPE:PKCS12}
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
