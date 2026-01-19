@@ -446,3 +446,85 @@ def test_custom_headers_all_empty_becomes_none() -> None:
         assert new_model_config.custom_model_provider is not None
         # All empty headers should result in an empty dict, which is falsy
         assert new_model_config.custom_model_provider.custom_headers == {}
+
+
+# Mode-to-model mapping tests (using string keys now instead of Mode enum)
+
+
+def test_agent_mode_to_model_mapping_defaults() -> None:
+    """Test that agent_mode_to_model mapping has default values for all mode strings."""
+    with patch.dict(os.environ, {}, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        test_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        # All mode strings should have entries in the mapping
+        assert (
+            "AskDataHubFast" in test_model_config.chat_assistant_ai.agent_mode_to_model
+        )
+        assert (
+            "AskDataHubAuto" in test_model_config.chat_assistant_ai.agent_mode_to_model
+        )
+        assert (
+            "AskDataHubResearch"
+            in test_model_config.chat_assistant_ai.agent_mode_to_model
+        )
+
+        # FAST should default to Haiku
+        assert (
+            "haiku"
+            in test_model_config.chat_assistant_ai.agent_mode_to_model[
+                "AskDataHubFast"
+            ].lower()
+        )
+
+        # DEFAULT and RESEARCH should default to Sonnet
+        assert (
+            "sonnet"
+            in test_model_config.chat_assistant_ai.agent_mode_to_model[
+                "AskDataHubAuto"
+            ].lower()
+        )
+        assert (
+            "sonnet"
+            in test_model_config.chat_assistant_ai.agent_mode_to_model[
+                "AskDataHubResearch"
+            ].lower()
+        )
+
+
+def test_agent_mode_to_model_custom_env_vars() -> None:
+    """Test that agent_mode_to_model respects custom environment variables."""
+    env_vars = {
+        "CHATBOT_FAST_MODE_MODEL": "bedrock/us.anthropic.claude-3-haiku-20240307-v1:0",
+        "CHATBOT_AUTO_MODE_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        "CHATBOT_RESEARCH_MODE_MODEL": "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        test_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        # Check that custom models are used
+        assert (
+            test_model_config.chat_assistant_ai.agent_mode_to_model["AskDataHubFast"]
+            == "bedrock/us.anthropic.claude-3-haiku-20240307-v1:0"
+        )
+        assert (
+            test_model_config.chat_assistant_ai.agent_mode_to_model["AskDataHubAuto"]
+            == "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+        )
+        assert (
+            test_model_config.chat_assistant_ai.agent_mode_to_model[
+                "AskDataHubResearch"
+            ]
+            == "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+        )
+
+    # Restore the module to defaults after the test
+    import datahub_integrations.gen_ai.model_config
+
+    importlib.reload(datahub_integrations.gen_ai.model_config)

@@ -8,6 +8,8 @@ from datahub_integrations.chat.agent import AgentError, AgentRunner
 from datahub_integrations.chat.agents.data_catalog_agent import (
     _is_respond_to_user_result,
     create_data_catalog_explorer_agent,
+    create_data_catalog_explorer_agent_fast,
+    create_data_catalog_explorer_agent_research,
     create_response_formatter,
     data_catalog_completion_check,
 )
@@ -252,9 +254,10 @@ class TestCreateDataCatalogExplorerAgent:
         agent = create_data_catalog_explorer_agent(mock_client, tools=[])
 
         assert isinstance(agent, AgentRunner)
-        assert agent.config.agent_name == "DataCatalog Explorer"
-        # Internal tools should be added (respond_to_user + planning tools)
-        assert len(agent.tools) >= 3
+        assert agent.config.agent_name == "AskDataHubAuto"
+        # Internal tools should be added (respond_to_user + generate_sql)
+        # DEFAULT mode doesn't include planning tools
+        assert len(agent.tools) >= 2
 
     @patch(
         "datahub_integrations.chat.agents.data_catalog_agent.is_smart_search_enabled"
@@ -379,19 +382,25 @@ class TestCreateDataCatalogExplorerAgent:
         mock_smart_search_enabled: Mock,
         mock_client: Mock,
     ) -> None:
-        """Should add internal tools (respond_to_user, planning tools)."""
+        """Should add internal tools (respond_to_user, planning tools in RESEARCH mode)."""
+
         mock_smart_search_enabled.return_value = False
 
-        agent = create_data_catalog_explorer_agent(mock_client, tools=[])
+        # Test DEFAULT mode - should have respond_to_user but no planning tools
+        default_agent = create_data_catalog_explorer_agent(mock_client, tools=[])
+        default_tool_names = [t.name for t in default_agent.tools]
+        assert _respond_to_user_tool.name in default_tool_names
+        assert "create_plan" not in default_tool_names
+        assert "revise_plan" not in default_tool_names
 
-        tool_names = [t.name for t in agent.tools]
-
-        # respond_to_user should be in tools
-        assert _respond_to_user_tool.name in tool_names
-
-        # Planning tools should be present
-        assert "create_plan" in tool_names
-        assert "revise_plan" in tool_names
+        # Test RESEARCH mode - should have respond_to_user and planning tools
+        research_agent = create_data_catalog_explorer_agent_research(
+            mock_client, tools=[]
+        )
+        research_tool_names = [t.name for t in research_agent.tools]
+        assert _respond_to_user_tool.name in research_tool_names
+        assert "create_plan" in research_tool_names
+        assert "revise_plan" in research_tool_names
 
     @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.example.com"})
     def test_disables_smart_search_with_custom_base_url(
@@ -411,3 +420,155 @@ class TestCreateDataCatalogExplorerAgent:
         # smart_search should NOT be in plannable tools
         tool_names = [t.name for t in agent.config.plannable_tools]
         assert "smart_search" not in tool_names
+
+    @patch(
+        "datahub_integrations.chat.agents.data_catalog_agent.is_smart_search_enabled"
+    )
+    def test_uses_mode_specific_model(
+        self,
+        mock_smart_search_enabled: Mock,
+        mock_client: Mock,
+    ) -> None:
+        """Should select model based on agent_type parameter."""
+        from datahub_integrations.gen_ai.model_config import model_config
+
+        mock_smart_search_enabled.return_value = False
+
+        # Create agents with different agent types
+        fast_agent = create_data_catalog_explorer_agent_fast(mock_client, tools=[])
+        default_agent = create_data_catalog_explorer_agent(mock_client, tools=[])
+        research_agent = create_data_catalog_explorer_agent_research(
+            mock_client, tools=[]
+        )
+
+        # Each should have a model selected
+        # Fast mode should use the fast model
+        assert (
+            fast_agent.config.model_id
+            == model_config.chat_assistant_ai.agent_mode_to_model.get(
+                "AskDataHubFast", model_config.chat_assistant_ai.model
+            )
+        )
+        # Default mode should use the default model
+        assert (
+            default_agent.config.model_id
+            == model_config.chat_assistant_ai.agent_mode_to_model.get(
+                "AskDataHubAuto", model_config.chat_assistant_ai.model
+            )
+        )
+        # Research mode should use the research model
+        assert (
+            research_agent.config.model_id
+            == model_config.chat_assistant_ai.agent_mode_to_model.get(
+                "AskDataHubResearch", model_config.chat_assistant_ai.model
+            )
+        )
+
+        # Verify they're actually different (not all using the same model)
+        # Fast and research should differ in typical configs
+        assert fast_agent.config.model_id != research_agent.config.model_id
+
+    @patch(
+        "datahub_integrations.chat.agents.data_catalog_agent.is_smart_search_enabled"
+    )
+    def test_mode_affects_system_prompt(
+        self,
+        mock_smart_search_enabled: Mock,
+        mock_client: Mock,
+    ) -> None:
+        """Should pass is_planning_enabled to DataHubSystemPromptBuilder based on mode."""
+
+        mock_smart_search_enabled.return_value = False
+
+        # Create agent with RESEARCH mode - should have planning enabled
+        research_agent = create_data_catalog_explorer_agent_research(
+            mock_client, tools=[]
+        )
+        assert hasattr(
+            research_agent.config.system_prompt_builder, "is_planning_enabled"
+        )
+        assert research_agent.config.system_prompt_builder.is_planning_enabled is True
+
+        # Create agent with DEFAULT mode - should NOT have planning enabled
+        default_agent = create_data_catalog_explorer_agent(mock_client, tools=[])
+        assert hasattr(
+            default_agent.config.system_prompt_builder, "is_planning_enabled"
+        )
+        assert default_agent.config.system_prompt_builder.is_planning_enabled is False
+
+        # Create agent with FAST mode - should NOT have planning enabled
+        fast_agent = create_data_catalog_explorer_agent_fast(mock_client, tools=[])
+        assert hasattr(fast_agent.config.system_prompt_builder, "is_planning_enabled")
+        assert fast_agent.config.system_prompt_builder.is_planning_enabled is False
+
+    @patch(
+        "datahub_integrations.chat.agents.data_catalog_agent.is_smart_search_enabled"
+    )
+    def test_fast_mode_excludes_mutation_tools(
+        self,
+        mock_smart_search_enabled: Mock,
+        mock_client: Mock,
+    ) -> None:
+        """Should exclude mutation tools in FAST mode."""
+
+        mock_smart_search_enabled.return_value = False
+
+        # Create a mock tool with MUTATION tag
+        mock_mutation_tool = Mock()
+        mock_mutation_tool.name = "mutation_tool"
+        mock_mutation_tool.description = "A mutation tool"
+        mock_mutation_tool.tags = {"mutation"}
+        mock_mutation_tool.json_schema.return_value = {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        }
+        mock_mutation_tool.to_bedrock_spec.return_value = {
+            "toolSpec": {
+                "name": "mutation_tool",
+                "description": "A mutation tool",
+                "inputSchema": {
+                    "json": {"type": "object", "properties": {}, "required": []}
+                },
+            }
+        }
+
+        # Create a mock tool without MUTATION tag
+        mock_search_tool = Mock()
+        mock_search_tool.name = "search_tool"
+        mock_search_tool.description = "A search tool"
+        mock_search_tool.tags = {"search"}
+        mock_search_tool.json_schema.return_value = {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        }
+        mock_search_tool.to_bedrock_spec.return_value = {
+            "toolSpec": {
+                "name": "search_tool",
+                "description": "A search tool",
+                "inputSchema": {
+                    "json": {"type": "object", "properties": {}, "required": []}
+                },
+            }
+        }
+
+        # Create agents with different modes
+        fast_agent = create_data_catalog_explorer_agent_fast(
+            mock_client,
+            tools=[mock_mutation_tool, mock_search_tool],
+        )
+        default_agent = create_data_catalog_explorer_agent(
+            mock_client,
+            tools=[mock_mutation_tool, mock_search_tool],
+        )
+
+        # FAST mode should exclude mutation tools
+        fast_tool_names = [t.name for t in fast_agent.config.plannable_tools]
+        assert "mutation_tool" not in fast_tool_names
+        assert "search_tool" in fast_tool_names
+
+        # DEFAULT mode should include mutation tools
+        default_tool_names = [t.name for t in default_agent.config.plannable_tools]
+        assert "mutation_tool" in default_tool_names
+        assert "search_tool" in default_tool_names

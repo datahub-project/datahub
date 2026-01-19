@@ -14,6 +14,7 @@ export interface EmitReactionEventParams {
     messageId: string;
     reaction: ChatMessageReactionType;
     chatLocation: ChatLocationType;
+    agentName?: string;
 }
 
 /**
@@ -21,7 +22,7 @@ export interface EmitReactionEventParams {
  * Returns true if the event was emitted, false if missing required params.
  */
 export function emitReactionEvent(params: EmitReactionEventParams): boolean {
-    const { conversationUrn, messageId, reaction, chatLocation } = params;
+    const { conversationUrn, messageId, reaction, chatLocation, agentName } = params;
 
     if (!conversationUrn || !chatLocation) {
         return false;
@@ -33,6 +34,7 @@ export function emitReactionEvent(params: EmitReactionEventParams): boolean {
         messageId,
         reaction,
         chatLocation,
+        agentName,
     });
 
     return true;
@@ -43,6 +45,7 @@ export interface EmitFeedbackEventParams {
     messageId: string;
     feedbackText: string;
     chatLocation: ChatLocationType;
+    agentName?: string;
 }
 
 /**
@@ -50,7 +53,7 @@ export interface EmitFeedbackEventParams {
  * Returns true if the event was emitted, false if missing required params.
  */
 export function emitFeedbackEvent(params: EmitFeedbackEventParams): boolean {
-    const { conversationUrn, messageId, feedbackText, chatLocation } = params;
+    const { conversationUrn, messageId, feedbackText, chatLocation, agentName } = params;
 
     if (!conversationUrn || !chatLocation) {
         return false;
@@ -62,6 +65,7 @@ export function emitFeedbackEvent(params: EmitFeedbackEventParams): boolean {
         messageId,
         feedbackText,
         chatLocation,
+        agentName,
     });
 
     return true;

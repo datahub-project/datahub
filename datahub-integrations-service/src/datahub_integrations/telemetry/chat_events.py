@@ -93,6 +93,7 @@ class ChatbotInteractionEvent(BaseEvent):
     chat_id: ChatId
     message_id: MessageId
     chatbot: str = "slack"
+    agent_name: Optional[str] = None
     slack_thread_id: Optional[str] = None
     slack_message_id: Optional[str] = None
     slack_user_id: Optional[str] = None

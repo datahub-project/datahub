@@ -208,6 +208,7 @@ def enrich_event_with_agent_data(
     """
     if agent:
         event_data.chat_session_id = agent.session_id
+        event_data.agent_name = agent.config.agent_name
         history = agent.history
         if history:
             event_data.num_tool_calls = history.num_tool_calls

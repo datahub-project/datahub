@@ -293,11 +293,12 @@ export const useChatStream = ({
                     conversationUrn: targetConversationUrn || conversationUrn,
                     responseTimeSeconds,
                     chatLocation,
+                    agentName,
                 });
                 messageStartTimeRef.current = null;
             }
         },
-        [conversationUrn, chatLocation],
+        [conversationUrn, chatLocation, agentName],
     );
 
     const processNextMessage = useCallback(
@@ -427,6 +428,7 @@ export const useChatStream = ({
                         statusCode: error.status || undefined,
                         messagePreview: messageText.substring(0, 200), // First 200 characters of message that caused error
                         chatLocation,
+                        agentName,
                     });
 
                     // For rate limit errors (429), use the message from backend

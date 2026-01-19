@@ -2053,6 +2053,7 @@ export interface CreateDataHubChatMessageEvent extends BaseEvent {
     totalMessageCount: number; // total number of all messages (user + agent) in the conversation before this message
     messagePreview: string; // first 200 characters of the message
     chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user (e.g., 'AskDataHubAuto', 'AskDataHubResearch', 'AskDataHubFast')
 }
 
 export interface DeleteDataHubChatEvent extends BaseEvent {
@@ -2069,6 +2070,7 @@ export interface DataHubChatResponseErrorEvent extends BaseEvent {
     statusCode?: number;
     messagePreview?: string; // first 200 characters of the message that caused the error
     chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user
 }
 
 export interface DataHubChatResponseCompleteEvent extends BaseEvent {
@@ -2076,6 +2078,7 @@ export interface DataHubChatResponseCompleteEvent extends BaseEvent {
     conversationUrn: string;
     responseTimeSeconds: number; // Time in seconds from message sent to response complete
     chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user
 }
 
 export interface StopDataHubChatResponseEvent extends BaseEvent {
@@ -2094,6 +2097,7 @@ export interface ChatMessageReactionEvent extends BaseEvent {
     messageId: string;
     reaction: ChatMessageReactionType;
     chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user
 }
 
 /**
@@ -2105,6 +2109,7 @@ export interface ChatMessageFeedbackEvent extends BaseEvent {
     messageId: string;
     feedbackText: string;
     chatLocation: ChatLocationType;
+    agentName?: string; // The agent mode selected by the user
 }
 
 interface GoToLogicalParentEvent extends BaseEvent {

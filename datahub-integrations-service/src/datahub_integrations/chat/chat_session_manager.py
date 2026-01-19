@@ -24,6 +24,7 @@ from datahub_integrations.chat.agent.agent_runner import enrich_event_with_agent
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.chat_api import ChatContext
+    from datahub_integrations.observability.bot_metrics import BotPlatform
 
 from datahub.metadata.schema_classes import (
     DataHubAiConversationActorTypeClass,
@@ -38,6 +39,8 @@ from datahub_integrations.chat.agent import AgentRunner
 from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
 from datahub_integrations.chat.agents import (
     create_data_catalog_explorer_agent,
+    create_data_catalog_explorer_agent_fast,
+    create_data_catalog_explorer_agent_research,
     create_ingestion_troubleshooting_agent,
 )
 from datahub_integrations.chat.chat_history import ChatHistory
@@ -98,6 +101,7 @@ class AgentFactory(Protocol):
         chat_type: ChatType = ChatType.DEFAULT,
         tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
         context: Optional[str] = None,
+        platform: Optional["BotPlatform"] = None,
     ) -> AgentRunner:
         """
         Create a configured AgentRunner instance.
@@ -109,6 +113,7 @@ class AgentFactory(Protocol):
             chat_type: Type of chat context (UI, Slack, Teams, etc.)
             tools: Optional tools to use
             context: Optional natural language context about the conversation
+            platform: Optional bot platform (SLACK or TEAMS) for observability tracking
 
         Returns:
             Configured AgentRunner instance
@@ -120,6 +125,9 @@ class AgentFactory(Protocol):
 AGENT_FACTORIES: Dict[str, AgentFactory] = {
     "DataCatalogExplorer": create_data_catalog_explorer_agent,
     "IngestionTroubleshooter": create_ingestion_troubleshooting_agent,
+    "AskDataHubAuto": create_data_catalog_explorer_agent,
+    "AskDataHubResearch": create_data_catalog_explorer_agent_research,
+    "AskDataHubFast": create_data_catalog_explorer_agent_fast,
     # Future agents can be added here
 }
 
@@ -172,7 +180,11 @@ class ChatSessionManager:
             )
 
         factory = AGENT_FACTORIES[agent_type]
-        return factory(client=self.tools_client, chat_type=chat_type, tools=[mcp])
+        return factory(
+            client=self.tools_client,
+            chat_type=chat_type,
+            tools=[mcp],
+        )
 
     def load_session(
         self,
@@ -293,6 +305,7 @@ class ChatSessionManager:
             message_type=DataHubAiConversationMessageTypeClass.TEXT,  # type: ignore[arg-type]
             text=text,
             timestamp=user_message_timestamp,
+            agent_name=agent_type,
         )
 
         # Track how many updates we've already sent to avoid duplicates

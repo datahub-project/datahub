@@ -184,6 +184,7 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDatasetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
+    when(mockFeatureFlags.isShowAskDataHubModeSelect()).thenReturn(false);
   }
 
   @Test

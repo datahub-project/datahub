@@ -9,10 +9,12 @@ import { MessageList } from '@app/chat/components/MessageList';
 import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
+import { useSyncChatMode } from '@app/chat/hooks/useSyncChatMode';
 import { ChatFeatureFlags, ChatMessageAction, ChatVariant } from '@app/chat/types';
+import { CHAT_MODE_OPTIONS, ChatMode, getAgentNameForChatMode } from '@app/chat/utils/chatModes';
 import { shouldPollForThinking } from '@app/chat/utils/thinkingState';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsAskDataHubModeSelectEnabled } from '@app/useAppConfig';
 
 import { useGetDataHubAiConversationQuery } from '@graphql/aiChat.generated';
 import { Entity } from '@types';
@@ -159,6 +161,8 @@ interface ChatAreaProps {
 /** Props for the inner component that requires a conversation */
 interface ChatAreaWithConversationProps extends Omit<ChatAreaProps, 'conversationUrn' | 'onStartConversation'> {
     conversationUrn: string;
+    selectedMode: ChatMode;
+    onModeChange: (mode: ChatMode) => void;
 }
 
 /**
@@ -184,11 +188,14 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
     draft,
     onDraftChange,
     chatLocation,
+    selectedMode,
+    onModeChange,
 }) => {
     const [inputValue, setInputValue] = useState('');
     const hasAutoSentInitialMessage = useRef(false);
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
+    const isModeSelectEnabled = useIsAskDataHubModeSelectEnabled();
 
     const updateInputValue = useCallback(
         (value: string) => {
@@ -238,6 +245,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                 onConversationUpdate();
             }
         },
+        agentName: getAgentNameForChatMode(selectedMode),
         chatLocation,
     });
 
@@ -247,6 +255,13 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
             setMessages(conversation.messages);
         }
     }, [conversation, setMessages]);
+
+    // Sync mode from last message's agentName when conversation loads or changes
+    useSyncChatMode({
+        conversationUrn,
+        messages: conversation?.messages,
+        onModeChange,
+    });
 
     // Poll for updates when waiting for a response (not streaming locally)
     // This handles the case where user navigates away and returns mid-stream
@@ -359,6 +374,9 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                         placeholder={welcomePlaceholder}
                                         isStreaming={isStreaming}
                                         isWelcomeState
+                                        modeOptions={isModeSelectEnabled ? CHAT_MODE_OPTIONS : undefined}
+                                        selectedMode={selectedMode}
+                                        onModeChange={(mode) => onModeChange(mode as ChatMode)}
                                         autoFocus
                                     />
                                     <SuggestedQuestions
@@ -397,6 +415,9 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                 onStop={handleStopStreaming}
                                 placeholder="Ask about your data... (use @ to mention assets)"
                                 isStreaming={isStreaming}
+                                modeOptions={isModeSelectEnabled ? CHAT_MODE_OPTIONS : undefined}
+                                selectedMode={selectedMode}
+                                onModeChange={(mode) => onModeChange(mode as ChatMode)}
                                 autoFocus
                             />
                         </InputContent>
@@ -425,8 +446,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 }) => {
     const [inputValue, setInputValue] = useState('');
     const [isStarting, setIsStarting] = useState(false);
+    const [selectedMode, setSelectedMode] = useState<ChatMode>((CHAT_MODE_OPTIONS[0]?.value as ChatMode) || 'auto');
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
+    const isModeSelectEnabled = useIsAskDataHubModeSelectEnabled();
 
     // If we have a conversation, render the full chat experience
     if (conversationUrn) {
@@ -437,6 +460,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 suggestedQuestions={suggestedQuestions}
                 welcomePlaceholder={welcomePlaceholder}
                 onConversationNotFound={rest.onConversationNotFound}
+                selectedMode={selectedMode}
+                onModeChange={setSelectedMode}
                 {...rest}
             />
         );
@@ -482,6 +507,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                     placeholder={welcomePlaceholder}
                                     isStreaming={isStarting}
                                     isWelcomeState
+                                    modeOptions={isModeSelectEnabled ? CHAT_MODE_OPTIONS : undefined}
+                                    selectedMode={selectedMode}
+                                    onModeChange={(mode) => setSelectedMode(mode as ChatMode)}
                                 />
                                 <SuggestedQuestions
                                     onQuestionSelect={handleQuestionSelect}

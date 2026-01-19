@@ -112,7 +112,9 @@ Break down complex information into bullet points for better readability.""",
 )
 
 
-def get_data_catalog_internal_tools(agent: "AgentRunner") -> List[ToolWrapper]:
+def get_data_catalog_internal_tools(
+    agent: "AgentRunner", is_planning_enabled: bool = False
+) -> List[ToolWrapper]:
     """
     Get internal tools for the DataCatalog Explorer agent.
 
@@ -124,12 +126,16 @@ def get_data_catalog_internal_tools(agent: "AgentRunner") -> List[ToolWrapper]:
 
     Args:
         agent: The AgentRunner instance (uses agent._planning_context for planning tools)
+        is_planning_enabled: Whether planning mode is enabled (adds planning tools if True)
     """
     tools = [_respond_to_user_tool]
 
-    if PLANNING_TOOLS_ENABLED:
+    # Add planning tools if enabled
+    if PLANNING_TOOLS_ENABLED and is_planning_enabled:
         # Import inline to avoid circular dependency
-        from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
+        from datahub_integrations.chat.planner.tools import (
+            get_planning_tool_wrappers,
+        )
 
         # Use agent's planning context for plan state access
         tools.extend(get_planning_tool_wrappers(agent._planning_context))

@@ -145,6 +145,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         assetSummaryPageV1: false,
         inviteUsersEnabled: false,
         showAskDataHub: false,
+        showAskDataHubModeSelect: false,
         showAskDataHubFeedback: false,
         supportTicketsEnabled: false,
         teamsNotificationsEnabled: false,

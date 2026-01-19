@@ -150,6 +150,7 @@ describe('useChatMessages', () => {
                 0,
                 0,
                 chatLocation,
+                undefined,
             );
             expect(mockSendMessage).toHaveBeenCalledWith('Test message', undefined, undefined);
         });
@@ -198,6 +199,7 @@ describe('useChatMessages', () => {
                 1,
                 2,
                 chatLocation,
+                undefined,
             );
         });
 

@@ -1,6 +1,8 @@
-import { Button, colors } from '@components';
+import { Button, SimpleSelect, colors } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { SelectOption } from '@components/components/Select/types';
 
 import { ChatMentionsDropdown } from '@app/chat/components/input/ChatMentionsDropdown';
 import { useMentionInput } from '@app/chat/hooks/useMentionInput';
@@ -16,9 +18,9 @@ const InputContainer = styled.div`
 
 const ContentEditableDiv = styled.div<{ $isFocused?: boolean; $isWelcomeState?: boolean; $isStreaming?: boolean }>`
     width: 100%;
-    min-height: ${(props) => (props.$isWelcomeState ? '120px' : '44px')};
+    min-height: 120px;
     max-height: 120px; /* Grows up to 120px, then scrolls */
-    padding: 12px 56px 12px 16px; /* Extra right padding for send button */
+    padding: 12px 56px 48px 16px; /* Extra right padding for send button + bottom controls */
     border: 1px solid
         ${(props) => {
             if (props.$isFocused && !props.$isStreaming) return colors.violet[200];
@@ -78,6 +80,14 @@ const SendButtonWrapper = styled.div`
     pointer-events: auto;
 `;
 
+const ModeSelectWrapper = styled.div`
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    pointer-events: auto;
+    z-index: 1;
+`;
+
 interface Props {
     value: string;
     onChange: (value: string) => void;
@@ -86,6 +96,9 @@ interface Props {
     placeholder?: string;
     isStreaming?: boolean;
     isWelcomeState?: boolean;
+    modeOptions?: SelectOption[];
+    selectedMode?: string;
+    onModeChange?: (mode: string) => void;
     /** Auto-focus the input on mount */
     autoFocus?: boolean;
 }
@@ -98,6 +111,9 @@ export const ChatInput: React.FC<Props> = ({
     placeholder = 'Type a message...',
     isStreaming = false,
     isWelcomeState = false,
+    modeOptions,
+    selectedMode,
+    onModeChange,
     autoFocus = false,
 }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -184,6 +200,8 @@ export const ChatInput: React.FC<Props> = ({
         }
     }, [isStreaming, onStop, isSubmitDisabled, onSubmit]);
 
+    const showModeSelect = Boolean(modeOptions?.length && onModeChange);
+
     // Handle paste safely: allow default paste but guard empty selection to avoid errors
     const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
         const selection = document.getSelection();
@@ -212,6 +230,26 @@ export const ChatInput: React.FC<Props> = ({
                 $isStreaming={isStreaming}
                 suppressContentEditableWarning
             />
+            {showModeSelect && (
+                <ModeSelectWrapper>
+                    <SimpleSelect
+                        options={modeOptions || []}
+                        values={selectedMode ? [selectedMode] : []}
+                        onUpdate={(values) => {
+                            const nextMode = values[0];
+                            if (nextMode) {
+                                onModeChange?.(nextMode);
+                            }
+                        }}
+                        size="sm"
+                        width="fit-content"
+                        showClear={false}
+                        showSearch={false}
+                        isDisabled={isStreaming}
+                        optionSwitchable={false}
+                    />
+                </ModeSelectWrapper>
+            )}
             <SendButtonWrapper>
                 <Button
                     onClick={handleButtonClick}

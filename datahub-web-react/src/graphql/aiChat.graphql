@@ -41,6 +41,7 @@ query getDataHubAiConversation($urn: String!) {
             content {
                 text
             }
+            agentName
         }
     }
 }

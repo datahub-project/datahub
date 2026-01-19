@@ -173,6 +173,7 @@ query appConfig {
             actionWorkflowsEnabled
             inviteUsersEnabled
             showAskDataHub
+            showAskDataHubModeSelect
             showAskDataHubFeedback
             teamsNotificationsEnabled
             datasetSummaryPageV1

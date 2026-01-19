@@ -1929,8 +1929,140 @@ def test_create_session_with_chat_type(mock_datahub_client: Mock) -> None:
         )
 
         mock_factory.assert_called_with(
-            client=mock_datahub_client, chat_type=ChatType.SLACK, tools=[mock_mcp]
+            client=mock_datahub_client,
+            chat_type=ChatType.SLACK,
+            tools=[mock_mcp],
         )
+
+
+def test_agent_type_to_mode_mapping_fast(mock_datahub_client: Mock) -> None:
+    """Test that create_session passes AskDatahubFast agent type to factory."""
+    from unittest.mock import ANY
+
+    mock_factory = Mock(return_value=Mock())
+
+    with patch.dict(
+        "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES",
+        {"AskDatahubFast": mock_factory},
+    ):
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+        manager.create_session(agent_type="AskDatahubFast")
+
+        # Verify that agent_type was passed correctly
+        mock_factory.assert_called_once_with(
+            client=mock_datahub_client,
+            chat_type=ANY,
+            tools=ANY,
+        )
+
+
+def test_agent_type_to_mode_mapping_default(mock_datahub_client: Mock) -> None:
+    """Test that create_session passes AskDatahubAuto agent type to factory."""
+    from unittest.mock import ANY
+
+    mock_factory = Mock(return_value=Mock())
+
+    with patch.dict(
+        "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES",
+        {"AskDatahubAuto": mock_factory},
+    ):
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+        manager.create_session(agent_type="AskDatahubAuto")
+
+        # Verify that agent_type was passed correctly
+        mock_factory.assert_called_once_with(
+            client=mock_datahub_client,
+            chat_type=ANY,
+            tools=ANY,
+        )
+
+
+def test_agent_type_to_mode_mapping_research(mock_datahub_client: Mock) -> None:
+    """Test that create_session passes AskDatahubResearch agent type to factory."""
+    from unittest.mock import ANY
+
+    mock_factory = Mock(return_value=Mock())
+
+    with patch.dict(
+        "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES",
+        {"AskDatahubResearch": mock_factory},
+    ):
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+        manager.create_session(agent_type="AskDatahubResearch")
+
+        # Verify that agent_type was passed correctly
+        mock_factory.assert_called_once_with(
+            client=mock_datahub_client,
+            chat_type=ANY,
+            tools=ANY,
+        )
+
+
+def test_create_session_passes_mode_to_factory(mock_datahub_client: Mock) -> None:
+    """Test that create_session passes agent_type to the agent factory."""
+    from unittest.mock import ANY
+
+    mock_factory = Mock(return_value=Mock())
+
+    with patch.dict(
+        "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES",
+        {"AskDatahubFast": mock_factory},
+    ):
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+        manager.create_session(agent_type="AskDatahubFast")
+
+        # Verify that agent_type was passed as the last parameter
+        mock_factory.assert_called_once_with(
+            client=mock_datahub_client,
+            chat_type=ANY,
+            tools=ANY,
+        )
+
+
+def test_load_session_passes_mode_to_factory(mock_datahub_client: Mock) -> None:
+    """Test that load_session passes agent_type to the agent factory."""
+    from unittest.mock import ANY
+
+    mock_factory = Mock(return_value=Mock())
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_conv_client:
+        # Mock the conversation client to return empty history
+        instance = mock_conv_client.return_value
+        instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+
+        with patch.dict(
+            "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES",
+            {"AskDatahubResearch": mock_factory},
+        ):
+            manager = ChatSessionManager(
+                system_client=mock_datahub_client, tools_client=mock_datahub_client
+            )
+            manager.load_session(
+                "urn:li:dataHubAiConversation:test", agent_type="AskDatahubResearch"
+            )
+
+            # Verify that agent_type was passed as the last parameter
+            mock_factory.assert_called_once_with(
+                client=mock_datahub_client,
+                chat_type=ChatType.DATAHUB_UI,
+                history=ANY,
+                tools=ANY,
+                context=None,
+            )
 
 
 if __name__ == "__main__":

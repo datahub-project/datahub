@@ -25,7 +25,20 @@ MESSAGE_LENGTH_SOFT_LIMIT = 1500
 MESSAGE_LENGTH_HARD_LIMIT = 3000 - 100  # 100 is a buffer
 _MAX_SUGGESTIONS = 4
 
-_SYSTEM_PROMPT = f"""\
+
+def _get_system_prompt(is_planning_enabled: bool) -> str:
+    """
+    Generate the system prompt based on whether planning mode is enabled.
+
+    Args:
+        is_planning_enabled: Whether planning mode should be enabled
+
+    Returns:
+        System prompt string with optional planning instructions
+    """
+    planning_enabled = is_planning_enabled
+
+    return f"""\
 The assistant is DataHub AI, created by Acryl Data.
 
 DataHub AI is a helpful assistant that can answer questions relating to \
@@ -55,10 +68,10 @@ DataHub AI will typically make multiple tool calls in order to answer a single q
 DataHub AI will not make more than 20 tool calls in a single response.
 
 {
-    "DataHub AI MUST call create_plan as the FIRST tool for every user question."
-    if PLANNING_TOOLS_ENABLED
-    else ""
-}
+        "DataHub AI MUST call create_plan as the FIRST tool for every user question."
+        if planning_enabled
+        else ""
+    }
 
 DataHub AI can also answer very basic questions about DataHub itself using its built-in knowledge. \
 For more complex questions about DataHub's features and best practices (e.g. "how do I set up a business \
@@ -89,7 +102,7 @@ explicitly justify the choice. Include: \
   <confidence>high/medium/low</confidence>
   <warning>Any important caveats or warnings about this action</warning>
 {
-    '''  <plan_id>OPTIONAL: If executing a plan created by create_plan, include the plan_id here (e.g., "plan_abc123")</plan_id>
+        '''  <plan_id>OPTIONAL: If executing a plan created by create_plan, include the plan_id here (e.g., "plan_abc123")</plan_id>
   <plan_step>OPTIONAL: If working on a specific step, include the step ID (e.g., "s0", "s1")</plan_step>
   <done_criteria_met>OPTIONAL: Check actual results against the step's done_when condition. Example: done_when="Search returned exactly 1 result": total=1→true, total=9→FALSE. Always check actual values!</done_criteria_met>
   <failed_criteria_met>OPTIONAL: Check actual results against the step's failed_when condition. Example: failed_when="Search returned more than 1 result": total=9→TRUE, total=1→false</failed_criteria_met>
@@ -98,22 +111,22 @@ explicitly justify the choice. Include: \
   <plan_status>OPTIONAL: If step_status=returned_to_user: plan_status=returned_to_user, call respond_to_user, do NOT call revise_plan</plan_status>
   <next_action>REQUIRED if step_status=returned_to_user: Your next and ONLY action must be respond_to_user. Do NOT call any other tools. Do NOT call revise_plan. Do NOT continue execution.</next_action>
 '''
-    if PLANNING_TOOLS_ENABLED
-    else ""
-}
+        if planning_enabled
+        else ""
+    }
 </reasoning>
 
 {
-    '''  CRITICAL DISTINCTION - returned_to_user vs failed:
+        '''  CRITICAL DISTINCTION - returned_to_user vs failed:
 - step_status="failed": Technical failure that CAN be fixed by revising the plan or retrying (e.g., timeout, API error)
   → Action: Can call revise_plan to try different approach
 - step_status="returned_to_user": Fundamental blocker that CANNOT be fixed by replanning (e.g., no metadata exists, missing required data, ambiguous search results requiring user choice)
   → Action: MUST call respond_to_user with explanation, MUST NOT call revise_plan, MUST NOT continue execution
 
 '''
-    if PLANNING_TOOLS_ENABLED
-    else ""
-}For tool calls where entity matching is not relevant (e.g., initial searches), you can omit the matching fields.
+        if planning_enabled
+        else ""
+    }For tool calls where entity matching is not relevant (e.g., initial searches), you can omit the matching fields.
 The plan fields are OPTIONAL and should only be included when you are executing a multi-step plan created by the create_plan tool.
 
 CRITICAL: For fully-qualified entity names (database.schema.table format), the database, schema, AND table name must ALL match exactly. If even one part differs, it is a DIFFERENT entity, not the same entity.
@@ -230,6 +243,7 @@ class DataHubSystemPromptBuilder:
         self,
         extra_instructions_override: Optional[str] = None,
         context: Optional[str] = None,
+        is_planning_enabled: bool = False,
     ):
         """
         Initialize DataHub system prompt builder.
@@ -238,7 +252,9 @@ class DataHubSystemPromptBuilder:
             extra_instructions_override: Optional override for extra instructions
                                         (skips GraphQL fetch if provided)
             context: Optional natural language context about what the user is working on
+            is_planning_enabled: Whether planning mode should be enabled
         """
+        self.is_planning_enabled = is_planning_enabled
         self.extra_instructions_override = extra_instructions_override
         self.context = context
 
@@ -246,7 +262,10 @@ class DataHubSystemPromptBuilder:
         self, client: "DataHubClient"
     ) -> List["SystemContentBlockTypeDef"]:
         """Build system messages for DataHub ChatSession."""
-        system_messages: List["SystemContentBlockTypeDef"] = [{"text": _SYSTEM_PROMPT}]
+
+        system_messages: List["SystemContentBlockTypeDef"] = [
+            {"text": _get_system_prompt(self.is_planning_enabled)}
+        ]
 
         # Add context if provided
         if self.context:

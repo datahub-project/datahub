@@ -1870,6 +1870,11 @@ type FeatureFlagsConfig {
   Allows admins to configure MCP servers and other AI integrations.
   """
   aiPluginsEnabled: Boolean!
+
+  """
+  If enabled, shows the Ask DataHub mode select feature.
+  """
+  showAskDataHubModeSelect: Boolean!
 }
 
 """

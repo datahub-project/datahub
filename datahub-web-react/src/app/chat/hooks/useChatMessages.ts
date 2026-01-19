@@ -142,7 +142,14 @@ export const useChatMessages = ({
         ).length;
 
         // Emit analytics event for message creation
-        emitMessageAnalytics(convoUrn || conversationUrn, text, userMessageCount, messages.length, chatLocation);
+        emitMessageAnalytics(
+            convoUrn || conversationUrn,
+            text,
+            userMessageCount,
+            messages.length,
+            chatLocation,
+            agentName,
+        );
 
         // Send the message with optional message context
         sendMessage(text, convoUrn, messageContext);

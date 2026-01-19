@@ -152,7 +152,7 @@ def data_catalog_completion_check(message: Message) -> bool:
     return _is_respond_to_user_result(message) or isinstance(message, AssistantMessage)
 
 
-def create_data_catalog_explorer_agent(
+def create_data_catalog_explorer_agent_fast(
     client: DataHubClient,
     history: Optional[ChatHistory] = None,
     extra_instructions_override: Optional[str] = None,
@@ -162,14 +162,13 @@ def create_data_catalog_explorer_agent(
     platform: Optional["BotPlatform"] = None,
 ) -> AgentRunner:
     """
-    Create a DataCatalog Explorer agent (formerly ChatSession).
+    Create a fast DataCatalog Explorer agent optimized for speed.
 
-    This factory creates a configured AgentRunner that:
-    - Uses DataHub-specific system prompts
-    - Has access to MCP tools + smart_search (if enabled)
-    - Includes internal tools (respond_to_user, planning tools)
-    - Formats responses as NextMessage
-    - Uses XML reasoning format
+    Fast mode characteristics:
+    - Uses faster model (Haiku)
+    - No planning mode
+    - No mutation tools
+    - No smart search
 
     Args:
         client: DataHub client for tool execution and GraphQL queries
@@ -181,20 +180,149 @@ def create_data_catalog_explorer_agent(
         platform: Optional bot platform (SLACK or TEAMS) for observability tracking
 
     Returns:
-        Configured AgentRunner instance
+        Configured AgentRunner instance optimized for speed
+    """
+    model_id = model_config.chat_assistant_ai.agent_mode_to_model.get(
+        "AskDataHubFast", model_config.chat_assistant_ai.model
+    )
 
-    Example:
-        ```python
-        from datahub.sdk.main_client import DataHubClient
-        from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
-        from datahub_integrations.chat.chat_history import HumanMessage
+    return create_data_catalog_explorer_agent_base(
+        client=client,
+        history=history,
+        extra_instructions_override=extra_instructions_override,
+        chat_type=chat_type,
+        model_id=model_id,
+        tools=tools,
+        context=context,
+        platform=platform,
+        agent_name="AskDataHubFast",
+        include_mutation_tools=False,
+        smart_search_enabled=False,
+        is_planning_enabled=False,
+    )
 
-        client = DataHubClient.from_env()
-        agent = create_data_catalog_explorer_agent(client)
-        agent.add_message(HumanMessage(text="What datasets do we have?"))
-        response = agent.generate_formatted_message()  # Returns NextMessage
-        print(response.text)
-        ```
+
+def create_data_catalog_explorer_agent_research(
+    client: DataHubClient,
+    history: Optional[ChatHistory] = None,
+    extra_instructions_override: Optional[str] = None,
+    chat_type: ChatType = ChatType.DEFAULT,
+    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    context: Optional[str] = None,
+    platform: Optional["BotPlatform"] = None,
+) -> AgentRunner:
+    """
+    Create a research DataCatalog Explorer agent optimized for thoroughness.
+
+    Research mode characteristics:
+    - Uses standard model (Sonnet)
+    - Planning mode enabled
+    - Includes mutation tools
+    - Includes smart search
+
+    Args:
+        client: DataHub client for tool execution and GraphQL queries
+        history: Optional existing chat history to continue from
+        extra_instructions_override: Optional override for extra instructions
+        chat_type: Type of chat (UI, Slack, Teams, etc.)
+        tools: Optional tools to use (defaults to [mcp])
+        context: Optional natural language context about what the user is working on
+        platform: Optional bot platform (SLACK or TEAMS) for observability tracking
+
+    Returns:
+        Configured AgentRunner instance optimized for thoroughness
+    """
+    model_id = model_config.chat_assistant_ai.agent_mode_to_model.get(
+        "AskDataHubResearch", model_config.chat_assistant_ai.model
+    )
+
+    return create_data_catalog_explorer_agent_base(
+        client=client,
+        history=history,
+        extra_instructions_override=extra_instructions_override,
+        chat_type=chat_type,
+        model_id=model_id,
+        tools=tools,
+        context=context,
+        platform=platform,
+        agent_name="AskDataHubResearch",
+        include_mutation_tools=True,
+        smart_search_enabled=is_smart_search_enabled(),
+        is_planning_enabled=True,
+    )
+
+
+def create_data_catalog_explorer_agent(
+    client: DataHubClient,
+    history: Optional[ChatHistory] = None,
+    extra_instructions_override: Optional[str] = None,
+    chat_type: ChatType = ChatType.DEFAULT,
+    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    context: Optional[str] = None,
+    platform: Optional["BotPlatform"] = None,
+) -> AgentRunner:
+    """
+    Create an auto DataCatalog Explorer agent with balanced settings.
+
+    Auto mode characteristics:
+    - Uses standard model (Sonnet)
+    - No planning mode
+    - Includes mutation tools
+    - Includes smart search
+
+    Args:
+        client: DataHub client for tool execution and GraphQL queries
+        history: Optional existing chat history to continue from
+        extra_instructions_override: Optional override for extra instructions
+        chat_type: Type of chat (UI, Slack, Teams, etc.)
+        tools: Optional tools to use (defaults to [mcp])
+        context: Optional natural language context about what the user is working on
+        platform: Optional bot platform (SLACK or TEAMS) for observability tracking
+
+    Returns:
+        Configured AgentRunner instance with balanced settings
+    """
+    model_id = model_config.chat_assistant_ai.agent_mode_to_model.get(
+        "AskDataHubAuto", model_config.chat_assistant_ai.model
+    )
+
+    return create_data_catalog_explorer_agent_base(
+        client=client,
+        history=history,
+        extra_instructions_override=extra_instructions_override,
+        chat_type=chat_type,
+        model_id=model_id,
+        tools=tools,
+        context=context,
+        platform=platform,
+        agent_name="AskDataHubAuto",
+        include_mutation_tools=True,
+        smart_search_enabled=is_smart_search_enabled(),
+        is_planning_enabled=False,
+    )
+
+
+def build_data_catalog_agent_tools(
+    client: DataHubClient,
+    chat_type: ChatType,
+    tools: Optional[Sequence[ToolWrapper | FastMCP]],
+    include_mutation_tools: bool,
+    smart_search_enabled: bool,
+) -> List[ToolWrapper]:
+    """
+    Build tool lists for DataCatalog Explorer agent.
+
+    Args:
+        client: DataHub client for tool execution
+        chat_type: Type of chat (UI, Slack, Teams, etc.)
+        tools: Optional tools to use (defaults to [mcp])
+        include_mutation_tools: Whether to include MUTATION-tagged tools
+        smart_search_enabled: Whether to include smart_search tool
+        is_planning_enabled: Whether planning mode is enabled
+        agent: Optional AgentRunner for internal tools (only needed if building internal tools)
+
+    Returns:
+        Tuple of (tools, plannable_tools, internal_tools)
     """
     # Default to MCP server if no tools provided
     if tools is None:
@@ -202,10 +330,18 @@ def create_data_catalog_explorer_agent(
 
         tools = [mcp]
 
-    # Filter function for Slack/Teams to exclude USER-tagged tools
-    def filter_user_tools(tool):
+    # Filter function for Slack/Teams to exclude USER-tagged tools and FAST mode to exclude MUTATION tools
+    def filter_tools(tool):
+        # Exclude USER-tagged tools in Slack/Teams
         if chat_type in {ChatType.SLACK, ChatType.TEAMS}:
-            return ToolType.USER.value not in (tool.tags or set())
+            if ToolType.USER.value in (tool.tags or set()):
+                return False
+
+        # Exclude MUTATION tools if not included
+        if not include_mutation_tools:
+            if ToolType.MUTATION.value in (tool.tags or set()):
+                return False
+
         return True
 
     # Prepare plannable tools (public tools from MCP)
@@ -214,14 +350,14 @@ def create_data_catalog_explorer_agent(
         tool
         for entry in tools
         for tool in (
-            tools_from_fastmcp(entry, client, filter_fn=filter_user_tools)
+            tools_from_fastmcp(entry, client, filter_fn=filter_tools)
             if isinstance(entry, FastMCP)
-            else [entry]
+            else ([entry] if filter_tools(entry) else [])
         )
     ]
 
     # Add smart_search if enabled
-    if is_smart_search_enabled():
+    if smart_search_enabled:
         plannable_tools.append(
             ToolWrapper.from_function(
                 fn=async_background(smart_search),
@@ -239,13 +375,82 @@ def create_data_catalog_explorer_agent(
         )
     )
 
+    return plannable_tools
+
+
+def create_data_catalog_explorer_agent_base(
+    client: DataHubClient,
+    history: Optional[ChatHistory] = None,
+    extra_instructions_override: Optional[str] = None,
+    chat_type: ChatType = ChatType.DEFAULT,
+    model_id: Optional[str] = None,
+    tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    context: Optional[str] = None,
+    platform: Optional["BotPlatform"] = None,
+    agent_name: str = "DataCatalogExplorer",
+    include_mutation_tools: bool = True,
+    smart_search_enabled: bool = True,
+    is_planning_enabled: bool = False,
+) -> AgentRunner:
+    """
+    Create a DataCatalog Explorer agent (formerly ChatSession).
+
+    This factory creates a configured AgentRunner that:
+    - Uses DataHub-specific system prompts
+    - Has access to MCP tools + smart_search (if enabled)
+    - Includes internal tools (respond_to_user, planning tools)
+    - Formats responses as NextMessage
+    - Uses XML reasoning format
+
+    Args:
+        client: DataHub client for tool execution and GraphQL queries
+        history: Optional existing chat history to continue from
+        extra_instructions_override: Optional override for extra instructions
+        chat_type: Type of chat (UI, Slack, Teams, etc.)
+        model_id: Optional model ID to use for the agent
+        tools: Optional tools to use (defaults to [mcp])
+        context: Optional natural language context about what the user is working on
+        platform: Optional bot platform (SLACK or TEAMS) for observability tracking
+        agent_name: Agent name string (e.g., "DataCatalogExplorer")
+        include_mutation_tools: Whether to include MUTATION-tagged tools
+        smart_search_enabled: Whether to include smart_search tool
+        is_planning_enabled: Whether planning mode is enabled
+
+    Returns:
+        Configured AgentRunner instance
+
+    Example:
+        ```python
+        from datahub.sdk.main_client import DataHubClient
+        from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
+        from datahub_integrations.chat.chat_history import HumanMessage
+
+        client = DataHubClient.from_env()
+        agent = create_data_catalog_explorer_agent(client)
+        agent.add_message(HumanMessage(text="What datasets do we have?"))
+        response = agent.generate_formatted_message()  # Returns NextMessage
+        print(response.text)
+        ```
+    """
+
+    plannable_tools = build_data_catalog_agent_tools(
+        client=client,
+        chat_type=chat_type,
+        tools=tools,
+        include_mutation_tools=include_mutation_tools,
+        smart_search_enabled=smart_search_enabled,
+    )
+
+    if model_id is None:
+        model_id = model_config.chat_assistant_ai.model
+
     # Create agent configuration (internal tools will be added after AgentRunner creation)
     config = AgentConfig(
-        model_id=model_config.chat_assistant_ai.model,
+        model_id=model_id,
         system_prompt_builder=DataHubSystemPromptBuilder(
-            extra_instructions_override, context
+            extra_instructions_override, context, is_planning_enabled
         ),
-        tools=plannable_tools.copy(),  # Will be extended with internal tools
+        tools=plannable_tools.copy(),
         plannable_tools=plannable_tools,  # Subset for planning (excludes internal)
         context_reducers=None,  # Will use defaults
         conversational_parser=XmlReasoningParser(),  # DataHub's XML reasoning format
@@ -253,7 +458,7 @@ def create_data_catalog_explorer_agent(
         max_llm_turns=MAX_TOOL_CALLS,
         temperature=0.5,
         max_tokens=4096,
-        agent_name="DataCatalog Explorer",
+        agent_name=agent_name,
         response_formatter=create_response_formatter(chat_type, client),
         completion_check=data_catalog_completion_check,
         platform=platform,
@@ -266,8 +471,8 @@ def create_data_catalog_explorer_agent(
         history=history,
     )
 
-    # Add internal tools after AgentRunner is created (they need the runner instance)
-    internal_tools = get_data_catalog_internal_tools(agent)
+    # Add internal tools that require agent reference
+    internal_tools = get_data_catalog_internal_tools(agent, is_planning_enabled)
     agent.tools.extend(internal_tools)
 
     logger.info(

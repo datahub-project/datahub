@@ -5,7 +5,7 @@ This module provides the factory function for creating Ingestion Troubleshooting
 which is the default agent for chats from the Ingestion page in the UI.
 """
 
-from typing import List, Optional, Sequence
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 from datahub.sdk.main_client import DataHubClient
 from fastmcp import FastMCP
@@ -56,6 +56,9 @@ from datahub_integrations.mcp_integration.tool import (
 )
 from datahub_integrations.smart_search.smart_search import smart_search
 
+if TYPE_CHECKING:
+    from datahub_integrations.observability.bot_metrics import BotPlatform
+
 MAX_TOOL_CALLS = 30
 
 # Register MCP tools (thread-safe, idempotent)
@@ -69,6 +72,7 @@ def create_ingestion_troubleshooting_agent(
     chat_type: ChatType = ChatType.DEFAULT,
     tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
     context: Optional[str] = None,
+    platform: Optional["BotPlatform"] = None,
 ) -> AgentRunner:
     """
     Create a Ingestion Troubleshooting agent.
@@ -189,7 +193,9 @@ def create_ingestion_troubleshooting_agent(
     config = AgentConfig(
         model_id=model_config.chat_assistant_ai.model,
         system_prompt_builder=DataHubSystemPromptBuilder(
-            extra_instructions_override, context
+            extra_instructions_override,
+            context,
+            False,
         ),
         tools=plannable_tools.copy(),  # Will be extended with internal tools
         plannable_tools=plannable_tools,  # Subset for planning (excludes internal)
@@ -199,7 +205,7 @@ def create_ingestion_troubleshooting_agent(
         max_llm_turns=MAX_TOOL_CALLS,
         temperature=0.5,
         max_tokens=4096,
-        agent_name="Ingestion Troubleshooting",
+        agent_name="IngestionTroubleshooter",
         response_formatter=create_response_formatter(chat_type, client),
         completion_check=data_catalog_completion_check,
     )

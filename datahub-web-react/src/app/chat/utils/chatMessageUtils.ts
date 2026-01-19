@@ -29,6 +29,7 @@ export const emitMessageAnalytics = (
     userMessageIndex: number,
     totalMessageCount: number,
     chatLocation: ChatLocationType,
+    agentName?: string,
 ): void => {
     const mentions = extractReferencesFromMarkdown(messageText);
 
@@ -42,5 +43,6 @@ export const emitMessageAnalytics = (
         totalMessageCount,
         messagePreview: messageText.substring(0, 200),
         chatLocation,
+        agentName,
     });
 };

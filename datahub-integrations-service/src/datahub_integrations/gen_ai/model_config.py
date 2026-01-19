@@ -33,6 +33,7 @@ class BedrockModel(enum.Enum):
     CLAUDE_4_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-20250514-v1:0"
     # Recommended: Claude Sonnet 4.5 is the latest and most capable model
     CLAUDE_45_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    CLAUDE_45_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-haiku-4-5-20251001-v1:0"
 
     def __str__(self) -> str:
         """Return the model ID string when converted to string."""
@@ -74,6 +75,7 @@ class ModelIdentifier(enum.Enum):
     CLAUDE_4_SONNET = f"bedrock/{BedrockModel.CLAUDE_4_SONNET.value}"
     # Recommended: Claude Sonnet 4.5 is the latest and most capable model
     CLAUDE_45_SONNET = f"bedrock/{BedrockModel.CLAUDE_45_SONNET.value}"
+    CLAUDE_45_HAIKU = f"bedrock/{BedrockModel.CLAUDE_45_HAIKU.value}"
 
     # Open AI Models
     GPT_5 = "openai/gpt-5"
@@ -169,6 +171,9 @@ class ChatAssistantAIConfig(BaseModel):
     )
     summary_model: str = Field(description="Model identifier for chat summary")
     planning_mode_enabled: bool = Field(description="Whether planning mode is enabled")
+    agent_mode_to_model: Dict[str, str] = Field(
+        description="Map of agent type to model identifier (e.g., 'fast' -> model_id)"
+    )
 
 
 class TermSuggestionConfig(BaseModel):
@@ -284,10 +289,37 @@ def get_chat_assistant_config() -> ChatAssistantAIConfig:
         True,
     )
 
+    # Configure mode-specific models
+    fast_model = _get_model_value(
+        get_model_env_variable(
+            "CHATBOT_FAST_MODE_MODEL",
+            ModelIdentifier.CLAUDE_45_HAIKU,
+        )
+    )
+    auto_model = _get_model_value(
+        get_model_env_variable(
+            "CHATBOT_AUTO_MODE_MODEL",
+            ModelIdentifier.CLAUDE_45_SONNET,
+        )
+    )
+    research_model = _get_model_value(
+        get_model_env_variable(
+            "CHATBOT_RESEARCH_MODE_MODEL",
+            ModelIdentifier.CLAUDE_45_SONNET,
+        )
+    )
+
+    agent_mode_to_model = {
+        "AskDataHubFast": fast_model,
+        "AskDataHubAuto": auto_model,
+        "AskDataHubResearch": research_model,
+    }
+
     chat_assistant_config = ChatAssistantAIConfig(
         model=chat_model,
         summary_model=chat_summary_model,
         planning_mode_enabled=planning_mode_enabled,
+        agent_mode_to_model=agent_mode_to_model,
     )
 
     return chat_assistant_config

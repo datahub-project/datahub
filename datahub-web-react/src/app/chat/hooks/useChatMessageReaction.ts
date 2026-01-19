@@ -8,6 +8,7 @@ export interface UseChatMessageReactionProps {
     messageText: string | undefined;
     conversationUrn: string | undefined;
     chatLocation: ChatLocationType | undefined;
+    agentName?: string;
 }
 
 export interface UseChatMessageReactionReturn {
@@ -32,6 +33,7 @@ export function useChatMessageReaction({
     messageText,
     conversationUrn,
     chatLocation,
+    agentName,
 }: UseChatMessageReactionProps): UseChatMessageReactionReturn {
     const [reaction, setReaction] = useState<ChatMessageReactionType | null>(null);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -48,6 +50,7 @@ export function useChatMessageReaction({
                     messageId,
                     reaction: newReaction,
                     chatLocation,
+                    agentName,
                 });
             }
 
@@ -56,7 +59,7 @@ export function useChatMessageReaction({
                 setShowFeedbackModal(true);
             }
         },
-        [conversationUrn, chatLocation, messageId],
+        [conversationUrn, chatLocation, messageId, agentName],
     );
 
     const handleFeedbackSubmit = useCallback(
@@ -67,11 +70,12 @@ export function useChatMessageReaction({
                     messageId,
                     feedbackText,
                     chatLocation,
+                    agentName,
                 });
             }
             setShowFeedbackModal(false);
         },
-        [conversationUrn, chatLocation, messageId],
+        [conversationUrn, chatLocation, messageId, agentName],
     );
 
     const handleFeedbackCancel = useCallback(() => {

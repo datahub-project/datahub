@@ -156,6 +156,7 @@ export const ChatMessage: React.FC<MessageRendererProps> = ({
             messageText: message.content?.text,
             conversationUrn,
             chatLocation,
+            agentName: message.agentName ?? undefined,
         });
 
     // Memoize parsing to avoid re-parsing on every render (matches pattern used in MessageReferences)

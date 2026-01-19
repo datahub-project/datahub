@@ -51,6 +51,10 @@ public class DataHubAiConversationMessageMapper
       result.setContent(mapContent(message.getContent()));
     }
 
+    if (message.hasAgentName()) {
+      result.setAgentName(message.getAgentName());
+    }
+
     return result;
   }
 
