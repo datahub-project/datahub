@@ -58,5 +58,10 @@ export function IngestionSourceBottomPanel() {
         [isFinalStep, isCurrentStepCompleted, onSave, onSaveAndRun, isSaveAndRunInProgress],
     );
 
-    return <MultiStepFormBottomPanel renderRightButtons={renderRightButtons} />;
+    return (
+        <MultiStepFormBottomPanel
+            renderRightButtons={renderRightButtons}
+            disabledNextTooltip="Enter a name to continue"
+        />
+    );
 }
