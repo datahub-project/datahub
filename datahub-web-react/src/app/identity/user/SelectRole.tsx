@@ -1,6 +1,6 @@
 import { UserOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
-import { Select, Spin } from 'antd';
+import { Select, Spin, Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -45,6 +45,10 @@ const LoadMoreSentinel = styled.div`
 const DropdownContainer = styled.div`
     max-height: 300px;
     overflow-y: auto;
+
+    .ant-select-item-option:hover {
+        background-color: ${ANTD_GRAY[3]};
+    }
 `;
 
 export default function SelectRole({
@@ -67,8 +71,12 @@ export default function SelectRole({
     const selectOptions = allSelectRoleOptions.map((role) => {
         return (
             <Select.Option key={role.urn} value={role.urn}>
-                <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
-                {role.name}
+                <Tooltip title={role.urn} placement="right">
+                    <span>
+                        <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
+                        {role.name}
+                    </span>
+                </Tooltip>
             </Select.Option>
         );
     });
