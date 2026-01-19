@@ -12,7 +12,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 # effects of the import. For more details, see here:
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
 from geoalchemy2 import Geometry  # noqa: F401
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -205,6 +205,26 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
             "Example: ['%pg_catalog%', '%temp_%'] to exclude catalog and temp tables."
         ),
     )
+
+    @field_validator("max_queries_to_extract")
+    @classmethod
+    def validate_max_queries_to_extract(cls, v: int) -> int:
+        """Validate max_queries_to_extract is within reasonable range."""
+        if v <= 0:
+            raise ValueError("max_queries_to_extract must be positive")
+        if v > 100000:
+            raise ValueError(
+                "max_queries_to_extract must be <= 100000 to avoid performance issues"
+            )
+        return v
+
+    @field_validator("min_query_calls")
+    @classmethod
+    def validate_min_query_calls(cls, v: Optional[int]) -> Optional[int]:
+        """Validate min_query_calls is non-negative."""
+        if v is not None and v < 0:
+            raise ValueError("min_query_calls must be non-negative")
+        return v
 
 
 @platform_name("Postgres")

@@ -2,10 +2,19 @@
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.source.sql.postgres.query import PostgresQuery
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Connection
+
+    from datahub.ingestion.source.sql.postgres.source import PostgresConfig
+    from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +50,12 @@ class PostgresLineageExtractor:
 
     def __init__(
         self,
-        config,
-        connection,
-        report,
+        config: "PostgresConfig",
+        connection: "Connection",
+        report: "SQLSourceReport",
         sql_aggregator: SqlParsingAggregator,
         default_schema: str = "public",
-    ):
+    ) -> None:
         """
         Initialize lineage extractor.
 
@@ -74,6 +83,7 @@ class PostgresLineageExtractor:
         Returns:
             Tuple of (is_ready: bool, message: str)
         """
+        # Check if extension is installed
         try:
             result = self.connection.execute(
                 PostgresQuery.check_pg_stat_statements_enabled()
@@ -87,10 +97,12 @@ class PostgresLineageExtractor:
                     "Install with: CREATE EXTENSION pg_stat_statements;",
                 )
 
-        except Exception as e:
+        except (DatabaseError, OperationalError) as e:
+            # Expected: database connection issues, table doesn't exist, etc.
             logger.warning(f"Failed to check pg_stat_statements extension: {e}")
             return False, f"Extension check failed: {e}"
 
+        # Check permissions
         try:
             result = self.connection.execute(
                 PostgresQuery.check_pg_stat_statements_permissions()
@@ -110,8 +122,10 @@ class PostgresLineageExtractor:
             else:
                 logger.warning("Could not verify pg_stat_statements permissions")
 
-        except Exception as e:
+        except (DatabaseError, OperationalError) as e:
+            # Expected: permission issues, table access denied, etc.
             logger.warning(f"Failed to check permissions: {e}")
+            # Don't fail entirely on permission check failure - may still work
 
         return True, "Prerequisites met"
 
@@ -127,7 +141,7 @@ class PostgresLineageExtractor:
                 f"pg_stat_statements not ready: {message}. "
                 f"Query-based lineage will be skipped."
             )
-            self.report.report_warning(
+            self.report.report_failure(
                 key="pg_stat_statements_not_ready",
                 reason=message,
             )
@@ -169,7 +183,8 @@ class PostgresLineageExtractor:
                 self.report.num_queries_extracted = self.queries_extracted
                 return queries
 
-            except Exception as e:
+            except (DatabaseError, OperationalError, ProgrammingError) as e:
+                # Expected database errors: connection issues, permission denied, invalid SQL, etc.
                 logger.error(f"Failed to extract query history: {e}")
                 self.report.report_failure(
                     key="query_history_extraction_failed",
@@ -223,6 +238,9 @@ class PostgresLineageExtractor:
                     self.queries_parsed += 1
 
                 except Exception as e:
+                    # Broad exception is intentional: query parsing can fail in many ways
+                    # (syntax errors, unsupported statements, missing schema info, etc.)
+                    # We want to continue processing other queries rather than fail entirely
                     logger.debug(
                         f"Failed to parse query {query_entry.query_id}: {e}. "
                         f"Query: {query_entry.query_text[:100]}..."

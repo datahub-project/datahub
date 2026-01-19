@@ -1,8 +1,38 @@
 """SQL queries for Postgres query history and lineage extraction."""
 
+import re
+
 
 class PostgresQuery:
     """Utility class for Postgres-specific SQL queries."""
+
+    @staticmethod
+    def _sanitize_identifier(identifier: str) -> str:
+        """
+        Sanitize database/schema/table identifiers for safe SQL usage.
+
+        Validates that identifier only contains safe characters (alphanumeric, underscore, hyphen).
+        Raises ValueError for invalid identifiers to prevent SQL injection.
+        """
+        if not identifier:
+            raise ValueError("Identifier cannot be empty")
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", identifier):
+            raise ValueError(
+                f"Invalid identifier '{identifier}': must contain only alphanumeric characters, underscores, and hyphens"
+            )
+        return identifier
+
+    @staticmethod
+    def _escape_like_pattern(pattern: str) -> str:
+        """
+        Escape special characters in LIKE patterns to prevent SQL injection.
+
+        Escapes %, _, and backslash characters while preserving intended wildcards.
+        User-provided patterns should be wrapped in % wildcards after escaping.
+        """
+        # Escape backslash first, then other special chars
+        escaped = pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return escaped
 
     @staticmethod
     def check_pg_stat_statements_enabled() -> str:
@@ -58,20 +88,33 @@ class PostgresQuery:
         cumulative statistics since last reset, not individual executions.
 
         Args:
-            database: Filter by database name (optional)
-            limit: Maximum queries to return
-            min_calls: Minimum execution count filter
-            exclude_patterns: SQL LIKE patterns to exclude (e.g., '%pg_catalog%')
+            database: Filter by database name (optional, sanitized for SQL injection prevention)
+            limit: Maximum queries to return (must be positive integer)
+            min_calls: Minimum execution count filter (must be non-negative integer)
+            exclude_patterns: SQL LIKE patterns to exclude (e.g., 'pg_catalog', 'temp')
+                             Note: Patterns are escaped and wrapped in % wildcards automatically
 
         Returns:
             SQL query string to extract query history
+
+        Raises:
+            ValueError: If database name contains invalid characters
         """
+        # Validate numeric parameters
+        if limit <= 0 or not isinstance(limit, int):
+            raise ValueError(f"limit must be a positive integer, got: {limit}")
+        if min_calls < 0 or not isinstance(min_calls, int):
+            raise ValueError(
+                f"min_calls must be non-negative integer, got: {min_calls}"
+            )
+
         filters = [
             "s.query IS NOT NULL",
             "s.query != '<insufficient privilege>'",
             f"s.calls >= {min_calls}",
         ]
 
+        # Default patterns to exclude (no user input, safe to use directly)
         default_exclusions = [
             "pg_stat_statements",
             "information_schema",
@@ -80,14 +123,21 @@ class PostgresQuery:
             "SET ",
         ]
 
+        # User-provided patterns: escape special chars to prevent SQL injection
         if exclude_patterns:
-            default_exclusions.extend(exclude_patterns)
+            for pattern in exclude_patterns:
+                # Escape pattern and wrap in % wildcards
+                escaped = PostgresQuery._escape_like_pattern(pattern)
+                filters.append(f"s.query NOT ILIKE '%{escaped}%'")
 
+        # Default exclusions can be used directly (no user input)
         for pattern in default_exclusions:
             filters.append(f"s.query NOT ILIKE '%{pattern}%'")
 
+        # Sanitize database identifier to prevent SQL injection
         if database:
-            filters.append(f"d.datname = '{database}'")
+            safe_database = PostgresQuery._sanitize_identifier(database)
+            filters.append(f"d.datname = '{safe_database}'")
 
         where_clause = " AND ".join(filters)
 
@@ -126,17 +176,35 @@ class PostgresQuery:
 
         Args:
             query_type: SQL command type (INSERT, UPDATE, DELETE, CREATE TABLE AS, etc.)
-            database: Filter by database
-            limit: Maximum queries to return
+                       Sanitized to prevent SQL injection
+            database: Filter by database (sanitized for SQL injection prevention)
+            limit: Maximum queries to return (must be positive integer)
+
+        Raises:
+            ValueError: If query_type or database contains invalid characters
         """
+        # Validate limit
+        if limit <= 0 or not isinstance(limit, int):
+            raise ValueError(f"limit must be a positive integer, got: {limit}")
+
+        # Sanitize query_type - allow only SQL command keywords
+        # Valid examples: INSERT, UPDATE, DELETE, SELECT, CREATE TABLE AS, etc.
+        if not re.match(r"^[A-Z\s]+$", query_type.upper()):
+            raise ValueError(
+                f"Invalid query_type '{query_type}': must contain only uppercase letters and spaces"
+            )
+        safe_query_type = query_type.upper()
+
         filters = [
-            f"s.query ILIKE '{query_type}%'",
+            f"s.query ILIKE '{safe_query_type}%'",
             "s.query != '<insufficient privilege>'",
             "s.calls >= 1",
         ]
 
+        # Sanitize database identifier
         if database:
-            filters.append(f"d.datname = '{database}'")
+            safe_database = PostgresQuery._sanitize_identifier(database)
+            filters.append(f"d.datname = '{safe_database}'")
 
         where_clause = " AND ".join(filters)
 
@@ -163,7 +231,17 @@ class PostgresQuery:
 
         Uses heuristic pattern matching to extract table names from queries.
         Not 100% accurate but useful for identifying important tables.
+
+        Args:
+            limit: Maximum tables to return (must be positive integer)
+
+        Raises:
+            ValueError: If limit is not a positive integer
         """
+        # Validate limit
+        if limit <= 0 or not isinstance(limit, int):
+            raise ValueError(f"limit must be a positive integer, got: {limit}")
+
         return f"""
         WITH table_refs AS (
             SELECT
