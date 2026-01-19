@@ -37,6 +37,7 @@ from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
 )
+from datahub.ingestion.source.sql.postgres.lineage import PostgresLineageExtractor
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -47,11 +48,14 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
     MapTypeClass,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -138,7 +142,7 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
     )
 
 
-class PostgresConfig(BasePostgresConfig):
+class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -167,6 +171,39 @@ class PostgresConfig(BasePostgresConfig):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for stored procedures to filter in ingestion."
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
+
+    include_query_lineage: bool = Field(
+        default=False,
+        description=(
+            "Enable query-based lineage extraction from pg_stat_statements. "
+            "Requires the pg_stat_statements extension to be installed and enabled. "
+            "See documentation for setup instructions."
+        ),
+    )
+
+    max_queries_to_extract: int = Field(
+        default=1000,
+        description=(
+            "Maximum number of queries to extract from pg_stat_statements "
+            "for lineage analysis. Queries are prioritized by execution time and frequency."
+        ),
+    )
+
+    min_query_calls: Optional[int] = Field(
+        default=1,
+        description=(
+            "Minimum number of executions required for a query to be included. "
+            "Set higher to focus on frequently-used queries."
+        ),
+    )
+
+    query_exclude_patterns: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "SQL LIKE patterns to exclude from query extraction. "
+            "Example: ['%pg_catalog%', '%temp_%'] to exclude catalog and temp tables."
+        ),
     )
 
 
@@ -206,6 +243,19 @@ class PostgresSource(SQLAlchemySource):
                 port=port,
                 aws_config=config.aws_config,
             )
+
+        self.sql_aggregator: Optional[SqlParsingAggregator] = None
+        if self.config.include_query_lineage:
+            self.sql_aggregator = SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+                generate_lineage=True,
+                generate_queries=True,
+                generate_usage_statistics=self.config.include_usage_statistics,
+            )
+            logger.info("SQL parsing aggregator initialized for query-based lineage")
 
     def get_platform(self):
         return "postgres"
@@ -277,6 +327,9 @@ class PostgresSource(SQLAlchemySource):
             for inspector in self.get_inspectors():
                 if self.config.include_view_lineage:
                     yield from self._get_view_lineage_workunits(inspector)
+
+        if self.config.include_query_lineage and self.sql_aggregator:
+            yield from self._get_query_based_lineage_workunits()
 
     def _get_view_lineage_elements(
         self, inspector: Inspector
@@ -357,6 +410,39 @@ class PostgresSource(SQLAlchemySource):
 
             for item in mcps_from_mce(lineage_mce):
                 yield item.as_workunit()
+
+    def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract and emit query-based lineage using pg_stat_statements.
+
+        This supplements view-based lineage with lineage extracted from
+        executed queries (INSERT INTO SELECT, CTAS, etc.).
+        """
+        logger.info("Starting query-based lineage extraction from pg_stat_statements")
+
+        discovered_tables = set(self.report.tables_scanned or [])
+
+        for inspector in self.get_inspectors():
+            lineage_extractor = PostgresLineageExtractor(
+                config=self.config,
+                connection=inspector.engine.connect(),
+                report=self.report,
+                sql_aggregator=self.sql_aggregator,
+                default_schema="public",
+            )
+
+            lineage_extractor.populate_lineage_from_queries(discovered_tables)
+
+        with PerfTimer() as timer:
+            mcp_count = 0
+            for mcp in self.sql_aggregator.gen_metadata():
+                yield mcp.as_workunit()
+                mcp_count += 1
+
+        logger.info(
+            f"Generated {mcp_count} lineage workunits from queries "
+            f"in {timer.elapsed_seconds():.2f} seconds"
+        )
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
