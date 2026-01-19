@@ -46,6 +46,33 @@ table_pattern:
 
 See the [recipe documentation](https://datahubproject.io/docs/generated/ingestion/sources/doris) for additional performance tuning options.
 
+### Observability
+
+The connector provides detailed logging to help verify it's working correctly:
+
+**Successful Type Preservation:**
+
+```
+INFO  datahub.ingestion.source.sql.doris - Created Doris engine for database 'analytics' (SQLAlchemy 2.0.23, dialect: MySQLDialect_pymysql)
+INFO  datahub.ingestion.source.sql.doris - Type preservation: 3 Doris-specific columns in analytics.user_behavior
+DEBUG datahub.ingestion.source.sql.doris - Preserved Doris type for analytics.user_behavior.user_ids_hll: HLL
+DEBUG datahub.ingestion.source.sql.doris - Preserved Doris type for analytics.user_behavior.user_bitmap: BITMAP
+DEBUG datahub.ingestion.source.sql.doris - Preserved Doris type for analytics.user_behavior.percentile_data: QUANTILE_STATE
+```
+
+**Graceful Degradation (DESCRIBE failure):**
+
+```
+WARNING datahub.ingestion.source.sql.doris - DESCRIBE query failed for analytics.old_table: Table doesn't exist. Falling back to MySQL types (Doris types may show as BLOB).
+```
+
+**What to Look For:**
+
+- `"Created Doris engine..."` - Engine creation with SQLAlchemy version
+- `"Type preservation: X Doris-specific columns..."` - Confirms types are being preserved
+- `"Preserved Doris type for..."` - Individual column type preservation (debug level)
+- `"DESCRIBE query failed..."` - Fallback to MySQL types (investigate if frequent)
+
 ### Reporting Issues
 
 If you encounter bugs or compatibility issues:
@@ -70,7 +97,7 @@ If you encounter bugs or compatibility issues:
    - SQLAlchemy version
    - Error message and full stack trace
    - Sample table DDL (if related to type mapping)
-   - Relevant debug logs
+   - Relevant debug logs (especially lines with "Doris" or "Type preservation")
 
 ### Testing
 

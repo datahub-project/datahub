@@ -30,13 +30,13 @@ This connector preserves Doris-specific data types that would otherwise be lost 
 
 #### Supported Doris Versions
 
-| Doris Version | Status             | Notes                        |
-| ------------- | ------------------ | ---------------------------- |
-| 3.0.x         | ✅ Fully Supported | Tested with 3.0.8            |
-| 2.1.x         | ✅ Fully Supported | All Doris-specific types     |
-| 2.0.x         | ✅ Fully Supported | All Doris-specific types     |
-| 1.2.x         | ⚠️ Partial Support | QUANTILE_STATE not available |
-| < 1.2         | ❌ Not Recommended | Limited type support         |
+| Doris Version | Status          | Notes                        |
+| ------------- | --------------- | ---------------------------- |
+| 3.0.x         | Fully Supported | Tested with 3.0.8            |
+| 2.1.x         | Fully Supported | All Doris-specific types     |
+| 2.0.x         | Fully Supported | All Doris-specific types     |
+| 1.2.x         | Partial Support | QUANTILE_STATE not available |
+| < 1.2         | Not Recommended | Limited type support         |
 
 To check your Doris version:
 

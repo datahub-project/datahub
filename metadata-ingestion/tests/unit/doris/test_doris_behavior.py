@@ -1,4 +1,4 @@
-"""Performance and behavior tests for Doris connector."""
+"""Behavior tests for Doris connector (idempotence, patching, etc.)."""
 
 from datahub.ingestion.source import ge_data_profiler
 from datahub.ingestion.source.sql.doris import (
