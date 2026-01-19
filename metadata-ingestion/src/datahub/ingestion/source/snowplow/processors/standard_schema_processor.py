@@ -119,7 +119,11 @@ class StandardSchemaProcessor(EntityProcessor):
             uri_without_prefix = iglu_uri.replace("iglu:", "")
             vendor = uri_without_prefix.split("/")[0]
             return vendor.startswith("com.snowplowanalytics")
-        except Exception:
+        except (IndexError, AttributeError) as e:
+            logger.warning(
+                f"Failed to parse Iglu URI '{iglu_uri}' for standard schema check: {e}. "
+                f"This schema will be treated as non-standard."
+            )
             return False
 
     def _process_standard_schema(self, iglu_uri: str) -> Iterable[MetadataWorkUnit]:
@@ -187,7 +191,7 @@ class StandardSchemaProcessor(EntityProcessor):
         # Parse schema metadata if available
         schema_metadata = None
         if "properties" in schema_data:
-            from datahub.ingestion.source.snowplow.schema_parser import (
+            from datahub.ingestion.source.snowplow.utils.schema_parser import (
                 SnowplowSchemaParser,
             )
 
@@ -237,10 +241,13 @@ class StandardSchemaProcessor(EntityProcessor):
         )
         self.state.extracted_schema_urns.append(schema_urn)
 
-        # Track fields if schema metadata was parsed
-        if schema_metadata and hasattr(schema_metadata, "fields"):
-            for field in schema_metadata.fields:
-                self.state.extracted_schema_fields.append((schema_urn, field))
+        # Track fields if schema metadata was parsed (indexed by URN for O(1) lookups)
+        if (
+            schema_metadata
+            and hasattr(schema_metadata, "fields")
+            and schema_metadata.fields
+        ):
+            self.state.register_schema_fields(schema_urn, schema_metadata.fields)
             logger.info(
                 f"Tracked {len(schema_metadata.fields)} fields from standard schema {vendor}/{name}/{version}"
             )

@@ -6,9 +6,31 @@ These models provide type safety and validation for data returned from:
 - Iglu Schema Registry API
 """
 
-from typing import Any, Dict, List, Optional
+import re
+from enum import Enum
+from typing import Any, ClassVar, Dict, List, Optional, Pattern
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# ============================================
+# Enum Types for Discriminated Unions
+# ============================================
+
+
+class EventSpecFormat(str, Enum):
+    """
+    Discriminator for EventSpecification API formats.
+
+    The BDP API returns event specifications in two formats depending on the endpoint:
+    - LEGACY: List endpoint returns {eventSchemas: [{vendor, name, version}, ...]}
+    - DETAIL: Individual endpoint returns {event: {source: "iglu:..."}, entities: {...}}
+    - EMPTY: No schema information (draft specs)
+    """
+
+    LEGACY = "legacy"
+    DETAIL = "detail"
+    EMPTY = "empty"
+
 
 # ============================================
 # Authentication Models
@@ -49,6 +71,9 @@ class SchemaMetadata(BaseModel):
 class SchemaSelf(BaseModel):
     """Self-describing schema identifier (Iglu format)."""
 
+    # SchemaVer pattern: MODEL-REVISION-ADDITION (e.g., "1-0-0", "2-1-3")
+    SCHEMAVER_PATTERN: ClassVar[Pattern[str]] = re.compile(r"^\d+-\d+-\d+$")
+
     vendor: str = Field(
         description="Schema vendor (e.g., 'com.snowplowanalytics.snowplow')"
     )
@@ -57,6 +82,16 @@ class SchemaSelf(BaseModel):
     version: str = Field(description="SchemaVer version (MODEL-REVISION-ADDITION)")
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("version")
+    @classmethod
+    def validate_version_format(cls, v: str) -> str:
+        """Validate version follows SchemaVer format (MODEL-REVISION-ADDITION)."""
+        if not cls.SCHEMAVER_PATTERN.match(v):
+            raise ValueError(
+                f"Invalid SchemaVer format: '{v}'. Expected format: MODEL-REVISION-ADDITION (e.g., '1-0-0')"
+            )
+        return v
 
 
 class SchemaData(BaseModel):
@@ -84,25 +119,73 @@ class SchemaData(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class DataStructureListItem(BaseModel):
+    """
+    Data structure from BDP list endpoint.
+
+    The list endpoint (/data-structures) returns minimal information:
+    hash, vendor, and name. Full schema details require a separate detail fetch.
+    """
+
+    hash: str = Field(description="Data structure hash (unique identifier)")
+    vendor: str = Field(description="Schema vendor")
+    name: str = Field(description="Schema name")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class DataStructure(BaseModel):
-    """Complete data structure (schema) from BDP API."""
+    """
+    Complete data structure (schema) from BDP API.
+
+    Used for detail endpoint responses (/data-structures/{hash}/versions/{version})
+    which include full schema definition and metadata.
+    """
 
     hash: Optional[str] = Field(
         None, description="Data structure hash (unique identifier)"
     )
     vendor: Optional[str] = Field(None, description="Schema vendor")
     name: Optional[str] = Field(None, description="Schema name")
-    meta: Optional[SchemaMetadata] = Field(
-        None, description="Schema metadata (may be None in list responses)"
-    )
-    data: Optional[SchemaData] = Field(
-        None, description="JSON Schema definition (may be None in list responses)"
-    )
+    meta: Optional[SchemaMetadata] = Field(None, description="Schema metadata")
+    data: Optional[SchemaData] = Field(None, description="JSON Schema definition")
     deployments: List["DataStructureDeployment"] = Field(
-        default_factory=list, description="Deployment history (if included in response)"
+        default_factory=list, description="Deployment history"
     )
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @classmethod
+    def from_list_item(cls, item: DataStructureListItem) -> "DataStructure":
+        """Create a DataStructure from a list item (for enrichment with detail data)."""
+        return cls(
+            hash=item.hash,
+            vendor=item.vendor,
+            name=item.name,
+        )
+
+    def get_latest_deployment(
+        self, prefer_env: str = "PROD"
+    ) -> Optional["DataStructureDeployment"]:
+        """
+        Get the latest deployment, preferring the specified environment.
+
+        Args:
+            prefer_env: Environment to prefer (default: "PROD")
+
+        Returns:
+            The latest deployment for the preferred env, or latest overall if none
+            in preferred env. Returns None if no deployments exist.
+        """
+        if not self.deployments:
+            return None
+
+        # Prefer deployments from specified environment
+        preferred = [d for d in self.deployments if d.env == prefer_env]
+        candidates = preferred if preferred else self.deployments
+
+        # Sort by timestamp descending (handle None timestamps)
+        return max(candidates, key=lambda d: d.ts or "", default=None)
 
 
 class DataStructureVersion(BaseModel):
@@ -163,6 +246,11 @@ class EntitySchemaReference(BaseModel):
     Example: iglu:com.datahub/user/jsonschema/1-0-0
     """
 
+    # Iglu URI pattern: iglu:vendor/name/format/version
+    IGLU_URI_PATTERN: ClassVar[Pattern[str]] = re.compile(
+        r"^iglu:[a-zA-Z0-9._-]+/[a-zA-Z0-9_-]+/[a-zA-Z]+/\d+-\d+-\d+$"
+    )
+
     source: str = Field(description="Iglu URI (iglu:vendor/name/jsonschema/version)")
     min_cardinality: int = Field(
         default=0,
@@ -181,6 +269,33 @@ class EntitySchemaReference(BaseModel):
     )
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("source")
+    @classmethod
+    def validate_iglu_uri(cls, v: str) -> str:
+        """Validate source is a valid Iglu URI format."""
+        if not cls.IGLU_URI_PATTERN.match(v):
+            raise ValueError(
+                f"Invalid Iglu URI format: '{v}'. "
+                f"Expected format: iglu:vendor/name/format/version (e.g., 'iglu:com.acme/event/jsonschema/1-0-0')"
+            )
+        return v
+
+    @field_validator("min_cardinality")
+    @classmethod
+    def validate_min_cardinality(cls, v: int) -> int:
+        """Validate min_cardinality is non-negative."""
+        if v < 0:
+            raise ValueError(f"min_cardinality must be non-negative, got {v}")
+        return v
+
+    @field_validator("max_cardinality")
+    @classmethod
+    def validate_max_cardinality(cls, v: Optional[int]) -> Optional[int]:
+        """Validate max_cardinality is positive if set."""
+        if v is not None and v < 1:
+            raise ValueError(f"max_cardinality must be positive or None, got {v}")
+        return v
 
     def parse_iglu_uri(self) -> tuple[str, str, str]:
         """
@@ -221,6 +336,48 @@ class EntitiesSection(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class EventSchemaDetail(BaseModel):
+    """
+    Event schema detail from event specification API.
+
+    Used in the detail format of event specifications (individual endpoint).
+    Contains the Iglu URI source and optional schema constraints.
+
+    Note: source is optional because the API can return different event formats.
+    """
+
+    source: Optional[str] = Field(
+        None, description="Iglu URI (e.g., 'iglu:com.acme/event/jsonschema/1-0-0')"
+    )
+    schema_constraints: Optional[Dict[str, Any]] = Field(
+        None,
+        alias="schema",
+        description="JSON schema constraints for validation",
+    )
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+
+class TriggerDefinition(BaseModel):
+    """
+    Trigger definition for when an event should be sent.
+
+    Triggers define conditions under which an event specification
+    should be used by tracking implementations.
+    """
+
+    type: Optional[str] = Field(
+        None,
+        description="Trigger type (e.g., 'page_view', 'click', 'form_submit')",
+    )
+    conditions: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Conditions for when to trigger",
+    )
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+
 class EventSpecification(BaseModel):
     """
     Event specification from BDP API.
@@ -228,9 +385,19 @@ class EventSpecification(BaseModel):
     Event specifications document which event and entity schemas are used together.
     This allows creating accurate lineage showing which entities flow with which events.
 
-    API returns two formats:
-    1. List format: {"eventSchemas": [{vendor, name, version}, ...]}
-    2. Detail format: {"event": {"source": "iglu:..."}, "entities": {"tracked": [...]}}
+    API returns two formats (use `format` property to detect):
+    - LEGACY: List endpoint returns {"eventSchemas": [{vendor, name, version}, ...]}
+    - DETAIL: Individual endpoint returns {"event": {"source": "iglu:..."}, "entities": {...}}
+    - EMPTY: Draft specs with no schema information
+
+    Type-Safe Usage:
+        event_spec = get_event_specification(id)
+        if event_spec.format == EventSpecFormat.LEGACY:
+            for schema in event_spec.event_schemas:
+                process(schema.vendor, schema.name, schema.version)
+        elif event_spec.format == EventSpecFormat.DETAIL:
+            uri = event_spec.get_event_iglu_uri()
+            entities = event_spec.get_entity_iglu_uris()
     """
 
     id: str = Field(description="Event specification ID")
@@ -253,7 +420,7 @@ class EventSpecification(BaseModel):
     )
 
     # New detail format (used by individual event spec endpoint)
-    event: Optional[Dict[str, Any]] = Field(
+    event: Optional[EventSchemaDetail] = Field(
         default=None,
         description="Event schema reference with Iglu URI and optional schema (detail format: {source: 'iglu:...', schema: {...}})",
     )
@@ -263,13 +430,23 @@ class EventSpecification(BaseModel):
         description="Entity schemas attached to this event (only in detail format)",
     )
 
-    status: Optional[str] = Field(None, description="Status (draft, published, etc.)")
+    # Known status values (API may return others in future)
+    VALID_STATUSES: ClassVar[set[str]] = {
+        "draft",
+        "published",
+        "deprecated",
+        "archived",
+    }
+
+    status: Optional[str] = Field(
+        None, description="Status: draft, published, deprecated, or archived"
+    )
     created_at: Optional[str] = Field(None, alias="createdAt")
     updated_at: Optional[str] = Field(None, alias="updatedAt")
     data_product_id: Optional[str] = Field(None, alias="dataProductId")
 
     # Additional fields from BDP API
-    triggers: List[Dict[str, Any]] = Field(
+    triggers: List[TriggerDefinition] = Field(
         default_factory=list,
         description="Trigger definitions for when this event should be sent",
     )
@@ -284,28 +461,91 @@ class EventSpecification(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    # --- Format Detection ---
+
+    @property
+    def format(self) -> EventSpecFormat:
+        """
+        Detect which API format this event specification uses.
+
+        Returns:
+            EventSpecFormat.LEGACY if event_schemas list is populated
+            EventSpecFormat.DETAIL if event.source is present
+            EventSpecFormat.EMPTY if no schema information is available
+        """
+        if self.event_schemas:
+            return EventSpecFormat.LEGACY
+        if self.event and self.event.source:
+            return EventSpecFormat.DETAIL
+        return EventSpecFormat.EMPTY
+
+    def is_legacy_format(self) -> bool:
+        """Check if this uses the legacy event_schemas list format."""
+        return self.format == EventSpecFormat.LEGACY
+
+    def is_detail_format(self) -> bool:
+        """Check if this uses the detail format with Iglu URIs."""
+        return self.format == EventSpecFormat.DETAIL
+
+    def has_schema_info(self) -> bool:
+        """Check if this event spec has any schema information."""
+        return self.format != EventSpecFormat.EMPTY
+
+    # --- Type-Safe Accessors ---
+
     def get_event_iglu_uri(self) -> Optional[str]:
         """
-        Get the event Iglu URI from either format.
+        Get the event Iglu URI from detail format.
 
         Returns:
             Iglu URI string (e.g., "iglu:com.acme/checkout_started/jsonschema/1-0-0")
-            or None if not available
+            or None if not available (legacy format or empty)
         """
-        if self.event and "source" in self.event:
-            return self.event["source"]
+        if self.event and self.event.source:
+            return self.event.source
         return None
 
     def get_entity_iglu_uris(self) -> List[str]:
         """
-        Get all entity Iglu URIs attached to this event.
+        Get all entity Iglu URIs attached to this event (detail format).
 
         Returns:
-            List of Iglu URI strings
+            List of Iglu URI strings, empty list if legacy format or no entities
         """
         if not self.entities or not self.entities.tracked:
             return []
         return [entity.source for entity in self.entities.tracked]
+
+    def get_all_iglu_uris(self) -> List[str]:
+        """
+        Get all Iglu URIs from this event spec (event + entities).
+
+        Only returns URIs from detail format. For legacy format, use event_schemas directly.
+
+        Returns:
+            List of all Iglu URIs (event schema + entity schemas)
+        """
+        uris: List[str] = []
+        event_uri = self.get_event_iglu_uri()
+        if event_uri:
+            uris.append(event_uri)
+        uris.extend(self.get_entity_iglu_uris())
+        return uris
+
+    def get_schema_count(self) -> int:
+        """
+        Get total count of referenced schemas (works with both formats).
+
+        Returns:
+            Number of event + entity schemas referenced
+        """
+        if self.format == EventSpecFormat.LEGACY:
+            return len(self.event_schemas)
+        if self.format == EventSpecFormat.DETAIL:
+            count = 1 if self.get_event_iglu_uri() else 0
+            count += len(self.get_entity_iglu_uris())
+            return count
+        return 0
 
 
 class EventSpecificationsResponse(BaseModel):
@@ -337,6 +577,14 @@ class EventSpecificationsResponse(BaseModel):
 class TrackingScenario(BaseModel):
     """Tracking scenario from BDP API."""
 
+    # Known status values (API may return others in future)
+    VALID_STATUSES: ClassVar[set[str]] = {
+        "draft",
+        "published",
+        "deprecated",
+        "archived",
+    }
+
     id: str = Field(description="Tracking scenario ID")
     name: str = Field(description="Tracking scenario name")
     description: Optional[str] = Field(
@@ -347,7 +595,9 @@ class TrackingScenario(BaseModel):
         alias="eventSpecs",
         description="Event specification IDs",
     )
-    status: Optional[str] = Field(None, description="Status")
+    status: Optional[str] = Field(
+        None, description="Status: draft, published, deprecated, or archived"
+    )
     created_at: Optional[str] = Field(None, alias="createdAt")
     updated_at: Optional[str] = Field(None, alias="updatedAt")
 
@@ -410,6 +660,14 @@ class EventSpecReference(BaseModel):
 class DataProduct(BaseModel):
     """Data product from BDP API."""
 
+    # Known status values (API may return others in future)
+    VALID_STATUSES: ClassVar[set[str]] = {
+        "draft",
+        "published",
+        "deprecated",
+        "archived",
+    }
+
     id: str = Field(description="Data product ID")
     name: str = Field(description="Data product name")
     description: Optional[str] = Field(None, description="Data product description")
@@ -422,7 +680,7 @@ class DataProduct(BaseModel):
         None, alias="accessInstructions", description="Access instructions"
     )
     status: Optional[str] = Field(
-        None, description="Status (draft, published, deprecated)"
+        None, description="Status: draft, published, deprecated, or archived"
     )
     event_specs: List[EventSpecReference] = Field(
         default_factory=list,
@@ -588,6 +846,17 @@ class PipelineConfig(BaseModel):
 class Pipeline(BaseModel):
     """Pipeline from BDP API (represents a DataFlow in DataHub)."""
 
+    # Known pipeline status values from BDP API
+    VALID_STATUSES: ClassVar[set[str]] = {
+        "ready",
+        "starting",
+        "stopping",
+        "stopped",
+        "running",
+        "error",
+        "unknown",
+    }
+
     id: str = Field(description="Pipeline UUID")
     name: str = Field(description="Pipeline name")
     status: str = Field(description="Pipeline status (ready, starting, stopping, etc.)")
@@ -611,6 +880,18 @@ class Pipeline(BaseModel):
     updated_at: Optional[str] = Field(None, alias="updatedAt")
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        """Validate status is a known pipeline status, warn if unknown."""
+        import logging
+
+        if v.lower() not in cls.VALID_STATUSES:
+            logging.getLogger(__name__).warning(
+                f"Unknown pipeline status '{v}'. Known statuses: {cls.VALID_STATUSES}"
+            )
+        return v
 
 
 class PipelinesResponse(BaseModel):

@@ -5,11 +5,15 @@ Maps deployment initiators (IDs/names) to user email addresses for DataHub owner
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import requests
 
-from datahub.ingestion.source.snowplow.snowplow_models import User
+from datahub.ingestion.source.snowplow.models.snowplow_models import User
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.snowplow.snowplow_client import SnowplowBDPClient
+    from datahub.ingestion.source.snowplow.snowplow_report import SnowplowSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +26,20 @@ class UserResolver:
     efficient lookup during ownership resolution.
     """
 
-    def __init__(self, bdp_client):
+    def __init__(
+        self,
+        bdp_client: Optional["SnowplowBDPClient"],
+        report: Optional["SnowplowSourceReport"] = None,
+    ) -> None:
         """
         Initialize user resolver with BDP client.
 
         Args:
             bdp_client: SnowplowBDPClient instance or None
+            report: Optional report for tracking warnings
         """
         self.bdp_client = bdp_client
+        self.report = report
         self._user_cache: Dict[str, User] = {}
         self._user_name_cache: Dict[str, List[User]] = {}
 
@@ -71,9 +81,20 @@ class UserResolver:
                 f"Failed to load users for ownership resolution: {e}. "
                 f"Ownership tracking will use initiator names directly."
             )
+            if self.report:
+                self.report.report_warning(
+                    "user_loading",
+                    f"Could not load users from BDP API: {e}. "
+                    "Ownership will use initiator names instead of emails.",
+                )
         except Exception as e:
             # Unexpected error - indicates a bug
             logger.error(f"Unexpected error loading users: {e}", exc_info=True)
+            if self.report:
+                self.report.report_failure(
+                    "user_loading",
+                    f"Unexpected error loading users: {e}. This may indicate a bug.",
+                )
 
     def resolve_user_email(
         self, initiator_id: Optional[str], initiator_name: Optional[str]

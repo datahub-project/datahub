@@ -178,6 +178,9 @@ class FieldTagger:
         dataset_urn: str,
         field: SchemaFieldClass,
         context: FieldTagContext,
+        field_properties_cache: Optional[
+            dict[str, List[StructuredPropertyValueAssignmentClass]]
+        ] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate structured properties for a schema field.
@@ -186,6 +189,8 @@ class FieldTagger:
             dataset_urn: URN of the parent dataset
             field: The schema field
             context: Field tagging context with authorship and classification info
+            field_properties_cache: Optional dict to store properties by field_path
+                for later propagation to event_spec datasets
 
         Yields:
             MetadataWorkUnit containing structured properties for the field
@@ -269,6 +274,10 @@ class FieldTagger:
 
         if not properties:
             return
+
+        # Store properties in cache for later propagation to event_spec datasets
+        if field_properties_cache is not None:
+            field_properties_cache[field.fieldPath] = properties
 
         # Create SchemaField URN
         schema_field_urn = make_schema_field_urn(dataset_urn, field.fieldPath)

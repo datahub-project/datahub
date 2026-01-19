@@ -5,15 +5,19 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.ingestion.source.snowplow.builders.urn_factory import SnowplowURNFactory
+from datahub.ingestion.source.snowplow.dependencies import IngestionState
 from datahub.ingestion.source.snowplow.services.parsed_events_builder import (
     ParsedEventsBuilder,
 )
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    NumberTypeClass,
     SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    StringTypeClass,
     SubTypesClass,
 )
 
@@ -37,16 +41,8 @@ class TestParsedEventsBuilder:
 
     @pytest.fixture
     def state(self):
-        """Create mock state."""
-        state = Mock()
-        state.event_spec_id = None
-        state.event_spec_name = None
-        state.first_event_schema_vendor = None
-        state.first_event_schema_name = None
-        state.atomic_event_fields = []
-        state.extracted_schema_fields = []
-        state.parsed_events_urn = None
-        return state
+        """Create real IngestionState - tests actual method implementations."""
+        return IngestionState()
 
     @pytest.fixture
     def builder(self, config, urn_factory, state):
@@ -135,25 +131,24 @@ class TestParsedEventsBuilder:
         atomic_field = SchemaFieldClass(
             fieldPath="app_id",
             nativeDataType="STRING",
-            type=Mock(),
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
         )
         state.atomic_event_fields = [atomic_field]
 
-        # Setup custom schema fields (stored as tuples of (urn, field))
+        # Setup custom schema fields using the real register_schema_fields method
         custom_field1 = SchemaFieldClass(
             fieldPath="checkout_total",
             nativeDataType="DOUBLE",
-            type=Mock(),
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
         )
         custom_field2 = SchemaFieldClass(
             fieldPath="user_email",
             nativeDataType="STRING",
-            type=Mock(),
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
         )
-        state.extracted_schema_fields = [
-            ("urn:li:dataset:1", custom_field1),
-            ("urn:li:dataset:2", custom_field2),
-        ]
+        # Use real method - fields indexed by schema URN
+        state.register_schema_fields("urn:li:dataset:schema1", [custom_field1])
+        state.register_schema_fields("urn:li:dataset:schema2", [custom_field2])
 
         workunits = list(builder.create_parsed_events_dataset())
 
@@ -171,8 +166,7 @@ class TestParsedEventsBuilder:
 
     def test_schema_metadata_handles_no_fields(self, builder, state):
         """Test graceful handling when no schema fields available."""
-        state.atomic_event_fields = []
-        state.extracted_schema_fields = []
+        # IngestionState initializes with empty collections by default
 
         workunits = list(builder.create_parsed_events_dataset())
 
@@ -291,24 +285,32 @@ class TestParsedEventsBuilder:
         aspect_types = {type(wu.metadata.aspect) for wu in workunits}
         assert ContainerClass not in aspect_types
 
-    def test_schema_field_extraction_from_tuples(self, builder, state):
-        """Test that custom schema fields are correctly extracted from (urn, field) tuples."""
-        # Setup complex schema field tuples
+    def test_schema_field_extraction_from_multiple_schemas(self, builder, state):
+        """Test that fields from multiple schemas are correctly aggregated."""
+        # Setup fields from different schemas
         field1 = SchemaFieldClass(
             fieldPath="nested.field1",
             nativeDataType="STRING",
-            type=Mock(),
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
         )
         field2 = SchemaFieldClass(
             fieldPath="array_field[*]",
             nativeDataType="INTEGER",
-            type=Mock(),
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
         )
 
-        state.extracted_schema_fields = [
-            ("urn:li:dataset:(urn:li:dataPlatform:snowplow,schema1,PROD)", field1),
-            ("urn:li:dataset:(urn:li:dataPlatform:snowplow,schema2,PROD)", field2),
-        ]
+        # Register fields under different schema URNs using real method
+        state.register_schema_fields(
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,schema1,PROD)", [field1]
+        )
+        state.register_schema_fields(
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,schema2,PROD)", [field2]
+        )
+
+        # Verify the accessor methods work correctly
+        assert state.get_extracted_fields_count() == 2
+        all_fields = state.get_all_extracted_fields()
+        assert len(all_fields) == 2
 
         workunits = list(builder.create_parsed_events_dataset())
 

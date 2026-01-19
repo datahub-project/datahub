@@ -21,7 +21,7 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.utils import (
     camel_to_snake,
     make_field_urn,
 )
-from datahub.ingestion.source.snowplow.snowplow_models import (
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
     Enrichment,
     EnrichmentContent,
     EnrichmentContentData,

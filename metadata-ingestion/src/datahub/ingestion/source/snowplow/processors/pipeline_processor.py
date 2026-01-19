@@ -20,12 +20,12 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_user_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
-from datahub.ingestion.source.snowplow.snowplow_models import (
+from datahub.ingestion.source.snowplow.constants import WAREHOUSE_PLATFORM_MAP
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
     Enrichment,
 )
+from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStampClass
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -48,127 +48,6 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
-
-# Warehouse platform mapping from Snowplow destination types to DataHub platforms
-WAREHOUSE_PLATFORM_MAP = {
-    "snowflake": "snowflake",
-    "bigquery": "bigquery",
-    "redshift": "redshift",
-    "databricks": "databricks",
-    "postgres": "postgres",
-    "postgresql": "postgres",
-}
-
-# Standard Snowplow event columns (non-enriched fields)
-# Reference: https://docs.snowplow.io/docs/fundamentals/canonical-event/
-SNOWPLOW_STANDARD_COLUMNS = [
-    "app_id",
-    "platform",
-    "etl_tstamp",
-    "collector_tstamp",
-    "dvce_created_tstamp",
-    "event",
-    "event_id",
-    "txn_id",
-    "name_tracker",
-    "v_tracker",
-    "v_collector",
-    "v_etl",
-    "user_id",
-    "user_ipaddress",
-    "user_fingerprint",
-    "domain_userid",
-    "domain_sessionidx",
-    "network_userid",
-    "geo_country",
-    "geo_region",
-    "geo_city",
-    "geo_zipcode",
-    "geo_latitude",
-    "geo_longitude",
-    "geo_region_name",
-    "ip_isp",
-    "ip_organization",
-    "ip_domain",
-    "ip_netspeed",
-    "page_url",
-    "page_title",
-    "page_referrer",
-    "page_urlscheme",
-    "page_urlhost",
-    "page_urlport",
-    "page_urlpath",
-    "page_urlquery",
-    "page_urlfragment",
-    "refr_urlscheme",
-    "refr_urlhost",
-    "refr_urlport",
-    "refr_urlpath",
-    "refr_urlquery",
-    "refr_urlfragment",
-    "refr_medium",
-    "refr_source",
-    "refr_term",
-    "mkt_medium",
-    "mkt_source",
-    "mkt_term",
-    "mkt_content",
-    "mkt_campaign",
-    "se_category",
-    "se_action",
-    "se_label",
-    "se_property",
-    "se_value",
-    "tr_orderid",
-    "tr_affiliation",
-    "tr_total",
-    "tr_tax",
-    "tr_shipping",
-    "tr_city",
-    "tr_state",
-    "tr_country",
-    "ti_orderid",
-    "ti_sku",
-    "ti_name",
-    "ti_category",
-    "ti_price",
-    "ti_quantity",
-    "pp_xoffset_min",
-    "pp_xoffset_max",
-    "pp_yoffset_min",
-    "pp_yoffset_max",
-    "useragent",
-    "br_name",
-    "br_family",
-    "br_version",
-    "br_type",
-    "br_renderengine",
-    "br_lang",
-    "br_features_pdf",
-    "br_features_flash",
-    "br_features_java",
-    "br_features_director",
-    "br_features_quicktime",
-    "br_features_realplayer",
-    "br_features_windowsmedia",
-    "br_features_gears",
-    "br_features_silverlight",
-    "br_cookies",
-    "br_colordepth",
-    "br_viewwidth",
-    "br_viewheight",
-    "os_name",
-    "os_family",
-    "os_manufacturer",
-    "os_timezone",
-    "dvce_type",
-    "dvce_ismobile",
-    "dvce_screenwidth",
-    "dvce_screenheight",
-    "doc_charset",
-    "doc_width",
-    "doc_height",
-]
 
 
 class PipelineProcessor(EntityProcessor):
@@ -244,16 +123,44 @@ class PipelineProcessor(EntityProcessor):
             # Cache physical pipeline info for later use by enrichments
             self.state.physical_pipeline = default_pipeline
 
-            # Create DataFlow for each event specification that has entity data
+            # Determine if we should filter event specs based on EventSpecProcessor output
+            # When extract_event_specifications is enabled, EventSpecProcessor runs first and
+            # populates emitted_event_spec_ids. We should only process those event specs.
+            # When extract_event_specifications is disabled, we process ALL event specs.
+            filter_by_event_spec_processor = (
+                self.config.extract_event_specifications
+                and self.state.emitted_event_spec_ids
+            )
+
+            # Create DataFlow for each event specification
             for event_spec in event_specs:
-                # Only create DataFlow if event specification has entity information
-                # (otherwise it's just documentation without lineage value)
+                # Filter to match EventSpecProcessor's filter (only when that processor is enabled)
+                if (
+                    filter_by_event_spec_processor
+                    and event_spec.id not in self.state.emitted_event_spec_ids
+                ):
+                    logger.debug(
+                        f"Skipping event spec {event_spec.name} - not in emitted event specs"
+                    )
+                    continue
+
+                # Get event URI from DETAIL format, or derive from LEGACY format
                 event_iglu_uri = event_spec.get_event_iglu_uri()
                 entity_iglu_uris = event_spec.get_entity_iglu_uris()
 
+                # For LEGACY format (no event.source), derive identifier from first event schema
+                if not event_iglu_uri and event_spec.event_schemas:
+                    first_schema = event_spec.event_schemas[0]
+                    # Create a pseudo-URI from the first event schema
+                    event_iglu_uri = f"iglu:{first_schema.vendor}/{first_schema.name}/jsonschema/{first_schema.version}"
+                    logger.debug(
+                        f"Using LEGACY format for event spec {event_spec.name}: {event_iglu_uri}"
+                    )
+
+                # Skip event specs with no schema information at all
                 if not event_iglu_uri:
                     logger.debug(
-                        f"Skipping event spec {event_spec.name} - no event URI found"
+                        f"Skipping event spec {event_spec.name} - no event schema information"
                     )
                     continue
 
@@ -271,6 +178,12 @@ class PipelineProcessor(EntityProcessor):
 
                 # Store mapping for enrichment extraction
                 self.state.event_spec_dataflow_urns[event_spec.id] = dataflow_urn
+
+                # Also register the event spec ID so enrichments can be extracted
+                # This is needed when extract_event_specifications is disabled but
+                # extract_pipelines is enabled - we still need to track which event specs
+                # were processed for enrichment creation
+                self.state.emitted_event_spec_ids.add(event_spec.id)
 
                 # Build custom properties
                 custom_properties = {
@@ -316,34 +229,27 @@ class PipelineProcessor(EntityProcessor):
                 if default_pipeline:
                     description += f" (Pipeline: {pipeline_name})"
 
-                # Emit DataFlow info
-                dataflow_info = DataFlowInfoClass(
-                    name=f"{event_spec.name} ({pipeline_name})",  # Include pipeline name for clarity
-                    description=description,
-                    customProperties=custom_properties,
-                )
-
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataflow_urn,
-                    aspect=dataflow_info,
-                ).as_workunit()
-
-                # Emit status
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataflow_urn,
-                    aspect=StatusClass(removed=False),
-                ).as_workunit()
-
-                # Link to organization container
+                # Build container aspect conditionally
+                container_aspect = None
                 if self.config.bdp_connection:
                     org_container_urn = self.urn_factory.make_organization_urn(
                         self.config.bdp_connection.organization_id
                     )
                     container_aspect = ContainerClass(container=org_container_urn)
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dataflow_urn,
-                        aspect=container_aspect,
-                    ).as_workunit()
+
+                # Emit all DataFlow aspects using SDK V2 batching pattern
+                yield from self.emit_aspects(
+                    entity_urn=dataflow_urn,
+                    aspects=[
+                        DataFlowInfoClass(
+                            name=f"{event_spec.name} ({pipeline_name})",
+                            description=description,
+                            customProperties=custom_properties,
+                        ),
+                        StatusClass(removed=False),
+                        container_aspect,
+                    ],
+                )
 
                 logger.debug(
                     f"Extracted event-specific DataFlow: {event_spec.name} (event_spec_id={event_spec.id})"
@@ -606,41 +512,40 @@ class PipelineProcessor(EntityProcessor):
         # Store for enrichments to use
         self.state.pipeline_dataflow_urn = pipeline_dataflow_urn
 
-        # Emit DataFlow info
-        dataflow_info = DataFlowInfoClass(
-            name=f"Snowplow Pipeline ({self.state.physical_pipeline.name})",
-            description=(
-                f"Snowplow event processing pipeline for {self.state.physical_pipeline.name}.\n\n"
-                "This pipeline processes events through:\n"
-                "1. **Atomic Event**: Standard Snowplow atomic event fields\n"
-                "2. **Schemas**: Event and entity schemas define custom fields\n"
-                "3. **Event Specs**: Combine Atomic Event + Schemas (superset of all fields)\n"
-                "4. **Enrichments**: Add computed fields (IP Lookup, UA Parser, Campaign Attribution, etc.)\n"
-                "5. **Loader**: Writes enriched data to warehouse\n\n"
-                "Flow: Atomic Event + Schemas → Event Specs → Enrichments → Warehouse"
-            ),
-            customProperties={
-                "pipelineId": self.state.physical_pipeline.id,
-                "pipelineName": self.state.physical_pipeline.name,
-                "platform": "snowplow",
-                "eventSpecCount": str(len(self.state.emitted_event_spec_urns)),
-            },
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=pipeline_dataflow_urn,
-            aspect=dataflow_info,
-        ).as_workunit()
-
-        # Emit container (organization)
+        # Build container aspect conditionally
+        container_aspect = None
         if self.config.bdp_connection:
             org_container_urn = self.urn_factory.make_organization_urn(
                 self.config.bdp_connection.organization_id
             )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=pipeline_dataflow_urn,
-                aspect=ContainerClass(container=org_container_urn),
-            ).as_workunit()
+            container_aspect = ContainerClass(container=org_container_urn)
+
+        # Emit all DataFlow aspects using SDK V2 batching pattern
+        yield from self.emit_aspects(
+            entity_urn=pipeline_dataflow_urn,
+            aspects=[
+                DataFlowInfoClass(
+                    name=f"Snowplow Pipeline ({self.state.physical_pipeline.name})",
+                    description=(
+                        f"Snowplow event processing pipeline for {self.state.physical_pipeline.name}.\n\n"
+                        "This pipeline processes events through:\n"
+                        "1. **Atomic Event**: Standard Snowplow atomic event fields\n"
+                        "2. **Schemas**: Event and entity schemas define custom fields\n"
+                        "3. **Event Specs**: Combine Atomic Event + Schemas (superset of all fields)\n"
+                        "4. **Enrichments**: Add computed fields (IP Lookup, UA Parser, Campaign Attribution, etc.)\n"
+                        "5. **Loader**: Writes enriched data to warehouse\n\n"
+                        "Flow: Atomic Event + Schemas → Event Specs → Enrichments → Warehouse"
+                    ),
+                    customProperties={
+                        "pipelineId": self.state.physical_pipeline.id,
+                        "pipelineName": self.state.physical_pipeline.name,
+                        "platform": "snowplow",
+                        "eventSpecCount": str(len(self.state.emitted_event_spec_urns)),
+                    },
+                ),
+                container_aspect,
+            ],
+        )
 
         logger.info(
             f"✅ Created Pipeline DataFlow for {len(self.state.emitted_event_spec_urns)} event spec(s)"
@@ -713,21 +618,10 @@ class PipelineProcessor(EntityProcessor):
                 fine_grained_lineages=fine_grained_lineages,
             )
 
-        # Emit DataJob info
-        datajob_info = DataJobInfoClass(
-            name=enrichment_name,
-            type="ENRICHMENT",
-            description=description,
-            customProperties=custom_properties,
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob_urn,
-            aspect=datajob_info,
-        ).as_workunit()
-
-        # Emit ownership if configured
+        # Build ownership aspect conditionally
+        ownership_aspect = None
         if self.config.enrichment_owner:
-            ownership = OwnershipClass(
+            ownership_aspect = OwnershipClass(
                 owners=[
                     OwnerClass(
                         owner=make_user_urn(self.config.enrichment_owner),
@@ -739,32 +633,31 @@ class PipelineProcessor(EntityProcessor):
                     actor=make_user_urn("datahub"),
                 ),
             )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=datajob_urn,
-                aspect=ownership,
-            ).as_workunit()
 
-        # Emit status
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
-
-        # Emit input/output lineage
-        # Input: Event Spec datasets (each contains all fields from its referenced schemas)
-        # Output: Warehouse table (with enriched fields added)
+        # Build input/output lineage
         output_datasets = [warehouse_table_urn] if warehouse_table_urn else []
-        datajob_input_output = DataJobInputOutputClass(
-            inputDatasets=input_dataset_urns,
-            outputDatasets=output_datasets,
-            fineGrainedLineages=fine_grained_lineages
-            if fine_grained_lineages
-            else None,
+
+        # Emit all DataJob aspects using SDK V2 batching pattern
+        yield from self.emit_aspects(
+            entity_urn=datajob_urn,
+            aspects=[
+                DataJobInfoClass(
+                    name=enrichment_name,
+                    type="ENRICHMENT",
+                    description=description,
+                    customProperties=custom_properties,
+                ),
+                ownership_aspect,
+                StatusClass(removed=False),
+                DataJobInputOutputClass(
+                    inputDatasets=input_dataset_urns,
+                    outputDatasets=output_datasets,
+                    fineGrainedLineages=fine_grained_lineages
+                    if fine_grained_lineages
+                    else None,
+                ),
+            ],
         )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob_urn,
-            aspect=datajob_input_output,
-        ).as_workunit()
 
         if warehouse_table_urn:
             logger.debug(
@@ -799,51 +692,38 @@ class PipelineProcessor(EntityProcessor):
             job_id="loader",
         )
 
-        # Emit DataJob info
-        datajob_info = DataJobInfoClass(
-            name="Loader",
-            type="BATCH_SCHEDULED",
-            description=(
-                "Snowplow Loader that writes enriched events to the data warehouse.\n\n"
-                "**Input**: Event Spec datasets (all fields from schemas + enriched fields)\n"
-                "**Output**: Data warehouse table (e.g., Snowflake atomic.events)\n\n"
-                "The Loader stage runs periodically and writes all processed events to the warehouse "
-                "where they can be queried by analytics tools."
-            ),
-            customProperties={
-                "pipelineId": self.state.physical_pipeline.id
-                if self.state.physical_pipeline
-                else "unknown",
-                "pipelineName": self.state.physical_pipeline.name
-                if self.state.physical_pipeline
-                else "unknown",
-                "stage": "loader",
-            },
+        # Emit all Loader DataJob aspects using SDK V2 batching pattern
+        yield from self.emit_aspects(
+            entity_urn=datajob_urn,
+            aspects=[
+                DataJobInfoClass(
+                    name="Loader",
+                    type="BATCH_SCHEDULED",
+                    description=(
+                        "Snowplow Loader that writes enriched events to the data warehouse.\n\n"
+                        "**Input**: Event Spec datasets (all fields from schemas + enriched fields)\n"
+                        "**Output**: Data warehouse table (e.g., Snowflake atomic.events)\n\n"
+                        "The Loader stage runs periodically and writes all processed events to the warehouse "
+                        "where they can be queried by analytics tools."
+                    ),
+                    customProperties={
+                        "pipelineId": self.state.physical_pipeline.id
+                        if self.state.physical_pipeline
+                        else "unknown",
+                        "pipelineName": self.state.physical_pipeline.name
+                        if self.state.physical_pipeline
+                        else "unknown",
+                        "stage": "loader",
+                    },
+                ),
+                DataJobInputOutputClass(
+                    inputDatasets=input_dataset_urns,
+                    outputDatasets=[warehouse_table_urn],
+                    fineGrainedLineages=None,
+                ),
+                StatusClass(removed=False),
+            ],
         )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob_urn,
-            aspect=datajob_info,
-        ).as_workunit()
-
-        # Emit input/output lineage
-        # The Loader passes all fields from Event Spec datasets to warehouse table
-        datajob_input_output = DataJobInputOutputClass(
-            inputDatasets=input_dataset_urns,
-            outputDatasets=[warehouse_table_urn],
-            fineGrainedLineages=None,  # Could add field-level lineage here in future
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob_urn,
-            aspect=datajob_input_output,
-        ).as_workunit()
-
-        # Emit status
-        yield MetadataChangeProposalWrapper(
-            entityUrn=datajob_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
 
         logger.info(f"✅ Created Loader job: Event → {warehouse_table_urn}")
 

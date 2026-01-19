@@ -14,12 +14,11 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 import requests
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
-from datahub.ingestion.source.snowplow.snowplow_models import (
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataStructure,
-    DataStructureDeployment,
     IgluSchema,
 )
+from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.dependencies import (
@@ -115,7 +114,12 @@ class SchemaProcessor(EntityProcessor):
 
         # Fetch deployment history if needed
         if self.config.field_tagging.track_field_versions:
-            self._fetch_deployments(data_structures)
+            if self.deps.deployment_fetcher:
+                self.deps.deployment_fetcher.fetch_deployments(data_structures)
+            else:
+                logger.warning(
+                    "Deployment fetcher not configured, skipping deployment history"
+                )
             # Build field version mappings for description updates
             if self.config.field_tagging.tag_schema_version:
                 self._build_field_version_mappings(data_structures)
@@ -157,104 +161,6 @@ class SchemaProcessor(EntityProcessor):
                 exc=e,
             )
             return []
-
-    def _fetch_deployments(self, data_structures: List[DataStructure]) -> None:
-        """Fetch deployment history for all schemas (parallel or sequential)."""
-        logger.info(
-            "Field version tracking enabled - fetching full deployment history for all schemas"
-        )
-
-        schemas_needing_deployments = [ds for ds in data_structures if ds.hash]
-
-        if (
-            self.config.performance.enable_parallel_fetching
-            and len(schemas_needing_deployments) > 1
-        ):
-            self._fetch_deployments_parallel(schemas_needing_deployments)
-        else:
-            self._fetch_deployments_sequential(schemas_needing_deployments)
-
-    def _fetch_deployments_parallel(self, schemas: List[DataStructure]) -> None:
-        """Fetch deployments in parallel using ThreadPoolExecutor."""
-        max_workers = self.config.performance.max_concurrent_api_calls
-        logger.info(
-            f"Fetching deployments in parallel (max_workers={max_workers}) "
-            f"for {len(schemas)} schemas"
-        )
-
-        def fetch_deployments_for_schema(
-            ds: DataStructure,
-        ) -> Tuple[
-            str, str, Optional[List[DataStructureDeployment]], Optional[Exception]
-        ]:
-            """
-            Fetch deployments for a schema without mutating the object.
-
-            Returns:
-                Tuple of (vendor, name, deployments, error)
-            """
-            try:
-                if self.deps.bdp_client and ds.hash:
-                    deployments = self.deps.bdp_client.get_data_structure_deployments(
-                        ds.hash
-                    )
-                    logger.debug(
-                        f"Fetched {len(deployments) if deployments else 0} deployments "
-                        f"for {ds.vendor}/{ds.name}"
-                    )
-                    return ds.vendor or "", ds.name or "", deployments, None
-                return ds.vendor or "", ds.name or "", None, None
-            except Exception as e:
-                return ds.vendor or "", ds.name or "", None, e
-
-        # Collect results from all threads
-        deployment_map: Dict[str, Optional[List[DataStructureDeployment]]] = {}
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(fetch_deployments_for_schema, ds) for ds in schemas
-            ]
-
-            for future in as_completed(futures):
-                vendor, name, deployments, error = future.result()
-                if error:
-                    logger.warning(
-                        f"Failed to fetch deployments for {vendor}/{name}: {error}"
-                    )
-                else:
-                    # Store in map for later assignment
-                    deployment_map[f"{vendor}/{name}"] = deployments
-
-        # Safely update all schemas in single thread after all fetches complete
-        for ds in schemas:
-            schema_key = f"{ds.vendor}/{ds.name}"
-            if schema_key in deployment_map:
-                deployments = deployment_map[schema_key]
-                if deployments is not None:
-                    ds.deployments = deployments
-
-        logger.info(
-            f"Completed parallel deployment fetching for {len(schemas)} schemas "
-            f"({len(deployment_map)} successful)"
-        )
-
-    def _fetch_deployments_sequential(self, schemas: List[DataStructure]) -> None:
-        """Fetch deployments sequentially."""
-        if not self.deps.bdp_client:
-            return
-        for ds in schemas:
-            try:
-                if ds.hash:
-                    deployments = self.deps.bdp_client.get_data_structure_deployments(
-                        ds.hash
-                    )
-                    ds.deployments = deployments
-                    logger.debug(
-                        f"Fetched {len(deployments)} deployments for {ds.vendor}/{ds.name}"
-                    )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to fetch deployments for {ds.vendor}/{ds.name}: {e}"
-                )
 
     def _filter_by_deployed_since(
         self, data_structures: List[DataStructure]
@@ -436,7 +342,7 @@ class SchemaProcessor(EntityProcessor):
             version: Schema version
         """
         from datahub.ingestion.source.snowplow.constants import infer_schema_type
-        from datahub.ingestion.source.snowplow.schema_parser import (
+        from datahub.ingestion.source.snowplow.utils.schema_parser import (
             SnowplowSchemaParser,
         )
         from datahub.metadata.schema_classes import StatusClass
@@ -529,97 +435,6 @@ class SchemaProcessor(EntityProcessor):
         # Track extracted schema
         self.state.extracted_schema_urns.append(str(dataset.urn))
         self.report.report_schema_extracted(schema_type)
-
-    def _fetch_full_schema_definition(
-        self, data_structure: DataStructure
-    ) -> DataStructure:
-        """
-        Fetch full schema definition if only minimal info available.
-
-        Args:
-            data_structure: Data structure from BDP API
-
-        Returns:
-            Updated data structure with full schema definition (if available)
-        """
-        if (
-            data_structure.data is not None
-            or not data_structure.hash
-            or not self.deps.bdp_client
-        ):
-            return data_structure
-
-        if not data_structure.deployments:
-            logger.warning(
-                f"No deployments found for {data_structure.vendor}/{data_structure.name}, cannot determine version to fetch"
-            )
-            return data_structure
-
-        # Use version from most recent PROD deployment, fall back to any deployment
-        prod_deployments = [d for d in data_structure.deployments if d.env == "PROD"]
-        if prod_deployments:
-            latest_deployment = sorted(
-                prod_deployments, key=lambda d: d.ts or "", reverse=True
-            )[0]
-        else:
-            latest_deployment = sorted(
-                data_structure.deployments,
-                key=lambda d: d.ts or "",
-                reverse=True,
-            )[0]
-
-        version = latest_deployment.version
-        env = latest_deployment.env
-
-        logger.info(
-            f"Fetching schema definition for {data_structure.vendor}/{data_structure.name} version {version} from {env}"
-        )
-
-        # Fetch using the /versions/{version} endpoint which returns full schema
-        full_structure = self.deps.bdp_client.get_data_structure_version(
-            data_structure.hash, version, env
-        )
-
-        if full_structure and full_structure.data:
-            logger.info(
-                f"Successfully fetched schema definition with {len(full_structure.data.properties or {})} properties"
-            )
-            # Preserve metadata from list response
-            full_structure.meta = data_structure.meta
-            full_structure.deployments = data_structure.deployments
-            return full_structure
-        else:
-            logger.warning(
-                f"Could not fetch schema definition for {data_structure.hash}/{version}, skipping field-level metadata"
-            )
-            return data_structure
-
-    def _get_schema_version(self, data_structure: DataStructure) -> Optional[str]:
-        """
-        Extract schema version from data structure.
-
-        Args:
-            data_structure: Data structure from BDP API
-
-        Returns:
-            Schema version string, or None if cannot be determined
-        """
-        # Get version from schema definition if available
-        if data_structure.data:
-            return data_structure.data.self_descriptor.version
-
-        # Otherwise use version from latest deployment
-        if data_structure.deployments:
-            sorted_deployments = sorted(
-                data_structure.deployments, key=lambda d: d.ts or "", reverse=True
-            )
-            version = sorted_deployments[0].version
-            logger.info(
-                f"Schema definition missing, using version from latest deployment: {version}"
-            )
-            return version
-
-        return None
 
     def _process_data_structure(
         self, data_structure: DataStructure

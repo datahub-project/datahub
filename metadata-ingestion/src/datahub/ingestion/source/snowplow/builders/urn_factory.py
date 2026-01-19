@@ -7,21 +7,22 @@ across the connector.
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
 )
-from datahub.ingestion.source.snowplow.container_keys import (
+from datahub.ingestion.source.snowplow.builders.container_keys import (
     SnowplowOrganizationKey,
     SnowplowTrackingScenarioKey,
 )
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
-
-if TYPE_CHECKING:
-    pass  # No TYPE_CHECKING imports needed now
+from datahub.ingestion.source.snowplow.types import (
+    ContainerURN,
+    DatasetURN,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class SnowplowURNFactory:
         self.platform = platform
         self.config = config
 
-    def make_organization_urn(self, org_id: str) -> str:
+    def make_organization_urn(self, org_id: str) -> ContainerURN:
         """
         Generate URN for organization container.
 
@@ -72,9 +73,14 @@ class SnowplowURNFactory:
             instance=self.config.platform_instance,
             env=self.config.env,
         )
-        return org_key.as_urn()
+        return ContainerURN(org_key.as_urn())
 
-    def make_schema_dataset_urn(self, vendor: str, name: str, version: str) -> str:
+    def make_schema_dataset_urn(
+        self,
+        vendor: str,
+        name: str,
+        version: str,
+    ) -> DatasetURN:
         """
         Generate dataset URN for schema.
 
@@ -99,14 +105,16 @@ class SnowplowURNFactory:
             # New behavior: version in properties only
             dataset_name = f"{vendor}.{name}".replace("/", ".")
 
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
+        return DatasetURN(
+            make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=dataset_name,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
         )
 
-    def make_event_spec_dataset_urn(self, event_spec_id: str) -> str:
+    def make_event_spec_dataset_urn(self, event_spec_id: str) -> DatasetURN:
         """
         Generate dataset URN for event specification.
 
@@ -116,14 +124,16 @@ class SnowplowURNFactory:
         Returns:
             Dataset URN for event specification
         """
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=f"event_spec.{event_spec_id}",
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
+        return DatasetURN(
+            make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=f"event_spec.{event_spec_id}",
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
         )
 
-    def make_tracking_scenario_urn(self, scenario_id: str) -> str:
+    def make_tracking_scenario_urn(self, scenario_id: str) -> ContainerURN:
         """
         Generate container URN for tracking scenario.
 
@@ -135,7 +145,7 @@ class SnowplowURNFactory:
         """
         if not self.config.bdp_connection:
             # Fallback for non-BDP mode (shouldn't happen)
-            return make_container_urn(f"snowplow_scenario_{scenario_id}")
+            return ContainerURN(make_container_urn(f"snowplow_scenario_{scenario_id}"))
 
         org_id = self.config.bdp_connection.organization_id
         scenario_key = SnowplowTrackingScenarioKey(
@@ -145,14 +155,14 @@ class SnowplowURNFactory:
             instance=self.config.platform_instance,
             env=self.config.env,
         )
-        return scenario_key.as_urn()
+        return ContainerURN(scenario_key.as_urn())
 
     def construct_warehouse_urn(
         self,
         query_engine: str,
         table_name: str,
         destination_id: Optional[str] = None,
-    ) -> str:
+    ) -> DatasetURN:
         """
         Construct warehouse table URN with optional platform instance.
 
@@ -203,4 +213,4 @@ class SnowplowURNFactory:
             f"platform_instance={platform_instance})"
         )
 
-        return urn
+        return DatasetURN(urn)

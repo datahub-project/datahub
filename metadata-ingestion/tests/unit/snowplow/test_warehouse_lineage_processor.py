@@ -4,16 +4,16 @@ from unittest.mock import Mock
 
 import pytest
 
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
+    DataModel,
+    DataProduct,
+)
 from datahub.ingestion.source.snowplow.processors.warehouse_lineage_processor import (
     WarehouseLineageProcessor,
 )
 from datahub.ingestion.source.snowplow.snowplow_config import (
     SnowplowSourceConfig,
     WarehouseLineageConfig,
-)
-from datahub.ingestion.source.snowplow.snowplow_models import (
-    DataModel,
-    DataProduct,
 )
 from datahub.metadata.schema_classes import UpstreamLineageClass
 

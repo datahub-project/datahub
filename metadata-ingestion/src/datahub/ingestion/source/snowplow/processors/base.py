@@ -6,9 +6,11 @@ following the Strategy pattern for extracting different types of metadata.
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Optional, Sequence
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.schema_classes import _Aspect
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.dependencies import (
@@ -71,3 +73,24 @@ class EntityProcessor(ABC):
     def __repr__(self) -> str:
         """String representation of processor."""
         return f"{self.__class__.__name__}()"
+
+    def emit_aspects(
+        self, entity_urn: str, aspects: Sequence[Optional[_Aspect]]
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit multiple aspects for an entity using SDK V2 batching pattern.
+
+        Uses MetadataChangeProposalWrapper.construct_many() for cleaner aspect emission.
+
+        Args:
+            entity_urn: The URN of the entity to emit aspects for
+            aspects: Sequence of aspects to emit (None values are filtered out)
+
+        Yields:
+            MetadataWorkUnit for each non-None aspect
+        """
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=entity_urn,
+            aspects=aspects,
+        ):
+            yield mcp.as_workunit()

@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from datahub.ingestion.source.snowplow.snowplow_client import (
     ResourceNotFoundError,
@@ -448,7 +449,7 @@ class TestSnowplowBDPClientOrganization:
     @patch.object(SnowplowBDPClient, "_request")
     def test_get_organization_handles_api_error(self, mock_request, bdp_client):
         """Test graceful handling when organization API fails."""
-        mock_request.side_effect = Exception("API error")
+        mock_request.side_effect = requests.exceptions.RequestException("API error")
 
         result = bdp_client.get_organization()
 

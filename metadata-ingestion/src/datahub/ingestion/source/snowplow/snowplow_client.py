@@ -9,16 +9,18 @@ API Documentation: https://console.snowplowanalytics.com/api/msc/v1/docs/
 
 import json
 import logging
-from typing import Dict, List, Optional
+import time
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from datahub.ingestion.source.snowplow.snowplow_config import (
-    SnowplowBDPConnectionConfig,
-)
-from datahub.ingestion.source.snowplow.snowplow_models import (
+if TYPE_CHECKING:
+    from datahub.ingestion.source.snowplow.snowplow_report import SnowplowSourceReport
+
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataModel,
     DataProduct,
     DataProductsResponse,
@@ -35,6 +37,9 @@ from datahub.ingestion.source.snowplow.snowplow_models import (
     TrackingScenario,
     TrackingScenariosResponse,
     User,
+)
+from datahub.ingestion.source.snowplow.snowplow_config import (
+    SnowplowBDPConnectionConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,16 +65,22 @@ class SnowplowBDPClient:
     - Error handling
     """
 
-    def __init__(self, config: SnowplowBDPConnectionConfig):
+    def __init__(
+        self,
+        config: SnowplowBDPConnectionConfig,
+        report: Optional["SnowplowSourceReport"] = None,
+    ):
         """
         Initialize BDP Console API client.
 
         Args:
             config: BDP connection configuration
+            report: Optional report for tracking API metrics
         """
         self.config = config
         self.base_url = config.console_api_url
         self.organization_id = config.organization_id
+        self.report = report  # For API metrics tracking
 
         # JWT token (obtained via authentication)
         self._jwt_token: Optional[str] = None
@@ -145,7 +156,7 @@ class SnowplowBDPClient:
                 )
 
                 logger.info("Successfully authenticated with Snowplow BDP Console API")
-            except Exception as parse_error:
+            except ValidationError as parse_error:
                 logger.error(f"Failed to parse authentication response: {parse_error}")
                 logger.error(
                     f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -169,8 +180,12 @@ class SnowplowBDPClient:
                 raise ValueError(
                     f"Authentication failed with status {e.response.status_code}: {e}"
                 ) from e
-        except Exception as e:
-            raise ValueError(f"Authentication failed: {e}") from e
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Authentication failed due to network error: {e}") from e
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Authentication failed: invalid JSON response: {e}"
+            ) from e
 
     def _request(
         self,
@@ -181,7 +196,7 @@ class SnowplowBDPClient:
         retry_auth: bool = True,
     ) -> dict:
         """
-        Make authenticated API request with error handling.
+        Make authenticated API request with error handling and timing metrics.
 
         Args:
             method: HTTP method (GET, POST, etc.)
@@ -198,6 +213,9 @@ class SnowplowBDPClient:
             ValueError: For authentication errors
         """
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        endpoint_name = self._extract_endpoint_name(endpoint)
+        start_time = time.perf_counter()
+        is_error = False
 
         try:
             response = self.session.request(
@@ -219,22 +237,55 @@ class SnowplowBDPClient:
                     method, endpoint, params, json_data, retry_auth=False
                 )
             elif e.response.status_code == 403:
+                is_error = True
                 logger.error(f"Permission denied: {url}")
                 raise PermissionError(
                     f"Permission denied for {url}. Check API key permissions."
                 ) from e
             elif e.response.status_code == 404:
+                # 404 is not always an error (e.g., checking if resource exists)
                 logger.debug(f"Resource not found: {url}")
                 raise ResourceNotFoundError(f"Resource not found: {url}") from e
             else:
+                is_error = True
                 logger.error(f"HTTP error {e.response.status_code}: {url}")
                 raise
         except requests.exceptions.Timeout:
+            is_error = True
             logger.error(f"Request timeout: {url}")
             raise
         except requests.exceptions.RequestException as e:
+            is_error = True
             logger.error(f"Request failed: {url}: {e}")
             raise
+        finally:
+            # Record API metrics
+            latency_ms = (time.perf_counter() - start_time) * 1000
+            self._record_api_call(endpoint_name, latency_ms, is_error)
+
+    def _extract_endpoint_name(self, endpoint: str) -> str:
+        """
+        Extract a normalized endpoint name for metrics grouping.
+
+        Converts paths like 'organizations/{id}/data-structures' to 'data-structures'.
+        This groups API calls by logical endpoint rather than full path.
+        """
+        parts = endpoint.strip("/").split("/")
+        # Skip organization ID parts and return the meaningful endpoint name
+        meaningful_parts = [
+            p for p in parts if p not in ("organizations", self.organization_id, "v1")
+        ]
+        if meaningful_parts:
+            # Return last meaningful part (e.g., 'data-structures', 'event-specs')
+            return meaningful_parts[-1]
+        return "unknown"
+
+    def _record_api_call(
+        self, endpoint: str, latency_ms: float, is_error: bool
+    ) -> None:
+        """Record API call metrics if report is available."""
+        if self.report is not None:
+            self.report.record_api_call("bdp", endpoint, latency_ms, is_error)
 
     # ============================================
     # Organization API
@@ -268,14 +319,14 @@ class SnowplowBDPClient:
                     )
 
                 return organization
-            except Exception as parse_error:
+            except ValidationError as parse_error:
                 logger.error(f"Failed to parse organization response: {parse_error}")
                 logger.error(
                     f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
                 )
                 return None
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
             logger.warning(f"Failed to fetch organization details: {e}")
             return None
 
@@ -349,7 +400,7 @@ class SnowplowBDPClient:
 
                 offset += len(page_structures)
 
-            except Exception as e:
+            except ValidationError as e:
                 logger.error(f"Failed to parse data structures page: {e}")
                 logger.error(
                     f"Raw response data (first item): {json.dumps(response_data[0] if response_data else 'empty', indent=2, default=str)}"
@@ -383,7 +434,7 @@ class SnowplowBDPClient:
         try:
             # Real BDP API returns data structure directly, not wrapped
             return DataStructure.model_validate(response_data)
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse data structure {data_structure_hash}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -461,7 +512,7 @@ class SnowplowBDPClient:
             }
 
             return DataStructure.model_validate(data_structure_dict)
-        except Exception as e:
+        except ValidationError as e:
             logger.error(
                 f"Failed to parse schema version {data_structure_hash}/{version}: {e}"
             )
@@ -510,7 +561,7 @@ class SnowplowBDPClient:
                 deployments_list = response_data.get("data", [])
 
             return [DataStructureDeployment.model_validate(d) for d in deployments_list]
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse deployments for {data_structure_hash}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -569,7 +620,7 @@ class SnowplowBDPClient:
                 )
 
             return response.data
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse event specifications: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -603,7 +654,7 @@ class SnowplowBDPClient:
 
         try:
             return EventSpecification.model_validate(response_data.get("data", {}))
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse event specification {event_spec_id}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -662,7 +713,7 @@ class SnowplowBDPClient:
                 )
 
             return response.data
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse tracking scenarios: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -694,7 +745,7 @@ class SnowplowBDPClient:
 
         try:
             return TrackingScenario.model_validate(response_data.get("data", {}))
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse tracking scenario {scenario_id}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -755,7 +806,7 @@ class SnowplowBDPClient:
                 )
 
             return response.data
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse data products: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -784,7 +835,7 @@ class SnowplowBDPClient:
 
         try:
             return DataProduct.model_validate(response_data.get("data", {}))
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse data product {product_id}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -833,7 +884,7 @@ class SnowplowBDPClient:
             try:
                 data_model = DataModel.model_validate(model_data)
                 data_models.append(data_model)
-            except Exception as e:
+            except ValidationError as e:
                 logger.warning(f"Failed to parse data model: {e}")
                 logger.warning(
                     f"Raw model data: {json.dumps(model_data, indent=2, default=str)}"
@@ -883,7 +934,7 @@ class SnowplowBDPClient:
             logger.info(f"Found {len(response.pipelines)} pipelines")
 
             return response.pipelines
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse pipelines: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -910,7 +961,7 @@ class SnowplowBDPClient:
 
         try:
             return Pipeline.model_validate(response_data)
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse pipeline {pipeline_id}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -954,7 +1005,7 @@ class SnowplowBDPClient:
             logger.info(f"Found {len(enrichments)} enrichments")
 
             return enrichments
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse enrichments: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -1004,7 +1055,7 @@ class SnowplowBDPClient:
             logger.info(f"Found {len(destinations)} destinations")
 
             return destinations
-        except Exception as e:
+        except ValidationError as e:
             logger.error(f"Failed to parse destinations: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -1045,9 +1096,18 @@ class SnowplowBDPClient:
             endpoint = f"organizations/{self.organization_id}/permissions"
             response_data = self._request("GET", endpoint)
             return response_data.get("permissions", [])
-        except Exception:
-            # Permissions endpoint may not be available
-            logger.debug("Permissions endpoint not available")
+        except requests.exceptions.HTTPError as e:
+            # 404 expected for older BDP versions without permissions endpoint
+            if e.response is not None and e.response.status_code == 404:
+                logger.debug("Permissions endpoint not available (404)")
+            else:
+                logger.warning(
+                    f"Failed to fetch permissions: HTTP {e.response.status_code if e.response else 'unknown'}"
+                )
+            return []
+        except requests.exceptions.RequestException as e:
+            # Network errors, timeouts, etc.
+            logger.warning(f"Failed to fetch permissions due to network error: {e}")
             return []
 
     def get_users(self) -> List[User]:
@@ -1078,10 +1138,13 @@ class SnowplowBDPClient:
             users = [User.model_validate(user) for user in response_data]
             logger.info(f"Found {len(users)} users")
             return users
-        except Exception as e:
-            logger.warning(f"Failed to fetch users: {e}")
+        except ValidationError as e:
+            logger.warning(f"Failed to parse users: {e}")
             if isinstance(response_data, list) and response_data:
                 logger.error(
                     f"Raw response data (first item): {json.dumps(response_data[0], indent=2, default=str)}"
                 )
+            return []
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
+            logger.warning(f"Failed to fetch users: {e}")
             return []

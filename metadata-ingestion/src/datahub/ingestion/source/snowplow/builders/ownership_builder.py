@@ -11,11 +11,11 @@ from typing import Dict, List, Optional, Tuple
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
-from datahub.ingestion.source.snowplow.snowplow_models import (
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataStructureDeployment,
     User,
 )
+from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     OwnerClass,

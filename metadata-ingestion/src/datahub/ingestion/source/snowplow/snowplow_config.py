@@ -413,7 +413,7 @@ class SnowplowSourceConfig(
     # Schema Extraction Options
     # ============================================
 
-    schema_types_to_extract: list = Field(
+    schema_types_to_extract: List[str] = Field(
         default_factory=lambda: DEFAULT_SCHEMA_TYPES,
         description="Schema types to extract: 'event' and/or 'entity'",
     )
@@ -532,7 +532,7 @@ class SnowplowSourceConfig(
 
     @field_validator("schema_types_to_extract", mode="after")
     @classmethod
-    def validate_schema_types(cls, v: list) -> list:
+    def validate_schema_types(cls, v: List[str]) -> List[str]:
         """Validate schema types."""
         allowed = {st.value for st in SchemaType}
         for schema_type in v:

@@ -8,15 +8,14 @@ import logging
 from typing import TYPE_CHECKING, Iterable
 
 from datahub.emitter.mce_builder import make_container_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.container_keys import (
+from datahub.ingestion.source.snowplow.builders.container_keys import (
     SnowplowOrganizationKey,
     SnowplowTrackingScenarioKey,
 )
+from datahub.ingestion.source.snowplow.models.snowplow_models import TrackingScenario
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
-from datahub.ingestion.source.snowplow.snowplow_models import TrackingScenario
 from datahub.metadata.schema_classes import ContainerClass
 
 if TYPE_CHECKING:
@@ -157,9 +156,8 @@ class TrackingScenarioProcessor(EntityProcessor):
                     event_spec_id
                 )
 
-                # Link event spec to tracking scenario container
-                container_aspect = ContainerClass(container=scenario_container_urn)
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=event_spec_urn,
-                    aspect=container_aspect,
-                ).as_workunit()
+                # Link event spec to tracking scenario container using SDK V2 pattern
+                yield from self.emit_aspects(
+                    entity_urn=event_spec_urn,
+                    aspects=[ContainerClass(container=scenario_container_urn)],
+                )

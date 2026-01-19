@@ -13,6 +13,9 @@ from datahub.ingestion.source.snowplow.services.column_lineage_builder import (
 from datahub.ingestion.source.snowplow.services.data_structure_builder import (
     DataStructureBuilder,
 )
+from datahub.ingestion.source.snowplow.services.deployment_fetcher import (
+    DeploymentFetcher,
+)
 from datahub.ingestion.source.snowplow.services.error_handler import ErrorHandler
 from datahub.ingestion.source.snowplow.services.parsed_events_builder import (
     ParsedEventsBuilder,
@@ -22,6 +25,7 @@ __all__ = [
     "AtomicEventBuilder",
     "ColumnLineageBuilder",
     "DataStructureBuilder",
+    "DeploymentFetcher",
     "ErrorHandler",
     "ParsedEventsBuilder",
 ]

@@ -8,10 +8,11 @@ import logging
 from typing import TYPE_CHECKING, Iterable
 
 from datahub.emitter.mce_builder import make_container_urn, make_user_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.container_keys import SnowplowDataProductKey
+from datahub.ingestion.source.snowplow.builders.container_keys import (
+    SnowplowDataProductKey,
+)
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -134,24 +135,25 @@ class DataProductProcessor(EntityProcessor):
                 # Create container URN
                 dataset_urn = str(make_container_urn(guid=product_key.guid()))
 
-                # Add ownership if owner specified
+                # Emit ownership if owner specified using SDK V2 pattern
                 if product.owner:
-                    ownership_aspect = OwnershipClass(
-                        owners=[
-                            OwnerClass(
-                                owner=make_user_urn(product.owner),
-                                type=OwnershipTypeClass.DATAOWNER,
-                                source=OwnershipSourceClass(
-                                    type=OwnershipSourceTypeClass.SERVICE,
-                                    url=None,
-                                ),
+                    yield from self.emit_aspects(
+                        entity_urn=dataset_urn,
+                        aspects=[
+                            OwnershipClass(
+                                owners=[
+                                    OwnerClass(
+                                        owner=make_user_urn(product.owner),
+                                        type=OwnershipTypeClass.DATAOWNER,
+                                        source=OwnershipSourceClass(
+                                            type=OwnershipSourceTypeClass.SERVICE,
+                                            url=None,
+                                        ),
+                                    )
+                                ]
                             )
-                        ]
+                        ],
                     )
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=ownership_aspect,
-                    ).as_workunit()
 
                 # Link event specifications to this data product container
                 if product.event_specs:
@@ -175,14 +177,11 @@ class DataProductProcessor(EntityProcessor):
                             event_spec_id
                         )
 
-                        # Link event spec to data product container
-                        container_aspect = ContainerClass(
-                            container=product_container_urn
+                        # Link event spec to data product container using SDK V2 pattern
+                        yield from self.emit_aspects(
+                            entity_urn=event_spec_urn,
+                            aspects=[ContainerClass(container=product_container_urn)],
                         )
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=event_spec_urn,
-                            aspect=container_aspect,
-                        ).as_workunit()
 
                 logger.debug(f"Extracted data product: {product.name} ({product.id})")
                 self.report.num_data_products_extracted += 1

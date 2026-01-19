@@ -24,7 +24,7 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
     EnrichmentLineageExtractor,
     FieldLineage,
 )
-from datahub.ingestion.source.snowplow.snowplow_models import Enrichment
+from datahub.ingestion.source.snowplow.models.snowplow_models import Enrichment
 
 logger = logging.getLogger(__name__)
 

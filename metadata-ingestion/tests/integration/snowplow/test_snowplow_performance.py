@@ -13,9 +13,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
+    DataStructureDeployment,
+)
 from datahub.ingestion.source.snowplow.snowplow import SnowplowSource
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
-from datahub.ingestion.source.snowplow.snowplow_models import DataStructureDeployment
 
 
 def create_mock_context():
@@ -116,7 +118,9 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
         mock_client._authenticate = lambda: None
         mock_client._jwt_token = "mock_token"
 
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+        )
 
         mock_client.get_data_structures.return_value = [
             DataStructure.model_validate(ds) for ds in mock_data_structures
@@ -128,7 +132,7 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
         source.bdp_client = mock_client
 
         start_time = time.time()
-        list(source._get_data_structures_filtered())
+        list(source.schema_processor._get_data_structures_filtered())
         sequential_time = time.time() - start_time
 
     # Test 2: Parallel fetching (parallel enabled)
@@ -161,7 +165,7 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
         source.bdp_client = mock_client
 
         start_time = time.time()
-        list(source._get_data_structures_filtered())
+        list(source.schema_processor._get_data_structures_filtered())
         parallel_time = time.time() - start_time
 
     # Performance assertions
@@ -206,7 +210,9 @@ def test_caching_reduces_api_calls(pytestconfig):
         mock_client._authenticate = lambda: None
         mock_client._jwt_token = "mock_token"
 
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+        )
 
         mock_client.get_data_structures.return_value = [
             DataStructure.model_validate(ds) for ds in mock_data_structures
@@ -217,15 +223,15 @@ def test_caching_reduces_api_calls(pytestconfig):
         source.bdp_client = mock_client
 
         # First call - should hit API
-        result1 = source._get_data_structures_filtered()
+        result1 = source.schema_processor._get_data_structures_filtered()
         first_call_count = mock_client.get_data_structures.call_count
 
         # Second call - should use cache
-        result2 = source._get_data_structures_filtered()
+        result2 = source.schema_processor._get_data_structures_filtered()
         second_call_count = mock_client.get_data_structures.call_count
 
         # Third call - should still use cache
-        result3 = source._get_data_structures_filtered()
+        result3 = source.schema_processor._get_data_structures_filtered()
         third_call_count = mock_client.get_data_structures.call_count
 
         # Assertions
@@ -270,7 +276,9 @@ def test_event_schema_urn_caching(pytestconfig):
     def slow_get_data_structures(*args, **kwargs):
         """Simulate slow API call (1.5 seconds)."""
         time.sleep(1.5)
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+        )
 
         return [DataStructure.model_validate(ds) for ds in mock_data_structures]
 
@@ -288,17 +296,17 @@ def test_event_schema_urn_caching(pytestconfig):
 
         # First call - should fetch from API (slow)
         start_time = time.time()
-        structures1 = source._get_data_structures_filtered()
+        structures1 = source.schema_processor._get_data_structures_filtered()
         first_call_time = time.time() - start_time
 
         # Second call - should use cache (fast)
         start_time = time.time()
-        structures2 = source._get_data_structures_filtered()
+        structures2 = source.schema_processor._get_data_structures_filtered()
         second_call_time = time.time() - start_time
 
         # Third call - should still use cache (fast)
         start_time = time.time()
-        structures3 = source._get_data_structures_filtered()
+        structures3 = source.schema_processor._get_data_structures_filtered()
         third_call_time = time.time() - start_time
 
         # Assertions
@@ -364,7 +372,9 @@ def test_large_dataset_performance(pytestconfig):
     def slow_get_data_structures(*args, **kwargs):
         """Simulate slow API call (2 seconds for large dataset)."""
         time.sleep(2.0)
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+        )
 
         return [DataStructure.model_validate(ds) for ds in mock_data_structures]
 
@@ -395,12 +405,12 @@ def test_large_dataset_performance(pytestconfig):
 
         # Measure performance for initial fetch (slow)
         start_time = time.time()
-        structures = source._get_data_structures_filtered()
+        structures = source.schema_processor._get_data_structures_filtered()
         fetch_time = time.time() - start_time
 
         # Second fetch should use cache (fast)
         start_time = time.time()
-        structures_cached = source._get_data_structures_filtered()
+        structures_cached = source.schema_processor._get_data_structures_filtered()
         cache_time = time.time() - start_time
 
         # Assertions
@@ -465,7 +475,9 @@ def test_api_call_count_without_field_tracking(pytestconfig):
         mock_client._authenticate = lambda: None
         mock_client._jwt_token = "mock_token"
 
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+        )
 
         mock_client.get_data_structures.return_value = [
             DataStructure.model_validate(ds) for ds in mock_data_structures
@@ -476,7 +488,7 @@ def test_api_call_count_without_field_tracking(pytestconfig):
         source.bdp_client = mock_client
 
         # Fetch structures
-        structures = source._get_data_structures_filtered()
+        structures = source.schema_processor._get_data_structures_filtered()
 
         # Assertions
         assert len(structures) == 100, "Should fetch all structures"

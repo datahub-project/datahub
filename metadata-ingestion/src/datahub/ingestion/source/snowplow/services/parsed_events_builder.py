@@ -162,12 +162,9 @@ class ParsedEventsBuilder:
         if self.state.atomic_event_fields:
             all_event_fields.extend(self.state.atomic_event_fields)
 
-        # Add custom event and entity fields
-        if self.state.extracted_schema_fields:
-            # Extract just the fields from the (urn, field) tuples
-            all_event_fields.extend(
-                [field for _, field in self.state.extracted_schema_fields]
-            )
+        # Add custom event and entity fields (uses efficient accessor method)
+        extracted_fields = self.state.get_all_extracted_fields()
+        all_event_fields.extend(extracted_fields)
 
         if all_event_fields:
             event_schema_metadata = SchemaMetadataClass(
@@ -187,7 +184,7 @@ class ParsedEventsBuilder:
             logger.info(
                 f"Event dataset schema contains {len(all_event_fields)} fields from all schemas "
                 f"(Atomic Event: {len(self.state.atomic_event_fields)}, "
-                f"Event/Entity Data Structures: {len(self.state.extracted_schema_fields)})"
+                f"Event/Entity Data Structures: {self.state.get_extracted_fields_count()})"
             )
         else:
             logger.warning(

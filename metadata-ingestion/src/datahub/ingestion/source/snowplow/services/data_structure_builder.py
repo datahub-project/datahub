@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.constants import EventFieldType, SchemaType
-from datahub.ingestion.source.snowplow.schema_parser import SnowplowSchemaParser
-from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+from datahub.ingestion.source.snowplow.models.snowplow_models import DataStructure
+from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     OwnerClass,
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.services.column_lineage_builder import (
         ColumnLineageBuilder,
     )
+    from datahub.ingestion.source.snowplow.services.field_tagging import FieldTagContext
 
 logger = logging.getLogger(__name__)
 
@@ -400,10 +401,9 @@ class DataStructureBuilder:
         # Cache the schema URN for pipeline collector job
         self.state.extracted_schema_urns.append(str(dataset.urn))
 
-        # Cache schema fields for Event dataset
+        # Cache schema fields for Event dataset (indexed by URN for O(1) lookups)
         if schema_metadata and schema_metadata.fields:
-            for field in schema_metadata.fields:
-                self.state.extracted_schema_fields.append((str(dataset.urn), field))
+            self.state.register_schema_fields(str(dataset.urn), schema_metadata.fields)
 
         # Emit column-level lineage
         if schema_metadata:
@@ -434,24 +434,13 @@ class DataStructureBuilder:
         ):
             return data_structure
 
-        if not data_structure.deployments:
+        # Use version from most recent PROD deployment, fall back to any deployment
+        latest_deployment = data_structure.get_latest_deployment(prefer_env="PROD")
+        if not latest_deployment:
             logger.warning(
                 f"No deployments found for {data_structure.vendor}/{data_structure.name}, cannot determine version to fetch"
             )
             return data_structure
-
-        # Use version from most recent PROD deployment, fall back to any deployment
-        prod_deployments = [d for d in data_structure.deployments if d.env == "PROD"]
-        if prod_deployments:
-            latest_deployment = sorted(
-                prod_deployments, key=lambda d: d.ts or "", reverse=True
-            )[0]
-        else:
-            latest_deployment = sorted(
-                data_structure.deployments,
-                key=lambda d: d.ts or "",
-                reverse=True,
-            )[0]
 
         version = latest_deployment.version
         env = latest_deployment.env
@@ -567,116 +556,164 @@ class DataStructureBuilder:
         Returns:
             Updated schema metadata with field tags
         """
-        from datahub.ingestion.source.snowplow.field_tagging import FieldTagContext
-
         if not schema_metadata.fields:
             return schema_metadata
 
-        # Get PII fields if enabled
-        pii_fields = set()
-        if self.config.field_tagging.use_pii_enrichment:
-            pii_fields = self._get_pii_fields()
+        pii_fields = self._get_pii_fields_if_enabled()
+        event_type = self._get_event_type(schema_type)
+        schema_key = f"{data_structure.vendor}/{data_structure.name}"
+        field_version_map = self._get_field_version_map(schema_key)
 
-        # Map schema_type to event_type for field tagging
-        # "event" schemas are self-describing events, "entity" schemas are contexts
-        event_type = (
+        # Update field descriptions with version information
+        self._update_field_descriptions_with_versions(
+            schema_metadata.fields, schema_key, field_version_map
+        )
+
+        # Add tags to each field
+        for field in schema_metadata.fields:
+            context = self._build_field_context(
+                field=field,
+                data_structure=data_structure,
+                version=version,
+                field_version_map=field_version_map,
+                pii_fields=pii_fields,
+                event_type=event_type,
+            )
+            field_tags = self.field_tagger.generate_tags(context)
+            if field_tags:
+                field.globalTags = field_tags
+
+        return schema_metadata
+
+    def _get_pii_fields_if_enabled(self) -> set:
+        """Get PII fields if PII enrichment is enabled."""
+        if self.config.field_tagging.use_pii_enrichment:
+            return self._get_pii_fields()
+        return set()
+
+    def _get_event_type(self, schema_type: str) -> str:
+        """Map schema_type to event_type for field tagging."""
+        return (
             EventFieldType.SELF_DESCRIBING.value
             if schema_type == SchemaType.EVENT.value
             else EventFieldType.CONTEXT.value
         )
 
-        # Update field descriptions with version information if available
+    def _get_field_version_map(self, schema_key: str) -> Dict[str, str]:
+        """Get field version map if version tracking is enabled."""
         if (
             self.config.field_tagging.track_field_versions
             and self.config.field_tagging.tag_schema_version
         ):
-            schema_key = f"{data_structure.vendor}/{data_structure.name}"
-            field_version_map = self.state.field_version_cache.get(schema_key, {})
+            return self.state.field_version_cache.get(schema_key, {})
+        return {}
 
-            if field_version_map:
-                logger.debug(
-                    f"Applying field version info to {len(schema_metadata.fields)} fields in {schema_key} "
-                    f"(field_version_map has {len(field_version_map)} entries)"
-                )
-                for field in schema_metadata.fields:
-                    field_added_version = field_version_map.get(field.fieldPath)
-                    # Only add version info if field was added in a later version (not 1-0-0)
-                    if field_added_version and field_added_version != "1-0-0":
-                        version_suffix = f" (Added in version {field_added_version})"
-                        # Only append if not already present
-                        if (
-                            field.description
-                            and version_suffix not in field.description
-                        ):
-                            logger.debug(
-                                f"Updated description for field '{field.fieldPath}' in {schema_key}: "
-                                f"added version {field_added_version}"
-                            )
-                            field.description = f"{field.description}{version_suffix}"
-                        elif not field.description:
-                            logger.debug(
-                                f"Set description for field '{field.fieldPath}' in {schema_key}: "
-                                f"Added in version {field_added_version}"
-                            )
-                            field.description = (
-                                f"Added in version {field_added_version}"
-                            )
-            else:
-                logger.warning(
-                    f"Field version map is empty for {schema_key} - field version info will not be added"
-                )
-
-        # Get field version map if tracking field versions
-        field_version_map = {}
-        if (
+    def _update_field_descriptions_with_versions(
+        self,
+        fields: List[Any],
+        schema_key: str,
+        field_version_map: Dict[str, str],
+    ) -> None:
+        """Update field descriptions with version information."""
+        if not (
             self.config.field_tagging.track_field_versions
             and self.config.field_tagging.tag_schema_version
         ):
-            field_version_map = self.state.field_version_cache.get(schema_key, {})
+            return
 
-        # Add tags to each field
-        for field in schema_metadata.fields:
-            # Use field's introduction version if available, otherwise use schema version
-            field_version = field_version_map.get(field.fieldPath, version)
-
-            # Get deployment info for the version when THIS FIELD was added
-            field_deployment_initiator = None
-            field_deployment_timestamp = None
-            if data_structure.deployments:
-                matching_deployments = [
-                    d for d in data_structure.deployments if d.version == field_version
-                ]
-                if matching_deployments:
-                    # Use most recent deployment for this field's version
-                    deployment = sorted(
-                        matching_deployments, key=lambda d: d.ts or "", reverse=True
-                    )[0]
-                    field_deployment_initiator = deployment.initiator
-                    field_deployment_timestamp = deployment.ts
-
-            # Skip version tag if this field was added in initial version
-            field_skip_version_tag = field_version == "1-0-0"
-
-            context = FieldTagContext(
-                schema_version=field_version,  # Use field's introduction version
-                vendor=data_structure.vendor or "",
-                name=data_structure.name or "",
-                field_name=field.fieldPath,
-                field_type=field.nativeDataType,
-                field_description=field.description,
-                deployment_initiator=field_deployment_initiator,  # Use field-specific deployment info
-                deployment_timestamp=field_deployment_timestamp,  # Use field-specific deployment info
-                pii_fields=pii_fields,
-                event_type=event_type,
-                skip_version_tag=field_skip_version_tag,  # Use field-specific flag
+        if not field_version_map:
+            logger.warning(
+                f"Field version map is empty for {schema_key} - "
+                "field version info will not be added"
             )
+            return
 
-            field_tags = self.field_tagger.generate_tags(context)
+        logger.debug(
+            f"Applying field version info to {len(fields)} fields in {schema_key} "
+            f"(field_version_map has {len(field_version_map)} entries)"
+        )
 
-            if field_tags:
-                field.globalTags = field_tags
+        for field in fields:
+            field_added_version = field_version_map.get(field.fieldPath)
+            if not field_added_version or field_added_version == "1-0-0":
+                continue
 
-        return schema_metadata
+            version_suffix = f" (Added in version {field_added_version})"
+            if field.description and version_suffix not in field.description:
+                field.description = f"{field.description}{version_suffix}"
+            elif not field.description:
+                field.description = f"Added in version {field_added_version}"
+
+    def _get_field_deployment_info(
+        self, deployments: Optional[List[Any]], field_version: str
+    ) -> tuple:
+        """
+        Get deployment info for a specific field version.
+
+        Args:
+            deployments: List of deployments from data structure
+            field_version: The version when the field was added
+
+        Returns:
+            Tuple of (initiator, timestamp), both may be None
+        """
+        if not deployments:
+            return None, None
+
+        matching_deployments = [d for d in deployments if d.version == field_version]
+        if not matching_deployments:
+            return None, None
+
+        deployment = sorted(
+            matching_deployments, key=lambda d: d.ts or "", reverse=True
+        )[0]
+        return deployment.initiator, deployment.ts
+
+    def _build_field_context(
+        self,
+        field: Any,
+        data_structure: DataStructure,
+        version: str,
+        field_version_map: Dict[str, str],
+        pii_fields: set,
+        event_type: str,
+    ) -> "FieldTagContext":
+        """
+        Build field tag context for a single field.
+
+        Args:
+            field: Schema field to build context for
+            data_structure: Data structure containing field
+            version: Schema version (fallback if field version unknown)
+            field_version_map: Map of field paths to introduction versions
+            pii_fields: Set of PII field paths
+            event_type: Event type (self_describing or context)
+
+        Returns:
+            FieldTagContext for the field
+        """
+        from datahub.ingestion.source.snowplow.services.field_tagging import (
+            FieldTagContext,
+        )
+
+        field_version = field_version_map.get(field.fieldPath, version)
+        initiator, timestamp = self._get_field_deployment_info(
+            data_structure.deployments, field_version
+        )
+
+        return FieldTagContext(
+            schema_version=field_version,
+            vendor=data_structure.vendor or "",
+            name=data_structure.name or "",
+            field_name=field.fieldPath,
+            field_type=field.nativeDataType,
+            field_description=field.description,
+            deployment_initiator=initiator,
+            deployment_timestamp=timestamp,
+            pii_fields=pii_fields,
+            event_type=event_type,
+            skip_version_tag=field_version == "1-0-0",
+        )
 
     def _get_pii_fields(self) -> set:
         """
@@ -721,78 +758,34 @@ class DataStructureBuilder:
         Yields:
             MetadataWorkUnit: Field structured property work units
         """
-        from datahub.ingestion.source.snowplow.field_tagging import FieldTagContext
-
         if not schema_metadata.fields:
             return
 
-        # Get PII fields if enabled
-        pii_fields = set()
-        if self.config.field_tagging.use_pii_enrichment:
-            pii_fields = self._get_pii_fields()
-
-        # Map schema_type to event_type for field tagging
-        # "event" schemas are self-describing events, "entity" schemas are contexts
-        event_type = (
-            EventFieldType.SELF_DESCRIBING.value
-            if schema_type == SchemaType.EVENT.value
-            else EventFieldType.CONTEXT.value
-        )
-
-        # Get field version map if tracking field versions
+        pii_fields = self._get_pii_fields_if_enabled()
+        event_type = self._get_event_type(schema_type)
         schema_key = f"{data_structure.vendor}/{data_structure.name}"
-        field_version_map = {}
-        if (
-            self.config.field_tagging.track_field_versions
-            and self.config.field_tagging.tag_schema_version
-        ):
-            field_version_map = self.state.field_version_cache.get(schema_key, {})
-            if field_version_map:
-                logger.debug(
-                    f"Using field version map for structured properties in {schema_key}"
-                )
+        field_version_map = self._get_field_version_map(schema_key)
 
-        # Generate structured properties for each field
+        if field_version_map:
+            logger.debug(
+                f"Using field version map for structured properties in {schema_key}"
+            )
+
         for field in schema_metadata.fields:
-            # Use field's introduction version if available, otherwise use schema version
-            field_version = field_version_map.get(field.fieldPath, version)
-
-            # Get deployment info for the version when THIS FIELD was added
-            field_deployment_initiator = None
-            field_deployment_timestamp = None
-            if data_structure.deployments:
-                matching_deployments = [
-                    d for d in data_structure.deployments if d.version == field_version
-                ]
-                if matching_deployments:
-                    # Use most recent deployment for this field's version
-                    deployment = sorted(
-                        matching_deployments, key=lambda d: d.ts or "", reverse=True
-                    )[0]
-                    field_deployment_initiator = deployment.initiator
-                    field_deployment_timestamp = deployment.ts
-
-            # Skip version tag if this field was added in initial version
-            field_skip_version_tag = field_version == "1-0-0"
-
-            context = FieldTagContext(
-                schema_version=field_version,  # Use field's introduction version
-                vendor=data_structure.vendor or "",
-                name=data_structure.name or "",
-                field_name=field.fieldPath,
-                field_type=field.nativeDataType,
-                field_description=field.description,
-                deployment_initiator=field_deployment_initiator,  # Use field-specific deployment info
-                deployment_timestamp=field_deployment_timestamp,  # Use field-specific deployment info
+            context = self._build_field_context(
+                field=field,
+                data_structure=data_structure,
+                version=version,
+                field_version_map=field_version_map,
                 pii_fields=pii_fields,
                 event_type=event_type,
-                skip_version_tag=field_skip_version_tag,  # Use field-specific flag
             )
 
             yield from self.field_tagger.generate_field_structured_properties(
                 dataset_urn=dataset_urn,
                 field=field,
                 context=context,
+                field_properties_cache=self.state.field_structured_properties,
             )
 
     def _get_schema_url(

@@ -21,8 +21,7 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
     EnrichmentLineageExtractor,
     FieldLineage,
 )
-from datahub.ingestion.source.snowplow.enrichment_lineage.utils import make_field_urn
-from datahub.ingestion.source.snowplow.snowplow_models import Enrichment
+from datahub.ingestion.source.snowplow.models.snowplow_models import Enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +43,9 @@ class IpLookupLineageExtractor(EnrichmentLineageExtractor):
     Configuration Impact:
     Only databases configured in the enrichment parameters will add their corresponding fields.
     """
+
+    # Input field name
+    INPUT_FIELD = "user_ipaddress"
 
     # Geo database fields (from GeoLite2-City or GeoIP2-City)
     GEO_FIELDS = [
@@ -98,13 +100,23 @@ class IpLookupLineageExtractor(EnrichmentLineageExtractor):
         if not warehouse_table_urn:
             return []
 
-        lineages = []
+        # Validate enrichment has configuration data
+        if not enrichment.content or not enrichment.content.data:
+            logger.warning(
+                f"IP Lookup enrichment '{enrichment.filename}' has no configuration data - "
+                "field lineage cannot be extracted"
+            )
+            return []
+
         # Get enrichment configuration to determine which databases are enabled
         config = enrichment.parameters
 
-        # Input field
-        input_field = "user_ipaddress"
-        upstream_field_urn = make_field_urn(event_schema_urn, input_field)
+        if not config:
+            logger.info(
+                f"IP Lookup enrichment '{enrichment.filename}' has empty parameters - "
+                "no databases configured, skipping lineage extraction"
+            )
+            return []
 
         # Determine which databases are configured
         # The config structure has database type as key (e.g., "geo", "isp", "domain")
@@ -113,52 +125,58 @@ class IpLookupLineageExtractor(EnrichmentLineageExtractor):
         has_domain = "domain" in config
         has_connection = "connectionType" in config
 
-        # Add geo fields if geo database configured
+        lineages: List[FieldLineage] = []
+
+        # Add fields for each configured database using the base class helper
         if has_geo:
-            for field in self.GEO_FIELDS:
-                lineages.append(
-                    FieldLineage(
-                        upstream_fields=[upstream_field_urn],
-                        downstream_fields=[make_field_urn(warehouse_table_urn, field)],
-                        transformation_type="DERIVED",
-                    )
+            lineages.extend(
+                self._create_simple_lineages(
+                    input_field=self.INPUT_FIELD,
+                    output_fields=self.GEO_FIELDS,
+                    event_schema_urn=event_schema_urn,
+                    warehouse_table_urn=warehouse_table_urn,
                 )
+            )
 
-        # Add ISP fields if ISP database configured
         if has_isp:
-            for field in self.ISP_FIELDS:
-                lineages.append(
-                    FieldLineage(
-                        upstream_fields=[upstream_field_urn],
-                        downstream_fields=[make_field_urn(warehouse_table_urn, field)],
-                        transformation_type="DERIVED",
-                    )
+            lineages.extend(
+                self._create_simple_lineages(
+                    input_field=self.INPUT_FIELD,
+                    output_fields=self.ISP_FIELDS,
+                    event_schema_urn=event_schema_urn,
+                    warehouse_table_urn=warehouse_table_urn,
                 )
+            )
 
-        # Add domain fields if domain database configured
         if has_domain:
-            for field in self.DOMAIN_FIELDS:
-                lineages.append(
-                    FieldLineage(
-                        upstream_fields=[upstream_field_urn],
-                        downstream_fields=[make_field_urn(warehouse_table_urn, field)],
-                        transformation_type="DERIVED",
-                    )
+            lineages.extend(
+                self._create_simple_lineages(
+                    input_field=self.INPUT_FIELD,
+                    output_fields=self.DOMAIN_FIELDS,
+                    event_schema_urn=event_schema_urn,
+                    warehouse_table_urn=warehouse_table_urn,
                 )
+            )
 
-        # Add connection type fields if configured
         if has_connection:
-            for field in self.CONNECTION_FIELDS:
-                lineages.append(
-                    FieldLineage(
-                        upstream_fields=[upstream_field_urn],
-                        downstream_fields=[make_field_urn(warehouse_table_urn, field)],
-                        transformation_type="DERIVED",
-                    )
+            lineages.extend(
+                self._create_simple_lineages(
+                    input_field=self.INPUT_FIELD,
+                    output_fields=self.CONNECTION_FIELDS,
+                    event_schema_urn=event_schema_urn,
+                    warehouse_table_urn=warehouse_table_urn,
                 )
+            )
 
-        logger.debug(
-            f"IP Lookup: Extracted {len(lineages)} field lineages (geo={has_geo}, isp={has_isp}, domain={has_domain})"
-        )
+        if not lineages and not (has_geo or has_isp or has_domain or has_connection):
+            logger.info(
+                f"IP Lookup enrichment '{enrichment.filename}' has no databases configured - "
+                "no field lineage to extract"
+            )
+        else:
+            logger.debug(
+                f"IP Lookup: Extracted {len(lineages)} field lineages "
+                f"(geo={has_geo}, isp={has_isp}, domain={has_domain}, connection={has_connection})"
+            )
 
         return lineages

@@ -21,8 +21,7 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
     EnrichmentLineageExtractor,
     FieldLineage,
 )
-from datahub.ingestion.source.snowplow.enrichment_lineage.utils import make_field_urn
-from datahub.ingestion.source.snowplow.snowplow_models import Enrichment
+from datahub.ingestion.source.snowplow.models.snowplow_models import Enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +41,9 @@ class RefererParserLineageExtractor(EnrichmentLineageExtractor):
     Configuration Impact:
     None - uses built-in referer database, no configuration affects field mappings.
     """
+
+    # Input field name
+    INPUT_FIELD = "page_referrer"
 
     # Output fields (all atomic, always present)
     OUTPUT_FIELDS = [
@@ -82,26 +84,15 @@ class RefererParserLineageExtractor(EnrichmentLineageExtractor):
         if not warehouse_table_urn:
             return []
 
-        lineages = []
-
-        # Input field
-        input_field = "page_referrer"
-        upstream_field_urn = make_field_urn(event_schema_urn, input_field)
-
-        # Create lineage for each output field
-        for output_field in self.OUTPUT_FIELDS:
-            lineages.append(
-                FieldLineage(
-                    upstream_fields=[upstream_field_urn],
-                    downstream_fields=[
-                        make_field_urn(warehouse_table_urn, output_field)
-                    ],
-                    transformation_type="DERIVED",
-                )
-            )
+        lineages = self._create_simple_lineages(
+            input_field=self.INPUT_FIELD,
+            output_fields=self.OUTPUT_FIELDS,
+            event_schema_urn=event_schema_urn,
+            warehouse_table_urn=warehouse_table_urn,
+        )
 
         logger.debug(
-            f"Referer Parser: Extracted {len(lineages)} field lineages (page_referrer → refr_*)"
+            f"Referer Parser: Extracted {len(lineages)} field lineages ({self.INPUT_FIELD} → refr_*)"
         )
 
         return lineages

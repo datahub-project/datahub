@@ -1,189 +1,24 @@
 """Unit tests for SchemaProcessor."""
 
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
-from datahub.ingestion.source.snowplow.processors.schema_processor import (
-    SchemaProcessor,
-)
-from datahub.ingestion.source.snowplow.snowplow_config import (
-    FieldTaggingConfig,
-    PerformanceConfig,
-    SnowplowSourceConfig,
-)
-from datahub.ingestion.source.snowplow.snowplow_models import (
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataStructure,
     DataStructureDeployment,
     SchemaData,
     SchemaMetadata,
     SchemaSelf,
 )
-
-
-class TestSchemaProcessorParallelFetching:
-    """Test parallel deployment fetching logic."""
-
-    @pytest.fixture
-    def config_with_parallel_enabled(self):
-        """Create config with parallel fetching enabled."""
-        config = Mock(spec=SnowplowSourceConfig)
-        config.field_tagging = FieldTaggingConfig(
-            track_field_versions=True, tag_schema_version=False
-        )
-        config.performance = PerformanceConfig(
-            enable_parallel_fetching=True, max_concurrent_api_calls=3
-        )
-        config.deployed_since = None
-        config.schema_pattern = Mock()
-        config.schema_pattern.allowed = Mock(return_value=True)
-        config.schema_types_to_extract = ["event", "entity"]
-        config.schema_page_size = 100
-        config.bdp_connection = Mock()
-        config.bdp_connection.organization_id = "test-org"
-        return config
-
-    @pytest.fixture
-    def mock_deps_with_bdp(self):
-        """Create mock dependencies with BDP client."""
-        deps = Mock()
-        deps.bdp_client = Mock()
-        deps.iglu_client = None
-        deps.platform = "snowplow"
-        return deps
-
-    @pytest.fixture
-    def mock_state(self):
-        """Create mock state."""
-        state = Mock()
-        state.field_version_cache = {}
-        return state
-
-    @pytest.fixture
-    def processor_with_parallel(
-        self, mock_deps_with_bdp, mock_state, config_with_parallel_enabled
-    ):
-        """Create processor with parallel fetching enabled."""
-        data_structure_builder = Mock()
-        processor = SchemaProcessor(
-            mock_deps_with_bdp, mock_state, data_structure_builder
-        )
-        processor.config = config_with_parallel_enabled
-        processor.cache = Mock()
-        processor.cache.get = Mock(return_value=None)
-        processor.cache.set = Mock()
-        processor.report = Mock()
-        return processor
-
-    def test_fetch_deployments_uses_parallel_when_multiple_schemas(
-        self, processor_with_parallel, mock_deps_with_bdp
-    ):
-        """Test that parallel fetching is used when multiple schemas need deployments."""
-        schemas = [
-            DataStructure(
-                hash="hash1",
-                vendor="com.acme",
-                name="event1",
-                data=None,
-            ),
-            DataStructure(
-                hash="hash2",
-                vendor="com.acme",
-                name="event2",
-                data=None,
-            ),
-        ]
-
-        # Mock parallel deployment fetching
-        mock_deps_with_bdp.bdp_client.get_data_structure_deployments.return_value = [
-            DataStructureDeployment(
-                version="1-0-0", env="PROD", ts="2024-01-01T00:00:00Z"
-            )
-        ]
-
-        with patch.object(
-            processor_with_parallel, "_fetch_deployments_parallel"
-        ) as mock_parallel:
-            processor_with_parallel._fetch_deployments(schemas)
-            # Verify parallel method was called
-            mock_parallel.assert_called_once()
-
-    def test_fetch_deployments_uses_sequential_when_parallel_disabled(
-        self, processor_with_parallel, mock_deps_with_bdp
-    ):
-        """Test that sequential fetching is used when parallel is disabled."""
-        processor_with_parallel.config.performance.enable_parallel_fetching = False
-
-        schemas = [
-            DataStructure(
-                hash="hash1",
-                vendor="com.acme",
-                name="event1",
-                data=None,
-            ),
-            DataStructure(
-                hash="hash2",
-                vendor="com.acme",
-                name="event2",
-                data=None,
-            ),
-        ]
-
-        mock_deps_with_bdp.bdp_client.get_data_structure_deployments.return_value = [
-            DataStructureDeployment(
-                version="1-0-0", env="PROD", ts="2024-01-01T00:00:00Z"
-            )
-        ]
-
-        with patch.object(
-            processor_with_parallel, "_fetch_deployments_sequential"
-        ) as mock_sequential:
-            processor_with_parallel._fetch_deployments(schemas)
-            # Verify sequential method was called
-            mock_sequential.assert_called_once()
-
-    def test_fetch_deployments_parallel_handles_api_errors_gracefully(
-        self, processor_with_parallel, mock_deps_with_bdp
-    ):
-        """Test that parallel fetching continues even when some schemas fail."""
-        schemas = [
-            DataStructure(
-                hash="hash1",
-                vendor="com.acme",
-                name="event1",
-                data=None,
-            ),
-            DataStructure(
-                hash="hash2",
-                vendor="com.acme",
-                name="event2",
-                data=None,
-            ),
-        ]
-
-        # First schema succeeds, second fails
-        def side_effect(schema_hash):
-            if schema_hash == "hash1":
-                return [
-                    DataStructureDeployment(
-                        version="1-0-0", env="PROD", ts="2024-01-01T00:00:00Z"
-                    )
-                ]
-            else:
-                raise Exception("API timeout")
-
-        mock_deps_with_bdp.bdp_client.get_data_structure_deployments.side_effect = (
-            side_effect
-        )
-
-        # Should not raise exception
-        processor_with_parallel._fetch_deployments_parallel(schemas)
-
-        # First schema should have deployments, second should not
-        assert schemas[0].deployments is not None
-        assert len(schemas[0].deployments) > 0
-        # Second schema should remain None (error was logged but not raised)
+from datahub.ingestion.source.snowplow.processors.schema_processor import (
+    SchemaProcessor,
+)
+from datahub.ingestion.source.snowplow.snowplow_config import (
+    FieldTaggingConfig,
+    SnowplowSourceConfig,
+)
 
 
 class TestSchemaProcessorFieldVersionMapping:

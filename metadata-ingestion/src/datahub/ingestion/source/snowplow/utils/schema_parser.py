@@ -57,19 +57,6 @@ class SnowplowSchemaParser:
         "null": NullTypeClass,
     }
 
-    # JSON Schema format to DataHub type mapping
-    JSON_SCHEMA_FORMAT_MAP = {
-        "date": DateTypeClass,
-        "date-time": DateTypeClass,
-        "time": DateTypeClass,
-        "uuid": StringTypeClass,
-        "email": StringTypeClass,
-        "uri": StringTypeClass,
-        "hostname": StringTypeClass,
-        "ipv4": StringTypeClass,
-        "ipv6": StringTypeClass,
-    }
-
     @staticmethod
     def parse_schema(
         schema_data: Dict[str, Any],
@@ -370,9 +357,12 @@ class SnowplowSchemaParser:
             return SchemaFieldDataTypeClass(type=EnumTypeClass())
 
         # Handle format-specific types (date, datetime, etc.)
-        if json_format and json_format in SnowplowSchemaParser.JSON_SCHEMA_FORMAT_MAP:
-            type_class = SnowplowSchemaParser.JSON_SCHEMA_FORMAT_MAP[json_format]
-            return SchemaFieldDataTypeClass(type=type_class())  # type: ignore[arg-type]
+        # Explicit branching instead of dict lookup for mypy type safety
+        if json_format:
+            if json_format in ("date", "date-time", "time"):
+                return SchemaFieldDataTypeClass(type=DateTypeClass())
+            elif json_format in ("uuid", "email", "uri", "hostname", "ipv4", "ipv6"):
+                return SchemaFieldDataTypeClass(type=StringTypeClass())
 
         # Handle basic scalar types
         if json_type == "string":

@@ -12,9 +12,10 @@ Documentation:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
-from datahub.ingestion.source.snowplow.snowplow_models import Enrichment
+from datahub.ingestion.source.snowplow.enrichment_lineage.utils import make_field_urn
+from datahub.ingestion.source.snowplow.models.snowplow_models import Enrichment
 
 
 @dataclass
@@ -54,6 +55,9 @@ class EnrichmentLineageExtractor(ABC):
     Example implementations:
     - IpLookupLineageExtractor: user_ipaddress → geo_country, geo_region, etc.
     - CampaignAttributionLineageExtractor: page_url[utm_*] → mkt_* fields
+
+    Subclasses should use the helper methods provided:
+    - _create_simple_lineages(): For simple one-input-to-many-outputs patterns
     """
 
     @abstractmethod
@@ -88,3 +92,39 @@ class EnrichmentLineageExtractor(ABC):
             True if this extractor can handle this enrichment type
         """
         pass
+
+    def _create_simple_lineages(
+        self,
+        input_field: str,
+        output_fields: Sequence[str],
+        event_schema_urn: str,
+        warehouse_table_urn: str,
+        transformation_type: str = "DERIVED",
+    ) -> List[FieldLineage]:
+        """
+        Create lineages for a simple one-input-to-many-outputs pattern.
+
+        This helper handles the common case where a single input field is
+        transformed into multiple output fields (e.g., page_referrer → refr_medium,
+        refr_source, refr_term).
+
+        Args:
+            input_field: Name of the input field (e.g., "page_referrer")
+            output_fields: List of output field names (e.g., ["refr_medium", "refr_source"])
+            event_schema_urn: URN of the input event schema
+            warehouse_table_urn: URN of the output warehouse table
+            transformation_type: Type of transformation (default: "DERIVED")
+
+        Returns:
+            List of FieldLineage objects, one per output field
+        """
+        upstream_field_urn = make_field_urn(event_schema_urn, input_field)
+
+        return [
+            FieldLineage(
+                upstream_fields=[upstream_field_urn],
+                downstream_fields=[make_field_urn(warehouse_table_urn, output_field)],
+                transformation_type=transformation_type,
+            )
+            for output_field in output_fields
+        ]

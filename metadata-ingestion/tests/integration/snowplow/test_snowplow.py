@@ -44,7 +44,9 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
 
         # Mock get_data_structures API call
         # Parse directly as list of DataStructure objects (API returns direct array)
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+        )
 
         data_structures = [
             DataStructure.model_validate(ds) for ds in mock_data_structures
@@ -55,7 +57,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
         mock_client.test_connection.return_value = True
 
         # Mock get_users for ownership resolution
-        from datahub.ingestion.source.snowplow.snowplow_models import User
+        from datahub.ingestion.source.snowplow.models.snowplow_models import User
 
         mock_users = [
             User(id="user1", email="ryan@company.com", name="Ryan Smith"),
@@ -142,7 +144,7 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
         mock_client.session = None
 
         # Mock get_data_structures
-        from datahub.ingestion.source.snowplow.snowplow_models import (
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
             DataStructure,
             EventSpecification,
             TrackingScenario,
@@ -169,7 +171,7 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
         mock_client.get_tracking_scenarios.return_value = tracking_scenarios
 
         # Mock get_pipelines (needed for event-specific DataFlows)
-        from datahub.ingestion.source.snowplow.snowplow_models import (
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
             Pipeline as SnowplowPipelineModel,
             PipelineConfig,
         )
@@ -285,7 +287,7 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
         mock_client.session = None
 
         # Mock get_data_structures
-        from datahub.ingestion.source.snowplow.snowplow_models import (
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
             DataProduct,
             DataStructure,
             EventSpecification,
@@ -319,7 +321,7 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
         mock_client.get_data_products.return_value = data_products
 
         # Mock get_pipelines (needed for event-specific DataFlows)
-        from datahub.ingestion.source.snowplow.snowplow_models import (
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
             Pipeline as SnowplowPipelineModel,
             PipelineConfig,
         )
@@ -428,7 +430,7 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
         mock_client.session = None
 
         # Mock get_data_structures
-        from datahub.ingestion.source.snowplow.snowplow_models import (
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
             DataStructure,
             Pipeline as SnowplowPipeline,
         )
@@ -451,7 +453,7 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
         mock_client.get_data_products.return_value = []
 
         # Mock user lookups
-        from datahub.ingestion.source.snowplow.snowplow_models import User
+        from datahub.ingestion.source.snowplow.models.snowplow_models import User
 
         mock_users = [
             User(id="user1", email="ryan@company.com", name="Ryan Smith"),
@@ -538,7 +540,7 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         mock_client.session = None
 
         # Mock get_data_structures
-        from datahub.ingestion.source.snowplow.snowplow_models import (
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
             DataStructure,
             Enrichment,
             Pipeline as SnowplowPipeline,
@@ -566,7 +568,9 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         ) as f:
             mock_event_specs_response = json.load(f)
 
-        from datahub.ingestion.source.snowplow.snowplow_models import EventSpecification
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            EventSpecification,
+        )
 
         event_specs = [
             EventSpecification.model_validate(es)
@@ -579,7 +583,7 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         mock_client.get_data_products.return_value = []
 
         # Mock user lookups
-        from datahub.ingestion.source.snowplow.snowplow_models import User
+        from datahub.ingestion.source.snowplow.models.snowplow_models import User
 
         mock_users = [
             User(id="user1", email="ryan@company.com", name="Ryan Smith"),
@@ -591,7 +595,9 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         with open(test_resources_dir / "fixtures/organization_response.json") as f:
             mock_organization_response = json.load(f)
 
-        from datahub.ingestion.source.snowplow.snowplow_models import Organization
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            Organization,
+        )
 
         organization = Organization.model_validate(mock_organization_response)
         mock_client.get_organization.return_value = organization
@@ -749,3 +755,279 @@ def test_snowplow_config_validation():
                 "sink": {"type": "file", "config": {"filename": "/dev/null"}},
             }
         )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_snowplow_enrichments_without_event_spec_processor(
+    pytestconfig, tmp_path, mock_time
+):
+    """
+    Test enrichments work when extract_event_specifications is FALSE.
+
+    This is a regression test for Bug 1:
+    - When extract_event_specifications=False but extract_enrichments=True,
+      enrichments should still be created.
+    - PipelineProcessor should populate emitted_event_spec_ids from its own
+      event spec fetching, not depend on EventSpecProcessor.
+
+    This test verifies:
+    1. DataFlows are created for event specs (via PipelineProcessor)
+    2. Enrichment DataJobs are created for each event spec
+    3. The full enrichment pipeline works without EventSpecProcessor
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
+
+    # Load mock data
+    with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
+        mock_data_structures = json.load(f)
+
+    with open(test_resources_dir / "fixtures/pipelines_response.json") as f:
+        mock_pipelines_response = json.load(f)
+
+    with open(test_resources_dir / "fixtures/enrichments_response.json") as f:
+        mock_enrichments_response = json.load(f)
+
+    with open(test_resources_dir / "fixtures/event_specifications_response.json") as f:
+        mock_event_specs_response = json.load(f)
+
+    # Mock the Snowplow BDP client
+    with patch(
+        "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
+    ) as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client._authenticate = lambda: None
+        mock_client._jwt_token = "mock_jwt_token"
+        mock_client.session = None
+
+        # Setup mock data
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+            Enrichment,
+            EventSpecification,
+            Pipeline as SnowplowPipeline,
+            User,
+        )
+
+        mock_client.get_data_structures.return_value = [
+            DataStructure.model_validate(ds) for ds in mock_data_structures
+        ]
+        mock_client.get_pipelines.return_value = [
+            SnowplowPipeline.model_validate(p)
+            for p in mock_pipelines_response["pipelines"]
+        ]
+        mock_client.get_enrichments.return_value = [
+            Enrichment.model_validate(e) for e in mock_enrichments_response
+        ]
+        mock_client.get_event_specifications.return_value = [
+            EventSpecification.model_validate(es)
+            for es in mock_event_specs_response["data"]
+        ]
+        mock_client.get_tracking_scenarios.return_value = []
+        mock_client.get_data_products.return_value = []
+        mock_client.get_users.return_value = [
+            User(id="user1", email="ryan@company.com", name="Ryan Smith"),
+        ]
+        mock_client.get_destinations.return_value = []
+        mock_client.test_connection.return_value = True
+
+        # Run ingestion with the critical flag combination:
+        # extract_event_specifications=FALSE but extract_enrichments=TRUE
+        pipeline_run = Pipeline.create(
+            {
+                "source": {
+                    "type": "snowplow",
+                    "config": {
+                        "bdp_connection": {
+                            "organization_id": "test-org-uuid",
+                            "api_key_id": "test-key-id",
+                            "api_key": "test-secret",
+                        },
+                        "extract_event_specifications": False,  # KEY: Disabled!
+                        "extract_tracking_scenarios": False,
+                        "extract_data_products": False,
+                        "extract_pipelines": True,
+                        "extract_enrichments": True,  # KEY: Enabled!
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": str(
+                            tmp_path / "snowplow_enrichments_no_eventspec.json"
+                        )
+                    },
+                },
+            }
+        )
+        pipeline_run.run()
+        pipeline_run.raise_from_status()
+
+    # Read the output and verify enrichments were created
+    output_file = tmp_path / "snowplow_enrichments_no_eventspec.json"
+    with open(output_file) as f:
+        output_mces = json.load(f)
+
+    # Count unique entity URNs by type
+    # Note: DataJob URNs contain the DataFlow URN, so we check more precisely
+    dataflow_urns = set()
+    datajob_urns = set()
+
+    for mce in output_mces:
+        entity_urn = mce.get("entityUrn", "")
+        # DataJob URNs start with "urn:li:dataJob:"
+        if entity_urn.startswith("urn:li:dataJob:"):
+            datajob_urns.add(entity_urn)
+        # DataFlow URNs start with "urn:li:dataFlow:" (and don't contain "dataJob")
+        elif entity_urn.startswith("urn:li:dataFlow:"):
+            dataflow_urns.add(entity_urn)
+
+    # Verify: Should have DataFlows for event specs (2 in fixture)
+    assert len(dataflow_urns) >= 2, (
+        f"Expected at least 2 unique DataFlows, got {len(dataflow_urns)}: {dataflow_urns}"
+    )
+
+    # Verify: Should have DataJobs (2 event specs × 2 enabled enrichments = 4)
+    # 2 enrichments per event spec = 4 total enrichment DataJobs
+    assert len(datajob_urns) >= 4, (
+        f"Expected at least 4 unique DataJobs, got {len(datajob_urns)}: {datajob_urns}"
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_snowplow_all_event_specs_processed(pytestconfig, tmp_path, mock_time):
+    """
+    Test that ALL event specs are processed, not just the first one.
+
+    This is a regression test for Bug 2:
+    - Previously, the filter condition in PipelineProcessor checked emitted_event_spec_ids
+      but IDs were added DURING the loop, so only the first iteration passed.
+    - All event specs should get DataFlows and enrichments.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
+
+    # Load mock data
+    with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
+        mock_data_structures = json.load(f)
+
+    with open(test_resources_dir / "fixtures/pipelines_response.json") as f:
+        mock_pipelines_response = json.load(f)
+
+    # Create 3 event specs to ensure all are processed
+    mock_event_specs = {
+        "data": [
+            {
+                "id": "evt-spec-1",
+                "version": 1,
+                "name": "Event Spec 1",
+                "status": "published",
+                "event": {"source": "iglu:com.test/event1/jsonschema/1-0-0"},
+            },
+            {
+                "id": "evt-spec-2",
+                "version": 1,
+                "name": "Event Spec 2",
+                "status": "published",
+                "event": {"source": "iglu:com.test/event2/jsonschema/1-0-0"},
+            },
+            {
+                "id": "evt-spec-3",
+                "version": 1,
+                "name": "Event Spec 3",
+                "status": "published",
+                "event": {"source": "iglu:com.test/event3/jsonschema/1-0-0"},
+            },
+        ]
+    }
+
+    with patch(
+        "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
+    ) as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client._authenticate = lambda: None
+        mock_client._jwt_token = "mock_jwt_token"
+        mock_client.session = None
+
+        from datahub.ingestion.source.snowplow.models.snowplow_models import (
+            DataStructure,
+            EventSpecification,
+            Pipeline as SnowplowPipeline,
+            User,
+        )
+
+        mock_client.get_data_structures.return_value = [
+            DataStructure.model_validate(ds) for ds in mock_data_structures
+        ]
+        mock_client.get_pipelines.return_value = [
+            SnowplowPipeline.model_validate(p)
+            for p in mock_pipelines_response["pipelines"]
+        ]
+        mock_client.get_event_specifications.return_value = [
+            EventSpecification.model_validate(es) for es in mock_event_specs["data"]
+        ]
+        mock_client.get_enrichments.return_value = []
+        mock_client.get_tracking_scenarios.return_value = []
+        mock_client.get_data_products.return_value = []
+        mock_client.get_users.return_value = [
+            User(id="user1", email="ryan@company.com", name="Ryan Smith"),
+        ]
+        mock_client.get_destinations.return_value = []
+        mock_client.test_connection.return_value = True
+
+        pipeline_run = Pipeline.create(
+            {
+                "source": {
+                    "type": "snowplow",
+                    "config": {
+                        "bdp_connection": {
+                            "organization_id": "test-org-uuid",
+                            "api_key_id": "test-key-id",
+                            "api_key": "test-secret",
+                        },
+                        "extract_event_specifications": True,
+                        "extract_pipelines": True,
+                        "extract_enrichments": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": str(tmp_path / "snowplow_all_specs.json")},
+                },
+            }
+        )
+        pipeline_run.run()
+        pipeline_run.raise_from_status()
+
+    # Read output and count event spec datasets and DataFlows
+    output_file = tmp_path / "snowplow_all_specs.json"
+    with open(output_file) as f:
+        output_mces = json.load(f)
+
+    event_spec_datasets = set()
+    dataflows = set()
+
+    for mce in output_mces:
+        entity_urn = mce.get("entityUrn", "")
+        # Only count actual dataset URNs (not schemaField URNs)
+        if (
+            entity_urn.startswith("urn:li:dataset:")
+            and "event_spec.evt-spec" in entity_urn
+        ):
+            event_spec_datasets.add(entity_urn)
+        # DataFlow URNs for event specs
+        elif (
+            entity_urn.startswith("urn:li:dataFlow:")
+            and "_event_evt-spec" in entity_urn
+        ):
+            dataflows.add(entity_urn)
+
+    # Verify ALL 3 event specs got datasets
+    assert len(event_spec_datasets) == 3, (
+        f"Expected 3 event spec datasets, got {len(event_spec_datasets)}: {event_spec_datasets}"
+    )
+
+    # Verify ALL 3 event specs got DataFlows
+    assert len(dataflows) == 3, (
+        f"Expected 3 DataFlows, got {len(dataflows)}: {dataflows}"
+    )

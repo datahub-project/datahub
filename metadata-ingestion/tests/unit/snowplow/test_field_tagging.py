@@ -7,7 +7,7 @@ Tests the field tagging infrastructure including:
 - Tag pattern customization
 """
 
-from datahub.ingestion.source.snowplow.field_tagging import (
+from datahub.ingestion.source.snowplow.services.field_tagging import (
     FieldTagContext,
     FieldTagger,
 )

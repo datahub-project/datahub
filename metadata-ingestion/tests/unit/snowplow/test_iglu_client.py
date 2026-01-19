@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datahub.ingestion.source.snowplow.iglu_client import IgluClient
+from datahub.ingestion.source.snowplow.services.iglu_client import IgluClient
 from datahub.ingestion.source.snowplow.snowplow_config import IgluConnectionConfig
 
 
@@ -19,8 +19,8 @@ class TestIgluClientInitialization:
 
         assert client.base_url == "http://iglu.example.com"
         assert client.session is not None
-        # No API key set in session params (params should be empty dict or None)
-        assert client.session.params == {} or client.session.params is None
+        # No API key set - params dict should be empty
+        assert client._api_key_param == {}
 
     def test_init_with_api_key(self):
         """Test initialization with API key."""
@@ -33,8 +33,8 @@ class TestIgluClientInitialization:
 
         assert client.base_url == "http://iglu.example.com"
         assert client.session is not None
-        # API key should be set in session params
-        assert client.session.params == {"apikey": "test-api-key-uuid"}
+        # API key should be stored for use in requests
+        assert client._api_key_param == {"apikey": "test-api-key-uuid"}
 
     def test_session_has_retry_strategy(self):
         """Test that session is configured with retry strategy."""
@@ -209,8 +209,8 @@ class TestIgluClientGetSchema:
             version="1-0-0",
         )
 
-        # API key should be in session params
-        assert client.session.params == {"apikey": "test-api-key"}
+        # API key should be stored for use in requests
+        assert client._api_key_param == {"apikey": "test-api-key"}
 
 
 class TestIgluClientErrorHandling:
@@ -271,3 +271,237 @@ class TestIgluClientErrorHandling:
 
         # Should return None and log error
         assert result is None
+
+
+class TestIgluClientListSchemas:
+    """Tests for list_schemas() method."""
+
+    @pytest.fixture
+    def iglu_config(self):
+        """Create test Iglu config."""
+        return IgluConnectionConfig(iglu_server_url="http://iglu.example.com")
+
+    @pytest.fixture
+    def iglu_client(self, iglu_config):
+        """Create test Iglu client."""
+        return IgluClient(iglu_config)
+
+    @patch("requests.Session.get")
+    def test_list_schemas_success_array_format(self, mock_get, iglu_client):
+        """Test successful schema listing with array format response."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = [
+            "iglu:com.acme/page_view/jsonschema/1-0-0",
+            "iglu:com.acme/user_action/jsonschema/1-0-0",
+            "iglu:com.example/checkout/jsonschema/2-0-0",
+        ]
+        mock_get.return_value = mock_response
+
+        result = iglu_client.list_schemas()
+
+        assert len(result) == 3
+        assert "iglu:com.acme/page_view/jsonschema/1-0-0" in result
+        assert "iglu:com.acme/user_action/jsonschema/1-0-0" in result
+        mock_get.assert_called_once()
+
+    @patch("requests.Session.get")
+    def test_list_schemas_success_dict_format(self, mock_get, iglu_client):
+        """Test successful schema listing with dict format response."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "schemas": [
+                "iglu:com.acme/page_view/jsonschema/1-0-0",
+                "iglu:com.acme/user_action/jsonschema/1-0-0",
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        result = iglu_client.list_schemas()
+
+        assert len(result) == 2
+        assert "iglu:com.acme/page_view/jsonschema/1-0-0" in result
+
+    @patch("requests.Session.get")
+    def test_list_schemas_empty_response(self, mock_get, iglu_client):
+        """Test empty response returns empty list."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        result = iglu_client.list_schemas()
+
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_list_schemas_404_returns_empty_list(self, mock_get, iglu_client):
+        """Test that 404 returns empty list (old Iglu servers don't support list)."""
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.raise_for_status.side_effect = pytest.importorskip(
+            "requests"
+        ).exceptions.HTTPError(response=mock_response)
+        mock_get.return_value = mock_response
+
+        result = iglu_client.list_schemas()
+
+        # 404 is expected for old servers - should return empty list, not raise
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_list_schemas_401_raises_permission_error(self, mock_get, iglu_client):
+        """Test that 401 raises PermissionError (auth failure is fatal)."""
+        mock_response = Mock()
+        mock_response.status_code = 401
+        mock_response.raise_for_status.side_effect = pytest.importorskip(
+            "requests"
+        ).exceptions.HTTPError(response=mock_response)
+        mock_get.return_value = mock_response
+
+        with pytest.raises(PermissionError, match="Authentication failed"):
+            iglu_client.list_schemas()
+
+    @patch("requests.Session.get")
+    def test_list_schemas_403_raises_permission_error(self, mock_get, iglu_client):
+        """Test that 403 raises PermissionError (auth failure is fatal)."""
+        mock_response = Mock()
+        mock_response.status_code = 403
+        mock_response.raise_for_status.side_effect = pytest.importorskip(
+            "requests"
+        ).exceptions.HTTPError(response=mock_response)
+        mock_get.return_value = mock_response
+
+        with pytest.raises(PermissionError, match="Authentication failed"):
+            iglu_client.list_schemas()
+
+    @patch("requests.Session.get")
+    def test_list_schemas_500_raises_http_error(self, mock_get, iglu_client):
+        """Test that 500 error is re-raised."""
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = pytest.importorskip(
+            "requests"
+        ).exceptions.HTTPError(response=mock_response)
+        mock_get.return_value = mock_response
+
+        with pytest.raises(pytest.importorskip("requests").exceptions.HTTPError):
+            iglu_client.list_schemas()
+
+    @patch("requests.Session.get")
+    def test_list_schemas_timeout_raises(self, mock_get, iglu_client):
+        """Test that timeout is re-raised."""
+        mock_get.side_effect = pytest.importorskip("requests").exceptions.Timeout()
+
+        with pytest.raises(pytest.importorskip("requests").exceptions.Timeout):
+            iglu_client.list_schemas()
+
+    @patch("requests.Session.get")
+    def test_list_schemas_connection_error_raises(self, mock_get, iglu_client):
+        """Test that connection error is re-raised."""
+        mock_get.side_effect = pytest.importorskip(
+            "requests"
+        ).exceptions.ConnectionError()
+
+        with pytest.raises(pytest.importorskip("requests").exceptions.ConnectionError):
+            iglu_client.list_schemas()
+
+    @patch("requests.Session.get")
+    def test_list_schemas_unexpected_response_format(self, mock_get, iglu_client):
+        """Test unexpected response format returns empty list."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = "unexpected string response"
+        mock_get.return_value = mock_response
+
+        result = iglu_client.list_schemas()
+
+        assert result == []
+
+
+class TestIgluClientParseIgluUri:
+    """Tests for parse_iglu_uri() static method."""
+
+    def test_parse_valid_iglu_uri(self):
+        """Test parsing a valid Iglu URI."""
+        result = IgluClient.parse_iglu_uri("iglu:com.acme/page_view/jsonschema/1-0-0")
+
+        assert result is not None
+        assert result["vendor"] == "com.acme"
+        assert result["name"] == "page_view"
+        assert result["format"] == "jsonschema"
+        assert result["version"] == "1-0-0"
+
+    def test_parse_uri_with_nested_vendor(self):
+        """Test parsing URI with deeply nested vendor."""
+        result = IgluClient.parse_iglu_uri(
+            "iglu:com.snowplowanalytics.snowplow/link_click/jsonschema/1-0-1"
+        )
+
+        assert result is not None
+        assert result["vendor"] == "com.snowplowanalytics.snowplow"
+        assert result["name"] == "link_click"
+        assert result["format"] == "jsonschema"
+        assert result["version"] == "1-0-1"
+
+    def test_parse_uri_without_iglu_prefix(self):
+        """Test parsing URI without iglu: prefix still works."""
+        result = IgluClient.parse_iglu_uri("com.acme/page_view/jsonschema/1-0-0")
+
+        assert result is not None
+        assert result["vendor"] == "com.acme"
+        assert result["name"] == "page_view"
+
+    def test_parse_uri_with_invalid_format_returns_none(self):
+        """Test that invalid URI format returns None."""
+        result = IgluClient.parse_iglu_uri("invalid")
+
+        assert result is None
+
+    def test_parse_uri_with_too_few_parts(self):
+        """Test that URI with too few parts returns None."""
+        result = IgluClient.parse_iglu_uri("iglu:com.acme/page_view")
+
+        assert result is None
+
+    def test_parse_uri_with_too_many_parts(self):
+        """Test that URI with too many parts returns None."""
+        result = IgluClient.parse_iglu_uri(
+            "iglu:com.acme/page_view/jsonschema/1-0-0/extra"
+        )
+
+        assert result is None
+
+    def test_parse_empty_uri(self):
+        """Test that empty URI returns None."""
+        result = IgluClient.parse_iglu_uri("")
+
+        assert result is None
+
+    def test_parse_uri_with_just_prefix(self):
+        """Test that just 'iglu:' returns None."""
+        result = IgluClient.parse_iglu_uri("iglu:")
+
+        assert result is None
+
+    def test_parse_uri_with_different_version_formats(self):
+        """Test parsing URIs with various version formats."""
+        # Standard version
+        result1 = IgluClient.parse_iglu_uri("iglu:com.acme/schema/jsonschema/1-0-0")
+        assert result1 is not None
+        assert result1["version"] == "1-0-0"
+
+        # Higher version numbers
+        result2 = IgluClient.parse_iglu_uri("iglu:com.acme/schema/jsonschema/2-1-3")
+        assert result2 is not None
+        assert result2["version"] == "2-1-3"
+
+        # Double-digit version
+        result3 = IgluClient.parse_iglu_uri("iglu:com.acme/schema/jsonschema/10-5-20")
+        assert result3 is not None
+        assert result3["version"] == "10-5-20"

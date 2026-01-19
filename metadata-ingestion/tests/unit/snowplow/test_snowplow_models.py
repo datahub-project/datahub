@@ -1,6 +1,6 @@
 """Unit tests for Snowplow model parsing logic."""
 
-from datahub.ingestion.source.snowplow.snowplow_models import (
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
     EntitiesSection,
     EntitySchemaReference,
     EventSpecification,
