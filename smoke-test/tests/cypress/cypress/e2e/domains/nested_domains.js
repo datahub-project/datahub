@@ -19,7 +19,8 @@ const handledResizeLoopErrors = () => {
 const createDomain = () => {
   cy.get(".anticon-plus").first().click();
   cy.waitTextVisible("Create New Domain");
-  cy.get('[data-testid="create-domain-name"]').click().type(domainName);
+  cy.get('[data-testid="create-domain-name"]').click();
+  cy.get('[data-testid="create-domain-name"]').type(domainName);
   cy.clickOptionWithTestId("create-domain-button");
   cy.waitTextVisible("Created domain!");
 };
@@ -86,12 +87,15 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
 };
 
 const clearAndType = (text) => {
-  cy.get('[role="textbox"]').click().clear().type(text);
+  cy.get('[role="textbox"]').click();
+  cy.get('[role="textbox"]').clear();
+  cy.get('[role="textbox"]').type(text);
 };
 
 const clearAndDelete = () => {
   cy.clickFirstOptionWithTestId("edit-documentation-button");
-  cy.get('[role="textbox"]').click().clear();
+  cy.get('[role="textbox"]').click();
+  cy.get('[role="textbox"]').clear();
   cy.clickOptionWithTestId("description-editor-save-button");
   cy.waitTextVisible("No documentation");
   cy.mouseover(".ant-list-item-meta-content");

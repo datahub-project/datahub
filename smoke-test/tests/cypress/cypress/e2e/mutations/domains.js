@@ -27,9 +27,11 @@ describe("add remove domain", () => {
     cy.goToDomainList();
     cy.clickOptionWithText("New Domain");
     cy.waitTextVisible("Create New Domain");
-    cy.get('[data-testid="create-domain-name"]').click().type(test_domain);
+    cy.get('[data-testid="create-domain-name"]').click();
+    cy.get('[data-testid="create-domain-name"]').type(test_domain);
     cy.clickOptionWithText("Advanced");
-    cy.get('[data-testid="create-domain-id"]').click().type(test_domain_id);
+    cy.get('[data-testid="create-domain-id"]').click();
+    cy.get('[data-testid="create-domain-id"]').type(test_domain_id);
     cy.get('[data-testid="create-domain-button"]').click();
     cy.waitTextVisible(test_domain);
   });
@@ -42,9 +44,10 @@ describe("add remove domain", () => {
     cy.waitTextVisible("Add assets");
     cy.clickOptionWithText("Add assets");
     cy.get(".ant-modal-content").within(() => {
-      cy.get('[data-testid="search-input"]')
-        .click()
-        .type("cypress_project.jaffle_shop.customer");
+      cy.get('[data-testid="search-input"]').click();
+      cy.get('[data-testid="search-input"]').type(
+        "cypress_project.jaffle_shop.customer",
+      );
       cy.contains("BigQuery", { timeout: 30000 });
       cy.get(".ant-checkbox-input").first().click();
       cy.get("#continueButton").click();

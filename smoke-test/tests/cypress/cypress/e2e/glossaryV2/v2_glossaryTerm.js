@@ -44,11 +44,9 @@ const elementVisibility = () => {
 };
 
 const enterKeyInSearchBox = (text) => {
-  cy.get('[data-testid="search-input"]')
-    .last()
-    .should("be.visible")
-    .click()
-    .type(`${text}{enter}`);
+  cy.get('[data-testid="search-input"]').last().should("be.visible");
+  cy.get('[data-testid="search-input"]').last().click();
+  cy.get('[data-testid="search-input"]').last().type(`${text}{enter}`);
 };
 
 describe("glossaryTerm", () => {
