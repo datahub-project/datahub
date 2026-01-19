@@ -29,6 +29,7 @@ export const DetailsContainer = styled.div`
         margin: 0;
         color: ${colors.gray[1700]};
         overflow-y: auto;
+        font-family: 'Roboto Mono', monospace;
     }
 `;
 
