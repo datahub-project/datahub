@@ -348,6 +348,16 @@
     name: voldemort
     displayName: Voldemort
     type: KEY_VALUE_STORE
+- entityUrn: urn:li:dataPlatform:singlestore
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: singlestore
+    displayName: SingleStore
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/singlestorelogo.png"
 - entityUrn: urn:li:dataPlatform:snowflake
   entityType: dataPlatform
   aspectName: dataPlatformInfo

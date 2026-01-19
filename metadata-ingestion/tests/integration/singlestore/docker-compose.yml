@@ -1,0 +1,11 @@
+version: "2"
+services:
+  testsinglestore:
+    image: ghcr.io/singlestore-labs/singlestoredb-dev:latest
+    container_name: "testsinglestore"
+    environment:
+      ROOT_PASSWORD: example
+    ports:
+      - 53308:3306
+    volumes:
+      - ./setup/setup.sql:/init.sql
