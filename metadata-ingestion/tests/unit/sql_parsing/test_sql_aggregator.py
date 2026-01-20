@@ -2,7 +2,7 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import NoReturn
+from typing import List, NoReturn, Optional, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1810,7 +1810,7 @@ def test_batch_processing_with_preparsed() -> None:
         max_workers=2,
     )
 
-    queries: list[ObservedQuery | PreparsedQuery] = [
+    queries: List[Union[ObservedQuery, PreparsedQuery]] = [
         ObservedQuery(
             query="SELECT * FROM table1",
             timestamp=_ts(100),
@@ -1940,7 +1940,7 @@ def test_batch_processing_exception_handling() -> None:
         max_workers=2,
     )
 
-    def failing_parser(query: ObservedQuery) -> PreparsedQuery | None:
+    def failing_parser(query: ObservedQuery) -> Optional[PreparsedQuery]:
         if "fail" in query.query.lower():
             raise RuntimeError("Intentional failure for testing")
         return aggregator._parse_observed_query_for_batch(query)
