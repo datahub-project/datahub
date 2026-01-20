@@ -1,24 +1,28 @@
+import json
 import logging
 import os
-import json
-from pathlib import Path
-
 from collections import defaultdict
-import pytest
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from _pytest.nodes import Item
-import requests
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
 
+import pytest
+import requests
+from _pytest.nodes import Item
+
+from datahub.ingestion.graph.client import (
+    DatahubClientConfig,
+    DataHubGraph,
+    get_default_graph,
+)
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
 from tests.utils import (
     TestSessionWrapper,
-    get_frontend_session,
-    wait_for_healthcheck_util,
-    ingest_file_via_rest,
     delete_urns,
     delete_urns_from_file,
+    get_frontend_session,
+    ingest_file_via_rest,
+    wait_for_healthcheck_util,
     wait_for_writes_to_sync,
 )
 
@@ -45,8 +49,9 @@ def auth_session():
 def build_graph_client(auth_session, openapi_ingestion=False):
     graph: DataHubGraph = DataHubGraph(
         config=DatahubClientConfig(
-            server=auth_session.gms_url(), token=auth_session.gms_token(),
-            openapi_ingestion=openapi_ingestion
+            server=auth_session.gms_url(),
+            token=auth_session.gms_token(),
+            openapi_ingestion=openapi_ingestion,
         )
     )
     return graph
@@ -79,7 +84,7 @@ def _ingest_cleanup_data_impl(
     graph_client,
     data_file: str,
     test_name: str,
-    to_delete_urns: Optional[List[str]] = None
+    to_delete_urns: Optional[List[str]] = None,
 ):
     """Helper for ingesting test data with automatic cleanup.
 
@@ -110,7 +115,6 @@ def _ingest_cleanup_data_impl(
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
     wait_for_writes_to_sync()
-
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -183,7 +187,9 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
-def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) -> List[Tuple[str, List[Item], float]]:
+def aggregate_module_weights(
+    items: List[Item], test_weights: Dict[str, float]
+) -> List[Tuple[str, List[Item], float]]:
     """
     Group test items by module and aggregate their weights.
 
@@ -230,6 +236,39 @@ def pytest_collection_modifyitems(
     if env_vars.get_test_strategy() == "cypress":
         return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
 
+    # Check if FILTERED_TESTS is set (for retry logic)
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file:
+        logger.info(f"Reading filtered test modules from {filtered_tests_file}")
+        try:
+            with open(filtered_tests_file) as f:
+                # Read non-empty lines, strip whitespace, ignore comments
+                filtered_modules = set(
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.strip().startswith("#")
+                )
+
+            logger.info(f"Found {len(filtered_modules)} filtered module(s) to run")
+
+            # Filter items to only those from the specified modules
+            filtered_items = []
+            for item in items:
+                # Get the module path from the item's fspath
+                module_path = str(item.fspath)
+
+                # Check if this item's module is in the filtered list
+                # Need to handle both absolute and relative paths
+                if any(module_path.endswith(filtered_mod) for filtered_mod in filtered_modules):
+                    filtered_items.append(item)
+
+            logger.info(f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)")
+            items[:] = filtered_items
+            return
+        except Exception as e:
+            logger.warning(f"Failed to read filtered tests file: {e}. Running all tests.")
+            # Fall through to normal batching logic
+
     # Get batch configuration
     batch_count_env = env_vars.get_batch_count()
     batch_count = int(batch_count_env)
@@ -251,10 +290,16 @@ def pytest_collection_modifyitems(
 
     # Create weighted tuples for bin-packing: (module_path, weight)
     # We'll also keep track of the items for each module
-    module_map = {module_path: module_items for module_path, module_items, _ in module_data}
-    weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
+    module_map = {
+        module_path: module_items for module_path, module_items, _ in module_data
+    }
+    weighted_modules = [
+        (module_path, total_weight) for module_path, _, total_weight in module_data
+    ]
 
-    logger.info(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+    logger.info(
+        f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches"
+    )
 
     # Apply bin-packing to modules
     module_batches = bin_pack_tasks(weighted_modules, batch_count)
@@ -268,8 +313,9 @@ def pytest_collection_modifyitems(
     for module_path in selected_modules:
         selected_items.extend(module_map[module_path])
 
-    logger.info(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+    logger.info(
+        f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules"
+    )
 
     # Replace items with the filtered list
     items[:] = selected_items
-

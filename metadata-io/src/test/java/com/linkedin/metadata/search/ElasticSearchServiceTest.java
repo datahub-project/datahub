@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -195,6 +196,110 @@ public class ElasticSearchServiceTest {
   @Test(expectedExceptions = NullPointerException.class)
   public void testAppendRunId_NullUrn() {
     testInstance.appendRunId(opContext, null, "test-run-id");
+  }
+
+  @Test
+  public void testAppendRunId_DualWriteToSemanticIndex() {
+    // Setup: Create a mock that supports indexExists check
+    ESWriteDAO mockEsWriteDAOWithIndex = mock(ESWriteDAO.class);
+    when(mockEsWriteDAOWithIndex.indexExists(any(String.class))).thenReturn(true);
+
+    ElasticSearchService serviceWithSemanticIndex =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAOWithIndex);
+
+    String runId = "test-run-id-semantic";
+
+    // Execute
+    serviceWithSemanticIndex.appendRunId(opContext, TEST_URN, runId);
+
+    // Verify V2 index update
+    verify(mockEsWriteDAOWithIndex)
+        .applyScriptUpdate(
+            eq(opContext),
+            eq(TEST_URN.getEntityType()),
+            eq(TEST_DOC_ID),
+            eq(ElasticSearchService.SCRIPT_SOURCE),
+            any(Map.class),
+            any(Map.class));
+
+    // Verify semantic index update
+    String expectedSemanticIndexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameSemantic(TEST_URN.getEntityType());
+
+    // Capture the arguments for semantic index update
+    ArgumentCaptor<String> indexNameCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> scriptSourceCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Map> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map> upsertCaptor = ArgumentCaptor.forClass(Map.class);
+
+    verify(mockEsWriteDAOWithIndex)
+        .applyScriptUpdateByIndexName(
+            indexNameCaptor.capture(),
+            docIdCaptor.capture(),
+            scriptSourceCaptor.capture(),
+            scriptParamsCaptor.capture(),
+            upsertCaptor.capture());
+
+    // Verify the semantic index was updated correctly
+    assertEquals(expectedSemanticIndexName, indexNameCaptor.getValue());
+    assertEquals(TEST_DOC_ID, docIdCaptor.getValue());
+    assertEquals(ElasticSearchService.SCRIPT_SOURCE, scriptSourceCaptor.getValue());
+    assertEquals(runId, scriptParamsCaptor.getValue().get("runId"));
+    assertEquals(MAX_RUN_IDS_INDEXED, scriptParamsCaptor.getValue().get("maxRunIds"));
+  }
+
+  @Test
+  public void testAppendRunId_SkipsSemanticIndexWhenNotExists() {
+    // Setup: Create a mock where semantic index does not exist
+    ESWriteDAO mockEsWriteDAONoSemanticIndex = mock(ESWriteDAO.class);
+    when(mockEsWriteDAONoSemanticIndex.indexExists(any(String.class))).thenReturn(false);
+
+    ElasticSearchService serviceWithoutSemanticIndex =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAONoSemanticIndex);
+
+    String runId = "test-run-id";
+
+    // Execute
+    serviceWithoutSemanticIndex.appendRunId(opContext, TEST_URN, runId);
+
+    // Verify V2 index update was called
+    verify(mockEsWriteDAONoSemanticIndex)
+        .applyScriptUpdate(
+            eq(opContext),
+            eq(TEST_URN.getEntityType()),
+            eq(TEST_DOC_ID),
+            eq(ElasticSearchService.SCRIPT_SOURCE),
+            any(Map.class),
+            any(Map.class));
+
+    // Verify semantic index update was NOT called (since index doesn't exist)
+    verify(mockEsWriteDAONoSemanticIndex, never())
+        .applyScriptUpdateByIndexName(
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(Map.class),
+            any(Map.class));
   }
 
   @Test
