@@ -11,7 +11,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Overview
 
-Remote Executors allow you to run metadata ingestion within your private network without exposing your data sources to the internet. The executor runs in **your** environment, connects to **your** databases, and sends only metadata back to DataHub Cloud.
+Remote Executors allow you to run metadata ingestion within your private network without exposing your data sources to the internet. The executor runs in your environment, connects to your data sources, and sends only metadata back to DataHub Cloud.
 
 **What you'll do:**
 
@@ -36,10 +36,6 @@ Before deploying a Remote Executor, ensure you have the following:
 | User with **Manage Metadata Ingestion** privilege | Admin grants in Settings → Users & Groups                                       |
 | Remote Executor Access Token                      | Settings → Access Tokens → Generate new token → Select **Remote Executor** type |
 | Your DataHub Cloud URL                            | Format: `https://<your-company>.acryl.io/gms` (**must** include `/gms`)         |
-
-:::warning
-You must generate a **Remote Executor** type token, not a regular Personal Access Token. Using the wrong token type will cause authentication failures. Tokens do not expire by default, but your admin may configure expiration policies.
-:::
 
 ### 2. Deployment Environment
 
@@ -129,14 +125,8 @@ An **Executor Pool** is a logical grouping of one or more Remote Executors. You 
 
 5. Click **Create** to provision the Pool
 
-:::warning Critical: Remember Your Pool ID
-The **Pool Identifier** you enter here must **exactly match** the `pool_id` configuration when you deploy the executor.
-
-For example, if you create a Pool with ID `production`, your executor must be configured with `pool_id: "production"`.
-
-If they don't match, tasks will be sent to a queue that your executor isn't listening to, and ingestion will stay stuck in "Pending".
-
-**Forgot your Pool ID?** Navigate to **Ingestion → Executors** and click on your Pool to view its identifier.
+:::note
+The Pool Identifier must match the `pool_id` in your executor configuration exactly. You can find your Pool ID in **Ingestion → Executors**.
 :::
 
 ## Deploying Remote Executors
@@ -876,8 +866,8 @@ kubectl exec -it -n datahub <pod-name> -- \
 
 | Issue                | Solution                                                    |
 | -------------------- | ----------------------------------------------------------- |
-| Token expired        | Generate new token in DataHub UI                            |
 | Wrong token type     | Must be **Remote Executor** type, not Personal Access Token |
+| Token revoked        | Generate new token in DataHub UI                            |
 | URL missing `/gms`   | Add `/gms` suffix: `https://company.acryl.io/gms`           |
 | Extra trailing slash | Remove trailing slash from URL                              |
 
