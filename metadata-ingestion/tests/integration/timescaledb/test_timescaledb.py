@@ -2,7 +2,7 @@ import subprocess
 import time
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -83,7 +83,7 @@ def timescaledb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         yield docker_services
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_timescaledb_ingest_with_db(
     timescaledb_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
@@ -101,7 +101,7 @@ def test_timescaledb_ingest_with_db(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_timescaledb_ingest_with_jobs(
     timescaledb_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
@@ -119,7 +119,7 @@ def test_timescaledb_ingest_with_jobs(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_timescaledb_lineage(
     timescaledb_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
@@ -137,7 +137,7 @@ def test_timescaledb_lineage(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_timescaledb_all_databases(
     timescaledb_runner, pytestconfig, test_resources_dir, tmp_path, mock_time

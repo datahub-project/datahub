@@ -77,9 +77,20 @@ class TestTimescaleDBSource:
         # Test when extension is installed
         assert source._is_timescaledb_enabled(mock_inspector) is True
 
-        # Test when extension is not installed
-        mock_result.rowcount = 0
-        assert source._is_timescaledb_enabled(mock_inspector) is False
+        # Test caching - subsequent calls should use cached value
+        assert source._is_timescaledb_enabled(mock_inspector) is True
+        assert mock_conn.execute.call_count == 1  # Only called once due to caching
+
+        # Test when extension is not installed (new source instance)
+        source2 = TimescaleDBSource(config, PipelineContext(run_id="test2"))
+        mock_result2 = MagicMock()
+        mock_result2.rowcount = 0
+        mock_conn2 = MagicMock()
+        mock_conn2.execute.return_value = mock_result2
+        mock_inspector2 = MagicMock()
+        mock_inspector2.engine.connect.return_value.__enter__.return_value = mock_conn2
+
+        assert source2._is_timescaledb_enabled(mock_inspector2) is False
 
     @patch("datahub.ingestion.source.sql.postgres.create_engine")
     def test_get_hypertables(self, create_engine_mock):
@@ -89,7 +100,13 @@ class TestTimescaleDBSource:
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
-        mock_result = [
+
+        # Mock environment detection result (schema exists)
+        env_result = MagicMock()
+        env_result.rowcount = 1
+
+        # Mock hypertable query result
+        hypertable_result = [
             {
                 "hypertable_name": "sensor_data",
                 "num_dimensions": 2,
@@ -106,7 +123,8 @@ class TestTimescaleDBSource:
             }
         ]
 
-        mock_conn.execute.return_value = mock_result
+        # First call is env detection, second is hypertable query
+        mock_conn.execute.side_effect = [env_result, hypertable_result]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         hypertables = source._get_hypertables(mock_inspector, "public")
@@ -123,7 +141,13 @@ class TestTimescaleDBSource:
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
-        mock_result = [
+
+        # Mock environment detection result (schema exists)
+        env_result = MagicMock()
+        env_result.rowcount = 1
+
+        # Mock continuous aggregate query result
+        cagg_result = [
             {
                 "view_name": "hourly_metrics",
                 "materialized_only": False,
@@ -138,7 +162,8 @@ class TestTimescaleDBSource:
             }
         ]
 
-        mock_conn.execute.return_value = mock_result
+        # First call is env detection, second is cagg query
+        mock_conn.execute.side_effect = [env_result, cagg_result]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         caggs = source._get_continuous_aggregates(mock_inspector, "public")
@@ -158,7 +183,13 @@ class TestTimescaleDBSource:
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
-        mock_result = [
+
+        # Mock environment detection result (schema exists)
+        env_result = MagicMock()
+        env_result.rowcount = 1
+
+        # Mock jobs query result
+        job_result = [
             {
                 "job_id": 1001,
                 "application_name": "Refresh Continuous Aggregate",
@@ -178,7 +209,8 @@ class TestTimescaleDBSource:
             }
         ]
 
-        mock_conn.execute.return_value = mock_result
+        # First call is env detection, second is jobs query
+        mock_conn.execute.side_effect = [env_result, job_result]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         jobs = source._get_jobs(mock_inspector, "public")
@@ -849,3 +881,361 @@ class TestTimescaleDBLineage:
                 mock_inspector, "public", "regular_view"
             )
             assert view_definition == "SELECT * FROM regular_table"
+
+
+class TestTimescaleDBErrorScenarios:
+    """Test error handling and edge cases"""
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_missing_timescaledb_extension(self, create_engine_mock):
+        """Test behavior when TimescaleDB extension is not installed"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 0  # No extension found
+
+        mock_conn.execute.return_value = mock_result
+        mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        assert source._is_timescaledb_enabled(mock_inspector) is False
+
+        # Subsequent calls should use cached value
+        assert source._is_timescaledb_enabled(mock_inspector) is False
+        assert mock_conn.execute.call_count == 1
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_permission_denied_on_extension_check(self, create_engine_mock):
+        """Test handling of permission denied when checking for extension"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception(
+            "permission denied for table pg_extension"
+        )
+        mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        # Should gracefully return False and log warning
+        assert source._is_timescaledb_enabled(mock_inspector) is False
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_environment_detection_unknown_schema(self, create_engine_mock):
+        """Test environment detection when timescaledb_information schema is missing"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 0  # No schema found
+
+        mock_conn.execute.return_value = mock_result
+        mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        from datahub.ingestion.source.sql.timescaledb import TimescaleDBEnvironment
+
+        env = source._detect_timescaledb_environment(mock_inspector)
+        assert env == TimescaleDBEnvironment.UNKNOWN
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_environment_detection_permission_denied(self, create_engine_mock):
+        """Test environment detection with permission denied"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception(
+            "permission denied for schema information_schema"
+        )
+        mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        from datahub.ingestion.source.sql.timescaledb import TimescaleDBEnvironment
+
+        env = source._detect_timescaledb_environment(mock_inspector)
+        assert env == TimescaleDBEnvironment.UNKNOWN
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_get_hypertables_permission_denied(self, create_engine_mock):
+        """Test hypertable extraction with permission denied"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_conn = MagicMock()
+
+        # Mock environment detection to succeed
+        env_result = MagicMock()
+        env_result.rowcount = 1
+        mock_conn.execute.side_effect = [
+            env_result,  # Environment detection succeeds
+            Exception(
+                "permission denied for schema timescaledb_information"
+            ),  # Query fails
+        ]
+        mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        with patch.object(source, "get_db_name", return_value="tsdb"):
+            hypertables = source._get_hypertables(mock_inspector, "public")
+
+        # Should return empty dict and log warning
+        assert hypertables == {}
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_get_continuous_aggregates_malformed_data(self, create_engine_mock):
+        """Test continuous aggregate extraction with malformed data"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_conn = MagicMock()
+
+        # Mock environment detection to succeed
+        env_result = MagicMock()
+        env_result.rowcount = 1
+
+        # Mock malformed data
+        malformed_row = {
+            "view_name": None,  # Missing required field
+            "materialized_only": False,
+            "compression_enabled": False,
+        }
+
+        mock_conn.execute.side_effect = [
+            env_result,  # Environment detection succeeds
+            [malformed_row],  # Query returns malformed data
+        ]
+        mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        with patch.object(source, "get_db_name", return_value="tsdb"):
+            caggs = source._get_continuous_aggregates(mock_inspector, "public")
+
+        # Should skip malformed rows and return empty dict
+        assert caggs == {}
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_get_jobs_with_unknown_environment(self, create_engine_mock):
+        """Test job extraction when environment detection fails"""
+        config = TimescaleDBConfig.parse_obj(
+            {**_base_config(), "include_background_jobs": True}
+        )
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+
+        # Force unknown environment
+        from datahub.ingestion.source.sql.timescaledb import TimescaleDBEnvironment
+
+        source._timescaledb_environment = TimescaleDBEnvironment.UNKNOWN
+
+        jobs = source._get_jobs(mock_inspector, "public")
+
+        # Should return empty dict when environment is unknown
+        assert jobs == {}
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_get_view_definition_missing_definition(self, create_engine_mock):
+        """Test view definition fallback when continuous aggregate definition is missing"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+
+        # Create continuous aggregate with no view definition
+        cagg = ContinuousAggregate(
+            name="hourly_metrics",
+            materialized_only=False,
+            compression_enabled=False,
+            hypertable_schema="public",
+            hypertable_name="sensor_data",
+            view_definition=None,  # Missing definition
+        )
+
+        source._timescaledb_metadata_cache["tsdb.public"] = {
+            "continuous_aggregates": {"hourly_metrics": cagg}
+        }
+
+        from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+
+        with (
+            patch.object(source, "get_db_name", return_value="tsdb"),
+            patch.object(
+                SQLAlchemySource,
+                "_get_view_definition",
+                return_value="SELECT * FROM fallback_view",
+            ) as mock_parent,
+        ):
+            view_definition = source._get_view_definition(
+                mock_inspector, "public", "hourly_metrics"
+            )
+
+        # Should fall back to parent implementation
+        mock_parent.assert_called_once()
+        assert view_definition == "SELECT * FROM fallback_view"
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_get_view_definition_empty_definition(self, create_engine_mock):
+        """Test view definition fallback when continuous aggregate definition is empty string"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+
+        # Create continuous aggregate with empty view definition
+        cagg = ContinuousAggregate(
+            name="hourly_metrics",
+            materialized_only=False,
+            compression_enabled=False,
+            hypertable_schema="public",
+            hypertable_name="sensor_data",
+            view_definition="   ",  # Empty/whitespace only
+        )
+
+        source._timescaledb_metadata_cache["tsdb.public"] = {
+            "continuous_aggregates": {"hourly_metrics": cagg}
+        }
+
+        from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+
+        with (
+            patch.object(source, "get_db_name", return_value="tsdb"),
+            patch.object(
+                SQLAlchemySource,
+                "_get_view_definition",
+                return_value="SELECT * FROM fallback_view",
+            ) as mock_parent,
+        ):
+            view_definition = source._get_view_definition(
+                mock_inspector, "public", "hourly_metrics"
+            )
+
+        # Should fall back to parent implementation
+        mock_parent.assert_called_once()
+        assert view_definition == "SELECT * FROM fallback_view"
+
+    @patch("datahub.ingestion.source.sql.postgres.create_engine")
+    def test_job_execution_history_permission_denied(self, create_engine_mock):
+        """Test job execution history with permission denied"""
+        config = TimescaleDBConfig.parse_obj(_base_config())
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception(
+            "permission denied for table timescaledb_information.job_stats"
+        )
+        mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        executions = source._get_job_execution_history(mock_inspector, 1001, limit=10)
+
+        # Should return empty list
+        assert executions == []
+
+
+class TestTimescaleDBHelperFunctions:
+    """Test helper functions"""
+
+    def test_format_timedelta_human_readable(self):
+        """Test timedelta formatting to human-readable strings"""
+        from datetime import timedelta
+
+        from datahub.ingestion.source.sql.timescaledb import (
+            format_timedelta_human_readable,
+        )
+
+        # Test various timedeltas
+        assert format_timedelta_human_readable(timedelta(hours=1)) == "1 hour"
+        assert format_timedelta_human_readable(timedelta(hours=2)) == "2 hours"
+        assert format_timedelta_human_readable(timedelta(days=1)) == "1 day"
+        assert format_timedelta_human_readable(timedelta(days=30)) == "30 days"
+        assert (
+            format_timedelta_human_readable(timedelta(days=1, hours=2))
+            == "1 day 2 hours"
+        )
+        assert (
+            format_timedelta_human_readable(timedelta(hours=1, minutes=30))
+            == "1 hour 30 minutes"
+        )
+        assert format_timedelta_human_readable(timedelta(minutes=5)) == "5 minutes"
+        assert format_timedelta_human_readable(timedelta(seconds=30)) == "30 seconds"
+        assert format_timedelta_human_readable(timedelta(seconds=0)) == "0 seconds"
+
+    def test_safe_str_convert(self):
+        """Test safe string conversion"""
+        from datetime import timedelta
+
+        from datahub.ingestion.source.sql.timescaledb import safe_str_convert
+
+        # Test None
+        assert safe_str_convert(None) is None
+
+        # Test timedelta
+        assert safe_str_convert(timedelta(hours=1)) == "1 hour"
+        assert safe_str_convert(timedelta(days=7)) == "7 days"
+
+        # Test regular strings
+        assert safe_str_convert("test") == "test"
+        assert safe_str_convert(123) == "123"
+
+    def test_job_display_name_known_policies(self):
+        """Test job display name generation for known policies"""
+        job = TimescaleDBJob(
+            job_id=1001,
+            proc_name="policy_refresh_continuous_aggregate",
+            hypertable_name="hourly_metrics",
+        )
+        assert job.get_display_name() == "Refresh Continuous Aggregate - hourly_metrics"
+
+        job = TimescaleDBJob(
+            job_id=1002, proc_name="policy_retention", hypertable_name="sensor_data"
+        )
+        assert job.get_display_name() == "Data Retention - sensor_data"
+
+        job = TimescaleDBJob(
+            job_id=1003, proc_name="policy_compression", hypertable_name="metrics"
+        )
+        assert job.get_display_name() == "Compression Policy - metrics"
+
+        job = TimescaleDBJob(
+            job_id=1004, proc_name="policy_reorder", hypertable_name="events"
+        )
+        assert job.get_display_name() == "Reorder Policy - events"
+
+    def test_job_display_name_unknown_procedure(self):
+        """Test job display name generation for unknown procedures"""
+        job = TimescaleDBJob(
+            job_id=1005,
+            proc_name="custom_maintenance_job",
+            hypertable_name="custom_table",
+        )
+        assert job.get_display_name() == "Custom Maintenance Job - custom_table"
+
+        job = TimescaleDBJob(job_id=1006, proc_name="some_procedure")
+        assert job.get_display_name() == "Some Procedure"
+
+    def test_job_description_known_policies(self):
+        """Test job description generation for known policies"""
+        job = TimescaleDBJob(
+            job_id=1001,
+            proc_name="policy_refresh_continuous_aggregate",
+            hypertable_name="hourly_metrics",
+            schedule_interval="1 hour",
+        )
+        description = job.get_description()
+        assert "Refreshes continuous aggregate materialized data" in description
+        assert "hourly_metrics" in description
+        assert "1 hour" in description
+
+        job = TimescaleDBJob(
+            job_id=1002,
+            proc_name="policy_compression",
+            hypertable_name="sensor_data",
+            schedule_interval="1 day",
+        )
+        description = job.get_description()
+        assert "Compresses hypertable chunks to save storage" in description
+        assert "sensor_data" in description

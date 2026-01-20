@@ -1,173 +1,81 @@
 ### Prerequisites
 
-#### Database Permissions
-
 In order to execute this source, the user credentials need the following privileges:
 
-**For Self-Hosted TimescaleDB:**
+```sql
+-- Connect to database
+GRANT CONNECT ON DATABASE your_database TO datahub_user;
 
-- `GRANT SELECT ON ALL TABLES IN SCHEMA public TO 'USERNAME';`
-- `GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO 'USERNAME';`
-- `GRANT SELECT ON ALL TABLES IN SCHEMA _timescaledb_internal TO 'USERNAME';`
-- `GRANT SELECT ON ALL TABLES IN SCHEMA _timescaledb_catalog TO 'USERNAME';`
-- `GRANT SELECT ON ALL TABLES IN SCHEMA _timescaledb_config TO 'USERNAME';`
+-- Access to schemas
+GRANT USAGE ON SCHEMA public TO datahub_user;
+GRANT USAGE ON SCHEMA timescaledb_information TO datahub_user;
 
-**For Tiger Cloud (Managed TimescaleDB):**
+-- Access to tables and views
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO datahub_user;
+GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO datahub_user;
+GRANT SELECT ON ALL TABLES IN SCHEMA timescaledb_information TO datahub_user;
 
-- `GRANT SELECT ON ALL TABLES IN SCHEMA public TO 'USERNAME';`
-- `GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO 'USERNAME';`
-- `GRANT SELECT ON ALL TABLES IN SCHEMA timescaledb_information TO 'USERNAME';`
+-- Access to extension metadata
+GRANT SELECT ON pg_extension TO datahub_user;
 
-The `SELECT` privilege is required to:
+-- Grant permissions on future tables
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO datahub_user;
+```
 
-- Read table structure and metadata
-- Access TimescaleDB-specific system views for hypertables, continuous aggregates, and jobs
-- Perform data profiling (if enabled)
+**Note:** The connector uses the `timescaledb_information` schema which is the standard interface for both self-hosted TimescaleDB (2.0+) and Tiger Cloud (Managed TimescaleDB). The legacy `_timescaledb_catalog` and `_timescaledb_internal` schemas are not required.
 
-#### Setup Instructions
+### Authentication
 
-**Self-Hosted TimescaleDB:**
+Authentication is done via standard PostgreSQL username and password.
 
-1. Install TimescaleDB extension in your PostgreSQL database:
+For Tiger Cloud (Managed TimescaleDB), SSL connections are required by default. The connector will automatically use SSL when connecting to Tiger Cloud instances.
 
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
-   ```
+### Environment Compatibility
 
-2. Create a dedicated user for DataHub ingestion:
+#### Self-Hosted TimescaleDB
 
-   ```sql
-   CREATE USER datahub_user WITH PASSWORD 'your_secure_password';
-   ```
+**Supported versions:**
 
-3. Grant necessary permissions:
+- TimescaleDB 2.0+
+- PostgreSQL 12, 13, 14, 15, 16
 
-   ```sql
-   GRANT CONNECT ON DATABASE your_database TO datahub_user;
-   GRANT USAGE ON SCHEMA public TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA public TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA _timescaledb_internal TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA _timescaledb_catalog TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA _timescaledb_config TO datahub_user;
+The connector automatically detects self-hosted TimescaleDB by checking for the TimescaleDB extension and available schemas.
 
-   -- Grant permissions on future tables
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO datahub_user;
-   ```
+#### Tiger Cloud (Managed TimescaleDB)
 
-**Tiger Cloud (Managed TimescaleDB):**
+Tiger Cloud is fully supported with automatic environment detection. No manual configuration is needed.
 
-1. Get your connection details from the [Tiger Cloud console](https://docs.tigerdata.com/integrations/latest/find-connection-details/). You'll need:
+**Connection requirements:**
 
-   - Hostname
-   - Port (usually 5432)
-   - Database name
-   - Username
-   - Password
+- SSL is required and enabled by default
+- Connection details can be found in the [Tiger Cloud console](https://docs.tigerdata.com/integrations/latest/find-connection-details/)
 
-2. Create a dedicated user for DataHub ingestion (if you have admin access):
+### TimescaleDB Features
 
-   ```sql
-   CREATE USER datahub_user WITH PASSWORD 'your_secure_password';
-   ```
+The connector extends PostgreSQL source capabilities with TimescaleDB-specific metadata:
 
-3. Grant necessary permissions:
+**Automatically detected:**
 
-   ```sql
-   GRANT CONNECT ON DATABASE your_database TO datahub_user;
-   GRANT USAGE ON SCHEMA public TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA public TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO datahub_user;
-   GRANT SELECT ON ALL TABLES IN SCHEMA timescaledb_information TO datahub_user;
+- Hypertables with dimensions and chunk information
+- Continuous aggregates (materialized views with automatic refresh)
+- Compression policies and settings
+- Data retention policies
 
-   -- Grant permissions on future tables
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO datahub_user;
-   ```
+**Optional features:**
 
-#### Network Connectivity
+- Background jobs (continuous aggregate refresh, compression, retention) can be included as DataJob entities by setting `include_background_jobs: true`
+- Background jobs are system-managed automated tasks, distinct from user-defined stored procedures
 
-**Self-Hosted TimescaleDB:**
+### Error Handling
 
-- Ensure your TimescaleDB instance is accessible from where DataHub is running
-- Default port is 5432 (PostgreSQL standard)
-- Configure `pg_hba.conf` to allow connections from DataHub's IP address
+The connector implements graceful degradation:
 
-**Tiger Cloud:**
+- Errors in TimescaleDB-specific metadata extraction do not stop the entire ingestion
+- If the user lacks permissions to query TimescaleDB metadata, the connector will log warnings and continue
+- Basic PostgreSQL metadata is always extracted even if TimescaleDB features fail
 
-- Tiger Cloud services are accessible over the internet with SSL encryption
-- No additional firewall configuration needed
-- SSL connections are required and enabled by default
+### Caveats
 
-#### SSL Configuration
-
-**Self-Hosted TimescaleDB:**
-
-- SSL is recommended for production deployments
-- Configure SSL certificates in PostgreSQL configuration
-- Use connection parameters like `sslmode=require` in the DataHub configuration
-
-**Tiger Cloud:**
-
-- SSL is enabled by default and required
-- No additional SSL configuration needed
-- Connection automatically uses encrypted connections
-
-#### Performance Considerations
-
-- For large TimescaleDB deployments with many hypertables, consider:
-  - Setting appropriate `table_pattern` filters to limit scope
-  - Using `schema_pattern` to focus on specific schemas
-  - Enabling `stateful_ingestion` for incremental updates
-  - Adjusting `profiling.max_number_of_fields_to_profile` if profiling large tables
-
-#### Troubleshooting
-
-**Common Issues:**
-
-1. **Permission Denied on TimescaleDB Views:**
-
-   - Ensure the user has SELECT access to `_timescaledb_*` schemas (self-hosted) or `timescaledb_information` schema (Tiger Cloud)
-
-2. **Connection Timeout:**
-
-   - Check network connectivity and firewall settings
-   - Verify the correct hostname and port
-
-3. **SSL Connection Issues:**
-
-   - For Tiger Cloud: SSL is required, ensure your client supports SSL
-   - For self-hosted: Configure SSL properly or use `sslmode=disable` for testing
-
-4. **Missing Hypertables/Jobs:**
-   - Verify TimescaleDB extension is installed: `SELECT * FROM pg_extension WHERE extname = 'timescaledb';`
-   - Check if user has access to TimescaleDB metadata views
-
-For more detailed connection information for TimescaleDB connectivity, see the [official Tiger Cloud integration guide](https://docs.tigerdata.com/integrations/latest/find-connection-details/).
-
-## Configuration Options
-
-The TimescaleDB connector extends PostgreSQL with these additional options:
-
-- `emit_timescaledb_metadata`: Include TimescaleDB-specific metadata
-- `tag_hypertables`: Add 'hypertable' tag to hypertables
-- `tag_continuous_aggregates`: Add 'continuous_aggregate' tag to continuous aggregates
-- `include_background_jobs`: Include TimescaleDB background jobs (policies, maintenance) as DataJob entities
-
-### Background Jobs vs User-Defined Procedures
-
-TimescaleDB has two types of executable procedures:
-
-1. **User-Defined Stored Procedures**: Custom procedures created by users for business logic
-
-   - Always included as DataJob entities (when `include_stored_procedures` is enabled)
-   - Represent intentional, user-controlled data processing
-
-2. **Background Jobs**: System-managed automated tasks like:
-   - Continuous aggregate refresh policies
-   - Data compression policies
-   - Data retention policies
-   - Chunk reordering policies
-   - Only included when `include_background_jobs: true`
-   - Represent automated system maintenance
-
-This separation helps distinguish between intentional data processing jobs and automated system maintenance.
+- If the TimescaleDB extension is not installed, the connector will operate as a standard PostgreSQL connector
+- The `timescaledb_information` schema requires `USAGE` and `SELECT` permissions for full metadata extraction
+- Background jobs require `include_background_jobs: true` to be extracted as DataJob entities (disabled by default)
