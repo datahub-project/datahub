@@ -234,9 +234,18 @@ class SchemaFieldSpecification(StrictModel):
             "bytes",
             "fixed",
         ]
+
+        ComplexType = Literal["array", "map", "union", "record"]
+
+        TemporalType = Literal["data", "time", "timestamp"]
+
         type = self.type.lower() if self.type else self.type
-        if type not in set(get_args(PrimitiveType)):
-            raise ValueError(f"Type {self.type} is not a valid primitive type")
+        if (
+            type not in set(get_args(PrimitiveType))
+            and type not in set(get_args(ComplexType))
+            and type not in set(get_args(TemporalType))
+        ):
+            raise ValueError(f"Type {self.type} is not a valid type")
 
         if type == "string":
             return models.SchemaFieldDataTypeClass(type=models.StringTypeClass())
@@ -249,7 +258,21 @@ class SchemaFieldSpecification(StrictModel):
         elif type == "boolean":
             return models.SchemaFieldDataTypeClass(type=models.BooleanTypeClass())
 
-        raise ValueError(f"Type {self.type} is not a valid primitive type")
+        elif type == "array":
+            return models.SchemaFieldDataTypeClass(type=models.ArrayTypeClass())
+        elif type == "map":
+            return models.SchemaFieldDataTypeClass(type=models.MapTypeClass())
+        elif type == "union":
+            return models.SchemaFieldDataTypeClass(type=models.UnionTypeClass())
+        elif type == "record":
+            return models.SchemaFieldDataTypeClass(type=models.RecordTypeClass())
+
+        elif type == "date":
+            return models.SchemaFieldDataTypeClass(type=models.DateTypeClass())
+        elif type in ["time", "timestamp"]:
+            return models.SchemaFieldDataTypeClass(type=models.TimeTypeClass())
+
+        raise ValueError(f"Type {self.type} is not a valid type")
 
     @staticmethod
     def _from_datahub_type(
