@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -327,7 +328,11 @@ class PostgresSource(SQLAlchemySource):
                     e,
                 )
                 self.report.report_failure(
-                    message=f"SQL aggregator initialization failed: {e}",
+                    message=(
+                        f"Query-based lineage initialization failed: {e}. "
+                        "This feature was explicitly enabled in your config but failed to start. "
+                        "Check your DataHub graph connection and permissions."
+                    ),
                     context="sql_aggregator_init_failed",
                 )
 
@@ -499,7 +504,15 @@ class PostgresSource(SQLAlchemySource):
         for inspector in self.get_inspectors():
             if self.sql_aggregator is None:
                 logger.warning(
-                    "SQL aggregator not initialized, skipping lineage extraction"
+                    "SQL aggregator not initialized, skipping query-based lineage extraction. "
+                    "Check initialization errors above."
+                )
+                self.report.report_warning(
+                    message=(
+                        "Query-based lineage was enabled but SQL aggregator failed to initialize. "
+                        "No query-based lineage will be extracted. Check earlier error messages."
+                    ),
+                    context="query_lineage_skipped",
                 )
                 return
 
@@ -529,6 +542,7 @@ class PostgresSource(SQLAlchemySource):
             mcp_count = 0
             if self.sql_aggregator:
                 try:
+                    mcp: MetadataChangeProposalWrapper
                     for mcp in self.sql_aggregator.gen_metadata():
                         yield mcp.as_workunit()
                         mcp_count += 1
