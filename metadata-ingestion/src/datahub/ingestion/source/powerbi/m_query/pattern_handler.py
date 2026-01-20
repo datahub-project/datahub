@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, cast
+from typing import Callable, Dict, List, Optional, Tuple, Type, cast
 
 import sqlglot
 from lark import Tree
@@ -39,6 +39,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -1226,7 +1227,167 @@ class OdbcLineage(AbstractLineage):
             platform_pair=platform_pair,
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
+
+        # Athena-specific processing: catalog stripping and federated table platform override
+        if (
+            platform_pair.datahub_data_platform_name
+            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+        ):
+            # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs
+            # This ensures URN consistency with the standalone Athena connector
+            result = self._strip_athena_catalog_from_lineage(result)
+            # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
+            result = self._apply_table_platform_override(result, dsn)
+
         return result
+
+    @staticmethod
+    def _transform_lineage_urns(
+        lineage: Lineage, transform_fn: Callable[[str], str]
+    ) -> Lineage:
+        """
+        Transform URNs in lineage using the provided transformation function.
+
+        This is a helper method used by _strip_athena_catalog_from_lineage and
+        _apply_table_platform_override to avoid code duplication.
+
+        Args:
+            lineage: The lineage object to transform
+            transform_fn: Function that takes a URN string and returns a transformed URN
+
+        Returns:
+            New Lineage object with transformed URNs
+        """
+        # Transform upstream table URNs
+        updated_upstreams: List[DataPlatformTable] = []
+        for upstream in lineage.upstreams:
+            transformed_urn = transform_fn(upstream.urn)
+            updated_upstreams.append(
+                DataPlatformTable(
+                    data_platform_pair=upstream.data_platform_pair,
+                    urn=transformed_urn,
+                )
+            )
+
+        # Transform column lineage URNs
+        updated_column_lineage: List[ColumnLineageInfo] = []
+        for col_info in lineage.column_lineage:
+            updated_col_upstreams: List[ColumnRef] = []
+            for col_ref in col_info.upstreams:
+                transformed_table_urn = transform_fn(col_ref.table)
+                updated_col_upstreams.append(
+                    ColumnRef(table=transformed_table_urn, column=col_ref.column)
+                )
+
+            updated_column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=col_info.downstream,
+                    upstreams=updated_col_upstreams,
+                    logic=col_info.logic,
+                )
+            )
+
+        return Lineage(
+            upstreams=updated_upstreams,
+            column_lineage=updated_column_lineage,
+        )
+
+    def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
+        """
+        Strip catalog/database prefix from Athena URNs to normalize to database.table format.
+
+        Athena queries may reference tables as:
+        - awsdatacatalog.database.table (AWS Glue catalog)
+        - catalog.database.table (any 3-part reference like thread-prod-data.normalized-data.table)
+
+        This method strips the first part from 3-part references to produce database.table format,
+        matching the standalone Athena connector URN format and enabling lineage connections
+        to entities cataloged with 2-part names.
+
+        This affects both:
+        - Table-level lineage (upstreams[*].urn)
+        - Column-level lineage (column_lineage[*].upstreams[*].table)
+        """
+
+        def strip_catalog_from_urn(urn: str) -> str:
+            """Strip first part from 3-part table names in URN."""
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except Exception as e:
+                logger.warning(f"Failed to parse URN for catalog stripping: {urn}: {e}")
+                return urn
+
+            parts = parsed.name.split(".")
+            if len(parts) < 3:
+                return urn
+
+            # Strip first part, keep remaining parts (database.table)
+            stripped_name = ".".join(parts[1:])
+            stripped_urn = str(
+                DatasetUrn(platform=parsed.platform, name=stripped_name, env=parsed.env)
+            )
+            logger.debug(f"Stripped catalog prefix from URN: {urn} -> {stripped_urn}")
+            return stripped_urn
+
+        return self._transform_lineage_urns(lineage, strip_catalog_from_urn)
+
+    def _apply_table_platform_override(self, lineage: Lineage, dsn: str) -> Lineage:
+        """
+        Override the platform in URNs for specific tables based on config.
+
+        This is used when Athena queries federated data sources (e.g., MySQL)
+        and the lineage should point to the actual source platform entity.
+
+        Matching priority:
+        1. DSN-scoped overrides (where override.dsn matches the current DSN)
+        2. Global overrides (where override.dsn is None)
+        """
+        if not self.config.athena_table_platform_override:
+            return lineage
+
+        def override_platform_in_urn(urn: str) -> str:
+            """Check if table matches override config and replace platform."""
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except Exception as e:
+                logger.warning(f"Failed to parse URN for platform override: {urn}: {e}")
+                return urn
+
+            urn_name = parsed.name  # format: "database.table"
+            current_platform = str(parsed.platform)
+
+            # Parse database and table from URN name
+            # Athena has no schema level, so expect exactly 2 parts (database.table)
+            # Skip override if format is unexpected (e.g., unstripped catalog prefix)
+            name_parts = urn_name.split(".")
+            if len(name_parts) != 2:
+                return urn
+            urn_database, urn_table = name_parts
+
+            # Find matching override: DSN-scoped first, then global
+            target_platform = None
+            for override in self.config.athena_table_platform_override:
+                if override.database == urn_database and override.table == urn_table:
+                    if override.dsn == dsn:
+                        # DSN-scoped match takes priority
+                        target_platform = override.platform
+                        break
+                    elif override.dsn is None and target_platform is None:
+                        # Global match (only if no DSN-scoped match found yet)
+                        target_platform = override.platform
+
+            if not target_platform:
+                return urn
+
+            overridden_urn = str(
+                DatasetUrn(platform=target_platform, name=urn_name, env=parsed.env)
+            )
+            logger.debug(
+                f"Overriding platform for table {urn_name}: {current_platform} -> {target_platform}"
+            )
+            return overridden_urn
+
+        return self._transform_lineage_urns(lineage, override_platform_in_urn)
 
     def expression_lineage(
         self,

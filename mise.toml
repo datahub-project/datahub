@@ -1,0 +1,5 @@
+[tools]
+java = "17"
+node = "22"
+python = "3.11"
+yarn = "4.12.0"

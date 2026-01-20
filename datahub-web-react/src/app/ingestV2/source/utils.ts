@@ -42,10 +42,13 @@ dayjs.extend(timezone);
 dayjs.extend(advancedFormat);
 dayjs.extend(localizedFormat);
 
+export const CUSTOM_SOURCE_NAME = 'custom';
+export const CUSTOM_SOURCE_DISPLAY_NAME = 'Other';
+
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
     if (!sourceConfigs) {
-        console.error(`Failed to find source configs with source type ${sourceType}`);
+        return ingestionSources.find((source) => source.name === CUSTOM_SOURCE_NAME);
     }
     return sourceConfigs;
 };
@@ -538,6 +541,11 @@ export function getSortInput(field: string, order: SortingState): SortCriterion 
         field,
     };
 }
+
+export const DEFAULT_SOURCE_SORT_CRITERION: SortCriterion = {
+    sortOrder: SortOrder.Ascending,
+    field: 'type',
+};
 
 export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
     return hideSystemSources

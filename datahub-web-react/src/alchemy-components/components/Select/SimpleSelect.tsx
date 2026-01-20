@@ -170,6 +170,7 @@ export const SimpleSelect = ({
             ref={selectRef}
             size={size || 'md'}
             width={props.width || 255}
+            $minWidth={props.minWidth}
             $selectLabelVariant={selectLabelProps?.variant}
             isSelected={selectedValues.length > 0}
             data-testid={dataTestId}
