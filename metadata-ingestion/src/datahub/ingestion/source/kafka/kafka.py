@@ -21,11 +21,17 @@ from typing import (
     cast,
 )
 
+from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_CONSUMER_TIMEOUT_SECONDS,
+)
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
 )
 from datahub.ingestion.source.kafka.kafka_utils import (
     decode_kafka_message_value,
+)
+from datahub.ingestion.source.kafka.schema_resolution import (
+    KafkaSchemaResolver,
 )
 
 if TYPE_CHECKING:
@@ -164,18 +170,6 @@ def get_kafka_admin_client(
 
 
 def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> None:
-    """
-    Validate connectivity to Kafka by creating a consumer and checking broker availability.
-
-    This uses a lightweight check that retrieves cluster metadata without listing all topics,
-    making it suitable for clusters with thousands of topics.
-
-    Args:
-        connection: Kafka consumer connection configuration
-
-    Raises:
-        KafkaConnectivityError: If unable to connect to Kafka
-    """
     logger.info(f"Validating connectivity to Kafka at {connection.bootstrap}")
     try:
         consumer = get_kafka_consumer(connection)
@@ -422,10 +416,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
                 # Initialize schema resolver if not already done
                 if not hasattr(self, "_schema_resolver"):
-                    from datahub.ingestion.source.kafka.schema_resolution import (
-                        KafkaSchemaResolver,
-                    )
-
                     self._schema_resolver = KafkaSchemaResolver(
                         source_config=self.source_config,
                         schema_registry_client=self.schema_registry_client.get_schema_registry_client(),
@@ -672,10 +662,18 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             # Return samples directly (no caching needed)
 
-        except Exception as e:
+        except (
+            confluent_kafka.KafkaException,
+            ValueError,
+            TypeError,
+            KeyError,
+            json.JSONDecodeError,
+        ) as e:
+            # Catch expected errors: Kafka connection issues, data parsing errors
             self.report.report_warning(
                 "profiling", f"Failed to collect samples from {topic}: {str(e)}"
             )
+            # Let critical errors propagate: MemoryError, AuthenticationError, etc.
         finally:
             try:
                 self.consumer.unassign()
@@ -822,7 +820,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         while len(samples) < total_needed and datetime.now() < end_time:
             # Use consume() method for better batch processing
             batch_count = min(batch_size, total_needed - len(samples))
-            messages = self.consumer.consume(num_messages=batch_count, timeout=2.0)
+            messages = self.consumer.consume(
+                num_messages=batch_count, timeout=DEFAULT_CONSUMER_TIMEOUT_SECONDS
+            )
 
             if not messages:
                 break
@@ -891,7 +891,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             samples.append(sample)
 
-        except Exception as e:
+        except (
+            ValueError,
+            TypeError,
+            UnicodeDecodeError,
+            KeyError,
+            AttributeError,
+        ) as e:
+            # Catch expected data format errors, let critical errors propagate
             self.report.report_warning(
                 "profiling", f"Failed to process message: {str(e)}"
             )
@@ -1091,12 +1098,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             Tuple[str, str, List[Dict[str, Any]], Optional[SchemaMetadataClass]]
         ],
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate profiles for multiple topics in parallel using ThreadPoolExecutor.
-
-        Args:
-            profiling_tasks: List of tuples (entity_urn, topic_name, samples, schema_metadata)
-        """
         if not profiling_tasks:
             return
 

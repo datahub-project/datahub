@@ -2,13 +2,20 @@ import logging
 import math
 import random
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Union, cast
 
 import avro.io
 import avro.schema
 from pydantic import BaseModel, Field
 
 from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
+from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_NESTED_FIELD_MAX_DEPTH,
+)
+from datahub.ingestion.source.kafka.kafka_profiler_utils import (
+    calculate_numeric_stats,
+    filter_numeric_values,
+)
 from datahub.ingestion.source.kafka.kafka_utils import MessageValue
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -39,18 +46,11 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-# Type aliases for better type safety
-# Import MessageValue from kafka_utils for consistency
 FieldValue = Union[str, int, float, bool, None]
 NumericValue = Union[int, float]
 
-# Removed unused KafkaProfilerRequest and KafkaDataProfiler classes
-# The Kafka source now directly uses KafkaProfiler for simplicity
-
 
 class KafkaFieldStatistics(BaseModel):
-    """Statistics for a single field in a Kafka message sample."""
-
     field_path: str
     data_type: Optional[str] = None
     sample_values: List[str] = Field(default_factory=list)
@@ -67,12 +67,9 @@ class KafkaFieldStatistics(BaseModel):
     distinct_value_frequencies: Dict[str, int] = Field(default_factory=dict)
 
     class Config:
-        """Pydantic configuration."""
-
-        arbitrary_types_allowed = True  # Allow QuantileClass types
+        arbitrary_types_allowed = True
 
     def __init__(self, **data):
-        """Initialize and ensure numeric values are properly typed."""
         super().__init__(**data)
         if isinstance(self.mean_value, str):
             try:
@@ -82,34 +79,24 @@ class KafkaFieldStatistics(BaseModel):
 
 
 def is_special_value(v: FieldValue) -> bool:
-    """Check if value is a special case that should be treated as null"""
     if isinstance(v, (int, float)):
-        # Handle Java Long MIN/MAX values
         if abs(v) > 9.223372036854775e18:
             return True
-        # Handle other special cases like -1 or Integer.MAX_VALUE
         if v in (-1, 2147483647):
             return True
     return False
 
 
 def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
-    """Clean field path by optionally preserving or removing metadata."""
     if preserve_types:
-        # Return full path when preserving types
         return field_path
 
-    # If not preserving types, extract the actual field name
     parts = field_path.split(".")
-    # Return last non-empty part that isn't metadata
     for part in reversed(parts):
         if part and not (part.startswith("[version=") or part.startswith("[type=")):
-            # Remove [key=True] annotations and return the field name
             clean_part = part.split("[key=")[0]
             return clean_part
 
-    # Fallback: if all parts are metadata, try to extract field name from the end
-    # For paths like "[version=2.0].[type=NumericData].[type=long].id"
     if "." in field_path and not field_path.endswith("]"):
         last_part = field_path.split(".")[-1]
         if not last_part.startswith("["):
@@ -122,11 +109,10 @@ def flatten_json(
     nested_json: Union[Dict[str, MessageValue], List[MessageValue]],
     parent_key: str = "",
     flattened_dict: Optional[Dict[str, str]] = None,
-    max_depth: int = 10,
+    max_depth: int = DEFAULT_NESTED_FIELD_MAX_DEPTH,
     current_depth: int = 0,
     seen_objects: Optional[Set[int]] = None,
 ) -> Dict[str, str]:
-    """Flatten nested JSON with recursion and circular reference protection."""
     if flattened_dict is None:
         flattened_dict = {}
 
@@ -208,10 +194,7 @@ def flatten_json(
 
 
 class KafkaProfiler:
-    """Handles profiling of Kafka message samples using GE-compatible patterns."""
-
     def __init__(self, profiler_config: ProfilerConfig) -> None:
-        """Initialize the Kafka profiler with configuration."""
         self.profiler_config = profiler_config
         self._expensive_profiling_disabled = (
             profiler_config.turn_off_expensive_profiling_metrics
@@ -225,7 +208,6 @@ class KafkaProfiler:
         schema_metadata: Optional[SchemaMetadataClass],
         config: ProfilerConfig,
     ) -> Optional[DatasetProfileClass]:
-        """Profile a single Kafka topic from message samples. Designed for parallel execution."""
         try:
             if not samples:
                 logger.warning(f"No samples available for topic {topic_name}")
@@ -257,43 +239,7 @@ class KafkaProfiler:
     def _calculate_numeric_stats(
         self, numeric_values: List[float]
     ) -> Dict[str, Optional[float]]:
-        """Calculate numeric statistics with validation"""
-        stats: Dict[str, Optional[float]] = {
-            "min": None,
-            "max": None,
-            "mean": None,
-            "median": None,
-            "stdev": None,
-        }
-        try:
-            if not numeric_values:
-                return stats
-
-            min_val: float = min(numeric_values)
-            max_val: float = max(numeric_values)
-            stats["min"] = min_val
-            stats["max"] = max_val
-
-            if any(abs(x) > 1e200 for x in numeric_values):
-                return stats
-
-            mean_val: float = sum(numeric_values) / len(numeric_values)
-            stats["mean"] = mean_val
-
-            if len(numeric_values) > 1:
-                sorted_values = sorted(numeric_values)
-                stats["median"] = sorted_values[len(sorted_values) // 2]
-
-                variance = sum((x - mean_val) ** 2 for x in numeric_values) / (
-                    len(numeric_values) - 1
-                )
-                if variance >= 0:
-                    stats["stdev"] = math.sqrt(variance)
-
-        except Exception as e:
-            logger.warning(f"Error calculating numeric stats: {e}")
-
-        return stats
+        return calculate_numeric_stats(numeric_values)
 
     def _get_sample_values(
         self, values: List[FieldValue], max_samples: int = 20
@@ -314,19 +260,15 @@ class KafkaProfiler:
     def _create_histogram(
         self, values: List[NumericValue], max_buckets: int = 10
     ) -> Optional[HistogramClass]:
-        """Create histogram with validation"""
         try:
             if not values or len(values) < 2:
                 return None
 
             # Only create histograms for numeric values
             numeric_values = [
-                float(v)
-                for v in values
-                if isinstance(v, (int, float))
-                and not math.isnan(v)
-                and not math.isinf(v)
-                and abs(v) < 1e200
+                v
+                for v in filter_numeric_values(values, exclude_special=True)
+                if abs(v) < 1e200
             ]
 
             if len(numeric_values) < 2:
@@ -360,7 +302,6 @@ class KafkaProfiler:
     def _init_schema_fields(
         self, schema_metadata: Optional[SchemaMetadataClass]
     ) -> Dict[str, Union[Dict[str, str], Dict[str, List[FieldValue]]]]:
-        """Initialize field mappings from schema metadata."""
         field_mappings: Dict[
             str, Union[Dict[str, str], Dict[str, List[FieldValue]]]
         ] = {
@@ -401,7 +342,6 @@ class KafkaProfiler:
         schema_metadata: Optional[SchemaMetadataClass],
         field_paths: Dict[str, str],
     ) -> Optional[str]:
-        """Determine the field path for a given field name."""
         if field_name in ("offset", "timestamp"):
             return None
 
@@ -469,7 +409,6 @@ class KafkaProfiler:
         schema_metadata: Optional[SchemaMetadataClass],
         field_mappings: Dict[str, Union[Dict[str, str], Dict[str, List[FieldValue]]]],
     ) -> None:
-        """Process a single sample and update field values."""
         for field_name, value in sample.items():
             field_path = self._get_field_path(
                 field_name,
@@ -494,7 +433,6 @@ class KafkaProfiler:
         field_values: Dict[str, List[FieldValue]],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Dict[str, KafkaFieldStatistics]:
-        """Calculate statistics for all fields."""
         field_stats = {}
         for field_path, values in field_values.items():
             if values:  # Only process fields that have values
@@ -516,7 +454,6 @@ class KafkaProfiler:
         samples: List[Dict[str, MessageValue]],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> DatasetProfileClass:
-        """Profile samples and return DatasetProfileClass - main entry point for profiling."""
         return self.generate_dataset_profile(samples, schema_metadata)
 
     def generate_dataset_profile(
@@ -524,7 +461,6 @@ class KafkaProfiler:
         samples: List[Dict[str, MessageValue]],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> DatasetProfileClass:
-        """Analyze samples and create a dataset profile incorporating schema information."""
         try:
             # Initialize field mappings from schema
             field_mappings = self._init_schema_fields(schema_metadata)
@@ -543,9 +479,6 @@ class KafkaProfiler:
                     continue
 
             # Calculate statistics for all fields
-            # Cast to the expected type since we know "values" contains the field values
-            from typing import cast
-
             values_dict = cast(Dict[str, List[FieldValue]], field_mappings["values"])
             field_stats = self._calculate_field_stats(values_dict, schema_metadata)
 
@@ -651,7 +584,6 @@ class KafkaProfiler:
         values: List[FieldValue],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> KafkaFieldStatistics:
-        """Calculate statistics for a single field based on profiling config."""
         # Determine data type and filter values
         data_type = self._determine_field_data_type(field_path, values, schema_metadata)
         non_null_values = self._filter_non_null_values(values)
@@ -680,7 +612,6 @@ class KafkaProfiler:
         values: List[FieldValue],
         schema_metadata: Optional[SchemaMetadataClass],
     ) -> str:
-        """Determine the data type of a field from schema and sample values."""
         data_type = "STRING"  # Default fallback
 
         # Try to determine type from schema metadata first
@@ -693,7 +624,6 @@ class KafkaProfiler:
         return self._detect_data_type_from_values(values, data_type)
 
     def _filter_non_null_values(self, values: List[FieldValue]) -> List[FieldValue]:
-        """Filter out null, empty, NaN, and infinite values."""
         return [
             v
             for v in values
@@ -705,7 +635,6 @@ class KafkaProfiler:
     def _get_data_type_from_schema(
         self, field_path: str, schema_metadata: SchemaMetadataClass
     ) -> str:
-        """Extract data type from schema metadata."""
         for schema_field in schema_metadata.fields:
             if schema_field.fieldPath == field_path:
                 # Check the actual schema field type (more reliable than nativeDataType)
@@ -726,7 +655,6 @@ class KafkaProfiler:
     def _detect_data_type_from_values(
         self, values: List[FieldValue], default_type: str
     ) -> str:
-        """Detect data type from sample values."""
         non_null_values = self._filter_non_null_values(values)
         if not non_null_values:
             return default_type
@@ -741,7 +669,6 @@ class KafkaProfiler:
         return default_type
 
     def _should_skip_field_processing(self) -> bool:
-        """Check if field processing should be skipped due to limits."""
         if not self._expensive_profiling_disabled:
             return False
 
@@ -758,7 +685,6 @@ class KafkaProfiler:
     def _create_minimal_stats(
         self, field_path: str, data_type: str
     ) -> KafkaFieldStatistics:
-        """Create minimal statistics when field limit is exceeded."""
         return KafkaFieldStatistics(
             field_path=field_path,
             sample_values=[],
@@ -772,7 +698,6 @@ class KafkaProfiler:
         values: List[FieldValue],
         non_null_values: List[FieldValue],
     ) -> KafkaFieldStatistics:
-        """Create base field statistics."""
         total_count = len(values)
 
         # Get sample values
@@ -814,7 +739,6 @@ class KafkaProfiler:
     def _add_distinct_value_statistics(
         self, stats: KafkaFieldStatistics, values: List[FieldValue]
     ) -> None:
-        """Add distinct value statistics to the stats object."""
         if not (
             self.profiler_config.include_field_distinct_count
             and not self._expensive_profiling_disabled
@@ -837,7 +761,6 @@ class KafkaProfiler:
     def _add_numeric_field_statistics(
         self, stats: KafkaFieldStatistics, non_null_values: List[FieldValue]
     ) -> None:
-        """Add numeric statistics to the stats object."""
         numeric_values = self._extract_numeric_values(non_null_values)
         if not numeric_values:
             return
@@ -850,14 +773,6 @@ class KafkaProfiler:
         stats.median_value = numeric_stats["median"]
         stats.stdev = numeric_stats["stdev"]
 
-        # Calculate standard deviation (legacy calculation)
-        if self.profiler_config.include_field_stddev_value and len(numeric_values) > 1:
-            mean = stats.mean_value or 0
-            variance = sum((x - mean) ** 2 for x in numeric_values) / (
-                len(numeric_values) - 1
-            )
-            stats.stdev = math.sqrt(variance)
-
         # Calculate quantiles (skip for expensive profiling)
         if (
             self.profiler_config.include_field_quantiles
@@ -867,7 +782,6 @@ class KafkaProfiler:
             self._add_quantile_statistics(stats, numeric_values)
 
     def _extract_numeric_values(self, non_null_values: List[FieldValue]) -> List[float]:
-        """Extract and convert values to numeric format."""
         numeric_values = []
         for v in non_null_values:
             try:
@@ -896,7 +810,6 @@ class KafkaProfiler:
     def _add_quantile_statistics(
         self, stats: KafkaFieldStatistics, numeric_values: List[float]
     ) -> None:
-        """Add quantile statistics to the stats object."""
         sorted_values = sorted(numeric_values)
         stats.quantiles = [
             QuantileClass(
@@ -916,7 +829,6 @@ class KafkaProfiler:
     def create_profile_data(
         self, field_stats: Dict[str, KafkaFieldStatistics], sample_count: int
     ) -> DatasetProfileClass:
-        """Create DataHub profile class from field statistics"""
         timestamp_millis = int(datetime.now().timestamp() * 1000)
         field_profiles = []
 

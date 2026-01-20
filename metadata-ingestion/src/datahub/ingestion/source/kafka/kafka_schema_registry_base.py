@@ -34,7 +34,6 @@ class KafkaSchemaRegistryBase(ABC):
 
     @abstractmethod
     def get_schema_registry_client(self) -> SchemaRegistryClient:
-        """Get the underlying SchemaRegistryClient for direct access."""
         pass
 
     def get_schema_and_fields_batch(

@@ -250,3 +250,100 @@ class TestSchemaResolutionFallbackConfig:
         assert profiling.sample_size > 0
         assert profiling.sampling_strategy in ["latest", "random", "stratified", "full"]
         assert profiling.max_workers >= 1
+
+
+class TestConfigurationValidationEdgeCases:
+    """Test edge cases for configuration validation."""
+
+    def test_schema_resolution_invalid_strategy(self):
+        """Test that invalid strategies are rejected at config time."""
+        with pytest.raises(
+            ValidationError, match="Input should be 'earliest', 'latest' or 'hybrid'"
+        ):
+            SchemaResolutionFallback(sample_strategy="lates")  # Typo
+
+    def test_schema_resolution_negative_timeout(self):
+        """Test that negative timeouts are rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            SchemaResolutionFallback(sample_timeout_seconds=-1.0)
+
+    def test_schema_resolution_zero_timeout(self):
+        """Test that zero timeout is rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            SchemaResolutionFallback(sample_timeout_seconds=0.0)
+
+    def test_schema_resolution_zero_max_messages(self):
+        """Test that zero max_messages is rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            SchemaResolutionFallback(max_messages_per_topic=0)
+
+    def test_schema_resolution_negative_max_messages(self):
+        """Test that negative max_messages is rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            SchemaResolutionFallback(max_messages_per_topic=-10)
+
+    def test_profiler_config_invalid_sampling_strategy(self):
+        """Test that invalid sampling strategies are rejected."""
+        with pytest.raises(
+            ValidationError,
+            match="Input should be 'latest', 'random', 'stratified' or 'full'",
+        ):
+            ProfilerConfig(sampling_strategy="invalid")
+
+    def test_profiler_config_typo_in_strategy(self):
+        """Test that typos in strategies are caught (e.g., 'lates' instead of 'latest')."""
+        with pytest.raises(
+            ValidationError,
+            match="Input should be 'latest', 'random', 'stratified' or 'full'",
+        ):
+            ProfilerConfig(sampling_strategy="lates")
+
+    def test_profiler_config_negative_batch_size(self):
+        """Test that negative batch sizes are rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            ProfilerConfig(batch_size=-100)
+
+    def test_profiler_config_zero_batch_size(self):
+        """Test that zero batch size is rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            ProfilerConfig(batch_size=0)
+
+    def test_profiler_config_negative_sample_time(self):
+        """Test that negative sample time is rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            ProfilerConfig(max_sample_time_seconds=-5)
+
+    def test_profiler_config_zero_sample_time(self):
+        """Test that zero sample time is rejected."""
+        with pytest.raises(ValidationError, match="Input should be greater than 0"):
+            ProfilerConfig(max_sample_time_seconds=0)
+
+    def test_all_valid_schema_resolution_strategies(self):
+        """Test that all valid strategies are accepted."""
+        for strategy in ["earliest", "latest", "hybrid"]:
+            config = SchemaResolutionFallback(sample_strategy=strategy)
+            assert config.sample_strategy == strategy
+
+    def test_all_valid_profiling_strategies(self):
+        """Test that all valid profiling strategies are accepted."""
+        for strategy in ["latest", "random", "stratified", "full"]:
+            config = ProfilerConfig(sampling_strategy=strategy)
+            assert config.sampling_strategy == strategy
+
+    def test_very_small_positive_values_accepted(self):
+        """Test that very small but positive values are accepted."""
+        config = SchemaResolutionFallback(
+            sample_timeout_seconds=0.001,  # 1ms
+            max_messages_per_topic=1,  # Single message
+        )
+        assert config.sample_timeout_seconds == 0.001
+        assert config.max_messages_per_topic == 1
+
+    def test_very_large_values_accepted(self):
+        """Test that very large but reasonable values are accepted."""
+        config = ProfilerConfig(
+            batch_size=10000,
+            max_sample_time_seconds=3600,  # 1 hour
+        )
+        assert config.batch_size == 10000
+        assert config.max_sample_time_seconds == 3600

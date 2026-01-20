@@ -1,17 +1,4 @@
-"""
-Enhanced Schema Resolution for Kafka Topics
-
-This module provides comprehensive schema resolution strategies for Kafka topics,
-including multiple fallback approaches before resorting to schema inference from message data.
-
-Schema Resolution Strategy (in order of preference):
-1. TopicNameStrategy: Direct lookup using topic name
-2. RecordNameStrategy: Extract record name from message and lookup
-3. TopicRecordNameStrategy: Combine topic + record name for lookup
-4. TopicSubjectMap: User-defined topic-to-subject mappings
-5. Schema Inference: Infer schema from message data as final fallback
-"""
-
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -23,6 +10,10 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_CPU_COUNT_FALLBACK,
+    DEFAULT_MAX_WORKERS_MULTIPLIER,
+)
 from datahub.ingestion.source.kafka.kafka_schema_inference import KafkaSchemaInference
 from datahub.ingestion.source.kafka.kafka_utils import MessageValue
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -32,8 +23,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SchemaResolutionResult:
-    """Result of schema resolution attempt."""
-
     schema: Optional[Schema]
     fields: List[SchemaField]
     resolution_method: str
@@ -43,8 +32,6 @@ class SchemaResolutionResult:
 
 @dataclass
 class RecordNameExtractionResult:
-    """Result of record name extraction from message data."""
-
     record_name: Optional[str]
     namespace: Optional[str] = None
     full_name: Optional[str] = None
@@ -63,9 +50,9 @@ class KafkaSchemaResolver:
         source_config: KafkaSourceConfig,
         schema_registry_client: SchemaRegistryClient,
         known_subjects: List[str],
-        max_workers: int = 5 * (os.cpu_count() or 4),
+        max_workers: int = DEFAULT_MAX_WORKERS_MULTIPLIER
+        * (os.cpu_count() or DEFAULT_CPU_COUNT_FALLBACK),
     ):
-        """Initialize the schema resolver."""
         self.source_config = source_config
         self.schema_registry_client = schema_registry_client
         self.known_subjects = set(known_subjects)
@@ -173,7 +160,6 @@ class KafkaSchemaResolver:
     def _try_topic_name_strategy(
         self, topic: str, is_key_schema: bool
     ) -> SchemaResolutionResult:
-        """Try TopicNameStrategy: <topic>-key/value"""
         suffix = "-key" if is_key_schema else "-value"
         subject_name = f"{topic}{suffix}"
 
@@ -199,7 +185,6 @@ class KafkaSchemaResolver:
     def _try_topic_subject_map(
         self, topic: str, is_key_schema: bool
     ) -> SchemaResolutionResult:
-        """Try user-defined topic-to-subject mappings"""
         suffix = "-key" if is_key_schema else "-value"
         topic_key = f"{topic}{suffix}"
 
@@ -290,7 +275,8 @@ class KafkaSchemaResolver:
                             f"TopicRecordNameStrategy failed for {subject_name}: {e}"
                         )
 
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
+            # Catch expected schema parsing/extraction errors, let critical errors propagate
             logger.warning(f"Record name extraction failed for topic {topic}: {e}")
 
         return SchemaResolutionResult(
@@ -381,11 +367,7 @@ class KafkaSchemaResolver:
     def _extract_record_name_from_schema(
         self, schema_str: str
     ) -> RecordNameExtractionResult:
-        """Extract record name from a schema string (Avro JSON or Protobuf)."""
         try:
-            # Try parsing as Avro schema
-            import json
-
             schema_dict = json.loads(schema_str)
 
             if isinstance(schema_dict, dict):

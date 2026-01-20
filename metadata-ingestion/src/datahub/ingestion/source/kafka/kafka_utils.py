@@ -1,9 +1,11 @@
-"""Utility functions for Kafka message processing."""
-
 import base64
 import json
 import logging
 from typing import Any, Callable, Dict, Optional, Union
+
+from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_NESTED_FIELD_MAX_DEPTH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -14,20 +16,8 @@ def decode_kafka_message_value(
     value: bytes,
     topic: str,
     flatten_json_func: Optional[Callable[..., Any]] = None,
-    max_depth: int = 10,
+    max_depth: int = DEFAULT_NESTED_FIELD_MAX_DEPTH,
 ) -> Any:
-    """
-    Decode a Kafka message value handling various data types gracefully.
-
-    Args:
-        value: The raw message value as bytes
-        topic: Topic name for logging
-        flatten_json_func: Optional function to flatten JSON objects
-        max_depth: Maximum depth for JSON flattening
-
-    Returns:
-        Decoded message value as appropriate Python type
-    """
     if not isinstance(value, bytes):
         # Already decoded or not bytes
         return value

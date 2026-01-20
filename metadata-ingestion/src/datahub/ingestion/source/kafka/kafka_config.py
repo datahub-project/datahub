@@ -1,6 +1,6 @@
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 
-from pydantic import Field, PositiveInt
+from pydantic import Field, PositiveFloat, PositiveInt
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -9,6 +9,12 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_MAX_MESSAGES_PER_TOPIC,
+    DEFAULT_MAX_SAMPLE_TIME_SECONDS,
+    DEFAULT_SAMPLE_SIZE,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -35,58 +41,42 @@ class SchemaResolutionFallback(ConfigModel):
         description="Enable comprehensive schema resolution with multiple fallback strategies for topics where schema registry lookup fails.",
     )
 
-    sample_timeout_seconds: float = Field(
+    sample_timeout_seconds: PositiveFloat = Field(
         default=2.0,
-        description="Maximum time to spend sampling messages from a single topic (in seconds) for record name extraction and schema inference.",
+        gt=0.0,
+        description="Maximum time to spend sampling messages from a single topic (in seconds) for record name extraction and schema inference. Must be positive.",
     )
-    sample_strategy: str = Field(
+    sample_strategy: Literal["earliest", "latest", "hybrid"] = Field(
         default="hybrid",
         description="Sampling strategy: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest).",
     )
-    max_messages_per_topic: int = Field(
-        default=10,
-        description="Maximum number of messages to sample per topic for record name extraction and schema inference.",
+    max_messages_per_topic: PositiveInt = Field(
+        default=DEFAULT_MAX_MESSAGES_PER_TOPIC,
+        gt=0,
+        description="Maximum number of messages to sample per topic for record name extraction and schema inference. Must be positive.",
     )
 
 
 class ProfilerConfig(GEProfilingConfig):
-    """
-    Kafka-specific profiling configuration that extends GEProfilingConfig.
-
-    Inherits ALL standard profiling functionality from GEProfilingConfig including:
-    - operation_config.lower_freq_profile_enabled: Whether to do profiling at lower frequency
-    - operation_config.profile_day_of_week: Day of week to run profiling (0=Monday, 6=Sunday)
-    - operation_config.profile_date_of_month: Date of month to run profiling (1-31)
-    - All include_field_* flags (null_count, distinct_count, min/max/mean/median/stddev, etc.)
-    - turn_off_expensive_profiling_metrics, field_sample_values_limit, max_number_of_fields_to_profile
-    - report_dropped_profiles, catch_exceptions, tags_to_ignore_sampling
-    - profile_nested_fields (useful for complex JSON/Avro), query_combiner_enabled
-
-    Additional Kafka-specific profiling options:
-    """
-
     max_sample_time_seconds: PositiveInt = Field(
-        default=60,
-        description="Maximum time to spend sampling messages in seconds",
+        default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
+        gt=0,
+        description="Maximum time to spend sampling messages in seconds. Must be positive.",
     )
-    sampling_strategy: str = Field(
+    sampling_strategy: Literal["latest", "random", "stratified", "full"] = Field(
         default="latest",
         description="Strategy for sampling messages: 'latest' (from end of topic), 'random' (random offsets), 'stratified' (evenly distributed), 'full' (entire topic, respects sample_size)",
     )
     batch_size: PositiveInt = Field(
-        default=100,
-        description="Number of messages to fetch in a single batch (for more efficient reading)",
+        default=DEFAULT_BATCH_SIZE,
+        gt=0,
+        description="Number of messages to fetch in a single batch (for more efficient reading). Must be positive.",
     )
 
-    # Override sample_size from base class with Kafka-appropriate default
     sample_size: int = Field(
-        default=1000,
+        default=DEFAULT_SAMPLE_SIZE,
         description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process.",
     )
-
-    # Inherits max_workers from GEProfilingConfig - controls profiling and schema inference parallelization
-
-    # Uses inherited nested_field_max_depth from GEProfilingConfig for recursion protection
 
 
 class KafkaSourceConfig(

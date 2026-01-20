@@ -1,5 +1,3 @@
-"""Schema inference logic for Kafka topics without schema registry entries."""
-
 import logging
 import os
 import time
@@ -10,6 +8,10 @@ from typing import Dict, List, Set, Union
 from confluent_kafka import Consumer
 
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
+from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_CPU_COUNT_FALLBACK,
+    DEFAULT_MAX_WORKERS_MULTIPLIER,
+)
 from datahub.ingestion.source.kafka.kafka_utils import (
     MessageValue,
     process_kafka_message_for_sampling,
@@ -30,8 +32,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class FieldAnalysis:
-    """Analysis of a field from message samples."""
-
     types: Set[str]
     sample_values: List[str]
 
@@ -44,16 +44,14 @@ FieldInfo = Dict[str, FieldAnalysis]
 
 
 class KafkaSchemaInference:
-    """Handles schema inference for Kafka topics without schema registry entries."""
-
     def __init__(
         self,
         bootstrap_servers: str,
         consumer_config: Dict[str, Union[str, int, float, bool]],
         fallback_config: SchemaResolutionFallback,
-        max_workers: int = 5 * (os.cpu_count() or 4),
+        max_workers: int = DEFAULT_MAX_WORKERS_MULTIPLIER
+        * (os.cpu_count() or DEFAULT_CPU_COUNT_FALLBACK),
     ):
-        """Initialize schema inference with Kafka connection details."""
         self.bootstrap_servers = bootstrap_servers
         self.consumer_config = consumer_config
         self.fallback_config = fallback_config
@@ -94,13 +92,9 @@ class KafkaSchemaInference:
     def _infer_schemas_parallel(
         self, topics: List[str]
     ) -> Dict[str, List[SchemaField]]:
-        """Process multiple topics in parallel using ThreadPoolExecutor."""
         results = {}
 
-        # Intelligent worker calculation based on system resources and configuration
-        import os
-
-        cpu_count = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
+        cpu_count = os.cpu_count() or DEFAULT_CPU_COUNT_FALLBACK
 
         # Use the smaller of: configured max, number of topics, or 2x CPU cores (reasonable for I/O bound work)
         max_workers = min(
@@ -161,7 +155,6 @@ class KafkaSchemaInference:
     def _sample_messages_with_strategy(
         self, topic: str, offset_strategy: str
     ) -> List[MessageValue]:
-        """Sample messages from a topic with the specified offset strategy."""
         start_time = time.time()
 
         try:
@@ -272,8 +265,6 @@ class KafkaSchemaInference:
     def _extract_fields_from_samples(
         self, topic: str, sample_messages: List[MessageValue]
     ) -> List[SchemaField]:
-        """Extract schema fields from sample message data."""
-
         # Collect all unique field paths and their types from samples
         field_info: FieldInfo = {}
 

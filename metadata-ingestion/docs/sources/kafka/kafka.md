@@ -469,7 +469,8 @@ source:
       max_number_of_fields_to_profile: 100
 
       # Complex data handling
-      flatten_max_depth: 5 # Max recursion depth for nested JSON/Avro
+      profile_nested_fields: true # Profile nested JSON/Avro fields (default: false)
+      nested_field_max_depth: 10 # Max recursion depth for nested structures (default: 10)
 
       # Scheduling (optional)
       operation_config:
