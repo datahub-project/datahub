@@ -840,9 +840,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
                 before_count = len(samples)
                 samples_attempted += 1
-                self._process_message_to_sample(
-                    msg, samples, topic, schema_metadata
-                )
+                self._process_message_to_sample(msg, samples, topic, schema_metadata)
                 if len(samples) == before_count:
                     samples_failed += 1
 
@@ -852,7 +850,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # Log sample processing stats
         if samples_failed > 0:
-            failure_rate = samples_failed / samples_attempted if samples_attempted > 0 else 0.0
+            failure_rate = (
+                samples_failed / samples_attempted if samples_attempted > 0 else 0.0
+            )
             logger.info(
                 f"Sample processing: {len(samples)}/{samples_attempted} succeeded ({failure_rate:.1%} failed)"
             )
