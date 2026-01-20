@@ -79,6 +79,10 @@ class Workspace:
     scan_result: dict
     independent_datasets: Dict[str, "PowerBIDataset"]  # key = dataset id
     app: Optional["App"]
+    # Fabric artifacts (Lakehouse, Warehouse, SQLAnalyticsEndpoint) for DirectLake lineage
+    fabric_artifacts: Dict[str, "FabricArtifact"] = dataclasses.field(
+        default_factory=dict
+    )  # key = artifact id
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
@@ -117,6 +121,19 @@ class DataSource:
 
     def __hash__(self):
         return hash(self.__members())
+
+
+@dataclass
+class FabricArtifact:
+    """Represents a Microsoft Fabric artifact (Lakehouse, Warehouse, SQLAnalyticsEndpoint).
+
+    Used for DirectLake lineage extraction to identify upstream OneLake tables.
+    """
+
+    id: str
+    name: str
+    artifact_type: str  # "Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"
+    workspace_id: str
 
 
 @dataclass
@@ -167,6 +184,13 @@ class Table:
     # Pointer to the parent dataset.
     dataset: Optional["PowerBIDataset"] = None
 
+    # DirectLake support fields
+    storage_mode: Optional[str] = None  # e.g., "DirectLake", "Import", "DirectQuery"
+    source_schema: Optional[str] = None  # From source[].schemaName (e.g., "dbo")
+    source_expression: Optional[str] = (
+        None  # From source[].expression (upstream table name)
+    )
+
 
 @dataclass
 class PowerBIDataset:
@@ -182,6 +206,10 @@ class PowerBIDataset:
     tables: List["Table"]
     tags: List[str]
     configuredBy: Optional[str] = None
+
+    # DirectLake support: artifact ID this dataset depends on (Lakehouse/Warehouse)
+    # From relations[].dependentOnArtifactId
+    dependent_on_artifact_id: Optional[str] = None
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
@@ -333,6 +361,14 @@ class Dashboard:
 
 
 def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIDataset:
+    # Extract dependent artifact ID from relations (for DirectLake lineage)
+    dependent_on_artifact_id = None
+    relations = raw_instance.get("relations", [])
+    for relation in relations:
+        if relation.get("dependentOnArtifactId"):
+            dependent_on_artifact_id = relation["dependentOnArtifactId"]
+            break
+
     return PowerBIDataset(
         id=raw_instance["id"],
         name=raw_instance.get("name"),
@@ -348,4 +384,5 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
         tables=[],
         tags=[],
         configuredBy=raw_instance.get("configuredBy"),
+        dependent_on_artifact_id=dependent_on_artifact_id,
     )

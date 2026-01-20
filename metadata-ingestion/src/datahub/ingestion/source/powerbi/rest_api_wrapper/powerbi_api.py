@@ -18,6 +18,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     AppReport,
     Column,
     Dashboard,
+    FabricArtifact,
     Measure,
     PowerBIDataset,
     Report,
@@ -345,6 +346,66 @@ class PowerBiAPI:
 
         return [endorsement]
 
+    @staticmethod
+    def _parse_fabric_artifacts(
+        workspace_metadata: dict,
+    ) -> Dict[str, FabricArtifact]:
+        """Parse Lakehouse, Warehouse, and SQLAnalyticsEndpoint artifacts from scan result.
+
+        These artifacts are used for DirectLake lineage extraction.
+
+        Args:
+            workspace_metadata: The workspace scan result from PowerBI Admin API
+
+        Returns:
+            Dict mapping artifact ID to FabricArtifact
+        """
+        artifacts: Dict[str, FabricArtifact] = {}
+        workspace_id = workspace_metadata.get(Constant.ID, "")
+
+        # Parse Lakehouses (note: key is "Lakehouse" in the API response)
+        for lakehouse in workspace_metadata.get("Lakehouse", []):
+            artifact_id = lakehouse.get(Constant.ID)
+            if artifact_id:
+                artifacts[artifact_id] = FabricArtifact(
+                    id=artifact_id,
+                    name=lakehouse.get(Constant.NAME, ""),
+                    artifact_type="Lakehouse",
+                    workspace_id=workspace_id,
+                )
+                logger.debug(f"Parsed Lakehouse artifact: {artifact_id}")
+
+        # Parse Warehouses (note: key is "warehouses" in the API response)
+        for warehouse in workspace_metadata.get("warehouses", []):
+            artifact_id = warehouse.get(Constant.ID)
+            if artifact_id:
+                artifacts[artifact_id] = FabricArtifact(
+                    id=artifact_id,
+                    name=warehouse.get(Constant.NAME, ""),
+                    artifact_type="Warehouse",
+                    workspace_id=workspace_id,
+                )
+                logger.debug(f"Parsed Warehouse artifact: {artifact_id}")
+
+        # Parse SQLAnalyticsEndpoints (note: key is "SQLAnalyticsEndpoint" in the API response)
+        for endpoint in workspace_metadata.get("SQLAnalyticsEndpoint", []):
+            artifact_id = endpoint.get(Constant.ID)
+            if artifact_id:
+                artifacts[artifact_id] = FabricArtifact(
+                    id=artifact_id,
+                    name=endpoint.get(Constant.NAME, ""),
+                    artifact_type="SQLAnalyticsEndpoint",
+                    workspace_id=workspace_id,
+                )
+                logger.debug(f"Parsed SQLAnalyticsEndpoint artifact: {artifact_id}")
+
+        if artifacts:
+            logger.info(
+                f"Parsed {len(artifacts)} Fabric artifacts from workspace {workspace_id}"
+            )
+
+        return artifacts
+
     def _get_workspace_datasets(self, workspace: Workspace) -> dict:
         """
         Filter out "dataset" from scan_result and return Dataset instance set
@@ -407,20 +468,35 @@ class PowerBiAPI:
                 else dataset_instance.id
             )
             logger.debug(f"dataset_dict = {dataset_dict}")
-            for table in dataset_dict.get(Constant.TABLES) or []:
+            for table_dict in dataset_dict.get(Constant.TABLES) or []:
                 expression: Optional[str] = (
-                    table[Constant.SOURCE][0][Constant.EXPRESSION]
-                    if table.get(Constant.SOURCE) is not None
-                    and len(table[Constant.SOURCE]) > 0
+                    table_dict[Constant.SOURCE][0][Constant.EXPRESSION]
+                    if table_dict.get(Constant.SOURCE) is not None
+                    and len(table_dict[Constant.SOURCE]) > 0
                     else None
                 )
+
+                # Extract DirectLake fields from table source
+                source_list = table_dict.get(Constant.SOURCE, [])
+                source_schema: Optional[str] = None
+                source_expression: Optional[str] = None
+                if source_list:
+                    first_source = source_list[0]
+                    source_schema = first_source.get("schemaName")  # e.g., "dbo"
+                    source_expression = first_source.get(
+                        Constant.EXPRESSION
+                    )  # upstream table name
+
+                # Get storage mode (e.g., "DirectLake", "Import", "DirectQuery")
+                storage_mode: Optional[str] = table_dict.get("storageMode")
+
                 table = Table(
-                    name=table[Constant.NAME],
+                    name=table_dict[Constant.NAME],
                     full_name=form_full_table_name(
                         config=self.__config,
                         workspace=workspace,
                         dataset_name=dataset_name,
-                        table_name=table[Constant.NAME],
+                        table_name=table_dict[Constant.NAME],
                     ),
                     expression=expression,
                     columns=[
@@ -430,14 +506,18 @@ class PowerBiAPI:
                                 column["dataType"], FIELD_TYPE_MAPPING["Null"]
                             ),
                         )
-                        for column in table.get("columns") or []
+                        for column in table_dict.get("columns") or []
                     ],
                     measures=[
-                        Measure(**measure) for measure in table.get("measures") or []
+                        Measure(**measure)
+                        for measure in table_dict.get("measures") or []
                     ],
                     dataset=dataset_instance,
                     row_count=None,
                     column_count=None,
+                    storage_mode=storage_mode,
+                    source_schema=source_schema,
+                    source_expression=source_expression,
                 )
                 if self.__config.profiling.enabled:
                     self._get_resolver().profile_dataset(
@@ -571,6 +651,7 @@ class PowerBiAPI:
                 scan_result={},
                 independent_datasets={},
                 app=None,  # It is getting set from scan-result
+                fabric_artifacts=self._parse_fabric_artifacts(workspace_metadata),
             )
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)

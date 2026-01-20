@@ -201,6 +201,12 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="odbc",
     )
 
+    # Fabric OneLake for DirectLake lineage (Lakehouse/Warehouse tables)
+    FABRIC_ONELAKE = DataPlatformPair(
+        powerbi_data_platform_name="FabricOneLake",
+        datahub_data_platform_name="fabric-onelake",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
