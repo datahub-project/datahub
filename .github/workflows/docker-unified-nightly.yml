@@ -59,9 +59,10 @@ jobs:
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       datahub_images: ${{ steps.collect-images.outputs.datahub_images }}
       architectures: ${{ steps.set-architectures.outputs.architectures }}
+      test_ref: ${{ steps.test-ref.outputs.ref }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
       - name: Compute Tag
         id: tag
         env:
@@ -89,6 +90,44 @@ jobs:
             echo "branch_name=${GITHUB_REF#refs/heads/}"
             echo "repository_name=${GITHUB_REPOSITORY#*/}"
           } >> "$GITHUB_OUTPUT"
+      - name: Determine git ref for tests
+        id: test-ref
+        env:
+          TEST_TAG: ${{ github.event.inputs.test_tag }}
+        run: |
+          # If no test_tag specified, use acryl-main (default nightly behavior)
+          if [[ -z "$TEST_TAG" ]]; then
+            echo "No test_tag specified, using acryl-main for tests"
+            echo "ref=acryl-main" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Try to find a matching git ref for the test_tag
+          echo "Looking for git ref matching test_tag: $TEST_TAG"
+
+          # Check if it's a tag
+          if git ls-remote --tags origin "refs/tags/$TEST_TAG" | grep -q "$TEST_TAG"; then
+            echo "Found matching git tag: $TEST_TAG"
+            echo "ref=$TEST_TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if it's a branch
+          if git ls-remote --heads origin "refs/heads/$TEST_TAG" | grep -q "$TEST_TAG"; then
+            echo "Found matching git branch: $TEST_TAG"
+            echo "ref=$TEST_TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # No matching ref found - fail the workflow
+          echo "ERROR: Could not find git tag or branch matching test_tag: $TEST_TAG"
+          echo ""
+          echo "Recent tags:"
+          git ls-remote --tags origin | tail -10
+          echo ""
+          echo "Recent branches:"
+          git ls-remote --heads origin | tail -10
+          exit 1
       - name: Check whether docker login is possible
         id: docker-login
         env:
@@ -225,9 +264,19 @@ jobs:
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
         with:
           checkout-head-only: false
+          ref: ${{ needs.setup.outputs.test_ref }}
+
+      - name: Display checked out ref
+        run: |
+          echo "=========================================="
+          echo "Testing Docker images: ${{ needs.setup.outputs.tag }}"
+          echo "Using test code from: ${{ needs.setup.outputs.test_ref }}"
+          echo "Current commit: $(git rev-parse HEAD)"
+          echo "Current branch: $(git branch --show-current || echo 'detached HEAD')"
+          echo "=========================================="
 
       - name: Install Cypress dependencies on ARM
         if: ${{ matrix.architecture == 'arm' && matrix.test_strategy == 'cypress' }}
@@ -668,7 +717,7 @@ jobs:
     if: ${{ (github.event.inputs.test_tag == '' || github.event.inputs.test_tag == null) && needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
 
       - name: Check if smoke tests passed
         run: |
