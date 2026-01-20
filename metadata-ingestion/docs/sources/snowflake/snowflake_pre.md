@@ -220,7 +220,13 @@ For organizations that **purchase/install** internal marketplace listings:
    marketplace:
      enabled: true
      marketplace_mode: "consumer" # Default
+     # Optional: Configure time window for usage statistics
+     start_time: "-7 days"  # Default: -1 day
+     end_time: "now"
+     bucket_duration: "DAY"  # Options: "DAY", "HOUR"
    ```
+
+   The `marketplace` configuration inherits from `BaseTimeWindowConfig`, allowing you to control the time window for extracting marketplace usage statistics. This follows the same pattern as other DataHub connectors.
 
 3. **Configure the `shares` mapping** (REQUIRED in consumer mode for linking Data Products to their purchased databases):
 
@@ -234,7 +240,11 @@ For organizations that **purchase/install** internal marketplace listings:
        consumers:
          - database: "<IMPORTED_DATABASE>" # Your purchased/imported database
            platform_instance: null
+           # Optional but recommended: Explicit listing mapping
+           listing_global_name: "PROVIDER.REGION.LISTING_NAME" # From: SHOW AVAILABLE LISTINGS
    ```
+
+   **Explicit Listing Mapping (Recommended)**: Add `listing_global_name` to explicitly link your purchased database to its marketplace listing. This ensures accurate Data Product associations, especially when you have multiple listings with similar names. Without it, the connector will attempt to match listings by finding the source database name within the listing's global name or title (case-insensitive substring match).
 
    **To discover the correct values**, run these SQL commands in Snowflake:
 

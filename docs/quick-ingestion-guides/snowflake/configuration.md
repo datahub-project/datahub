@@ -158,6 +158,9 @@ If you purchase/install internal marketplace listings, add these options to your
 marketplace:
   enabled: true
   marketplace_mode: "consumer" # This is the default
+  # Optional: Configure time window for usage statistics
+  start_time: "-7 days"  # Default: -1 day
+  end_time: "now"
 
 # Required: Map your imported databases to their source shares
 shares:
@@ -165,7 +168,11 @@ shares:
     database: "SOURCE_DATABASE" # Source database in the share
     consumers:
       - database: "DEMO_DATABASE" # Your purchased/imported database
+        # Optional but recommended: Explicit listing mapping for precise linking
+        listing_global_name: "PROVIDER.REGION.LISTING_NAME" # From: SHOW AVAILABLE LISTINGS
 ```
+
+**Tip**: Adding `listing_global_name` ensures your purchased databases are accurately linked to their marketplace listings, especially when you have multiple similar listing names.
 
 #### For Provider Organizations (Publishing Listings)
 
@@ -178,6 +185,9 @@ marketplace:
   # Optional: Assign owners to your Data Products
   internal_marketplace_owner_patterns:
     "^Customer.*": ["data-team"]
+  # Optional: Configure time window for usage statistics
+  start_time: "-30 days"
+  end_time: "now"
 
 # Include your source databases being shared
 database_pattern:

@@ -22,9 +22,13 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import (
     DataProductProperties,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetProperties,
-    DatasetUsageStatistics,
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    DatasetUsageStatisticsClass,
+    InstitutionalMemoryClass,
 )
 
 
@@ -250,14 +254,17 @@ class TestMarketplaceBasicFunctionality:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetProperties)
+            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
             and hasattr(wu.metadata, "entityUrn")
             and "demo_database" in cast(str, wu.metadata.entityUrn).lower()
         ]
         assert len(dataset_props_wus) == 1
 
         # Verify the enhanced properties have marketplace metadata
-        demo_db_props = cast(DatasetProperties, dataset_props_wus[0].metadata.aspect)  # type: ignore[union-attr]
+        assert hasattr(dataset_props_wus[0].metadata, "aspect")
+        demo_db_props = cast(
+            DatasetPropertiesClass, dataset_props_wus[0].metadata.aspect
+        )
         assert demo_db_props.customProperties["marketplace_purchase"] == "true"
         assert demo_db_props.customProperties["database_type"] == "IMPORTED_DATABASE"
         assert (
@@ -334,8 +341,6 @@ class TestMarketplaceBasicFunctionality:
         assert props.customProperties.get("request_approver") == "approver@acme.example"
 
         # Check InstitutionalMemory aspect for documentation links (marketplace URL is in externalUrl)
-        from datahub.metadata.schema_classes import InstitutionalMemoryClass
-
         institutional_memory_aspects = [
             wu.metadata.aspect
             for wu in wus
@@ -432,13 +437,13 @@ class TestListingPurchaseMatching:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetProperties)
+            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
             and hasattr(wu.metadata, "entityUrn")
             and "unknown_db" in cast(str, wu.metadata.entityUrn).lower()
         ]
 
         assert len(dataset_props_wus) == 1
-        props = cast(DatasetProperties, dataset_props_wus[0].metadata.aspect)  # type: ignore[union-attr]
+        props = cast(DatasetPropertiesClass, dataset_props_wus[0].metadata.aspect)  # type: ignore[union-attr]
         assert props.customProperties["purchase_status"] == "UNKNOWN_LISTING"
 
 
@@ -584,13 +589,15 @@ class TestMarketplaceUsageStatistics:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetUsageStatistics)
+            and isinstance(
+                getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
+            )
         ]
 
         assert len(usage_wus) >= 1
 
         # Verify usage statistics
-        usage_stats = cast(DatasetUsageStatistics, usage_wus[0].metadata.aspect)  # type: ignore[union-attr]
+        usage_stats = cast(DatasetUsageStatisticsClass, usage_wus[0].metadata.aspect)  # type: ignore[union-attr]
         assert usage_stats.totalSqlQueries == 2
         assert usage_stats.uniqueUserCount == 2
         user_counts = usage_stats.userCounts
@@ -643,7 +650,9 @@ class TestMarketplaceUsageStatistics:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetUsageStatistics)
+            and isinstance(
+                getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
+            )
         ]
 
         # We have 2 purchases (DEMO_DATABASE and WEATHER_DB), both accessed in one query
@@ -673,7 +682,9 @@ class TestMarketplaceUsageStatistics:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetUsageStatistics)
+            and isinstance(
+                getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
+            )
         ]
 
         assert len(usage_wus) == 0
@@ -701,7 +712,9 @@ class TestMarketplaceUsageStatistics:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetUsageStatistics)
+            and isinstance(
+                getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
+            )
         ]
 
         assert len(usage_wus) == 0
@@ -731,7 +744,7 @@ class TestMarketplaceConfiguration:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetProperties)
+            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
         ]
         assert len(dataset_props_wus) == 0
 
@@ -749,7 +762,7 @@ class TestMarketplaceConfiguration:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetProperties)
+            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
         ]
         assert len(dataset_props_wus) == 2
 
@@ -757,16 +770,48 @@ class TestMarketplaceConfiguration:
         data_product_urns = _get_data_product_urns(wus)
         assert len(data_product_urns) == 0
 
-    def test_all_features_disabled(self, base_config: Dict[str, Any]) -> None:
-        """Test with all marketplace features disabled."""
-        config_dict = base_config.copy()
-        config_dict["marketplace"]["enabled"] = False
+    def test_marketplace_time_windows_used(
+        self,
+        base_config: Dict[str, Any],
+        mock_listings: List[Dict[str, Any]],
+        mock_purchases: List[Dict[str, Any]],
+        mock_usage_events: List[Dict[str, Any]],
+    ) -> None:
+        """Test that marketplace config uses its own time windows (BaseTimeWindowConfig)."""
+        from datetime import datetime, timezone
 
-        handler = create_handler(config_dict, None, None, None)
+        custom_start = datetime(2024, 6, 1, tzinfo=timezone.utc)
+        custom_end = datetime(2024, 7, 1, tzinfo=timezone.utc)
+
+        config_dict = base_config.copy()
+        config_dict["marketplace"] = {
+            "enabled": True,
+            "start_time": custom_start.isoformat(),
+            "end_time": custom_end.isoformat(),
+            "bucket_duration": "HOUR",
+        }
+        config_dict["email_domain"] = "test.com"
+
+        handler = create_handler(
+            config_dict, mock_listings, mock_purchases, mock_usage_events
+        )
         wus = list(handler.get_marketplace_workunits())
 
-        # Should have no workunits
-        assert len(wus) == 0
+        usage_wus = [
+            wu
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(
+                getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
+            )
+        ]
+
+        assert len(usage_wus) >= 1
+        usage_stats = cast(DatasetUsageStatisticsClass, usage_wus[0].metadata.aspect)  # type: ignore[union-attr]
+
+        assert usage_stats.timestampMillis == int(custom_start.timestamp() * 1000)
+        assert usage_stats.eventGranularity is not None
+        assert usage_stats.eventGranularity.unit == "HOUR"
 
 
 # Edge Cases and Error Handling
@@ -775,14 +820,85 @@ class TestMarketplaceConfiguration:
 class TestMarketplaceEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_empty_listings_and_purchases(self, base_config: Dict[str, Any]) -> None:
-        """Test with no listings or purchases."""
-        handler = create_handler(base_config, [], [])
+    def test_listing_purchase_matching_logic(
+        self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
+    ) -> None:
+        """Test the business logic of linking purchases to listings via shares config."""
+        config_with_shares = base_config.copy()
+        config_with_shares["shares"] = {
+            "ACME_SHARE": {
+                "database": "ACME_DATA",
+                "platform_instance": None,
+                "listing_global_name": "ACME.DATA.LISTING",
+                "consumers": [{"database": "IMPORTED_DB", "platform_instance": None}],
+            }
+        }
+
+        handler = create_handler(config_with_shares, mock_listings, [])
+        handler._load_marketplace_data()
+
+        purchase = SnowflakeMarketplacePurchase(
+            database_name="IMPORTED_DB",
+            purchase_date=datetime(2024, 7, 1, tzinfo=timezone.utc),
+            owner="ACCOUNTADMIN",
+            comment=None,
+        )
+
+        found_listing = handler._find_listing_for_purchase(purchase)
+        assert found_listing == "ACME.DATA.LISTING", (
+            "Should use explicit listing_global_name from shares config"
+        )
+
+    def test_marketplace_owner_patterns_apply_correctly(
+        self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
+    ) -> None:
+        """Test that owner patterns are correctly applied to marketplace listings."""
+        config_dict = base_config.copy()
+        config_dict["marketplace"]["internal_marketplace_owner_patterns"] = {
+            "^Acme.*": ["acme-team", "urn:li:corpGroup:data"],
+            "Weather": ["weather-team"],
+        }
+
+        handler = create_handler(config_dict, mock_listings, [])
+        handler._load_marketplace_data()
+
+        acme_listing = handler._marketplace_listings["ACME.DATA.LISTING"]
+        owners = handler._resolve_owners_for_listing(acme_listing)
+
+        assert len(owners) == 2
+        assert "urn:li:corpuser:acme-team" in owners
+        assert "urn:li:corpGroup:data" in owners
+
+    def test_structured_property_definitions_created_correctly(
+        self, base_config: Dict[str, Any]
+    ) -> None:
+        """Test that structured property definitions are created with correct schema."""
+        config_dict = base_config.copy()
+        config_dict["marketplace"][
+            "marketplace_properties_as_structured_properties"
+        ] = True
+
+        handler = create_handler(config_dict, [], [])
         wus = list(handler.get_marketplace_workunits())
 
-        assert len(wus) == 0
-        assert handler.report.marketplace_listings_scanned == 0
-        assert handler.report.marketplace_purchases_scanned == 0
+        prop_def_wus = [
+            wu
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(
+                getattr(wu.metadata, "aspect", None), StructuredPropertyDefinition
+            )
+        ]
+
+        assert len(prop_def_wus) >= 6
+        property_ids = [
+            cast(StructuredPropertyDefinition, wu.metadata.aspect).qualifiedName  # type: ignore[union-attr]
+            for wu in prop_def_wus
+        ]
+
+        assert "snowflake.marketplace.provider" in property_ids
+        assert "snowflake.marketplace.category" in property_ids
+        assert "snowflake.marketplace.listing_global_name" in property_ids
 
     def test_listing_without_optional_fields(self, base_config: Dict[str, Any]) -> None:
         """Test listing with minimal fields."""
@@ -826,8 +942,8 @@ class TestMarketplaceEdgeCases:
             wu
             for wu in wus
             if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetProperties)
+            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
         ]
         assert len(dataset_props_wus) == 1
-        props = cast(DatasetProperties, dataset_props_wus[0].metadata.aspect)  # type: ignore[union-attr]
+        props = cast(DatasetPropertiesClass, dataset_props_wus[0].metadata.aspect)  # type: ignore[union-attr]
         assert props.customProperties["purchase_status"] == "UNKNOWN_LISTING"

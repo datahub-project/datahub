@@ -43,6 +43,10 @@ source:
     #     "^Finance.*": ["finance-team"]
     #   fetch_internal_marketplace_listing_details: false
     #   marketplace_properties_as_structured_properties: false
+    #   # Time window for marketplace usage statistics (optional)
+    #   # start_time: "-7 days"  # Default: -1 day
+    #   # end_time: "now"
+    #   # bucket_duration: "DAY"  # Options: "DAY", "HOUR"
     
     # (Optional) Map data products to domains using purchased database names
     # domain:
@@ -61,6 +65,8 @@ source:
     #     consumers:
     #       - database: "<IMPORTED_DATABASE>"  # Your purchased/imported database
     #         platform_instance: null
+    #         # (Optional) Explicit marketplace listing mapping for precise linking
+    #         # listing_global_name: "ACME.DATA.LISTING"  # From: SHOW AVAILABLE LISTINGS
 
 # Default sink is datahub-rest and doesn't need to be configured
 # See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

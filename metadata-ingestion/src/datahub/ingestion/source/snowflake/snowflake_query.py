@@ -1245,3 +1245,16 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             AND IS_SHARE = TRUE
             ORDER BY QUERY_DATE DESC
             """
+
+    @staticmethod
+    def marketplace_imported_database_tables(db_name: str) -> str:
+        """Get tables from an imported marketplace database"""
+        return f"""
+            SELECT 
+                TABLE_SCHEMA AS "SCHEMA_NAME",
+                TABLE_NAME AS "TABLE_NAME",
+                TABLE_TYPE AS "TABLE_TYPE"
+            FROM {db_name}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+            ORDER BY TABLE_SCHEMA, TABLE_NAME
+            """

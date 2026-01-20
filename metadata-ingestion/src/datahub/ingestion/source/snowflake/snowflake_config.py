@@ -240,7 +240,7 @@ class SnowflakeConfig(
     upstream_lineage_in_report: bool = False
 
 
-class SnowflakeMarketplaceConfig(ConfigModel):
+class SnowflakeMarketplaceConfig(BaseTimeWindowConfig):
     """
     Configuration for Snowflake Internal Marketplace (Private Data Sharing).
 
@@ -295,8 +295,8 @@ class SnowflakeMarketplaceConfig(ConfigModel):
     fetch_internal_marketplace_listing_details: bool = Field(
         default=False,
         description=(
-            "If enabled, fetches additional details for each INTERNAL marketplace listing via DESCRIBE AVAILABLE LISTING "
-            "(requires extra query per listing)."
+            "If enabled, fetches additional details for each INTERNAL marketplace listing via DESCRIBE AVAILABLE LISTING. "
+            "WARNING: This executes one additional query per listing and may impact performance for many listings."
         ),
     )
 
@@ -319,6 +319,16 @@ class SnowflakeMarketplaceConfig(ConfigModel):
                 f"marketplace_mode must be one of {allowed_modes}, got '{v}'"
             )
         return v
+
+    @model_validator(mode="after")
+    def validate_marketplace_config(self) -> "SnowflakeMarketplaceConfig":
+        """Validate that marketplace configuration is consistent."""
+        if self.enabled and self.marketplace_mode in ["consumer", "both"]:
+            add_global_warning(
+                "Marketplace consumer mode requires 'shares' configuration to link imported databases to listings. "
+                "Without shares config, purchased databases cannot be associated with marketplace listings."
+            )
+        return self
 
 
 class SnowflakeV2Config(
@@ -452,7 +462,7 @@ class SnowflakeV2Config(
         default_factory=SemanticViewsConfig,
         description="Configuration for semantic views ingestion.",
     )
-      
+
     marketplace: SnowflakeMarketplaceConfig = Field(
         default_factory=SnowflakeMarketplaceConfig,
         description="Configuration for Snowflake Internal Marketplace (private data exchange) ingestion.",

@@ -120,7 +120,6 @@ class SnowflakeV2Report(
     num_secure_views_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
 
-
     marketplace_listings_scanned: int = 0
     marketplace_purchases_scanned: int = 0
     marketplace_usage_events_processed: int = 0
