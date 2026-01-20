@@ -1,83 +1,18 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
+    "entityUrn": "urn:li:container:839d480ae59afad9450be04d22794390",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "platform": "grafana",
-                "dashboard_id": "default"
+                "dashboard_id": "default",
+                "folder_id": "0"
             },
             "name": "Test Integration Dashboard",
             "description": "A comprehensive test dashboard for integration testing with various panel types and data sources"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:grafana"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dashboard"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
         }
     },
     "systemMetadata": {
@@ -94,6 +29,93 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:grafana"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:839d480ae59afad9450be04d22794390",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:839d480ae59afad9450be04d22794390",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:grafana"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:839d480ae59afad9450be04d22794390",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:839d480ae59afad9450be04d22794390",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:839d480ae59afad9450be04d22794390",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
         }
     },
     "systemMetadata": {
@@ -374,7 +396,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -443,7 +465,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -619,7 +641,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -653,8 +675,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -730,7 +756,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -748,8 +774,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -806,8 +836,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -827,8 +861,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -1026,7 +1064,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -1044,8 +1082,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -1288,7 +1330,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -1306,8 +1348,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -1575,7 +1621,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -1591,7 +1637,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -1609,8 +1655,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -1630,8 +1680,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -1769,7 +1823,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -1787,8 +1841,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }
@@ -1881,7 +1939,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+            "container": "urn:li:container:839d480ae59afad9450be04d22794390"
         }
     },
     "systemMetadata": {
@@ -1899,8 +1957,12 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099",
-                    "urn": "urn:li:container:15a4d4f049d1fb26674e0b66dfa58099"
+                    "id": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08",
+                    "urn": "urn:li:container:b56143fc7b8d27b753f35d6ebff39d08"
+                },
+                {
+                    "id": "urn:li:container:839d480ae59afad9450be04d22794390",
+                    "urn": "urn:li:container:839d480ae59afad9450be04d22794390"
                 }
             ]
         }

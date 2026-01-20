@@ -27,9 +27,7 @@ describe("create and manage group", () => {
       cy.enterTextInTestId("name", username);
       cy.enterTextInTestId("password", password);
       cy.enterTextInTestId("confirmPassword", password);
-      cy.mouseover("#title").click();
-      cy.waitTextVisible("Other").click();
-      cy.get("[type=submit]").click();
+      cy.get('[data-testid="sign-up"]').click();
       cy.contains("Accepted invite!").should("not.exist");
       cy.wait(5000);
       cy.waitTextVisible(username);

@@ -74,7 +74,7 @@ export class DocumentEntity implements Entity<Document> {
 
     renderPreview = (previewType: PreviewType, data: Document) => {
         const genericProperties = this.getGenericEntityProperties(data);
-        const platform = genericProperties?.platform;
+        const platform = genericProperties?.platform?.urn !== 'urn:li:dataPlatform:datahub' ? data.platform : undefined;
         return (
             <Preview
                 document={data}
@@ -98,7 +98,7 @@ export class DocumentEntity implements Entity<Document> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Document;
         const genericProperties = this.getGenericEntityProperties(data);
-        const platform = genericProperties?.platform;
+        const platform = genericProperties?.platform?.urn !== 'urn:li:dataPlatform:datahub' ? data.platform : undefined;
         return (
             <Preview
                 document={data}
@@ -124,8 +124,14 @@ export class DocumentEntity implements Entity<Document> {
     };
 
     getOverridePropertiesFromEntity = (data: Document) => {
+        const externalUrl = data.info?.source?.externalUrl;
         return {
             name: data.info?.title,
+            externalUrl,
+            properties: {
+                name: data.info?.title,
+                externalUrl,
+            },
         };
     };
 

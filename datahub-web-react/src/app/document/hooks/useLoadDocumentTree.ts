@@ -1,11 +1,11 @@
-import { useApolloClient } from '@apollo/client';
 import { useCallback, useEffect } from 'react';
 
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { documentToTreeNode, sortDocumentsByCreationTime } from '@app/document/utils/documentUtils';
 
-import { SearchDocumentsDocument } from '@graphql/document.generated';
+import { useSearchDocumentsLazyQuery } from '@graphql/document.generated';
+import { Document, DocumentSourceType } from '@types';
 
 /**
  * Hook to load and populate the document tree from backend queries.
@@ -18,7 +18,7 @@ import { SearchDocumentsDocument } from '@graphql/document.generated';
 
 export function useLoadDocumentTree() {
     const { initializeTree, setNodeChildren, getRootNodes } = useDocumentTree();
-    const apolloClient = useApolloClient();
+    const [searchDocumentsQuery] = useSearchDocumentsLazyQuery();
 
     // Load root documents
     const { documents: rootDocuments, loading: loadingRoot } = useSearchDocuments({
@@ -26,19 +26,17 @@ export function useLoadDocumentTree() {
         rootOnly: true,
         start: 0,
         count: 100,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
+        sourceTypes: [DocumentSourceType.Native],
     });
 
     // Check if multiple documents have children (batch query)
-    // TODO: Consider refactoring to use useLazyQuery for better type safety
-    // once Apollo is updated to support returning data directly from lazy queries
     const checkForChildren = useCallback(
         async (urns: string[]): Promise<Record<string, boolean>> => {
             if (urns.length === 0) return {};
 
             try {
-                const result = await apolloClient.query({
-                    query: SearchDocumentsDocument,
+                const result = await searchDocumentsQuery({
                     variables: {
                         input: {
                             query: '*',
@@ -70,17 +68,14 @@ export function useLoadDocumentTree() {
                 return {};
             }
         },
-        [apolloClient],
+        [searchDocumentsQuery],
     );
 
     // Load children for a specific parent
-    // TODO: Consider refactoring to use useLazyQuery for better type safety
-    // once Apollo is updated to support returning data directly from lazy queries
     const loadChildren = useCallback(
         async (parentUrn: string | null) => {
             try {
-                const result = await apolloClient.query({
-                    query: SearchDocumentsDocument,
+                const result = await searchDocumentsQuery({
                     variables: {
                         input: {
                             query: '*',
@@ -89,10 +84,10 @@ export function useLoadDocumentTree() {
                             count: 100,
                         },
                     },
-                    fetchPolicy: 'cache-first', // Can use cache for children
+                    fetchPolicy: 'network-only',
                 });
 
-                const documents = result.data?.searchDocuments?.documents || [];
+                const documents = (result.data?.searchDocuments?.documents || []) as Document[];
 
                 // Sort by creation time (most recent first)
                 const sortedDocuments = sortDocumentsByCreationTime(documents);
@@ -115,7 +110,7 @@ export function useLoadDocumentTree() {
                 return [];
             }
         },
-        [apolloClient, checkForChildren, setNodeChildren],
+        [searchDocumentsQuery, checkForChildren, setNodeChildren],
     );
 
     // Initialize tree with root documents on mount (ONLY if tree is empty)

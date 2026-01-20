@@ -1,6 +1,7 @@
 import {
     AppWindow,
     BookBookmark,
+    FileText,
     Gear,
     Globe,
     HardDrives,
@@ -31,7 +32,6 @@ import {
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
-import { useContextMenuItems } from '@app/homeV2/layout/sidebar/documents/useContextMenuItems';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
@@ -40,7 +40,7 @@ import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
 import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
-import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -108,7 +108,7 @@ const ScrollableContent = styled.div`
 `;
 
 const Footer = styled.div`
-    padding: 8px 8px 17px 8px;
+    padding: 8px 8px 17px 16px;
     border-top: 1px solid ${colors.gray[100]};
 `;
 
@@ -139,7 +139,7 @@ export const NavSidebar = () => {
     const isHomePage = useIsHomePage();
     const location = useLocation();
     const showHomepageRedesign = useShowHomePageRedesign();
-    const contextMenuItems = useContextMenuItems();
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
@@ -234,6 +234,28 @@ export const NavSidebar = () => {
             ...mfeSection,
             {
                 type: NavBarMenuItemTypes.Group,
+                key: 'context',
+                title: 'Context',
+                isHidden: !isContextDocumentsEnabled,
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Documents',
+                        key: 'contextDocuments',
+                        icon: <FileText />,
+                        selectedIcon: <FileText weight="fill" />,
+                        link: PageRoutes.CONTEXT_DOCUMENTS,
+                        additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Document)}/:urn`],
+                        badge: {
+                            label: 'BETA',
+                            show: true,
+                            showDot: false,
+                        },
+                    },
+                ],
+            },
+            {
+                type: NavBarMenuItemTypes.Group,
                 key: 'govern',
                 title: 'Govern',
                 items: [
@@ -308,6 +330,14 @@ export const NavSidebar = () => {
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
                         link: ingestionLink,
+                        onClick: () => {
+                            if (ingestionLink === PageRoutes.INGESTION_CREATE) {
+                                analytics.event({
+                                    type: EventType.EnterIngestionFlowEvent,
+                                    entryPoint: 'nav_menu',
+                                });
+                            }
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -320,7 +350,6 @@ export const NavSidebar = () => {
                     },
                 ],
             },
-            ...(contextMenuItems ? [contextMenuItems] : []),
         ],
     };
 
@@ -434,7 +463,7 @@ export const NavSidebar = () => {
     return (
         <Container>
             {renderSvgSelectedGradientForReusingInIcons()}
-            <Content isCollapsed={isCollapsed}>
+            <Content id="nav-sidebar" data-collapsed={isCollapsed} isCollapsed={isCollapsed}>
                 {showSkeleton ? (
                     <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (

@@ -175,7 +175,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     );
 
     return (
-        <Container ref={selectRef} size={size || 'md'} width={props.width}>
+        <Container ref={selectRef} size={size || 'md'} width={props.width} $minWidth={props.minWidth}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             {isVisible && (
                 <Dropdown
