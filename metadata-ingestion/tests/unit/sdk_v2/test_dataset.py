@@ -514,11 +514,13 @@ def test_view_definition_explicit_upstreams_not_overwritten() -> None:
     view = Dataset(
         platform="snowflake",
         name="db.schema.my_view",
-        upstreams=[
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,custom.upstream,PROD)"
-        ],
-        view_definition="SELECT id, name FROM db.schema.source_table",
     )
+    # Set upstreams explicitly before view_definition
+    view.set_upstreams(
+        ["urn:li:dataset:(urn:li:dataPlatform:snowflake,custom.upstream,PROD)"]
+    )
+    # Now set view_definition - auto-parsing should be skipped since upstreams already set
+    view.set_view_definition("SELECT id, name FROM db.schema.source_table")
 
     assert view.upstreams is not None
     assert len(view.upstreams.upstreams) == 1
@@ -599,3 +601,54 @@ def test_view_definition_invalid_sql_graceful() -> None:
     )
     assert view.view_definition is not None
     assert view.view_definition.viewLogic == "THIS IS NOT VALID SQL !!@#$%"
+    # Invalid SQL should result in no upstreams (graceful failure)
+    assert view.upstreams is None
+
+
+def test_view_definition_no_tables_in_sql() -> None:
+    """SQL without table references should not create upstreams."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.computed_view",
+        view_definition="SELECT 1 + 1 AS result, CURRENT_TIMESTAMP() AS ts",
+    )
+    assert view.view_definition is not None
+    # No tables in SQL, so no upstreams should be extracted
+    assert view.upstreams is None
+
+
+def test_view_definition_duplicate_table_refs() -> None:
+    """Duplicate table references should be deduplicated."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.union_view",
+        view_definition="""
+            SELECT id, name FROM db.schema.users
+            UNION ALL
+            SELECT id, name FROM db.schema.users
+            UNION ALL
+            SELECT id, name FROM db.schema.users
+        """,
+    )
+    assert view.upstreams is not None
+    # Should only have 1 upstream despite 3 references to the same table
+    assert len(view.upstreams.upstreams) == 1
+    assert "users" in view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_cte_handling() -> None:
+    """CTEs and actual table references should both be extracted."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.cte_view",
+        view_definition="""
+            WITH cte AS (
+                SELECT id, name FROM db.schema.source_table
+            )
+            SELECT * FROM cte
+        """,
+    )
+    assert view.upstreams is not None
+    # Should contain at least the source_table
+    upstream_names = [u.dataset for u in view.upstreams.upstreams]
+    assert any("source_table" in name for name in upstream_names)
