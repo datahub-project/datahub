@@ -320,16 +320,6 @@ class SnowflakeMarketplaceConfig(BaseTimeWindowConfig):
             )
         return v
 
-    @model_validator(mode="after")
-    def validate_marketplace_config(self) -> "SnowflakeMarketplaceConfig":
-        """Validate that marketplace configuration is consistent."""
-        if self.enabled and self.marketplace_mode in ["consumer", "both"]:
-            add_global_warning(
-                "Marketplace consumer mode requires 'shares' configuration to link imported databases to listings. "
-                "Without shares config, purchased databases cannot be associated with marketplace listings."
-            )
-        return self
-
 
 class SnowflakeV2Config(
     SnowflakeConfig,

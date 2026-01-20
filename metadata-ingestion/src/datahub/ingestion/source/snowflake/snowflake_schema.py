@@ -294,13 +294,10 @@ class SnowflakeMarketplaceListing:
     name: str  # listing name
     listing_global_name: str
     title: str  # display name
-    provider: str
     category: Optional[str]
     description: Optional[str]
     created_on: Optional[datetime]
-    organization_profile_name: Optional[str] = (
-        None  # Organization providing the listing
-    )
+    organization_profile_name: str  # Organization providing the listing
 
 
 @dataclass

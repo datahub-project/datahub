@@ -104,6 +104,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         self._marketplace_purchases: Dict[str, SnowflakeMarketplacePurchase] = {}
         self._provider_shares: Dict[str, SnowflakeProviderShare] = {}
         self._data_product_assets: Dict[str, List[str]] = defaultdict(list)
+        self._warned_missing_shares = False
 
     def get_marketplace_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.config.marketplace.enabled:
@@ -238,15 +239,10 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                         "global_name", ""
                     ),  # Column is "global_name"
                     title=row.get("title", ""),
-                    provider=row.get(
-                        "organization_profile_name", ""
-                    ),  # SHOW returns organization_profile_name, not "provider"
                     category=None,  # Not available in SHOW AVAILABLE LISTINGS
                     description=None,  # Not available in SHOW AVAILABLE LISTINGS
                     created_on=row.get("created_on"),
-                    organization_profile_name=row.get(
-                        "organization_profile_name"
-                    ),  # For domain grouping
+                    organization_profile_name=row.get("organization_profile_name", ""),
                 )
 
                 if self.config.marketplace.internal_marketplace_listing_pattern.allowed(
@@ -340,7 +336,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         owners: List[str] = []
         title = listing.title or ""
         global_name = listing.listing_global_name or ""
-        provider = listing.provider or ""
+        provider = listing.organization_profile_name or ""
 
         try:
             for (
@@ -353,8 +349,12 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     or re.search(pattern, provider, flags=re.IGNORECASE)
                 ):
                     owners.extend(self._normalize_owner_urn(o) for o in owner_vals)
-        except Exception as e:
-            logger.debug(f"Owner mapping failed for listing {global_name}: {e}")
+        except (KeyError, AttributeError, re.error) as e:
+            self.structured_reporter.warning(
+                title="Optional owner pattern matching failed",
+                message=f"Could not extract owners from listing {global_name}",
+                context=f"Pattern matching encountered {type(e).__name__}: {e}",
+            )
 
         deduped: List[str] = []
         seen: Set[str] = set()
@@ -517,9 +517,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     doc_links.append(url)
             result["documentation_links"] = doc_links
 
-        except Exception as e:
-            logger.debug(
-                f"DESCRIBE AVAILABLE LISTING enrichment failed for {listing.listing_global_name}: {e}"
+        except (KeyError, ValueError, json.JSONDecodeError) as e:
+            self.structured_reporter.warning(
+                title="Optional listing enrichment failed",
+                message=f"Could not fetch details for listing {listing.listing_global_name}",
+                context=f"DESCRIBE AVAILABLE LISTING returned unexpected format: {type(e).__name__}: {e}",
             )
         return result
 
@@ -574,10 +576,17 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     f"Added {table_count} tables from share {share_name} "
                     f"as assets to Data Product for listing {listing_global_name}"
                 )
-        except Exception as e:
-            logger.debug(
-                f"Failed to describe share {share_name}: {e}. "
-                f"Will only include database-level asset."
+        except SnowflakePermissionError as e:
+            self.structured_reporter.warning(
+                title="Failed to describe provider share",
+                message=f"Could not query tables from share {share_name}",
+                context=f"Insufficient permissions to run DESC SHARE: {e}. Data product will be created without table assets.",
+            )
+        except (KeyError, ValueError) as e:
+            self.structured_reporter.warning(
+                title="Failed to parse share description",
+                message=f"Could not parse share {share_name} metadata",
+                context=f"DESC SHARE returned unexpected format: {type(e).__name__}: {e}",
             )
 
         return asset_urns
@@ -610,9 +619,17 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     f"Added {table_count} tables from imported database {db_name} "
                     f"as assets to Data Product for listing {listing_global_name}"
                 )
-        except Exception as e:
-            logger.debug(
-                f"Failed to query tables from imported database {db_name}: {e}"
+        except SnowflakePermissionError as e:
+            self.structured_reporter.warning(
+                title="Failed to query imported database tables",
+                message=f"Could not list tables in database {db_name}",
+                context=f"Insufficient permissions to query INFORMATION_SCHEMA: {e}. Data product will be created without table assets.",
+            )
+        except (KeyError, ValueError) as e:
+            self.structured_reporter.warning(
+                title="Failed to parse database tables",
+                message=f"Could not parse table metadata from database {db_name}",
+                context=f"INFORMATION_SCHEMA query returned unexpected format: {type(e).__name__}: {e}",
             )
 
         return asset_urns
@@ -685,7 +702,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
         if self.config.marketplace.marketplace_properties_as_structured_properties:
             structured_properties = {
-                "snowflake.marketplace.provider": listing.provider,
+                "snowflake.marketplace.provider": listing.organization_profile_name,
                 "snowflake.marketplace.category": listing.category or "",
                 "snowflake.marketplace.listing_global_name": listing.listing_global_name,
                 "snowflake.marketplace.listing_name": listing.name,
@@ -707,7 +724,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 "marketplace_listing": "true",
                 "marketplace_type": "internal",
                 "marketplace_mode": self.config.marketplace.marketplace_mode,
-                "provider": listing.provider,
+                "provider": listing.organization_profile_name,
                 "category": listing.category or "",
                 "listing_global_name": listing.listing_global_name,
                 "listing_name": listing.name,
@@ -740,7 +757,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
         description = details.get("description") or listing.description
         if not description:
-            description = f"Internal marketplace listing from {listing.provider}"
+            description = (
+                f"Internal marketplace listing from {listing.organization_profile_name}"
+            )
 
         documentation_links = details.get("documentation_links", [])
 
@@ -878,10 +897,14 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         3. Return None if no match found
         """
         if not self.config.shares:
-            logger.warning(
-                f"No 'shares' configuration provided. Cannot link imported database {purchase.database_name} "
-                f"to marketplace listing. Please add shares configuration with explicit listing_global_name mapping."
-            )
+            if not self._warned_missing_shares:
+                self.structured_reporter.warning(
+                    title="Missing shares configuration",
+                    message="Cannot link imported databases to marketplace listings",
+                    context="Marketplace consumer mode requires 'shares' configuration with explicit listing_global_name mapping to associate purchased databases with listings. "
+                    f"Found {len(self._marketplace_purchases)} purchased databases that cannot be linked.",
+                )
+                self._warned_missing_shares = True
             return None
 
         for share_name, share_config in self.config.shares.items():
@@ -983,7 +1006,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 )
 
                 listing = self._marketplace_listings[listing_global_name]
-                marketplace_properties["marketplace_provider"] = listing.provider
+                marketplace_properties["marketplace_provider"] = (
+                    listing.organization_profile_name
+                )
                 purchase_status = "INSTALLED"
             else:
                 purchase_status = "UNKNOWN_LISTING"

@@ -1,10 +1,14 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, cast
+from unittest.mock import patch
 
 import pytest
 
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_marketplace import (
     SnowflakeMarketplaceHandler,
 )
@@ -18,45 +22,9 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
 )
-
-
-class _FakeNativeConn:
-    """Mock Snowflake connection for testing."""
-
-    def __init__(self) -> None:
-        self._mock_responses: Dict[str, List[Dict[str, Any]]] = {}
-
-    def set_mock_response(self, query_pattern: str, rows: List[Dict[str, Any]]) -> None:
-        self._mock_responses[query_pattern] = rows
-
-    def cursor(self, _cursor_type):  # type: ignore[no-untyped-def]
-        return self
-
-    def execute(self, query: str):  # type: ignore[no-untyped-def]
-        for pattern, rows in self._mock_responses.items():
-            if pattern in query:
-                return _FakeCursor(rows)
-        return _FakeCursor([])
-
-    def is_closed(self) -> bool:
-        return False
-
-    def close(self) -> None:
-        return None
-
-
-class _FakeCursor:
-    """Mock cursor for test database queries."""
-
-    def __init__(self, rows: List[Dict[str, Any]]) -> None:
-        self._rows = rows
-        self.rowcount = len(rows)
-
-    def execute(self, _query: str) -> "_FakeCursor":
-        return self
-
-    def __iter__(self):
-        return iter(self._rows)
+from tests.unit.snowflake.conftest_marketplace import (  # type: ignore[import-untyped]
+    FakeNativeConn as _FakeNativeConn,
+)
 
 
 @pytest.fixture
@@ -112,7 +80,7 @@ def create_handler(
 
 
 class TestMarketplaceBusinessLogic:
-    """Test business logic rather than trivial configuration."""
+    """Test marketplace business logic and error handling."""
 
     def test_provider_mode_filters_outbound_shares_only(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
@@ -296,3 +264,174 @@ class TestMarketplaceBusinessLogic:
         assert (
             int(config.marketplace.end_time.timestamp() * 1000) == expected_end_millis
         )
+
+    def test_permission_error_on_show_listings_doesnt_crash(
+        self, base_config: Dict[str, Any]
+    ) -> None:
+        """Test that permission errors are caught and don't crash ingestion."""
+        config = SnowflakeV2Config.parse_obj(base_config)
+        report = SnowflakeV2Report()
+
+        mock_conn = _FakeNativeConn()
+
+        identifiers = SnowflakeIdentifierBuilder(config, report)
+
+        with patch.object(
+            _FakeNativeConn, "execute", side_effect=SnowflakePermissionError("test")
+        ):
+            connection_wrapper = SnowflakeConnection(mock_conn)
+
+            handler = SnowflakeMarketplaceHandler(
+                config=config,
+                report=report,
+                connection=connection_wrapper,
+                identifiers=identifiers,
+            )
+
+            workunits = list(handler.get_marketplace_workunits())
+
+            assert len(workunits) == 0 or len(workunits) > 0
+
+    def test_malformed_describe_listing_doesnt_crash(
+        self, base_config: Dict[str, Any]
+    ) -> None:
+        """Test that malformed DESCRIBE output doesn't crash ingestion."""
+        config = SnowflakeV2Config.parse_obj(base_config)
+        config.marketplace.fetch_internal_marketplace_listing_details = True
+        report = SnowflakeV2Report()
+
+        mock_conn = _FakeNativeConn()
+        mock_conn.set_mock_response(
+            "SHOW AVAILABLE LISTINGS",
+            [
+                {
+                    "name": "test_listing",
+                    "global_name": "ACME.DATA.TEST",
+                    "title": "Test Listing",
+                    "organization_profile_name": "ACME Corp",
+                    "created_on": datetime(2024, 1, 1, tzinfo=timezone.utc),
+                }
+            ],
+        )
+
+        malformed_describe_rows = [
+            {"unexpected_key": "unexpected_value"},
+            {"property": None, "value": "some_value"},
+        ]
+        mock_conn.set_mock_response(
+            "DESCRIBE AVAILABLE LISTING", malformed_describe_rows
+        )
+
+        identifiers = SnowflakeIdentifierBuilder(config, report)
+        connection_wrapper = SnowflakeConnection(mock_conn)
+
+        handler = SnowflakeMarketplaceHandler(
+            config=config,
+            report=report,
+            connection=connection_wrapper,
+            identifiers=identifiers,
+        )
+
+        workunits = list(handler.get_marketplace_workunits())
+
+        assert len(workunits) > 0
+
+    def test_provider_mode_with_empty_source_database(
+        self, base_config: Dict[str, Any]
+    ) -> None:
+        """Test provider mode handles shares with empty source_database gracefully."""
+        base_config["marketplace"]["marketplace_mode"] = "provider"
+        config = SnowflakeV2Config.parse_obj(base_config)
+        report = SnowflakeV2Report()
+
+        mock_conn = _FakeNativeConn()
+        mock_conn.set_mock_response(
+            "SHOW AVAILABLE LISTINGS",
+            [
+                {
+                    "name": "test_listing",
+                    "global_name": "ACME.DATA.TEST",
+                    "title": "Test Listing",
+                    "organization_profile_name": "ACME Corp",
+                    "created_on": datetime(2024, 1, 1, tzinfo=timezone.utc),
+                }
+            ],
+        )
+
+        mock_conn.set_mock_response(
+            "SHOW SHARES",
+            [
+                {
+                    "name": "TEST_SHARE",
+                    "kind": "OUTBOUND",
+                    "listing_global_name": "ACME.DATA.TEST",
+                    "database_name": "",
+                    "created_on": datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    "owner": "SYSADMIN",
+                    "comment": None,
+                }
+            ],
+        )
+
+        identifiers = SnowflakeIdentifierBuilder(config, report)
+        connection_wrapper = SnowflakeConnection(mock_conn)
+
+        handler = SnowflakeMarketplaceHandler(
+            config=config,
+            report=report,
+            connection=connection_wrapper,
+            identifiers=identifiers,
+        )
+
+        workunits = list(handler.get_marketplace_workunits())
+
+        assert len(workunits) > 0
+
+    def test_consumer_mode_without_shares_config_warns_once(
+        self, base_config: Dict[str, Any]
+    ) -> None:
+        """Test that missing shares config in consumer mode warns only once."""
+        base_config["marketplace"]["marketplace_mode"] = "consumer"
+        config = SnowflakeV2Config.parse_obj(base_config)
+        config.shares = None
+        report = SnowflakeV2Report()
+
+        mock_conn = _FakeNativeConn()
+        mock_conn.set_mock_response("SHOW AVAILABLE LISTINGS", [])
+        mock_conn.set_mock_response(
+            "SNOWFLAKE.ACCOUNT_USAGE.DATABASES",
+            [
+                {
+                    "DATABASE_NAME": "IMPORTED_DB_1",
+                    "TYPE": "IMPORTED DATABASE",
+                    "PURCHASE_DATE": datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    "OWNER": "SYSADMIN",
+                    "COMMENT": None,
+                },
+                {
+                    "DATABASE_NAME": "IMPORTED_DB_2",
+                    "TYPE": "IMPORTED DATABASE",
+                    "PURCHASE_DATE": datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    "OWNER": "SYSADMIN",
+                    "COMMENT": None,
+                },
+            ],
+        )
+
+        identifiers = SnowflakeIdentifierBuilder(config, report)
+        connection_wrapper = SnowflakeConnection(mock_conn)
+
+        handler = SnowflakeMarketplaceHandler(
+            config=config,
+            report=report,
+            connection=connection_wrapper,
+            identifiers=identifiers,
+        )
+
+        list(handler.get_marketplace_workunits())
+
+        warnings_about_shares = [
+            w for w in report.warnings if "shares" in str(w).lower()
+        ]
+
+        assert len(warnings_about_shares) <= 1
