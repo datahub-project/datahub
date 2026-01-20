@@ -219,6 +219,39 @@ def test_sql_aggregator_initialization_failure(create_engine_mock):
 
         assert source.sql_aggregator is None
         assert source.report.failures
+        failure_messages = [f.message for f in source.report.failures]
+        assert any("explicitly enabled" in msg.lower() for msg in failure_messages), (
+            "Should mention feature was explicitly enabled"
+        )
+        assert any("failed to start" in msg.lower() for msg in failure_messages), (
+            "Should mention initialization failure"
+        )
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_sql_aggregator_none_reports_warning(create_engine_mock):
+    """Test that attempting lineage extraction with None aggregator reports warning."""
+    with patch(
+        "datahub.ingestion.source.sql.postgres.source.SqlParsingAggregator"
+    ) as mock_aggregator:
+        mock_aggregator.side_effect = Exception("Aggregator init failed")
+
+        config = PostgresConfig.model_validate(
+            {**_base_config(), "include_query_lineage": True}
+        )
+        source = PostgresSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_inspector.engine.connect.return_value.__enter__.return_value = MagicMock()
+
+        with patch.object(source, "get_inspectors", return_value=[mock_inspector]):
+            list(source._get_query_based_lineage_workunits())
+
+            assert source.report.warnings
+            warning_reasons = [w.message for w in source.report.warnings]
+            assert any(
+                "failed to initialize" in reason.lower() for reason in warning_reasons
+            ), "Should report warning about failed initialization"
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
@@ -248,3 +281,46 @@ def test_query_lineage_extraction_failure(create_engine_mock):
             list(source._get_query_based_lineage_workunits())
 
             assert source.report.failures
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_query_lineage_prerequisites_failure(create_engine_mock):
+    """Test that ingestion continues when pg_stat_statements prerequisites fail."""
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "include_query_lineage": True}
+    )
+
+    with patch("datahub.ingestion.source.sql.postgres.source.SqlParsingAggregator"):
+        source = PostgresSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_connection = MagicMock()
+        mock_inspector.engine.connect.return_value.__enter__.return_value = (
+            mock_connection
+        )
+
+        with (
+            patch.object(source, "get_inspectors", return_value=[mock_inspector]),
+            patch(
+                "datahub.ingestion.source.sql.postgres.source.PostgresLineageExtractor"
+            ) as mock_extractor_class,
+        ):
+            mock_extractor = mock_extractor_class.return_value
+            mock_extractor.extract_query_history.return_value = []
+
+            def mock_populate_with_failure(discovered_tables: set[str]) -> None:
+                source.report.report_failure(
+                    message="pg_stat_statements extension is not installed",
+                    context="pg_stat_statements_not_ready",
+                )
+
+            mock_extractor.populate_lineage_from_queries.side_effect = (
+                mock_populate_with_failure
+            )
+
+            workunits = list(source._get_query_based_lineage_workunits())
+
+            assert len(workunits) == 0
+            assert source.report.failures
+            failure_messages = [f.message for f in source.report.failures]
+            assert any("pg_stat_statements" in msg.lower() for msg in failure_messages)
