@@ -1,5 +1,4 @@
 # Example recipe for Microsoft Fabric OneLake source
-# See fabric_onelake.md for full configuration options
 
 source:
   type: fabric-onelake
