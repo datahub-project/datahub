@@ -62,9 +62,9 @@ class SqlParsingConfigMixin(ConfigModel):
     max_workers_for_query_parsing: PositiveInt = Field(
         default=10,
         description="Number of worker threads for parallel SQL query parsing. "
-        "Higher values improve performance on multi-core systems for sources with high query volumes. "
-        "Set to 1 for sequential processing (backward compatible, useful for debugging). "
-        "Recommended: 10-20 for production workloads.",
+        "Increase to 15-20 for high query volumes (100K+ queries) on multi-core systems. "
+        "Decrease to 1 to disable parallelism (useful for debugging). "
+        "Note: Higher values use more memory.",
     )
 
 

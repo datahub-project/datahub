@@ -44,6 +44,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
     SqlParsingResult,
+    SqlUnderstandingError,
+    UnsupportedStatementTypeError,
     _sqlglot_lineage_cached,
     infer_output_schema,
     sqlglot_lineage,
@@ -851,65 +853,22 @@ class SqlParsingAggregator(Closeable):
         """
         self.report.num_observed_queries += 1
 
-        # All queries with no session ID are assumed to be part of the same session.
         session_id = observed.session_id or _MISSING_SESSION_ID
 
         with self.report.make_schema_resolver_timer:
-            # Load in the temp tables for this session.
             schema_resolver: SchemaResolverInterface = (
                 self._make_schema_resolver_for_session(session_id)
             )
             session_has_temp_tables = schema_resolver.includes_temp_tables()
 
-        # Run the SQL parser.
-        parsed = self._run_sql_parser(
-            observed.query,
-            default_db=observed.default_db,
-            default_schema=observed.default_schema,
-            schema_resolver=schema_resolver,
-            session_id=session_id,
-            timestamp=observed.timestamp,
-            user=observed.user,
-            override_dialect=observed.override_dialect,
+        preparsed_query = self._parse_and_create_preparsed_query(
+            observed, session_id, schema_resolver
         )
-        if parsed.debug_info.error:
-            self.report.observed_query_parse_failures.append(
-                f"{parsed.debug_info.error} on query: {observed.query[:100]}"
-            )
-        if parsed.debug_info.table_error:
-            self.report.num_observed_queries_failed += 1
-            return  # we can't do anything with this query
-        elif parsed.debug_info.column_error:
-            self.report.num_observed_queries_column_failed += 1
-            if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
-                self.report.num_observed_queries_column_timeout += 1
-
-        query_fingerprint = observed.query_hash or parsed.query_fingerprint
-
-        # Register the first output table (standard single-query behavior).
-        # For stored procedures with multiple DML statements, each statement
-        # is added separately via add_observed_query, so each has one output.
-        downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
+        if preparsed_query is None:
+            return
 
         self.add_preparsed_query(
-            PreparsedQuery(
-                query_id=query_fingerprint,
-                query_text=observed.query,
-                query_count=observed.usage_multiplier,
-                timestamp=observed.timestamp,
-                user=observed.user,
-                session_id=session_id,
-                query_type=parsed.query_type,
-                query_type_props=parsed.query_type_props,
-                upstreams=parsed.in_tables,
-                downstream=downstream_urn,
-                column_lineage=parsed.column_lineage,
-                # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=self._compute_upstream_fields(parsed),
-                inferred_schema=infer_output_schema(parsed),
-                confidence_score=parsed.debug_info.confidence,
-                extra_info=observed.extra_info,
-            ),
+            preparsed_query,
             is_known_temp_table=is_known_temp_table,
             require_out_table_schema=require_out_table_schema,
             session_has_temp_tables=session_has_temp_tables,
@@ -937,7 +896,7 @@ class SqlParsingAggregator(Closeable):
     def _validate_batch_ordering(
         self, items: List[Union[ObservedQuery, PreparsedQuery]]
     ) -> None:
-        if not __debug__ or len(items) <= 1:
+        if len(items) <= 1:
             return
 
         observed_queries = [
@@ -949,7 +908,9 @@ class SqlParsingAggregator(Closeable):
         timestamps = [q.timestamp for q in observed_queries if q.timestamp]
         if timestamps != sorted(timestamps, key=lambda x: x or datetime.min):
             logger.warning(
-                "Queries not sorted by timestamp - may cause incorrect lineage"
+                f"add_batch() called with {len(timestamps)} queries not sorted by timestamp. "
+                "This may cause incorrect lineage, usage statistics, and temp table resolution. "
+                "Queries MUST be sorted by timestamp in ascending order before calling add_batch()."
             )
 
     def _process_batch_sequential(
@@ -981,7 +942,9 @@ class SqlParsingAggregator(Closeable):
         )
 
         results: Dict[int, Optional[PreparsedQuery]] = {}
-        completed = 0
+        completed_count = 0
+        exception_count = 0
+        total_queries = len(queries_with_idx)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_idx = {
@@ -992,20 +955,29 @@ class SqlParsingAggregator(Closeable):
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 try:
-                    result = future.result()
-                    results[idx] = result
-                    completed += 1
+                    parsed_query = future.result()
+                    results[idx] = parsed_query
+                    completed_count += 1
 
-                    if completed % 1000 == 0:
-                        logger.info(
-                            f"Parsed {completed}/{len(queries_with_idx)} queries"
-                        )
+                    if completed_count % 1000 == 0:
+                        logger.info(f"Parsed {completed_count}/{total_queries} queries")
+                except (SqlUnderstandingError, UnsupportedStatementTypeError) as e:
+                    logger.warning(
+                        f"Failed to parse query at index {idx}: {e}", exc_info=True
+                    )
+                    exception_count += 1
+                    results[idx] = None
                 except Exception as e:
                     logger.warning(
-                        f"Error parsing query at index {idx}: {e}", exc_info=True
+                        f"Unexpected error parsing query at index {idx}: {e}",
+                        exc_info=True,
                     )
-                    self.report.num_observed_queries_failed += 1
+                    exception_count += 1
                     results[idx] = None
+
+        total_processed = completed_count + exception_count
+        self.report.num_observed_queries += total_processed
+        self.report.num_observed_queries_failed += exception_count
 
         return results
 
@@ -1020,11 +992,18 @@ class SqlParsingAggregator(Closeable):
     def _parse_observed_query_for_batch(
         self, observed: ObservedQuery
     ) -> Optional[PreparsedQuery]:
-        self.report.num_observed_queries += 1
-
         session_id = observed.session_id or _MISSING_SESSION_ID
         schema_resolver = self._get_schema_resolver_for_query(session_id)
+        return self._parse_and_create_preparsed_query(
+            observed, session_id, schema_resolver
+        )
 
+    def _parse_and_create_preparsed_query(
+        self,
+        observed: ObservedQuery,
+        session_id: str,
+        schema_resolver: SchemaResolverInterface,
+    ) -> Optional[PreparsedQuery]:
         parsed = self._run_sql_parser(
             observed.query,
             default_db=observed.default_db,
@@ -1048,8 +1027,8 @@ class SqlParsingAggregator(Closeable):
             with self.report.make_schema_resolver_timer:
                 return self._make_schema_resolver_for_session(session_id)
         except Exception as e:
-            logger.debug(
-                f"Error creating schema resolver for session {session_id}: {e}"
+            logger.warning(
+                f"Error creating schema resolver for session {session_id}, falling back to default: {e}"
             )
             return self._schema_resolver
 
@@ -1090,6 +1069,7 @@ class SqlParsingAggregator(Closeable):
             upstreams=parsed.in_tables,
             downstream=downstream_urn,
             column_lineage=parsed.column_lineage,
+            # TODO: We need a full list of columns referenced, not just the out tables.
             column_usage=self._compute_upstream_fields(parsed),
             inferred_schema=infer_output_schema(parsed),
             confidence_score=parsed.debug_info.confidence,

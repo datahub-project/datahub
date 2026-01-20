@@ -2047,3 +2047,74 @@ def test_batch_processing_column_errors() -> None:
 
         assert aggregator.report.num_observed_queries_column_failed >= 1
         assert aggregator.report.num_observed_queries_column_timeout >= 1
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_batch_processing_counter_thread_safety() -> None:
+    """Test that counters are incremented correctly without race conditions."""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        max_workers=10,
+    )
+
+    num_queries = 100
+    queries = [
+        ObservedQuery(query=f"SELECT * FROM table{i}", timestamp=_ts(100 + i))
+        for i in range(num_queries)
+    ]
+
+    aggregator.add_batch(queries)
+
+    assert aggregator.report.num_observed_queries == num_queries, (
+        f"Expected {num_queries} observed queries, got {aggregator.report.num_observed_queries}"
+    )
+    assert aggregator.report.num_queries_processed_in_batch == num_queries, (
+        f"Expected {num_queries} processed queries, got {aggregator.report.num_queries_processed_in_batch}"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_batch_processing_large_volume_stress_test() -> None:
+    """Stress test with large query volume to detect race conditions."""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        max_workers=20,
+    )
+
+    num_queries = 5000
+    queries = [
+        ObservedQuery(
+            query=f"SELECT col{i % 10} FROM table{i % 50}",
+            timestamp=_ts(100 + i),
+        )
+        for i in range(num_queries)
+    ]
+
+    aggregator.add_batch(queries)
+
+    assert aggregator.report.num_observed_queries == num_queries
+    assert aggregator.report.num_queries_processed_in_batch == num_queries
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_batch_ordering_validation_always_runs() -> None:
+    """Test that ordering validation always runs, not just in debug mode."""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        max_workers=2,
+    )
+
+    queries = [
+        ObservedQuery(query="SELECT * FROM table1", timestamp=_ts(200)),
+        ObservedQuery(query="SELECT * FROM table2", timestamp=_ts(100)),
+    ]
+
+    with patch("datahub.sql_parsing.sql_parsing_aggregator.logger") as mock_logger:
+        aggregator.add_batch(queries)
+        warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
+        assert any("not sorted by timestamp" in str(call) for call in warning_calls), (
+            f"Expected ordering warning in: {warning_calls}"
+        )
