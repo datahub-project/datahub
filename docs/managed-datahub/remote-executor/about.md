@@ -35,18 +35,48 @@ The Remote Executor is a powerful feature of DataHub Cloud that enables secure m
 
 ## Architecture
 
-The Remote Executor works by:
+Remote Executors use a **pull-based** architecture. The executor polls for tasks—it never exposes any inbound ports.
 
-1. Deploying as a container in your environment
-2. Establishing a secure connection to DataHub Cloud
-3. Receiving and executing Ingestion and Observe tasks
-4. Reporting results back to DataHub Cloud
+```mermaid
+flowchart TB
+    subgraph Cloud["Control Plane (DataHub Cloud)"]
+        UI["DataHub UI"]
+        GMS["GMS (Metadata Service)"]
+        Coord["Coordinator"]
+        SQS[("AWS SQS Queue")]
+    end
 
-This architecture ensures that:
+    subgraph Customer["Data Plane (Your Network)"]
+        Executor["Remote Executor"]
+        Subprocess["Ingestion Subprocess"]
+        DB[("Your Data Sources<br/>Snowflake, Postgres, etc.")]
+    end
 
-- All sensitive operations occur within your environment
-- No inbound connections are required
-- Your security policies remain intact
+    UI -- "1. Trigger Ingestion" --> GMS
+    GMS -- "2. Create Request" --> Coord
+    Coord -- "3. Push Task" --> SQS
+    Executor -- "4. Poll (Outbound HTTPS)" --> SQS
+    SQS -- "5. Receive Task" --> Executor
+    Executor -- "6. Spawn Process" --> Subprocess
+    Subprocess -- "7. Extract Metadata" --> DB
+    Subprocess -- "8. Send Metadata (HTTPS)" --> GMS
+```
+
+### How It Works
+
+1. **Job Creation**: You trigger ingestion from the DataHub UI
+2. **Queuing**: DataHub creates a task and pushes it to an SQS queue
+3. **Polling**: The Remote Executor (running in your VPC) polls SQS for tasks
+4. **Execution**: The executor receives the task and spawns a subprocess to run ingestion
+5. **Reporting**: Status updates and metadata are sent back to DataHub via HTTPS
+
+### Security Model
+
+| Aspect                   | Description                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| **Outbound-Only**        | The executor only makes outbound HTTPS connections. No inbound ports needed. No load balancer required. |
+| **Credential Isolation** | Your database credentials (passwords, keys) stay in your network. They are never sent to DataHub Cloud. |
+| **Process Isolation**    | Each ingestion task runs in an isolated subprocess. If one task crashes, it doesn't affect others.      |
 
 ## Next Steps
 
