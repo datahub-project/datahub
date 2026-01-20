@@ -55,8 +55,8 @@ jobs:
           ADMIN_PASSWORD: op://Engineering/Shared Accounts for dev0x/admin pass
           RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_AUTO: op://Engineering/slack tokens for release test of deploy-auto/slack channel deploy-auto notification
           RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_AUTO: op://Engineering/slack tokens for release test of deploy-auto/slack token deploy-auto
-          RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack channel https://deploy-test.acryl.io
-          RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack token https://deploy-test.acryl.io
+          RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack channel deploy-test
+          RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack token deploy-test
 
       - name: Run release tests
         env:
