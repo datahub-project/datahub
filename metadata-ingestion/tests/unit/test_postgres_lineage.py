@@ -47,11 +47,11 @@ class TestPostgresQuery:
             exclude_patterns=["%temp_%", "%staging%"],
         )
 
-        # Patterns are now parameterized for SQL injection prevention
-        assert "NOT ILIKE :exclude_pattern_0" in query
-        assert "NOT ILIKE :exclude_pattern_1" in query
-        assert params["exclude_pattern_0"] == "%%temp_%%"
-        assert params["exclude_pattern_1"] == "%%staging%%"
+        # Default exclusions (0-4) and user patterns (5-6) are all parameterized
+        assert "NOT ILIKE :exclude_pattern_5" in query
+        assert "NOT ILIKE :exclude_pattern_6" in query
+        assert params["exclude_pattern_5"] == "%%temp_%%"
+        assert params["exclude_pattern_6"] == "%%staging%%"
 
     def test_get_queries_by_type(self):
         query, params = PostgresQuery.get_queries_by_type(
