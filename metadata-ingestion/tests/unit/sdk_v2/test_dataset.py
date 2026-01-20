@@ -637,7 +637,7 @@ def test_view_definition_duplicate_table_refs() -> None:
 
 
 def test_view_definition_cte_handling() -> None:
-    """CTEs and actual table references should both be extracted."""
+    """CTEs should be filtered out, only real table references extracted."""
     view = Dataset(
         platform="snowflake",
         name="db.schema.cte_view",
@@ -649,6 +649,11 @@ def test_view_definition_cte_handling() -> None:
         """,
     )
     assert view.upstreams is not None
-    # Should contain at least the source_table
+    # Should contain the actual source_table, not the CTE alias
     upstream_names = [u.dataset for u in view.upstreams.upstreams]
     assert any("source_table" in name for name in upstream_names)
+    # CTE should NOT be in upstreams (it's not a real table)
+    assert not any(
+        "cte" in name.lower() and "source" not in name.lower()
+        for name in upstream_names
+    )

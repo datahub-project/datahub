@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Type, Union
 
 from typing_extensions import Self, TypeAlias, assert_never
 
@@ -792,91 +792,134 @@ class Dataset(
         """Parse SQL view definition and extract upstream lineage.
 
         This method uses sqlglot to parse the SQL and extract the upstream tables.
-        Any parsing errors are logged but do not raise exceptions.
+        Parsing errors are logged but do not raise exceptions (best-effort extraction).
+
+        Note: This is a lightweight implementation that avoids importing the full
+        datahub.sql_parsing module (which requires the 'patchy' dependency).
+        For full SQL lineage with column-level tracking, use the sql_parsing module.
 
         Args:
             sql: The SQL view definition to parse.
         """
+        # Lazy import sqlglot - it's an optional dependency
         try:
             import sqlglot
+            import sqlglot.errors
+        except ImportError:
+            logger.warning(
+                "sqlglot is not installed. View lineage auto-extraction is disabled. "
+                "Install with: pip install 'acryl-datahub[sql-parser]'"
+            )
+            return
 
-            platform = self.urn.get_data_platform_urn().platform_name
-            env = self.urn.env
+        platform = self.urn.get_data_platform_urn().platform_name
+        env = self.urn.env
 
-            # Map DataHub platform names to sqlglot dialect names.
-            # Most platforms have the same name, but some need translation.
-            # See: datahub/sql_parsing/sqlglot_utils.py:_get_dialect_str()
-            dialect_map = {
-                "mssql": "tsql",
-                "athena": "trino",
-                "presto-on-hive": "hive",
-            }
-            dialect = dialect_map.get(platform.lower(), platform.lower())
+        # Map DataHub platform names to sqlglot dialect names.
+        # This mirrors datahub/sql_parsing/sqlglot_utils.py:_get_dialect_str()
+        # We duplicate this logic to avoid importing the full sql_parsing module
+        # which has heavier dependencies (patchy for monkey-patching sqlglot).
+        platform_lower = platform.lower()
+        if platform_lower == "presto-on-hive":
+            dialect_str = "hive"
+        elif platform_lower == "mssql":
+            dialect_str = "tsql"
+        elif platform_lower == "athena":
+            dialect_str = "trino"
+        elif platform_lower == "salesforce":
+            # Temporary workaround: treat SOQL as databricks dialect
+            dialect_str = "databricks"
+        elif platform_lower in {"mysql", "mariadb"}:
+            # MySQL case sensitivity depends on OS; use lowercase normalization
+            dialect_str = "mysql, normalization_strategy = lowercase"
+        else:
+            dialect_str = platform_lower
 
-            # Parse the SQL
+        # Parse the SQL
+        try:
+            dialect = sqlglot.Dialect.get_or_raise(dialect_str)
+            parsed: Any = sqlglot.maybe_parse(
+                sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
+            )
+        except sqlglot.errors.ParseError as e:
+            # Expected error for invalid/unsupported SQL - debug level
+            logger.debug(f"Failed to parse SQL for lineage extraction: {e}")
+            return
+        except Exception as e:
+            # Unexpected parsing error - log with more detail for debugging
+            logger.debug(
+                f"Unexpected error parsing SQL for lineage extraction: {type(e).__name__}: {e}"
+            )
+            return
+
+        # Get CTE names to filter them out (they're not real tables)
+        cte_names = {
+            cte.alias_or_name.lower()
+            for cte in parsed.find_all(sqlglot.exp.CTE)
+            if cte.alias_or_name
+        }
+
+        # Extract all table references from the SQL
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        if not tables:
+            return
+
+        upstreams = []
+        seen_urns: Set[str] = set()
+
+        for table in tables:
+            # Build the table name from parts
+            parts = []
+            if table.catalog:
+                parts.append(table.catalog)
+            if table.db:
+                parts.append(table.db)
+            if table.name:
+                parts.append(table.name)
+
+            if not parts:
+                continue
+
+            table_name = ".".join(parts)
+
+            # Skip CTEs - they're defined in the query, not real upstream tables
+            if table_name.lower() in cte_names:
+                continue
+
+            # Create upstream URN
             try:
-                parsed = sqlglot.parse_one(sql, dialect=dialect)
-            except sqlglot.errors.ParseError as e:
-                logger.debug(f"Failed to parse SQL for lineage extraction: {e}")
-                return
-
-            # Extract all table references from the SQL
-            tables = list(parsed.find_all(sqlglot.exp.Table))
-            if not tables:
-                return
-
-            upstreams = []
-            seen_urns = set()
-
-            for table in tables:
-                # Build the table name from parts
-                parts = []
-                if table.catalog:
-                    parts.append(table.catalog)
-                if table.db:
-                    parts.append(table.db)
-                if table.name:
-                    parts.append(table.name)
-
-                if not parts:
-                    continue
-
-                table_name = ".".join(parts)
-
-                # Create upstream URN
                 upstream_urn = DatasetUrn.create_from_ids(
                     platform_id=platform,
                     table_name=table_name,
                     env=env,
                 )
+            except Exception as e:
+                # Invalid URN construction (e.g., malformed table name)
+                logger.debug(f"Failed to create URN for table '{table_name}': {e}")
+                continue
 
-                # Avoid duplicates
-                urn_str = str(upstream_urn)
-                if urn_str in seen_urns:
-                    continue
-                seen_urns.add(urn_str)
+            # Avoid duplicates
+            urn_str = str(upstream_urn)
+            if urn_str in seen_urns:
+                continue
+            seen_urns.add(urn_str)
 
-                upstreams.append(
-                    models.UpstreamClass(
-                        dataset=urn_str,
-                        type=models.DatasetLineageTypeClass.VIEW,
-                    )
+            upstreams.append(
+                models.UpstreamClass(
+                    dataset=urn_str,
+                    type=models.DatasetLineageTypeClass.VIEW,
                 )
+            )
 
-            if upstreams:
-                self._set_aspect(
-                    models.UpstreamLineageClass(
-                        upstreams=upstreams,
-                        fineGrainedLineages=None,
-                    )
+        if upstreams:
+            self._set_aspect(
+                models.UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=None,
                 )
-                logger.debug(
-                    f"Auto-extracted {len(upstreams)} upstream(s) from view definition for {self.urn}"
-                )
-        except Exception as e:
-            # Log but don't fail - lineage extraction is best-effort
+            )
             logger.debug(
-                f"Failed to auto-extract lineage from view definition for {self.urn}: {e}"
+                f"Auto-extracted {len(upstreams)} upstream(s) from view definition for {self.urn}"
             )
 
     def _schema_dict(self) -> Dict[str, models.SchemaFieldClass]:
