@@ -373,3 +373,188 @@ class TestPostgresLineageIntegration:
         # All returned queries should be INSERT statements
         for q in queries:
             assert q["query_text"].upper().startswith("INSERT")
+
+    def test_extension_not_installed_scenario(self, postgres_connection):
+        """Test behavior when pg_stat_statements extension is not installed."""
+        # Create a separate connection without the extension
+        # This simulates the most common failure scenario
+        config = PostgresConfig(
+            username="postgres",
+            password="example",
+            host_port="localhost:5432",
+            database="postgres",
+        )
+
+        # Mock a report that tracks failures
+        class MockReport:
+            def __init__(self):
+                self.failures = []
+
+            def report_failure(self, key, reason):
+                self.failures.append({"key": key, "reason": reason})
+
+        report = MockReport()
+        aggregator = SqlParsingAggregator(
+            platform="postgres", generate_lineage=True, generate_queries=True
+        )
+
+        # Create a mock connection that simulates extension not installed
+        from unittest.mock import MagicMock
+
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = [False]  # Extension not enabled
+        mock_conn.execute.return_value = mock_result
+
+        extractor = PostgresLineageExtractor(
+            config=config,
+            connection=mock_conn,
+            report=report,
+            sql_aggregator=aggregator,
+        )
+
+        # Check prerequisites should fail
+        is_ready, message = extractor.check_prerequisites()
+
+        assert is_ready is False
+        assert "not installed" in message
+        assert "CREATE EXTENSION pg_stat_statements" in message
+
+    def test_permission_denied_scenario(self, postgres_connection):
+        """Test behavior when user lacks pg_read_all_stats permission."""
+        config = PostgresConfig(
+            username="postgres",
+            password="example",
+            host_port="localhost:5432",
+            database="postgres",
+        )
+
+        class MockReport:
+            def __init__(self):
+                self.failures = []
+
+            def report_failure(self, key, reason):
+                self.failures.append({"key": key, "reason": reason})
+
+        report = MockReport()
+        aggregator = SqlParsingAggregator(
+            platform="postgres", generate_lineage=True, generate_queries=True
+        )
+
+        from unittest.mock import MagicMock
+
+        mock_conn = MagicMock()
+
+        # First call: extension is installed
+        mock_extension_result = MagicMock()
+        mock_extension_result.fetchone.return_value = [True]
+
+        # Second call: user lacks permissions (both False)
+        mock_permission_result = MagicMock()
+        mock_permission_result.fetchone.return_value = [False, False]
+
+        mock_conn.execute.side_effect = [mock_extension_result, mock_permission_result]
+
+        extractor = PostgresLineageExtractor(
+            config=config,
+            connection=mock_conn,
+            report=report,
+            sql_aggregator=aggregator,
+        )
+
+        # Check prerequisites should fail with permission error
+        is_ready, message = extractor.check_prerequisites()
+
+        assert is_ready is False
+        assert "Insufficient permissions" in message
+        assert "pg_read_all_stats" in message
+
+    def test_connection_loss_during_extraction(self, postgres_connection):
+        """Test graceful handling of connection loss during query extraction."""
+        config = PostgresConfig(
+            username="postgres",
+            password="example",
+            host_port="localhost:5432",
+            database="postgres",
+            include_query_lineage=True,
+        )
+
+        class MockReport:
+            def __init__(self):
+                self.failures = []
+                self.num_queries_extracted = 0
+
+            def report_failure(self, key, reason):
+                self.failures.append({"key": key, "reason": reason})
+
+        report = MockReport()
+        aggregator = SqlParsingAggregator(
+            platform="postgres", generate_lineage=True, generate_queries=True
+        )
+
+        from unittest.mock import MagicMock
+
+        from sqlalchemy.exc import OperationalError
+
+        mock_conn = MagicMock()
+
+        # Prerequisites pass
+        mock_extension_result = MagicMock()
+        mock_extension_result.fetchone.return_value = [True]
+        mock_permission_result = MagicMock()
+        mock_permission_result.fetchone.return_value = [True, False]
+
+        # Connection fails during query execution
+        mock_conn.execute.side_effect = [
+            mock_extension_result,
+            mock_permission_result,
+            OperationalError("connection lost", None, None),
+        ]
+
+        extractor = PostgresLineageExtractor(
+            config=config,
+            connection=mock_conn,
+            report=report,
+            sql_aggregator=aggregator,
+        )
+
+        # Extract should handle error gracefully
+        queries = extractor.extract_query_history()
+
+        assert len(queries) == 0
+        assert len(report.failures) > 0
+        assert any(
+            "query_history_extraction_failed" in f["key"] for f in report.failures
+        )
+
+    def test_malformed_query_text_handling(self, postgres_connection):
+        """Test handling of queries with unusual or malformed text."""
+        # Insert a query with special characters, unicode, SQL keywords
+        malformed_queries = [
+            "SELECT * FROM table WHERE name = 'O''Brien'",  # Escaped quotes
+            "SELECT * FROM users WHERE comment LIKE '%—unicode—%'",  # Unicode dash
+            "SELECT 'DROP TABLE users; --' as fake_injection",  # SQL in string literal
+        ]
+
+        for malformed_query in malformed_queries:
+            try:
+                postgres_connection.execute(text(malformed_query))
+            except Exception:
+                # Some queries may fail due to missing tables, that's OK
+                pass
+
+        time.sleep(0.5)
+
+        # Extract queries - should not crash on malformed text
+        query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
+        result = postgres_connection.execute(text(query), params)
+
+        queries = list(result)
+
+        # Should successfully extract queries without crashing
+        # Each query should have required fields
+        for q in queries:
+            assert "query_text" in q
+            assert isinstance(q["query_text"], str)
+            assert "query_id" in q
+            assert "execution_count" in q

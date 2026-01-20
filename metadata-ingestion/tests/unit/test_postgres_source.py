@@ -112,10 +112,10 @@ def test_max_queries_to_extract_validation():
     # Too large should fail
     with pytest.raises(
         ValidationError,
-        match="max_queries_to_extract must be <= 100000 to avoid performance issues",
+        match="max_queries_to_extract must be <= 10000 to avoid memory issues",
     ):
         PostgresConfig.model_validate(
-            {**_base_config(), "max_queries_to_extract": 200000}
+            {**_base_config(), "max_queries_to_extract": 20000}
         )
 
 
@@ -132,3 +132,39 @@ def test_min_query_calls_validation():
     # Negative should fail
     with pytest.raises(ValidationError, match="min_query_calls must be non-negative"):
         PostgresConfig.model_validate({**_base_config(), "min_query_calls": -5})
+
+
+def test_query_exclude_patterns_validation():
+    """Test that query_exclude_patterns is validated."""
+    # Valid patterns
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "query_exclude_patterns": ["%temp%", "%staging%"]}
+    )
+    assert config.query_exclude_patterns == ["%temp%", "%staging%"]
+
+    # None is valid
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "query_exclude_patterns": None}
+    )
+    assert config.query_exclude_patterns is None
+
+    # Too many patterns should fail
+    with pytest.raises(
+        ValidationError,
+        match="query_exclude_patterns must have <= 100 patterns to avoid performance issues",
+    ):
+        PostgresConfig.model_validate(
+            {
+                **_base_config(),
+                "query_exclude_patterns": [f"%pattern_{i}%" for i in range(101)],
+            }
+        )
+
+    # Pattern too long should fail
+    with pytest.raises(
+        ValidationError,
+        match="exceeds 500 characters",
+    ):
+        PostgresConfig.model_validate(
+            {**_base_config(), "query_exclude_patterns": ["%" + "x" * 501 + "%"]}
+        )

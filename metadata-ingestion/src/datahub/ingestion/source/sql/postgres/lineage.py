@@ -1,5 +1,3 @@
-"""Query-based lineage extraction for Postgres using pg_stat_statements."""
-
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
@@ -9,6 +7,10 @@ from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.source.sql.postgres.query import PostgresQuery
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlUnderstandingError,
+    UnsupportedStatementTypeError,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -57,16 +59,6 @@ class PostgresLineageExtractor:
         sql_aggregator: SqlParsingAggregator,
         default_schema: str = "public",
     ) -> None:
-        """
-        Initialize lineage extractor.
-
-        Args:
-            config: PostgresConfig with lineage settings
-            connection: Database connection (SQLAlchemy)
-            report: Ingestion report for tracking stats
-            sql_aggregator: SQL parser for lineage extraction
-            default_schema: Default schema for unqualified tables
-        """
         self.config = config
         self.connection = connection
         self.report = report
@@ -78,13 +70,7 @@ class PostgresLineageExtractor:
         self.queries_failed = 0
 
     def check_prerequisites(self) -> tuple[bool, str]:
-        """
-        Verify pg_stat_statements is properly configured.
-
-        Returns:
-            Tuple of (is_ready: bool, message: str)
-        """
-        # Check if extension is installed
+        """Verify pg_stat_statements is properly configured."""
         try:
             result = self.connection.execute(
                 PostgresQuery.check_pg_stat_statements_enabled()
@@ -99,11 +85,9 @@ class PostgresLineageExtractor:
                 )
 
         except (DatabaseError, OperationalError) as e:
-            # Expected: database connection issues, table doesn't exist, etc.
-            logger.warning(f"Failed to check pg_stat_statements extension: {e}")
+            logger.warning("Failed to check pg_stat_statements extension: %s", e)
             return False, f"Extension check failed: {e}"
 
-        # Check permissions
         try:
             result = self.connection.execute(
                 PostgresQuery.check_pg_stat_statements_permissions()
@@ -121,26 +105,25 @@ class PostgresLineageExtractor:
                         "GRANT pg_read_all_stats TO <user>;",
                     )
             else:
-                logger.warning("Could not verify pg_stat_statements permissions")
+                return (
+                    False,
+                    "Could not verify pg_stat_statements permissions. "
+                    "Unable to determine user roles.",
+                )
 
         except (DatabaseError, OperationalError) as e:
-            # Expected: permission issues, table access denied, etc.
-            logger.warning(f"Failed to check permissions: {e}")
-            # Don't fail entirely on permission check failure - may still work
+            logger.error("Failed to check permissions: %s", e)
+            return False, f"Permission check failed: {e}"
 
         return True, "Prerequisites met"
 
     def extract_query_history(self) -> list[PostgresQueryEntry]:
-        """
-        Extract queries from pg_stat_statements.
-
-        Yields query entries ordered by importance (execution time/count).
-        """
+        """Extract queries from pg_stat_statements ordered by execution time/count."""
         is_ready, message = self.check_prerequisites()
         if not is_ready:
             logger.error(
-                f"pg_stat_statements not ready: {message}. "
-                f"Query-based lineage will be skipped."
+                "pg_stat_statements not ready: %s. Query-based lineage will be skipped.",
+                message,
             )
             self.report.report_failure(
                 key="pg_stat_statements_not_ready",
@@ -148,7 +131,7 @@ class PostgresLineageExtractor:
             )
             return []
 
-        logger.info(f"Prerequisites check: {message}")
+        logger.info("Prerequisites check: %s", message)
 
         query, params = PostgresQuery.get_query_history(
             database=self.config.database,
@@ -177,8 +160,9 @@ class PostgresLineageExtractor:
                     )
 
                 logger.info(
-                    f"Extracted {self.queries_extracted} queries from pg_stat_statements "
-                    f"in {timer.elapsed_seconds():.2f} seconds"
+                    "Extracted %d queries from pg_stat_statements in %.2f seconds",
+                    self.queries_extracted,
+                    timer.elapsed_seconds(),
                 )
 
                 self.report.num_queries_extracted = self.queries_extracted
@@ -186,7 +170,7 @@ class PostgresLineageExtractor:
 
             except (DatabaseError, OperationalError, ProgrammingError) as e:
                 # Expected database errors: connection issues, permission denied, invalid SQL, etc.
-                logger.error(f"Failed to extract query history: {e}")
+                logger.error("Failed to extract query history: %s", e)
                 self.report.report_failure(
                     key="query_history_extraction_failed",
                     reason=str(e),
@@ -197,25 +181,14 @@ class PostgresLineageExtractor:
         self,
         discovered_tables: set[str],
     ) -> None:
-        """
-        Extract lineage from query history and add to SQL aggregator.
-
-        The SqlParsingAggregator will:
-        1. Parse each query with sqlglot
-        2. Extract table-level lineage (INSERT INTO SELECT, CTAS, etc.)
-        3. Extract column-level lineage where possible
-        4. Build lineage graph for discovered tables
-
-        Args:
-            discovered_tables: Set of table URNs discovered during schema extraction
-        """
+        """Extract lineage from query history and add to SQL aggregator."""
         if not self.config.include_query_lineage:
             logger.info("Query-based lineage extraction disabled in config")
             return
 
         logger.info(
-            f"Starting query-based lineage extraction "
-            f"(max_queries={self.config.max_queries_to_extract})"
+            "Starting query-based lineage extraction (max_queries=%s)",
+            self.config.max_queries_to_extract,
         )
 
         queries = self.extract_query_history()
@@ -238,30 +211,32 @@ class PostgresLineageExtractor:
 
                     self.queries_parsed += 1
 
-                except Exception as e:
-                    # Broad exception is intentional: query parsing can fail in many ways
-                    # (syntax errors, unsupported statements, missing schema info, etc.)
-                    # We want to continue processing other queries rather than fail entirely
-                    logger.debug(
-                        f"Failed to parse query {query_entry.query_id}: {e}. "
-                        f"Query: {query_entry.query_text[:100]}..."
+                except (
+                    SqlUnderstandingError,
+                    UnsupportedStatementTypeError,
+                    ValueError,
+                    KeyError,
+                ) as e:
+                    logger.warning(
+                        "Failed to parse query %s: %s. Query: %s...",
+                        query_entry.query_id,
+                        e,
+                        query_entry.query_text[:100],
                     )
                     self.queries_failed += 1
 
         logger.info(
-            f"Processed {self.queries_parsed} queries for lineage extraction "
-            f"({self.queries_failed} failed) in {timer.elapsed_seconds():.2f} seconds"
+            "Processed %d queries for lineage extraction (%d failed) in %.2f seconds",
+            self.queries_parsed,
+            self.queries_failed,
+            timer.elapsed_seconds(),
         )
 
         self.report.num_queries_parsed = self.queries_parsed
         self.report.num_queries_parse_failures = self.queries_failed
 
     def extract_usage_statistics(self) -> dict[str, int]:
-        """
-        Extract usage statistics from query history.
-
-        Returns summary of query patterns, top users, most queried tables.
-        """
+        """Extract usage statistics from query history."""
         return {
             "total_queries_extracted": self.queries_extracted,
             "total_queries_parsed": self.queries_parsed,
