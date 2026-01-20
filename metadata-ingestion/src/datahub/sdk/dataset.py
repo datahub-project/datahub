@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import warnings
 from datetime import datetime
 from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
@@ -44,6 +45,8 @@ from datahub.sdk._shared import (
 from datahub.sdk._utils import add_list_unique, remove_list_unique
 from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.sentinels import Unset, unset
+
+logger = logging.getLogger(__name__)
 
 SchemaFieldInputType: TypeAlias = Union[
     # There is no Enum variant for schema field types because that would force users to do a mapping
@@ -741,7 +744,11 @@ class Dataset(
         """
         return self._get_aspect(models.ViewPropertiesClass)
 
-    def set_view_definition(self, view_definition: ViewDefinitionInputType) -> None:
+    def set_view_definition(
+        self,
+        view_definition: ViewDefinitionInputType,
+        parse_view_lineage: bool = True,
+    ) -> None:
         """Set the view definition of the dataset.
 
         If you're setting a view definition, subtype should typically be set to "view".
@@ -749,11 +756,22 @@ class Dataset(
         If a string is provided, it will be treated as a SQL view definition. To set
         a custom language or other properties, provide a ViewPropertiesClass object.
 
+        When parse_view_lineage is True (default), the SQL will be parsed to automatically
+        extract upstream table lineage. This only applies when upstreams have not already
+        been set on this dataset.
+
         Args:
             view_definition: The view definition to set.
+            parse_view_lineage: If True, automatically parse the SQL to extract upstream
+                lineage. Defaults to True.
         """
+        sql_to_parse: Optional[str] = None
+
         if isinstance(view_definition, models.ViewPropertiesClass):
             self._set_aspect(view_definition)
+            # Only parse if it's SQL
+            if view_definition.viewLanguage == "SQL" and view_definition.viewLogic:
+                sql_to_parse = view_definition.viewLogic
         elif isinstance(view_definition, str):
             self._set_aspect(
                 models.ViewPropertiesClass(
@@ -762,8 +780,104 @@ class Dataset(
                     viewLanguage="SQL",
                 )
             )
+            sql_to_parse = view_definition
         else:
             assert_never(view_definition)
+
+        # Auto-parse lineage from SQL if enabled and upstreams not already set
+        if parse_view_lineage and sql_to_parse and self.upstreams is None:
+            self._parse_and_set_view_lineage(sql_to_parse)
+
+    def _parse_and_set_view_lineage(self, sql: str) -> None:
+        """Parse SQL view definition and extract upstream lineage.
+
+        This method uses sqlglot to parse the SQL and extract the upstream tables.
+        Any parsing errors are logged but do not raise exceptions.
+
+        Args:
+            sql: The SQL view definition to parse.
+        """
+        try:
+            import sqlglot
+
+            platform = self.urn.get_data_platform_urn().platform_name
+            env = self.urn.env
+
+            # Map DataHub platform names to sqlglot dialect names.
+            # Most platforms have the same name, but some need translation.
+            # See: datahub/sql_parsing/sqlglot_utils.py:_get_dialect_str()
+            dialect_map = {
+                "mssql": "tsql",
+                "athena": "trino",
+                "presto-on-hive": "hive",
+            }
+            dialect = dialect_map.get(platform.lower(), platform.lower())
+
+            # Parse the SQL
+            try:
+                parsed = sqlglot.parse_one(sql, dialect=dialect)
+            except sqlglot.errors.ParseError as e:
+                logger.debug(f"Failed to parse SQL for lineage extraction: {e}")
+                return
+
+            # Extract all table references from the SQL
+            tables = list(parsed.find_all(sqlglot.exp.Table))
+            if not tables:
+                return
+
+            upstreams = []
+            seen_urns = set()
+
+            for table in tables:
+                # Build the table name from parts
+                parts = []
+                if table.catalog:
+                    parts.append(table.catalog)
+                if table.db:
+                    parts.append(table.db)
+                if table.name:
+                    parts.append(table.name)
+
+                if not parts:
+                    continue
+
+                table_name = ".".join(parts)
+
+                # Create upstream URN
+                upstream_urn = DatasetUrn.create_from_ids(
+                    platform_id=platform,
+                    table_name=table_name,
+                    env=env,
+                )
+
+                # Avoid duplicates
+                urn_str = str(upstream_urn)
+                if urn_str in seen_urns:
+                    continue
+                seen_urns.add(urn_str)
+
+                upstreams.append(
+                    models.UpstreamClass(
+                        dataset=urn_str,
+                        type=models.DatasetLineageTypeClass.VIEW,
+                    )
+                )
+
+            if upstreams:
+                self._set_aspect(
+                    models.UpstreamLineageClass(
+                        upstreams=upstreams,
+                        fineGrainedLineages=None,
+                    )
+                )
+                logger.debug(
+                    f"Auto-extracted {len(upstreams)} upstream(s) from view definition for {self.urn}"
+                )
+        except Exception as e:
+            # Log but don't fail - lineage extraction is best-effort
+            logger.debug(
+                f"Failed to auto-extract lineage from view definition for {self.urn}: {e}"
+            )
 
     def _schema_dict(self) -> Dict[str, models.SchemaFieldClass]:
         schema_metadata = self._get_aspect(models.SchemaMetadataClass)

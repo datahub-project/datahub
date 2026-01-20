@@ -466,3 +466,136 @@ def test_structured_properties() -> None:
     assert_entity_golden(
         d2, _GOLDEN_DIR / "test_structured_properties_golden.json", ["time"]
     )
+
+
+def test_view_definition_auto_populates_lineage() -> None:
+    """
+    When a Dataset is created with a view_definition, the SDK should
+    automatically parse the SQL and populate upstream lineage.
+    """
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT id, name FROM db.schema.source_table WHERE active = true",
+        schema=[
+            ("id", "int64"),
+            ("name", "string"),
+        ],
+    )
+
+    assert view.view_definition is not None
+    assert "source_table" in view.view_definition.viewLogic
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 1
+    assert "source_table" in view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_with_multiple_sources() -> None:
+    """Multiple upstream tables should be extracted from JOINs."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.joined_view",
+        view_definition="""
+            SELECT u.id, u.name, o.order_id
+            FROM db.schema.users u
+            JOIN db.schema.orders o ON u.id = o.user_id
+        """,
+    )
+
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 2
+    upstream_names = [u.dataset for u in view.upstreams.upstreams]
+    assert any("users" in name for name in upstream_names)
+    assert any("orders" in name for name in upstream_names)
+
+
+def test_view_definition_explicit_upstreams_not_overwritten() -> None:
+    """Explicitly specified upstreams should not be overwritten by auto-parsing."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        upstreams=[
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,custom.upstream,PROD)"
+        ],
+        view_definition="SELECT id, name FROM db.schema.source_table",
+    )
+
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 1
+    assert "custom.upstream" in view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_parse_lineage_disabled() -> None:
+    """parse_view_lineage=False should skip automatic lineage extraction."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+    )
+    view.set_view_definition(
+        "SELECT id FROM db.schema.source_table",
+        parse_view_lineage=False,
+    )
+
+    assert view.view_definition is not None
+    assert view.upstreams is None
+
+
+def test_view_definition_different_platforms() -> None:
+    """Lineage extraction should work for different SQL dialects."""
+    # BigQuery
+    bq_view = Dataset(
+        platform="bigquery",
+        name="project.dataset.my_view",
+        view_definition="SELECT * FROM project.dataset.source_table",
+    )
+    assert bq_view.upstreams is not None
+    assert "project.dataset.source_table" in bq_view.upstreams.upstreams[0].dataset
+
+    # MSSQL (tests dialect mapping to tsql)
+    mssql_view = Dataset(
+        platform="mssql",
+        name="db.schema.my_view",
+        view_definition="SELECT id FROM db.schema.source_table",
+    )
+    assert mssql_view.upstreams is not None
+    assert "source_table" in mssql_view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_view_properties_class_input() -> None:
+    """ViewPropertiesClass input should be handled correctly."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition=models.ViewPropertiesClass(
+            materialized=False,
+            viewLogic="SELECT * FROM db.schema.source_table",
+            viewLanguage="SQL",
+        ),
+    )
+    assert view.upstreams is not None
+    assert "source_table" in view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_non_sql_language_skipped() -> None:
+    """Non-SQL view definitions should not be parsed."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition=models.ViewPropertiesClass(
+            materialized=False,
+            viewLogic="some_python_function()",
+            viewLanguage="Python",
+        ),
+    )
+    assert view.upstreams is None
+
+
+def test_view_definition_invalid_sql_graceful() -> None:
+    """Invalid SQL should not crash, just skip lineage extraction."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="THIS IS NOT VALID SQL !!@#$%",
+    )
+    assert view.view_definition is not None
+    assert view.view_definition.viewLogic == "THIS IS NOT VALID SQL !!@#$%"
