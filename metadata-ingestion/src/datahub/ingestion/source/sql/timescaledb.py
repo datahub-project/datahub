@@ -2,7 +2,6 @@ import json
 import logging
 import time
 from datetime import timedelta
-from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
@@ -60,6 +59,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ DISPLAY_NAME_BACKGROUND_JOBS = "TimescaleDB Background Jobs"
 VALUE_TRUE = "true"
 
 
-class TimescaleDBEnvironment(str, Enum):
+class TimescaleDBEnvironment(StrEnum):
     SELF_HOSTED = "self_hosted"
     CLOUD = "cloud"
     UNKNOWN = "unknown"
