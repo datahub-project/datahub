@@ -22,48 +22,56 @@ class TestPostgresQuery:
 
     def test_get_query_history_basic(self):
         """Test basic query history SQL generation."""
-        query = PostgresQuery.get_query_history(limit=100)
+        query, params = PostgresQuery.get_query_history(limit=100)
 
         assert "pg_stat_statements" in query
-        assert "LIMIT 100" in query
+        assert "LIMIT :limit" in query
         assert "query" in query.lower()
         assert "calls" in query.lower()
+        assert params["limit"] == 100
+        assert params["min_calls"] == 1
 
     def test_get_query_history_with_filters(self):
         """Test query history with database and min_calls filters."""
-        query = PostgresQuery.get_query_history(
+        query, params = PostgresQuery.get_query_history(
             database="production",
             limit=500,
             min_calls=10,
         )
 
-        assert "datname = 'production'" in query
-        assert "calls >= 10" in query
-        assert "LIMIT 500" in query
+        assert "datname = :database" in query
+        assert "calls >= :min_calls" in query
+        assert "LIMIT :limit" in query
+        assert params["database"] == "production"
+        assert params["min_calls"] == 10
+        assert params["limit"] == 500
 
     def test_get_query_history_with_exclusions(self):
         """Test query history with exclude patterns."""
-        query = PostgresQuery.get_query_history(
+        query, params = PostgresQuery.get_query_history(
             limit=100,
             exclude_patterns=["%temp_%", "%staging%"],
         )
 
-        # Patterns are now escaped for SQL injection prevention
-        # Input: "%temp_%" becomes escaped: "\%temp\_\%"
-        # Input: "%staging%" becomes escaped: "\%staging\%"
-        assert "NOT ILIKE '%\\%temp\\_\\%%'" in query
-        assert "NOT ILIKE '%\\%staging\\%%'" in query
+        # Patterns are now parameterized for SQL injection prevention
+        assert "NOT ILIKE :exclude_pattern_0" in query
+        assert "NOT ILIKE :exclude_pattern_1" in query
+        assert params["exclude_pattern_0"] == "%%temp_%%"
+        assert params["exclude_pattern_1"] == "%%staging%%"
 
     def test_get_queries_by_type(self):
         """Test filtering queries by SQL command type."""
-        query = PostgresQuery.get_queries_by_type(
+        query, params = PostgresQuery.get_queries_by_type(
             query_type="INSERT",
             database="testdb",
             limit=100,
         )
 
-        assert "INSERT" in query
-        assert "datname = 'testdb'" in query
+        assert "ILIKE :query_type_pattern" in query
+        assert "datname = :database" in query
+        assert params["query_type_pattern"] == "INSERT%"
+        assert params["database"] == "testdb"
+        assert params["limit"] == 100
 
 
 class TestPostgresLineageExtractor:

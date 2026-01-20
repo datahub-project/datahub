@@ -151,8 +151,8 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         # Extract query history
-        query = PostgresQuery.get_query_history(limit=100, min_calls=1)
-        result = postgres_connection.execute(text(query))
+        query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
+        result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
         assert len(queries) > 0, "Should extract at least some queries"
@@ -190,8 +190,8 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         # Extract queries
-        query = PostgresQuery.get_query_history(limit=100, min_calls=1)
-        result = postgres_connection.execute(text(query))
+        query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
+        result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
 
@@ -220,8 +220,8 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         # Extract with default exclusions (should filter out SHOW, system queries)
-        query = PostgresQuery.get_query_history(limit=100, min_calls=1)
-        result = postgres_connection.execute(text(query))
+        query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
+        result = postgres_connection.execute(text(query), params)
 
         queries = [q["query_text"] for q in result]
 
@@ -238,14 +238,16 @@ class TestPostgresLineageIntegration:
             PostgresQuery.get_query_history(database="postgres'; DROP TABLE users; --")
 
     def test_sql_injection_prevention_exclude_patterns(self, postgres_connection):
-        """Test that SQL injection in exclude patterns is safely escaped."""
-        # Malicious pattern should be safely escaped
+        """Test that SQL injection in exclude patterns is safely parameterized."""
+        # Malicious pattern should be safely parameterized
         malicious_pattern = "'; DROP TABLE lineage_test.source_orders; --"
 
-        query = PostgresQuery.get_query_history(exclude_patterns=[malicious_pattern])
+        query, params = PostgresQuery.get_query_history(
+            exclude_patterns=[malicious_pattern]
+        )
 
         # Execute the query - should not cause SQL injection
-        result = postgres_connection.execute(text(query))
+        result = postgres_connection.execute(text(query), params)
         list(result)  # Consume results
 
         # Verify table still exists (wasn't dropped by injection)
@@ -332,8 +334,8 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         # Query with min_calls=3 should only return frequently executed queries
-        query = PostgresQuery.get_query_history(limit=100, min_calls=3)
-        result = postgres_connection.execute(text(query))
+        query, params = PostgresQuery.get_query_history(limit=100, min_calls=3)
+        result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
 
@@ -361,8 +363,10 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         # Query for INSERT statements only
-        query = PostgresQuery.get_queries_by_type(query_type="INSERT", limit=100)
-        result = postgres_connection.execute(text(query))
+        query, params = PostgresQuery.get_queries_by_type(
+            query_type="INSERT", limit=100
+        )
+        result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
 
