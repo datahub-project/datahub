@@ -10,10 +10,7 @@ from datahub.ingestion.source.sql.postgres.query import PostgresQuery
 
 
 class TestPostgresQuery:
-    """Test PostgresQuery SQL generation."""
-
     def test_check_pg_stat_statements_enabled(self):
-        """Test extension check query generation."""
         query = PostgresQuery.check_pg_stat_statements_enabled()
 
         assert "pg_extension" in query
@@ -21,7 +18,6 @@ class TestPostgresQuery:
         assert "enabled" in query.lower()
 
     def test_get_query_history_basic(self):
-        """Test basic query history SQL generation."""
         query, params = PostgresQuery.get_query_history(limit=100)
 
         assert "pg_stat_statements" in query
@@ -32,7 +28,6 @@ class TestPostgresQuery:
         assert params["min_calls"] == 1
 
     def test_get_query_history_with_filters(self):
-        """Test query history with database and min_calls filters."""
         query, params = PostgresQuery.get_query_history(
             database="production",
             limit=500,
@@ -47,7 +42,6 @@ class TestPostgresQuery:
         assert params["limit"] == 500
 
     def test_get_query_history_with_exclusions(self):
-        """Test query history with exclude patterns."""
         query, params = PostgresQuery.get_query_history(
             limit=100,
             exclude_patterns=["%temp_%", "%staging%"],
@@ -60,7 +54,6 @@ class TestPostgresQuery:
         assert params["exclude_pattern_1"] == "%%staging%%"
 
     def test_get_queries_by_type(self):
-        """Test filtering queries by SQL command type."""
         query, params = PostgresQuery.get_queries_by_type(
             query_type="INSERT",
             database="testdb",
@@ -75,17 +68,13 @@ class TestPostgresQuery:
 
 
 class TestPostgresLineageExtractor:
-    """Test PostgresLineageExtractor functionality."""
-
     @pytest.fixture
     def mock_connection(self):
-        """Mock database connection."""
         conn = MagicMock()
         return conn
 
     @pytest.fixture
     def mock_config(self):
-        """Mock Postgres config."""
         config = MagicMock()
         config.database = "testdb"
         config.include_query_lineage = True
@@ -97,13 +86,11 @@ class TestPostgresLineageExtractor:
 
     @pytest.fixture
     def mock_sql_aggregator(self):
-        """Mock SQL parsing aggregator."""
         aggregator = MagicMock()
         return aggregator
 
     @pytest.fixture
     def lineage_extractor(self, mock_config, mock_connection, mock_sql_aggregator):
-        """Create lineage extractor instance."""
         report = MagicMock()
         return PostgresLineageExtractor(
             config=mock_config,
@@ -113,7 +100,6 @@ class TestPostgresLineageExtractor:
         )
 
     def test_check_prerequisites_success(self, lineage_extractor, mock_connection):
-        """Test successful prerequisites check."""
         # First call checks extension is installed, second call checks permissions
         mock_result_extension = MagicMock()
         mock_result_extension.fetchone.return_value = [True]
@@ -137,7 +123,6 @@ class TestPostgresLineageExtractor:
     def test_check_prerequisites_extension_not_installed(
         self, lineage_extractor, mock_connection
     ):
-        """Test prerequisites check when extension not installed."""
         mock_result = MagicMock()
         mock_result.fetchone.return_value = [False]
         mock_connection.execute.return_value = mock_result
@@ -147,8 +132,44 @@ class TestPostgresLineageExtractor:
         assert is_ready is False
         assert "not installed" in message
 
+    def test_check_prerequisites_permission_check_no_row(
+        self, lineage_extractor, mock_connection
+    ):
+        mock_result_extension = MagicMock()
+        mock_result_extension.fetchone.return_value = [True]
+
+        mock_result_permissions = MagicMock()
+        mock_result_permissions.fetchone.return_value = None
+
+        mock_connection.execute.side_effect = [
+            mock_result_extension,
+            mock_result_permissions,
+        ]
+
+        is_ready, message = lineage_extractor.check_prerequisites()
+
+        assert is_ready is False
+        assert "Could not verify" in message
+
+    def test_check_prerequisites_permission_check_exception(
+        self, lineage_extractor, mock_connection
+    ):
+        from sqlalchemy.exc import DatabaseError
+
+        mock_result_extension = MagicMock()
+        mock_result_extension.fetchone.return_value = [True]
+
+        mock_connection.execute.side_effect = [
+            mock_result_extension,
+            DatabaseError("connection failed", None, None),
+        ]
+
+        is_ready, message = lineage_extractor.check_prerequisites()
+
+        assert is_ready is False
+        assert "Permission check failed" in message
+
     def test_extract_query_history(self, lineage_extractor, mock_connection):
-        """Test query history extraction."""
         lineage_extractor.check_prerequisites = MagicMock(
             return_value=(True, "Prerequisites met")
         )
@@ -187,7 +208,6 @@ class TestPostgresLineageExtractor:
     def test_populate_lineage_from_queries(
         self, lineage_extractor, mock_sql_aggregator
     ):
-        """Test lineage population from queries."""
         test_queries = [
             PostgresQueryEntry(
                 query_id="1",
@@ -208,7 +228,6 @@ class TestPostgresLineageExtractor:
         assert "INSERT INTO target" in call_args.kwargs["query"]
 
     def test_populate_lineage_disabled(self, lineage_extractor, mock_sql_aggregator):
-        """Test that lineage population skips when disabled."""
         lineage_extractor.config.include_query_lineage = False
 
         lineage_extractor.populate_lineage_from_queries(discovered_tables=set())
@@ -217,10 +236,7 @@ class TestPostgresLineageExtractor:
 
 
 class TestPostgresQueryEntry:
-    """Test PostgresQueryEntry dataclass."""
-
     def test_avg_exec_time_calculation(self):
-        """Test average execution time calculation."""
         entry = PostgresQueryEntry(
             query_id="123",
             query_text="SELECT * FROM test",
@@ -233,7 +249,6 @@ class TestPostgresQueryEntry:
         assert entry.avg_exec_time_ms == 100.0
 
     def test_avg_exec_time_zero_executions(self):
-        """Test average execution time with zero executions."""
         entry = PostgresQueryEntry(
             query_id="123",
             query_text="SELECT * FROM test",

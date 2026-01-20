@@ -208,23 +208,46 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
 
     @field_validator("max_queries_to_extract")
     @classmethod
-    def validate_max_queries_to_extract(cls, v: int) -> int:
+    def validate_max_queries_to_extract(cls, value: int) -> int:
         """Validate max_queries_to_extract is within reasonable range."""
-        if v <= 0:
+        if value <= 0:
             raise ValueError("max_queries_to_extract must be positive")
-        if v > 100000:
+        if value > 10000:
             raise ValueError(
-                "max_queries_to_extract must be <= 100000 to avoid performance issues"
+                "max_queries_to_extract must be <= 10000 to avoid memory issues"
             )
-        return v
+        return value
 
     @field_validator("min_query_calls")
     @classmethod
-    def validate_min_query_calls(cls, v: Optional[int]) -> Optional[int]:
+    def validate_min_query_calls(cls, value: Optional[int]) -> Optional[int]:
         """Validate min_query_calls is non-negative."""
-        if v is not None and v < 0:
+        if value is not None and value < 0:
             raise ValueError("min_query_calls must be non-negative")
-        return v
+        return value
+
+    @field_validator("query_exclude_patterns")
+    @classmethod
+    def validate_query_exclude_patterns(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate query_exclude_patterns has reasonable limits."""
+        if value is None:
+            return value
+
+        if len(value) > 100:
+            raise ValueError(
+                "query_exclude_patterns must have <= 100 patterns to avoid performance issues"
+            )
+
+        for pattern in value:
+            if len(pattern) > 500:
+                raise ValueError(
+                    f"Pattern '{pattern[:50]}...' exceeds 500 characters. "
+                    "Use shorter patterns to avoid performance issues."
+                )
+
+        return value
 
 
 @platform_name("Postgres")

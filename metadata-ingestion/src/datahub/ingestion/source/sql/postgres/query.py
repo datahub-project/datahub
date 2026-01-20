@@ -1,5 +1,3 @@
-"""SQL queries for Postgres query history and lineage extraction."""
-
 import re
 from typing import Optional
 
@@ -9,12 +7,7 @@ class PostgresQuery:
 
     @staticmethod
     def _sanitize_identifier(identifier: str) -> str:
-        """
-        Sanitize database/schema/table identifiers for safe SQL usage.
-
-        Validates that identifier only contains safe characters (alphanumeric, underscore, hyphen).
-        Raises ValueError for invalid identifiers to prevent SQL injection.
-        """
+        """Validate identifier contains only safe characters to prevent SQL injection."""
         if not identifier:
             raise ValueError("Identifier cannot be empty")
         if not re.match(r"^[a-zA-Z0-9_\-]+$", identifier):
@@ -24,12 +17,24 @@ class PostgresQuery:
         return identifier
 
     @staticmethod
-    def check_pg_stat_statements_enabled() -> str:
-        """
-        Check if pg_stat_statements extension is installed and enabled.
+    def _build_pg_stat_filter(
+        database: Optional[str],
+        params: dict[str, str | int],
+        additional_filters: Optional[list[str]] = None,
+    ) -> str:
+        """Build WHERE clause for pg_stat_statements queries with database filter."""
+        filters = additional_filters or []
 
-        Returns a boolean indicating extension availability.
-        """
+        if database:
+            safe_database = PostgresQuery._sanitize_identifier(database)
+            params["database"] = safe_database
+            filters.append("d.datname = :database")
+
+        return " AND ".join(filters)
+
+    @staticmethod
+    def check_pg_stat_statements_enabled() -> str:
+        """Check if pg_stat_statements extension is installed."""
         return """
         SELECT EXISTS (
             SELECT 1
@@ -40,11 +45,7 @@ class PostgresQuery:
 
     @staticmethod
     def check_pg_stat_statements_permissions() -> str:
-        """
-        Verify current user has permissions to read pg_stat_statements.
-
-        Checks for pg_read_all_stats role or superuser privileges.
-        """
+        """Check if user has pg_read_all_stats role or superuser privileges."""
         return """
         SELECT
             pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER') as has_stats_role,
@@ -72,27 +73,9 @@ class PostgresQuery:
         """
         Extract query history from pg_stat_statements.
 
-        SECURITY: Returns parameterized query with bind parameters to prevent SQL injection.
-        ALWAYS use: connection.execute(text(query), params)
-
-        Note: pg_stat_statements aggregates queries by normalized form,
-        so parameterized queries are deduplicated. The extension tracks
-        cumulative statistics since last reset, not individual executions.
-
-        Args:
-            database: Filter by database name (optional, sanitized for SQL injection prevention)
-            limit: Maximum queries to return (must be positive integer)
-            min_calls: Minimum execution count filter (must be non-negative integer)
-            exclude_patterns: SQL LIKE patterns to exclude (e.g., 'pg_catalog', 'temp')
-                             Note: Patterns are wrapped in % wildcards automatically
-
-        Returns:
-            Tuple of (query_string, bind_parameters) for use with text() and execute()
-
-        Raises:
-            ValueError: If database name contains invalid characters or numeric params invalid
+        Returns parameterized query with bind parameters for SQL injection prevention.
+        Use with: connection.execute(text(query), params)
         """
-        # Validate numeric parameters
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
         if min_calls < 0 or not isinstance(min_calls, int):
@@ -108,7 +91,6 @@ class PostgresQuery:
 
         params: dict[str, str | int] = {"min_calls": min_calls, "limit": limit}
 
-        # Default patterns to exclude (no user input, safe to use directly)
         default_exclusions = [
             "pg_stat_statements",
             "information_schema",
@@ -117,25 +99,16 @@ class PostgresQuery:
             "SET ",
         ]
 
-        # User-provided patterns: use parameterized queries to prevent SQL injection
         if exclude_patterns:
             for i, pattern in enumerate(exclude_patterns):
                 param_name = f"exclude_pattern_{i}"
-                # Wrap pattern in % wildcards for substring matching
                 params[param_name] = f"%{pattern}%"
                 filters.append(f"s.query NOT ILIKE :{param_name}")
 
-        # Default exclusions can be used directly (no user input)
         for pattern in default_exclusions:
             filters.append(f"s.query NOT ILIKE '%{pattern}%'")
 
-        # Sanitize database identifier to prevent SQL injection
-        if database:
-            safe_database = PostgresQuery._sanitize_identifier(database)
-            params["database"] = safe_database
-            filters.append("d.datname = :database")
-
-        where_clause = " AND ".join(filters)
+        where_clause = PostgresQuery._build_pg_stat_filter(database, params, filters)
 
         query = f"""
         SELECT
@@ -168,31 +141,14 @@ class PostgresQuery:
         limit: int = 500,
     ) -> tuple[str, dict[str, str | int]]:
         """
-        Extract queries of specific type (INSERT, UPDATE, DELETE, CREATE TABLE AS, etc.).
+        Extract queries of specific type (INSERT, UPDATE, DELETE, etc.).
 
-        SECURITY: Returns parameterized query with bind parameters to prevent SQL injection.
-        ALWAYS use: connection.execute(text(query), params)
-
-        Useful for focusing on queries that produce lineage (DML operations).
-
-        Args:
-            query_type: SQL command type (INSERT, UPDATE, DELETE, CREATE TABLE AS, etc.)
-                       Sanitized to prevent SQL injection
-            database: Filter by database (sanitized for SQL injection prevention)
-            limit: Maximum queries to return (must be positive integer)
-
-        Returns:
-            Tuple of (query_string, bind_parameters) for use with text() and execute()
-
-        Raises:
-            ValueError: If query_type or database contains invalid characters
+        Returns parameterized query with bind parameters for SQL injection prevention.
+        Use with: connection.execute(text(query), params)
         """
-        # Validate limit
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
 
-        # Sanitize query_type - allow only SQL command keywords
-        # Valid examples: INSERT, UPDATE, DELETE, SELECT, CREATE TABLE AS, etc.
         if not re.match(r"^[A-Z\s]+$", query_type.upper()):
             raise ValueError(
                 f"Invalid query_type '{query_type}': must contain only uppercase letters and spaces"
@@ -210,13 +166,7 @@ class PostgresQuery:
             "s.calls >= 1",
         ]
 
-        # Sanitize database identifier
-        if database:
-            safe_database = PostgresQuery._sanitize_identifier(database)
-            params["database"] = safe_database
-            filters.append("d.datname = :database")
-
-        where_clause = " AND ".join(filters)
+        where_clause = PostgresQuery._build_pg_stat_filter(database, params, filters)
 
         query = f"""
         SELECT
@@ -238,19 +188,7 @@ class PostgresQuery:
 
     @staticmethod
     def get_top_tables_by_query_count(limit: int = 100) -> str:
-        """
-        Get most frequently queried tables from pg_stat_statements.
-
-        Uses heuristic pattern matching to extract table names from queries.
-        Not 100% accurate but useful for identifying important tables.
-
-        Args:
-            limit: Maximum tables to return (must be positive integer)
-
-        Raises:
-            ValueError: If limit is not a positive integer
-        """
-        # Validate limit
+        """Get most frequently queried tables using heuristic pattern matching."""
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
 
