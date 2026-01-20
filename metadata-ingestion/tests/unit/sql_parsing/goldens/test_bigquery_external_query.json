@@ -1,0 +1,19 @@
+{
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "81d7f3c5bfc09269211618a44df28c46fe5c33b759e36eecb80d17df09bec861",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,gsk-rd-assayresult-ver-uat.analytics_workspace_prd.result_result,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,gsk-rd-assayresult-ver-uat.analytics_workspace_prd.missing_result_result,PROD)"
+    ],
+    "column_lineage": null,
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.35,
+        "generalized_statement": "CREATE VIEW `gsk-rd-assayresult-ver-uat.analytics_workspace_prd.missing_result_result` AS SELECT pg.transaction_id FROM EXTERNAL_QUERY(?, ?) AS pg LEFT JOIN `gsk-rd-assayresult-ver-uat.analytics_workspace_prd.result_result` AS bq ON pg.transaction_id = bq.transaction_id WHERE bq.transaction_id IS NULL AND pg.transaction_id < (SELECT MAX(transaction_id) FROM `gsk-rd-assayresult-ver-uat.analytics_workspace_prd.result_result`)"
+    }
+}

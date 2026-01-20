@@ -1618,3 +1618,51 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
         dialect="dremio",
         expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
     )
+
+
+def test_bigquery_external_query() -> None:
+    """
+    Test for BigQuery EXTERNAL_QUERY function.
+
+    This test reproduces Eric's issue where EXTERNAL_QUERY is incorrectly
+    treated as a table name instead of a function that queries an external database.
+
+    Expected behavior:
+    - EXTERNAL_QUERY should NOT appear as an upstream table
+    - The only upstream table should be result_result (BigQuery table from the LEFT JOIN)
+
+    Current (buggy) behavior:
+    - A bogus URN is created from EXTERNAL_QUERY being misinterpreted
+    """
+    # Using the standard assert_sql_result pattern - this goes through the full
+    # DataHub code path: sqlglot_lineage() -> _table_level_lineage() -> etc.
+    assert_sql_result(
+        """
+CREATE VIEW `gsk-rd-assayresult-ver-uat.analytics_workspace_prd.missing_result_result` AS
+SELECT
+    pg.transaction_id
+FROM
+    EXTERNAL_QUERY(
+        "gsk-rd-arc-uat-uat.us-east1.federated_query_poc",
+        "select distinct(transaction_id) from aros.v_result_result;"
+    ) pg
+LEFT JOIN
+    `gsk-rd-assayresult-ver-uat.analytics_workspace_prd.result_result` bq
+    ON pg.transaction_id = bq.transaction_id
+WHERE
+    bq.transaction_id IS NULL
+    AND pg.transaction_id < (
+        SELECT MAX(transaction_id)
+        FROM `gsk-rd-assayresult-ver-uat.analytics_workspace_prd.result_result`
+    )
+""",
+        dialect="bigquery",
+        default_db="gsk-rd-assayresult-ver-uat",
+        schemas={
+            # Provide schema for the real BigQuery table
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,gsk-rd-assayresult-ver-uat.analytics_workspace_prd.result_result,PROD)": {
+                "transaction_id": "INT64",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_external_query.json",
+    )
