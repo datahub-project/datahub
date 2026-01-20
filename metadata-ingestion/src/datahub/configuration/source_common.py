@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 
 import pydantic
-from pydantic.fields import Field
+from pydantic import Field, PositiveInt
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
@@ -51,6 +51,20 @@ class LowerCaseDatasetUrnConfigMixin(ConfigModel):
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Whether to convert dataset urns to lowercase.",
+    )
+
+
+class SqlParsingConfigMixin(ConfigModel):
+    """
+    Any source that uses SqlParsingAggregator for SQL query parsing should inherit this class.
+    """
+
+    max_workers_for_query_parsing: PositiveInt = Field(
+        default=10,
+        description="Number of worker threads for parallel SQL query parsing. "
+        "Higher values improve performance on multi-core systems for sources with high query volumes. "
+        "Set to 1 for sequential processing (backward compatible, useful for debugging). "
+        "Recommended: 10-20 for production workloads.",
     )
 
 

@@ -972,6 +972,7 @@ class OracleSource(SQLAlchemySource):
                 generate_operations=self.config.include_operational_stats,
                 usage_config=self.config if self.config.include_usage_stats else None,
                 eager_graph_load=False,
+                max_workers=self.config.max_workers_for_query_parsing,
             )
             self.report.sql_aggregator = self.aggregator.report
 

@@ -255,6 +255,7 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_usage_statistics=True,
             generate_operations=True,
             usage_config=self.config.usage,
+            max_workers=self.config.max_workers_for_query_parsing,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 

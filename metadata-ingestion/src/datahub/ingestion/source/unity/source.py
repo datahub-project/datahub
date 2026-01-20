@@ -296,6 +296,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         generate_queries=False,
                         generate_usage_statistics=False,
                         generate_operations=False,
+                        max_workers=self.config.max_workers_for_query_parsing,
                     )
                     self.report.sql_aggregator = self.sql_parsing_aggregator.report
             except Exception as e:

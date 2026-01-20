@@ -15,6 +15,7 @@ from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+    SqlParsingConfigMixin,
 )
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
@@ -56,7 +57,10 @@ logger = logging.getLogger(__name__)
 
 
 class SqlQueriesSourceConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    IncrementalLineageConfigMixin,
+    SqlParsingConfigMixin,
 ):
     query_file: str = Field(description="Path to file to ingest")
 
@@ -213,6 +217,7 @@ class SqlQueriesSource(Source):
             generate_lineage=True,  # TODO: make this configurable
             generate_queries=True,  # TODO: make this configurable
             generate_query_subject_fields=True,  # TODO: make this configurable
+            max_workers=self.config.max_workers_for_query_parsing,
             generate_query_usage_statistics=True,  # This enables publishing SELECT query entities, otherwise only mutation queries are published
             generate_usage_statistics=True,
             generate_operations=True,  # TODO: make this configurable

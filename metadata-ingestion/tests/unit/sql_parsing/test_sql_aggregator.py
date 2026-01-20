@@ -1649,3 +1649,119 @@ def test_lineage_consistency_multiple_missing_tables() -> None:
     # Verify metrics: 3 tables were added (2, 3, 4)
     assert aggregator.report.num_tables_added_from_column_lineage == 3
     assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
+
+
+@freeze_time(FROZEN_TIME)
+def test_parallel_batch_processing() -> None:
+    """Test that parallel batch processing produces identical results to sequential."""
+
+    # Create test queries with temp tables to verify ordering is preserved
+    queries = [
+        ObservedQuery(
+            query="CREATE TEMP TABLE temp1 AS SELECT id, name FROM base_table",
+            timestamp=_ts(100),
+            session_id="session1",
+            default_db="dev",
+            default_schema="public",
+        ),
+        ObservedQuery(
+            query="CREATE TABLE final_table AS SELECT * FROM temp1",
+            timestamp=_ts(200),
+            session_id="session1",
+            default_db="dev",
+            default_schema="public",
+        ),
+        ObservedQuery(
+            query="INSERT INTO another_table SELECT id FROM base_table",
+            timestamp=_ts(300),
+            session_id="session2",
+            default_db="dev",
+            default_schema="public",
+        ),
+    ]
+
+    # Sequential processing (max_workers=1)
+    aggregator_sequential = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        max_workers=1,  # Sequential
+    )
+    for query in queries:
+        aggregator_sequential.add(query)
+
+    sequential_mcps = list(aggregator_sequential.gen_metadata())
+
+    # Parallel processing (max_workers=4)
+    aggregator_parallel = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        max_workers=4,  # Parallel
+    )
+    aggregator_parallel.add_batch(queries)
+
+    parallel_mcps = list(aggregator_parallel.gen_metadata())
+
+    # Results should be identical
+    assert len(sequential_mcps) == len(parallel_mcps)
+
+    # Verify both produced the same lineage
+    # Extract dataset URNs from lineage aspects
+    def get_lineage_urns(mcps):
+        lineage_map = {}
+        for mcp in mcps:
+            if mcp.aspectName == "upstreamLineage":
+                dataset_urn = mcp.entityUrn
+                upstreams = {u.dataset for u in mcp.aspect.upstreams}
+                lineage_map[dataset_urn] = upstreams
+        return lineage_map
+
+    sequential_lineage = get_lineage_urns(sequential_mcps)
+    parallel_lineage = get_lineage_urns(parallel_mcps)
+
+    assert sequential_lineage == parallel_lineage
+
+    # Verify batch metrics were tracked
+    assert aggregator_parallel.report.num_batch_calls == 1
+    assert aggregator_parallel.report.num_queries_processed_in_batch == 3
+
+    # Sequential should have 0 batch calls
+    assert aggregator_sequential.report.num_batch_calls == 0
+    assert aggregator_sequential.report.num_queries_processed_in_batch == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_ordering_validation() -> None:
+    """Test that add_batch validates timestamp ordering."""
+
+    # Create queries in WRONG order
+    queries_wrong_order = [
+        ObservedQuery(
+            query="SELECT * FROM table1",
+            timestamp=_ts(200),  # Later timestamp first
+            default_db="dev",
+            default_schema="public",
+        ),
+        ObservedQuery(
+            query="SELECT * FROM table2",
+            timestamp=_ts(100),  # Earlier timestamp second
+            default_db="dev",
+            default_schema="public",
+        ),
+    ]
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        max_workers=4,
+    )
+
+    # In debug mode, this should log a warning but not fail
+    # (We don't want to break existing code that might have unordered queries)
+    aggregator.add_batch(queries_wrong_order)
+
+    # Should still process both queries
+    assert aggregator.report.num_observed_queries == 2

@@ -379,6 +379,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             generate_usage_statistics=False,
             generate_operations=False,
             eager_graph_load=False,
+            max_workers=self.config.max_workers_for_query_parsing,
         )
         self.report.sql_aggregator = self.aggregator.report
 
