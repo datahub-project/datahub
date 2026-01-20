@@ -875,6 +875,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
+            "starrocks",
             "vertica",
             "vertexai",
         ]
