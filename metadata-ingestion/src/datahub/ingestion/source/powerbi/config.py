@@ -723,6 +723,7 @@ class PowerBiDashboardSourceConfig(
             True if the platform (or its normalized version) exists in the mapping
         """
         return self.get_from_dataset_type_mapping(platform_name) is not None
+
     @model_validator(mode="after")
     def validate_athena_table_platform_override(
         self,
