@@ -5,6 +5,7 @@ import React, { useCallback, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
@@ -60,6 +61,7 @@ export function IngestionSourceCreatePage() {
     const history = useHistory();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
 
     const createIngestionSource = useCreateSource();
 
@@ -81,6 +83,9 @@ export function IngestionSourceCreatePage() {
             try {
                 const newSourceUrn = await createIngestionSource(input, data.owners);
                 if (!newSourceUrn) return undefined;
+
+                setCreatedOrUpdatedSource(newSourceUrn);
+                setShouldRunCreatedOrUpdatedSource(!!shouldRun);
 
                 const newSourcePlaceholder = getNewIngestionSourcePlaceholder(
                     newSourceUrn ?? PLACEHOLDER_URN,
@@ -117,10 +122,7 @@ export function IngestionSourceCreatePage() {
                     duration: 3,
                 });
 
-                history.push(`${PageRoutes.INGESTION}/sources`, {
-                    createdOrUpdatedSourceUrn: newSourceUrn,
-                    shouldRun,
-                });
+                history.push(`${PageRoutes.INGESTION}/sources`);
             } catch (e: unknown) {
                 message.destroy();
                 if (e instanceof Error) {
@@ -134,7 +136,14 @@ export function IngestionSourceCreatePage() {
             setIsSubmitting(false);
             return undefined;
         },
-        [createIngestionSource, history, client, defaultOwnershipType],
+        [
+            createIngestionSource,
+            setCreatedOrUpdatedSource,
+            setShouldRunCreatedOrUpdatedSource,
+            history,
+            client,
+            defaultOwnershipType,
+        ],
     );
 
     const onCancel = useCallback(() => {
