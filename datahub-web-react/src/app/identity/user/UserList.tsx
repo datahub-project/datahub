@@ -97,7 +97,14 @@ export const UserList = () => {
         usersRefetch();
     };
 
-    const { roles: selectRoleOptions, loading: rolesLoading } = useRoleSelector();
+    const {
+        roles: selectRoleOptions,
+        loading: rolesLoading,
+        hasMore: rolesHasMore,
+        observerRef: rolesObserverRef,
+        searchQuery: rolesSearchQuery,
+        setSearchQuery: setRolesSearchQuery,
+    } = useRoleSelector();
 
     const loading = usersLoading || rolesLoading;
     const error = usersError;
@@ -155,6 +162,11 @@ export const UserList = () => {
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
                             selectRoleOptions={selectRoleOptions}
+                            rolesLoading={rolesLoading}
+                            rolesHasMore={rolesHasMore}
+                            rolesObserverRef={rolesObserverRef}
+                            rolesSearchQuery={rolesSearchQuery}
+                            setRolesSearchQuery={setRolesSearchQuery}
                             refetch={usersRefetch}
                         />
                     )}

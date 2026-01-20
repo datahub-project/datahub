@@ -1,5 +1,3 @@
-// ABOUTME: Tests for the useRoleSelector hook.
-// ABOUTME: Verifies pagination, search, and infinite scroll behavior.
 import { act, renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,7 +39,6 @@ describe('useRoleSelector', () => {
 
         expect(result.current.roles).toEqual([]);
         expect(result.current.loading).toBe(false);
-        // When no data and not loading, hasMore is false (no more to load)
         expect(result.current.hasMore).toBe(false);
     });
 
@@ -133,7 +130,6 @@ describe('useRoleSelector', () => {
         });
         rerender();
 
-        // The start should still be 0 (not advanced) since hasMore is false
         expect(mockUseListRolesQuery).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 variables: expect.objectContaining({
@@ -176,7 +172,6 @@ describe('useRoleSelector', () => {
         const firstPageRoles = createMockRoles(20, 0);
         const secondPageRoles = createMockRoles(20, 20);
 
-        // Start with first page
         mockUseListRolesQuery.mockReturnValue({
             data: { listRoles: { roles: firstPageRoles, total: 50 } },
             loading: false,
@@ -184,17 +179,14 @@ describe('useRoleSelector', () => {
 
         const { result, rerender } = renderHook(() => useRoleSelector());
 
-        // Verify first page loaded
         expect(result.current.roles).toHaveLength(20);
         expect(result.current.roles[0].name).toBe('Role 0');
         expect(result.current.hasMore).toBe(true);
 
-        // Trigger load more
         act(() => {
             result.current.loadMore();
         });
 
-        // Update mock to return second page
         mockUseListRolesQuery.mockReturnValue({
             data: { listRoles: { roles: secondPageRoles, total: 50 } },
             loading: false,
@@ -202,7 +194,6 @@ describe('useRoleSelector', () => {
 
         rerender();
 
-        // Verify roles accumulated (should have 40 total: 20 from first page + 20 from second)
         expect(result.current.roles).toHaveLength(40);
         expect(result.current.roles[0].name).toBe('Role 0');
         expect(result.current.roles[20].name).toBe('Role 20');

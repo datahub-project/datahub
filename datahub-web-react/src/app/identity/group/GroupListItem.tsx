@@ -18,6 +18,11 @@ type Props = {
     group: CorpGroup;
     onDelete?: () => void;
     selectRoleOptions: Array<DataHubRole>;
+    rolesLoading: boolean;
+    rolesHasMore: boolean;
+    rolesObserverRef: (node: HTMLDivElement | null) => void;
+    rolesSearchQuery: string;
+    setRolesSearchQuery: (query: string) => void;
     refetch?: () => void;
 };
 
@@ -41,7 +46,17 @@ const GroupItemButtonGroup = styled.div`
     align-items: center;
 `;
 
-export default function GroupListItem({ group, onDelete, selectRoleOptions, refetch }: Props) {
+export default function GroupListItem({
+    group,
+    onDelete,
+    selectRoleOptions,
+    rolesLoading,
+    rolesHasMore,
+    rolesObserverRef,
+    rolesSearchQuery,
+    setRolesSearchQuery,
+    refetch,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
     const isExternalGroup: boolean = group.origin?.type === OriginType.External;
@@ -85,6 +100,11 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
                         group={group}
                         groupRoleUrn={groupRoleUrn || ''}
                         selectRoleOptions={selectRoleOptions}
+                        rolesLoading={rolesLoading}
+                        rolesHasMore={rolesHasMore}
+                        rolesObserverRef={rolesObserverRef}
+                        rolesSearchQuery={rolesSearchQuery}
+                        setRolesSearchQuery={setRolesSearchQuery}
                         refetch={refetch}
                     />
                     <EntityDropdown

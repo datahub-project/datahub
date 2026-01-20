@@ -116,10 +116,21 @@ const ColumnButtonWrapper = styled.div`
     }
 `;
 
-const PlatformIcon = styled.img`
+const StyledPlatformIcon = styled.img`
     height: 16px;
     width: 16px;
 `;
+
+// Defaults to phosphor icon if the img fails to load for any reason
+const PlatformIcon = ({ src, alt }: { src: string; alt: string }) => {
+    const [errored, setErrored] = React.useState(false);
+
+    if (errored) {
+        return <Icon size="lg" source="phosphor" icon="Placeholder" />;
+    }
+
+    return <StyledPlatformIcon src={src} alt={alt} onError={() => setErrored(true)} />;
+};
 
 const PlatformIconSkeleton = styled(Skeleton.Avatar)`
     line-height: 0;
@@ -191,7 +202,7 @@ function LineageCard(
                 <CardWrapper {...props} ref={ref}>
                     <PlatformIconsWrapper>
                         {platformIcons.map((icon) => (
-                            <PlatformIcon key={icon} src={icon} />
+                            <PlatformIcon key={icon} src={icon} alt="Platform" />
                         ))}
                     </PlatformIconsWrapper>
                     <BodyWrapper>

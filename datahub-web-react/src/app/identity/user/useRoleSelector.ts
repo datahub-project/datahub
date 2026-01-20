@@ -1,5 +1,3 @@
-// ABOUTME: Hook for fetching roles with pagination and server-side search.
-// ABOUTME: Provides infinite scroll support via IntersectionObserver.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 

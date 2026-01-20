@@ -1059,9 +1059,13 @@ class DataHubListener:
 
         # Airflow 3.0+ doesn't need task holder
 
-        # If we don't have the DAG listener API, emit DAG start event
-        if not HAS_AIRFLOW_DAG_LISTENER_API:
-            self.on_dag_start(dagrun)
+        # Always emit DataFlow from task instance handler as a fallback.
+        # In distributed Airflow deployments (Kubernetes, Astronomer), the on_dag_run_running
+        # hook runs on the scheduler process, but the DataHub listener is only initialized
+        # on worker processes. This means the scheduler's on_dag_run_running never triggers
+        # DataFlow emission. By emitting here, we ensure the DataFlow exists before the
+        # DataJob references it. DataHub's UPSERT semantics make duplicate emissions safe.
+        self.on_dag_start(dagrun)
 
         # Generate and emit datajob
         # Task type can vary between Airflow versions (MappedOperator from different modules)
