@@ -225,7 +225,8 @@ class TestPostgresLineageExtractor:
 
         assert mock_sql_aggregator.add_observed_query.called
         call_args = mock_sql_aggregator.add_observed_query.call_args
-        assert "INSERT INTO target" in call_args.kwargs["query"]
+        observed_query = call_args[0][0]
+        assert "INSERT INTO target" in observed_query.query
 
     def test_populate_lineage_disabled(self, lineage_extractor, mock_sql_aggregator):
         lineage_extractor.config.include_query_lineage = False

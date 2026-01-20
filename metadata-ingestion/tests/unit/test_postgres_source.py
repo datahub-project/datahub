@@ -1,5 +1,5 @@
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -89,19 +89,16 @@ def test_current_sqlalchemy_database_in_identifier():
 
 def test_max_queries_to_extract_validation():
     """Test that max_queries_to_extract is validated."""
-    # Valid value
     config = PostgresConfig.model_validate(
         {**_base_config(), "max_queries_to_extract": 5000}
     )
     assert config.max_queries_to_extract == 5000
 
-    # Zero should fail
     with pytest.raises(
         ValidationError, match="max_queries_to_extract must be positive"
     ):
         PostgresConfig.model_validate({**_base_config(), "max_queries_to_extract": 0})
 
-    # Negative should fail
     with pytest.raises(
         ValidationError, match="max_queries_to_extract must be positive"
     ):
@@ -109,7 +106,6 @@ def test_max_queries_to_extract_validation():
             {**_base_config(), "max_queries_to_extract": -100}
         )
 
-    # Too large should fail
     with pytest.raises(
         ValidationError,
         match="max_queries_to_extract must be <= 10000 to avoid memory issues",
@@ -121,34 +117,28 @@ def test_max_queries_to_extract_validation():
 
 def test_min_query_calls_validation():
     """Test that min_query_calls is validated."""
-    # Valid value
     config = PostgresConfig.model_validate({**_base_config(), "min_query_calls": 10})
     assert config.min_query_calls == 10
 
-    # None is valid (uses default)
     config = PostgresConfig.model_validate({**_base_config(), "min_query_calls": None})
     assert config.min_query_calls is None
 
-    # Negative should fail
     with pytest.raises(ValidationError, match="min_query_calls must be non-negative"):
         PostgresConfig.model_validate({**_base_config(), "min_query_calls": -5})
 
 
 def test_query_exclude_patterns_validation():
     """Test that query_exclude_patterns is validated."""
-    # Valid patterns
     config = PostgresConfig.model_validate(
         {**_base_config(), "query_exclude_patterns": ["%temp%", "%staging%"]}
     )
     assert config.query_exclude_patterns == ["%temp%", "%staging%"]
 
-    # None is valid
     config = PostgresConfig.model_validate(
         {**_base_config(), "query_exclude_patterns": None}
     )
     assert config.query_exclude_patterns is None
 
-    # Too many patterns should fail
     with pytest.raises(
         ValidationError,
         match="query_exclude_patterns must have <= 100 patterns to avoid performance issues",
@@ -160,7 +150,6 @@ def test_query_exclude_patterns_validation():
             }
         )
 
-    # Pattern too long should fail
     with pytest.raises(
         ValidationError,
         match="exceeds 500 characters",
@@ -168,3 +157,94 @@ def test_query_exclude_patterns_validation():
         PostgresConfig.model_validate(
             {**_base_config(), "query_exclude_patterns": ["%" + "x" * 501 + "%"]}
         )
+
+
+def test_usage_statistics_requires_query_lineage():
+    """Test that include_usage_statistics requires include_query_lineage."""
+    config = PostgresConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "include_usage_statistics": True,
+        }
+    )
+    assert config.include_query_lineage is True
+    assert config.include_usage_statistics is True
+
+    config = PostgresConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": False,
+            "include_usage_statistics": False,
+        }
+    )
+    assert config.include_query_lineage is False
+    assert config.include_usage_statistics is False
+
+    config = PostgresConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "include_usage_statistics": False,
+        }
+    )
+    assert config.include_query_lineage is True
+    assert config.include_usage_statistics is False
+
+    with pytest.raises(
+        ValidationError,
+        match="include_usage_statistics requires include_query_lineage to be enabled",
+    ):
+        PostgresConfig.model_validate(
+            {
+                **_base_config(),
+                "include_query_lineage": False,
+                "include_usage_statistics": True,
+            }
+        )
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_sql_aggregator_initialization_failure(create_engine_mock):
+    """Test that SQL aggregator initialization failure is handled gracefully."""
+    with patch(
+        "datahub.ingestion.source.sql.postgres.source.SqlParsingAggregator"
+    ) as mock_aggregator:
+        mock_aggregator.side_effect = Exception("Aggregator init failed")
+
+        config = PostgresConfig.model_validate(
+            {**_base_config(), "include_query_lineage": True}
+        )
+        source = PostgresSource(config, PipelineContext(run_id="test"))
+
+        assert source.sql_aggregator is None
+        assert source.report.failures
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_query_lineage_extraction_failure(create_engine_mock):
+    """Test that query lineage extraction failure doesn't crash the source."""
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "include_query_lineage": True}
+    )
+
+    with patch("datahub.ingestion.source.sql.postgres.source.SqlParsingAggregator"):
+        source = PostgresSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = MagicMock()
+        mock_inspector.engine.connect.return_value.__enter__.return_value = MagicMock()
+
+        with (
+            patch.object(source, "get_inspectors", return_value=[mock_inspector]),
+            patch(
+                "datahub.ingestion.source.sql.postgres.source.PostgresLineageExtractor"
+            ) as mock_extractor_class,
+        ):
+            mock_extractor = mock_extractor_class.return_value
+            mock_extractor.populate_lineage_from_queries.side_effect = Exception(
+                "Lineage extraction failed"
+            )
+
+            list(source._get_query_based_lineage_workunits())
+
+            assert source.report.failures

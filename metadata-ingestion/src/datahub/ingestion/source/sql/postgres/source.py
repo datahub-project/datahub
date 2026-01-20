@@ -12,7 +12,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 # effects of the import. For more details, see here:
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
 from geoalchemy2 import Geometry  # noqa: F401
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -258,6 +258,15 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
 
         return value
 
+    @model_validator(mode="after")
+    def validate_usage_statistics_dependency(self) -> "PostgresConfig":
+        """Validate that include_usage_statistics requires include_query_lineage."""
+        if self.include_usage_statistics and not self.include_query_lineage:
+            raise ValueError(
+                "include_usage_statistics requires include_query_lineage to be enabled"
+            )
+        return self
+
 
 @platform_name("Postgres")
 @config_class(PostgresConfig)
@@ -298,16 +307,29 @@ class PostgresSource(SQLAlchemySource):
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
-            self.sql_aggregator = SqlParsingAggregator(
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                graph=self.ctx.graph,
-                generate_lineage=True,
-                generate_queries=True,
-                generate_usage_statistics=self.config.include_usage_statistics,
-            )
-            logger.info("SQL parsing aggregator initialized for query-based lineage")
+            try:
+                self.sql_aggregator = SqlParsingAggregator(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    graph=self.ctx.graph,
+                    generate_lineage=True,
+                    generate_queries=True,
+                    generate_usage_statistics=self.config.include_usage_statistics,
+                )
+                logger.info(
+                    "SQL parsing aggregator initialized for query-based lineage"
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to initialize SQL parsing aggregator: %s. "
+                    "Query-based lineage will be disabled.",
+                    e,
+                )
+                self.report.report_failure(
+                    message=f"SQL aggregator initialization failed: {e}",
+                    context="sql_aggregator_init_failed",
+                )
 
     def get_platform(self):
         return "postgres"
@@ -472,24 +494,53 @@ class PostgresSource(SQLAlchemySource):
         """
         logger.info("Starting query-based lineage extraction from pg_stat_statements")
 
-        discovered_tables = set(self.report.tables_scanned or [])
+        discovered_tables: set[str] = set()
 
         for inspector in self.get_inspectors():
-            lineage_extractor = PostgresLineageExtractor(
-                config=self.config,
-                connection=inspector.engine.connect(),
-                report=self.report,
-                sql_aggregator=self.sql_aggregator,
-                default_schema="public",
-            )
+            if self.sql_aggregator is None:
+                logger.warning(
+                    "SQL aggregator not initialized, skipping lineage extraction"
+                )
+                return
 
-            lineage_extractor.populate_lineage_from_queries(discovered_tables)
+            with inspector.engine.connect() as connection:
+                lineage_extractor = PostgresLineageExtractor(
+                    config=self.config,
+                    connection=connection,
+                    report=self.report,
+                    sql_aggregator=self.sql_aggregator,
+                    default_schema="public",
+                )
+
+                try:
+                    lineage_extractor.populate_lineage_from_queries(discovered_tables)
+                except Exception as e:
+                    logger.error(
+                        "Failed to populate lineage from queries: %s. "
+                        "Continuing with other lineage sources.",
+                        e,
+                    )
+                    self.report.report_failure(
+                        message=f"Query lineage extraction failed: {e}",
+                        context="query_lineage_extraction_failed",
+                    )
 
         with PerfTimer() as timer:
             mcp_count = 0
-            for mcp in self.sql_aggregator.gen_metadata():
-                yield mcp.as_workunit()
-                mcp_count += 1
+            if self.sql_aggregator:
+                try:
+                    for mcp in self.sql_aggregator.gen_metadata():
+                        yield mcp.as_workunit()
+                        mcp_count += 1
+                except Exception as e:
+                    logger.error(
+                        "Failed to generate metadata from SQL aggregator: %s",
+                        e,
+                    )
+                    self.report.report_failure(
+                        message=f"Lineage metadata generation failed: {e}",
+                        context="lineage_metadata_generation_failed",
+                    )
 
         logger.info(
             f"Generated {mcp_count} lineage workunits from queries "
