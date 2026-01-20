@@ -1,1 +1,11 @@
 pydantic_core!=2.41.3
+# GHSA-58pv-8j8x-9vj2: Path traversal vulnerability in jaraco.context <6.1.0
+# Note: Airflow 2.9.x constraints pin jaraco.context==5.3.0, creating a conflict
+# when installing acryl-datahub with Airflow. The airflow-plugin uses a constraints
+# override in CI to work around this. This constraint is safe for Docker images
+# which don't coexist with Airflow's pinned dependencies.
+jaraco.context>=6.1.0,<7
+# CVE-2025-66418, CVE-2025-66471, CVE-2026-21441: urllib3 vulnerabilities fixed in 2.6.0+
+# but botocore requires <1.27. Pin to latest 1.26.x until botocore supports 2.x.
+# See: https://github.com/boto/botocore/issues/3499
+urllib3>=1.26.20,<1.27
