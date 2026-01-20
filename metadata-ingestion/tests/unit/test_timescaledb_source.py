@@ -5,6 +5,8 @@ Unit tests for TimescaleDB DataHub connector
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
+from sqlalchemy.exc import DatabaseError
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresSource
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -232,6 +234,10 @@ class TestTimescaleDBSource:
         extension_result = MagicMock()
         extension_result.rowcount = 1
 
+        # Mock environment detection query
+        env_detection_result = MagicMock()
+        env_detection_result.rowcount = 1
+
         # Mock hypertables query
         hypertables_result: list[Any] = []
 
@@ -240,6 +246,7 @@ class TestTimescaleDBSource:
 
         mock_conn.execute.side_effect = [
             extension_result,
+            env_detection_result,
             hypertables_result,
             caggs_result,
         ]
@@ -467,11 +474,17 @@ class TestTimescaleDBSource:
         mock_inspector = MagicMock()
 
         # Mock parent _process_view to return empty generator
+        # Mock parent get_table_properties to return proper tuple
         with (
             patch.object(
                 source.__class__.__bases__[0],
                 "_process_view",
                 return_value=iter([]),
+            ),
+            patch.object(
+                source.__class__.__bases__[0],
+                "get_table_properties",
+                return_value=(None, {}, None),
             ),
             patch.object(source, "get_db_name", return_value="tsdb"),
         ):
@@ -914,8 +927,8 @@ class TestTimescaleDBErrorScenarios:
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception(
-            "permission denied for table pg_extension"
+        mock_conn.execute.side_effect = DatabaseError(
+            "permission denied for table pg_extension", None, None
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -949,8 +962,8 @@ class TestTimescaleDBErrorScenarios:
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception(
-            "permission denied for schema information_schema"
+        mock_conn.execute.side_effect = DatabaseError(
+            "permission denied for schema information_schema", None, None
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -973,8 +986,8 @@ class TestTimescaleDBErrorScenarios:
         env_result.rowcount = 1
         mock_conn.execute.side_effect = [
             env_result,  # Environment detection succeeds
-            Exception(
-                "permission denied for schema timescaledb_information"
+            DatabaseError(
+                "permission denied for schema timescaledb_information", None, None
             ),  # Query fails
         ]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
@@ -1125,8 +1138,8 @@ class TestTimescaleDBErrorScenarios:
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = Exception(
-            "permission denied for table timescaledb_information.job_stats"
+        mock_conn.execute.side_effect = DatabaseError(
+            "permission denied for table timescaledb_information.job_stats", None, None
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 

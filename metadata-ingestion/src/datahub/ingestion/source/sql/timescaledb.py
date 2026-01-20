@@ -2,11 +2,12 @@ import json
 import logging
 import time
 from datetime import timedelta
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import DatabaseError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
@@ -63,58 +64,86 @@ from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Platform and URN constants
-ORCHESTRATOR_NAME = "timescaledb"
-BACKGROUND_JOBS_FLOW_SUFFIX = "background_jobs"
 
-# Tag names
-TAG_HYPERTABLE = "hypertable"
-TAG_CONTINUOUS_AGGREGATE = "continuous_aggregate"
+class _TimescaleDBConstants:
+    """Platform and URN identifiers"""
 
-# TimescaleDB policy procedure names
-POLICY_REFRESH_CONTINUOUS_AGGREGATE = "policy_refresh_continuous_aggregate"
-POLICY_RETENTION = "policy_retention"
-POLICY_COMPRESSION = "policy_compression"
-POLICY_REORDER = "policy_reorder"
+    PLATFORM = "timescaledb"
+    BACKGROUND_JOBS_FLOW_SUFFIX = "background_jobs"
 
-# Metadata cache keys
-CACHE_KEY_HYPERTABLES = "hypertables"
-CACHE_KEY_CONTINUOUS_AGGREGATES = "continuous_aggregates"
-CACHE_KEY_JOBS = "jobs"
 
-# Custom property keys
-PROP_IS_HYPERTABLE = "is_hypertable"
-PROP_IS_CONTINUOUS_AGGREGATE = "is_continuous_aggregate"
-PROP_NUM_DIMENSIONS = "num_dimensions"
-PROP_NUM_CHUNKS = "num_chunks"
-PROP_COMPRESSION_ENABLED = "compression_enabled"
-PROP_RETENTION_PERIOD = "retention_period"
-PROP_MATERIALIZED = "materialized"
-PROP_MATERIALIZED_ONLY = "materialized_only"
-PROP_SOURCE_HYPERTABLE = "source_hypertable"
-PROP_REFRESH_INTERVAL = "refresh_interval"
-PROP_JOB_ID = "job_id"
-PROP_APPLICATION_NAME = "application_name"
-PROP_SCHEDULE_INTERVAL = "schedule_interval"
-PROP_MAX_RUNTIME = "max_runtime"
-PROP_MAX_RETRIES = "max_retries"
-PROP_RETRY_PERIOD = "retry_period"
-PROP_PROC_SCHEMA = "proc_schema"
-PROP_PROC_NAME = "proc_name"
-PROP_SCHEDULED = "scheduled"
-PROP_FIXED_SCHEDULE = "fixed_schedule"
-PROP_INITIAL_START = "initial_start"
-PROP_CONFIG = "config"
-PROP_HYPERTABLE = "hypertable"
-PROP_DATABASE = "database"
-PROP_SCHEMA = "schema"
-PROP_ORCHESTRATOR = "orchestrator"
+class _TimescaleDBTags:
+    """Tag names for datasets"""
 
-# Display strings
-DISPLAY_NAME_BACKGROUND_JOBS = "TimescaleDB Background Jobs"
+    HYPERTABLE = "hypertable"
+    CONTINUOUS_AGGREGATE = "continuous_aggregate"
 
-# Common values
-VALUE_TRUE = "true"
+
+class _TimescaleDBPolicies:
+    """TimescaleDB policy procedure names"""
+
+    REFRESH_CONTINUOUS_AGGREGATE = "policy_refresh_continuous_aggregate"
+    RETENTION = "policy_retention"
+    COMPRESSION = "policy_compression"
+    REORDER = "policy_reorder"
+
+
+class _TimescaleDBCacheKeys:
+    """Keys for metadata cache dictionary"""
+
+    HYPERTABLES = "hypertables"
+    CONTINUOUS_AGGREGATES = "continuous_aggregates"
+    JOBS = "jobs"
+
+
+class _TimescaleDBProperties:
+    """Custom property keys for DataHub metadata"""
+
+    # Hypertable properties
+    IS_HYPERTABLE = "is_hypertable"
+    NUM_DIMENSIONS = "num_dimensions"
+    NUM_CHUNKS = "num_chunks"
+    COMPRESSION_ENABLED = "compression_enabled"
+    RETENTION_PERIOD = "retention_period"
+
+    # Continuous aggregate properties
+    IS_CONTINUOUS_AGGREGATE = "is_continuous_aggregate"
+    MATERIALIZED = "materialized"
+    MATERIALIZED_ONLY = "materialized_only"
+    SOURCE_HYPERTABLE = "source_hypertable"
+    REFRESH_INTERVAL = "refresh_interval"
+
+    # Job properties
+    JOB_ID = "job_id"
+    APPLICATION_NAME = "application_name"
+    SCHEDULE_INTERVAL = "schedule_interval"
+    MAX_RUNTIME = "max_runtime"
+    MAX_RETRIES = "max_retries"
+    RETRY_PERIOD = "retry_period"
+    PROC_SCHEMA = "proc_schema"
+    PROC_NAME = "proc_name"
+    SCHEDULED = "scheduled"
+    FIXED_SCHEDULE = "fixed_schedule"
+    INITIAL_START = "initial_start"
+    CONFIG = "config"
+    HYPERTABLE = "hypertable"
+
+    # Container properties
+    DATABASE = "database"
+    SCHEMA = "schema"
+    ORCHESTRATOR = "orchestrator"
+
+
+class _TimescaleDBDisplay:
+    """Display strings for UI"""
+
+    BACKGROUND_JOBS = "TimescaleDB Background Jobs"
+
+
+class _TimescaleDBValues:
+    """Common constant values"""
+
+    TRUE = "true"
 
 
 class TimescaleDBEnvironment(StrEnum):
@@ -164,6 +193,54 @@ def safe_str_convert(value: Any) -> Optional[str]:
     return str(value)
 
 
+class TableProperties(BaseModel):
+    """Type-safe container for table metadata (description, properties, location)"""
+
+    description: Optional[str] = None
+    properties: Dict[str, str] = Field(default_factory=dict)
+    location_urn: Optional[str] = None
+
+    def to_tuple(self) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        """Convert to tuple format expected by parent class"""
+        return self.description, self.properties, self.location_urn
+
+    @classmethod
+    def from_tuple(
+        cls,
+        description: Optional[str],
+        properties: Dict[str, str],
+        location_urn: Optional[str],
+    ) -> "TableProperties":
+        """Create from tuple format returned by parent class"""
+        return cls(
+            description=description, properties=properties, location_urn=location_urn
+        )
+
+
+TModel = TypeVar("TModel", bound="TimescaleDBModel")
+
+
+class TimescaleDBModel(BaseModel):
+    """Base class for TimescaleDB data models with common from_db_row logic"""
+
+    @classmethod
+    def from_db_row(cls: Type[TModel], row: Any) -> TModel:
+        """
+        Generic factory method that maps database row to Pydantic model.
+        Subclasses can override for custom nested object handling.
+        """
+        field_values = {}
+        for field_name, field_info in cls.model_fields.items():
+            raw_value = safe_get_from_row(row, field_name)
+
+            if raw_value is None and field_info.default is not None:
+                continue
+
+            field_values[field_name] = raw_value
+
+        return cls(**field_values)
+
+
 class HypertableDimension(BaseModel):
     column_name: str
     column_type: str
@@ -181,7 +258,7 @@ class RefreshPolicy(BaseModel):
     config: Optional[Dict[str, Any]] = None
 
 
-class Hypertable(BaseModel):
+class Hypertable(TimescaleDBModel):
     name: str
     num_dimensions: int = 0
     num_chunks: int = 0
@@ -191,11 +268,11 @@ class Hypertable(BaseModel):
 
     @classmethod
     def from_db_row(cls, row: Any) -> "Hypertable":
+        """Custom handling for nested objects and field name mapping"""
         dimensions = []
         dimensions_data = safe_get_from_row(row, "dimensions")
         if dimensions_data:
-            for dim_data in dimensions_data:
-                dimensions.append(HypertableDimension(**dim_data))
+            dimensions = [HypertableDimension(**dim) for dim in dimensions_data]
 
         retention_policy = None
         retention_data = safe_get_from_row(row, "retention_policy")
@@ -212,7 +289,7 @@ class Hypertable(BaseModel):
         )
 
 
-class ContinuousAggregate(BaseModel):
+class ContinuousAggregate(TimescaleDBModel):
     name: str
     materialized_only: bool = False
     compression_enabled: bool = False
@@ -223,6 +300,7 @@ class ContinuousAggregate(BaseModel):
 
     @classmethod
     def from_db_row(cls, row: Any) -> "ContinuousAggregate":
+        """Custom handling for nested refresh_policy and field name mapping"""
         refresh_policy = None
         refresh_data = safe_get_from_row(row, "refresh_policy")
         if refresh_data:
@@ -239,7 +317,7 @@ class ContinuousAggregate(BaseModel):
         )
 
 
-class JobExecution(BaseModel):
+class JobExecution(TimescaleDBModel):
     job_id: int
     last_run_started_at: Optional[str] = None
     last_successful_finish: Optional[str] = None
@@ -251,23 +329,8 @@ class JobExecution(BaseModel):
     consecutive_failures: int = 0
     consecutive_crashes: int = 0
 
-    @classmethod
-    def from_db_row(cls, row: Any) -> "JobExecution":
-        return cls(
-            job_id=safe_get_from_row(row, "job_id"),
-            last_run_started_at=safe_get_from_row(row, "last_run_started_at"),
-            last_successful_finish=safe_get_from_row(row, "last_successful_finish"),
-            last_run_status=safe_get_from_row(row, "last_run_status", "unknown"),
-            total_runs=safe_get_from_row(row, "total_runs", 0),
-            total_successes=safe_get_from_row(row, "total_successes", 0),
-            total_failures=safe_get_from_row(row, "total_failures", 0),
-            total_crashes=safe_get_from_row(row, "total_crashes", 0),
-            consecutive_failures=safe_get_from_row(row, "consecutive_failures", 0),
-            consecutive_crashes=safe_get_from_row(row, "consecutive_crashes", 0),
-        )
 
-
-class TimescaleDBJob(BaseModel):
+class TimescaleDBJob(TimescaleDBModel):
     job_id: int
     application_name: Optional[str] = None
     schedule_interval: Optional[str] = None
@@ -285,6 +348,7 @@ class TimescaleDBJob(BaseModel):
 
     @classmethod
     def from_db_row(cls, row: Any) -> "TimescaleDBJob":
+        """Custom handling for timedelta string conversion"""
         return cls(
             job_id=safe_get_from_row(row, "job_id", 0),
             application_name=safe_get_from_row(row, "application_name"),
@@ -308,10 +372,10 @@ class TimescaleDBJob(BaseModel):
         proc_name = self.proc_name or "unknown"
 
         policy_names = {
-            POLICY_REFRESH_CONTINUOUS_AGGREGATE: "Refresh Continuous Aggregate",
-            POLICY_RETENTION: "Data Retention",
-            POLICY_COMPRESSION: "Compression Policy",
-            POLICY_REORDER: "Reorder Policy",
+            _TimescaleDBPolicies.REFRESH_CONTINUOUS_AGGREGATE: "Refresh Continuous Aggregate",
+            _TimescaleDBPolicies.RETENTION: "Data Retention",
+            _TimescaleDBPolicies.COMPRESSION: "Compression Policy",
+            _TimescaleDBPolicies.REORDER: "Reorder Policy",
         }
 
         display_name = policy_names.get(proc_name)
@@ -327,10 +391,10 @@ class TimescaleDBJob(BaseModel):
         description_parts = []
 
         policy_descriptions = {
-            POLICY_REFRESH_CONTINUOUS_AGGREGATE: "Refreshes continuous aggregate materialized data",
-            POLICY_RETENTION: "Manages data retention by dropping old chunks",
-            POLICY_COMPRESSION: "Compresses hypertable chunks to save storage",
-            POLICY_REORDER: "Reorders chunks to optimize query performance",
+            _TimescaleDBPolicies.REFRESH_CONTINUOUS_AGGREGATE: "Refreshes continuous aggregate materialized data",
+            _TimescaleDBPolicies.RETENTION: "Manages data retention by dropping old chunks",
+            _TimescaleDBPolicies.COMPRESSION: "Compresses hypertable chunks to save storage",
+            _TimescaleDBPolicies.REORDER: "Reorders chunks to optimize query performance",
         }
 
         description = policy_descriptions.get(proc_name)
@@ -349,27 +413,29 @@ class TimescaleDBJob(BaseModel):
 
     def get_custom_properties(self) -> Dict[str, str]:
         custom_properties = {
-            PROP_JOB_ID: str(self.job_id),
-            PROP_APPLICATION_NAME: self.application_name or "",
-            PROP_SCHEDULE_INTERVAL: str(self.schedule_interval or ""),
-            PROP_MAX_RUNTIME: str(self.max_runtime or ""),
-            PROP_MAX_RETRIES: str(self.max_retries),
-            PROP_RETRY_PERIOD: str(self.retry_period or ""),
-            PROP_PROC_SCHEMA: self.proc_schema or "",
-            PROP_PROC_NAME: self.proc_name or "",
-            PROP_SCHEDULED: str(self.scheduled),
-            PROP_FIXED_SCHEDULE: str(self.fixed_schedule),
-            PROP_INITIAL_START: str(self.initial_start or ""),
+            _TimescaleDBProperties.JOB_ID: str(self.job_id),
+            _TimescaleDBProperties.APPLICATION_NAME: self.application_name or "",
+            _TimescaleDBProperties.SCHEDULE_INTERVAL: str(self.schedule_interval or ""),
+            _TimescaleDBProperties.MAX_RUNTIME: str(self.max_runtime or ""),
+            _TimescaleDBProperties.MAX_RETRIES: str(self.max_retries),
+            _TimescaleDBProperties.RETRY_PERIOD: str(self.retry_period or ""),
+            _TimescaleDBProperties.PROC_SCHEMA: self.proc_schema or "",
+            _TimescaleDBProperties.PROC_NAME: self.proc_name or "",
+            _TimescaleDBProperties.SCHEDULED: str(self.scheduled),
+            _TimescaleDBProperties.FIXED_SCHEDULE: str(self.fixed_schedule),
+            _TimescaleDBProperties.INITIAL_START: str(self.initial_start or ""),
         }
 
         if self.config:
             if isinstance(self.config, str):
-                custom_properties[PROP_CONFIG] = self.config
+                custom_properties[_TimescaleDBProperties.CONFIG] = self.config
             elif isinstance(self.config, dict):
-                custom_properties[PROP_CONFIG] = json.dumps(self.config)
+                custom_properties[_TimescaleDBProperties.CONFIG] = json.dumps(
+                    self.config
+                )
 
         if self.hypertable_schema and self.hypertable_name:
-            custom_properties[PROP_HYPERTABLE] = (
+            custom_properties[_TimescaleDBProperties.HYPERTABLE] = (
                 f"{self.hypertable_schema}.{self.hypertable_name}"
             )
 
@@ -442,7 +508,7 @@ class TimescaleDBSource(PostgresSource):
         self._timescaledb_enabled = None
 
     def get_platform(self):
-        return "timescaledb"
+        return _TimescaleDBConstants.PLATFORM
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -462,19 +528,23 @@ class TimescaleDBSource(PostgresSource):
             continuous_aggregates = self._get_continuous_aggregates(inspector, schema)
 
             self._timescaledb_metadata_cache[cache_key] = {
-                CACHE_KEY_HYPERTABLES: self._get_hypertables(inspector, schema),
-                CACHE_KEY_CONTINUOUS_AGGREGATES: continuous_aggregates,
-                CACHE_KEY_JOBS: self._get_jobs(inspector, schema)
+                _TimescaleDBCacheKeys.HYPERTABLES: self._get_hypertables(
+                    inspector, schema
+                ),
+                _TimescaleDBCacheKeys.CONTINUOUS_AGGREGATES: continuous_aggregates,
+                _TimescaleDBCacheKeys.JOBS: self._get_jobs(inspector, schema)
                 if self.config.include_background_jobs
                 else {},
             }
 
     def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
-        """Returns original user-defined view definition for continuous aggregates instead of internal materialized view"""
+        """Returns the user-defined SQL query for continuous aggregates, enabling accurate column-level lineage"""
         db_name = self.get_db_name(inspector)
         cache_key = f"{db_name}.{schema}"
         metadata = self._timescaledb_metadata_cache.get(cache_key, {})
-        continuous_aggregates = metadata.get(CACHE_KEY_CONTINUOUS_AGGREGATES, {})
+        continuous_aggregates = metadata.get(
+            _TimescaleDBCacheKeys.CONTINUOUS_AGGREGATES, {}
+        )
 
         if view in continuous_aggregates:
             cagg = continuous_aggregates[view]
@@ -494,7 +564,7 @@ class TimescaleDBSource(PostgresSource):
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
-        """Excludes TimescaleDB background job procedures to avoid showing them twice (once as procedures, once as DataJobs)"""
+        """Filters out TimescaleDB policy procedures, which are surfaced as DataJob entities for better job tracking"""
         all_procedures = super().get_procedures_for_schema(inspector, schema, db_name)
 
         timescaledb_job_procedures = set()
@@ -503,7 +573,7 @@ class TimescaleDBSource(PostgresSource):
             metadata = self._timescaledb_metadata_cache.get(cache_key, {})
 
             if (
-                not metadata.get(CACHE_KEY_JOBS)
+                not metadata.get(_TimescaleDBCacheKeys.JOBS)
                 and not self.config.include_background_jobs
             ):
                 temp_jobs = self._get_jobs(inspector, schema)
@@ -555,7 +625,7 @@ class TimescaleDBSource(PostgresSource):
                 )
                 self._timescaledb_enabled = result.rowcount > 0
                 return self._timescaledb_enabled
-        except Exception as e:
+        except DatabaseError as e:
             logger.warning(
                 f"Could not check for TimescaleDB extension: {e}. "
                 "If TimescaleDB is installed, ensure the user has permissions to query pg_extension."
@@ -593,7 +663,7 @@ class TimescaleDBSource(PostgresSource):
 
                 return self._timescaledb_environment
 
-        except Exception as e:
+        except DatabaseError as e:
             logger.warning(
                 f"Could not detect TimescaleDB environment: {e}. "
                 "Metadata extraction may fail if permissions are insufficient."
@@ -613,7 +683,7 @@ class TimescaleDBSource(PostgresSource):
             with inspector.engine.connect() as conn:
                 result = conn.execute(text(query), params)
                 return list(result)
-        except Exception as e:
+        except DatabaseError as e:
             error_msg = str(e).lower()
 
             if "permission denied" in error_msg or "access denied" in error_msg:
@@ -641,71 +711,92 @@ class TimescaleDBSource(PostgresSource):
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
-        description, properties, location_urn = super().get_table_properties(
-            inspector, schema, table
-        )
+        """
+        Returns table metadata including TimescaleDB-specific properties.
+        Uses TableProperties model internally for type safety.
+        """
+        parent_result = super().get_table_properties(inspector, schema, table)
+        table_props = TableProperties.from_tuple(*parent_result)
 
         if not self.config.emit_timescaledb_metadata:
-            return description, properties, location_urn
+            return table_props.to_tuple()
 
         db_name = self.get_db_name(inspector)
         cache_key = f"{db_name}.{schema}"
         metadata = self._timescaledb_metadata_cache.get(cache_key, {})
 
-        hypertables = metadata.get(CACHE_KEY_HYPERTABLES, {})
+        hypertables = metadata.get(_TimescaleDBCacheKeys.HYPERTABLES, {})
         if table in hypertables:
-            hypertable: Hypertable = hypertables[table]
-            properties[PROP_IS_HYPERTABLE] = VALUE_TRUE
-            properties[PROP_NUM_DIMENSIONS] = str(hypertable.num_dimensions)
-            properties[PROP_NUM_CHUNKS] = str(hypertable.num_chunks)
-            properties[PROP_COMPRESSION_ENABLED] = str(hypertable.compression_enabled)
+            self._enrich_hypertable_properties(table_props, hypertables[table])
 
-            for i, dim in enumerate(hypertable.dimensions):
-                prefix = f"dimension_{i}"
-                properties[f"{prefix}_column"] = dim.column_name
-                properties[f"{prefix}_type"] = dim.column_type
-                if dim.time_interval:
-                    properties[f"{prefix}_interval"] = dim.time_interval
-
-            if hypertable.retention_policy and hypertable.retention_policy.drop_after:
-                properties[PROP_RETENTION_PERIOD] = (
-                    hypertable.retention_policy.drop_after
-                )
-
-        continuous_aggregates = metadata.get(CACHE_KEY_CONTINUOUS_AGGREGATES, {})
+        continuous_aggregates = metadata.get(
+            _TimescaleDBCacheKeys.CONTINUOUS_AGGREGATES, {}
+        )
         if table in continuous_aggregates:
-            cagg: ContinuousAggregate = continuous_aggregates[table]
-            properties[PROP_IS_CONTINUOUS_AGGREGATE] = VALUE_TRUE
-            properties[PROP_MATERIALIZED_ONLY] = str(cagg.materialized_only)
-            properties[PROP_COMPRESSION_ENABLED] = str(cagg.compression_enabled)
+            self._enrich_continuous_aggregate_properties(
+                table_props, continuous_aggregates[table]
+            )
 
-            if cagg.hypertable_schema and cagg.hypertable_name:
-                properties[PROP_SOURCE_HYPERTABLE] = (
-                    f"{cagg.hypertable_schema}.{cagg.hypertable_name}"
+        return table_props.to_tuple()
+
+    def _enrich_hypertable_properties(
+        self, table_props: TableProperties, hypertable: Hypertable
+    ) -> None:
+        """Add hypertable-specific metadata to table properties"""
+        props = table_props.properties
+        props[_TimescaleDBProperties.IS_HYPERTABLE] = _TimescaleDBValues.TRUE
+        props[_TimescaleDBProperties.NUM_DIMENSIONS] = str(hypertable.num_dimensions)
+        props[_TimescaleDBProperties.NUM_CHUNKS] = str(hypertable.num_chunks)
+        props[_TimescaleDBProperties.COMPRESSION_ENABLED] = str(
+            hypertable.compression_enabled
+        )
+
+        for i, dim in enumerate(hypertable.dimensions):
+            prefix = f"dimension_{i}"
+            props[f"{prefix}_column"] = dim.column_name
+            props[f"{prefix}_type"] = dim.column_type
+            if dim.time_interval:
+                props[f"{prefix}_interval"] = dim.time_interval
+
+        if hypertable.retention_policy and hypertable.retention_policy.drop_after:
+            props[_TimescaleDBProperties.RETENTION_PERIOD] = (
+                hypertable.retention_policy.drop_after
+            )
+
+    def _enrich_continuous_aggregate_properties(
+        self, table_props: TableProperties, cagg: ContinuousAggregate
+    ) -> None:
+        """Add continuous aggregate-specific metadata to table properties"""
+        props = table_props.properties
+        props[_TimescaleDBProperties.IS_CONTINUOUS_AGGREGATE] = _TimescaleDBValues.TRUE
+        props[_TimescaleDBProperties.MATERIALIZED_ONLY] = str(cagg.materialized_only)
+        props[_TimescaleDBProperties.COMPRESSION_ENABLED] = str(
+            cagg.compression_enabled
+        )
+
+        if cagg.hypertable_schema and cagg.hypertable_name:
+            props[_TimescaleDBProperties.SOURCE_HYPERTABLE] = (
+                f"{cagg.hypertable_schema}.{cagg.hypertable_name}"
+            )
+
+        if cagg.refresh_policy:
+            if cagg.refresh_policy.schedule_interval:
+                props[_TimescaleDBProperties.REFRESH_INTERVAL] = str(
+                    cagg.refresh_policy.schedule_interval
                 )
 
-            if cagg.refresh_policy:
-                if cagg.refresh_policy.schedule_interval:
-                    properties[PROP_REFRESH_INTERVAL] = str(
-                        cagg.refresh_policy.schedule_interval
-                    )
-
-                if cagg.refresh_policy.config:
-                    config = cagg.refresh_policy.config
-                    if isinstance(config, str):
-                        try:
-                            config = json.loads(config)
-                        except json.JSONDecodeError:
-                            config = {}
-                    if isinstance(config, dict):
-                        if "start_offset" in config:
-                            properties["refresh_start_offset"] = str(
-                                config["start_offset"]
-                            )
-                        if "end_offset" in config:
-                            properties["refresh_end_offset"] = str(config["end_offset"])
-
-        return description, properties, location_urn
+            if cagg.refresh_policy.config:
+                config = cagg.refresh_policy.config
+                if isinstance(config, str):
+                    try:
+                        config = json.loads(config)
+                    except json.JSONDecodeError:
+                        config = {}
+                if isinstance(config, dict):
+                    if "start_offset" in config:
+                        props["refresh_start_offset"] = str(config["start_offset"])
+                    if "end_offset" in config:
+                        props["refresh_end_offset"] = str(config["end_offset"])
 
     def _process_table(
         self,
@@ -724,7 +815,7 @@ class TimescaleDBSource(PostgresSource):
         cache_key = f"{db_name}.{schema}"
         metadata = self._timescaledb_metadata_cache.get(cache_key, {})
 
-        hypertables = metadata.get(CACHE_KEY_HYPERTABLES, {})
+        hypertables = metadata.get(_TimescaleDBCacheKeys.HYPERTABLES, {})
         if table in hypertables:
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.get_platform(),
@@ -748,7 +839,11 @@ class TimescaleDBSource(PostgresSource):
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=GlobalTagsClass(
-                        tags=[TagAssociationClass(tag=make_tag_urn(TAG_HYPERTABLE))]
+                        tags=[
+                            TagAssociationClass(
+                                tag=make_tag_urn(_TimescaleDBTags.HYPERTABLE)
+                            )
+                        ]
                     ),
                 ).as_workunit()
 
@@ -768,7 +863,9 @@ class TimescaleDBSource(PostgresSource):
         cache_key = f"{db_name}.{schema}"
         metadata = self._timescaledb_metadata_cache.get(cache_key, {})
 
-        continuous_aggregates = metadata.get(CACHE_KEY_CONTINUOUS_AGGREGATES, {})
+        continuous_aggregates = metadata.get(
+            _TimescaleDBCacheKeys.CONTINUOUS_AGGREGATES, {}
+        )
         if view in continuous_aggregates:
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.get_platform(),
@@ -794,8 +891,8 @@ class TimescaleDBSource(PostgresSource):
 
             all_properties = {
                 **existing_properties,
-                PROP_MATERIALIZED: VALUE_TRUE,
-                TAG_CONTINUOUS_AGGREGATE: VALUE_TRUE,
+                _TimescaleDBProperties.MATERIALIZED: _TimescaleDBValues.TRUE,
+                _TimescaleDBTags.CONTINUOUS_AGGREGATE: _TimescaleDBValues.TRUE,
             }
 
             yield MetadataChangeProposalWrapper(
@@ -812,7 +909,7 @@ class TimescaleDBSource(PostgresSource):
                     aspect=GlobalTagsClass(
                         tags=[
                             TagAssociationClass(
-                                tag=make_tag_urn(TAG_CONTINUOUS_AGGREGATE)
+                                tag=make_tag_urn(_TimescaleDBTags.CONTINUOUS_AGGREGATE)
                             )
                         ]
                     ),
@@ -842,8 +939,8 @@ class TimescaleDBSource(PostgresSource):
                 )
 
             job_urn = make_data_job_urn(
-                orchestrator=ORCHESTRATOR_NAME,
-                flow_id=f"{database}.{schema}.{BACKGROUND_JOBS_FLOW_SUFFIX}",
+                orchestrator=_TimescaleDBConstants.PLATFORM,
+                flow_id=f"{database}.{schema}.{_TimescaleDBConstants.BACKGROUND_JOBS_FLOW_SUFFIX}",
                 job_id=job_identifier,
                 cluster=self.config.env,
             )
@@ -923,12 +1020,12 @@ class TimescaleDBSource(PostgresSource):
                 )
 
                 proc_name = job.proc_name or ""
-                if proc_name == POLICY_REFRESH_CONTINUOUS_AGGREGATE:
+                if proc_name == _TimescaleDBPolicies.REFRESH_CONTINUOUS_AGGREGATE:
                     outputs.append(dataset_urn)
                 elif proc_name in (
-                    POLICY_RETENTION,
-                    POLICY_COMPRESSION,
-                    POLICY_REORDER,
+                    _TimescaleDBPolicies.RETENTION,
+                    _TimescaleDBPolicies.COMPRESSION,
+                    _TimescaleDBPolicies.REORDER,
                 ):
                     inputs.append(dataset_urn)
                     outputs.append(dataset_urn)
@@ -981,7 +1078,7 @@ class TimescaleDBSource(PostgresSource):
                 FROM timescaledb_information.jobs j
                 WHERE j.hypertable_schema = ht.hypertable_schema
                     AND j.hypertable_name = ht.hypertable_name
-                    AND j.proc_name = '{POLICY_RETENTION}'
+                    AND j.proc_name = '{_TimescaleDBPolicies.RETENTION}'
                 LIMIT 1
             ) as retention_policy
         FROM timescaledb_information.hypertables ht
@@ -996,7 +1093,7 @@ class TimescaleDBSource(PostgresSource):
             try:
                 hypertable = Hypertable.from_db_row(row)
                 hypertables[hypertable.name] = hypertable
-            except Exception as e:
+            except (ValidationError, KeyError, TypeError, ValueError) as e:
                 logger.warning(
                     f"Failed to parse hypertable metadata for row {row}: {e}. Skipping this hypertable."
                 )
@@ -1031,7 +1128,7 @@ class TimescaleDBSource(PostgresSource):
                 FROM timescaledb_information.jobs j
                 WHERE j.hypertable_schema = ca.materialization_hypertable_schema
                     AND j.hypertable_name = ca.materialization_hypertable_name
-                    AND j.proc_name = '{POLICY_REFRESH_CONTINUOUS_AGGREGATE}'
+                    AND j.proc_name = '{_TimescaleDBPolicies.REFRESH_CONTINUOUS_AGGREGATE}'
                 LIMIT 1
             ) as refresh_policy
         FROM timescaledb_information.continuous_aggregates ca
@@ -1047,7 +1144,7 @@ class TimescaleDBSource(PostgresSource):
             try:
                 cagg = ContinuousAggregate.from_db_row(row)
                 continuous_aggregates[cagg.name] = cagg
-            except Exception as e:
+            except (ValidationError, KeyError, TypeError, ValueError) as e:
                 logger.warning(
                     f"Failed to parse continuous aggregate metadata for row {row}: {e}. Skipping this aggregate."
                 )
@@ -1099,7 +1196,7 @@ class TimescaleDBSource(PostgresSource):
                     continue
 
                 jobs[job_id] = job
-            except Exception as e:
+            except (ValidationError, KeyError, TypeError, ValueError) as e:
                 logger.warning(
                     f"Failed to parse job metadata for row {row}: {e}. Skipping this job."
                 )
@@ -1138,8 +1235,11 @@ class TimescaleDBSource(PostgresSource):
         for row in rows:
             try:
                 executions.append(JobExecution.from_db_row(row))
-            except Exception as e:
-                logger.debug(f"Failed to parse job execution for job {job_id}: {e}")
+            except (ValidationError, KeyError, TypeError, ValueError) as e:
+                logger.warning(
+                    f"Failed to parse job execution history for job {job_id}: {e}. "
+                    f"Row data: {row}. Skipping this execution record."
+                )
 
         return executions
 
@@ -1192,7 +1292,7 @@ class TimescaleDBSource(PostgresSource):
                     started_at = execution.last_run_started_at
                     if hasattr(started_at, "timestamp"):
                         created_timestamp = int(started_at.timestamp() * 1000)
-                except Exception:
+                except (AttributeError, TypeError, ValueError, OverflowError):
                     pass  # Use current time as fallback
 
             yield MetadataChangeProposalWrapper(
@@ -1234,8 +1334,8 @@ class TimescaleDBSource(PostgresSource):
 
     def _create_jobs_container(self, database: str, schema: str) -> str:
         return make_data_flow_urn(
-            orchestrator=ORCHESTRATOR_NAME,
-            flow_id=f"{database}.{schema}.{BACKGROUND_JOBS_FLOW_SUFFIX}",
+            orchestrator=_TimescaleDBConstants.PLATFORM,
+            flow_id=f"{database}.{schema}.{_TimescaleDBConstants.BACKGROUND_JOBS_FLOW_SUFFIX}",
             cluster=self.config.env,
         )
 
@@ -1245,11 +1345,11 @@ class TimescaleDBSource(PostgresSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
             aspect=DataFlowInfoClass(
-                name=f"{DISPLAY_NAME_BACKGROUND_JOBS} ({schema})",
+                name=f"{_TimescaleDBDisplay.BACKGROUND_JOBS} ({schema})",
                 customProperties={
-                    PROP_DATABASE: database,
-                    PROP_SCHEMA: schema,
-                    PROP_ORCHESTRATOR: self.get_platform(),
+                    _TimescaleDBProperties.DATABASE: database,
+                    _TimescaleDBProperties.SCHEMA: schema,
+                    _TimescaleDBProperties.ORCHESTRATOR: self.get_platform(),
                 },
             ),
         ).as_workunit()
