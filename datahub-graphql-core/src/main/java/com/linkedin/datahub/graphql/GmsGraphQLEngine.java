@@ -476,6 +476,8 @@ public class GmsGraphQLEngine {
   private final SearchFlagsConfiguration searchFlagsConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
+  private final com.linkedin.metadata.config.search.SemanticSearchConfiguration
+      semanticSearchConfiguration;
 
   private final DatasetType datasetType;
 
@@ -644,6 +646,7 @@ public class GmsGraphQLEngine {
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
+    this.semanticSearchConfiguration = args.semanticSearchConfiguration;
 
     this.datasetType = new DatasetType(entityClient);
     this.roleType = new RoleType(entityClient);
@@ -1087,7 +1090,8 @@ public class GmsGraphQLEngine {
                         this.controlPlaneService,
                         this.defaultLineageLastDaysFilter,
                         /* End SaaS Only */
-                        this.s3Util != null))
+                        this.s3Util != null,
+                        this.semanticSearchConfiguration))
                 .dataFetcher(
                     "latestProductUpdate",
                     new ProductUpdateResolver(

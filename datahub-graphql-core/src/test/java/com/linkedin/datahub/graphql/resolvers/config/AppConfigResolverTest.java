@@ -14,6 +14,9 @@ import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
 import com.linkedin.datahub.graphql.generated.SearchBarAPI;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.GoogleAnalyticsConfiguration;
 import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
@@ -24,7 +27,11 @@ import com.linkedin.settings.global.ApplicationsSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -58,6 +65,7 @@ public class AppConfigResolverTest {
   @Mock private DataFetchingEnvironment mockDataFetchingEnvironment;
   @Mock private GlobalSettingsInfo mockGlobalSettingsInfo;
   @Mock private ControlPlaneService mockControlPlaneService;
+  @Mock private SemanticSearchConfiguration mockSemanticSearchConfiguration;
 
   private AppConfigResolver resolver;
   private QueryContext mockContext;
@@ -142,7 +150,8 @@ public class AppConfigResolverTest {
             mockClassificationConfiguration,
             mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
-            false); // isS3Enabled
+            false, // isS3Enabled
+            mockSemanticSearchConfiguration);
   }
 
   private void setupFeatureFlags() {
@@ -251,7 +260,8 @@ public class AppConfigResolverTest {
             mockClassificationConfiguration,
             mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
-            false); // isS3Enabled
+            false, // isS3Enabled
+            mockSemanticSearchConfiguration);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -423,7 +433,8 @@ public class AppConfigResolverTest {
             mockClassificationConfiguration,
             mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
-            false); // isS3Enabled
+            false, // isS3Enabled
+            mockSemanticSearchConfiguration);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -457,7 +468,8 @@ public class AppConfigResolverTest {
             mockClassificationConfiguration,
             mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
-            false); // isS3Enabled
+            false, // isS3Enabled
+            mockSemanticSearchConfiguration);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -506,7 +518,8 @@ public class AppConfigResolverTest {
             mockClassificationConfiguration,
             mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
-            true); // isS3Enabled
+            true, // isS3Enabled
+            mockSemanticSearchConfiguration);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -542,7 +555,8 @@ public class AppConfigResolverTest {
             mockClassificationConfiguration,
             mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
-            true); // isS3Enabled
+            true, // isS3Enabled
+            mockSemanticSearchConfiguration);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -580,5 +594,181 @@ public class AppConfigResolverTest {
     assertNotNull(result.getTrialConfig());
     assertTrue(result.getTrialConfig().getTrialEnabled());
     assertEquals(result.getTrialConfig().getDaysLeft(), Integer.valueOf(5));
+  }
+
+  @Test
+  public void testSemanticSearchConfigPopulated() throws Exception {
+    // Setup semantic search configuration
+    Set<String> enabledEntities = new HashSet<>();
+    enabledEntities.add("document");
+    enabledEntities.add("chart");
+
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("aws-bedrock");
+    embeddingProvider.setModelId("cohere.embed-english-v3");
+    embeddingProvider.setAwsRegion("us-west-2");
+
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(1024);
+
+    Map<String, ModelEmbeddingConfig> models = new HashMap<>();
+    models.put("cohere_embed_v3", modelConfig);
+
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(enabledEntities);
+    semanticSearchConfig.setModels(models);
+    semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            mockClassificationConfiguration,
+            mockControlPlaneService,
+            null,
+            false,
+            semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertTrue(result.getSemanticSearchConfig().getEnabled());
+    assertNotNull(result.getSemanticSearchConfig().getEnabledEntities());
+    assertEquals(result.getSemanticSearchConfig().getEnabledEntities().size(), 2);
+    assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("document"));
+    assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("chart"));
+
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "aws-bedrock");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelId(),
+        "cohere.embed-english-v3");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(),
+        "cohere_embed_v3");
+    assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig().getAwsProviderConfig());
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getAwsProviderConfig().getRegion(),
+        "us-west-2");
+  }
+
+  @Test
+  public void testSemanticSearchConfigNull() throws Exception {
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            mockClassificationConfiguration,
+            mockControlPlaneService,
+            null,
+            false,
+            null);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testSemanticSearchConfigModelEmbeddingKeyDerivation() throws Exception {
+    // Test a few key model ID to model embedding key mappings
+    String[][] testCases = {
+      {"cohere.embed-english-v3", "cohere_embed_v3"},
+      {"cohere.embed-multilingual-v3", "cohere_embed_multilingual_v3"}
+    };
+
+    for (String[] testCase : testCases) {
+      String modelId = testCase[0];
+      String expectedModelEmbeddingKey = testCase[1];
+
+      Set<String> enabledEntities = new HashSet<>();
+      enabledEntities.add("document");
+
+      EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+      embeddingProvider.setType("aws-bedrock");
+      embeddingProvider.setModelId(modelId);
+      embeddingProvider.setAwsRegion("us-west-2");
+
+      ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+      modelConfig.setVectorDimension(1024);
+
+      Map<String, ModelEmbeddingConfig> models = new HashMap<>();
+      models.put(expectedModelEmbeddingKey, modelConfig);
+
+      SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+      semanticSearchConfig.setEnabled(true);
+      semanticSearchConfig.setEnabledEntities(enabledEntities);
+      semanticSearchConfig.setModels(models);
+      semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+      resolver =
+          new AppConfigResolver(
+              mockGitVersion,
+              true,
+              mockIngestionConfiguration,
+              mockAuthenticationConfiguration,
+              mockAuthorizationConfiguration,
+              true,
+              mockVisualConfiguration,
+              mockTelemetryConfiguration,
+              mockTestsConfiguration,
+              mockDatahubConfiguration,
+              mockViewsConfiguration,
+              mockSearchBarConfiguration,
+              mockSearchCardConfiguration,
+              mockSearchFlagsConfiguration,
+              mockHomePageConfiguration,
+              mockFeatureFlags,
+              mockChromeExtensionConfiguration,
+              mockSettingsService,
+              mockClassificationConfiguration,
+              mockControlPlaneService,
+              null,
+              false,
+              semanticSearchConfig);
+
+      AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+      assertNotNull(result.getSemanticSearchConfig());
+      assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+      assertEquals(
+          result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(),
+          expectedModelEmbeddingKey,
+          "Model embedding key derivation failed for model ID: " + modelId);
+    }
   }
 }

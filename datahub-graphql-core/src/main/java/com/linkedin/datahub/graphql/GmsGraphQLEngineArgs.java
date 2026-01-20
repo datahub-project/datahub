@@ -127,6 +127,7 @@ public class GmsGraphQLEngineArgs {
   String baseUrl;
   S3Util s3Util;
   SemanticSearchService semanticSearchService;
+  com.linkedin.metadata.config.search.SemanticSearchConfiguration semanticSearchConfiguration;
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;
   ControlPlaneService controlPlaneService;
