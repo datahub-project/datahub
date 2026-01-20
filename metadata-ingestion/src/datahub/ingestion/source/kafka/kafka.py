@@ -815,6 +815,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         )
         batch_size = self.source_config.profiling.batch_size
         total_needed = self.source_config.profiling.sample_size
+        samples_attempted = 0
+        samples_failed = 0
 
         # Process messages in larger batches for better performance
         while len(samples) < total_needed and datetime.now() < end_time:
@@ -836,11 +838,24 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     continue
 
-                self._process_message_to_sample(msg, samples, topic, schema_metadata)
+                before_count = len(samples)
+                samples_attempted += 1
+                self._process_message_to_sample(
+                    msg, samples, topic, schema_metadata
+                )
+                if len(samples) == before_count:
+                    samples_failed += 1
 
                 # Early exit if we have enough samples
                 if len(samples) >= total_needed:
                     break
+
+        # Log sample processing stats
+        if samples_failed > 0:
+            failure_rate = samples_failed / samples_attempted if samples_attempted > 0 else 0.0
+            logger.info(
+                f"Sample processing: {len(samples)}/{samples_attempted} succeeded ({failure_rate:.1%} failed)"
+            )
 
     def _process_message_to_sample(
         self,
@@ -849,7 +864,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
     ) -> None:
-        """Optimized message processing with pre-cached schema metadata."""
         try:
             key = msg.key() if callable(msg.key) else msg.key
             value = msg.value() if callable(msg.value) else msg.value
@@ -898,7 +912,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             KeyError,
             AttributeError,
         ) as e:
-            # Catch expected data format errors, let critical errors propagate
             self.report.report_warning(
                 "profiling", f"Failed to process message: {str(e)}"
             )
