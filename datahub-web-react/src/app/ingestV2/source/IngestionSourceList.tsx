@@ -8,6 +8,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { CLI_EXECUTOR_ID, DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
@@ -145,6 +146,8 @@ export const IngestionSourceList = ({
 }: Props) => {
     const location = useLocation();
 
+    const { createdOrUpdatedSource, shouldRunCreatedOrUpdatedSource } = useIngestionContext();
+
     // Query inputs after redirect to restore initial state of query and sorting
     const redirectQueryInputs = useMemo(() => location.state?.sourcesListQueryInputs, [location.state]);
 
@@ -157,15 +160,7 @@ export const IngestionSourceList = ({
 
     const history = useHistory();
 
-    const createdOrUpdatedSourceUrnFromLocation = useMemo(
-        () => location.state?.createdOrUpdatedSourceUrn,
-        [location.state],
-    );
-    const shouldRunCreatedOrUpdatedSourceFromLocation = useMemo(() => location.state?.shouldRun, [location.state]);
-    const hasCreatedOrUpdatedSourceFromLocation = useMemo(
-        () => !!createdOrUpdatedSourceUrnFromLocation,
-        [createdOrUpdatedSourceUrnFromLocation],
-    );
+    const hasCreatedOrUpdatedSource = useMemo(() => !!createdOrUpdatedSource, [createdOrUpdatedSource]);
 
     // Initialize search input from URL parameter
     useEffect(() => {
@@ -259,7 +254,7 @@ export const IngestionSourceList = ({
             input: queryInputs,
         },
         // As a created or updated source via separated page was passed to apollo cache we use cache-first to show it
-        fetchPolicy: hasCreatedOrUpdatedSourceFromLocation ? 'cache-first' : 'cache-and-network',
+        fetchPolicy: hasCreatedOrUpdatedSource ? 'cache-first' : 'cache-and-network',
         nextFetchPolicy: 'cache-first',
     });
 
@@ -470,26 +465,21 @@ export const IngestionSourceList = ({
     };
 
     // Handle executing or refetching of a created or updated source via the separated page
-    const [isCreatedOrUpdatedSourceFromLocationHandled, setIsCreatedOrUpdatedSourceFromLocationHandled] =
-        useState<boolean>(false);
+    const [isCreatedOrUpdatedSourceHandled, setIsCreatedOrUpdatedSourceHandled] = useState<boolean>(false);
     useEffect(() => {
-        if (createdOrUpdatedSourceUrnFromLocation && !isCreatedOrUpdatedSourceFromLocationHandled) {
-            setIsCreatedOrUpdatedSourceFromLocationHandled(true);
-            if (shouldRunCreatedOrUpdatedSourceFromLocation) {
-                executeIngestionSource(createdOrUpdatedSourceUrnFromLocation);
+        if (createdOrUpdatedSource && !isCreatedOrUpdatedSourceHandled) {
+            setIsCreatedOrUpdatedSourceHandled(true);
+            if (shouldRunCreatedOrUpdatedSource) {
+                executeIngestionSource(createdOrUpdatedSource);
             } else {
-                setSourcesToRefetch((prev) => new Set([...prev, createdOrUpdatedSourceUrnFromLocation]));
+                setSourcesToRefetch((prev) => new Set([...prev, createdOrUpdatedSource]));
             }
-            // clear browser state vars for shouldRun to prevent duplicate runs
-            history.replace(history.location.pathname, { ...location.state, shouldRun: undefined });
         }
     }, [
-        isCreatedOrUpdatedSourceFromLocationHandled,
-        createdOrUpdatedSourceUrnFromLocation,
-        shouldRunCreatedOrUpdatedSourceFromLocation,
         executeIngestionSource,
-        history,
-        location,
+        isCreatedOrUpdatedSourceHandled,
+        createdOrUpdatedSource,
+        shouldRunCreatedOrUpdatedSource,
     ]);
 
     const onChangePage = (newPage: number) => {
