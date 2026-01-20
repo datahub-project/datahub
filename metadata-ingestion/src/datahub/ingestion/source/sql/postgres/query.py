@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Dict, Optional, Union
 
 
 class PostgresQuery:
@@ -19,7 +19,7 @@ class PostgresQuery:
     @staticmethod
     def _build_pg_stat_filter(
         database: Optional[str],
-        params: dict[str, str | int],
+        params: Dict[str, Union[str, int]],
         additional_filters: Optional[list[str]] = None,
     ) -> str:
         """Build WHERE clause for pg_stat_statements queries with database filter."""
@@ -69,7 +69,7 @@ class PostgresQuery:
         limit: int = 1000,
         min_calls: int = 1,
         exclude_patterns: Optional[list[str]] = None,
-    ) -> tuple[str, dict[str, str | int]]:
+    ) -> tuple[str, Dict[str, Union[str, int]]]:
         """
         Extract query history from pg_stat_statements.
 
@@ -89,7 +89,7 @@ class PostgresQuery:
             "s.calls >= :min_calls",
         ]
 
-        params: dict[str, str | int] = {"min_calls": min_calls, "limit": limit}
+        params: Dict[str, Union[str, int]] = {"min_calls": min_calls, "limit": limit}
 
         default_exclusions = [
             "pg_stat_statements",
@@ -144,7 +144,7 @@ class PostgresQuery:
         query_type: str = "INSERT",
         database: Optional[str] = None,
         limit: int = 500,
-    ) -> tuple[str, dict[str, str | int]]:
+    ) -> tuple[str, Dict[str, Union[str, int]]]:
         """
         Extract queries of specific type (INSERT, UPDATE, DELETE, etc.).
 
@@ -160,7 +160,7 @@ class PostgresQuery:
             )
         safe_query_type = query_type.upper()
 
-        params: dict[str, str | int] = {
+        params: Dict[str, Union[str, int]] = {
             "query_type_pattern": f"{safe_query_type}%",
             "limit": limit,
         }
@@ -192,12 +192,12 @@ class PostgresQuery:
         return query, params
 
     @staticmethod
-    def get_top_tables_by_query_count(limit: int = 100) -> tuple[str, dict[str, int]]:
+    def get_top_tables_by_query_count(limit: int = 100) -> tuple[str, Dict[str, int]]:
         """Get most frequently queried tables using heuristic pattern matching."""
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
 
-        params: dict[str, int] = {"limit": limit}
+        params: Dict[str, int] = {"limit": limit}
 
         query = """
         WITH table_refs AS (
