@@ -206,6 +206,15 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         ),
     )
 
+    include_usage_statistics: bool = Field(
+        default=False,
+        description=(
+            "Generate usage statistics from query history. Requires include_query_lineage to be enabled. "
+            "Collects metrics like unique user counts, query frequencies, and column access patterns. "
+            "Statistics appear in DataHub UI under the Dataset Profile > Usage tab."
+        ),
+    )
+
     @field_validator("max_queries_to_extract")
     @classmethod
     def validate_max_queries_to_extract(cls, value: int) -> int:

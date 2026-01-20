@@ -1,3 +1,7 @@
-from datahub.ingestion.source.sql.postgres.source import PostgresConfig, PostgresSource
+from datahub.ingestion.source.sql.postgres.source import (
+    PostgresAuthMode,
+    PostgresConfig,
+    PostgresSource,
+)
 
-__all__ = ["PostgresConfig", "PostgresSource"]
+__all__ = ["PostgresAuthMode", "PostgresConfig", "PostgresSource"]

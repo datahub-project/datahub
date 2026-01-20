@@ -10,9 +10,9 @@ class PostgresQuery:
         """Validate identifier contains only safe characters to prevent SQL injection."""
         if not identifier:
             raise ValueError("Identifier cannot be empty")
-        if not re.match(r"^[a-zA-Z0-9_\-]+$", identifier):
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", identifier):
             raise ValueError(
-                f"Invalid identifier '{identifier}': must contain only alphanumeric characters, underscores, and hyphens"
+                f"Invalid identifier '{identifier}': must contain only alphanumeric characters and underscores, starting with letter or underscore"
             )
         return identifier
 
@@ -99,14 +99,19 @@ class PostgresQuery:
             "SET ",
         ]
 
+        pattern_index = 0
+        for pattern in default_exclusions:
+            param_name = f"exclude_pattern_{pattern_index}"
+            params[param_name] = f"%{pattern}%"
+            filters.append(f"s.query NOT ILIKE :{param_name}")
+            pattern_index += 1
+
         if exclude_patterns:
-            for i, pattern in enumerate(exclude_patterns):
-                param_name = f"exclude_pattern_{i}"
+            for pattern in exclude_patterns:
+                param_name = f"exclude_pattern_{pattern_index}"
                 params[param_name] = f"%{pattern}%"
                 filters.append(f"s.query NOT ILIKE :{param_name}")
-
-        for pattern in default_exclusions:
-            filters.append(f"s.query NOT ILIKE '%{pattern}%'")
+                pattern_index += 1
 
         where_clause = PostgresQuery._build_pg_stat_filter(database, params, filters)
 
@@ -187,12 +192,14 @@ class PostgresQuery:
         return query, params
 
     @staticmethod
-    def get_top_tables_by_query_count(limit: int = 100) -> str:
+    def get_top_tables_by_query_count(limit: int = 100) -> tuple[str, dict[str, int]]:
         """Get most frequently queried tables using heuristic pattern matching."""
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
 
-        return f"""
+        params: dict[str, int] = {"limit": limit}
+
+        query = """
         WITH table_refs AS (
             SELECT
                 query,
@@ -213,5 +220,7 @@ class PostgresQuery:
         WHERE table_match[2] IS NOT NULL
         GROUP BY table_match[2]
         ORDER BY total_calls DESC
-        LIMIT {limit}
+        LIMIT :limit
         """
+
+        return query, params

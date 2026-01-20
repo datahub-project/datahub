@@ -47,8 +47,15 @@ source:
     #   - "%temp_%"
 
     # Usage Statistics (optional, requires include_query_lineage: true)
+    # Generates dataset usage metrics from query history:
+    #   - Unique user counts per table
+    #   - Query frequencies and top N most common queries
+    #   - Column-level access patterns
+    # Results appear in DataHub UI: Dataset Profile > Usage tab
     # include_usage_statistics: true
-    # top_n_queries: 20
+    # top_n_queries: 20  # Number of top queries to save per table
+    # bucket_duration: DAY  # Time window for aggregating usage (HOUR, DAY, WEEK)
+    # format_sql_queries: false  # Whether to format SQL queries for readability
 
 sink:
   # sink configs

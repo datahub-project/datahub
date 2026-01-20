@@ -8,7 +8,7 @@ class TestPostgresQuerySanitization:
         assert PostgresQuery._sanitize_identifier("mydb") == "mydb"
         assert PostgresQuery._sanitize_identifier("my_database") == "my_database"
         assert PostgresQuery._sanitize_identifier("db123") == "db123"
-        assert PostgresQuery._sanitize_identifier("my-db") == "my-db"
+        assert PostgresQuery._sanitize_identifier("_private") == "_private"
 
     def test_sanitize_identifier_empty_raises(self):
         with pytest.raises(ValueError, match="Identifier cannot be empty"):
@@ -30,6 +30,14 @@ class TestPostgresQuerySanitization:
         # Special characters
         with pytest.raises(ValueError, match="Invalid identifier"):
             PostgresQuery._sanitize_identifier("db@#$%")
+
+        # Hyphen not allowed (SQL standard)
+        with pytest.raises(ValueError, match="Invalid identifier"):
+            PostgresQuery._sanitize_identifier("my-db")
+
+        # Cannot start with digit
+        with pytest.raises(ValueError, match="Invalid identifier"):
+            PostgresQuery._sanitize_identifier("123_table")
 
 
 class TestGetQueryHistory:
@@ -54,21 +62,24 @@ class TestGetQueryHistory:
         query, params = PostgresQuery.get_query_history(
             exclude_patterns=["temp_table", "staging_%"]
         )
-        # User patterns should be parameterized
-        assert "s.query NOT ILIKE :exclude_pattern_0" in query
-        assert "s.query NOT ILIKE :exclude_pattern_1" in query
-        assert params["exclude_pattern_0"] == "%temp_table%"
-        assert params["exclude_pattern_1"] == "%staging_%%"
+        # Default exclusions are parameterized (0-4), user patterns start at 5
+        assert "s.query NOT ILIKE :exclude_pattern_5" in query
+        assert "s.query NOT ILIKE :exclude_pattern_6" in query
+        assert params["exclude_pattern_5"] == "%temp_table%"
+        assert params["exclude_pattern_6"] == "%staging_%%"
+        # Verify default exclusions are also parameterized
+        assert "exclude_pattern_0" in params
+        assert "exclude_pattern_1" in params
 
     def test_get_query_history_exclude_patterns_injection_prevented(self):
         # Malicious pattern attempting SQL injection
         query, params = PostgresQuery.get_query_history(
             exclude_patterns=["'; DROP TABLE users; --"]
         )
-        # Pattern should be safely parameterized
-        assert "s.query NOT ILIKE :exclude_pattern_0" in query
+        # Pattern should be safely parameterized (after default exclusions 0-4)
+        assert "s.query NOT ILIKE :exclude_pattern_5" in query
         # The malicious content is in the parameters, not in the SQL query itself
-        assert params["exclude_pattern_0"] == "%'; DROP TABLE users; --%"
+        assert params["exclude_pattern_5"] == "%'; DROP TABLE users; --%"
         # The actual query should NOT contain the malicious SQL
         assert "DROP TABLE users" not in query
 
@@ -135,13 +146,15 @@ class TestGetQueriesByType:
 
 class TestGetTopTablesByQueryCount:
     def test_get_top_tables_basic(self):
-        query = PostgresQuery.get_top_tables_by_query_count()
+        query, params = PostgresQuery.get_top_tables_by_query_count()
         assert "FROM pg_stat_statements" in query
-        assert "LIMIT 100" in query
+        assert "LIMIT :limit" in query
+        assert params["limit"] == 100
 
     def test_get_top_tables_custom_limit(self):
-        query = PostgresQuery.get_top_tables_by_query_count(limit=50)
-        assert "LIMIT 50" in query
+        query, params = PostgresQuery.get_top_tables_by_query_count(limit=50)
+        assert "LIMIT :limit" in query
+        assert params["limit"] == 50
 
     def test_get_top_tables_limit_validation(self):
         with pytest.raises(ValueError, match="limit must be a positive integer"):
