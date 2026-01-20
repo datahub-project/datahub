@@ -231,3 +231,22 @@ class TestSchemaResolutionFallbackConfig:
         assert config.schema_resolution.enabled is True
         assert config.schema_resolution.sample_timeout_seconds == 3.0
         assert config.schema_resolution.sample_strategy == "earliest"
+
+    def test_profiler_config_default_profiling_values(self):
+        """Test that profiling config has sensible defaults."""
+        config = KafkaSourceConfig.parse_obj(
+            {
+                "connection": {"bootstrap": "localhost:9092"},
+                "profiling": {
+                    "enabled": True,
+                },
+            }
+        )
+
+        # Check default profiling config values
+        profiling = config.profiling
+
+        assert profiling.enabled is True
+        assert profiling.sample_size > 0
+        assert profiling.sampling_strategy in ["latest", "random", "stratified", "full"]
+        assert profiling.max_workers >= 1

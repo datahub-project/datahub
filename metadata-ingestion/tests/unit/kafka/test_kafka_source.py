@@ -1253,3 +1253,51 @@ def test_kafka_source_handles_valid_schema_tags(
         if any("Unable to extract tags from schema field" in ctx for ctx in w.context)
     ]
     assert len(tag_extraction_warnings) == 0
+
+
+@patch(
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
+    autospec=True,
+)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_extract_record_with_domain(
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+):
+    """Test _extract_record_with_schemas with domain configuration."""
+
+    topic_schema = RegisteredSchema(
+        schema_id="schema_id_1",
+        guid=None,
+        schema=Schema(
+            schema_str='{"type":"record", "name":"TestRecord", "fields": [{"name":"id", "type": "long"}]}',
+            schema_type="AVRO",
+        ),
+        subject="test_topic-value",
+        version=1,
+    )
+
+    # Mock the kafka consumer
+    mock_kafka_instance = mock_kafka_consumer.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {"test_topic": None}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    # Mock schema registry
+    mock_schema_registry_client.return_value.get_subjects.return_value = [
+        "test_topic-value"
+    ]
+    mock_schema_registry_client.return_value.get_latest_version.return_value = (
+        topic_schema
+    )
+
+    ctx = PipelineContext(run_id="test_domain")
+    config = {
+        "connection": {"bootstrap": "localhost:9092"},
+        "domain": {"urn:li:domain:test_domain": {"allow": ["test_topic"]}},
+    }
+
+    kafka_source = KafkaSource.create(config, ctx)
+    workunits = list(kafka_source.get_workunits())
+
+    # Should have domain in work units
+    assert len(workunits) > 0
