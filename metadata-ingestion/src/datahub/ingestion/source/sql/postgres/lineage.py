@@ -6,7 +6,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.source.sql.postgres.query import PostgresQuery
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlUnderstandingError,
     UnsupportedStatementTypeError,
@@ -126,8 +130,8 @@ class PostgresLineageExtractor:
                 message,
             )
             self.report.report_failure(
-                key="pg_stat_statements_not_ready",
-                reason=message,
+                message=message,
+                context="pg_stat_statements_not_ready",
             )
             return []
 
@@ -172,8 +176,8 @@ class PostgresLineageExtractor:
                 # Expected database errors: connection issues, permission denied, invalid SQL, etc.
                 logger.error("Failed to extract query history: %s", e)
                 self.report.report_failure(
-                    key="query_history_extraction_failed",
-                    reason=str(e),
+                    message=str(e),
+                    context="query_history_extraction_failed",
                 )
                 return []
 
@@ -197,16 +201,18 @@ class PostgresLineageExtractor:
             for query_entry in queries:
                 try:
                     self.sql_aggregator.add_observed_query(
-                        query=query_entry.query_text,
-                        default_db=query_entry.database_name,
-                        default_schema=self.default_schema,
-                        query_timestamp=None,
-                        user=(
-                            f"urn:li:corpuser:{query_entry.user_name}"
-                            if query_entry.user_name
-                            else None
-                        ),
-                        session_id=f"queryid:{query_entry.query_id}",
+                        ObservedQuery(
+                            query=query_entry.query_text,
+                            default_db=query_entry.database_name,
+                            default_schema=self.default_schema,
+                            timestamp=None,
+                            user=(
+                                CorpUserUrn(query_entry.user_name)
+                                if query_entry.user_name
+                                else None
+                            ),
+                            session_id=f"queryid:{query_entry.query_id}",
+                        )
                     )
 
                     self.queries_parsed += 1

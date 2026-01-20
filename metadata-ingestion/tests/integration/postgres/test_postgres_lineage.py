@@ -59,18 +59,15 @@ def postgres_connection(postgres_runner):
     )
 
     with engine.connect() as conn:
-        # Enable pg_stat_statements extension
         try:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_stat_statements"))
             conn.execute(text("SELECT pg_stat_statements_reset()"))
         except Exception as e:
             pytest.skip(f"Failed to enable pg_stat_statements: {e}")
 
-        # Create test schema and tables
         conn.execute(text("DROP SCHEMA IF EXISTS lineage_test CASCADE"))
         conn.execute(text("CREATE SCHEMA lineage_test"))
 
-        # Source tables
         conn.execute(
             text(
                 """
@@ -96,7 +93,6 @@ def postgres_connection(postgres_runner):
             )
         )
 
-        # Insert sample data
         conn.execute(
             text(
                 """
@@ -120,7 +116,6 @@ def postgres_connection(postgres_runner):
 
         yield conn
 
-        # Cleanup
         conn.execute(text("DROP SCHEMA IF EXISTS lineage_test CASCADE"))
 
 
@@ -139,7 +134,6 @@ class TestPostgresLineageIntegration:
 
     def test_query_history_extraction_basic(self, postgres_connection):
         """Test basic query history extraction from pg_stat_statements."""
-        # Execute some queries to populate pg_stat_statements
         postgres_connection.execute(
             text("SELECT * FROM lineage_test.source_orders WHERE order_id = 1")
         )
@@ -147,17 +141,14 @@ class TestPostgresLineageIntegration:
             text("SELECT * FROM lineage_test.source_customers WHERE customer_id = 101")
         )
 
-        # Small delay to ensure queries are recorded
         time.sleep(0.5)
 
-        # Extract query history
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
         result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
         assert len(queries) > 0, "Should extract at least some queries"
 
-        # Verify query structure
         for row in queries:
             assert "query_id" in row
             assert "query_text" in row
@@ -166,10 +157,8 @@ class TestPostgresLineageIntegration:
 
     def test_lineage_from_insert_select(self, postgres_connection):
         """Test lineage extraction from INSERT...SELECT queries."""
-        # Reset stats to get clean data
         postgres_connection.execute(text("SELECT pg_stat_statements_reset()"))
 
-        # Create target table and perform INSERT...SELECT
         postgres_connection.execute(
             text(
                 """
@@ -186,16 +175,13 @@ class TestPostgresLineageIntegration:
             )
         )
 
-        # Small delay
         time.sleep(0.5)
 
-        # Extract queries
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
         result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
 
-        # Find our CTAS query
         ctas_queries = [
             q
             for q in queries
@@ -205,27 +191,23 @@ class TestPostgresLineageIntegration:
 
         assert len(ctas_queries) > 0, "Should find CREATE TABLE AS query"
 
-        # Verify query references source tables
         ctas_query_text = ctas_queries[0]["query_text"]
         assert "source_customers" in ctas_query_text
         assert "source_orders" in ctas_query_text
 
     def test_query_exclude_patterns(self, postgres_connection):
         """Test that exclude patterns filter out system queries."""
-        # Execute a mix of user and system queries
         postgres_connection.execute(text("SELECT * FROM lineage_test.source_orders"))
         postgres_connection.execute(text("SELECT version()"))
         postgres_connection.execute(text("SHOW server_version"))
 
         time.sleep(0.5)
 
-        # Extract with default exclusions (should filter out SHOW, system queries)
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
         result = postgres_connection.execute(text(query), params)
 
         queries = [q["query_text"] for q in result]
 
-        # System queries should be filtered out
         show_queries = [q for q in queries if q.upper().startswith("SHOW")]
         assert len(show_queries) == 0, (
             "SHOW queries should be filtered by default exclusions"
@@ -233,24 +215,19 @@ class TestPostgresLineageIntegration:
 
     def test_sql_injection_prevention_database_filter(self, postgres_connection):
         """Test that SQL injection in database parameter is prevented."""
-        # This should raise ValueError, not cause SQL injection
         with pytest.raises(ValueError, match="Invalid identifier"):
             PostgresQuery.get_query_history(database="postgres'; DROP TABLE users; --")
 
     def test_sql_injection_prevention_exclude_patterns(self, postgres_connection):
         """Test that SQL injection in exclude patterns is safely parameterized."""
-        # Malicious pattern should be safely parameterized
         malicious_pattern = "'; DROP TABLE lineage_test.source_orders; --"
 
         query, params = PostgresQuery.get_query_history(
             exclude_patterns=[malicious_pattern]
         )
 
-        # Execute the query - should not cause SQL injection
         result = postgres_connection.execute(text(query), params)
-        list(result)  # Consume results
-
-        # Verify table still exists (wasn't dropped by injection)
+        list(result)
         check_result = postgres_connection.execute(
             text(
                 """
@@ -273,7 +250,6 @@ class TestPostgresLineageIntegration:
             database="postgres",
         )
 
-        # Mock report and aggregator
         report = type("Report", (), {"report_warning": lambda *args, **kwargs: None})()
         aggregator = SqlParsingAggregator(
             platform="postgres", generate_lineage=True, generate_queries=True
@@ -282,11 +258,10 @@ class TestPostgresLineageIntegration:
         extractor = PostgresLineageExtractor(
             config=config,
             connection=postgres_connection,
-            report=report,
+            report=report,  # type: ignore[arg-type]
             sql_aggregator=aggregator,
         )
 
-        # Check prerequisites
         is_ready, message = extractor.check_prerequisites()
 
         assert is_ready is True, f"Prerequisites should be met: {message}"
@@ -306,7 +281,6 @@ class TestPostgresLineageIntegration:
         assert entry.query_id == "12345"
         assert entry.avg_exec_time_ms == 100.0  # 5000/50
 
-        # Test with zero executions
         entry_zero = PostgresQueryEntry(
             query_id="67890",
             query_text="SELECT 1",
@@ -319,33 +293,27 @@ class TestPostgresLineageIntegration:
 
     def test_query_history_with_min_calls_filter(self, postgres_connection):
         """Test that min_calls filter works correctly."""
-        # Reset and execute queries with different frequencies
         postgres_connection.execute(text("SELECT pg_stat_statements_reset()"))
 
-        # Execute one query multiple times
         for _ in range(5):
             postgres_connection.execute(
                 text("SELECT * FROM lineage_test.source_orders")
             )
 
-        # Execute another query once
         postgres_connection.execute(text("SELECT * FROM lineage_test.source_customers"))
 
         time.sleep(0.5)
 
-        # Query with min_calls=3 should only return frequently executed queries
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=3)
         result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
 
-        # All returned queries should have execution_count >= 3
         for q in queries:
             assert q["execution_count"] >= 3
 
     def test_queries_by_type_filter(self, postgres_connection):
         """Test filtering queries by SQL command type."""
-        # Reset and execute different types of queries
         postgres_connection.execute(text("SELECT pg_stat_statements_reset()"))
 
         postgres_connection.execute(
@@ -362,7 +330,6 @@ class TestPostgresLineageIntegration:
 
         time.sleep(0.5)
 
-        # Query for INSERT statements only
         query, params = PostgresQuery.get_queries_by_type(
             query_type="INSERT", limit=100
         )
@@ -370,14 +337,11 @@ class TestPostgresLineageIntegration:
 
         queries = list(result)
 
-        # All returned queries should be INSERT statements
         for q in queries:
             assert q["query_text"].upper().startswith("INSERT")
 
     def test_extension_not_installed_scenario(self, postgres_connection):
         """Test behavior when pg_stat_statements extension is not installed."""
-        # Create a separate connection without the extension
-        # This simulates the most common failure scenario
         config = PostgresConfig(
             username="postgres",
             password="example",
@@ -385,20 +349,18 @@ class TestPostgresLineageIntegration:
             database="postgres",
         )
 
-        # Mock a report that tracks failures
         class MockReport:
             def __init__(self):
                 self.failures = []
 
-            def report_failure(self, key, reason):
-                self.failures.append({"key": key, "reason": reason})
+            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+                self.failures.append({"message": message, "context": context})
 
         report = MockReport()
         aggregator = SqlParsingAggregator(
             platform="postgres", generate_lineage=True, generate_queries=True
         )
 
-        # Create a mock connection that simulates extension not installed
         from unittest.mock import MagicMock
 
         mock_conn = MagicMock()
@@ -409,11 +371,10 @@ class TestPostgresLineageIntegration:
         extractor = PostgresLineageExtractor(
             config=config,
             connection=mock_conn,
-            report=report,
+            report=report,  # type: ignore[arg-type]
             sql_aggregator=aggregator,
         )
 
-        # Check prerequisites should fail
         is_ready, message = extractor.check_prerequisites()
 
         assert is_ready is False
@@ -433,8 +394,8 @@ class TestPostgresLineageIntegration:
             def __init__(self):
                 self.failures = []
 
-            def report_failure(self, key, reason):
-                self.failures.append({"key": key, "reason": reason})
+            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+                self.failures.append({"message": message, "context": context})
 
         report = MockReport()
         aggregator = SqlParsingAggregator(
@@ -445,11 +406,9 @@ class TestPostgresLineageIntegration:
 
         mock_conn = MagicMock()
 
-        # First call: extension is installed
         mock_extension_result = MagicMock()
         mock_extension_result.fetchone.return_value = [True]
 
-        # Second call: user lacks permissions (both False)
         mock_permission_result = MagicMock()
         mock_permission_result.fetchone.return_value = [False, False]
 
@@ -458,11 +417,10 @@ class TestPostgresLineageIntegration:
         extractor = PostgresLineageExtractor(
             config=config,
             connection=mock_conn,
-            report=report,
+            report=report,  # type: ignore[arg-type]
             sql_aggregator=aggregator,
         )
 
-        # Check prerequisites should fail with permission error
         is_ready, message = extractor.check_prerequisites()
 
         assert is_ready is False
@@ -484,8 +442,8 @@ class TestPostgresLineageIntegration:
                 self.failures = []
                 self.num_queries_extracted = 0
 
-            def report_failure(self, key, reason):
-                self.failures.append({"key": key, "reason": reason})
+            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+                self.failures.append({"message": message, "context": context})
 
         report = MockReport()
         aggregator = SqlParsingAggregator(
@@ -498,13 +456,11 @@ class TestPostgresLineageIntegration:
 
         mock_conn = MagicMock()
 
-        # Prerequisites pass
         mock_extension_result = MagicMock()
         mock_extension_result.fetchone.return_value = [True]
         mock_permission_result = MagicMock()
         mock_permission_result.fetchone.return_value = [True, False]
 
-        # Connection fails during query execution
         mock_conn.execute.side_effect = [
             mock_extension_result,
             mock_permission_result,
@@ -514,11 +470,10 @@ class TestPostgresLineageIntegration:
         extractor = PostgresLineageExtractor(
             config=config,
             connection=mock_conn,
-            report=report,
+            report=report,  # type: ignore[arg-type]
             sql_aggregator=aggregator,
         )
 
-        # Extract should handle error gracefully
         queries = extractor.extract_query_history()
 
         assert len(queries) == 0
@@ -529,7 +484,6 @@ class TestPostgresLineageIntegration:
 
     def test_malformed_query_text_handling(self, postgres_connection):
         """Test handling of queries with unusual or malformed text."""
-        # Insert a query with special characters, unicode, SQL keywords
         malformed_queries = [
             "SELECT * FROM table WHERE name = 'O''Brien'",  # Escaped quotes
             "SELECT * FROM users WHERE comment LIKE '%—unicode—%'",  # Unicode dash
@@ -545,16 +499,148 @@ class TestPostgresLineageIntegration:
 
         time.sleep(0.5)
 
-        # Extract queries - should not crash on malformed text
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
         result = postgres_connection.execute(text(query), params)
 
         queries = list(result)
 
-        # Should successfully extract queries without crashing
-        # Each query should have required fields
         for q in queries:
             assert "query_text" in q
             assert isinstance(q["query_text"], str)
             assert "query_id" in q
             assert "execution_count" in q
+
+    def test_usage_statistics_flag_enabled(self, postgres_connection):
+        """Test that include_usage_statistics flag generates usage statistics."""
+        postgres_connection.execute(text("SELECT pg_stat_statements_reset()"))
+
+        for _ in range(10):
+            postgres_connection.execute(
+                text("SELECT * FROM lineage_test.source_orders")
+            )
+
+        for _ in range(5):
+            postgres_connection.execute(
+                text("SELECT * FROM lineage_test.source_customers")
+            )
+
+        time.sleep(0.5)
+
+        config = PostgresConfig(
+            username="postgres",
+            password="example",
+            host_port="localhost:5432",
+            database="postgres",
+            include_query_lineage=True,
+            include_usage_statistics=True,
+        )
+
+        class MockReport:
+            def __init__(self):
+                self.failures = []
+                self.num_queries_extracted = 0
+                self.num_queries_parsed = 0
+                self.num_queries_parse_failures = 0
+
+            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+                self.failures.append({"message": message, "context": context})
+
+        report = MockReport()
+
+        aggregator = SqlParsingAggregator(
+            platform="postgres",
+            generate_lineage=True,
+            generate_queries=True,
+            generate_usage_statistics=True,
+        )
+
+        extractor = PostgresLineageExtractor(
+            config=config,
+            connection=postgres_connection,
+            report=report,  # type: ignore[arg-type]
+            sql_aggregator=aggregator,
+        )
+
+        queries = extractor.extract_query_history()
+        assert len(queries) > 0, "Should extract queries"
+
+        extractor.populate_lineage_from_queries(discovered_tables=set())
+
+        mcps = list(aggregator.gen_metadata())
+
+        assert len(mcps) > 0, "Should generate metadata change proposals"
+
+        dataset_usage_aspects = [
+            mcp
+            for mcp in mcps
+            if hasattr(mcp, "aspect")
+            and mcp.aspect.__class__.__name__ == "DatasetUsageStatistics"
+        ]
+
+        assert len(dataset_usage_aspects) > 0, (
+            "Should generate DatasetUsageStatistics aspects when include_usage_statistics=True"
+        )
+
+    def test_usage_statistics_flag_disabled(self, postgres_connection):
+        """Test that usage statistics are not generated when flag is disabled."""
+        postgres_connection.execute(text("SELECT pg_stat_statements_reset()"))
+
+        for _ in range(10):
+            postgres_connection.execute(
+                text("SELECT * FROM lineage_test.source_orders")
+            )
+
+        time.sleep(0.5)
+
+        config = PostgresConfig(
+            username="postgres",
+            password="example",
+            host_port="localhost:5432",
+            database="postgres",
+            include_query_lineage=True,
+            include_usage_statistics=False,
+        )
+
+        class MockReport:
+            def __init__(self):
+                self.failures = []
+                self.num_queries_extracted = 0
+                self.num_queries_parsed = 0
+                self.num_queries_parse_failures = 0
+
+            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+                self.failures.append({"message": message, "context": context})
+
+        report = MockReport()
+
+        aggregator = SqlParsingAggregator(
+            platform="postgres",
+            generate_lineage=True,
+            generate_queries=True,
+            generate_usage_statistics=False,
+        )
+
+        extractor = PostgresLineageExtractor(
+            config=config,
+            connection=postgres_connection,
+            report=report,  # type: ignore[arg-type]
+            sql_aggregator=aggregator,
+        )
+
+        queries = extractor.extract_query_history()
+        assert len(queries) > 0, "Should extract queries"
+
+        extractor.populate_lineage_from_queries(discovered_tables=set())
+
+        mcps = list(aggregator.gen_metadata())
+
+        dataset_usage_aspects = [
+            mcp
+            for mcp in mcps
+            if hasattr(mcp, "aspect")
+            and mcp.aspect.__class__.__name__ == "DatasetUsageStatistics"
+        ]
+
+        assert len(dataset_usage_aspects) == 0, (
+            "Should not generate DatasetUsageStatistics aspects when include_usage_statistics=False"
+        )
