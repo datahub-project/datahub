@@ -920,44 +920,23 @@ class SqlParsingAggregator(Closeable):
         self,
         items: Iterable[Union[ObservedQuery, PreparsedQuery]],
     ) -> None:
-        """
-        Add multiple queries efficiently with optional parallel processing.
-
-        CRITICAL: Input queries MUST be sorted by timestamp in ascending order.
-        This is required for:
-        - Query authoritativeness (later queries override earlier)
-        - Temp table lineage resolution across sessions
-        - Correct usage statistics aggregation
-
-        Args:
-            items: Iterable of queries to add, MUST BE SORTED BY TIMESTAMP
-
-        Performance:
-            - If max_workers=1: Sequential processing (current behavior)
-            - If max_workers>1: SQL parsing happens in parallel, results added sequentially
-            - Expected speedup: 10-20x for large query volumes
-        """
+        """Add multiple queries. Items must be sorted by timestamp."""
         items_list = list(items)
 
-        # Track batch processing metrics
         self.report.num_batch_calls += 1
         self.report.num_queries_processed_in_batch += len(items_list)
 
-        # Validate timestamp ordering
         self._validate_batch_ordering(items_list)
 
-        # Use sequential processing if max_workers=1
         if self.max_workers <= 1:
             self._process_batch_sequential(items_list)
             return
 
-        # Use parallel processing
         self._process_batch_parallel(items_list)
 
     def _validate_batch_ordering(
         self, items: List[Union[ObservedQuery, PreparsedQuery]]
     ) -> None:
-        """Validate that queries are sorted by timestamp (debug mode only)."""
         if not __debug__ or len(items) <= 1:
             return
 
@@ -970,49 +949,33 @@ class SqlParsingAggregator(Closeable):
         timestamps = [q.timestamp for q in observed_queries if q.timestamp]
         if timestamps != sorted(timestamps, key=lambda x: x or datetime.min):
             logger.warning(
-                "Queries passed to add_batch() are not sorted by timestamp. "
-                "This may cause incorrect lineage and usage statistics. "
-                "Please sort queries by timestamp before calling add_batch()."
+                "Queries not sorted by timestamp - may cause incorrect lineage"
             )
 
     def _process_batch_sequential(
         self, items: List[Union[ObservedQuery, PreparsedQuery]]
     ) -> None:
-        """Process queries sequentially (existing behavior)."""
         for item in items:
             self.add(item)
 
     def _process_batch_parallel(
         self, items: List[Union[ObservedQuery, PreparsedQuery]]
     ) -> None:
-        """Process queries in parallel, preserving timestamp order."""
-        # Separate ObservedQuery (needs parsing) from PreparsedQuery (already parsed)
         observed_queries_with_idx = [
             (i, item) for i, item in enumerate(items) if isinstance(item, ObservedQuery)
         ]
         preparsed_queries = [item for item in items if isinstance(item, PreparsedQuery)]
 
-        # Parse ObservedQuery items in parallel
         if observed_queries_with_idx:
             parsed_results = self._parse_queries_parallel(observed_queries_with_idx)
             self._add_parsed_results_in_order(parsed_results)
 
-        # Add PreparsedQuery items directly (already parsed)
         for query in preparsed_queries:
             self.add(query)
 
     def _parse_queries_parallel(
         self, queries_with_idx: List[tuple[int, ObservedQuery]]
     ) -> Dict[int, Optional[PreparsedQuery]]:
-        """
-        Parse multiple queries in parallel using ThreadPoolExecutor.
-
-        Args:
-            queries_with_idx: List of (index, query) tuples
-
-        Returns:
-            Dictionary mapping index to parsed query (or None if parsing failed)
-        """
         logger.info(
             f"Parsing {len(queries_with_idx)} queries in parallel with {self.max_workers} workers"
         )
@@ -1021,13 +984,11 @@ class SqlParsingAggregator(Closeable):
         completed = 0
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all parsing tasks
             future_to_idx = {
                 executor.submit(self._parse_observed_query_for_batch, query): idx
                 for idx, query in queries_with_idx
             }
 
-            # Collect results as they complete
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 try:
@@ -1035,7 +996,6 @@ class SqlParsingAggregator(Closeable):
                     results[idx] = result
                     completed += 1
 
-                    # Log progress periodically
                     if completed % 1000 == 0:
                         logger.info(
                             f"Parsed {completed}/{len(queries_with_idx)} queries"
@@ -1052,11 +1012,6 @@ class SqlParsingAggregator(Closeable):
     def _add_parsed_results_in_order(
         self, results: Dict[int, Optional[PreparsedQuery]]
     ) -> None:
-        """
-        Add parsed queries to aggregator in index order.
-
-        CRITICAL: This preserves timestamp ordering for correctness.
-        """
         for idx in sorted(results.keys()):
             parsed_query = results[idx]
             if parsed_query is not None:
@@ -1065,26 +1020,11 @@ class SqlParsingAggregator(Closeable):
     def _parse_observed_query_for_batch(
         self, observed: ObservedQuery
     ) -> Optional[PreparsedQuery]:
-        """
-        Parse a single ObservedQuery into a PreparsedQuery.
-
-        This method is designed to be thread-safe and run in parallel within add_batch().
-        It performs the CPU-intensive SQL parsing without modifying shared state.
-
-        Args:
-            observed: The query to parse
-
-        Returns:
-            PreparsedQuery if parsing succeeds, None if it fails
-        """
         self.report.num_observed_queries += 1
 
         session_id = observed.session_id or _MISSING_SESSION_ID
-
-        # Get schema resolver for this session
         schema_resolver = self._get_schema_resolver_for_query(session_id)
 
-        # Parse the SQL query (CPU-intensive)
         parsed = self._run_sql_parser(
             observed.query,
             default_db=observed.default_db,
@@ -1096,17 +1036,14 @@ class SqlParsingAggregator(Closeable):
             override_dialect=observed.override_dialect,
         )
 
-        # Check for fatal parsing errors
         if self._handle_parsing_errors(parsed, observed):
             return None
 
-        # Convert to PreparsedQuery
         return self._create_preparsed_query(observed, parsed, session_id)
 
     def _get_schema_resolver_for_query(
         self, session_id: str
     ) -> SchemaResolverInterface:
-        """Get the appropriate schema resolver for a query session."""
         try:
             with self.report.make_schema_resolver_timer:
                 return self._make_schema_resolver_for_session(session_id)
@@ -1119,12 +1056,6 @@ class SqlParsingAggregator(Closeable):
     def _handle_parsing_errors(
         self, parsed: SqlParsingResult, observed: ObservedQuery
     ) -> bool:
-        """
-        Handle SQL parsing errors and update metrics.
-
-        Returns:
-            True if parsing failed fatally (should skip query), False otherwise
-        """
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
                 f"{parsed.debug_info.error} on query: {observed.query[:100]}"
@@ -1144,7 +1075,6 @@ class SqlParsingAggregator(Closeable):
     def _create_preparsed_query(
         self, observed: ObservedQuery, parsed: SqlParsingResult, session_id: str
     ) -> PreparsedQuery:
-        """Create a PreparsedQuery from parsed SQL results."""
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
         downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
 
