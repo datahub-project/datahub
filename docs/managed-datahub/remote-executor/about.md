@@ -49,8 +49,9 @@ flowchart TB
     subgraph Customer["Data Plane (Your Network)"]
         Executor["Remote Executor"]
         Subprocess["Ingestion Subprocess"]
-        DB[("Your Data Sources<br/>Snowflake, Postgres, etc.")]
     end
+
+    DB[("Data Sources<br/>Snowflake, Postgres, etc.")]
 
     UI -- "1. Trigger Ingestion" --> GMS
     GMS -- "2. Create Request" --> Coord
@@ -89,7 +90,7 @@ To get started with Remote Executor:
 
 ### Is Remote Executor required for DataHub Cloud?
 
-No, DataHub Cloud comes with an managed executor by default. Remote Executor is an optional feature for cases where you need to ingest from private sources or maintain stricter control over credentials and network access.
+No, DataHub Cloud comes with a managed executor by default. Remote Executor is an optional feature for cases where you need to ingest from private sources or maintain stricter control over credentials and network access.
 
 ### Can I use multiple Remote Executors?
 
