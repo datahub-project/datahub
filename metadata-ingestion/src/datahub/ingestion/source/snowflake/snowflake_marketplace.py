@@ -233,9 +233,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 # Note: The column is "global_name" not "listing_global_name"
                 # Fields not in SHOW output (name, provider, category, description) can be obtained from DESCRIBE AVAILABLE LISTING
                 listing = SnowflakeMarketplaceListing(
-                    name=row.get(
-                        "uniform_listing_locator", ""
-                    ),  # SHOW returns uniform_listing_locator, not "name"
+                    name=row.get("uniform_listing_locator") or row.get("name", ""),
                     listing_global_name=row.get(
                         "global_name", ""
                     ),  # Column is "global_name"
