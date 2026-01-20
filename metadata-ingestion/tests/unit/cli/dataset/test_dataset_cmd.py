@@ -81,6 +81,34 @@ def malformed_yaml_file():
 
 
 @pytest.fixture
+def complex_type_yaml_file():
+    """Creates a temporary yaml file with complex types in schema."""
+    complex_types_yaml = """
+## schema has complex types
+- id: user.complex
+  platform: hive
+  schema:
+    fields:
+    - id: ip
+      type: array
+      description: The IP address
+    - id:  user_id     # Extra spaces
+      type: time
+      description:    The user ID   # Extra spaces
+    """
+
+    temp_file = TEST_RESOURCES_DIR / "complex_types.yaml.tmp"
+    with open(temp_file, "w") as f:
+        f.write(complex_types_yaml)
+
+    yield temp_file
+
+    # Clean up
+    if temp_file.exists():
+        temp_file.unlink()
+
+
+@pytest.fixture
 def fixable_yaml_file():
     """Creates a temporary yaml file with fixable formatting issues."""
     fixable_content = """
@@ -279,7 +307,7 @@ class TestDatasetCli:
         # Verify
         assert result.exit_code != 0
         assert not mock_get_default_graph.emit.called
-        assert "Type bad_type is not a valid primitive type" in result.output
+        assert "Type bad_type is not a valid type" in result.output
 
     @patch("datahub.cli.specific.dataset_cli.get_default_graph")
     def test_dry_run_sync_fail_missing_ref(
@@ -339,7 +367,7 @@ class TestDatasetCli:
         # Verify
         assert result.exit_code != 0
         assert not mock_get_default_graph.emit.called
-        assert "is not a valid primitive type" in result.output
+        assert "is not a valid type" in result.output
 
     @patch("datahub.cli.specific.dataset_cli.get_default_graph")
     def test_run_upsert_fail(self, mock_get_default_graph, invalid_value_yaml_file):
@@ -353,7 +381,25 @@ class TestDatasetCli:
         # Verify
         assert result.exit_code != 0
         assert not mock_get_default_graph.emit.called
-        assert "is not a valid primitive type" in result.output
+        assert "is not a valid type" in result.output
+
+    @patch("datahub.cli.specific.dataset_cli.get_default_graph")
+    def test_complex_types_in_schema(
+        self, mock_get_default_graph, complex_type_yaml_file
+    ):
+        """Test that complex types are properly handled in fields."""
+        mock_graph = MagicMock()
+        mock_graph.exists.return_value = True
+        mock_get_default_graph.return_value.__enter__.return_value = mock_graph
+
+        runner = CliRunner()
+        result = runner.invoke(dataset, ["upsert", "-f", str(complex_type_yaml_file)])
+
+        assert result.exit_code == 0, f"Expected success but got: {result.output}"
+
+        assert mock_graph.emit.called, "Expected emit to be called for dataset upsert"
+
+        assert "Update succeeded" in result.output
 
     @patch("datahub.cli.specific.dataset_cli.get_default_graph")
     def test_sync_from_datahub_fail(self, mock_get_default_graph, test_yaml_file):
