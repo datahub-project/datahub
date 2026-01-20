@@ -1,9 +1,10 @@
 """Configuration classes for Fabric OneLake connector."""
 
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
+from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
@@ -13,6 +14,66 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+
+class ExtractSchemaConfig(ConfigModel):
+    """Configuration for schema extraction."""
+
+    enabled: bool = Field(default=True, description="Enable schema extraction")
+    method: Literal["sql_analytics_endpoint"] = Field(
+        default="sql_analytics_endpoint",
+        description=(
+            "Schema extraction method. Currently only 'sql_analytics_endpoint' is supported."
+        ),
+    )
+
+
+class SqlEndpointConfig(ConfigModel):
+    """Configuration for SQL Analytics Endpoint schema extraction.
+
+    References:
+    - https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-connectivity
+    - https://learn.microsoft.com/en-us/fabric/data-warehouse/connect-to-fabric-data-warehouse
+    - https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse
+    """
+
+    enabled: bool = Field(
+        default=True, description="Enable SQL Analytics Endpoint connection"
+    )
+    odbc_driver: str = Field(
+        default="ODBC Driver 18 for SQL Server",
+        description="ODBC driver name for SQL Server connections.",
+    )
+    encrypt: str = Field(
+        default="yes",
+        description="Enable encryption for SQL Server connections. Valid values: 'yes' or 'no'.",
+    )
+    trust_server_certificate: str = Field(
+        default="no",
+        description=(
+            "Trust server certificate without validation. "
+            "Set to 'yes' only if certificate validation fails. "
+            "Valid values: 'yes' or 'no'."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_connection_options(self) -> "SqlEndpointConfig":
+        """Validate that encrypt and trust_server_certificate are valid values."""
+        if self.encrypt not in ("yes", "no"):
+            raise ValueError(f"encrypt must be 'yes' or 'no', got '{self.encrypt}'")
+        if self.trust_server_certificate not in ("yes", "no"):
+            raise ValueError(
+                f"trust_server_certificate must be 'yes' or 'no', got '{self.trust_server_certificate}'"
+            )
+        return self
+
+    query_timeout: int = Field(
+        default=30,
+        description="Timeout for SQL queries in seconds",
+        ge=1,
+        le=300,
+    )
 
 
 class FabricOneLakeSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -102,13 +163,18 @@ class FabricOneLakeSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfig
         le=300,
     )
 
-    # TODO: Schema extraction via SQL endpoint
-    # The Fabric REST API does not provide column schema information in the Table model.
-    # To extract table schemas, we need to use the SQL Analytics endpoint:
-    # 1. Configure sql_endpoint_connection_string_template with {workspace_id} and {item_id} placeholders
-    # 2. Query INFORMATION_SCHEMA.COLUMNS using pyodbc
-    # 3. Requires pyodbc library and proper authentication
-    # See client.py for implementation details
+    # Schema extraction configuration
+    extract_schema: ExtractSchemaConfig = Field(
+        default_factory=ExtractSchemaConfig,
+        description="Configuration for schema extraction from tables.",
+    )
+
+    # SQL Analytics Endpoint configuration
+    sql_endpoint: Optional[SqlEndpointConfig] = Field(
+        default=None,
+        description="SQL Analytics Endpoint configuration for schema extraction. "
+        "Required when extract_schema.enabled=True and extract_schema.method='sql_analytics_endpoint'.",
+    )
 
     # Stateful Ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -119,3 +185,17 @@ class FabricOneLakeSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfig
             "no longer exist in Fabric."
         ),
     )
+
+    @model_validator(mode="after")
+    def validate_schema_extraction_config(self):
+        """Validate that sql_endpoint is enabled when extract_schema requires it."""
+        if (
+            self.extract_schema.enabled
+            and self.extract_schema.method == "sql_analytics_endpoint"
+        ):
+            if self.sql_endpoint is None or not self.sql_endpoint.enabled:
+                raise ValueError(
+                    "sql_endpoint.enabled must be True when extract_schema.enabled=True "
+                    "and extract_schema.method='sql_analytics_endpoint'"
+                )
+        return self

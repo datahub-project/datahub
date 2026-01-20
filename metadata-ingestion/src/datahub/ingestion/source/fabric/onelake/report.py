@@ -1,13 +1,20 @@
 """Custom report class for Fabric OneLake connector."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.lossy_collections import LossyList
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.fabric.onelake.schema_report import (
+        SqlAnalyticsEndpointReport,
+    )
 
 
 @dataclass
@@ -18,8 +25,6 @@ class FabricOneLakeClientReport(FabricClientReport):
     Currently inherits all functionality from FabricClientReport but can be
     extended with OneLake-specific metrics in the future.
     """
-
-    pass
 
 
 @dataclass
@@ -43,16 +48,15 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     filtered_warehouses: LossyList[str] = field(default_factory=LossyList)
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
 
-    # Schema extraction metrics
-    schema_extraction_successes: int = 0
-    schema_extraction_failures: int = 0
-
     # API metrics (can be populated from FabricClientReport)
     api_calls_total_count: int = 0
     api_calls_total_error_count: int = 0
 
     # Client report (optional, can be set from OneLakeClient)
     client_report: Optional[FabricOneLakeClientReport] = None
+
+    # Schema extraction report (optional, can be set from schema extraction client)
+    schema_report: Optional["SqlAnalyticsEndpointReport"] = None
 
     def report_workspace_scanned(self) -> None:
         """Increment workspaces scanned counter."""
@@ -89,19 +93,6 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     def report_table_filtered(self, table_name: str) -> None:
         """Record a filtered table."""
         self.filtered_tables.append(table_name)
-
-    def report_schema_extraction_success(self) -> None:
-        """Increment schema extraction success counter."""
-        self.schema_extraction_successes += 1
-
-    def report_schema_extraction_failure(self, table_name: str, error: str) -> None:
-        """Record a schema extraction failure."""
-        self.schema_extraction_failures += 1
-        self.report_warning(
-            title="Schema Extraction Failed",
-            message="Unable to extract schema for this table.",
-            context=f"table={table_name}, error={error}",
-        )
 
     def report_api_call(self) -> None:
         """Track an API call."""

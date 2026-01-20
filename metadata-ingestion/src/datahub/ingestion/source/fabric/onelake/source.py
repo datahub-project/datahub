@@ -12,6 +12,8 @@ import logging
 from collections import defaultdict
 from typing import Iterable, Literal, Optional, Union
 
+from typing_extensions import assert_never
+
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -40,6 +42,7 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
 from datahub.ingestion.source.fabric.onelake.models import (
+    FabricColumn,
     FabricLakehouse,
     FabricTable,
     FabricWarehouse,
@@ -117,8 +120,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         auth_helper = FabricAuthHelper(config.credential)
         # Create client report instance that will be tracked by the client
         self.client_report = FabricOneLakeClientReport()
+
+        # Initialize schema client if schema extraction is enabled
         self.client = OneLakeClient(
-            auth_helper, timeout=config.api_timeout, report=self.client_report
+            auth_helper,
+            timeout=config.api_timeout,
+            report=self.client_report,
         )
         # Link client report to source report for reporting
         self.report.client_report = self.client_report
@@ -327,9 +334,48 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             else:
                 tables = list(self.client.list_warehouse_tables(workspace.id, item_id))
 
-            # TODO: Schema extraction is not yet implemented
-            # See client.py for details on implementing SQL endpoint-based schema extraction
-            schema_map: dict[tuple[str, str], list] = {}
+            # Extract schema metadata if enabled
+            # Fetch all schemas at item level for efficiency (single query per item)
+            schema_map: dict[tuple[str, str], list[FabricColumn]] = {}
+            if self.config.extract_schema.enabled and self.config.sql_endpoint:
+                try:
+                    from datahub.ingestion.source.fabric.onelake.schema_client import (
+                        create_schema_extraction_client,
+                    )
+
+                    # Create schema client for this specific workspace/item
+                    # (endpoint URL is item-specific, so we create it here)
+                    # Use the schema report from the source report
+                    schema_client = create_schema_extraction_client(
+                        method=self.config.extract_schema.method,
+                        auth_helper=self.client.auth_helper,
+                        config=self.config.sql_endpoint,
+                        report=self.report.schema_report,
+                        workspace_id=workspace.id,
+                        item_id=item_id,
+                        item_type=item_type,
+                        base_client=self.client,
+                    )
+
+                    # Get all table schemas for this item in a single batch query
+                    schema_map = schema_client.get_all_table_columns(
+                        workspace_id=workspace.id,
+                        item_id=item_id,
+                    )
+                except Exception as e:
+                    error_msg = str(e)
+                    logger.warning(
+                        f"Failed to extract schema for item {item_id}: {error_msg}. "
+                        "Tables will be ingested without column metadata."
+                    )
+                    # Report as warning in the main report
+                    self.report.report_warning(
+                        title="Schema Extraction Failed",
+                        message="Failed to extract schema metadata from SQL Analytics Endpoint.",
+                        context=f"item_id={item_id}, item_type={item_type}, error={error_msg[:200]}",
+                    )
+                    # Schema extraction failed, continue without schema metadata
+                    schema_map = {}
 
             # Group tables by schema
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
@@ -368,7 +414,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                                 schema_name=schema_name,
                             )
                         )
-                    else:  # Warehouse
+                    elif item_type == "Warehouse":
                         schema_key = WarehouseSchemaKey(
                             platform=PLATFORM,
                             instance=self.config.platform_instance,
@@ -377,6 +423,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                             warehouse_id=item_id,
                             schema_name=schema_name,
                         )
+                    else:
+                        assert_never(item_type)
 
                     schema_container = Container(
                         container_key=schema_key,
@@ -399,8 +447,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
                 # Create table datasets
                 for table in schema_tables:
-                    # TODO: Pass schema columns when schema extraction is implemented
-                    columns = schema_map.get((schema_name, table.name), [])
+                    columns = self._get_columns(schema_map, schema_name, table.name)
                     yield from self._create_table_dataset(
                         workspace,
                         item_id,
@@ -418,6 +465,55 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 exc=e,
             )
 
+    def _get_columns(
+        self,
+        schema_map: dict[tuple[str, str], list[FabricColumn]],
+        schema_name: str,
+        table_name: str,
+    ) -> list[FabricColumn]:
+        """Get columns for a table from schema_map, with fallback to 'dbo' schema if schema_name is empty.
+
+        Args:
+            schema_map: Dictionary mapping (schema_name, table_name) to list of columns
+            schema_name: Schema name (empty string for schemas-disabled lakehouses)
+            table_name: Table name
+
+        Returns:
+            List of FabricColumn objects, or empty list if not found
+        """
+        if not schema_map:
+            return []
+
+        # Try with provided schema name (or empty string)
+        schema_key = schema_name if schema_name else ""
+        columns = schema_map.get((schema_key, table_name), [])
+
+        # Trace logging
+        available_schemas = {schema for schema, _ in schema_map}
+        logger.debug(
+            f"Schema matching for table '{table_name}': "
+            f"expected_schema='{schema_name or '(empty)'}', "
+            f"available_schemas_in_map={sorted(available_schemas)}, "
+            f"tried_key=('{schema_key}', '{table_name}'), "
+            f"found_columns={len(columns) if columns else 0}"
+        )
+
+        # Fallback: if not found and schema_name is empty, try "dbo"
+        if not columns and not schema_name:
+            columns = schema_map.get(("dbo", table_name), [])
+            if columns:
+                logger.debug(
+                    f"Schema fallback successful for table '{table_name}': "
+                    f"found columns using schema 'dbo'"
+                )
+            else:
+                logger.debug(
+                    f"Schema fallback failed for table '{table_name}': "
+                    f"no columns found even with 'dbo' schema"
+                )
+
+        return columns
+
     def _create_table_dataset(
         self,
         workspace: FabricWorkspace,
@@ -425,25 +521,26 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         schema_name: str,
         table: FabricTable,
         parent_container_key: ContainerKey,
-        columns: list,  # TODO: Should be list[FabricColumn] when schema extraction is implemented
+        columns: list[FabricColumn],
     ) -> Iterable[Dataset]:
         """Create a table dataset with schema metadata."""
         table_name = make_table_name(workspace.id, item_id, schema_name, table.name)
 
         # Build schema fields if available
-        # TODO: Schema extraction is not yet implemented - see client.py for details
+        # Dataset SDK will automatically convert SQL Server types to DataHub types
+        # using resolve_sql_type() from sql_types.py
         schema_fields = None
         if columns:
             # Schema is a list of tuples: (name, type) or (name, type, description)
+            # Dataset SDK will handle type conversion via resolve_sql_type()
             schema_fields = [
                 (
                     col.name,
-                    col.data_type,
+                    col.data_type,  # Raw SQL Server type string (e.g., "varchar", "int")
                     col.description or "",
                 )
                 for col in columns
             ]
-            self.report.report_schema_extraction_success()
         else:
             # No schema available - tables will be ingested without column metadata
             logger.debug(

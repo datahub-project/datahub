@@ -55,6 +55,20 @@ source:
     # stateful_ingestion:
     #   enabled: true
     #   remove_stale_metadata: true
+    
+    # Optional: Schema extraction configuration
+    # extract_schema:
+    #   enabled: true  # Enable schema extraction (default: true)
+    #   method: sql_analytics_endpoint
+    
+    # Optional: SQL Analytics Endpoint configuration
+    # sql_endpoint:
+    #   enabled: true  # Enable SQL endpoint connection (default: true)
+    #   odbc_driver: "ODBC Driver 18 for SQL Server"  # ODBC driver name (default: "ODBC Driver 18 for SQL Server")
+    #   encrypt: "yes"  # Enable encryption (default: "yes")
+    #   trust_server_certificate: "no"  # Trust server certificate (default: "no")
+    #   query_timeout: 30  # Timeout for SQL queries in seconds (default: 30)
+    #   batch_size: 100  # Number of tables to query in a single batch (default: 100)
 
 sink:
   type: datahub-rest

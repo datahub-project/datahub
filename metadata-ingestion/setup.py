@@ -472,6 +472,8 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "azure-data-factory": azure_data_factory,
     "fabric-onelake": {
+        "sqlalchemy>=1.4,<3.0",
+        "pyodbc>=4.0,<5.0",
         "azure-identity>=1.21.0",
         "requests",
     },

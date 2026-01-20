@@ -478,17 +478,3 @@ class OneLakeClient(BaseFabricClient):
         except Exception as e:
             logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
             raise
-
-    # TODO: Implement batch schema extraction for tables
-    # The Fabric REST API Table model does not include column schema information.
-    # To extract table schemas (column names, data types, nullability, etc.), we need to:
-    # 1. Use the SQL Analytics endpoint (available for both Lakehouses and Warehouses)
-    # 2. Query INFORMATION_SCHEMA.COLUMNS using a SQL query like:
-    #    SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE, ORDINAL_POSITION
-    #    FROM INFORMATION_SCHEMA.COLUMNS
-    #    ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION
-    # 3. This requires:
-    #    - SQL endpoint connection string template (with {workspace_id} and {item_id} placeholders)
-    #    - pyodbc library for ODBC connections
-    #    - Proper authentication (can use same TokenCredential via ActiveDirectoryMsi or similar)
-    # Reference: https://learn.microsoft.com/en-us/fabric/database/sql/sql-analytics-endpoint

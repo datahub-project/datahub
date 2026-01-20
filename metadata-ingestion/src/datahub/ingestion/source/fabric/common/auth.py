@@ -16,6 +16,9 @@ FABRIC_API_SCOPE = "https://analysis.windows.net/powerbi/api/.default"
 # OneLake Table APIs require Storage audience token
 ONELAKE_STORAGE_SCOPE = "https://storage.azure.com/.default"
 
+# SQL Analytics Endpoint requires database scope for Azure AD authentication
+SQL_ANALYTICS_ENDPOINT_SCOPE = "https://database.windows.net/.default"
+
 
 class FabricAuthHelper:
     """Helper class for authenticating with Microsoft Fabric REST APIs.
@@ -52,6 +55,7 @@ class FabricAuthHelper:
         Args:
             scope: Optional scope/audience. Defaults to FABRIC_API_SCOPE.
                   Use ONELAKE_STORAGE_SCOPE for OneLake Delta Table APIs.
+                  Use SQL_ANALYTICS_ENDPOINT_SCOPE for SQL Analytics Endpoint connections.
 
         Returns:
             Bearer token string (without "Bearer " prefix)
