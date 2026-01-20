@@ -47,45 +47,7 @@ Before deploying a Remote Executor, ensure you have the following:
 - **For AWS ECS**: Provide your AWS account ID to DataHub Cloud to grant ECR access
 - **For Kubernetes**: Work with DataHub team to set up access to the Remote Executor Docker image registry
 
-### 4. AWS Permissions (Required for All Deployments)
-
-Regardless of where you deploy the executor (ECS, Kubernetes, etc.), it needs AWS permissions to interact with SQS (task queue) and optionally S3 (log storage). The SQS queue is hosted in DataHub Cloud's AWS infrastructure.
-
-<details>
-<summary>IAM Policy Example (click to expand)</summary>
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "SQSAccess",
-      "Effect": "Allow",
-      "Action": [
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes",
-        "sqs:GetQueueUrl"
-      ],
-      "Resource": "<SQS queue ARN provided by DataHub>"
-    },
-    {
-      "Sid": "S3LogUpload",
-      "Effect": "Allow",
-      "Action": ["s3:PutObject"],
-      "Resource": "arn:aws:s3:::<your-log-bucket>/*"
-    }
-  ]
-}
-```
-
-:::note
-Contact your DataHub Cloud representative for the exact SQS queue ARN pattern for your tenant.
-:::
-
-</details>
-
-### 5. Network Requirements
+### 4. Network Requirements
 
 The executor makes **outbound-only** connections. Ensure your firewall/security groups allow:
 
@@ -96,7 +58,7 @@ The executor makes **outbound-only** connections. Ensure your firewall/security 
 | Outbound  | `s3.*.amazonaws.com`      | 443    | Log upload (if configured) |
 | Outbound  | Your data sources         | Varies | Metadata extraction        |
 
-### 6. Version Compatibility
+### 5. Version Compatibility
 
 The executor version should be compatible with your DataHub Cloud version. Using mismatched versions may cause recipe parsing errors or unexpected behavior. Check your DataHub Cloud version in **Settings → Platform → Version**.
 
@@ -597,14 +559,6 @@ If you set a **Default Pool**, new ingestion sources will automatically use it. 
 | `DATAHUB_GMS_TOKEN`        | Remote Executor access token            | ✅ Yes   |
 | `DATAHUB_EXECUTOR_POOL_ID` | Must match Pool ID in UI                | ✅ Yes   |
 
-### AWS Configuration
-
-| Variable                | Description                             | Default |
-| ----------------------- | --------------------------------------- | ------- |
-| `AWS_REGION`            | AWS region for SQS                      | -       |
-| `AWS_ACCESS_KEY_ID`     | AWS access key (if not using IAM roles) | -       |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key (if not using IAM roles) | -       |
-
 ### Performance Tuning
 
 | Variable                                  | Description                      | Default       |
@@ -613,12 +567,13 @@ If you set a **Default Pool**, new ingestion sources will automatically use it. 
 | `DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS`   | Max concurrent monitoring tasks  | `10`          |
 | `DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT` | SQS visibility timeout (seconds) | `43200` (12h) |
 
-### Logging (S3)
+### Logging
 
-| Variable                   | Description              | Default |
-| -------------------------- | ------------------------ | ------- |
-| `DATAHUB_CLOUD_LOG_BUCKET` | S3 bucket for log upload | -       |
-| `DATAHUB_CLOUD_LOG_PATH`   | S3 path prefix           | -       |
+Log upload to DataHub Cloud is handled automatically. No additional configuration is required.
+
+:::note
+If you need to troubleshoot log upload issues, contact DataHub Cloud support.
+:::
 
 ### Secrets Resolution
 
@@ -695,7 +650,7 @@ readinessProbe:
 | ------------------- | ----------------------------------- | --------------------------------- |
 | Executor logs       | stdout (kubectl logs / docker logs) | Worker process, connection status |
 | Task logs (live)    | DataHub UI → Ingestion → View Logs  | Real-time ingestion output        |
-| Task logs (archive) | S3 bucket (if configured)           | Historical logs                   |
+| Task logs (archive) | DataHub Cloud                       | Historical logs                   |
 
 ## Advanced: Performance Settings
 
@@ -751,12 +706,12 @@ aws logs tail /ecs/datahub-remote-executor --since 1h | grep -i "initialization\
 
 **Causes and solutions:**
 
-| Cause                 | How to Identify                  | Solution                            |
-| --------------------- | -------------------------------- | ----------------------------------- |
-| Executor not running  | No pods / container not started  | Check deployment, image pull access |
-| Pool ID mismatch      | Logs show different pool than UI | Fix `pool_id` to match exactly      |
-| SQS permission denied | "Access Denied" in logs          | Update IAM policy                   |
-| Network blocked       | Connection timeout errors        | Allow outbound HTTPS to SQS         |
+| Cause                | How to Identify                  | Solution                                          |
+| -------------------- | -------------------------------- | ------------------------------------------------- |
+| Executor not running | No pods / container not started  | Check deployment, image pull access               |
+| Pool ID mismatch     | Logs show different pool than UI | Fix `pool_id` to match exactly                    |
+| Token invalid        | "Access Denied" or 401 in logs   | Verify token is Remote Executor type, not revoked |
+| Network blocked      | Connection timeout errors        | Allow outbound HTTPS to SQS                       |
 
 ---
 
@@ -804,22 +759,20 @@ aws logs tail /ecs/datahub-remote-executor --since 1h | grep -i "initialization\
 
 **Symptoms:** Task completes but "View Logs" shows nothing or an error.
 
-**Cause:** S3 log upload failed or not configured.
+**Cause:** Log upload to DataHub Cloud failed.
 
 **Diagnosis:**
 
 ```bash
-kubectl logs -n datahub -l app.kubernetes.io/name=datahub-executor-worker | grep -i "s3\|upload\|log"
+kubectl logs -n datahub -l app.kubernetes.io/name=datahub-executor-worker | grep -i "upload\|log\|error"
 ```
 
 **Solutions:**
 
-| Issue                    | Solution                                |
-| ------------------------ | --------------------------------------- |
-| S3 bucket not configured | Set `DATAHUB_CLOUD_LOG_BUCKET`          |
-| S3 permission denied     | Add `s3:PutObject` to IAM policy        |
-| Bucket doesn't exist     | Create bucket or fix name               |
-| Wrong region             | Ensure AWS_REGION matches bucket region |
+| Issue           | Solution                                     |
+| --------------- | -------------------------------------------- |
+| Network blocked | Allow outbound HTTPS to `s3.*.amazonaws.com` |
+| Other issues    | Contact DataHub Cloud support                |
 
 ---
 
