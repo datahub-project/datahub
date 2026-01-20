@@ -1,6 +1,7 @@
 """SQL queries for Postgres query history and lineage extraction."""
 
 import re
+from typing import Optional
 
 
 class PostgresQuery:
@@ -21,18 +22,6 @@ class PostgresQuery:
                 f"Invalid identifier '{identifier}': must contain only alphanumeric characters, underscores, and hyphens"
             )
         return identifier
-
-    @staticmethod
-    def _escape_like_pattern(pattern: str) -> str:
-        """
-        Escape special characters in LIKE patterns to prevent SQL injection.
-
-        Escapes %, _, and backslash characters while preserving intended wildcards.
-        User-provided patterns should be wrapped in % wildcards after escaping.
-        """
-        # Escape backslash first, then other special chars
-        escaped = pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        return escaped
 
     @staticmethod
     def check_pg_stat_statements_enabled() -> str:
@@ -75,13 +64,16 @@ class PostgresQuery:
 
     @staticmethod
     def get_query_history(
-        database: str | None = None,
+        database: Optional[str] = None,
         limit: int = 1000,
         min_calls: int = 1,
-        exclude_patterns: list[str] | None = None,
-    ) -> str:
+        exclude_patterns: Optional[list[str]] = None,
+    ) -> tuple[str, dict[str, str | int]]:
         """
         Extract query history from pg_stat_statements.
+
+        SECURITY: Returns parameterized query with bind parameters to prevent SQL injection.
+        ALWAYS use: connection.execute(text(query), params)
 
         Note: pg_stat_statements aggregates queries by normalized form,
         so parameterized queries are deduplicated. The extension tracks
@@ -92,13 +84,13 @@ class PostgresQuery:
             limit: Maximum queries to return (must be positive integer)
             min_calls: Minimum execution count filter (must be non-negative integer)
             exclude_patterns: SQL LIKE patterns to exclude (e.g., 'pg_catalog', 'temp')
-                             Note: Patterns are escaped and wrapped in % wildcards automatically
+                             Note: Patterns are wrapped in % wildcards automatically
 
         Returns:
-            SQL query string to extract query history
+            Tuple of (query_string, bind_parameters) for use with text() and execute()
 
         Raises:
-            ValueError: If database name contains invalid characters
+            ValueError: If database name contains invalid characters or numeric params invalid
         """
         # Validate numeric parameters
         if limit <= 0 or not isinstance(limit, int):
@@ -111,8 +103,10 @@ class PostgresQuery:
         filters = [
             "s.query IS NOT NULL",
             "s.query != '<insufficient privilege>'",
-            f"s.calls >= {min_calls}",
+            "s.calls >= :min_calls",
         ]
+
+        params: dict[str, str | int] = {"min_calls": min_calls, "limit": limit}
 
         # Default patterns to exclude (no user input, safe to use directly)
         default_exclusions = [
@@ -123,12 +117,13 @@ class PostgresQuery:
             "SET ",
         ]
 
-        # User-provided patterns: escape special chars to prevent SQL injection
+        # User-provided patterns: use parameterized queries to prevent SQL injection
         if exclude_patterns:
-            for pattern in exclude_patterns:
-                # Escape pattern and wrap in % wildcards
-                escaped = PostgresQuery._escape_like_pattern(pattern)
-                filters.append(f"s.query NOT ILIKE '%{escaped}%'")
+            for i, pattern in enumerate(exclude_patterns):
+                param_name = f"exclude_pattern_{i}"
+                # Wrap pattern in % wildcards for substring matching
+                params[param_name] = f"%{pattern}%"
+                filters.append(f"s.query NOT ILIKE :{param_name}")
 
         # Default exclusions can be used directly (no user input)
         for pattern in default_exclusions:
@@ -137,11 +132,12 @@ class PostgresQuery:
         # Sanitize database identifier to prevent SQL injection
         if database:
             safe_database = PostgresQuery._sanitize_identifier(database)
-            filters.append(f"d.datname = '{safe_database}'")
+            params["database"] = safe_database
+            filters.append("d.datname = :database")
 
         where_clause = " AND ".join(filters)
 
-        return f"""
+        query = f"""
         SELECT
             s.queryid::text as query_id,
             s.query as query_text,
@@ -160,17 +156,22 @@ class PostgresQuery:
         LEFT JOIN pg_database d ON s.dbid = d.oid
         WHERE {where_clause}
         ORDER BY s.total_exec_time DESC, s.calls DESC
-        LIMIT {limit}
+        LIMIT :limit
         """
+
+        return query, params
 
     @staticmethod
     def get_queries_by_type(
         query_type: str = "INSERT",
-        database: str | None = None,
+        database: Optional[str] = None,
         limit: int = 500,
-    ) -> str:
+    ) -> tuple[str, dict[str, str | int]]:
         """
         Extract queries of specific type (INSERT, UPDATE, DELETE, CREATE TABLE AS, etc.).
+
+        SECURITY: Returns parameterized query with bind parameters to prevent SQL injection.
+        ALWAYS use: connection.execute(text(query), params)
 
         Useful for focusing on queries that produce lineage (DML operations).
 
@@ -179,6 +180,9 @@ class PostgresQuery:
                        Sanitized to prevent SQL injection
             database: Filter by database (sanitized for SQL injection prevention)
             limit: Maximum queries to return (must be positive integer)
+
+        Returns:
+            Tuple of (query_string, bind_parameters) for use with text() and execute()
 
         Raises:
             ValueError: If query_type or database contains invalid characters
@@ -195,8 +199,13 @@ class PostgresQuery:
             )
         safe_query_type = query_type.upper()
 
+        params: dict[str, str | int] = {
+            "query_type_pattern": f"{safe_query_type}%",
+            "limit": limit,
+        }
+
         filters = [
-            f"s.query ILIKE '{safe_query_type}%'",
+            "s.query ILIKE :query_type_pattern",
             "s.query != '<insufficient privilege>'",
             "s.calls >= 1",
         ]
@@ -204,11 +213,12 @@ class PostgresQuery:
         # Sanitize database identifier
         if database:
             safe_database = PostgresQuery._sanitize_identifier(database)
-            filters.append(f"d.datname = '{safe_database}'")
+            params["database"] = safe_database
+            filters.append("d.datname = :database")
 
         where_clause = " AND ".join(filters)
 
-        return f"""
+        query = f"""
         SELECT
             s.queryid::text as query_id,
             s.query as query_text,
@@ -221,8 +231,10 @@ class PostgresQuery:
         LEFT JOIN pg_database d ON s.dbid = d.oid
         WHERE {where_clause}
         ORDER BY s.calls DESC
-        LIMIT {limit}
+        LIMIT :limit
         """
+
+        return query, params
 
     @staticmethod
     def get_top_tables_by_query_count(limit: int = 100) -> str:

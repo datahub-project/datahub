@@ -76,6 +76,190 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 - **Dependencies**: Avoid version pinning, use ranges with comments
 - **Architecture**: Avoid tall inheritance hierarchies, prefer mixins
 
+## Security Guidelines - SQL Injection Prevention
+
+**CRITICAL**: Always use parameterized queries for dynamic SQL generation.
+
+### ❌ NEVER: F-string interpolation with user input
+
+```python
+# DANGEROUS - SQL injection vulnerability
+def bad_query(pattern: str) -> str:
+    return f"SELECT * FROM table WHERE column LIKE '%{pattern}%'"
+```
+
+### ✅ ALWAYS: Parameterized queries with bind parameters
+
+```python
+# SAFE - Uses bind parameters
+def safe_query(pattern: str) -> tuple[str, dict]:
+    query = "SELECT * FROM table WHERE column LIKE :pattern"
+    params = {"pattern": f"%{pattern}%"}
+    return query, params
+
+# Usage with SQLAlchemy
+result = connection.execute(text(query), params)
+```
+
+### Pattern: Query Functions Return (query, params) Tuple
+
+```python
+from sqlalchemy import text
+
+def get_data(filter_value: str) -> tuple[str, dict[str, str]]:
+    """Return parameterized query and bind parameters."""
+    query = "SELECT * FROM users WHERE status = :status"
+    params = {"status": filter_value}
+    return query, params
+
+# Caller usage
+query, params = get_data("active")
+result = connection.execute(text(query), params)
+```
+
+### Identifier Sanitization
+
+**CRITICAL**: When database identifiers (table names, column names, schema names) must be embedded directly in SQL (not as bind parameters), use strict validation.
+
+#### Pattern: \_sanitize_identifier() Function
+
+```python
+import re
+
+def _sanitize_identifier(identifier: str) -> str:
+    """
+    Validate and sanitize SQL identifiers (table/column/schema names).
+
+    Security Assumptions:
+    - Only alphanumeric characters and underscores are allowed
+    - Must start with letter or underscore (SQL standard)
+    - Rejects quoted identifiers, unicode, special characters
+    - Does NOT support schema.table format (use separate validation)
+
+    Limitations:
+    - Does not handle quoted identifiers ("My Table")
+    - Does not support unicode identifiers (ñ, 中文, etc.)
+    - Does not validate schema.table format - split and validate separately
+    - Database-specific keywords are NOT checked (e.g., "SELECT" is allowed)
+
+    Why this regex?
+    - ^[a-zA-Z_] ensures identifier starts with letter or underscore (SQL standard)
+    - [a-zA-Z0-9_]* allows only safe characters in rest of identifier
+    - $ ensures no trailing special characters
+
+    Args:
+        identifier: Database identifier to validate
+
+    Returns:
+        The validated identifier (unchanged if valid)
+
+    Raises:
+        ValueError: If identifier contains unsafe characters or invalid format
+
+    Examples:
+        >>> _sanitize_identifier("users")  # OK
+        'users'
+        >>> _sanitize_identifier("my_table_123")  # OK
+        'my_table_123'
+        >>> _sanitize_identifier("table'; DROP TABLE users; --")  # REJECTED
+        ValueError: Invalid identifier
+        >>> _sanitize_identifier("123_table")  # REJECTED - starts with digit
+        ValueError: Invalid identifier
+        >>> _sanitize_identifier("my table")  # REJECTED - contains space
+        ValueError: Invalid identifier
+    """
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', identifier):
+        raise ValueError(
+            f"Invalid identifier '{identifier}'. Must contain only "
+            f"alphanumeric characters and underscores, starting with letter or underscore."
+        )
+    return identifier
+```
+
+#### When to Use Identifier Sanitization
+
+**Use \_sanitize_identifier() for**:
+
+- Table names in FROM clauses when table name comes from config/user input
+- Column names in WHERE clauses when dynamic column filtering is needed
+- Schema names when building schema-qualified table references
+
+**Do NOT use for**:
+
+- Values in WHERE clauses - use bind parameters instead
+- LIKE patterns - use bind parameters with pattern escaping
+- Any user-provided data values - always use bind parameters
+
+#### Example: Safe Dynamic Table Name
+
+```python
+def get_table_query(table_name: str, status_filter: str) -> tuple[str, dict]:
+    """
+    Build query with dynamic table name (identifier) and parameterized value.
+
+    CRITICAL: table_name is an identifier and must be sanitized.
+    CRITICAL: status_filter is a value and must be parameterized.
+    """
+    # Sanitize identifier (table name)
+    safe_table = _sanitize_identifier(table_name)
+
+    # Parameterize values
+    query = f"SELECT * FROM {safe_table} WHERE status = :status"
+    params = {"status": status_filter}
+
+    return query, params
+
+# Usage
+query, params = get_table_query("users", "active")
+result = connection.execute(text(query), params)
+```
+
+#### Schema.Table Format Handling
+
+```python
+def sanitize_qualified_table(qualified_name: str) -> str:
+    """
+    Sanitize schema-qualified table name.
+
+    Args:
+        qualified_name: Format "schema.table" or just "table"
+
+    Returns:
+        Sanitized qualified name
+
+    Raises:
+        ValueError: If either part is invalid
+    """
+    parts = qualified_name.split('.')
+
+    if len(parts) == 1:
+        # Just table name
+        return _sanitize_identifier(parts[0])
+    elif len(parts) == 2:
+        # schema.table format
+        schema = _sanitize_identifier(parts[0])
+        table = _sanitize_identifier(parts[1])
+        return f"{schema}.{table}"
+    else:
+        raise ValueError(
+            f"Invalid qualified name '{qualified_name}'. "
+            f"Must be 'table' or 'schema.table' format."
+        )
+```
+
+### Security Audit Commands
+
+```bash
+# Find dangerous patterns (should return nothing)
+grep -r "f\".*SELECT" src/      # F-strings in SQL
+grep -r "f'.*INSERT" src/       # F-strings in SQL
+grep -r "%.*WHERE" src/         # % formatting in SQL
+
+# Find identifier usage without sanitization
+grep -r "f\".*FROM.*{" src/     # Dynamic table names in FROM clause
+grep -r "f'.*FROM.*{" src/      # Dynamic table names in FROM clause
+```
+
 ## Testing Conventions
 
 - **Location**: Tests go in `tests/` directory alongside `src/`, NOT in `src/`

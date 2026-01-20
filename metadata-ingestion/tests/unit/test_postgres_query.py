@@ -38,34 +38,24 @@ class TestPostgresQuerySanitization:
         with pytest.raises(ValueError, match="Invalid identifier"):
             PostgresQuery._sanitize_identifier("db@#$%")
 
-    def test_escape_like_pattern(self):
-        """Test that LIKE pattern special characters are escaped."""
-        # Test basic escaping
-        assert PostgresQuery._escape_like_pattern("test") == "test"
-        assert PostgresQuery._escape_like_pattern("test%") == "test\\%"
-        assert PostgresQuery._escape_like_pattern("test_value") == "test\\_value"
-        assert PostgresQuery._escape_like_pattern("test\\value") == "test\\\\value"
-
-        # Test combined escaping
-        assert (
-            PostgresQuery._escape_like_pattern("test%_\\value") == "test\\%\\_\\\\value"
-        )
-
 
 class TestGetQueryHistory:
     """Test get_query_history SQL generation."""
 
     def test_get_query_history_basic(self):
         """Test basic query generation without filters."""
-        query = PostgresQuery.get_query_history()
+        query, params = PostgresQuery.get_query_history()
         assert "FROM pg_stat_statements s" in query
         assert "s.query IS NOT NULL" in query
-        assert "LIMIT 1000" in query
+        assert "LIMIT :limit" in query
+        assert params["limit"] == 1000
+        assert params["min_calls"] == 1
 
     def test_get_query_history_with_database(self):
         """Test query generation with database filter."""
-        query = PostgresQuery.get_query_history(database="mydb")
-        assert "d.datname = 'mydb'" in query
+        query, params = PostgresQuery.get_query_history(database="mydb")
+        assert "d.datname = :database" in query
+        assert params["database"] == "mydb"
 
     def test_get_query_history_database_sql_injection_prevented(self):
         """Test that SQL injection in database parameter is prevented."""
@@ -74,25 +64,27 @@ class TestGetQueryHistory:
 
     def test_get_query_history_with_exclude_patterns(self):
         """Test query generation with user-provided exclude patterns."""
-        query = PostgresQuery.get_query_history(
+        query, params = PostgresQuery.get_query_history(
             exclude_patterns=["temp_table", "staging_%"]
         )
-        # User patterns should be escaped and included
-        # Note: underscore in LIKE pattern is escaped as \_
-        assert "s.query NOT ILIKE '%temp\\_table%'" in query
-        # Note: % in input pattern "staging_%" is escaped, so % becomes \% and _ becomes \_
-        assert "s.query NOT ILIKE '%staging\\_\\%%'" in query
+        # User patterns should be parameterized
+        assert "s.query NOT ILIKE :exclude_pattern_0" in query
+        assert "s.query NOT ILIKE :exclude_pattern_1" in query
+        assert params["exclude_pattern_0"] == "%temp_table%"
+        assert params["exclude_pattern_1"] == "%staging_%%"
 
     def test_get_query_history_exclude_patterns_injection_prevented(self):
-        """Test that SQL injection in exclude_patterns is prevented by escaping."""
+        """Test that SQL injection in exclude_patterns is prevented by parameterization."""
         # Malicious pattern attempting SQL injection
-        query = PostgresQuery.get_query_history(
+        query, params = PostgresQuery.get_query_history(
             exclude_patterns=["'; DROP TABLE users; --"]
         )
-        # Pattern should be escaped (single quote doesn't need escaping in our implementation,
-        # but it's safely wrapped in %...% and used in ILIKE)
-        assert "'; DROP TABLE users; --" in query
-        assert "DROP TABLE users" in query  # Present but safe in ILIKE context
+        # Pattern should be safely parameterized
+        assert "s.query NOT ILIKE :exclude_pattern_0" in query
+        # The malicious content is in the parameters, not in the SQL query itself
+        assert params["exclude_pattern_0"] == "%'; DROP TABLE users; --%"
+        # The actual query should NOT contain the malicious SQL
+        assert "DROP TABLE users" not in query
 
     def test_get_query_history_limit_validation(self):
         """Test that invalid limit values are rejected."""
@@ -119,15 +111,21 @@ class TestGetQueriesByType:
 
     def test_get_queries_by_type_basic(self):
         """Test basic query generation for specific query type."""
-        query = PostgresQuery.get_queries_by_type(query_type="INSERT")
-        assert "s.query ILIKE 'INSERT%'" in query
-        assert "LIMIT 500" in query
+        query, params = PostgresQuery.get_queries_by_type(query_type="INSERT")
+        assert "s.query ILIKE :query_type_pattern" in query
+        assert "LIMIT :limit" in query
+        assert params["query_type_pattern"] == "INSERT%"
+        assert params["limit"] == 500
 
     def test_get_queries_by_type_with_database(self):
         """Test query generation with database filter."""
-        query = PostgresQuery.get_queries_by_type(query_type="UPDATE", database="mydb")
-        assert "s.query ILIKE 'UPDATE%'" in query
-        assert "d.datname = 'mydb'" in query
+        query, params = PostgresQuery.get_queries_by_type(
+            query_type="UPDATE", database="mydb"
+        )
+        assert "s.query ILIKE :query_type_pattern" in query
+        assert "d.datname = :database" in query
+        assert params["query_type_pattern"] == "UPDATE%"
+        assert params["database"] == "mydb"
 
     def test_get_queries_by_type_database_injection_prevented(self):
         """Test that SQL injection in database parameter is prevented."""
@@ -139,11 +137,11 @@ class TestGetQueriesByType:
     def test_get_queries_by_type_query_type_validation(self):
         """Test that invalid query_type values are rejected."""
         # Valid query types
-        query = PostgresQuery.get_queries_by_type(query_type="INSERT")
-        assert "INSERT" in query
+        query, params = PostgresQuery.get_queries_by_type(query_type="INSERT")
+        assert params["query_type_pattern"] == "INSERT%"
 
-        query = PostgresQuery.get_queries_by_type(query_type="CREATE TABLE AS")
-        assert "CREATE TABLE AS" in query
+        query, params = PostgresQuery.get_queries_by_type(query_type="CREATE TABLE AS")
+        assert params["query_type_pattern"] == "CREATE TABLE AS%"
 
         # Invalid query types with injection attempts
         with pytest.raises(ValueError, match="Invalid query_type"):

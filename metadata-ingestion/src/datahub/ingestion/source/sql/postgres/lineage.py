@@ -2,8 +2,9 @@
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import text
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.source.sql.postgres.query import PostgresQuery
@@ -27,7 +28,7 @@ class PostgresQueryEntry:
     query_text: str
     execution_count: int
     total_exec_time_ms: float
-    user_name: str | None
+    user_name: Optional[str]
     database_name: str
 
     @property
@@ -149,7 +150,7 @@ class PostgresLineageExtractor:
 
         logger.info(f"Prerequisites check: {message}")
 
-        query = PostgresQuery.get_query_history(
+        query, params = PostgresQuery.get_query_history(
             database=self.config.database,
             limit=self.config.max_queries_to_extract or 1000,
             min_calls=self.config.min_query_calls or 1,
@@ -158,7 +159,7 @@ class PostgresLineageExtractor:
 
         with PerfTimer() as timer:
             try:
-                result = self.connection.execute(query)
+                result = self.connection.execute(text(query), params)
 
                 queries = []
                 for row in result:
