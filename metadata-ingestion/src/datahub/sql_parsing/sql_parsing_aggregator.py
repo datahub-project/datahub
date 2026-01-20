@@ -10,7 +10,7 @@ import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -922,26 +922,31 @@ class SqlParsingAggregator(Closeable):
     def _process_batch_parallel(
         self, items: List[Union[ObservedQuery, PreparsedQuery]]
     ) -> None:
+        # Phase 1: Parse ObservedQuery items in parallel
+        # We track indices to preserve ordering for sequential aggregation.
         observed_queries_with_idx = [
             (i, item) for i, item in enumerate(items) if isinstance(item, ObservedQuery)
         ]
         preparsed_queries = [item for item in items if isinstance(item, PreparsedQuery)]
 
         if observed_queries_with_idx:
+            # Parse queries in parallel (CPU-bound work)
             parsed_results = self._parse_queries_parallel(observed_queries_with_idx)
+            # Add results sequentially in original sorted order (required for correctness)
             self._add_parsed_results_in_order(parsed_results)
 
+        # Phase 2: Add PreparsedQuery items sequentially
         for query in preparsed_queries:
             self.add(query)
 
     def _parse_queries_parallel(
-        self, queries_with_idx: List[tuple[int, ObservedQuery]]
-    ) -> Dict[int, Optional[PreparsedQuery]]:
+        self, queries_with_idx: List[Tuple[int, ObservedQuery]]
+    ) -> Dict[int, Optional[Tuple[PreparsedQuery, bool]]]:
         logger.info(
             f"Parsing {len(queries_with_idx)} queries in parallel with {self.max_workers} workers"
         )
 
-        results: Dict[int, Optional[PreparsedQuery]] = {}
+        results: Dict[int, Optional[Tuple[PreparsedQuery, bool]]] = {}
         completed_count = 0
         exception_count = 0
         total_queries = len(queries_with_idx)
@@ -955,8 +960,8 @@ class SqlParsingAggregator(Closeable):
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 try:
-                    parsed_query = future.result()
-                    results[idx] = parsed_query
+                    parse_result = future.result()
+                    results[idx] = parse_result
                     completed_count += 1
 
                     if completed_count % 1000 == 0:
@@ -982,21 +987,51 @@ class SqlParsingAggregator(Closeable):
         return results
 
     def _add_parsed_results_in_order(
-        self, results: Dict[int, Optional[PreparsedQuery]]
+        self, results: Dict[int, Optional[Tuple[PreparsedQuery, bool]]]
     ) -> None:
+        """Add parsed results sequentially in their original sorted order.
+
+        CRITICAL: Must process in sorted order to maintain:
+        - Query authoritativeness (later queries override earlier ones)
+        - Temp table lineage resolution (queries build on previous temp tables)
+        - Usage statistics correctness (temporal aggregation)
+        """
         for idx in sorted(results.keys()):
-            parsed_query = results[idx]
-            if parsed_query is not None:
-                self.add_preparsed_query(parsed_query)
+            parse_result = results[idx]
+            if parse_result is not None:
+                parsed_query, session_has_temp_tables = parse_result
+
+                self.add_preparsed_query(
+                    parsed_query,
+                    is_known_temp_table=False,
+                    require_out_table_schema=False,
+                    session_has_temp_tables=session_has_temp_tables,
+                    _is_internal=True,
+                )
 
     def _parse_observed_query_for_batch(
         self, observed: ObservedQuery
-    ) -> Optional[PreparsedQuery]:
+    ) -> Optional[Tuple[PreparsedQuery, bool]]:
+        """Worker function for parallel query parsing.
+
+        Computes session_has_temp_tables BEFORE parsing to match add_observed_query behavior.
+        This flag indicates whether PREVIOUS queries in the session created temp tables,
+        which affects how the parser resolves table references.
+
+        Returns tuple of (PreparsedQuery, session_has_temp_tables) to avoid recomputing.
+        """
         session_id = observed.session_id or _MISSING_SESSION_ID
         schema_resolver = self._get_schema_resolver_for_query(session_id)
-        return self._parse_and_create_preparsed_query(
+        # Must compute BEFORE parsing - indicates temp tables from PREVIOUS queries
+        session_has_temp_tables = schema_resolver.includes_temp_tables()
+
+        preparsed_query = self._parse_and_create_preparsed_query(
             observed, session_id, schema_resolver
         )
+        if preparsed_query is None:
+            return None
+
+        return (preparsed_query, session_has_temp_tables)
 
     def _parse_and_create_preparsed_query(
         self,
@@ -1055,6 +1090,10 @@ class SqlParsingAggregator(Closeable):
         self, observed: ObservedQuery, parsed: SqlParsingResult, session_id: str
     ) -> PreparsedQuery:
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
+
+        # Register the first output table (standard single-query behavior).
+        # For stored procedures with multiple DML statements, each statement
+        # is added separately via add_observed_query, so each has one output.
         downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
 
         return PreparsedQuery(

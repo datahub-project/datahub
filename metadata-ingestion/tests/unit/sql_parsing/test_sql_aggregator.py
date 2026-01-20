@@ -2,7 +2,7 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import List, NoReturn, Optional, Union
+from typing import List, NoReturn, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1940,7 +1940,9 @@ def test_batch_processing_exception_handling() -> None:
         max_workers=2,
     )
 
-    def failing_parser(query: ObservedQuery) -> Optional[PreparsedQuery]:
+    def failing_parser(
+        query: ObservedQuery,
+    ) -> Optional[Tuple[PreparsedQuery, bool]]:
         if "fail" in query.query.lower():
             raise RuntimeError("Intentional failure for testing")
         return aggregator._parse_observed_query_for_batch(query)
