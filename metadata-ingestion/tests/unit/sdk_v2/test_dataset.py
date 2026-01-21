@@ -657,3 +657,72 @@ def test_view_definition_cte_handling() -> None:
         "cte" in name.lower() and "source" not in name.lower()
         for name in upstream_names
     )
+
+
+def test_view_definition_sqlglot_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When sqlglot is not installed, a warning should be logged and no upstreams set."""
+    import builtins
+
+    original_import = builtins.__import__
+
+    def mock_import(name: str, *args, **kwargs):  # type: ignore
+        if name == "sqlglot" or name.startswith("sqlglot."):
+            raise ImportError("No module named 'sqlglot'")
+        return original_import(name, *args, **kwargs)
+
+    # Create dataset first (before mocking import)
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+    )
+
+    # Now mock the import and call set_view_definition
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+    view.set_view_definition("SELECT * FROM source_table")
+
+    # Should gracefully handle missing sqlglot
+    assert view.view_definition is not None
+    assert view.upstreams is None
+
+
+def test_view_definition_sqlglot_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SqlglotError should be logged at warning level."""
+    import sqlglot
+    import sqlglot.errors
+
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+    )
+
+    # Mock Dialect.get_or_raise to raise SqlglotError
+    def mock_get_or_raise(dialect_str: str) -> None:
+        raise sqlglot.errors.SqlglotError("Mock sqlglot error")
+
+    monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
+    view.set_view_definition("SELECT * FROM source_table")
+
+    # Should gracefully handle SqlglotError
+    assert view.view_definition is not None
+    assert view.upstreams is None
+
+
+def test_view_definition_unexpected_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unexpected exceptions should be logged at error level."""
+    import sqlglot
+
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+    )
+
+    # Mock Dialect.get_or_raise to raise unexpected exception
+    def mock_get_or_raise(dialect_str: str) -> None:
+        raise RuntimeError("Unexpected error")
+
+    monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
+    view.set_view_definition("SELECT * FROM source_table")
+
+    # Should gracefully handle unexpected error
+    assert view.view_definition is not None
+    assert view.upstreams is None
