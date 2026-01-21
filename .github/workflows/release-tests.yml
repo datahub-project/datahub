@@ -1,7 +1,7 @@
 name: Release Tests
 # This workflow runs release tests against a remote DataHub instance
 # These tests do not require building images or running quickstart locally
-
+run-name: "Environment: ${{ github.event.inputs.remote_instance_url }} Test branch: ${{ github.event.inputs.branch }}"
 on:
   schedule:
     - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
