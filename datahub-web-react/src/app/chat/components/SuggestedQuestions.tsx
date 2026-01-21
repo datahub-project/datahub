@@ -6,7 +6,7 @@ const SuggestionsContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-top: 24px;
+    margin-top: 8px;
     justify-content: start;
     align-items: center;
     width: 100%;

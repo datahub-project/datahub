@@ -879,6 +879,7 @@ class DataLoader:
     def get_monitored_assertions(
         self,
         hostname: str,
+        auto_enrich: bool = True,
     ) -> list[MonitoredAssertionMetadata]:
         """List assertions that have metric cube data available.
 
@@ -887,9 +888,10 @@ class DataLoader:
 
         Args:
             hostname: The endpoint hostname
+            auto_enrich: If True, automatically fetch assertion type info from API
 
         Returns:
-            List of MonitoredAssertionMetadata objects
+            List of MonitoredAssertionMetadata objects with type info populated
         """
         events_df = self.load_cached_events(
             hostname, aspect_name="dataHubMetricCubeEvent"
@@ -898,7 +900,13 @@ class DataLoader:
         if events_df is None or len(events_df) == 0:
             return []
 
-        return list_monitored_assertions(events_df)
+        assertions = list_monitored_assertions(events_df)
+
+        # Auto-enrich with type info from API
+        if auto_enrich and assertions:
+            self.enrich_assertions_with_type_info(hostname, assertions)
+
+        return assertions
 
     def get_monitored_assertions_paginated(
         self,
@@ -907,6 +915,8 @@ class DataLoader:
         page_size: int = 100,
         search_filter: Optional[str] = None,
         status_filter: Optional[str] = None,
+        assertion_type_filter: Optional[str] = None,
+        field_metric_filter: Optional[str] = None,
     ) -> tuple[list[MonitoredAssertionMetadata], int]:
         """List monitored assertions with pagination.
 
@@ -916,6 +926,11 @@ class DataLoader:
             page_size: Number of results per page
             search_filter: Optional search string to filter by URN
             status_filter: Optional status filter ("ACTIVE" or "PAUSED")
+            assertion_type_filter: Optional filter by assertion type
+                (VOLUME, FIELD, SQL, FRESHNESS)
+            field_metric_filter: Optional filter by field metric type
+                (NULL_COUNT, UNIQUE_COUNT, etc.) - only applies when
+                assertion_type_filter is "FIELD"
 
         Returns:
             Tuple of (list of MonitoredAssertionMetadata for the page, total count)
@@ -931,9 +946,27 @@ class DataLoader:
             ]
 
         # Apply status filter
+        # Note: None/missing status is treated as ACTIVE
         if status_filter:
+            if status_filter == "ACTIVE":
+                all_assertions = [
+                    a
+                    for a in all_assertions
+                    if a.monitor_status == "ACTIVE" or a.monitor_status is None
+                ]
+            else:
+                all_assertions = [
+                    a for a in all_assertions if a.monitor_status == status_filter
+                ]
+
+        # Apply assertion type filter (requires enrichment)
+        if assertion_type_filter or field_metric_filter:
             all_assertions = [
-                a for a in all_assertions if a.monitor_status == status_filter
+                a
+                for a in all_assertions
+                if self._matches_assertion_type_filter(
+                    a, assertion_type_filter, field_metric_filter
+                )
             ]
 
         # Get total count
@@ -945,6 +978,121 @@ class DataLoader:
         page_assertions = all_assertions[start_idx:end_idx]
 
         return page_assertions, total_count
+
+    def _matches_assertion_type_filter(
+        self,
+        assertion: MonitoredAssertionMetadata,
+        assertion_type_filter: Optional[str],
+        field_metric_filter: Optional[str],
+    ) -> bool:
+        """Check if an assertion matches the type filters.
+
+        Args:
+            assertion: The assertion metadata
+            assertion_type_filter: Optional assertion type to match
+            field_metric_filter: Optional field metric type to match
+
+        Returns:
+            True if the assertion matches all provided filters
+        """
+        # If assertion doesn't have type info, it can't be filtered
+        if assertion.assertion_type is None:
+            # Include in results if no filter applied, exclude otherwise
+            return assertion_type_filter is None and field_metric_filter is None
+
+        # Check assertion type filter
+        if assertion_type_filter:
+            if assertion.assertion_type != assertion_type_filter:
+                return False
+
+        # Check field metric filter (only applies to FIELD assertions)
+        if field_metric_filter:
+            if assertion.assertion_type != "FIELD":
+                return False
+            if assertion.field_metric_type != field_metric_filter:
+                return False
+
+        return True
+
+    def enrich_assertions_with_type_info(
+        self,
+        hostname: str,
+        assertions: list[MonitoredAssertionMetadata],
+    ) -> list[MonitoredAssertionMetadata]:
+        """Enrich assertion metadata with type information from the API.
+
+        This method fetches assertion type and field metric type info from the
+        API for assertions that don't already have this information. Results
+        are cached to disk (parquet cache) to persist across app restarts.
+
+        Args:
+            hostname: The endpoint hostname (used to get API config)
+            assertions: List of assertions to enrich
+
+        Returns:
+            The same list with type info populated where possible
+        """
+        # Load cached type info from disk
+        endpoint_cache = self.cache.get_endpoint_cache(hostname)
+        type_info_cache = endpoint_cache.load_assertion_type_info()
+
+        # Apply cached type info to assertions
+        for assertion in assertions:
+            if assertion.assertion_urn in type_info_cache:
+                cached = type_info_cache[assertion.assertion_urn]
+                assertion.assertion_type = cached.get("assertionType")
+                assertion.field_metric_type = cached.get("fieldMetricType")
+
+        # Find assertions that still need enrichment (not in cache)
+        urns_to_enrich = [
+            a.assertion_urn
+            for a in assertions
+            if a.assertion_type is None and a.assertion_urn not in type_info_cache
+        ]
+
+        if not urns_to_enrich:
+            return assertions
+
+        try:
+            from .shared import get_active_config
+        except ImportError:
+            from shared import (  # type: ignore[import-not-found]
+                get_active_config,
+            )
+
+        config = get_active_config()
+        if not config:
+            return assertions
+
+        # Build GraphQL URL and headers
+        base_url = config.server.rstrip("/")
+        graphql_url = f"{base_url}/api/graphql"
+        headers = {"Authorization": f"Bearer {config.token}"} if config.token else {}
+
+        try:
+            from .fetch import _graphql_get_assertion_info_batch
+        except ImportError:
+            from fetch import (  # type: ignore[import-not-found,no-redef]
+                _graphql_get_assertion_info_batch,
+            )
+
+        # Fetch type info in batch
+        type_info = _graphql_get_assertion_info_batch(
+            graphql_url, headers, urns_to_enrich
+        )
+
+        # Save newly fetched type info to disk cache
+        if type_info:
+            endpoint_cache.save_assertion_type_info(type_info)
+
+        # Apply fetched type info to assertions
+        for assertion in assertions:
+            if assertion.assertion_urn in type_info:
+                info = type_info[assertion.assertion_urn]
+                assertion.assertion_type = info.get("assertionType")
+                assertion.field_metric_type = info.get("fieldMetricType")
+
+        return assertions
 
     def get_metric_cube_timeseries_with_anomalies(
         self,

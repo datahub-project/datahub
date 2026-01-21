@@ -35,8 +35,19 @@ const MessagesContainer = styled.div`
 `;
 
 const InputContainer = styled.div`
-    padding: 16px;
+    padding: 16px 16px 4px 16px;
     background-color: #ffffff;
+`;
+
+const AIDisclaimer = styled.div`
+    font-size: 12px;
+    color: ${colors.gray[1700]};
+    text-align: center;
+    margin-top: 4px;
+    flex-shrink: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 `;
 
 const EmptyState = styled.div`
@@ -189,6 +200,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
                     placeholder="Ask about this run..."
                     isStreaming={isStreaming}
                 />
+                <AIDisclaimer>Ask DataHub uses AI. Please double-check responses.</AIDisclaimer>
             </InputContainer>
         </Container>
     );

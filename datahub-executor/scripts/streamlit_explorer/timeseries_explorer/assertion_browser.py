@@ -662,28 +662,118 @@ def render_assertion_browser_page():
         )
         status_filter = status_options[selected_status_label]
 
+    # Advanced filters (assertion type and field metric)
+    with st.expander("🔍 Advanced Filters", expanded=False):
+        filter_cols = st.columns(2)
+
+        with filter_cols[0]:
+            assertion_type_options = {
+                "All Types": None,
+                "Volume": "VOLUME",
+                "Field": "FIELD",
+                "SQL": "SQL",
+                "Freshness": "FRESHNESS",
+            }
+            selected_type_label = st.selectbox(
+                "Assertion Type",
+                options=list(assertion_type_options.keys()),
+                index=0,
+                key="assertion_type_filter",
+            )
+            assertion_type_filter = assertion_type_options[selected_type_label]
+
+        with filter_cols[1]:
+            # Field metric filter only shown when assertion type is FIELD
+            field_metric_filter = None
+            if assertion_type_filter == "FIELD":
+                field_metric_options = {
+                    "All Metrics": None,
+                    "Null Count": "NULL_COUNT",
+                    "Null Percentage": "NULL_PERCENTAGE",
+                    "Unique Count": "UNIQUE_COUNT",
+                    "Unique Percentage": "UNIQUE_PERCENTAGE",
+                    "Min": "MIN",
+                    "Max": "MAX",
+                    "Mean": "MEAN",
+                    "Median": "MEDIAN",
+                    "Std Dev": "STD_DEV",
+                }
+                selected_metric_label = st.selectbox(
+                    "Field Metric",
+                    options=list(field_metric_options.keys()),
+                    index=0,
+                    key="field_metric_filter",
+                )
+                field_metric_filter = field_metric_options[selected_metric_label]
+            else:
+                st.caption("Select 'Field' type to filter by metric")
+
     # Pagination state
     page_size = 100
     page_key = "assertion_browser_page"
 
     # Reset page when filters change
     filter_state_key = "assertion_browser_filter_state"
-    current_filter_state = f"{hostname}|{search_query}|{status_filter}"
+    current_filter_state = (
+        f"{hostname}|{search_query}|{status_filter}|"
+        f"{assertion_type_filter}|{field_metric_filter}"
+    )
     if st.session_state.get(filter_state_key) != current_filter_state:
         st.session_state[page_key] = 0
         st.session_state[filter_state_key] = current_filter_state
 
     page = st.session_state.get(page_key, 0)
 
-    # Use paginated loading from metric cube data
+    # Load assertions with automatic type enrichment and apply filters
     with st.spinner("Loading monitored assertions..."):
-        assertions, total_count = loader.get_monitored_assertions_paginated(
-            hostname,
-            page=page,
-            page_size=page_size,
-            search_filter=search_query if search_query else None,
-            status_filter=status_filter,
-        )
+        # Load all assertions (auto-enriched with type info)
+        all_assertions = loader.get_monitored_assertions(hostname)
+
+        # Apply filters
+        filtered_assertions = all_assertions
+
+        # Apply search filter
+        if search_query:
+            filtered_assertions = [
+                a for a in filtered_assertions if search_query in a.assertion_urn
+            ]
+
+        # Apply status filter (None means ACTIVE)
+        if status_filter:
+            if status_filter == "ACTIVE":
+                filtered_assertions = [
+                    a
+                    for a in filtered_assertions
+                    if a.monitor_status == "ACTIVE" or a.monitor_status is None
+                ]
+            else:
+                filtered_assertions = [
+                    a for a in filtered_assertions if a.monitor_status == status_filter
+                ]
+
+        # Apply assertion type filter
+        if assertion_type_filter:
+            filtered_assertions = [
+                a
+                for a in filtered_assertions
+                if a.assertion_type == assertion_type_filter
+            ]
+
+        # Apply field metric filter (only for FIELD assertions)
+        if field_metric_filter:
+            filtered_assertions = [
+                a
+                for a in filtered_assertions
+                if a.assertion_type == "FIELD"
+                and a.field_metric_type == field_metric_filter
+            ]
+
+        total_count = len(filtered_assertions)
+
+        # Apply pagination
+        start_idx = page * page_size
+        end_idx = start_idx + page_size
+        assertions = filtered_assertions[start_idx:end_idx]
 
     # Calculate pagination info
     total_pages = max(1, (total_count + page_size - 1) // page_size)
@@ -722,17 +812,27 @@ def render_assertion_browser_page():
         table_data = []
         for a in assertions:
             # Format status with emoji
-            status_display = "-"
-            if a.monitor_status == "ACTIVE":
+            # Note: None/missing status is treated as ACTIVE
+            if a.monitor_status == "ACTIVE" or a.monitor_status is None:
                 status_display = "🟢 Active"
             elif a.monitor_status == "PAUSED":
                 status_display = "⏸️ Paused"
+            else:
+                status_display = "-"
+
+            # Format assertion type
+            type_display = a.assertion_type or "-"
+
+            # Format field metric (only for FIELD assertions)
+            metric_display = "-"
+            if a.assertion_type == "FIELD" and a.field_metric_type:
+                metric_display = a.field_metric_type
 
             table_data.append(
                 {
                     "Assertion URN": a.assertion_urn,
-                    "Monitor URN": a.monitor_urn or "-",
-                    "Metric Cube URN": a.metric_cube_urn or "-",
+                    "Type": type_display,
+                    "Metric": metric_display,
                     "Status": status_display,
                     "Points": a.point_count,
                     "Anomalies": a.anomaly_count,
@@ -758,12 +858,8 @@ def render_assertion_browser_page():
                 "Assertion URN": st.column_config.TextColumn(
                     "Assertion URN", width="large"
                 ),
-                "Monitor URN": st.column_config.TextColumn(
-                    "Monitor URN", width="medium"
-                ),
-                "Metric Cube URN": st.column_config.TextColumn(
-                    "Metric Cube URN", width="medium"
-                ),
+                "Type": st.column_config.TextColumn("Type", width="small"),
+                "Metric": st.column_config.TextColumn("Metric", width="small"),
                 "Status": st.column_config.TextColumn("Status", width="small"),
             },
             key="assertion_table",
