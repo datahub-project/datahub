@@ -181,6 +181,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
 )
+@capability(
+    SourceCapability.TAGS,
+    "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
+)
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

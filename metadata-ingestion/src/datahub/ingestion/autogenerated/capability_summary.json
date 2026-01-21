@@ -976,6 +976,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
           "subtype_modifier": null,
