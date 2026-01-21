@@ -10,6 +10,37 @@ PLATFORMS_WITH_CASE_SENSITIVE_TABLES = {
     "db2",
 }
 
+
+def get_dialect_str(platform: str) -> str:
+    """Map DataHub platform names to sqlglot dialect names.
+
+    Most DataHub platform names map directly to sqlglot dialect names,
+    but some platforms require translation.
+
+    Args:
+        platform: The DataHub platform name (e.g., "snowflake", "mssql")
+
+    Returns:
+        The corresponding sqlglot dialect string
+    """
+    platform_lower = platform.lower()
+
+    if platform_lower == "presto-on-hive":
+        return "hive"
+    elif platform_lower == "mssql":
+        return "tsql"
+    elif platform_lower == "athena":
+        return "trino"
+    elif platform_lower == "salesforce":
+        # Temporary workaround: treat SOQL as databricks dialect
+        return "databricks"
+    elif platform_lower in {"mysql", "mariadb"}:
+        # MySQL case sensitivity depends on OS; use lowercase normalization
+        return "mysql, normalization_strategy = lowercase"
+    else:
+        return platform_lower
+
+
 DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # Column identifiers are case-insensitive in BigQuery, so we need to
     # do a normalization step beforehand to make sure it's resolved correctly.
