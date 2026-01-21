@@ -84,6 +84,7 @@ if TYPE_CHECKING:
     from mypy_boto3_dynamodb.type_defs import (
         AttributeValueTypeDef,
         TableDescriptionTypeDef,
+        TagTypeDef,
     )
 
 
@@ -611,6 +612,14 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     def sanitize_tag_name(self, name: str) -> str:
         return re.sub(r"[^a-zA-Z0-9_\-=]", "_", name)
 
+    def _get_dynamodb_table_tags(
+        self,
+        dynamodb_client: "DynamoDBClient",
+        table_arn: str,
+    ) -> List["TagTypeDef"]:
+        resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
+        return resp.get("Tags", [])
+
     def _get_dynamodb_table_tags_wu(
         self,
         dynamodb_client: "DynamoDBClient",
@@ -621,8 +630,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         This overwrites existing DataHub tags, including those added manually via the UI.
         """
         try:
-            resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
-            tags_kv = resp.get("Tags", [])
+            tags_kv = self._get_dynamodb_table_tags(
+                dynamodb_client=dynamodb_client,
+                table_arn=table_arn,
+            )
             tags_to_add: List[str] = []
 
             for tag_dict in tags_kv:
