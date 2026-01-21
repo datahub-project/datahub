@@ -44,6 +44,7 @@ permissions:
   contents: read
   id-token: write
   actions: read
+  checks: write
 
 jobs:
   release-tests:

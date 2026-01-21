@@ -78,7 +78,7 @@ warn_unused_configs = true
 disallow_incomplete_defs = false
 disallow_untyped_defs = false
 
-[tool.pytest]
+[tool.pytest.ini_options]
 markers = [
     "read_only: marks tests as read only (deselect with '-m \"not read_only\"')",
     "no_cypress_suite1: main smoke tests, suite 1",
