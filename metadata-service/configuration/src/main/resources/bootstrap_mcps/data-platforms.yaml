@@ -825,7 +825,7 @@
     datasetNameDelimiter: "."
     name: timescaledb
     displayName: TimescaleDB
-    type: OTHERS
+    type: RELATIONAL_DB
     logoUrl: "assets/platforms/timescaledblogo.png"
 - entityUrn: urn:li:dataPlatform:abinitio
   entityType: dataPlatform

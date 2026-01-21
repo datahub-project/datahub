@@ -64,6 +64,103 @@ from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+TableMetadataTuple = Tuple[Optional[str], Dict[str, str], Optional[str]]
+
+
+class _TimescaleDBQueries:
+    """SQL queries for TimescaleDB metadata extraction"""
+
+    HYPERTABLES = """
+        SELECT 
+            ht.hypertable_name,
+            ht.num_dimensions,
+            ht.num_chunks,
+            ht.compression_enabled,
+            (
+                SELECT json_agg(json_build_object(
+                    'column_name', d.column_name,
+                    'column_type', d.column_type,
+                    'time_interval', d.time_interval::text,
+                    'integer_interval', d.integer_interval,
+                    'num_partitions', d.num_partitions
+                ))
+                FROM timescaledb_information.dimensions d
+                WHERE d.hypertable_schema = ht.hypertable_schema 
+                    AND d.hypertable_name = ht.hypertable_name
+            ) as dimensions,
+            (
+                SELECT json_build_object('drop_after', j.config->>'drop_after')
+                FROM timescaledb_information.jobs j
+                WHERE j.hypertable_schema = ht.hypertable_schema
+                    AND j.hypertable_name = ht.hypertable_name
+                    AND j.proc_name = :retention_policy_name
+                LIMIT 1
+            ) as retention_policy
+        FROM timescaledb_information.hypertables ht
+        WHERE ht.hypertable_schema = :schema
+        """
+
+    CONTINUOUS_AGGREGATES = """
+        SELECT 
+            ca.view_name,
+            ca.materialized_only,
+            ca.compression_enabled,
+            ca.hypertable_schema,
+            ca.hypertable_name,
+            COALESCE(pv.definition, ca.view_definition) as view_definition,
+            (
+                SELECT json_build_object(
+                    'schedule_interval', j.schedule_interval::text,
+                    'config', j.config
+                )
+                FROM timescaledb_information.jobs j
+                WHERE j.hypertable_schema = ca.materialization_hypertable_schema
+                    AND j.hypertable_name = ca.materialization_hypertable_name
+                    AND j.proc_name = :refresh_policy_name
+                LIMIT 1
+            ) as refresh_policy
+        FROM timescaledb_information.continuous_aggregates ca
+        LEFT JOIN pg_views pv ON pv.viewname = ca.view_name AND pv.schemaname = ca.view_schema
+        WHERE ca.view_schema = :schema
+        """
+
+    JOBS = """
+        SELECT 
+            j.job_id,
+            j.application_name,
+            j.schedule_interval,
+            j.max_runtime,
+            j.max_retries,
+            j.retry_period,
+            j.proc_schema,
+            j.proc_name,
+            j.scheduled,
+            j.fixed_schedule,
+            j.initial_start,
+            j.config,
+            j.hypertable_schema,
+            j.hypertable_name
+        FROM timescaledb_information.jobs j
+        WHERE (j.hypertable_schema = :schema OR j.proc_schema = :schema)
+        """
+
+    JOB_EXECUTION_HISTORY = """
+        SELECT 
+            js.job_id,
+            js.last_run_started_at,
+            js.last_successful_finish,
+            js.last_run_status,
+            js.total_runs,
+            js.total_successes,
+            js.total_failures,
+            js.total_crashes,
+            js.consecutive_failures,
+            js.consecutive_crashes
+        FROM timescaledb_information.job_stats js
+        WHERE js.job_id = :job_id
+        LIMIT :limit
+        """
+
 
 class _TimescaleDBConstants:
     """Platform and URN identifiers"""
@@ -193,16 +290,16 @@ def safe_str_convert(value: Any) -> Optional[str]:
     return str(value)
 
 
-class TableProperties(BaseModel):
-    """Type-safe container for table metadata (description, properties, location)"""
+class TableMetadata(BaseModel):
+    """Container for table metadata"""
 
     description: Optional[str] = None
-    properties: Dict[str, str] = Field(default_factory=dict)
+    custom_properties: Dict[str, str] = Field(default_factory=dict)
     location_urn: Optional[str] = None
 
-    def to_tuple(self) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+    def to_tuple(self) -> TableMetadataTuple:
         """Convert to tuple format expected by parent class"""
-        return self.description, self.properties, self.location_urn
+        return self.description, self.custom_properties, self.location_urn
 
     @classmethod
     def from_tuple(
@@ -210,10 +307,12 @@ class TableProperties(BaseModel):
         description: Optional[str],
         properties: Dict[str, str],
         location_urn: Optional[str],
-    ) -> "TableProperties":
+    ) -> "TableMetadata":
         """Create from tuple format returned by parent class"""
         return cls(
-            description=description, properties=properties, location_urn=location_urn
+            description=description,
+            custom_properties=properties,
+            location_urn=location_urn,
         )
 
 
@@ -221,14 +320,11 @@ TModel = TypeVar("TModel", bound="TimescaleDBModel")
 
 
 class TimescaleDBModel(BaseModel):
-    """Base class for TimescaleDB data models with common from_db_row logic"""
+    """Base class for TimescaleDB data models"""
 
     @classmethod
     def from_db_row(cls: Type[TModel], row: Any) -> TModel:
-        """
-        Generic factory method that maps database row to Pydantic model.
-        Subclasses can override for custom nested object handling.
-        """
+        """Factory method that maps database row to Pydantic model"""
         field_values = {}
         for field_name, field_info in cls.model_fields.items():
             raw_value = safe_get_from_row(row, field_name)
@@ -259,25 +355,28 @@ class RefreshPolicy(BaseModel):
 
 
 class Hypertable(TimescaleDBModel):
-    name: str
+    name: str = Field(alias="hypertable_name")
     num_dimensions: int = 0
     num_chunks: int = 0
     compression_enabled: bool = False
     dimensions: List[HypertableDimension] = Field(default_factory=list)
     retention_policy: Optional[RetentionPolicy] = None
 
+    model_config = {"populate_by_name": True}
+
     @classmethod
     def from_db_row(cls, row: Any) -> "Hypertable":
-        """Custom handling for nested objects and field name mapping"""
-        dimensions = []
+        # Parse nested dimensions
         dimensions_data = safe_get_from_row(row, "dimensions")
-        if dimensions_data:
-            dimensions = [HypertableDimension(**dim) for dim in dimensions_data]
+        dimensions = (
+            [HypertableDimension(**dim) for dim in dimensions_data]
+            if dimensions_data
+            else []
+        )
 
-        retention_policy = None
+        # Parse nested retention policy
         retention_data = safe_get_from_row(row, "retention_policy")
-        if retention_data:
-            retention_policy = RetentionPolicy(**retention_data)
+        retention_policy = RetentionPolicy(**retention_data) if retention_data else None
 
         return cls(
             name=safe_get_from_row(row, "hypertable_name", ""),
@@ -290,7 +389,7 @@ class Hypertable(TimescaleDBModel):
 
 
 class ContinuousAggregate(TimescaleDBModel):
-    name: str
+    name: str = Field(alias="view_name")
     materialized_only: bool = False
     compression_enabled: bool = False
     hypertable_schema: Optional[str] = None
@@ -298,21 +397,21 @@ class ContinuousAggregate(TimescaleDBModel):
     view_definition: Optional[str] = None
     refresh_policy: Optional[RefreshPolicy] = None
 
+    model_config = {"populate_by_name": True}
+
     @classmethod
     def from_db_row(cls, row: Any) -> "ContinuousAggregate":
-        """Custom handling for nested refresh_policy and field name mapping"""
-        refresh_policy = None
+        # Parse nested refresh policy
         refresh_data = safe_get_from_row(row, "refresh_policy")
-        if refresh_data:
-            refresh_policy = RefreshPolicy(**refresh_data)
+        refresh_policy = RefreshPolicy(**refresh_data) if refresh_data else None
 
         return cls(
             name=safe_get_from_row(row, "view_name", ""),
             materialized_only=safe_get_from_row(row, "materialized_only", False),
             compression_enabled=safe_get_from_row(row, "compression_enabled", False),
-            hypertable_schema=safe_get_from_row(row, "hypertable_schema", ""),
-            hypertable_name=safe_get_from_row(row, "hypertable_name", ""),
-            view_definition=safe_get_from_row(row, "view_definition", ""),
+            hypertable_schema=safe_get_from_row(row, "hypertable_schema"),
+            hypertable_name=safe_get_from_row(row, "hypertable_name"),
+            view_definition=safe_get_from_row(row, "view_definition"),
             refresh_policy=refresh_policy,
         )
 
@@ -348,25 +447,26 @@ class TimescaleDBJob(TimescaleDBModel):
 
     @classmethod
     def from_db_row(cls, row: Any) -> "TimescaleDBJob":
-        """Custom handling for timedelta string conversion"""
-        return cls(
-            job_id=safe_get_from_row(row, "job_id", 0),
-            application_name=safe_get_from_row(row, "application_name"),
-            schedule_interval=safe_str_convert(
+        # Convert timedelta fields to strings
+        field_values = {
+            "job_id": safe_get_from_row(row, "job_id", 0),
+            "application_name": safe_get_from_row(row, "application_name"),
+            "schedule_interval": safe_str_convert(
                 safe_get_from_row(row, "schedule_interval")
             ),
-            max_runtime=safe_str_convert(safe_get_from_row(row, "max_runtime")),
-            max_retries=safe_get_from_row(row, "max_retries", 0),
-            retry_period=safe_str_convert(safe_get_from_row(row, "retry_period")),
-            proc_schema=safe_get_from_row(row, "proc_schema"),
-            proc_name=safe_get_from_row(row, "proc_name"),
-            scheduled=safe_get_from_row(row, "scheduled", False),
-            fixed_schedule=safe_get_from_row(row, "fixed_schedule", False),
-            initial_start=safe_str_convert(safe_get_from_row(row, "initial_start")),
-            config=safe_get_from_row(row, "config"),
-            hypertable_schema=safe_get_from_row(row, "hypertable_schema"),
-            hypertable_name=safe_get_from_row(row, "hypertable_name"),
-        )
+            "max_runtime": safe_str_convert(safe_get_from_row(row, "max_runtime")),
+            "max_retries": safe_get_from_row(row, "max_retries", 0),
+            "retry_period": safe_str_convert(safe_get_from_row(row, "retry_period")),
+            "proc_schema": safe_get_from_row(row, "proc_schema"),
+            "proc_name": safe_get_from_row(row, "proc_name"),
+            "scheduled": safe_get_from_row(row, "scheduled", False),
+            "fixed_schedule": safe_get_from_row(row, "fixed_schedule", False),
+            "initial_start": safe_str_convert(safe_get_from_row(row, "initial_start")),
+            "config": safe_get_from_row(row, "config"),
+            "hypertable_schema": safe_get_from_row(row, "hypertable_schema"),
+            "hypertable_name": safe_get_from_row(row, "hypertable_name"),
+        }
+        return cls(**field_values)
 
     def get_display_name(self) -> str:
         proc_name = self.proc_name or "unknown"
@@ -695,8 +795,9 @@ class TimescaleDBSource(PostgresSource):
                     exc=e,
                 )
             elif "does not exist" in error_msg:
-                logger.debug(
-                    f"TimescaleDB metadata query failed for {operation_name} - schema or table may not exist: {e}"
+                logger.warning(
+                    f"TimescaleDB metadata query failed for {operation_name} - schema or table may not exist: {e}. "
+                    f"This could indicate missing permissions or schema changes."
                 )
             else:
                 self.report.warning(
@@ -710,13 +811,10 @@ class TimescaleDBSource(PostgresSource):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
-        """
-        Returns table metadata including TimescaleDB-specific properties.
-        Uses TableProperties model internally for type safety.
-        """
+    ) -> TableMetadataTuple:
+        """Returns table metadata including TimescaleDB-specific properties"""
         parent_result = super().get_table_properties(inspector, schema, table)
-        table_props = TableProperties.from_tuple(*parent_result)
+        table_props = TableMetadata.from_tuple(*parent_result)
 
         if not self.config.emit_timescaledb_metadata:
             return table_props.to_tuple()
@@ -740,10 +838,10 @@ class TimescaleDBSource(PostgresSource):
         return table_props.to_tuple()
 
     def _enrich_hypertable_properties(
-        self, table_props: TableProperties, hypertable: Hypertable
+        self, table_props: TableMetadata, hypertable: Hypertable
     ) -> None:
         """Add hypertable-specific metadata to table properties"""
-        props = table_props.properties
+        props = table_props.custom_properties
         props[_TimescaleDBProperties.IS_HYPERTABLE] = _TimescaleDBValues.TRUE
         props[_TimescaleDBProperties.NUM_DIMENSIONS] = str(hypertable.num_dimensions)
         props[_TimescaleDBProperties.NUM_CHUNKS] = str(hypertable.num_chunks)
@@ -764,10 +862,10 @@ class TimescaleDBSource(PostgresSource):
             )
 
     def _enrich_continuous_aggregate_properties(
-        self, table_props: TableProperties, cagg: ContinuousAggregate
+        self, table_props: TableMetadata, cagg: ContinuousAggregate
     ) -> None:
         """Add continuous aggregate-specific metadata to table properties"""
-        props = table_props.properties
+        props = table_props.custom_properties
         props[_TimescaleDBProperties.IS_CONTINUOUS_AGGREGATE] = _TimescaleDBValues.TRUE
         props[_TimescaleDBProperties.MATERIALIZED_ONLY] = str(cagg.materialized_only)
         props[_TimescaleDBProperties.COMPRESSION_ENABLED] = str(
@@ -1050,43 +1148,19 @@ class TimescaleDBSource(PostgresSource):
         # Ensure TimescaleDB environment is detected
         env = self._detect_timescaledb_environment(inspector)
         if env == TimescaleDBEnvironment.UNKNOWN:
-            logger.debug(
-                f"Skipping hypertable extraction for schema {schema} - environment unknown"
+            logger.warning(
+                f"Skipping hypertable extraction for schema {schema} - TimescaleDB environment could not be detected. "
+                f"Ensure TimescaleDB is properly installed and accessible."
             )
             return hypertables
 
-        query = f"""
-        SELECT 
-            ht.hypertable_name,
-            ht.num_dimensions,
-            ht.num_chunks,
-            ht.compression_enabled,
-            (
-                SELECT json_agg(json_build_object(
-                    'column_name', d.column_name,
-                    'column_type', d.column_type,
-                    'time_interval', d.time_interval::text,
-                    'integer_interval', d.integer_interval,
-                    'num_partitions', d.num_partitions
-                ))
-                FROM timescaledb_information.dimensions d
-                WHERE d.hypertable_schema = ht.hypertable_schema 
-                    AND d.hypertable_name = ht.hypertable_name
-            ) as dimensions,
-            (
-                SELECT json_build_object('drop_after', j.config->>'drop_after')
-                FROM timescaledb_information.jobs j
-                WHERE j.hypertable_schema = ht.hypertable_schema
-                    AND j.hypertable_name = ht.hypertable_name
-                    AND j.proc_name = '{_TimescaleDBPolicies.RETENTION}'
-                LIMIT 1
-            ) as retention_policy
-        FROM timescaledb_information.hypertables ht
-        WHERE ht.hypertable_schema = :schema
-        """
+        query = _TimescaleDBQueries.HYPERTABLES
 
         rows = self._execute_timescaledb_query(
-            inspector, query, {"schema": schema}, "hypertable metadata"
+            inspector,
+            query,
+            {"schema": schema, "retention_policy_name": _TimescaleDBPolicies.RETENTION},
+            "hypertable metadata",
         )
 
         for row in rows:
@@ -1107,37 +1181,22 @@ class TimescaleDBSource(PostgresSource):
 
         env = self._detect_timescaledb_environment(inspector)
         if env == TimescaleDBEnvironment.UNKNOWN:
-            logger.debug(
-                f"Skipping continuous aggregate extraction for schema {schema} - environment unknown"
+            logger.warning(
+                f"Skipping continuous aggregate extraction for schema {schema} - TimescaleDB environment could not be detected. "
+                f"Ensure TimescaleDB is properly installed and accessible."
             )
             return continuous_aggregates
 
-        query = f"""
-        SELECT 
-            ca.view_name,
-            ca.materialized_only,
-            ca.compression_enabled,
-            ca.hypertable_schema,
-            ca.hypertable_name,
-            COALESCE(pv.definition, ca.view_definition) as view_definition,
-            (
-                SELECT json_build_object(
-                    'schedule_interval', j.schedule_interval::text,
-                    'config', j.config
-                )
-                FROM timescaledb_information.jobs j
-                WHERE j.hypertable_schema = ca.materialization_hypertable_schema
-                    AND j.hypertable_name = ca.materialization_hypertable_name
-                    AND j.proc_name = '{_TimescaleDBPolicies.REFRESH_CONTINUOUS_AGGREGATE}'
-                LIMIT 1
-            ) as refresh_policy
-        FROM timescaledb_information.continuous_aggregates ca
-        LEFT JOIN pg_views pv ON pv.viewname = ca.view_name AND pv.schemaname = ca.view_schema
-        WHERE ca.view_schema = :schema
-        """
+        query = _TimescaleDBQueries.CONTINUOUS_AGGREGATES
 
         rows = self._execute_timescaledb_query(
-            inspector, query, {"schema": schema}, "continuous aggregate metadata"
+            inspector,
+            query,
+            {
+                "schema": schema,
+                "refresh_policy_name": _TimescaleDBPolicies.REFRESH_CONTINUOUS_AGGREGATE,
+            },
+            "continuous aggregate metadata",
         )
 
         for row in rows:
@@ -1156,30 +1215,13 @@ class TimescaleDBSource(PostgresSource):
 
         env = self._detect_timescaledb_environment(inspector)
         if env == TimescaleDBEnvironment.UNKNOWN:
-            logger.debug(
-                f"Skipping job extraction for schema {schema} - environment unknown"
+            logger.warning(
+                f"Skipping job extraction for schema {schema} - TimescaleDB environment could not be detected. "
+                f"Ensure TimescaleDB is properly installed and accessible."
             )
             return jobs
 
-        query = """
-        SELECT 
-            j.job_id,
-            j.application_name,
-            j.schedule_interval,
-            j.max_runtime,
-            j.max_retries,
-            j.retry_period,
-            j.proc_schema,
-            j.proc_name,
-            j.scheduled,
-            j.fixed_schedule,
-            j.initial_start,
-            j.config,
-            j.hypertable_schema,
-            j.hypertable_name
-        FROM timescaledb_information.jobs j
-        WHERE (j.hypertable_schema = :schema OR j.proc_schema = :schema)
-        """
+        query = _TimescaleDBQueries.JOBS
 
         rows = self._execute_timescaledb_query(
             inspector, query, {"schema": schema}, "job metadata"
@@ -1208,22 +1250,7 @@ class TimescaleDBSource(PostgresSource):
     ) -> List[JobExecution]:
         executions = []
 
-        query = """
-        SELECT 
-            js.job_id,
-            js.last_run_started_at,
-            js.last_successful_finish,
-            js.last_run_status,
-            js.total_runs,
-            js.total_successes,
-            js.total_failures,
-            js.total_crashes,
-            js.consecutive_failures,
-            js.consecutive_crashes
-        FROM timescaledb_information.job_stats js
-        WHERE js.job_id = :job_id
-        LIMIT :limit
-        """
+        query = _TimescaleDBQueries.JOB_EXECUTION_HISTORY
 
         rows = self._execute_timescaledb_query(
             inspector,
