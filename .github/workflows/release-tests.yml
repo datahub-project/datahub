@@ -106,13 +106,13 @@ jobs:
         with:
           name: Test Results (release tests)
           path: |
-            "smoke-test/test-reports/**"
+            smoke-test/test-reports/
           retention-days: 5
       - name: Publish Test Results Summary
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: success() || failure()
         with:
-          check_name: "Release Test Results (${{ github.event.workflow_run.name }})"
+          check_name: "Release Test Results"
           commit: ${{ github.event.workflow_run.head_sha }}
           event_name: ${{ github.event.workflow_run.event }}
           files: "smoke-test/test-reports/junit.xml"
