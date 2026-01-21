@@ -108,6 +108,7 @@ jobs:
           path: |
             smoke-test/test-reports/
           retention-days: 5
+        # Provides logs in Github Checks
       - name: Publish Test Results Summary
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: success() || failure()
@@ -118,6 +119,7 @@ jobs:
           files: "smoke-test/test-reports/junit.xml"
           job_summary: true
           comment_mode: off
+        # Provides failure message in Action Summary
       - name: Publish Release Test Results Summary
         uses: dorny/test-reporter@v2.5.0
         if: success() || failure()
