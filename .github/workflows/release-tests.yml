@@ -111,6 +111,7 @@ jobs:
           retention-days: 5
       - name: Publish Test Results Summary
         uses: EnricoMi/publish-unit-test-result-action@v2
+        if: success() || failure()
         with:
           check_name: "Release Test Results (${{ github.event.workflow_run.name }})"
           commit: ${{ github.event.workflow_run.head_sha }}
