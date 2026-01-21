@@ -4,6 +4,8 @@ Custom report class for Snowplow source.
 Tracks extraction statistics, errors, warnings, and API metrics.
 """
 
+import logging
+import random
 import time
 from dataclasses import dataclass, field
 from types import TracebackType
@@ -44,8 +46,6 @@ class APIMetrics:
             self.latencies_ms.append(latency_ms)
         else:
             # Reservoir sampling: randomly replace to maintain representative sample
-            import random
-
             idx = random.randint(0, self.call_count - 1)
             if idx < self.MAX_LATENCY_SAMPLES:
                 self.latencies_ms[idx] = latency_ms
@@ -415,8 +415,6 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
 
     def _log_api_metrics_summary(self) -> None:
         """Log API metrics summary for performance monitoring."""
-        import logging
-
         logger = logging.getLogger(__name__)
 
         if not self.api_metrics:

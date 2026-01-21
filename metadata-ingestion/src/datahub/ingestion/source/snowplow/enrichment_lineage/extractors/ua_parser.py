@@ -27,6 +27,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -94,3 +95,24 @@ class UaParserLineageExtractor(EnrichmentLineageExtractor):
             "UA Parser: Context lineage not yet implemented, returning empty lineages"
         )
         return []
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for UA Parser enrichment.
+
+        Note: This enrichment outputs to a context table, not atomic fields.
+        The field info is still useful for description building.
+        """
+        return EnrichmentFieldInfo(
+            input_fields=["useragent"],
+            output_fields=[
+                "useragent_family",
+                "useragent_major",
+                "useragent_minor",
+                "os_family",
+                "os_major",
+                "os_minor",
+                "device_family",
+            ],
+            transformation_description="Parses user agent string (outputs to context table)",
+        )

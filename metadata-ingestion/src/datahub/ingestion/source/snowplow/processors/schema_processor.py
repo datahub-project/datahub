@@ -14,11 +14,16 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 import requests
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowplow.constants import infer_schema_type
 from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataStructure,
     IgluSchema,
 )
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
+from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
+from datahub.metadata.schema_classes import StatusClass
+from datahub.sdk.dataset import Dataset
+from datahub.utilities.sentinels import unset
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.dependencies import (
@@ -341,14 +346,6 @@ class SchemaProcessor(EntityProcessor):
             name: Schema name
             version: Schema version
         """
-        from datahub.ingestion.source.snowplow.constants import infer_schema_type
-        from datahub.ingestion.source.snowplow.utils.schema_parser import (
-            SnowplowSchemaParser,
-        )
-        from datahub.metadata.schema_classes import StatusClass
-        from datahub.sdk.dataset import Dataset
-        from datahub.utilities.sentinels import unset
-
         # Determine schema type (event or entity)
         schema_type = infer_schema_type(name)
 

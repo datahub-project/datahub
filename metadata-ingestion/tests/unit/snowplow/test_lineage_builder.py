@@ -1,61 +1,84 @@
 """Unit tests for LineageBuilder."""
 
+from unittest.mock import MagicMock
+
 from datahub.ingestion.source.snowplow.builders.lineage_builder import LineageBuilder
-from datahub.metadata.schema_classes import (
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
+from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
 )
+from datahub.ingestion.source.snowplow.models.snowplow_models import Enrichment
+
+
+def _create_mock_enrichment(name: str = "test_enrichment") -> Enrichment:
+    """Create a mock Enrichment object for testing."""
+    enrichment = MagicMock(spec=Enrichment)
+    enrichment.filename = f"{name}.json"
+    # Create nested content.data.name structure
+    enrichment.content = MagicMock()
+    enrichment.content.data = MagicMock()
+    enrichment.content.data.name = name
+    return enrichment
+
+
+def _create_mock_registry(field_info: EnrichmentFieldInfo = None) -> MagicMock:
+    """Create a mock EnrichmentLineageRegistry that returns specified field info."""
+    registry = MagicMock()
+    registry.get_field_info.return_value = field_info
+    return registry
 
 
 class TestLineageBuilder:
     """Test LineageBuilder enrichment description building."""
 
-    def test_build_enrichment_description_no_lineages(self):
-        """Test building description with no lineages."""
+    def test_build_enrichment_description_no_field_info(self):
+        """Test building description when no field info is available."""
         builder = LineageBuilder()
+        enrichment = _create_mock_enrichment("ip_lookups")
+        registry = _create_mock_registry(field_info=None)
 
-        result = builder.build_enrichment_description("ip_lookups", [])
+        result = builder.build_enrichment_description(enrichment, registry)
 
         assert result == "ip_lookups enrichment"
 
-    def test_build_enrichment_description_with_downstream_fields(self):
-        """Test building description with downstream fields."""
+    def test_build_enrichment_description_empty_field_info(self):
+        """Test building description with empty field info."""
         builder = LineageBuilder()
+        enrichment = _create_mock_enrichment("ip_lookups")
+        field_info = EnrichmentFieldInfo(input_fields=[], output_fields=[])
+        registry = _create_mock_registry(field_info=field_info)
 
-        lineage = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),geo_country)",
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),geo_city)",
-            ],
+        result = builder.build_enrichment_description(enrichment, registry)
+
+        assert result == "ip_lookups enrichment"
+
+    def test_build_enrichment_description_with_output_fields(self):
+        """Test building description with output fields."""
+        builder = LineageBuilder()
+        enrichment = _create_mock_enrichment("ip_lookups")
+        field_info = EnrichmentFieldInfo(
+            input_fields=[],
+            output_fields=["geo_country", "geo_city"],
         )
+        registry = _create_mock_registry(field_info=field_info)
 
-        result = builder.build_enrichment_description("ip_lookups", [lineage])
+        result = builder.build_enrichment_description(enrichment, registry)
 
         assert "## ip_lookups enrichment" in result
         assert "**Adds fields:**" in result
         assert "- `geo_city`" in result
         assert "- `geo_country`" in result
 
-    def test_build_enrichment_description_with_upstream_fields(self):
-        """Test building description with upstream fields."""
+    def test_build_enrichment_description_with_input_fields(self):
+        """Test building description with input fields."""
         builder = LineageBuilder()
-
-        lineage = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.atomic,PROD),user_ipaddress)"
-            ],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),geo_country)"
-            ],
+        enrichment = _create_mock_enrichment("ip_lookups")
+        field_info = EnrichmentFieldInfo(
+            input_fields=["user_ipaddress"],
+            output_fields=["geo_country"],
         )
+        registry = _create_mock_registry(field_info=field_info)
 
-        result = builder.build_enrichment_description("ip_lookups", [lineage])
+        result = builder.build_enrichment_description(enrichment, registry)
 
         assert "## ip_lookups enrichment" in result
         assert "**From source fields:**" in result
@@ -63,67 +86,37 @@ class TestLineageBuilder:
         assert "**Adds fields:**" in result
         assert "- `geo_country`" in result
 
-    def test_build_enrichment_description_multiple_lineages(self):
-        """Test building description with multiple lineage entries."""
+    def test_build_enrichment_description_with_transformation_description(self):
+        """Test building description with transformation description."""
         builder = LineageBuilder()
-
-        lineage1 = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.atomic,PROD),user_ipaddress)"
-            ],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),geo_country)"
-            ],
+        enrichment = _create_mock_enrichment("ip_lookups")
+        field_info = EnrichmentFieldInfo(
+            input_fields=["user_ipaddress"],
+            output_fields=["geo_country", "geo_city"],
+            transformation_description="IP geolocation lookup via MaxMind",
         )
+        registry = _create_mock_registry(field_info=field_info)
 
-        lineage2 = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.atomic,PROD),user_ipaddress)"
-            ],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),geo_city)"
-            ],
-        )
+        result = builder.build_enrichment_description(enrichment, registry)
 
-        result = builder.build_enrichment_description(
-            "ip_lookups", [lineage1, lineage2]
-        )
-
-        # Should aggregate all fields
-        assert "- `geo_country`" in result
+        assert "## ip_lookups enrichment" in result
+        assert "*IP geolocation lookup via MaxMind*" in result
+        assert "**Adds fields:**" in result
         assert "- `geo_city`" in result
-        assert "- `user_ipaddress`" in result
+        assert "- `geo_country`" in result
 
     def test_build_enrichment_description_deduplicates_fields(self):
         """Test that duplicate fields are deduplicated."""
         builder = LineageBuilder()
-
-        # Same downstream field appears twice
-        lineage1 = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),geo_country)"
-            ],
+        enrichment = _create_mock_enrichment("ip_lookups")
+        # Same field appears twice
+        field_info = EnrichmentFieldInfo(
+            input_fields=[],
+            output_fields=["geo_country", "geo_country", "geo_city"],
         )
+        registry = _create_mock_registry(field_info=field_info)
 
-        lineage2 = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),geo_country)"
-            ],
-        )
-
-        result = builder.build_enrichment_description(
-            "ip_lookups", [lineage1, lineage2]
-        )
+        result = builder.build_enrichment_description(enrichment, registry)
 
         # Should only appear once
         assert result.count("- `geo_country`") == 1
@@ -131,19 +124,14 @@ class TestLineageBuilder:
     def test_build_enrichment_description_sorts_fields(self):
         """Test that fields are sorted alphabetically."""
         builder = LineageBuilder()
-
-        lineage = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),zebra_field)",
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),alpha_field)",
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),middle_field)",
-            ],
+        enrichment = _create_mock_enrichment("test")
+        field_info = EnrichmentFieldInfo(
+            input_fields=[],
+            output_fields=["zebra_field", "alpha_field", "middle_field"],
         )
+        registry = _create_mock_registry(field_info=field_info)
 
-        result = builder.build_enrichment_description("test", [lineage])
+        result = builder.build_enrichment_description(enrichment, registry)
 
         # Find positions of fields in result
         alpha_pos = result.index("alpha_field")
@@ -153,59 +141,33 @@ class TestLineageBuilder:
         # Should be in alphabetical order
         assert alpha_pos < middle_pos < zebra_pos
 
-    def test_build_enrichment_description_handles_none_upstreams_downstreams(self):
-        """Test handling of None upstreams/downstreams."""
+    def test_build_enrichment_description_uses_filename_if_no_content(self):
+        """Test that filename is used if content is not available."""
         builder = LineageBuilder()
-
-        lineage = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=None,
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=None,
+        enrichment = _create_mock_enrichment("test")
+        enrichment.content = None  # No content available
+        enrichment.filename = "my_enrichment.json"
+        field_info = EnrichmentFieldInfo(
+            input_fields=["source"],
+            output_fields=["output"],
         )
+        registry = _create_mock_registry(field_info=field_info)
 
-        result = builder.build_enrichment_description("test", [lineage])
+        result = builder.build_enrichment_description(enrichment, registry)
 
-        # Should not crash, just return basic description
-        assert "## test enrichment" in result
-
-    def test_build_enrichment_description_urn_parsing_edge_cases(self):
-        """Test URN parsing with various formats."""
-        builder = LineageBuilder()
-
-        # URN without comma (shouldn't be extracted)
-        lineage = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:invalid_format_no_comma",
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),valid_field)",
-            ],
-        )
-
-        result = builder.build_enrichment_description("test", [lineage])
-
-        # Should only extract valid field
-        assert "- `valid_field`" in result
-        assert "invalid_format_no_comma" not in result
+        assert "## my_enrichment.json enrichment" in result
 
     def test_build_enrichment_description_markdown_formatting(self):
         """Test markdown formatting of output."""
         builder = LineageBuilder()
-
-        lineage = FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.atomic,PROD),source_field)"
-            ],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD),output_field)"
-            ],
+        enrichment = _create_mock_enrichment("test_enrichment")
+        field_info = EnrichmentFieldInfo(
+            input_fields=["source_field"],
+            output_fields=["output_field"],
         )
+        registry = _create_mock_registry(field_info=field_info)
 
-        result = builder.build_enrichment_description("test_enrichment", [lineage])
+        result = builder.build_enrichment_description(enrichment, registry)
 
         # Verify markdown structure
         assert result.startswith("## test_enrichment enrichment")

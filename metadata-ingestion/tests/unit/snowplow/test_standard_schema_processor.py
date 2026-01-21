@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from datahub.ingestion.source.snowplow.constants import infer_schema_type
 from datahub.ingestion.source.snowplow.dependencies import (
     IngestionState,
     ProcessorDependencies,
@@ -430,18 +431,17 @@ class TestStandardSchemaProcessor:
         assert "com.snowplowanalytics.snowplow" in call_args
         assert "com.acme" not in call_args
 
-    def test_determine_schema_type_event(self, mock_deps, mock_state):
-        """Test schema type determination for event schemas."""
-        # Event schemas don't contain "context" in name
-        # This is tested implicitly through _process_standard_schema
-        # but we can verify the logic by checking the code behavior
+    def test_infer_schema_type_event(self, mock_deps, mock_state):
+        """Test schema type inference for event schemas."""
+        # Event schemas don't contain "context" in name - should return "event"
+        assert infer_schema_type("page_view") == "event"
+        assert infer_schema_type("product") == "event"
+        assert infer_schema_type("checkout_started") == "event"
+        assert infer_schema_type("link_click") == "event"
 
-        # Schema names without "context" should be classified as "event"
-        assert "context" not in "page_view".lower()
-        assert "context" not in "product".lower()
-
-    def test_determine_schema_type_entity(self, mock_deps, mock_state):
-        """Test schema type determination for entity/context schemas."""
-        # Entity schemas contain "context" in name
-        assert "context" in "user_context".lower()
-        assert "context" in "web_context".lower()
+    def test_infer_schema_type_entity(self, mock_deps, mock_state):
+        """Test schema type inference for entity/context schemas."""
+        # Entity schemas contain "context" in name - should return "entity"
+        assert infer_schema_type("user_context") == "entity"
+        assert infer_schema_type("web_context") == "entity"
+        assert infer_schema_type("mobile_context") == "entity"

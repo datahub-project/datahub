@@ -18,6 +18,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -114,3 +115,15 @@ class EventFingerprintLineageExtractor(EnrichmentLineageExtractor):
         )
 
         return [lineage]
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for Event Fingerprint enrichment.
+
+        This enrichment hashes multiple input fields to produce a single fingerprint.
+        """
+        return EnrichmentFieldInfo(
+            input_fields=list(self.COMMON_INPUT_FIELDS),
+            output_fields=["event_fingerprint"],
+            transformation_description="Generates hash fingerprint for event deduplication",
+        )

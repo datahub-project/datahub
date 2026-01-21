@@ -22,6 +22,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -150,3 +151,30 @@ class YauaaLineageExtractor(EnrichmentLineageExtractor):
         )
 
         return lineages
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for YAUAA enrichment.
+
+        This enrichment always uses the same input/output fields regardless of configuration.
+        """
+        # Collect all output fields
+        browser_fields = ["br_family", "br_name", "br_version", "br_type"]
+        os_fields = ["os_family", "os_name", "os_version"]
+        device_fields = ["device_class", "device_name", "device_brand"]
+        agent_fields = ["agent_class", "agent_name", "agent_version"]
+        engine_fields = [
+            "layout_engine_class",
+            "layout_engine_name",
+            "layout_engine_version",
+        ]
+
+        all_output_fields = (
+            browser_fields + os_fields + device_fields + agent_fields + engine_fields
+        )
+
+        return EnrichmentFieldInfo(
+            input_fields=["useragent"],
+            output_fields=all_output_fields,
+            transformation_description="Parses user agent for browser, OS, and device info",
+        )

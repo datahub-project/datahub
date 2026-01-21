@@ -7,12 +7,19 @@ but are publicly accessible from Iglu Central.
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
+
+import requests
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.constants import infer_schema_type
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
-from datahub.metadata.schema_classes import StatusClass
+from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    StatusClass,
+    TagAssociationClass,
+)
 from datahub.sdk.dataset import Dataset
 
 if TYPE_CHECKING:
@@ -184,17 +191,11 @@ class StandardSchemaProcessor(EntityProcessor):
         }
 
         # Build extra aspects (status is required)
-        from typing import Any, List
-
         extra_aspects: List[Any] = [StatusClass(removed=False)]
 
         # Parse schema metadata if available
         schema_metadata = None
         if "properties" in schema_data:
-            from datahub.ingestion.source.snowplow.utils.schema_parser import (
-                SnowplowSchemaParser,
-            )
-
             try:
                 schema_metadata = SnowplowSchemaParser.parse_schema(
                     schema_data=schema_data,
@@ -210,8 +211,6 @@ class StandardSchemaProcessor(EntityProcessor):
                 )
 
         # Add tags as extra aspect (following data_structure_builder pattern)
-        from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
-
         tags_to_add = [schema_type, "snowplow_standard", f"vendor:{vendor}"]
         tag_associations = [
             TagAssociationClass(tag=f"urn:li:tag:{tag}") for tag in sorted(tags_to_add)
@@ -303,8 +302,6 @@ class StandardSchemaProcessor(EntityProcessor):
         Returns:
             Schema data dict or None if not found
         """
-        import requests
-
         # Iglu Central URL format: http://iglucentral.com/schemas/{vendor}/{name}/{format}/{version}
         url = f"{self.iglu_central_url}/schemas/{vendor}/{name}/{format_type}/{version}"
 

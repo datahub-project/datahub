@@ -6,6 +6,7 @@ These models provide type safety and validation for data returned from:
 - Iglu Schema Registry API
 """
 
+import logging
 import re
 from typing import Any, ClassVar, Dict, List, Optional, Pattern
 
@@ -886,8 +887,6 @@ class Pipeline(BaseModel):
     @classmethod
     def validate_status(cls, v: str) -> str:
         """Validate status is a known pipeline status, warn if unknown."""
-        import logging
-
         if v.lower() not in cls.VALID_STATUSES:
             logging.getLogger(__name__).warning(
                 f"Unknown pipeline status '{v}'. Known statuses: {cls.VALID_STATUSES}"

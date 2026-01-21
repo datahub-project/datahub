@@ -5,6 +5,7 @@ This module provides common helper functions used by enrichment lineage extracto
 such as field name conversions and URN construction.
 """
 
+import json
 import re
 from typing import Optional
 
@@ -66,8 +67,6 @@ def parse_json_config(parameters: Optional[str]) -> dict:
     Returns:
         Parsed configuration dictionary, or empty dict if parsing fails
     """
-    import json
-
     if not parameters:
         return {}
 

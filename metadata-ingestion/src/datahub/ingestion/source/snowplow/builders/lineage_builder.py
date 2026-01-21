@@ -5,9 +5,15 @@ Handles construction of lineage metadata for enrichments and pipelines.
 """
 
 import logging
-from typing import List
+from typing import Optional
 
-from datahub.metadata.schema_classes import FineGrainedLineageClass
+from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
+)
+from datahub.ingestion.source.snowplow.enrichment_lineage.registry import (
+    EnrichmentLineageRegistry,
+)
+from datahub.ingestion.source.snowplow.models.snowplow_models import Enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -22,55 +28,56 @@ class LineageBuilder:
 
     def build_enrichment_description(
         self,
-        enrichment_name: str,
-        fine_grained_lineages: List[FineGrainedLineageClass],
+        enrichment: Enrichment,
+        registry: EnrichmentLineageRegistry,
     ) -> str:
         """
-        Build enrichment description with field lineage information.
+        Build enrichment description with field information from enrichment config.
+
+        Uses the registry to get field information directly from the enrichment
+        configuration rather than parsing URNs from lineage objects.
 
         Args:
-            enrichment_name: Name of the enrichment
-            fine_grained_lineages: List of fine-grained lineage objects
+            enrichment: The enrichment configuration
+            registry: Registry to look up the appropriate extractor
 
         Returns:
             Enhanced description with field information
         """
-        if not fine_grained_lineages:
+        # Get name from nested content.data.name, fallback to filename
+        enrichment_name = enrichment.filename
+        if enrichment.content and enrichment.content.data:
+            enrichment_name = enrichment.content.data.name
+
+        # Get field info from the appropriate extractor
+        field_info: Optional[EnrichmentFieldInfo] = registry.get_field_info(enrichment)
+
+        if not field_info or (
+            not field_info.input_fields and not field_info.output_fields
+        ):
             return f"{enrichment_name} enrichment"
-
-        # Extract unique upstream and downstream field names
-        upstream_fields = set()
-        downstream_fields = set()
-
-        for lineage in fine_grained_lineages:
-            # Extract field names from URNs
-            for upstream_urn in lineage.upstreams or []:
-                # URN format: urn:li:schemaField:(urn:li:dataset:...,field_name)
-                if "," in upstream_urn:
-                    field_name = upstream_urn.split(",")[-1].rstrip(")")
-                    upstream_fields.add(field_name)
-
-            for downstream_urn in lineage.downstreams or []:
-                if "," in downstream_urn:
-                    field_name = downstream_urn.split(",")[-1].rstrip(")")
-                    downstream_fields.add(field_name)
 
         # Build markdown-formatted description with proper structure
         description_lines = [f"## {enrichment_name} enrichment", ""]
 
-        if downstream_fields:
+        # Add transformation description if available
+        if field_info.transformation_description:
+            description_lines.append(f"*{field_info.transformation_description}*")
+            description_lines.append("")
+
+        if field_info.output_fields:
             # Sort for consistent output and show ALL fields as individual bullets
-            downstream_list = sorted(downstream_fields)
+            output_list = sorted(set(field_info.output_fields))
             description_lines.append("**Adds fields:**")
-            for field in downstream_list:
+            for field in output_list:
                 description_lines.append(f"- `{field}`")
             description_lines.append("")
 
-        if upstream_fields:
+        if field_info.input_fields:
             # Sort for consistent output and show ALL fields as individual bullets
-            upstream_list = sorted(upstream_fields)
+            input_list = sorted(set(field_info.input_fields))
             description_lines.append("**From source fields:**")
-            for field in upstream_list:
+            for field in input_list:
                 description_lines.append(f"- `{field}`")
 
         return "\n".join(description_lines)

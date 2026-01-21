@@ -24,6 +24,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -111,3 +112,15 @@ class CampaignAttributionLineageExtractor(EnrichmentLineageExtractor):
         )
 
         return lineages
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for Campaign Attribution enrichment.
+
+        This enrichment always uses the same input/output fields regardless of configuration.
+        """
+        return EnrichmentFieldInfo(
+            input_fields=[self.INPUT_FIELD],
+            output_fields=list(self.OUTPUT_FIELDS),
+            transformation_description="Extracts marketing campaign parameters from URL query string",
+        )

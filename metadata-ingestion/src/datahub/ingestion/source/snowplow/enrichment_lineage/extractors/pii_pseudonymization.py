@@ -28,6 +28,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -227,3 +228,50 @@ class PiiPseudonymizationLineageExtractor(EnrichmentLineageExtractor):
             )
 
         return lineages
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for PII Pseudonymization enrichment.
+
+        The fields depend on the enrichment configuration - which POJO and JSON
+        fields are configured for pseudonymization.
+        """
+        # Get parameters from enrichment
+        parameters = self._get_parameters(enrichment)
+        if not parameters:
+            return EnrichmentFieldInfo(
+                input_fields=[],
+                output_fields=[],
+                transformation_description="Pseudonymizes PII fields (no config found)",
+            )
+
+        # Parse PII configuration
+        field_config = FieldReferenceParser.parse_from_key(parameters, "pii")
+
+        if field_config.is_empty():
+            return EnrichmentFieldInfo(
+                input_fields=[],
+                output_fields=[],
+                transformation_description="Pseudonymizes PII fields (none configured)",
+            )
+
+        # Collect field names (for PII, input = output since it's in-place)
+        fields: List[str] = []
+
+        # Add POJO field names
+        for pojo_field in field_config.pojo_fields:
+            fields.append(pojo_field.field_name)
+
+        # Add JSON field names (leaf names)
+        for json_field in field_config.json_fields:
+            for field_path in json_field.get_field_names():
+                leaf_field = (
+                    field_path.split(".")[-1] if "." in field_path else field_path
+                )
+                fields.append(leaf_field)
+
+        return EnrichmentFieldInfo(
+            input_fields=fields,
+            output_fields=fields,  # Same fields (in-place transformation)
+            transformation_description="Pseudonymizes PII fields via hashing/encryption",
+        )

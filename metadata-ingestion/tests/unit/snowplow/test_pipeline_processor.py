@@ -6,10 +6,24 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.ingestion.source.snowplow.constants import WAREHOUSE_PLATFORM_MAP
+from datahub.ingestion.source.snowplow.dependencies import IngestionState
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
+    EventSchemaDetail,
+    EventSpecification,
+    Pipeline as SnowplowPipeline,
+    PipelineConfig,
+)
 from datahub.ingestion.source.snowplow.processors.pipeline_processor import (
     PipelineProcessor,
 )
-from datahub.metadata.schema_classes import DataJobInfoClass, DataJobInputOutputClass
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
 
 
 class TestWarehousePlatformMapping:
@@ -222,18 +236,10 @@ class TestPipelineProcessorDataFlowCreation:
     @pytest.fixture
     def mock_state(self):
         """Create mock state with emitted event spec IDs."""
-        from datahub.ingestion.source.snowplow.dependencies import IngestionState
-
         return IngestionState()
 
     def test_creates_single_dataflow_for_physical_pipeline(self, mock_deps, mock_state):
         """Single DataFlow is created for the physical pipeline (Option A architecture)."""
-        from datahub.ingestion.source.snowplow.models.snowplow_models import (
-            EventSchemaDetail,
-            EventSpecification,
-            Pipeline as SnowplowPipeline,
-        )
-
         # Create multiple event specs - all share single DataFlow
         spec1 = EventSpecification(
             id="spec1",
@@ -276,12 +282,6 @@ class TestPipelineProcessorDataFlowCreation:
 
     def test_tracks_all_event_specs_when_none_pre_emitted(self, mock_deps, mock_state):
         """When no event specs were pre-emitted, pipeline processor tracks all specs."""
-        from datahub.ingestion.source.snowplow.models.snowplow_models import (
-            EventSchemaDetail,
-            EventSpecification,
-            Pipeline as SnowplowPipeline,
-        )
-
         # No pre-emitted event specs (EventSpecProcessor may not have run)
         assert len(mock_state.emitted_event_spec_ids) == 0
 
@@ -315,12 +315,6 @@ class TestPipelineProcessorDataFlowCreation:
 
     def test_preserves_pre_emitted_event_spec_ids(self, mock_deps, mock_state):
         """When event specs were pre-emitted, pipeline processor preserves them."""
-        from datahub.ingestion.source.snowplow.models.snowplow_models import (
-            EventSchemaDetail,
-            EventSpecification,
-            Pipeline as SnowplowPipeline,
-        )
-
         # Simulate EventSpecProcessor having emitted only spec1
         mock_state.emitted_event_spec_ids.add("spec1")
 
@@ -440,11 +434,6 @@ class TestExpandFieldUrnsToAllEventSpecs:
         self, mock_deps, mock_state
     ):
         """Custom schema field expands only to event specs that have the schema."""
-        from datahub.metadata.schema_classes import (
-            SchemaFieldClass,
-            SchemaFieldDataTypeClass,
-            StringTypeClass,
-        )
 
         processor = PipelineProcessor(mock_deps, mock_state)
 
@@ -537,11 +526,6 @@ class TestExpandFieldUrnsToAllEventSpecs:
 
     def test_mixed_atomic_and_custom_fields(self, mock_deps, mock_state):
         """Atomic fields expanded to all, custom fields expanded to matching event specs only."""
-        from datahub.metadata.schema_classes import (
-            SchemaFieldClass,
-            SchemaFieldDataTypeClass,
-            StringTypeClass,
-        )
 
         processor = PipelineProcessor(mock_deps, mock_state)
 
@@ -716,12 +700,6 @@ class TestFindEventSpecsWithField:
 
     def test_finds_event_specs_with_matching_schema(self, mock_deps, mock_state):
         """Finds event specs that have schemas containing the field."""
-        from datahub.metadata.schema_classes import (
-            NumberTypeClass,
-            SchemaFieldClass,
-            SchemaFieldDataTypeClass,
-            StringTypeClass,
-        )
 
         processor = PipelineProcessor(mock_deps, mock_state)
 
@@ -780,11 +758,6 @@ class TestFindEventSpecsWithField:
 
     def test_returns_empty_when_field_not_in_any_schema(self, mock_deps, mock_state):
         """Returns empty list when field not found in any schema."""
-        from datahub.metadata.schema_classes import (
-            NumberTypeClass,
-            SchemaFieldClass,
-            SchemaFieldDataTypeClass,
-        )
 
         processor = PipelineProcessor(mock_deps, mock_state)
 
@@ -895,7 +868,6 @@ class TestEmitCollectorDataJob:
         from datahub.ingestion.source.snowplow.dependencies import IngestionState
         from datahub.ingestion.source.snowplow.models.snowplow_models import (
             Pipeline as SnowplowPipeline,
-            PipelineConfig,
         )
 
         state = IngestionState()

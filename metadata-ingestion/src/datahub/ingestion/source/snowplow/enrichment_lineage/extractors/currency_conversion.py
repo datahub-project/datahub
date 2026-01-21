@@ -18,6 +18,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -119,3 +120,23 @@ class CurrencyConversionLineageExtractor(EnrichmentLineageExtractor):
         )
 
         return lineages
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for Currency Conversion enrichment.
+
+        This enrichment always uses the same input/output fields regardless of configuration.
+        """
+        # Collect all unique input and output fields
+        input_fields = set()
+        output_fields = []
+
+        for input_field_list, output_field in self.FIELD_MAPPINGS:
+            input_fields.update(input_field_list)
+            output_fields.append(output_field)
+
+        return EnrichmentFieldInfo(
+            input_fields=sorted(input_fields),
+            output_fields=output_fields,
+            transformation_description="Converts transaction amounts to base currency",
+        )

@@ -18,6 +18,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -180,3 +181,34 @@ class IpLookupLineageExtractor(EnrichmentLineageExtractor):
             )
 
         return lineages
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for IP Lookup enrichment based on configured databases.
+
+        The output fields depend on which MaxMind databases are configured:
+        - geo: geo_country, geo_region, geo_city, etc.
+        - isp: ip_isp, ip_organization
+        - domain: ip_domain
+        - connectionType: ip_netspeed
+        """
+        output_fields: List[str] = []
+
+        # Get enrichment configuration
+        config = enrichment.parameters if enrichment.parameters else {}
+
+        # Add fields based on configured databases
+        if "geo" in config:
+            output_fields.extend(self.GEO_FIELDS)
+        if "isp" in config:
+            output_fields.extend(self.ISP_FIELDS)
+        if "domain" in config:
+            output_fields.extend(self.DOMAIN_FIELDS)
+        if "connectionType" in config:
+            output_fields.extend(self.CONNECTION_FIELDS)
+
+        return EnrichmentFieldInfo(
+            input_fields=[self.INPUT_FIELD],
+            output_fields=output_fields,
+            transformation_description="IP geolocation and ISP lookup via MaxMind",
+        )

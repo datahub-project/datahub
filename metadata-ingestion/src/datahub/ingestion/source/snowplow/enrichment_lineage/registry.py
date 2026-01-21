@@ -10,6 +10,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
 )
 from datahub.ingestion.source.snowplow.models.snowplow_models import Enrichment
@@ -86,3 +87,21 @@ class EnrichmentLineageRegistry:
             Number of extractors in the registry
         """
         return len(self._extractors)
+
+    def get_field_info(self, enrichment: Enrichment) -> Optional[EnrichmentFieldInfo]:
+        """
+        Get field information for the given enrichment.
+
+        Finds the appropriate extractor and delegates to its get_field_info() method
+        to retrieve input/output field information based on the enrichment configuration.
+
+        Args:
+            enrichment: The enrichment to get field info for
+
+        Returns:
+            EnrichmentFieldInfo with input/output fields, or None if no extractor found
+        """
+        extractor = self.get_extractor(enrichment)
+        if extractor:
+            return extractor.get_field_info(enrichment)
+        return None

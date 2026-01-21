@@ -27,6 +27,7 @@ Usage:
 """
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -46,6 +47,7 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.registry import (
 )
 
 __all__ = [
+    "EnrichmentFieldInfo",
     "EnrichmentLineageExtractor",
     "FieldLineage",
     "EnrichmentLineageRegistry",

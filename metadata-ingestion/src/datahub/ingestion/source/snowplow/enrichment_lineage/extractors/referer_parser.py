@@ -18,6 +18,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -96,3 +97,15 @@ class RefererParserLineageExtractor(EnrichmentLineageExtractor):
         )
 
         return lineages
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for Referer Parser enrichment.
+
+        This enrichment always uses the same input/output fields regardless of configuration.
+        """
+        return EnrichmentFieldInfo(
+            input_fields=[self.INPUT_FIELD],
+            output_fields=list(self.OUTPUT_FIELDS),
+            transformation_description="Parses HTTP referer to extract traffic source",
+        )

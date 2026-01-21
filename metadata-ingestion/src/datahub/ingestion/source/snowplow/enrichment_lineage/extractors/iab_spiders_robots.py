@@ -21,6 +21,7 @@ import logging
 from typing import List, Optional
 
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
     FieldLineage,
 )
@@ -89,3 +90,16 @@ class IabSpidersRobotsLineageExtractor(EnrichmentLineageExtractor):
             "IAB Spiders & Robots: Context lineage not yet implemented, returning empty lineages"
         )
         return []
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for IAB Spiders and Robots enrichment.
+
+        Note: This enrichment outputs to a context table, not atomic fields.
+        The field info is still useful for description building.
+        """
+        return EnrichmentFieldInfo(
+            input_fields=["useragent", "user_ipaddress"],
+            output_fields=["spiderOrRobot", "category", "reason", "primaryImpact"],
+            transformation_description="Detects bot/spider traffic (outputs to context table)",
+        )

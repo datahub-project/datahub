@@ -470,11 +470,11 @@ class PipelineProcessor(EntityProcessor):
 
             description = f"{enrichment_name} enrichment"
 
-        if fine_grained_lineages:
-            description = self.deps.lineage_builder.build_enrichment_description(
-                enrichment_name=enrichment_name,
-                fine_grained_lineages=fine_grained_lineages,
-            )
+        # Build enhanced description using enrichment config directly
+        description = self.deps.lineage_builder.build_enrichment_description(
+            enrichment=enrichment,
+            registry=self.deps.enrichment_lineage_registry,
+        )
 
         # Build ownership aspect conditionally
         ownership_aspect = None

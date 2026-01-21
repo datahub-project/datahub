@@ -43,6 +43,26 @@ class FieldLineage:
     """
 
 
+@dataclass
+class EnrichmentFieldInfo:
+    """
+    Field information for an enrichment, used for building descriptions.
+
+    This captures which fields an enrichment reads from (inputs) and which
+    fields it produces (outputs), based on the enrichment configuration.
+    Unlike FieldLineage which contains URNs, this contains simple field names.
+    """
+
+    input_fields: List[str]
+    """List of input field names (e.g., ['user_ipaddress'])"""
+
+    output_fields: List[str]
+    """List of output field names (e.g., ['geo_country', 'geo_region', 'geo_city'])"""
+
+    transformation_description: Optional[str] = None
+    """Optional description of the transformation (e.g., 'IP geolocation lookup')"""
+
+
 class EnrichmentLineageExtractor(ABC):
     """
     Abstract base class for extracting field-level lineage from Snowplow enrichments.
@@ -92,6 +112,25 @@ class EnrichmentLineageExtractor(ABC):
             True if this extractor can handle this enrichment type
         """
         pass
+
+    def get_field_info(self, enrichment: Enrichment) -> EnrichmentFieldInfo:
+        """
+        Get field information for this enrichment based on its configuration.
+
+        This method returns the input and output field names that this enrichment
+        processes, based on the enrichment's configuration. This is used to build
+        descriptions without needing to parse URNs from fine-grained lineages.
+
+        Subclasses should override this method to provide specific field information
+        based on the enrichment configuration.
+
+        Args:
+            enrichment: The enrichment configuration from Snowplow API
+
+        Returns:
+            EnrichmentFieldInfo with input/output field names
+        """
+        return EnrichmentFieldInfo(input_fields=[], output_fields=[])
 
     def _create_simple_lineages(
         self,

@@ -139,7 +139,6 @@ class SnowplowURNFactory:
 
         Args:
             scenario_id: Tracking scenario UUID from Snowplow BDP
-
         Returns:
             Container URN for tracking scenario
         """
