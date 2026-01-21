@@ -126,6 +126,7 @@ jobs:
           artifact: test-reports
           name: Test Run Failures
           path: junit.xml
+          list-suites: "none"
           list-tests: "failed"
           max-annotations: "30"
           report-title: "Test Result Summary"
