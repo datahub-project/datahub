@@ -11,6 +11,27 @@ configurations {
   play
 }
 
+configurations.all {
+  // Prevent the legacy monolithic artifact from being used
+  exclude group: 'io.jsonwebtoken', module: 'jjwt'
+
+  resolutionStrategy {
+    // Force the correct modern JJWT artifacts
+    force(
+            "io.jsonwebtoken:jjwt-api:0.12.6",
+            "io.jsonwebtoken:jjwt-impl:0.12.6",
+            "io.jsonwebtoken:jjwt-jackson:0.12.6"
+    )
+
+    // If a transitive request asks for the old 'jjwt' module, rewrite it to the new API artifact
+    eachDependency { details ->
+      if (details.requested.group == 'io.jsonwebtoken' && details.requested.name == 'jjwt') {
+        details.useTarget "io.jsonwebtoken:jjwt-api:0.12.6"
+      }
+    }
+  }
+}
+
 ext {
   nimbusJoseJwtVersion = "9.41.2"
   oauth2OidcSdkVersion = "11.20.1"
