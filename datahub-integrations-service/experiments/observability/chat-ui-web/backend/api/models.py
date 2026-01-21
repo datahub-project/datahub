@@ -30,10 +30,13 @@ class ConnectionConfigModel(BaseModel):
         default=ConnectionModeEnum.QUICKSTART, description="Connection mode"
     )
     integrations_url: Optional[str] = Field(
-        default="http://localhost:9003", description="Integrations service URL (not needed for embedded mode)"
+        default="http://localhost:9003",
+        description="Integrations service URL (not needed for embedded mode)",
     )
     gms_url: str = Field(default="http://localhost:8080", description="GMS URL")
-    gms_token: Optional[str] = Field(default=None, description="GMS authentication token")
+    gms_token: Optional[str] = Field(
+        default=None, description="GMS authentication token"
+    )
     kube_namespace: Optional[str] = Field(
         default=None, description="Kubernetes namespace (for remote mode)"
     )
@@ -167,21 +170,38 @@ class ProfileModel(BaseModel):
     name: str = Field(..., description="Profile name (unique identifier)")
     description: Optional[str] = Field(default=None, description="Profile description")
     gms_url: str = Field(..., description="DataHub GMS URL")
-    gms_token: Optional[str] = Field(default=None, description="GMS authentication token")
+    gms_token: Optional[str] = Field(
+        default=None, description="GMS authentication token"
+    )
 
     # Optional kubectl info (used when connection_mode = remote)
     kube_context: Optional[str] = Field(default=None, description="Kubernetes context")
-    kube_namespace: Optional[str] = Field(default=None, description="Kubernetes namespace")
+    kube_namespace: Optional[str] = Field(
+        default=None, description="Kubernetes namespace"
+    )
 
     # Status
-    is_active: bool = Field(default=False, description="Whether this profile is currently active")
-    is_readonly: bool = Field(default=False, description="Whether this profile is read-only (from external source)")
-    source: Optional[str] = Field(default=None, description="Source of the profile (e.g., 'datahubenv', 'user')")
+    is_active: bool = Field(
+        default=False, description="Whether this profile is currently active"
+    )
+    is_readonly: bool = Field(
+        default=False,
+        description="Whether this profile is read-only (from external source)",
+    )
+    source: Optional[str] = Field(
+        default=None, description="Source of the profile (e.g., 'datahubenv', 'user')"
+    )
 
     # Token status
-    token_expires_at: Optional[str] = Field(default=None, description="Token expiration timestamp (ISO format)")
-    token_expired: Optional[bool] = Field(default=None, description="Whether the token has expired")
-    token_expiring_soon: Optional[bool] = Field(default=None, description="Whether the token expires within 24 hours")
+    token_expires_at: Optional[str] = Field(
+        default=None, description="Token expiration timestamp (ISO format)"
+    )
+    token_expired: Optional[bool] = Field(
+        default=None, description="Whether the token has expired"
+    )
+    token_expiring_soon: Optional[bool] = Field(
+        default=None, description="Whether the token expires within 24 hours"
+    )
 
     # Metadata
     created_at: Optional[str] = Field(default=None, description="Creation timestamp")
@@ -194,9 +214,13 @@ class CreateProfileRequest(BaseModel):
     name: str = Field(..., description="Profile name")
     description: Optional[str] = Field(default=None, description="Profile description")
     gms_url: str = Field(..., description="DataHub GMS URL")
-    gms_token: Optional[str] = Field(default=None, description="GMS authentication token")
+    gms_token: Optional[str] = Field(
+        default=None, description="GMS authentication token"
+    )
     kube_context: Optional[str] = Field(default=None, description="Kubernetes context")
-    kube_namespace: Optional[str] = Field(default=None, description="Kubernetes namespace")
+    kube_namespace: Optional[str] = Field(
+        default=None, description="Kubernetes namespace"
+    )
 
 
 class ArchivedMessageModel(BaseModel):
@@ -225,27 +249,26 @@ class ConversationHealthStatus(BaseModel):
 
     is_abandoned: bool = Field(
         default=False,
-        description="True if last turn has no response or incomplete response"
+        description="True if last turn has no response or incomplete response",
     )
     abandonment_reason: Optional[str] = Field(
         default=None,
-        description="Reason for abandonment: 'no_response_at_all', 'incomplete_response', etc."
+        description="Reason for abandonment: 'no_response_at_all', 'incomplete_response', etc.",
     )
     unanswered_questions_count: int = Field(
         default=0,
-        description="Number of user questions without assistant TEXT responses"
+        description="Number of user questions without assistant TEXT responses",
     )
     completion_rate: float = Field(
         default=1.0,
-        description="Percentage of turns with complete responses (0.0 to 1.0)"
+        description="Percentage of turns with complete responses (0.0 to 1.0)",
     )
     has_errors: bool = Field(
         default=False,
-        description="True if conversation contains error messages or failed tool calls"
+        description="True if conversation contains error messages or failed tool calls",
     )
     last_message_role: Optional[str] = Field(
-        default=None,
-        description="Role of last message: 'user' or 'assistant'"
+        default=None, description="Role of last message: 'user' or 'assistant'"
     )
 
 
@@ -260,11 +283,10 @@ class ArchivedConversationModel(BaseModel):
     )
     created_at: float = Field(..., description="Creation timestamp (seconds)")
     updated_at: float = Field(..., description="Last update timestamp (seconds)")
-    origin_type: str = Field(
-        ..., description="Origin type (DATAHUB_UI, SLACK, TEAMS)"
-    )
+    origin_type: str = Field(..., description="Origin type (DATAHUB_UI, SLACK, TEAMS)")
     slack_conversation_type: Optional[str] = Field(
-        default=None, description="Slack conversation type (channel, dm, private_channel) - only for SLACK origin"
+        default=None,
+        description="Slack conversation type (channel, dm, private_channel) - only for SLACK origin",
     )
     message_count: int = Field(..., description="Number of messages")
     context: Optional[Dict[str, Any]] = Field(
@@ -276,15 +298,14 @@ class ArchivedConversationModel(BaseModel):
     max_thinking_time_ms: int = Field(
         default=0, description="Maximum thinking time across all turns in milliseconds"
     )
-    num_turns: int = Field(
-        default=0, description="Number of conversation turns"
-    )
+    num_turns: int = Field(default=0, description="Number of conversation turns")
     telemetry: Optional[Dict[str, Any]] = Field(
-        default=None, description="Telemetry data with interaction events (for Slack/Teams conversations)"
+        default=None,
+        description="Telemetry data with interaction events (for Slack/Teams conversations)",
     )
     health_status: Optional[ConversationHealthStatus] = Field(
         default=None,
-        description="Computed health and quality metrics for this conversation"
+        description="Computed health and quality metrics for this conversation",
     )
 
 
@@ -308,12 +329,15 @@ class ToolCallModel(BaseModel):
         default=None, description="Input arguments passed to the tool"
     )
     execution_duration_sec: Optional[float] = Field(
-        default=None, description="Tool execution duration in seconds (null if not available)"
+        default=None,
+        description="Tool execution duration in seconds (null if not available)",
     )
     result_length: Optional[int] = Field(
         default=None, description="Length of the tool result in characters"
     )
-    is_error: bool = Field(..., description="Whether the tool call resulted in an error")
+    is_error: bool = Field(
+        ..., description="Whether the tool call resulted in an error"
+    )
     error: Optional[str] = Field(
         default=None, description="Error message if the tool call failed"
     )
@@ -387,21 +411,155 @@ class ClusterInfo(BaseModel):
     """Cluster information with context and namespace."""
 
     context: str = Field(..., description="Full kubectl context ARN")
-    context_name: str = Field(..., description="Shortened cluster name (e.g., 'usw2-saas-01-prod')")
+    context_name: str = Field(
+        ..., description="Shortened cluster name (e.g., 'usw2-saas-01-prod')"
+    )
     namespace: str = Field(..., description="Kubernetes namespace")
-    customer_name: Optional[str] = Field(default=None, description="Customer name extracted from namespace")
-    cluster_region: Optional[str] = Field(default=None, description="AWS region (e.g., 'us-west-2')")
-    cluster_env: Optional[str] = Field(default=None, description="Environment: 'prod', 'staging', or 'poc'")
+    customer_name: Optional[str] = Field(
+        default=None, description="Customer name extracted from namespace"
+    )
+    cluster_region: Optional[str] = Field(
+        default=None, description="AWS region (e.g., 'us-west-2')"
+    )
+    cluster_env: Optional[str] = Field(
+        default=None, description="Environment: 'prod', 'staging', or 'poc'"
+    )
     is_trial: bool = Field(default=False, description="True for trial clusters")
 
 
 class ClusterIndexResponse(BaseModel):
     """Response containing searchable cluster index."""
 
-    clusters: List[ClusterInfo] = Field(default_factory=list, description="List of clusters")
+    clusters: List[ClusterInfo] = Field(
+        default_factory=list, description="List of clusters"
+    )
     total: int = Field(..., description="Total number of clusters")
     mode: str = Field(..., description="Filter mode: 'all' or 'trials'")
     cached: bool = Field(..., description="Whether results are from cache")
-    cache_age_seconds: Optional[int] = Field(default=None, description="Cache age in seconds")
-    error: Optional[str] = Field(default=None, description="Error message if cluster discovery failed")
-    vpn_required: bool = Field(default=False, description="True if VPN connection is required")
+    cache_age_seconds: Optional[int] = Field(
+        default=None, description="Cache age in seconds"
+    )
+    error: Optional[str] = Field(
+        default=None, description="Error message if cluster discovery failed"
+    )
+    vpn_required: bool = Field(
+        default=False, description="True if VPN connection is required"
+    )
+
+
+# Search Models
+
+
+class SearchRequest(BaseModel):
+    """Search request model."""
+
+    query: str = Field(..., description="Search query text", min_length=1)
+    start: int = Field(default=0, description="Starting offset for pagination")
+    count: int = Field(default=20, description="Number of results to return")
+    types: List[str] = Field(
+        default_factory=list, description="Entity types to search (empty = all)"
+    )
+
+
+class MatchedField(BaseModel):
+    """Matched field in search result."""
+
+    name: str = Field(..., description="Field name")
+    value: str = Field(..., description="Field value")
+
+
+class SearchResultEntity(BaseModel):
+    """Entity data in search result."""
+
+    urn: str = Field(..., description="Entity URN")
+    type: str = Field(..., description="Entity type")
+    name: Optional[str] = Field(None, description="Entity name")
+    properties: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional entity properties"
+    )
+
+
+class SearchResultItem(BaseModel):
+    """Individual search result."""
+
+    entity: SearchResultEntity = Field(..., description="Entity data")
+    matchedFields: List[MatchedField] = Field(
+        default_factory=list, description="Fields that matched"
+    )
+    score: Optional[float] = Field(None, description="Relevance score")
+
+
+class SearchResponse(BaseModel):
+    """Search response model."""
+
+    start: int = Field(..., description="Starting offset")
+    count: int = Field(..., description="Number of results returned")
+    total: int = Field(..., description="Total number of results")
+    searchResults: List[SearchResultItem] = Field(
+        default_factory=list, description="Search results"
+    )
+
+
+class ExplainRequest(BaseModel):
+    """Explain request model."""
+
+    query: str = Field(..., description="Search query")
+    documentId: str = Field(..., description="Document URN to explain")
+    entityName: str = Field(default="dataset", description="Entity type")
+
+
+class ExplainResponse(BaseModel):
+    """Explain response model."""
+
+    index: str = Field(..., description="Index name")
+    documentId: str = Field(..., description="Document ID")
+    matched: bool = Field(..., description="Whether document matched")
+    score: Optional[float] = Field(None, description="Relevance score")
+    explanation: Dict[str, Any] = Field(
+        default_factory=dict, description="Score explanation"
+    )
+
+
+# AI Ranking Analysis Models
+
+
+class RankingAnalysisItem(BaseModel):
+    """Single result for ranking analysis."""
+
+    urn: str = Field(..., description="Entity URN")
+    type: str = Field(..., description="Entity type")
+    name: str = Field(..., description="Entity name")
+    position: int = Field(..., description="Position in search results (0-indexed)")
+    score: Optional[float] = Field(None, description="Search score")
+    matched: bool = Field(..., description="Whether document matched")
+    explanation: Dict[str, Any] = Field(
+        default_factory=dict, description="Elasticsearch explanation"
+    )
+
+
+class RankingAnalysisRequest(BaseModel):
+    """Request to analyze ranking of selected results."""
+
+    query: str = Field(..., description="Search query", min_length=1)
+    results: List[RankingAnalysisItem] = Field(
+        ..., description="Selected results to analyze", min_items=1, max_items=20
+    )
+
+
+class RankingAnalysisResponse(BaseModel):
+    """Response with AI-generated ranking analysis."""
+
+    analysis: str = Field(..., description="AI-generated analysis text")
+    model: str = Field(..., description="Model used for analysis")
+    tokens: Dict[str, int] = Field(default_factory=dict, description="Token usage")
+
+
+class SearchConfigResponse(BaseModel):
+    """Search configuration and field boosts."""
+
+    field_weights: Dict[str, float] = Field(
+        default_factory=dict, description="Field boost scores"
+    )
+    config_notes: str = Field(
+        ..., description="Configuration details and search behavior"
+    )

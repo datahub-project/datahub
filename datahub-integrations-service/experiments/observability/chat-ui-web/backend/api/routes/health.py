@@ -3,8 +3,8 @@ Health Check Routes - API endpoints for service health monitoring.
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from loguru import logger
@@ -64,14 +64,12 @@ async def datahub_health(config: ConnectionConfig = Depends(get_config)):
             validate_url(config.gms_url)
 
             headers = {
-                'Authorization': f'Bearer {config.gms_token}',
-                'Content-Type': 'application/json'
+                "Authorization": f"Bearer {config.gms_token}",
+                "Content-Type": "application/json",
             }
 
             response = requests.get(
-                f'{config.gms_url}/config',
-                headers=headers,
-                timeout=10
+                f"{config.gms_url}/config", headers=headers, timeout=10
             )
 
             if response.status_code == 200:
@@ -79,10 +77,10 @@ async def datahub_health(config: ConnectionConfig = Depends(get_config)):
                 error = None
             elif response.status_code == 401:
                 connected = False
-                error = 'Unauthorized - token may be expired'
+                error = "Unauthorized - token may be expired"
             else:
                 connected = False
-                error = f'HTTP {response.status_code}: {response.text[:100]}'
+                error = f"HTTP {response.status_code}: {response.text[:100]}"
 
         except Exception as e:
             connected = False

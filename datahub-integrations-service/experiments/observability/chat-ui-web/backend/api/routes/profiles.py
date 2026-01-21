@@ -32,7 +32,9 @@ from connection_manager import ConnectionManager
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 
-def _decode_jwt_expiration(token: Optional[str]) -> Tuple[Optional[datetime], bool, bool]:
+def _decode_jwt_expiration(
+    token: Optional[str],
+) -> Tuple[Optional[datetime], bool, bool]:
     """
     Decode JWT token and extract expiration info.
 
@@ -47,7 +49,7 @@ def _decode_jwt_expiration(token: Optional[str]) -> Tuple[Optional[datetime], bo
 
     try:
         # JWT format: header.payload.signature
-        parts = token.split('.')
+        parts = token.split(".")
         if len(parts) != 3:
             return None, False, False
 
@@ -56,12 +58,12 @@ def _decode_jwt_expiration(token: Optional[str]) -> Tuple[Optional[datetime], bo
         # Add padding if needed
         padding = 4 - len(payload) % 4
         if padding != 4:
-            payload += '=' * padding
+            payload += "=" * padding
 
         decoded = json.loads(base64.urlsafe_b64decode(payload))
 
         # Extract expiration timestamp
-        exp_timestamp = decoded.get('exp')
+        exp_timestamp = decoded.get("exp")
         if not exp_timestamp:
             return None, False, False
 
@@ -91,13 +93,13 @@ def _read_datahubenv_profile() -> Optional[ProfileModel]:
         return None
 
     try:
-        with open(datahubenv_path, 'r') as f:
+        with open(datahubenv_path, "r") as f:
             config = yaml.safe_load(f)
 
         # Extract gms config
-        gms_config = config.get('gms', {})
-        gms_url = gms_config.get('server')
-        gms_token = gms_config.get('token')
+        gms_config = config.get("gms", {})
+        gms_url = gms_config.get("server")
+        gms_token = gms_config.get("token")
 
         if not gms_url:
             logger.warning("~/.datahubenv exists but has no gms.server configured")
@@ -144,7 +146,9 @@ async def list_profiles(manager: ConnectionManager = Depends(get_connection_mana
             profile = manager.get_profile(name)
             if profile:
                 # Decode token expiration
-                exp_datetime, is_expired, is_expiring_soon = _decode_jwt_expiration(profile.config.gms_token)
+                exp_datetime, is_expired, is_expiring_soon = _decode_jwt_expiration(
+                    profile.config.gms_token
+                )
 
                 profiles.append(
                     ProfileModel(
@@ -157,7 +161,9 @@ async def list_profiles(manager: ConnectionManager = Depends(get_connection_mana
                         is_active=(profile.name == active_profile_name),
                         is_readonly=False,
                         source="user",
-                        token_expires_at=exp_datetime.isoformat() if exp_datetime else None,
+                        token_expires_at=exp_datetime.isoformat()
+                        if exp_datetime
+                        else None,
                         token_expired=is_expired,
                         token_expiring_soon=is_expiring_soon,
                         created_at=profile.created_at,
@@ -168,7 +174,7 @@ async def list_profiles(manager: ConnectionManager = Depends(get_connection_mana
         # Add profile from ~/.datahubenv if it exists
         datahubenv_profile = _read_datahubenv_profile()
         if datahubenv_profile:
-            datahubenv_profile.is_active = (active_profile_name == "datahubenv")
+            datahubenv_profile.is_active = active_profile_name == "datahubenv"
             profiles.append(datahubenv_profile)
 
         logger.info(f"Listed {len(profiles)} profiles (active: {active_profile_name})")
@@ -176,7 +182,9 @@ async def list_profiles(manager: ConnectionManager = Depends(get_connection_mana
 
     except Exception as e:
         logger.error(f"Failed to list profiles: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list profiles: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list profiles: {str(e)}"
+        )
 
 
 @router.get("/{profile_name}", response_model=ProfileModel)
@@ -196,12 +204,16 @@ async def get_profile(
     try:
         profile = manager.get_profile(profile_name)
         if not profile:
-            raise HTTPException(status_code=404, detail=f"Profile '{profile_name}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Profile '{profile_name}' not found"
+            )
 
         active_profile_name = manager.get_active_profile()
 
         # Decode token expiration
-        exp_datetime, is_expired, is_expiring_soon = _decode_jwt_expiration(profile.config.gms_token)
+        exp_datetime, is_expired, is_expiring_soon = _decode_jwt_expiration(
+            profile.config.gms_token
+        )
 
         return ProfileModel(
             name=profile.name,
@@ -242,7 +254,11 @@ async def create_or_update_profile(
         Created/updated profile
     """
     try:
-        from connection_manager import ConnectionConfig, ConnectionMode, ConnectionProfile
+        from connection_manager import (
+            ConnectionConfig,
+            ConnectionMode,
+            ConnectionProfile,
+        )
 
         # Create config with profile data (mode doesn't matter for profiles)
         config = ConnectionConfig(
@@ -284,8 +300,11 @@ async def create_or_update_profile(
     except Exception as e:
         logger.error(f"Failed to create/update profile: {e}")
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Failed to create/update profile: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create/update profile: {str(e)}"
+        )
 
 
 @router.delete("/{profile_name}")
@@ -307,17 +326,23 @@ async def delete_profile(
             logger.info(f"Deleted profile: {profile_name}")
             return {"success": True, "message": f"Deleted profile: {profile_name}"}
         else:
-            raise HTTPException(status_code=404, detail=f"Profile '{profile_name}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Profile '{profile_name}' not found"
+            )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to delete profile: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete profile: {str(e)}"
+        )
 
 
 @router.post("/{profile_name}/test")
-async def test_profile(profile_name: str, manager: ConnectionManager = Depends(get_connection_manager)):
+async def test_profile(
+    profile_name: str, manager: ConnectionManager = Depends(get_connection_manager)
+):
     """
     Test if a profile's credentials are still valid.
 
@@ -330,7 +355,9 @@ async def test_profile(profile_name: str, manager: ConnectionManager = Depends(g
     try:
         profile = manager.get_profile(profile_name)
         if not profile:
-            raise HTTPException(status_code=404, detail=f"Profile '{profile_name}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Profile '{profile_name}' not found"
+            )
 
         logger.info(f"Testing profile: {profile_name}")
 
@@ -382,15 +409,23 @@ async def activate_profile(
     try:
         if manager.set_active_profile(profile_name):
             logger.info(f"Activated profile: {profile_name}")
-            return {"success": True, "message": f"Activated profile: {profile_name}", "active_profile": profile_name}
+            return {
+                "success": True,
+                "message": f"Activated profile: {profile_name}",
+                "active_profile": profile_name,
+            }
         else:
-            raise HTTPException(status_code=404, detail=f"Profile '{profile_name}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Profile '{profile_name}' not found"
+            )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to activate profile: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to activate profile: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to activate profile: {str(e)}"
+        )
 
 
 @router.post("/{profile_name}/refresh-token")
@@ -412,7 +447,9 @@ async def refresh_profile_token(
     try:
         profile = manager.get_profile(profile_name)
         if not profile:
-            raise HTTPException(status_code=404, detail=f"Profile '{profile_name}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Profile '{profile_name}' not found"
+            )
 
         # Check if kubectl info is available
         if not profile.config.kube_context or not profile.config.kube_namespace:
@@ -429,7 +466,9 @@ async def refresh_profile_token(
         kubectl = KubectlManager()
 
         # Extract frontend URL from gms_url
-        frontend_url = profile.config.gms_url.replace("/api/gms", "").replace("/gms", "")
+        frontend_url = profile.config.gms_url.replace("/api/gms", "").replace(
+            "/gms", ""
+        )
         logger.info(f"Extracted frontend URL: {frontend_url}")
 
         # Generate token
@@ -467,11 +506,14 @@ async def refresh_profile_token(
     except Exception as e:
         logger.error(f"Token refresh failed: {e}")
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
 
         # Check if it's an SSO error
         error_msg = str(e)
-        if "Token has expired" in error_msg or ("sso" in error_msg.lower() and "refresh failed" in error_msg.lower()):
+        if "Token has expired" in error_msg or (
+            "sso" in error_msg.lower() and "refresh failed" in error_msg.lower()
+        ):
             raise HTTPException(
                 status_code=401,
                 detail=f"AWS SSO token expired. Please run AWS SSO login first. Details: {error_msg}",

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useConfig } from './hooks/useConfig';
 import { ChatWindow } from './components/ChatWindow';
 import { SettingsTab } from './components/SettingsTab';
+import { SearchTab } from './components/SearchTab';
 
-type Tab = 'chat' | 'settings';
+type Tab = 'chat' | 'settings' | 'search';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
@@ -24,13 +25,19 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>DataHub Chat Admin</h1>
+        <h1>DataHub AI Admin</h1>
         <div className="app-tabs">
           <button
             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
             Chat
+          </button>
+          <button
+            className={`tab ${activeTab === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveTab('search')}
+          >
+            Search
           </button>
           <button
             className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
@@ -42,8 +49,10 @@ export function App() {
       </header>
       {error && <div className="app-error">{error}</div>}
       <main className="app-main">
-        {activeTab === 'chat' && <ChatWindow config={config} />}
-        {activeTab === 'settings' && (
+        <div className={`tab-content ${activeTab === 'chat' ? 'active' : ''}`}>
+          <ChatWindow config={config} />
+        </div>
+        <div className={`tab-content ${activeTab === 'settings' ? 'active' : ''}`}>
           <SettingsTab
             config={config}
             onUpdate={updateConfig}
@@ -57,7 +66,10 @@ export function App() {
             onSwitchToChat={() => setActiveTab('chat')}
             loading={loading}
           />
-        )}
+        </div>
+        <div className={`tab-content ${activeTab === 'search' ? 'active' : ''}`}>
+          <SearchTab />
+        </div>
       </main>
     </div>
   );

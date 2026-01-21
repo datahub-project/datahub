@@ -5,12 +5,11 @@ Provides stateless question generation endpoint.
 Frontend drives the auto-chat loop.
 """
 
+from core.auto_chat import get_question_generator
+from core.chat_engine import ChatEngine
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
-
-from core.auto_chat import get_question_generator
-from core.chat_engine import ChatEngine
 
 from ..dependencies import get_chat_engine
 
@@ -20,7 +19,9 @@ router = APIRouter(prefix="/api/auto-chat", tags=["auto-chat"])
 class GenerateQuestionRequest(BaseModel):
     """Request to generate a question."""
 
-    aws_profile: str | None = Field(default=None, description="AWS profile name for Bedrock")
+    aws_profile: str | None = Field(
+        default=None, description="AWS profile name for Bedrock"
+    )
 
 
 class GenerateQuestionResponse(BaseModel):
@@ -70,9 +71,10 @@ async def check_aws_health(engine: ChatEngine = Depends(get_chat_engine)):
         AWS health status with details
     """
     try:
-        import boto3
-        from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
         from datetime import datetime, timezone
+
+        import boto3
+        from botocore.exceptions import NoCredentialsError
 
         # Get AWS profile from config
         config = engine.config
@@ -185,7 +187,7 @@ async def get_sketch(engine: ChatEngine = Depends(get_chat_engine)):
             if isinstance(item, dict):
                 return item
             # If it's an object, convert to dict using vars() or __dict__
-            return vars(item) if hasattr(item, '__dict__') else item
+            return vars(item) if hasattr(item, "__dict__") else item
 
         # Convert sketch to dict for JSON response
         return {

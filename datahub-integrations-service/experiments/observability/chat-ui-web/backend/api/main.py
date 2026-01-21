@@ -12,8 +12,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 # Add backend directory to path
@@ -29,6 +29,7 @@ from api.routes import (
     health,
     kubectl,
     profiles,
+    search,
     telemetry,
 )
 
@@ -69,6 +70,7 @@ app.include_router(kubectl.router)
 app.include_router(chat.router)
 app.include_router(auto_chat.router)
 app.include_router(archived_conversations.router)
+app.include_router(search.router)
 app.include_router(telemetry.router)
 
 # Serve React app static files (production mode)
@@ -78,7 +80,11 @@ if not DEV_MODE:
     # Production mode: Serve static files
     if frontend_dist.exists():
         # Mount static assets (JS, CSS, etc.)
-        app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(frontend_dist / "assets")),
+            name="assets",
+        )
         logger.info(f"Serving React app from {frontend_dist}")
     else:
         logger.warning(f"Frontend dist directory not found: {frontend_dist}")
@@ -107,6 +113,7 @@ async def shutdown_event():
 
     # Clean up integrations service if we started it
     from api.dependencies import cleanup_integrations_service
+
     cleanup_integrations_service()
 
 
@@ -126,6 +133,7 @@ async def serve_react_app(full_path: str):
     # FastAPI strips leading slash, so check for "api/"
     if full_path.startswith("api/"):
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Not found")
 
     if DEV_MODE:
@@ -144,6 +152,7 @@ async def serve_react_app(full_path: str):
 
                 # Return the response from Vite
                 from fastapi import Response
+
                 return Response(
                     content=response.content,
                     status_code=response.status_code,
@@ -152,9 +161,10 @@ async def serve_react_app(full_path: str):
         except Exception as e:
             logger.error(f"Failed to proxy to Vite dev server: {e}")
             from fastapi import HTTPException
+
             raise HTTPException(
                 status_code=503,
-                detail=f"Vite dev server not available at {VITE_DEV_SERVER}. Run: cd frontend && npm run dev"
+                detail=f"Vite dev server not available at {VITE_DEV_SERVER}. Run: cd frontend && npm run dev",
             )
     else:
         # Production mode: Serve static files

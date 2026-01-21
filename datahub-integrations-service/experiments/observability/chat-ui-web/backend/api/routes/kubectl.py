@@ -24,7 +24,7 @@ from kubectl_manager import KubectlManager
 
 # Import models
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from api.models import ClusterInfo, ClusterIndexResponse
+from api.models import ClusterIndexResponse, ClusterInfo
 
 router = APIRouter(prefix="/api/kubectl", tags=["kubectl"])
 
@@ -44,10 +44,14 @@ FREE_TRIAL_CONTEXTS = [
 ]
 
 # Global cache for cluster index
-_cluster_index_cache: Optional[Tuple[List[ClusterInfo], float, Optional[str], bool]] = None
+_cluster_index_cache: Optional[Tuple[List[ClusterInfo], float, Optional[str], bool]] = (
+    None
+)
 _CLUSTER_INDEX_TTL = 3600  # 1 hour for successful discoveries
 _ERROR_CACHE_TTL = 300  # 5 minutes for errors (VPN failures, etc.)
-_CACHE_VERSION = 4  # Increment when cache format changes (v4: detect AWS SSO authentication errors)
+_CACHE_VERSION = (
+    4  # Increment when cache format changes (v4: detect AWS SSO authentication errors)
+)
 
 # Cache file location
 _CACHE_DIR = Path.home() / ".datahub" / "chat_admin"
@@ -74,7 +78,9 @@ def _ensure_cache_dir() -> None:
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _load_cache_from_disk() -> Optional[Tuple[List[ClusterInfo], float, Optional[str], bool]]:
+def _load_cache_from_disk() -> Optional[
+    Tuple[List[ClusterInfo], float, Optional[str], bool]
+]:
     """Load cluster cache from disk."""
     try:
         if not _CACHE_FILE.exists():
@@ -86,7 +92,9 @@ def _load_cache_from_disk() -> Optional[Tuple[List[ClusterInfo], float, Optional
         # Check cache version
         cache_version = data.get("version", 1)
         if cache_version != _CACHE_VERSION:
-            logger.info(f"Disk cache version mismatch (found {cache_version}, expected {_CACHE_VERSION}), invalidating cache")
+            logger.info(
+                f"Disk cache version mismatch (found {cache_version}, expected {_CACHE_VERSION}), invalidating cache"
+            )
             return None
 
         # Parse cached data
@@ -95,7 +103,9 @@ def _load_cache_from_disk() -> Optional[Tuple[List[ClusterInfo], float, Optional
         error_message = data.get("error_message")
         vpn_required = data.get("vpn_required", False)
 
-        logger.info(f"Loaded {len(clusters)} clusters from disk cache (age: {time.time() - cached_time:.0f}s)")
+        logger.info(
+            f"Loaded {len(clusters)} clusters from disk cache (age: {time.time() - cached_time:.0f}s)"
+        )
         return (clusters, cached_time, error_message, vpn_required)
 
     except Exception as e:
@@ -124,7 +134,9 @@ def _save_cache_to_disk(
         with open(_CACHE_FILE, "w") as f:
             json.dump(data, f, indent=2)
 
-        logger.info(f"Saved {len(clusters)} clusters to disk cache (version {_CACHE_VERSION})")
+        logger.info(
+            f"Saved {len(clusters)} clusters to disk cache (version {_CACHE_VERSION})"
+        )
 
     except Exception as e:
         logger.warning(f"Failed to save cluster cache to disk: {e}")
@@ -149,7 +161,9 @@ def extract_customer_name(namespace: str) -> Optional[str]:
     return namespace
 
 
-def build_cluster_index(mode: str = "all") -> Tuple[List[ClusterInfo], Optional[str], bool]:
+def build_cluster_index(
+    mode: str = "all",
+) -> Tuple[List[ClusterInfo], Optional[str], bool]:
     """
     Build searchable index of clusters from hardcoded contexts.
 
@@ -244,9 +258,13 @@ def build_cluster_index(mode: str = "all") -> Tuple[List[ClusterInfo], Optional[
 
     if len(clusters) == 0:
         if vpn_timeout_count >= total_contexts // 2:  # More than half failed due to VPN
-            error_message = "⚠️ Not connected to VPN. Please connect to VPN to discover clusters."
+            error_message = (
+                "⚠️ Not connected to VPN. Please connect to VPN to discover clusters."
+            )
             vpn_required = True
-        elif sso_auth_error_count >= total_contexts // 2:  # More than half failed due to SSO
+        elif (
+            sso_auth_error_count >= total_contexts // 2
+        ):  # More than half failed due to SSO
             error_message = "⚠️ AWS SSO session expired. Run 'aws sso login' for the required AWS profile."
             vpn_required = False
         elif vpn_timeout_count > 0:
@@ -293,7 +311,11 @@ def get_cluster_index_cached(
 
         if age < cache_ttl:
             # Cache hit - filter by mode
-            filtered = [c for c in clusters if mode == "all" or (mode == "trials" and c.is_trial)]
+            filtered = [
+                c
+                for c in clusters
+                if mode == "all" or (mode == "trials" and c.is_trial)
+            ]
 
             # If filtered result is empty but full cache isn't, generate mode-specific error
             filtered_error = error_message
@@ -315,7 +337,11 @@ def get_cluster_index_cached(
             logger.info(f"Using disk cache (age: {age:.0f}s, {len(clusters)} clusters)")
             _cluster_index_cache = disk_cache
 
-            filtered = [c for c in clusters if mode == "all" or (mode == "trials" and c.is_trial)]
+            filtered = [
+                c
+                for c in clusters
+                if mode == "all" or (mode == "trials" and c.is_trial)
+            ]
 
             # If filtered result is empty but full cache isn't, generate mode-specific error
             filtered_error = error_message
@@ -336,7 +362,9 @@ def get_cluster_index_cached(
     else:
         logger.info(f"Not saving to disk - empty result (error: {error_message})")
 
-    filtered = [c for c in clusters if mode == "all" or (mode == "trials" and c.is_trial)]
+    filtered = [
+        c for c in clusters if mode == "all" or (mode == "trials" and c.is_trial)
+    ]
 
     # If filtered result is empty but full cache isn't, generate mode-specific error
     filtered_error = error_message
@@ -394,11 +422,15 @@ async def list_contexts():
 
     except Exception as e:
         logger.error(f"Failed to list kubectl contexts: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list contexts: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list contexts: {str(e)}"
+        )
 
 
 @router.get("/namespaces", response_model=List[str])
-async def list_namespaces(context: str = Query(None, description="Kubectl context to use")):
+async def list_namespaces(
+    context: str = Query(None, description="Kubectl context to use"),
+):
     """
     Get list of namespaces in the cluster.
 
@@ -411,18 +443,26 @@ async def list_namespaces(context: str = Query(None, description="Kubectl contex
     try:
         kubectl = KubectlManager()
         namespaces = kubectl.get_namespaces(context=context)
-        logger.info(f"Listed {len(namespaces)} namespaces for context: {context or 'current'}")
+        logger.info(
+            f"Listed {len(namespaces)} namespaces for context: {context or 'current'}"
+        )
         return namespaces
 
     except Exception as e:
         logger.error(f"Failed to list namespaces: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list namespaces: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list namespaces: {str(e)}"
+        )
 
 
 @router.get("/clusters", response_model=ClusterIndexResponse)
 async def list_all_clusters(
-    mode: Literal["all", "trials"] = Query("all", description="all = cloud customers, trials = free trials only"),
-    search: Optional[str] = Query(None, description="Search query (namespace or customer name)"),
+    mode: Literal["all", "trials"] = Query(
+        "all", description="all = cloud customers, trials = free trials only"
+    ),
+    search: Optional[str] = Query(
+        None, description="Search query (namespace or customer name)"
+    ),
     force_refresh: bool = Query(False, description="Force refresh, bypass cache"),
 ) -> ClusterIndexResponse:
     """
@@ -440,8 +480,8 @@ async def list_all_clusters(
     """
     try:
         # Get clusters from cache
-        clusters, cached, cache_age, error_message, vpn_required = get_cluster_index_cached(
-            mode=mode, force_refresh=force_refresh
+        clusters, cached, cache_age, error_message, vpn_required = (
+            get_cluster_index_cached(mode=mode, force_refresh=force_refresh)
         )
 
         # Apply search filter if provided
@@ -464,7 +504,9 @@ async def list_all_clusters(
 
     except Exception as e:
         logger.error(f"Failed to list clusters: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list clusters: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list clusters: {str(e)}"
+        )
 
 
 @router.post("/discover")
@@ -493,16 +535,27 @@ async def discover_profile(request: DiscoverRequest):
         frontend_url = gms_url.replace("/api/gms", "").replace("/gms", "")
 
         # Generate token
-        token = kubectl.get_datahub_token(request.namespace, frontend_url, request.context)
+        token = kubectl.get_datahub_token(
+            request.namespace, frontend_url, request.context
+        )
         if not token:
             raise HTTPException(status_code=500, detail="Failed to generate token")
 
-        logger.info(f"Auto-discovered profile: {gms_url} (context={request.context}, namespace={request.namespace})")
+        logger.info(
+            f"Auto-discovered profile: {gms_url} (context={request.context}, namespace={request.namespace})"
+        )
 
-        return {"gms_url": gms_url, "gms_token": token, "context": request.context, "namespace": request.namespace}
+        return {
+            "gms_url": gms_url,
+            "gms_token": token,
+            "context": request.context,
+            "namespace": request.namespace,
+        }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to discover profile: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to discover profile: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to discover profile: {str(e)}"
+        )

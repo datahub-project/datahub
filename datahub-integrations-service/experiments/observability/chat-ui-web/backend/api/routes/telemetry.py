@@ -22,7 +22,7 @@ parent_dir = backend_dir.parent.parent
 if str(parent_dir) not in sys.path:
     sys.path.insert(0, str(parent_dir))
 
-from api.dependencies import get_datahub_graph, get_telemetry_client
+from api.dependencies import get_telemetry_client
 from api.models import (
     ConversationTelemetryModel,
     ToolCallModel,
@@ -207,7 +207,9 @@ async def get_aggregate_tool_usage(
         # Parse conversation URNs if provided
         urn_list = None
         if conversation_urns:
-            urn_list = [urn.strip() for urn in conversation_urns.split(",") if urn.strip()]
+            urn_list = [
+                urn.strip() for urn in conversation_urns.split(",") if urn.strip()
+            ]
         aggregates = client.aggregate_tool_usage(
             conversation_urns=urn_list,
             start_time=start_time,

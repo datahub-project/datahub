@@ -11,6 +11,12 @@ import type {
   ConversationOriginType,
   ConversationSortBy,
   ClusterIndexResponse,
+  SearchRequest,
+  SearchResponse,
+  ExplainRequest,
+  ExplainResponse,
+  RankingAnalysisRequest,
+  RankingAnalysisResponse,
 } from './types';
 
 const API_BASE = '/api';
@@ -441,6 +447,28 @@ class ApiClient {
 
   async getSketch(): Promise<any> {
     return this.request('/auto-chat/sketch');
+  }
+
+  // Search operations
+  async search(request: SearchRequest): Promise<SearchResponse> {
+    return this.request<SearchResponse>('/search', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async explainScore(request: ExplainRequest): Promise<ExplainResponse> {
+    return this.request<ExplainResponse>('/search/explain', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async analyzeRanking(request: RankingAnalysisRequest): Promise<RankingAnalysisResponse> {
+    return this.request<RankingAnalysisResponse>('/search/analyze-ranking', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 }
 

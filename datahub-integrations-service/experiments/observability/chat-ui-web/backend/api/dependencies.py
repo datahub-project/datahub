@@ -4,14 +4,13 @@ API Dependencies - Shared dependencies for FastAPI routes.
 Provides dependency injection for chat engine, config, and other shared resources.
 """
 
-from typing import Optional
-
-from fastapi import Depends, HTTPException, Header
-from loguru import logger
-
 # Import from parent directory
 import sys
 from pathlib import Path
+from typing import Optional
+
+from fastapi import Depends, Header, HTTPException
+from loguru import logger
 
 parent_dir = Path(__file__).parent.parent.parent.parent
 if str(parent_dir) not in sys.path:
@@ -25,11 +24,11 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 from core.chat_engine import ChatEngine
-from core.telemetry_client import TelemetryClient
 from core.datahub_conversation_client import ChatUIDataHubClient
+from core.telemetry_client import TelemetryClient
 
 try:
-    from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
+    from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 except ImportError:
     DataHubGraph = None  # type: ignore
     DatahubClientConfig = None  # type: ignore
@@ -41,7 +40,9 @@ _config: Optional[ConnectionConfig] = None
 _integrations_service: Optional[dict] = None  # Store service process info
 _datahub_graph: Optional["DataHubGraph"] = None  # type: ignore
 _telemetry_client: Optional[TelemetryClient] = None
-_conversation_clients: dict[str, ChatUIDataHubClient] = {}  # Per-profile clients keyed by server URL
+_conversation_clients: dict[
+    str, ChatUIDataHubClient
+] = {}  # Per-profile clients keyed by server URL
 
 
 def get_connection_manager() -> ConnectionManager:
@@ -113,18 +114,24 @@ def get_datahub_graph(config: ConnectionConfig = Depends(get_config)) -> "DataHu
             server_url = server_url[:-8]  # Remove /api/gms
         graph_config = DatahubClientConfig(server=server_url, token=config.gms_token)
         _datahub_graph = DataHubGraph(config=graph_config)
-        logger.info(f"Created DataHubGraph singleton with server: {server_url}, token: {config.gms_token[:20]}...")
+        logger.info(
+            f"Created DataHubGraph singleton with server: {server_url}, token: {config.gms_token[:20]}..."
+        )
     else:
         # Update token if it has changed
         old_token = _datahub_graph.config.token
         new_token = config.gms_token
-        logger.debug(f"Checking token: old={old_token[:20] if old_token else 'None'}..., new={new_token[:20] if new_token else 'None'}...")
+        logger.debug(
+            f"Checking token: old={old_token[:20] if old_token else 'None'}..., new={new_token[:20] if new_token else 'None'}..."
+        )
         if old_token != new_token:
             logger.info("Token changed, recreating DataHubGraph")
             server_url = config.gms_url
             if server_url.endswith("/api/gms"):
                 server_url = server_url[:-8]  # Remove /api/gms
-            graph_config = DatahubClientConfig(server=server_url, token=config.gms_token)
+            graph_config = DatahubClientConfig(
+                server=server_url, token=config.gms_token
+            )
             _datahub_graph = DataHubGraph(config=graph_config)
             logger.info(f"Recreated DataHubGraph with new token: {new_token[:20]}...")
 
@@ -184,7 +191,9 @@ def get_conversation_client(
 
     if server_key not in _conversation_clients:
         _conversation_clients[server_key] = ChatUIDataHubClient(graph, cache_ttl=3600)
-        logger.info(f"Created ChatUIDataHubClient for profile: {server_key}, token: {graph.config.token[:20] if graph.config.token else 'None'}...")
+        logger.info(
+            f"Created ChatUIDataHubClient for profile: {server_key}, token: {graph.config.token[:20] if graph.config.token else 'None'}..."
+        )
     else:
         client = _conversation_clients[server_key]
         # Update graph reference if token changed for this profile
@@ -192,11 +201,15 @@ def get_conversation_client(
         new_token = graph.config.token
 
         if old_token != new_token:
-            logger.info(f"Token changed for profile {server_key}, updating graph reference (keeping caches)")
+            logger.info(
+                f"Token changed for profile {server_key}, updating graph reference (keeping caches)"
+            )
             client.graph = graph
         elif client.graph != graph:
             # Graph object changed but token is same (shouldn't happen often)
-            logger.debug(f"Graph object changed for profile {server_key} (same token), updating reference")
+            logger.debug(
+                f"Graph object changed for profile {server_key} (same token), updating reference"
+            )
             client.graph = graph
 
     return _conversation_clients[server_key]
@@ -298,7 +311,11 @@ def ensure_integrations_service(config: ConnectionConfig) -> dict:
         return {"status": "not_needed", "mode": config.mode.value}
 
     # Import the manager
-    from local_integrations_manager import LocalIntegrationsManager, IntegrationsServiceConfig, ServiceStatus
+    from local_integrations_manager import (
+        IntegrationsServiceConfig,
+        LocalIntegrationsManager,
+        ServiceStatus,
+    )
 
     try:
         manager = LocalIntegrationsManager()

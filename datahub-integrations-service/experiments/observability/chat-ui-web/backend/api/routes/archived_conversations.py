@@ -20,10 +20,12 @@ backend_dir = Path(__file__).parent.parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from api.dependencies import get_datahub_graph, get_telemetry_client, get_conversation_client
+from api.dependencies import (
+    get_conversation_client,
+    get_telemetry_client,
+)
 from api.models import (
     ArchivedConversationListModel,
-    ArchivedConversationModel,
     ArchivedConversationWithTelemetryModel,
     ArchivedMessageModel,
     ConversationTelemetryModel,
@@ -57,8 +59,13 @@ async def refresh_conversation_list(
     try:
         client.invalidate_list_cache()
         client.invalidate_conversation_cache()  # Also clear individual conversation caches
-        logger.info("Conversation list and individual conversation caches invalidated via API request")
-        return {"success": True, "message": "All conversation caches cleared. Next request will fetch fresh data."}
+        logger.info(
+            "Conversation list and individual conversation caches invalidated via API request"
+        )
+        return {
+            "success": True,
+            "message": "All conversation caches cleared. Next request will fetch fresh data.",
+        }
     except Exception as e:
         logger.error(f"Failed to refresh conversation list: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -67,7 +74,9 @@ async def refresh_conversation_list(
 @router.get("", response_model=ArchivedConversationListModel)
 async def list_archived_conversations(
     start: int = Query(0, ge=0, description="Starting offset for pagination"),
-    count: int = Query(20, ge=1, le=100, description="Number of conversations to fetch"),
+    count: int = Query(
+        20, ge=1, le=100, description="Number of conversations to fetch"
+    ),
     origin_type: str | None = Query(
         None,
         regex="^(DATAHUB_UI|SLACK|TEAMS|INGESTION_UI)$",
@@ -102,7 +111,9 @@ async def list_archived_conversations(
         List of archived conversations with pagination info
     """
     try:
-        result = client.list_archived_conversations(start, count, origin_type, sort_by, sort_desc)
+        result = client.list_archived_conversations(
+            start, count, origin_type, sort_by, sort_desc
+        )
 
         conversations = [
             client.convert_to_ui_format(conv)
@@ -198,12 +209,16 @@ async def get_archived_conversation(
 
                 # Use existing interaction events if available, otherwise fetch
                 if existing_telemetry and existing_telemetry.get("interaction_events"):
-                    logger.debug(f"Using {len(existing_telemetry['interaction_events'])} interaction events from conversation client")
+                    logger.debug(
+                        f"Using {len(existing_telemetry['interaction_events'])} interaction events from conversation client"
+                    )
                     interaction_events = existing_telemetry["interaction_events"]
                 else:
                     # Fetch interaction events for conversation-level metrics
                     interaction_events = (
-                        telemetry_client.get_interaction_events_for_conversation(decoded_urn)
+                        telemetry_client.get_interaction_events_for_conversation(
+                            decoded_urn
+                        )
                     )
 
                 # Calculate average response time from interaction events

@@ -19,7 +19,7 @@ def validate_url(url: str) -> None:
         raise ValueError("URL cannot be empty")
 
     # Must start with http:// or https://
-    if not url.startswith(('http://', 'https://')):
+    if not url.startswith(("http://", "https://")):
         raise ValueError("URL must start with http:// or https://")
 
     # Parse URL to validate structure

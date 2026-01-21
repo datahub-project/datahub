@@ -19,7 +19,11 @@ backend_dir = Path(__file__).parent.parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from api.dependencies import get_chat_engine, get_conversation_or_404, ensure_integrations_service, get_config
+from api.dependencies import (
+    ensure_integrations_service,
+    get_chat_engine,
+    get_conversation_or_404,
+)
 from api.models import (
     ConversationModel,
     CreateConversationRequest,
@@ -187,6 +191,7 @@ async def send_message(
     """
     # Auto-start integrations service if needed
     from connection_manager import ConnectionManager
+
     manager = ConnectionManager()
     config = manager.load_active_config()
     service_status = ensure_integrations_service(config)
@@ -220,8 +225,7 @@ async def send_message(
             except Exception as e:
                 logger.error(f"Error in generator thread: {e}")
                 asyncio.run_coroutine_threadsafe(
-                    queue.put({"event_type": "error", "error": str(e)}),
-                    loop
+                    queue.put({"event_type": "error", "error": str(e)}), loop
                 )
 
         # Start the generator in a thread pool
@@ -244,10 +248,14 @@ async def send_message(
                     # Convert message to serializable dict if needed
                     if not isinstance(msg, dict):
                         # Handle Pydantic models or dataclasses
-                        if hasattr(msg, 'model_dump'):
+                        if hasattr(msg, "model_dump"):
                             msg = msg.model_dump()
-                        elif hasattr(msg, '__dict__'):
-                            msg = {k: v for k, v in msg.__dict__.items() if not k.startswith('_')}
+                        elif hasattr(msg, "__dict__"):
+                            msg = {
+                                k: v
+                                for k, v in msg.__dict__.items()
+                                if not k.startswith("_")
+                            }
                         else:
                             # Fallback - convert to string
                             msg = {"type": "TEXT", "content": {"text": str(msg)}}
@@ -257,26 +265,26 @@ async def send_message(
                     message_type = event.get("message_type") or msg.get("type", "TEXT")
 
                     # Forward the properly formatted message with message_type
-                    yield f"event: message\n"
+                    yield "event: message\n"
                     yield f"data: {json.dumps({'message': msg, 'message_type': message_type})}\n\n"
                     # Force async yield to flush immediately
                     await asyncio.sleep(0)
 
                 elif event_type == "complete":
                     # Stream completion event
-                    yield f"event: done\n"
+                    yield "event: done\n"
                     yield f"data: {json.dumps({'duration': event.get('duration', 0)})}\n\n"
                     break
 
                 elif event_type == "error":
                     # Stream error event
-                    yield f"event: error\n"
+                    yield "event: error\n"
                     yield f"data: {json.dumps({'error': event['error']})}\n\n"
                     break
 
         except Exception as e:
             logger.error(f"Error in event stream: {e}")
-            yield f"event: error\n"
+            yield "event: error\n"
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(

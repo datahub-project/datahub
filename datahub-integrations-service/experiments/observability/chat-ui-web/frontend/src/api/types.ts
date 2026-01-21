@@ -217,3 +217,72 @@ export interface ClusterIndexResponse {
   error?: string;
   vpn_required?: boolean;
 }
+
+// Search types
+export interface SearchRequest {
+  query: string;
+  start?: number;
+  count?: number;
+  types?: string[];
+}
+
+export interface MatchedField {
+  name: string;
+  value: string;
+}
+
+export interface SearchResultEntity {
+  urn: string;
+  type: string;
+  name?: string;
+  properties?: Record<string, any>;
+}
+
+export interface SearchResultItem {
+  entity: SearchResultEntity;
+  matchedFields: MatchedField[];
+  score?: number;
+}
+
+export interface SearchResponse {
+  start: number;
+  count: number;
+  total: number;
+  searchResults: SearchResultItem[];
+}
+
+export interface ExplainRequest {
+  query: string;
+  documentId: string;
+  entityName?: string;
+}
+
+export interface ExplainResponse {
+  index: string;
+  documentId: string;
+  matched: boolean;
+  score?: number;
+  explanation: Record<string, any>;
+}
+
+// Ranking analysis types
+export interface RankingAnalysisItem {
+  urn: string;
+  type: string;
+  name: string;
+  position: number;
+  score?: number;
+  matched: boolean;
+  explanation: Record<string, any>;
+}
+
+export interface RankingAnalysisRequest {
+  query: string;
+  results: RankingAnalysisItem[];
+}
+
+export interface RankingAnalysisResponse {
+  analysis: string;
+  model: string;
+  tokens: Record<string, number>;
+}
