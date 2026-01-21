@@ -21,6 +21,21 @@ source:
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
       consumer_config:
         max.poll.interval.ms: ${MAX_POLL_INTERVAL_MS:-60000} # 1 minute per poll
+        security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+        sasl.mechanism: ${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}
+        sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME:-}
+        sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD:-}
+        ssl.ca.location: ${KAFKA_PROPERTIES_SSL_CA_LOCATION:-}
+        ssl.certificate.location: ${KAFKA_PROPERTIES_SSL_CERTIFICATE_LOCATION:-}
+        ssl.key.location: ${KAFKA_PROPERTIES_SSL_KEY_LOCATION:-}
+        ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-}
+      schema_registry_config:
+        basic.auth.credentials.source: ${SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE:-}
+        basic.auth.user.info: ${SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO:-}
+        ssl.ca.location: ${SCHEMA_REGISTRY_SSL_CA_LOCATION:-}
+        ssl.certificate.location: ${SCHEMA_REGISTRY_SSL_CERTIFICATE_LOCATION:-}
+        ssl.key.location: ${SCHEMA_REGISTRY_SSL_KEY_LOCATION:-}
+        ssl.key.password: ${SCHEMA_REGISTRY_SSL_KEY_PASSWORD:-}
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}

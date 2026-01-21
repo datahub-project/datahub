@@ -35,6 +35,76 @@ sink:
   # sink configs
 ```
 
+### SSL/TLS Configuration
+
+#### Using Custom CA Certificates
+
+If your Kafka cluster or Schema Registry uses custom SSL certificates (e.g., self-signed or internal CA), you can configure the CA certificate path:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "broker.example.com:9093"
+      consumer_config:
+        security.protocol: "SSL"
+        ssl.ca.location: "/path/to/ca-cert.pem"
+      schema_registry_url: "https://registry.example.com:8081"
+      schema_registry_config:
+        ssl.ca.location: "/path/to/ca-cert.pem"
+```
+
+#### Mutual TLS (mTLS) Authentication
+
+For mutual TLS authentication with client certificates:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "broker.example.com:9093"
+      consumer_config:
+        security.protocol: "SSL"
+        ssl.ca.location: "/path/to/ca-cert.pem"
+        ssl.certificate.location: "/path/to/client-cert.pem"
+        ssl.key.location: "/path/to/client-key.pem"
+        ssl.key.password: "${SSL_KEY_PASSWORD}" # Optional, if key is encrypted
+      schema_registry_url: "https://registry.example.com:8081"
+      schema_registry_config:
+        ssl.ca.location: "/path/to/ca-cert.pem"
+        ssl.certificate.location: "/path/to/client-cert.pem"
+        ssl.key.location: "/path/to/client-key.pem"
+        ssl.key.password: "${SSL_KEY_PASSWORD}" # Optional
+```
+
+#### SSL with SASL Authentication
+
+Combining SSL encryption with SASL authentication:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "broker.example.com:9093"
+      consumer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "SCRAM-SHA-256" # or PLAIN, SCRAM-SHA-512, etc.
+        sasl.username: "${KAFKA_USERNAME}"
+        sasl.password: "${KAFKA_PASSWORD}"
+        ssl.ca.location: "/path/to/ca-cert.pem"
+      schema_registry_url: "https://registry.example.com:8081"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_USERNAME}:${REGISTRY_PASSWORD}"
+        ssl.ca.location: "/path/to/ca-cert.pem"
+```
+
+**Note**: SSL certificate paths are automatically converted to SSL context objects for compatibility with `confluent-kafka-python >= 2.8.0`. Both string paths and SSL context objects are supported.
+
+### Domains Configuration
+
 If you are trying to add domains to your topics you can use a configuration like below.
 
 ```yml
