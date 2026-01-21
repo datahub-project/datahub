@@ -125,6 +125,6 @@ jobs:
           reporter: "python-xunit"
           artifact: test-reports
           name: Test Run Failures
-          path: test-reports/junit.xml
+          path: junit.xml
           list-tests: "failed"
           max-annotations: "30"
