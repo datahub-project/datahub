@@ -228,12 +228,36 @@ class InferenceData:
 # =============================================================================
 
 
+class SchemaNotSupportedError(Exception):
+    """Raised when the server schema doesn't support required fields."""
+
+    pass
+
+
+# Module-level flag to track if schema is unsupported (avoids repeated requests)
+_schema_unsupported_endpoints: set = set()
+
+
+def _is_schema_validation_error(errors: List[Dict[str, Any]]) -> bool:
+    """Check if GraphQL errors are schema validation errors.
+
+    Schema validation errors indicate the server has an older schema
+    that doesn't include the requested fields (e.g., evaluationContext).
+    """
+    for error in errors:
+        message = error.get("message", "")
+        # Check for common schema validation error patterns
+        if "FieldUndefined" in message or "Field" in message and "undefined" in message:
+            return True
+    return False
+
+
 def _execute_graphql(
     graphql_url: str,
     headers: Dict[str, str],
     query: str,
     variables: Dict[str, Any],
-    timeout: int = 60,
+    timeout: int = 10,
 ) -> Optional[Dict[str, Any]]:
     """Execute a GraphQL query and return the data.
 
@@ -242,11 +266,18 @@ def _execute_graphql(
         headers: HTTP headers including auth token
         query: The GraphQL query string
         variables: Query variables
-        timeout: Request timeout in seconds
+        timeout: Request timeout in seconds (default 10s for inference queries)
 
     Returns:
-        The 'data' portion of the response, or None on error
+        The 'data' portion of the response, or None on error.
+
+    Raises:
+        SchemaNotSupportedError: If the server schema doesn't support the query.
     """
+    # Skip if we already know this endpoint doesn't support the schema
+    if graphql_url in _schema_unsupported_endpoints:
+        return None
+
     try:
         response = requests.post(
             graphql_url,
@@ -259,6 +290,20 @@ def _execute_graphql(
 
         if "errors" in data and data["errors"]:
             error_msgs = [e.get("message", "") for e in data["errors"]]
+
+            # For schema validation errors (e.g., evaluationContext not defined),
+            # mark this endpoint as unsupported to avoid future requests
+            if _is_schema_validation_error(data["errors"]):
+                logger.info(
+                    "Server schema doesn't support evaluationContext field. "
+                    "Inference data will not be available."
+                )
+                _schema_unsupported_endpoints.add(graphql_url)
+                raise SchemaNotSupportedError(
+                    "Server schema doesn't support evaluationContext"
+                )
+
+            # Log other errors as warnings
             logger.warning("GraphQL errors: %s", error_msgs)
             return None
 
@@ -267,6 +312,8 @@ def _execute_graphql(
     except requests.exceptions.RequestException as e:
         logger.warning("GraphQL request failed: %s", e)
         return None
+    except SchemaNotSupportedError:
+        raise  # Re-raise schema errors
     except Exception as e:
         logger.warning("Unexpected error in GraphQL query: %s", e)
         return None
@@ -669,6 +716,8 @@ def get_training_metrics_summary(inference_data: InferenceData) -> Dict[str, Any
 # =============================================================================
 
 __all__ = [
+    # Exceptions
+    "SchemaNotSupportedError",
     # Data container
     "InferenceData",
     # Fetching functions

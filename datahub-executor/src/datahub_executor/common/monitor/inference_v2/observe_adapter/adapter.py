@@ -154,6 +154,7 @@ class ObserveAdapter:
         future_df = self._generate_future_timestamps(df, num_intervals, interval_hours)
         prediction_df: Optional[pd.DataFrame] = None
         try:
+            assert models.anomaly_model is not None  # create_models() always sets this
             raw_prediction = models.anomaly_model.detect(future_df)
             prediction_df = self._format_prediction_output(raw_prediction)
             step_results["prediction"] = StepResult(success=True)
@@ -162,6 +163,9 @@ class ObserveAdapter:
             step_results["prediction"] = StepResult(success=False, error=str(e))
 
         # Step 5: Build model config for persistence
+        # create_models() always sets these fields
+        assert models.forecast_registry_key is not None
+        assert models.anomaly_registry_key is not None
         model_config = build_model_config(
             forecast_model=models.forecast_model,
             forecast_config=models.forecast_config,
@@ -249,6 +253,7 @@ class ObserveAdapter:
 
         # Step 2: Train the anomaly model (handles full pipeline internally)
         try:
+            assert models.anomaly_model is not None  # create_models() always sets this
             models.anomaly_model.train(df, ground_truth=ground_truth)
             step_results["training"] = StepResult(success=True)
         except Exception as e:

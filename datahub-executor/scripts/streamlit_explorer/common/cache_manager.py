@@ -2275,6 +2275,58 @@ class EndpointCache:
             )
             return False
 
+    # =========================================================================
+    # Assertion Type Info Storage Methods
+    # =========================================================================
+
+    @property
+    def assertion_type_info_path(self) -> Path:
+        """Path to the assertion type info cache file."""
+        return self.endpoint_dir / "assertion_type_info.json"
+
+    def save_assertion_type_info(
+        self,
+        type_info: dict[str, dict],
+    ) -> bool:
+        """Save assertion type info to the cache.
+
+        Args:
+            type_info: Dictionary mapping assertion URN to type info dict
+                       containing 'assertionType' and optionally 'fieldMetricType'
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        try:
+            self.endpoint_dir.mkdir(parents=True, exist_ok=True)
+
+            # Merge with existing data
+            existing = self.load_assertion_type_info()
+            existing.update(type_info)
+
+            with open(self.assertion_type_info_path, "w") as f:
+                json.dump(existing, f, indent=2)
+            return True
+        except Exception as e:
+            logger.warning("Failed to save assertion type info: %s", e)
+            return False
+
+    def load_assertion_type_info(self) -> dict[str, dict]:
+        """Load assertion type info from the cache.
+
+        Returns:
+            Dictionary mapping assertion URN to type info dict
+        """
+        if not self.assertion_type_info_path.exists():
+            return {}
+
+        try:
+            with open(self.assertion_type_info_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning("Failed to load assertion type info: %s", e)
+            return {}
+
 
 class RunEventCache:
     """High-level interface for managing timeseries caches across all endpoints."""

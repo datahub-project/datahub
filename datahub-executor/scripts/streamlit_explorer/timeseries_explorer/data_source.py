@@ -134,7 +134,7 @@ def _render_preprocessings_cache_section(cache) -> None:
 
         # Delete controls
         st.markdown("**Delete Preprocessings**")
-        col_select, col_delete = st.columns([3, 1])
+        col_select, col_delete, col_delete_all = st.columns([3, 1, 1])
 
         preprocessing_ids = [item["preprocessing_id"] for item in all_preprocessings]
         with col_select:
@@ -153,6 +153,16 @@ def _render_preprocessings_cache_section(cache) -> None:
                 for pid in selected_to_delete:
                     cache.delete_preprocessing(pid)
                 st.success(f"Deleted {len(selected_to_delete)} preprocessing(s)")
+                st.rerun()
+        with col_delete_all:
+            if st.button(
+                "Delete All",
+                type="secondary",
+                key="cache_mgr_preproc_delete_all_btn",
+            ):
+                for item in all_preprocessings:
+                    cache.delete_preprocessing(item["preprocessing_id"])
+                st.success(f"Deleted all {len(all_preprocessings)} preprocessing(s)")
                 st.rerun()
 
         # Bulk delete by assertion
@@ -261,7 +271,7 @@ def _render_training_runs_cache_section(cache) -> None:
 
         # Delete controls
         st.markdown("**Delete Training Runs**")
-        col_select, col_delete = st.columns([3, 1])
+        col_select, col_delete, col_delete_all = st.columns([3, 1, 1])
 
         run_ids = [item["run_id"] for item in all_runs]
         with col_select:
@@ -281,6 +291,16 @@ def _render_training_runs_cache_section(cache) -> None:
                 for rid in selected_to_delete:
                     cache.delete_training_run(rid)
                 st.success(f"Deleted {len(selected_to_delete)} training run(s)")
+                st.rerun()
+        with col_delete_all:
+            if st.button(
+                "Delete All",
+                type="secondary",
+                key="cache_mgr_runs_delete_all_btn",
+            ):
+                for item in all_runs:
+                    cache.delete_training_run(item["run_id"])
+                st.success(f"Deleted all {len(all_runs)} training run(s)")
                 st.rerun()
 
         # Bulk delete by assertion
@@ -386,6 +406,32 @@ def _render_cache_manager_content(loader: DataLoader):
             key="cache_manager_endpoint_select",
         )
 
+        # Endpoint actions - right next to the selector
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            if st.button(
+                "Set as Default", type="secondary", key="cache_mgr_set_default"
+            ):
+                loader.registry.set_default_endpoint(selected_hostname)
+                st.success(f"Set {selected_hostname} as default")
+                st.rerun()
+
+        with col2:
+            if st.button("Clear Cache", type="secondary", key="cache_mgr_clear"):
+                loader.clear_cache(selected_hostname)
+                st.success(f"Cleared cache for {selected_hostname}")
+                st.rerun()
+
+        with col3:
+            if st.button("Remove Endpoint", type="secondary", key="cache_mgr_remove"):
+                loader.cache.clear_cache(selected_hostname)
+                loader.registry.remove_endpoint(selected_hostname)
+                st.success(f"Removed {selected_hostname}")
+                st.rerun()
+
+        st.markdown("---")
+
         if selected_hostname:
             cache = loader.cache.get_endpoint_cache(selected_hostname)
             index = cache.index.data
@@ -464,31 +510,6 @@ def _render_cache_manager_content(loader: DataLoader):
             # Saved Training Runs section
             _render_training_runs_cache_section(cache)
 
-        st.markdown("---")
-        st.subheader("Endpoint Actions")
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            if st.button(
-                "Set as Default", type="secondary", key="cache_mgr_set_default"
-            ):
-                loader.registry.set_default_endpoint(selected_hostname)
-                st.success(f"Set {selected_hostname} as default")
-                st.rerun()
-
-        with col2:
-            if st.button("Clear Cache", type="secondary", key="cache_mgr_clear"):
-                loader.clear_cache(selected_hostname)
-                st.success(f"Cleared cache for {selected_hostname}")
-                st.rerun()
-
-        with col3:
-            if st.button("Remove Endpoint", type="secondary", key="cache_mgr_remove"):
-                loader.cache.clear_cache(selected_hostname)
-                loader.registry.remove_endpoint(selected_hostname)
-                st.success(f"Removed {selected_hostname}")
-                st.rerun()
     else:
         st.info(
             "No cached endpoints. Use the **Fetch Data** tab to fetch data from the API."

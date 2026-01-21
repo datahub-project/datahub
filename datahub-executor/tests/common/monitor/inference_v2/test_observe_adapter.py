@@ -43,6 +43,103 @@ def _make_factory(
     return ModelFactory(defaults, existing_model_config)
 
 
+class TestInitializedModels:
+    """Tests for InitializedModels dataclass properties."""
+
+    def test_forecast_model_property_returns_standalone_model(self) -> None:
+        """forecast_model property returns standalone model when set."""
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            InitializedModels,
+        )
+
+        mock_standalone = MagicMock()
+        models = InitializedModels(_standalone_forecast_model=mock_standalone)
+
+        assert models.forecast_model is mock_standalone
+
+    def test_forecast_model_property_returns_from_anomaly_model(self) -> None:
+        """forecast_model property extracts from anomaly_model when no standalone."""
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            InitializedModels,
+        )
+
+        mock_anomaly = MagicMock()
+        mock_anomaly.forecast_model = MagicMock()
+        models = InitializedModels(anomaly_model=mock_anomaly)
+
+        assert models.forecast_model is mock_anomaly.forecast_model
+
+    def test_forecast_model_property_raises_when_no_model_available(self) -> None:
+        """forecast_model property raises when neither model is available."""
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            InitializedModels,
+        )
+
+        models = InitializedModels()
+
+        with pytest.raises(AssertionError, match="No forecast model available"):
+            _ = models.forecast_model
+
+    def test_forecast_config_property_returns_standalone_config(self) -> None:
+        """forecast_config property returns standalone config when set."""
+        from datahub_observe.algorithms.forecasting.config import ForecastModelConfig
+
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            InitializedModels,
+        )
+
+        standalone_config = ForecastModelConfig(hyperparameters={"test": True})
+        models = InitializedModels(_standalone_forecast_config=standalone_config)
+
+        assert models.forecast_config is standalone_config
+
+    def test_forecast_config_property_returns_from_anomaly_config(self) -> None:
+        """forecast_config property extracts from anomaly_config when no standalone."""
+        from datahub_observe.algorithms.anomaly_detection.config import (
+            AnomalyModelConfig,
+        )
+        from datahub_observe.algorithms.forecasting.config import ForecastModelConfig
+
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            InitializedModels,
+        )
+
+        forecast_config = ForecastModelConfig(hyperparameters={"embedded": True})
+        anomaly_config = AnomalyModelConfig(forecast_model_config=forecast_config)
+        models = InitializedModels(anomaly_config=anomaly_config)
+
+        assert models.forecast_config is forecast_config
+
+    def test_forecast_config_property_raises_when_no_anomaly_config(self) -> None:
+        """forecast_config property raises when no config available."""
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            InitializedModels,
+        )
+
+        models = InitializedModels()
+
+        with pytest.raises(AssertionError, match="No forecast config available"):
+            _ = models.forecast_config
+
+    def test_forecast_config_property_raises_when_no_forecast_in_anomaly_config(
+        self,
+    ) -> None:
+        """forecast_config raises when anomaly_config has no forecast_model_config."""
+        from datahub_observe.algorithms.anomaly_detection.config import (
+            AnomalyModelConfig,
+        )
+
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            InitializedModels,
+        )
+
+        anomaly_config = AnomalyModelConfig()  # No forecast_model_config
+        models = InitializedModels(anomaly_config=anomaly_config)
+
+        with pytest.raises(AssertionError):
+            _ = models.forecast_config
+
+
 class TestModelFactoryWarmStart:
     """Tests for warm start configuration extraction methods in ModelFactory."""
 
@@ -198,6 +295,418 @@ class TestModelFactoryPreprocessingConfig:
             result = factory._build_preprocessing_config()
 
         assert result == mock_preproc
+
+
+class TestModelFactoryRegistryKeys:
+    """Tests for registry key resolution methods in ModelFactory."""
+
+    def test_get_anomaly_registry_key_from_existing_config(self) -> None:
+        """Uses existing anomaly_model_name when available."""
+        model_config = ModelConfig(
+            anomaly_model_name="custom_anomaly_detector",
+            preprocessing_config_json="{}",
+        )
+        factory = _make_factory(existing_model_config=model_config)
+
+        result = factory._get_anomaly_registry_key()
+
+        assert result == "custom_anomaly_detector"
+
+    def test_get_anomaly_registry_key_falls_back_to_defaults(self) -> None:
+        """Falls back to defaults when no existing config."""
+        factory = _make_factory(existing_model_config=None)
+
+        result = factory._get_anomaly_registry_key()
+
+        # Default from ObserveDefaultsBuilder
+        assert result is not None
+        assert isinstance(result, str)
+
+    def test_get_forecast_registry_key_from_existing_config(self) -> None:
+        """Uses existing forecast_model_name when available."""
+        model_config = ModelConfig(
+            forecast_model_name="custom_forecast_model",
+            preprocessing_config_json="{}",
+        )
+        factory = _make_factory(existing_model_config=model_config)
+
+        result = factory._get_forecast_registry_key()
+
+        assert result == "custom_forecast_model"
+
+
+class TestModelFactoryCoalesceConfigs:
+    """Tests for config coalescing methods."""
+
+    def test_coalesce_forecast_config_returns_default_on_force_retune(self) -> None:
+        """Returns default config when force_retune=True."""
+        # Force retune by creating factory with force_retune=True
+        context = _make_context()
+        defaults = get_defaults_for_context(context)
+        factory = ModelFactory(defaults, force_retune=True)
+
+        result = factory._coalesce_forecast_config(force_retune=True)
+
+        assert result is not None
+        # Default config should be returned
+
+    def test_coalesce_forecast_config_merges_existing_with_defaults(self) -> None:
+        """Merges existing config with defaults, existing values override."""
+        from datahub_observe.algorithms.forecasting.config import ForecastModelConfig
+
+        model_config = ModelConfig(
+            forecast_config_json='{"hyperparameters": {"custom_param": 42}}',
+            preprocessing_config_json="{}",
+        )
+
+        # Return a ForecastModelConfig object
+        existing_config = ForecastModelConfig(hyperparameters={"custom_param": 42})
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.ForecastConfigSerializer.deserialize",
+            return_value=existing_config,
+        ):
+            factory = _make_factory(existing_model_config=model_config)
+            result = factory._coalesce_forecast_config(force_retune=False)
+
+        assert result is not None
+        assert isinstance(result, ForecastModelConfig)
+        # Existing hyperparameter should be preserved
+        assert result.hyperparameters.get("custom_param") == 42
+
+    def test_coalesce_anomaly_config_embeds_forecast_config(self) -> None:
+        """Embeds forecast config when embed_forecast_config=True."""
+        factory = _make_factory()
+
+        result = factory._coalesce_anomaly_config(embed_forecast_config=True)
+
+        assert result is not None
+        assert result.forecast_model_config is not None
+
+    def test_coalesce_anomaly_config_skips_forecast_embed(self) -> None:
+        """Does not embed forecast config when embed_forecast_config=False."""
+        factory = _make_factory()
+
+        result = factory._coalesce_anomaly_config(embed_forecast_config=False)
+
+        assert result is not None
+        # forecast_model_config should not be embedded
+
+    def test_coalesce_anomaly_config_force_retune_with_embed(self) -> None:
+        """Returns default with embedded forecast config when force_retune=True."""
+        context = _make_context()
+        defaults = get_defaults_for_context(context)
+        factory = ModelFactory(defaults, force_retune=True)
+
+        result = factory._coalesce_anomaly_config(embed_forecast_config=True)
+
+        assert result is not None
+        assert result.forecast_model_config is not None
+
+    def test_coalesce_anomaly_config_force_retune_without_embed(self) -> None:
+        """Returns default without forecast config when force_retune=True and embed=False."""
+        context = _make_context()
+        defaults = get_defaults_for_context(context)
+        factory = ModelFactory(defaults, force_retune=True)
+
+        result = factory._coalesce_anomaly_config(embed_forecast_config=False)
+
+        assert result is not None
+        # Should be the default config
+
+    def test_coalesce_anomaly_config_skips_existing_forecast_model_config(self) -> None:
+        """Skips forecast_model_config from existing config during merge."""
+        from datahub_observe.algorithms.anomaly_detection.config import (
+            AnomalyModelConfig,
+        )
+        from datahub_observe.algorithms.forecasting.config import ForecastModelConfig
+
+        # Existing config has a forecast_model_config that should be ignored
+        existing_forecast_config = ForecastModelConfig(
+            hyperparameters={"old_param": "should_be_ignored"}
+        )
+        existing_config = AnomalyModelConfig(
+            hyperparameters={"deviation_threshold": 2.0},
+            forecast_model_config=existing_forecast_config,
+        )
+
+        model_config = ModelConfig(
+            anomaly_config_json='{"hyperparameters": {"deviation_threshold": 2.0}}',
+            preprocessing_config_json="{}",
+        )
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.AnomalyConfigSerializer.deserialize",
+            return_value=existing_config,
+        ):
+            factory = _make_factory(existing_model_config=model_config)
+            result = factory._coalesce_anomaly_config(embed_forecast_config=True)
+
+        assert result is not None
+        # Hyperparameters from existing should be preserved
+        assert result.hyperparameters.get("deviation_threshold") == 2.0
+        # But forecast_model_config should be freshly coalesced, not from existing
+        assert result.forecast_model_config is not None
+
+    def test_coalesce_anomaly_config_no_existing_with_embed(self) -> None:
+        """Returns default with embedded forecast when no existing config."""
+        factory = _make_factory(existing_model_config=None)
+
+        result = factory._coalesce_anomaly_config(embed_forecast_config=True)
+
+        assert result is not None
+        assert result.forecast_model_config is not None
+
+    def test_coalesce_anomaly_config_no_existing_without_embed(self) -> None:
+        """Returns default without forecast when no existing config and embed=False."""
+        factory = _make_factory(existing_model_config=None)
+
+        result = factory._coalesce_anomaly_config(embed_forecast_config=False)
+
+        assert result is not None
+
+
+class TestModelFactoryCreateModels:
+    """Tests for ModelFactory.create_models() method."""
+
+    def test_create_models_returns_initialized_models_with_anomaly_model(self) -> None:
+        """create_models returns InitializedModels with anomaly model and configs."""
+        factory = _make_factory()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            # Set up mock registry
+            mock_registry = MagicMock()
+            mock_anomaly_model = MagicMock()
+            mock_registry.create_anomaly_model.return_value = mock_anomaly_model
+            mock_get_registry.return_value = mock_registry
+
+            result = factory.create_models()
+
+            # Verify result has all expected fields
+            assert result is not None
+            assert result.anomaly_model is mock_anomaly_model
+            assert result.preprocessing_config is not None
+            assert result.anomaly_config is not None
+            assert result.forecast_registry_key is not None
+            assert result.anomaly_registry_key is not None
+
+    def test_create_models_passes_forecast_model_name_to_registry(self) -> None:
+        """create_models passes forecast_model_name to registry.create_anomaly_model."""
+        factory = _make_factory()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_registry.create_anomaly_model.return_value = MagicMock()
+            mock_get_registry.return_value = mock_registry
+
+            factory.create_models()
+
+            # Verify create_anomaly_model was called with forecast_model_name
+            call_kwargs = mock_registry.create_anomaly_model.call_args.kwargs
+            assert "forecast_model_name" in call_kwargs
+            assert call_kwargs["forecast_model_name"] is not None
+
+    def test_create_models_embeds_forecast_config_in_anomaly_config(self) -> None:
+        """create_models creates anomaly config with embedded forecast config."""
+        factory = _make_factory()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_registry.create_anomaly_model.return_value = MagicMock()
+            mock_get_registry.return_value = mock_registry
+
+            result = factory.create_models()
+
+            # Verify anomaly_config has embedded forecast config
+            assert result.anomaly_config is not None
+            assert result.anomaly_config.forecast_model_config is not None
+
+    def test_create_models_uses_existing_registry_keys(self) -> None:
+        """create_models uses model names from existing config."""
+        model_config = ModelConfig(
+            forecast_model_name="existing_forecast",
+            anomaly_model_name="existing_anomaly",
+            preprocessing_config_json="{}",
+        )
+        factory = _make_factory(existing_model_config=model_config)
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_registry.create_anomaly_model.return_value = MagicMock()
+            mock_get_registry.return_value = mock_registry
+
+            result = factory.create_models()
+
+            assert result.forecast_registry_key == "existing_forecast"
+            assert result.anomaly_registry_key == "existing_anomaly"
+
+
+class TestModelFactoryCreateForecastModel:
+    """Tests for ModelFactory.create_forecast_model() method."""
+
+    def test_create_forecast_model_returns_initialized_models(self) -> None:
+        """create_forecast_model returns InitializedModels with forecast-only data."""
+        factory = _make_factory()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            # Set up mock registry
+            mock_registry = MagicMock()
+            mock_forecast_model = MagicMock()
+            mock_registry.create_forecast_model.return_value = mock_forecast_model
+            mock_get_registry.return_value = mock_registry
+
+            result = factory.create_forecast_model()
+
+            # Verify result type and properties
+            assert result is not None
+            assert result.has_forecast_only
+            assert not result.has_anomaly_model
+            assert result.forecast_model is mock_forecast_model
+            assert result.anomaly_model is None
+
+    def test_create_forecast_model_with_explicit_registry_key(self) -> None:
+        """create_forecast_model respects explicit registry_key parameter."""
+        factory = _make_factory()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_registry.create_forecast_model.return_value = MagicMock()
+            mock_get_registry.return_value = mock_registry
+
+            factory.create_forecast_model(registry_key="custom_forecast_key")
+
+            # Verify the registry was called with our custom key
+            call_args = mock_registry.create_forecast_model.call_args
+            assert call_args[0][0] == "custom_forecast_key"
+
+    def test_create_forecast_model_sets_registry_key_in_result(self) -> None:
+        """create_forecast_model stores the registry key in the result."""
+        factory = _make_factory()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_registry.create_forecast_model.return_value = MagicMock()
+            mock_get_registry.return_value = mock_registry
+
+            result = factory.create_forecast_model(registry_key="my_forecast")
+
+            assert result.forecast_registry_key == "my_forecast"
+
+
+class TestModelFactoryCreateAnomalyModel:
+    """Tests for ModelFactory.create_anomaly_model() method."""
+
+    def test_create_anomaly_model_returns_initialized_models(self) -> None:
+        """create_anomaly_model returns InitializedModels with anomaly model."""
+        factory = _make_factory()
+        mock_forecast_model = MagicMock()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            # Set up mock registry
+            mock_registry = MagicMock()
+            mock_entry = MagicMock()
+            mock_anomaly_class = MagicMock()
+            mock_anomaly_instance = MagicMock()
+            mock_anomaly_class.return_value = mock_anomaly_instance
+            mock_entry.cls = mock_anomaly_class
+            mock_registry.get.return_value = mock_entry
+            mock_get_registry.return_value = mock_registry
+
+            result = factory.create_anomaly_model(mock_forecast_model)
+
+            # Verify result type and properties
+            assert result is not None
+            assert result.has_anomaly_model
+            assert not result.has_forecast_only
+            assert result.anomaly_model is mock_anomaly_instance
+
+    def test_create_anomaly_model_passes_forecast_model_to_constructor(self) -> None:
+        """create_anomaly_model passes the forecast model to the anomaly class."""
+        factory = _make_factory()
+        mock_forecast_model = MagicMock()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_entry = MagicMock()
+            mock_anomaly_class = MagicMock()
+            mock_entry.cls = mock_anomaly_class
+            mock_registry.get.return_value = mock_entry
+            mock_get_registry.return_value = mock_registry
+
+            factory.create_anomaly_model(mock_forecast_model)
+
+            # Verify forecast_model was passed to the constructor
+            mock_anomaly_class.assert_called_once_with(
+                forecast_model=mock_forecast_model,
+                param_grid=None,
+            )
+
+    def test_create_anomaly_model_passes_param_grid(self) -> None:
+        """create_anomaly_model passes param_grid to the anomaly model."""
+        factory = _make_factory()
+        mock_forecast_model = MagicMock()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_entry = MagicMock()
+            mock_anomaly_class = MagicMock()
+            mock_entry.cls = mock_anomaly_class
+            mock_registry.get.return_value = mock_entry
+            mock_get_registry.return_value = mock_registry
+
+            factory.create_anomaly_model(
+                mock_forecast_model,
+                param_grid="auto",
+            )
+
+            # Verify param_grid was passed
+            mock_anomaly_class.assert_called_once_with(
+                forecast_model=mock_forecast_model,
+                param_grid="auto",
+            )
+
+    def test_create_anomaly_model_with_explicit_registry_key(self) -> None:
+        """create_anomaly_model respects explicit anomaly_registry_key."""
+        factory = _make_factory()
+        mock_forecast_model = MagicMock()
+
+        with patch(
+            "datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory.get_model_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_entry = MagicMock()
+            mock_entry.cls = MagicMock()
+            mock_registry.get.return_value = mock_entry
+            mock_get_registry.return_value = mock_registry
+
+            result = factory.create_anomaly_model(
+                mock_forecast_model,
+                anomaly_registry_key="custom_anomaly",
+            )
+
+            # Verify registry was called with custom key
+            mock_registry.get.assert_called_once_with("custom_anomaly")
+            assert result.anomaly_registry_key == "custom_anomaly"
 
 
 class TestExtractQualityScore:

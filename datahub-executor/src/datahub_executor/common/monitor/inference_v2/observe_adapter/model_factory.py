@@ -9,22 +9,16 @@ This module handles model initialization with proper config coalescing:
 
 import dataclasses
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, cast
 
 from datahub_observe.algorithms.anomaly_detection.config import AnomalyModelConfig
+from datahub_observe.algorithms.anomaly_detection.forecast_anomaly_base import (
+    BaseForecastAnomalyModel,
+)
+from datahub_observe.algorithms.config import PreprocessingConfigType
 from datahub_observe.algorithms.forecasting.config import ForecastModelConfig
+from datahub_observe.algorithms.forecasting.forecast_base import DartsBaseForecastModel
 from datahub_observe.registry import get_model_registry
-
-if TYPE_CHECKING:
-    from datahub_observe.algorithms.anomaly_detection.anomaly_base import (
-        BaseAnomalyModel,
-    )
-    from datahub_observe.algorithms.anomaly_detection.forecast_anomaly_base import (
-        BaseForecastAnomalyModel,
-    )
-    from datahub_observe.algorithms.forecasting.forecast_base import (
-        DartsBaseForecastModel,
-    )
 
 from datahub_executor.common.monitor.inference_v2.inference_utils import ModelConfig
 from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
@@ -39,16 +33,66 @@ from datahub_executor.common.monitor.inference_v2.observe_adapter.serialization 
 
 @dataclass
 class InitializedModels:
-    """Result of model initialization."""
+    """Result of model initialization.
 
-    forecast_model: "DartsBaseForecastModel"
-    anomaly_model: Union["BaseForecastAnomalyModel", "BaseAnomalyModel"]
-    preprocessing_config: Any
-    forecast_config: ForecastModelConfig
-    anomaly_config: AnomalyModelConfig
-    # Registry keys used for model instantiation (for serialization)
-    forecast_registry_key: str
-    anomaly_registry_key: str
+    This class wraps created models and their configurations. Supports three modes:
+    1. Full anomaly detection: Both forecast and anomaly models created together
+    2. Forecast-only: Standalone forecast model without anomaly detection
+    3. Anomaly-only: Anomaly model wrapping a pre-trained forecast model
+
+    Fields are optional to support all modes. Use the properties to access
+    models safely with appropriate assertions.
+    """
+
+    # Models - at least one will be set
+    anomaly_model: Optional[BaseForecastAnomalyModel] = None
+    _standalone_forecast_model: Optional[DartsBaseForecastModel] = None
+
+    # Configs - set based on what was created
+    preprocessing_config: Optional[PreprocessingConfigType] = None
+    anomaly_config: Optional[AnomalyModelConfig] = None
+    _standalone_forecast_config: Optional[ForecastModelConfig] = None
+
+    # Registry keys - set based on what was created
+    forecast_registry_key: Optional[str] = None
+    anomaly_registry_key: Optional[str] = None
+
+    @property
+    def forecast_model(self) -> DartsBaseForecastModel:
+        """Access the forecast model.
+
+        Returns the standalone forecast model if set, otherwise extracts
+        from the anomaly model (composition).
+        """
+        if self._standalone_forecast_model is not None:
+            return self._standalone_forecast_model
+        assert self.anomaly_model is not None, "No forecast model available"
+        return self.anomaly_model.forecast_model
+
+    @property
+    def forecast_config(self) -> ForecastModelConfig:
+        """Access the forecast config.
+
+        Returns the standalone forecast config if set, otherwise extracts
+        from the anomaly config (embedded).
+        """
+        if self._standalone_forecast_config is not None:
+            return self._standalone_forecast_config
+        assert self.anomaly_config is not None, "No forecast config available"
+        assert self.anomaly_config.forecast_model_config is not None
+        return self.anomaly_config.forecast_model_config
+
+    @property
+    def has_anomaly_model(self) -> bool:
+        """Check if an anomaly model is available."""
+        return self.anomaly_model is not None
+
+    @property
+    def has_forecast_only(self) -> bool:
+        """Check if this is a forecast-only result (no anomaly model)."""
+        return (
+            self._standalone_forecast_model is not None and self.anomaly_model is None
+        )
 
 
 class ModelFactory:
@@ -88,7 +132,11 @@ class ModelFactory:
 
     def create_models(self) -> InitializedModels:
         """
-        Create forecast and anomaly models with coalesced configs.
+        Create anomaly model with embedded forecast model using registry.
+
+        The registry's `create_anomaly_model()` method handles creating both
+        the forecast model (from forecast_model_config) and the anomaly model,
+        automatically wiring them together via composition.
 
         Returns:
             InitializedModels containing the created models and their configs.
@@ -103,34 +151,134 @@ class ModelFactory:
         # Build preprocessing config (coalesced with existing if available)
         preprocessing_config = self._build_preprocessing_config()
 
-        # Coalesce forecast config
-        forecast_config = self._coalesce_forecast_config()
-
-        # Create forecast model with hyperparameters from coalesced config
-        forecast_entry = registry.get(forecast_registry_key)
-        forecast_model = forecast_entry.cls(
-            preprocessing_config=preprocessing_config,
-            darts_model_config=forecast_config.hyperparameters,
-        )
-
-        # Coalesce anomaly config
+        # Build anomaly config with embedded forecast config
         anomaly_config = self._coalesce_anomaly_config()
 
-        # Create anomaly model with forecast model (composition)
-        anomaly_entry = registry.get(anomaly_registry_key)
-        anomaly_model = anomaly_entry.cls(
-            forecast_model=forecast_model,
-            scorer_config=anomaly_config.hyperparameters or None,
+        # Use typed registry factory - handles forecast model creation automatically
+        # Cast is safe: we always provide forecast_model_name, so it returns
+        # BaseForecastAnomalyModel (not BaseAnomalyModel)
+        anomaly_model = cast(
+            BaseForecastAnomalyModel,
+            registry.create_anomaly_model(
+                anomaly_registry_key,
+                preprocessing_config,
+                anomaly_config,
+                forecast_model_name=forecast_registry_key,
+            ),
         )
 
         return InitializedModels(
-            forecast_model=forecast_model,
             anomaly_model=anomaly_model,
             preprocessing_config=preprocessing_config,
-            forecast_config=forecast_config,
             anomaly_config=anomaly_config,
             forecast_registry_key=forecast_registry_key,
             anomaly_registry_key=anomaly_registry_key,
+        )
+
+    def create_forecast_model(
+        self, registry_key: Optional[str] = None
+    ) -> InitializedModels:
+        """
+        Create a standalone forecast model without anomaly detection.
+
+        This method creates just the forecast model, useful for:
+        - Training forecast models independently before anomaly detection
+        - Streamlit explorer where users train forecast models separately
+        - Testing and comparison of different forecasting approaches
+
+        Args:
+            registry_key: Optional override for the forecast model registry key.
+                If not provided, uses the key from existing config or defaults.
+
+        Returns:
+            InitializedModels with forecast model only (has_forecast_only=True).
+        """
+        registry = get_model_registry()
+
+        # Determine model registry key: explicit override > existing config > default
+        if registry_key is not None:
+            forecast_registry_key = registry_key
+        else:
+            forecast_registry_key = self._get_forecast_registry_key()
+
+        # Build preprocessing config (coalesced with existing if available)
+        preprocessing_config = self._build_preprocessing_config()
+
+        # Build forecast config (coalesced with existing if available)
+        forecast_config = self._coalesce_forecast_config(self._force_retune)
+
+        # Create the forecast model via registry
+        forecast_model = registry.create_forecast_model(
+            forecast_registry_key,
+            preprocessing_config,
+            forecast_config,
+        )
+
+        return InitializedModels(
+            _standalone_forecast_model=forecast_model,
+            preprocessing_config=preprocessing_config,
+            _standalone_forecast_config=forecast_config,
+            forecast_registry_key=forecast_registry_key,
+        )
+
+    def create_anomaly_model(
+        self,
+        forecast_model: DartsBaseForecastModel,
+        anomaly_registry_key: Optional[str] = None,
+        param_grid: Optional[str] = None,
+    ) -> InitializedModels:
+        """
+        Create an anomaly model using a pre-trained forecast model.
+
+        This method wraps an existing forecast model in an anomaly detector,
+        useful for:
+        - Streamlit explorer where users train forecast models separately
+        - Testing different anomaly detectors on the same forecast model
+        - Reusing a trained forecast model with multiple anomaly approaches
+
+        The forecast model is NOT re-trained - only the anomaly scorer/detector
+        is created fresh and will be trained by the caller.
+
+        Args:
+            forecast_model: A pre-trained DartsBaseForecastModel to use for
+                anomaly detection. This model will be wrapped by the anomaly
+                model via composition.
+            anomaly_registry_key: Optional override for the anomaly model registry
+                key. If not provided, uses the key from existing config or defaults.
+            param_grid: Optional parameter grid for hyperparameter tuning.
+                Use "auto" to enable automatic grid search.
+
+        Returns:
+            InitializedModels with anomaly model wrapping the pre-trained forecast.
+        """
+        registry = get_model_registry()
+
+        # Determine anomaly model registry key
+        if anomaly_registry_key is not None:
+            registry_key = anomaly_registry_key
+        else:
+            registry_key = self._get_anomaly_registry_key()
+
+        # Build anomaly config (coalesced with existing if available)
+        # Note: We don't embed forecast_model_config since we're using
+        # a pre-trained forecast model directly
+        anomaly_config = self._coalesce_anomaly_config(embed_forecast_config=False)
+
+        # Get the anomaly model class from registry and instantiate with
+        # the pre-trained forecast model
+        entry = registry.get(registry_key)
+        model_class = entry.cls
+
+        # Create anomaly model with the pre-trained forecast model
+        anomaly_model = model_class(
+            forecast_model=forecast_model,
+            param_grid=param_grid,
+        )
+
+        return InitializedModels(
+            anomaly_model=anomaly_model,
+            anomaly_config=anomaly_config,
+            anomaly_registry_key=registry_key,
         )
 
     def _build_preprocessing_config(self) -> Any:
@@ -245,15 +393,16 @@ class ModelFactory:
             return self._existing_model_config.anomaly_model_name
         return self._defaults.anomaly_model_registry_key()
 
-    def _coalesce_forecast_config(self) -> ForecastModelConfig:
+    def _coalesce_forecast_config(self, force_retune: bool) -> ForecastModelConfig:
         """Coalesce defaults with existing forecast config.
 
         Pattern: defaults first, then existing values override.
         This ensures new default fields are picked up while preserving
         previously trained hyperparameters.
 
-        If force_retune is True, existing hyperparameters are ignored and
-        defaults are used to trigger fresh tuning.
+        Args:
+            force_retune: If True, existing hyperparameters are ignored and
+                defaults are used to trigger fresh tuning.
 
         Returns:
             Merged ForecastModelConfig with existing values overriding defaults.
@@ -261,7 +410,7 @@ class ModelFactory:
         default = self._defaults.forecast_config()
 
         # If force_retune is True, skip existing config to trigger fresh tuning
-        if self._force_retune:
+        if force_retune:
             return default
 
         existing = self._get_existing_forecast_config()
@@ -286,28 +435,45 @@ class ModelFactory:
 
         return ForecastModelConfig(**merged)
 
-    def _coalesce_anomaly_config(self) -> AnomalyModelConfig:
+    def _coalesce_anomaly_config(
+        self, embed_forecast_config: bool = True
+    ) -> AnomalyModelConfig:
         """Coalesce defaults with existing anomaly config.
 
         Pattern: defaults first, then existing values override.
         This ensures new default fields are picked up while preserving
         previously trained hyperparameters.
 
+        Args:
+            embed_forecast_config: If True, embeds the coalesced forecast_model_config
+                in the returned config. Set to False when using a pre-trained forecast
+                model directly (the forecast config is not needed in that case).
+
         If force_retune is True, existing hyperparameters are ignored and
         defaults are used to trigger fresh tuning.
 
         Returns:
-            Merged AnomalyModelConfig with existing values overriding defaults.
+            Merged AnomalyModelConfig, optionally with forecast_model_config embedded.
         """
         default = self._defaults.anomaly_config()
 
         # If force_retune is True, skip existing config to trigger fresh tuning
         if self._force_retune:
+            if embed_forecast_config:
+                forecast_config = self._coalesce_forecast_config(self._force_retune)
+                return dataclasses.replace(
+                    default, forecast_model_config=forecast_config
+                )
             return default
 
         existing = self._get_existing_anomaly_config()
 
         if existing is None:
+            if embed_forecast_config:
+                forecast_config = self._coalesce_forecast_config(self._force_retune)
+                return dataclasses.replace(
+                    default, forecast_model_config=forecast_config
+                )
             return default
 
         # Merge: defaults as base, existing overrides
@@ -322,7 +488,16 @@ class ModelFactory:
                     **default_dict.get("hyperparameters", {}),
                     **existing_dict.get("hyperparameters", {}),
                 }
+            elif key == "forecast_model_config":
+                # Skip - handled separately based on embed_forecast_config
+                pass
             elif value is not None:
                 merged[key] = value
+
+        # Optionally embed the coalesced forecast config
+        if embed_forecast_config:
+            merged["forecast_model_config"] = self._coalesce_forecast_config(
+                self._force_retune
+            )
 
         return AnomalyModelConfig(**merged)

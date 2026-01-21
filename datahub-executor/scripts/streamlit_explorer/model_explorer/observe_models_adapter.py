@@ -4,10 +4,13 @@ Adapter for observe-models registry integration.
 
 This module bridges the observe-models forecasting registry with the Streamlit
 time series explorer's model training infrastructure.
+
+Uses ModelFactory from datahub_executor.common.monitor.inference_v2 for
+consistent model instantiation with proper config coalescing.
 """
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import pandas as pd
 import streamlit as st
@@ -90,6 +93,68 @@ def build_preprocessing_config(
         return None
 
 
+def _build_input_context_from_session() -> Any:
+    """
+    Build InputDataContext from Streamlit session state.
+
+    Maps the assertion type from session state to an InputDataContext
+    that can be used with ObserveDefaultsBuilder.
+
+    Returns:
+        InputDataContext instance, or None if imports fail.
+    """
+    try:
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
+            InputDataContext,
+        )
+
+        # Get assertion type from session state
+        assertion_type = get_assertion_type_from_context()
+        assertion_category = "volume"  # Default
+        if assertion_type is not None:
+            assertion_category = str(assertion_type.value).lower()
+
+        # Check session state for cumulative data flag (if set by preprocessing UI)
+        is_cumulative = st.session_state.get("is_dataframe_cumulative", False)
+
+        return InputDataContext(
+            assertion_category=assertion_category,
+            is_dataframe_cumulative=is_cumulative,
+            allow_negative=None,  # Let defaults determine based on category
+        )
+    except ImportError:
+        return None
+
+
+def _get_model_factory(registry_key: Optional[str] = None) -> Any:
+    """
+    Create a ModelFactory with defaults from session state context.
+
+    Args:
+        registry_key: Optional registry key override (not used for factory creation,
+            but could be used for future warm-start support).
+
+    Returns:
+        ModelFactory instance, or None if imports fail.
+    """
+    try:
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
+            get_defaults_for_context,
+        )
+        from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory import (
+            ModelFactory,
+        )
+
+        context = _build_input_context_from_session()
+        if context is None:
+            return None
+
+        defaults = get_defaults_for_context(context)
+        return ModelFactory(defaults)
+    except ImportError:
+        return None
+
+
 # =============================================================================
 # Model Configuration
 # =============================================================================
@@ -157,6 +222,9 @@ def _create_train_fn(
     """
     Create a training function for an observe-models forecaster.
 
+    Uses ModelFactory.create_forecast_model() for consistent model instantiation
+    with proper config coalescing and context-aware defaults.
+
     Args:
         registry_key: Key in the observe-models registry
 
@@ -165,27 +233,17 @@ def _create_train_fn(
     """
 
     def train_fn(train_df: pd.DataFrame) -> object:
-        from datahub_observe.registry import get_model_registry  # type: ignore[import-untyped]  # noqa: I001
+        # Use ModelFactory for consistent instantiation
+        factory = _get_model_factory(registry_key)
+        if factory is None:
+            raise RuntimeError(
+                f"ModelFactory not available for {registry_key}. "
+                "Ensure datahub_executor is properly installed."
+            )
 
-        # Get assertion type from context
-        assertion_type = get_assertion_type_from_context()
-
-        # Build preprocessing config with auto frequency detection
-        preprocessing_config = build_preprocessing_config(
-            assertion_type=assertion_type,
-            frequency="auto",
-        )
-
-        # Get model class from registry
-        registry = get_model_registry()
-        entry = registry.get(registry_key)
-        model_class = entry.cls
-
-        # Instantiate model with standard config
-        model = model_class(
-            preprocessing_config=preprocessing_config,
-            darts_model_config={},
-        )
+        # Use ModelFactory.create_forecast_model() with explicit registry key
+        result = factory.create_forecast_model(registry_key=registry_key)
+        model = result.forecast_model
 
         # Train model
         model.train(train_df)
@@ -300,6 +358,12 @@ def _create_anomaly_train_fn(
     The returned function uses an already-trained forecast model (passed in)
     rather than creating a new one. The forecast model is NOT re-trained.
 
+    Uses ModelFactory.create_anomaly_model() for forecast-based anomaly models,
+    ensuring consistent instantiation with proper config coalescing.
+
+    For standalone anomaly models (requires_forecast=False), uses
+    ObserveDefaultsBuilder for context-aware preprocessing configuration.
+
     Args:
         registry_key: Key in the observe-models registry
         requires_forecast: Whether this model requires a forecast model
@@ -314,31 +378,59 @@ def _create_anomaly_train_fn(
         forecast_model: object,
         ground_truth: Optional[pd.DataFrame] = None,
     ) -> object:
-        from datahub_observe.registry import get_model_registry  # type: ignore[import-untyped]  # noqa: I001
-
-        # Get model class from registry
-        registry = get_model_registry()
-        entry = registry.get(registry_key)
-        model_class = entry.cls
-
         # Set param_grid for grid search
         param_grid = "auto" if enable_grid_search else None
 
         if requires_forecast:
-            # Instantiate anomaly model with the already-trained forecast model
-            # The forecast model is NOT re-trained - only the anomaly scorer is trained
-            anomaly_model = model_class(
-                forecast_model=forecast_model,
+            # Use ModelFactory.create_anomaly_model() for consistent instantiation
+            factory = _get_model_factory(registry_key)
+            if factory is None:
+                raise RuntimeError(
+                    f"ModelFactory not available for {registry_key}. "
+                    "Ensure datahub_executor is properly installed."
+                )
+
+            # Cast forecast_model to correct type for ModelFactory
+            from datahub_observe.algorithms.forecasting.forecast_base import (
+                DartsBaseForecastModel,
+            )
+
+            result = factory.create_anomaly_model(
+                forecast_model=cast(DartsBaseForecastModel, forecast_model),
+                anomaly_registry_key=registry_key,
                 param_grid=param_grid,
             )
+            anomaly_model = result.anomaly_model
         else:
-            # For models that don't need a forecast (e.g., DeepSVDD)
-            # Build preprocessing config from context
-            assertion_type = get_assertion_type_from_context()
-            preprocessing_config = build_preprocessing_config(
-                assertion_type=assertion_type,
-                frequency="auto",
-            )
+            # For standalone models (e.g., DeepSVDD) that don't need a forecast
+            # Try to use ObserveDefaultsBuilder for context-aware preprocessing
+            preprocessing_config = None
+            try:
+                from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
+                    get_defaults_for_context,
+                )
+
+                context = _build_input_context_from_session()
+                if context is not None:
+                    defaults = get_defaults_for_context(context)
+                    preprocessing_config = defaults.preprocessing_config()
+            except ImportError:
+                pass
+
+            # Fallback if ModelFactory approach didn't work
+            if preprocessing_config is None:
+                assertion_type = get_assertion_type_from_context()
+                preprocessing_config = build_preprocessing_config(
+                    assertion_type=assertion_type,
+                    frequency="auto",
+                )
+
+            from datahub_observe.registry import get_model_registry
+
+            registry = get_model_registry()
+            entry = registry.get(registry_key)
+            model_class = entry.cls
+
             # Pass empty model_config to use defaults
             anomaly_model = model_class(
                 preprocessing_config=preprocessing_config,
@@ -531,5 +623,4 @@ __all__ = [
     "ObserveModelConfig",
     "AnomalyModelConfig",
     "DYNAMIC_COLOR_PALETTE",
-    "_create_train_fn",
 ]

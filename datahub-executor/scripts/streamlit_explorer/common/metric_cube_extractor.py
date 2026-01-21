@@ -419,6 +419,9 @@ class MonitoredAssertionMetadata:
     value_mean: Optional[float]
     anomaly_count: int
     monitor_status: Optional[str] = None  # "ACTIVE" or "PAUSED"
+    # Assertion type info (populated from API enrichment)
+    assertion_type: Optional[str] = None  # VOLUME, FIELD, SQL, FRESHNESS, etc.
+    field_metric_type: Optional[str] = None  # For FIELD assertions: NULL_COUNT, etc.
 
 
 def list_monitored_assertions(

@@ -21,6 +21,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .inference_loader import (
+    SchemaNotSupportedError,
     fetch_inference_data,
 )
 from .shared import (
@@ -751,6 +752,7 @@ def _execute_api_fetch(
             cache = loader.cache.get_endpoint_cache(config.hostname)
             inference_errors = []
 
+            schema_unsupported = False
             for _monitor_urn, assertion_urn in monitor_assertion_map.items():
                 if _check_cancelled():
                     break
@@ -789,10 +791,19 @@ def _execute_api_fetch(
                             generated_at=inference_data.generated_at,
                         )
                         inference_saved_count += 1
+                except SchemaNotSupportedError:
+                    # Server doesn't support evaluationContext - skip remaining
+                    schema_unsupported = True
+                    break
                 except Exception as e:
                     inference_errors.append(f"{assertion_urn}: {e}")
 
-            if inference_saved_count > 0:
+            if schema_unsupported:
+                st.info(
+                    "ℹ️ Server schema doesn't support inference data (evaluationContext). "
+                    "Inference data will not be available for this endpoint."
+                )
+            elif inference_saved_count > 0:
                 saved_aspects.append(f"inference data: {inference_saved_count}")
 
             if inference_errors:
@@ -1472,19 +1483,21 @@ def _graphql_list_monitor_metrics(
                     "listMonitorMetrics API not available: %s", error_msgs[0][:100]
                 )
                 return []
-            # Check for server-side search/query errors (log at debug level)
+            # Check for server-side errors (log at debug level - not client issues)
             if any(
                 "esqueryexception" in msg.lower()
                 or "search query failed" in msg.lower()
+                or "nullpointerexception" in msg.lower()
+                or "java.lang" in msg.lower()
                 for msg in error_msgs
             ):
                 logger.debug(
-                    "listMonitorMetrics search error for %s: %s",
+                    "listMonitorMetrics server error for %s: %s",
                     _shorten_urn(monitor_urn, 50),
                     error_msgs[0][:100],
                 )
                 return []
-            logger.error("GraphQL error in listMonitorMetrics: %s", error_msgs)
+            logger.warning("GraphQL error in listMonitorMetrics: %s", error_msgs)
             return []
 
         result = data.get("data", {}).get("listMonitorMetrics")
@@ -1738,6 +1751,10 @@ def _graphql_get_assertion_info(
                 }
                 fieldAssertion {
                     entityUrn
+                    type
+                    fieldMetricAssertion {
+                        metric
+                    }
                 }
                 sqlAssertion {
                     entityUrn
@@ -1774,14 +1791,22 @@ def _graphql_get_assertion_info(
         info = assertion_data.get("info") or {}
         assertion_type = info.get("type")
 
-        # Extract entity URN based on assertion type
+        # Extract entity URN and field-specific info based on assertion type
         entity_urn = None
+        field_metric_type = None
+
         if info.get("volumeAssertion"):
             entity_urn = info["volumeAssertion"].get("entityUrn")
         elif info.get("freshnessAssertion"):
             entity_urn = info["freshnessAssertion"].get("entityUrn")
         elif info.get("fieldAssertion"):
-            entity_urn = info["fieldAssertion"].get("entityUrn")
+            field_assertion = info["fieldAssertion"]
+            entity_urn = field_assertion.get("entityUrn")
+            # Extract field metric type if this is a FIELD_METRIC assertion
+            if field_assertion.get("type") == "FIELD_METRIC":
+                metric_assertion = field_assertion.get("fieldMetricAssertion")
+                if metric_assertion:
+                    field_metric_type = metric_assertion.get("metric")
         elif info.get("sqlAssertion"):
             entity_urn = info["sqlAssertion"].get("entityUrn")
         elif info.get("datasetAssertion"):
@@ -1793,11 +1818,49 @@ def _graphql_get_assertion_info(
             "assertionUrn": assertion_urn,
             "assertionType": assertion_type,
             "entityUrn": entity_urn,
+            "fieldMetricType": field_metric_type,
         }
 
     except Exception:
         logger.exception("Failed to get assertion info for %s", assertion_urn)
         return None
+
+
+def _graphql_get_assertion_info_batch(
+    graphql_url: str,
+    headers: dict,
+    assertion_urns: list[str],
+) -> dict[str, dict]:
+    """Get assertion info for multiple assertions in batch.
+
+    This fetches assertion type and field metric type info for each assertion.
+    Results are returned as a dictionary keyed by assertion URN.
+
+    Args:
+        graphql_url: The GraphQL endpoint URL
+        headers: HTTP headers including auth token
+        assertion_urns: List of assertion URNs to fetch
+
+    Returns:
+        Dictionary mapping assertion URN to info dict with:
+        - assertionType: The assertion type (VOLUME, FIELD, SQL, FRESHNESS, etc.)
+        - fieldMetricType: For FIELD assertions, the metric type (NULL_COUNT, etc.)
+    """
+    results: dict[str, dict] = {}
+
+    if not assertion_urns:
+        return results
+
+    # Fetch each assertion (could be optimized with batched GraphQL in future)
+    for assertion_urn in assertion_urns:
+        info = _graphql_get_assertion_info(graphql_url, headers, assertion_urn)
+        if info:
+            results[assertion_urn] = {
+                "assertionType": info.get("assertionType"),
+                "fieldMetricType": info.get("fieldMetricType"),
+            }
+
+    return results
 
 
 # =============================================================================
@@ -1832,4 +1895,5 @@ __all__ = [
     # Monitor creation functions
     "_graphql_create_assertion_monitor",
     "_graphql_get_assertion_info",
+    "_graphql_get_assertion_info_batch",
 ]
