@@ -104,8 +104,8 @@ jobs:
         with:
           name: Test Results (release tests)
           path: |
-            **/junit.*.xml
-            test-reports/**
-            **/build/test-results/test/**
-            smoke-test/build/test-results/
+            "**/junit.*.xml"
+            "test-reports/**"
+            "**/build/test-results/test/**"
+            "smoke-test/build/test-results/"
           retention-days: 5
