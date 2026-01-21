@@ -56,78 +56,69 @@ public class DatasetFieldUrnTest {
 
     Assertions.assertThat(datasetFieldUrn1).isEqualTo(datasetFieldUrn2);
   }
-  
-    @Test
-    public void testDatasetNameWhitespaceTrimming() throws URISyntaxException {
-        // This test verifies the sanitizeName() logic correctly removes
-        // ONLY leading and trailing whitespace from the dataset name.
-        //
-        // Example:
-        // "   fooName   "  →  "fooName"
-        //
-        // This ensures that padded names coming from DB2 or other systems
-        // are normalized before being stored or serialized into URNs.
 
-        final String datasetNameWithSpaces = "   fooName   ";  // leading + trailing spaces
-        final String trimmed = "fooName";                     // expected result after trimming
+  @Test
+  public void testDatasetNameWhitespaceTrimming() throws URISyntaxException {
+    // This test verifies the sanitizeName() logic correctly removes
+    // ONLY leading and trailing whitespace from the dataset name.
+    //
+    // Example:
+    // "   fooName   "  →  "fooName"
+    //
+    // This ensures that padded names coming from DB2 or other systems
+    // are normalized before being stored or serialized into URNs.
 
-        // Construct a URN that contains a dataset name with padding.
-        final String rawUrn = String.format(
-                "urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s)",
-                PLATFORM,
-                datasetNameWithSpaces,
-                FABRIC_TYPE
-        );
+    final String datasetNameWithSpaces = "   fooName   "; // leading + trailing spaces
+    final String trimmed = "fooName"; // expected result after trimming
 
-        // Deserialize the URN; this triggers sanitizeName() internally.
-        DatasetUrn datasetUrn = DatasetUrn.deserialize(rawUrn);
+    // Construct a URN that contains a dataset name with padding.
+    final String rawUrn =
+        String.format(
+            "urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s)",
+            PLATFORM, datasetNameWithSpaces, FABRIC_TYPE);
 
-        // Validate trimming applied correctly.
-        Assertions.assertThat(datasetUrn.getDatasetNameEntity())
-                .isEqualTo(trimmed)
-                .describedAs("Dataset name should have leading and trailing spaces removed");
+    // Deserialize the URN; this triggers sanitizeName() internally.
+    DatasetUrn datasetUrn = DatasetUrn.deserialize(rawUrn);
 
-        // Validate that serialization also uses the trimmed value.
-        final String expectedSerialized = String.format(
-                "urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s)",
-                PLATFORM,
-                trimmed,
-                FABRIC_TYPE
-        );
+    // Validate trimming applied correctly.
+    Assertions.assertThat(datasetUrn.getDatasetNameEntity())
+        .isEqualTo(trimmed)
+        .describedAs("Dataset name should have leading and trailing spaces removed");
 
-        Assertions.assertThat(datasetUrn.toString())
-                .isEqualTo(expectedSerialized)
-                .describedAs("Serialized URN should contain the trimmed dataset name");
-    }
+    // Validate that serialization also uses the trimmed value.
+    final String expectedSerialized =
+        String.format(
+            "urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s)", PLATFORM, trimmed, FABRIC_TYPE);
 
+    Assertions.assertThat(datasetUrn.toString())
+        .isEqualTo(expectedSerialized)
+        .describedAs("Serialized URN should contain the trimmed dataset name");
+  }
 
-    @Test
-    public void testInternalWhitespaceIsPreserved() throws URISyntaxException {
-        // This test ensures sanitizeName() does NOT modify internal whitespace.
-        //
-        // Example:
-        // "foo   bar   baz"  →  "foo   bar   baz"  (internal spaces preserved)
-        //
-        // This is important because internal spaces may be meaningful,
-        // and our trimming logic should only remove padding on the left/right,
-        // not collapse or alter spacing inside the dataset name.
+  @Test
+  public void testInternalWhitespaceIsPreserved() throws URISyntaxException {
+    // This test ensures sanitizeName() does NOT modify internal whitespace.
+    //
+    // Example:
+    // "foo   bar   baz"  →  "foo   bar   baz"  (internal spaces preserved)
+    //
+    // This is important because internal spaces may be meaningful,
+    // and our trimming logic should only remove padding on the left/right,
+    // not collapse or alter spacing inside the dataset name.
 
-        final String datasetName = "foo   bar   baz";  // internal spaces only (3 spaces between words)
+    final String datasetName = "foo   bar   baz"; // internal spaces only (3 spaces between words)
 
-        // Serialize a URN using a name that contains internal whitespace.
-        final String rawUrn = String.format(
-                "urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s)",
-                PLATFORM,
-                datasetName,
-                FABRIC_TYPE
-        );
+    // Serialize a URN using a name that contains internal whitespace.
+    final String rawUrn =
+        String.format(
+            "urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s)", PLATFORM, datasetName, FABRIC_TYPE);
 
-        // Deserialize the URN.
-        DatasetUrn datasetUrn = DatasetUrn.deserialize(rawUrn);
+    // Deserialize the URN.
+    DatasetUrn datasetUrn = DatasetUrn.deserialize(rawUrn);
 
-        // Verify internal whitespace was preserved exactly.
-        Assertions.assertThat(datasetUrn.getDatasetNameEntity())
-                .isEqualTo(datasetName)
-                .describedAs("Internal whitespace should be preserved unchanged");
-    }
+    // Verify internal whitespace was preserved exactly.
+    Assertions.assertThat(datasetUrn.getDatasetNameEntity())
+        .isEqualTo(datasetName)
+        .describedAs("Internal whitespace should be preserved unchanged");
+  }
 }
