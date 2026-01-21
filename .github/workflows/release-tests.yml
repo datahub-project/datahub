@@ -104,7 +104,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: Test Results (release tests)
+          name: test-reports
           path: |
             smoke-test/test-reports/
           retention-days: 5
@@ -118,3 +118,13 @@ jobs:
           files: "smoke-test/test-reports/junit.xml"
           job_summary: true
           comment_mode: off
+      - name: Publish Release Test Results Summary
+        uses: dorny/test-reporter@v2.5.0
+        if: success() || failure()
+        with:
+          reporter: "python-xunit"
+          artifact: test-reports
+          name: Test Run Failures
+          path: test-reports/junit.xml
+          list-tests: "failed"
+          max-annotations: "30"
