@@ -6,9 +6,11 @@ title: "Universal transformers"
 
 The below table shows transformer which can transform aspects of any entity having them.
 
-| Aspect          | Transformer                           |
-| --------------- | ------------------------------------- |
-| `browsePathsV2` | - [Set browsePaths](#set-browsepaths) |
+| Aspect          | Transformer                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `browsePathsV2` | - [Set browsePaths](#set-browsepaths)                                                                                 |
+| `globalTags`    | - [Simple Add globalTags](#simple-add-globaltags)<br/>- [Pattern Add globalTags](#pattern-add-globaltags)             |
+| `glossaryTerms` | - [Simple Add glossaryTerms](#simple-add-glossaryterms)<br/>- [Pattern Add glossaryTerms](#pattern-add-glossaryterms) |
 
 ## Set browsePaths
 
@@ -107,4 +109,98 @@ transformers:
       replace_existing: true
       path:
         - $container[*]
+```
+
+## Simple Add globalTags
+
+Adds a fixed set of tags to datasets, charts, and dashboards.
+
+### Config Details
+
+| Field              | Required | Type         | Default     | Description                                                                     |
+| ------------------ | -------- | ------------ | ----------- | ------------------------------------------------------------------------------- |
+| `tag_urns`         | ✅       | list[string] |             | List of tag URNs to add.                                                        |
+| `replace_existing` |          | boolean      | `false`     | Whether to remove existing tags before adding new ones.                         |
+| `semantics`        |          | string       | `OVERWRITE` | Set to `PATCH` to merge with existing tags from DataHub (requires datahub_api). |
+
+### Example
+
+```yaml
+transformers:
+  - type: "simple_add_tags"
+    config:
+      tag_urns:
+        - "urn:li:tag:NeedsDocumentation"
+        - "urn:li:tag:Legacy"
+```
+
+## Pattern Add globalTags
+
+Adds tags to datasets, charts, and dashboards based on regex pattern matching on the entity URN.
+
+### Config Details
+
+| Field              | Required | Type    | Default     | Description                                                                     |
+| ------------------ | -------- | ------- | ----------- | ------------------------------------------------------------------------------- |
+| `tag_pattern`      | ✅       | object  |             | Pattern configuration with `rules` mapping regex to tag URNs.                   |
+| `replace_existing` |          | boolean | `false`     | Whether to remove existing tags before adding new ones.                         |
+| `semantics`        |          | string  | `OVERWRITE` | Set to `PATCH` to merge with existing tags from DataHub (requires datahub_api). |
+
+### Example
+
+```yaml
+transformers:
+  - type: "pattern_add_tags"
+    config:
+      tag_pattern:
+        rules:
+          ".*sales.*": ["urn:li:tag:Sales"]
+          ".*finance.*": ["urn:li:tag:Finance", "urn:li:tag:Sensitive"]
+```
+
+## Simple Add glossaryTerms
+
+Adds a fixed set of glossary terms to datasets, charts, and dashboards.
+
+### Config Details
+
+| Field              | Required | Type         | Default     | Description                                                                      |
+| ------------------ | -------- | ------------ | ----------- | -------------------------------------------------------------------------------- |
+| `term_urns`        | ✅       | list[string] |             | List of glossary term URNs to add.                                               |
+| `replace_existing` |          | boolean      | `false`     | Whether to remove existing terms before adding new ones.                         |
+| `semantics`        |          | string       | `OVERWRITE` | Set to `PATCH` to merge with existing terms from DataHub (requires datahub_api). |
+
+### Example
+
+```yaml
+transformers:
+  - type: "simple_add_terms"
+    config:
+      term_urns:
+        - "urn:li:glossaryTerm:Finance.Revenue"
+        - "urn:li:glossaryTerm:Classification.Internal"
+```
+
+## Pattern Add glossaryTerms
+
+Adds glossary terms to datasets, charts, and dashboards based on regex pattern matching on the entity URN.
+
+### Config Details
+
+| Field              | Required | Type    | Default     | Description                                                                      |
+| ------------------ | -------- | ------- | ----------- | -------------------------------------------------------------------------------- |
+| `term_pattern`     | ✅       | object  |             | Pattern configuration with `rules` mapping regex to term URNs.                   |
+| `replace_existing` |          | boolean | `false`     | Whether to remove existing terms before adding new ones.                         |
+| `semantics`        |          | string  | `OVERWRITE` | Set to `PATCH` to merge with existing terms from DataHub (requires datahub_api). |
+
+### Example
+
+```yaml
+transformers:
+  - type: "pattern_add_terms"
+    config:
+      term_pattern:
+        rules:
+          ".*customer.*": ["urn:li:glossaryTerm:Classification.PII"]
+          ".*revenue.*": ["urn:li:glossaryTerm:Finance.Revenue"]
 ```
