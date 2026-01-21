@@ -1,3 +1,4 @@
+import concurrent.futures
 import contextlib
 import dataclasses
 import enum
@@ -9,11 +10,14 @@ import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.env_vars import get_sql_agg_query_log
+from datahub.configuration.env_vars import (
+    get_sql_agg_query_log,
+    get_sql_aggregator_parsing_workers,
+)
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -301,6 +305,10 @@ class SqlAggregatorReport(Report):
         default_factory=LossyList
     )
 
+    # Batch processing.
+    num_batch_calls: int = 0
+    num_queries_processed_in_batch: int = 0
+
     # Views.
     num_view_definitions: int = 0
     num_views_failed: int = 0
@@ -412,6 +420,38 @@ class SqlParsingAggregator(Closeable):
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
     ) -> None:
+        """Initialize the SQL parsing aggregator.
+
+        Args:
+            platform: The data platform name (e.g., "redshift", "bigquery", "snowflake").
+            platform_instance: Optional platform instance identifier.
+            env: Environment identifier (defaults to builder.DEFAULT_ENV).
+            schema_resolver: Optional pre-configured schema resolver. If provided, must match
+                platform, platform_instance, and env parameters.
+            graph: Optional DataHubGraph client for schema resolution and metadata fetching.
+            eager_graph_load: If True and graph is provided, bulk loads all schemas upfront.
+                When using parallel parsing (workers > 1), set eager_graph_load=True to avoid
+                duplicate schema fetches and improve performance. With eager_graph_load=False,
+                schemas are fetched lazily during parsing, though thread-safe, this may cause
+                duplicate network calls or locking overhead.
+            generate_lineage: Whether to generate table-level lineage from SQL queries.
+            generate_queries: Whether to generate query entities from observed queries.
+            generate_query_subject_fields: Whether to generate query subject field metadata.
+            generate_usage_statistics: Whether to generate table usage statistics.
+            generate_query_usage_statistics: Whether to generate query usage statistics.
+            generate_operations: Whether to generate operation metadata.
+            usage_config: Required if generate_usage_statistics or generate_query_usage_statistics
+                is True. Configures time windows and filtering for usage statistics.
+            is_temp_table: Optional callable to determine if a table name represents a temporary table.
+            is_allowed_table: Optional callable to filter which tables should be processed.
+            format_queries: Whether to format SQL queries before storing them.
+            query_log: Setting for query logging (DISABLED, STORE_ALL, or STORE_FAILED).
+
+        Note:
+            The number of worker threads for parallel SQL query parsing is read from the
+            SQL_AGGREGATOR_PARSING_WORKERS environment variable. Defaults to 1 (sequential processing)
+            if not set. Set to a value > 1 to enable parallel parsing.
+        """
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
         self.env = env
@@ -478,6 +518,31 @@ class SqlParsingAggregator(Closeable):
         self._missing_session_schema_resolver = _SchemaResolverWithExtras(
             base_resolver=self._schema_resolver, extra_schemas={}
         )
+
+        # Initialize parallel parsing executor if max_workers > 1
+        # Number of workers is read from environment variable
+        max_workers = get_sql_aggregator_parsing_workers()
+        self.max_workers = max_workers
+        self._parsing_workers = max_workers
+        self._parsing_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+        if self._parsing_workers > 1:
+            # ThreadPoolExecutor for parallel SQL parsing when workers > 1
+            # ThreadPoolExecutor is used instead of ProcessPoolExecutor because:
+            # - We need access to aggregator instance state (temp tables, schema resolvers)
+            # - Temp table state is built incrementally and stored in FileBackedDict
+            # - ThreadPoolExecutor allows worker threads to access self._make_schema_resolver_for_session
+            #   which reads temp table state, enabling correct parsing with temp table context
+            # - While SQL parsing is CPU-bound, the need for shared state access (SchemaResolver) prevents using ProcessPoolExecutor,
+            #   which would result in significant speedup as it skips GIL limitation.
+            #   The ThreadPoolExecutor parallelization still provides significant speedup for the parsing workload.
+            # The pool is created once and reused across all batches to avoid expensive
+            # pool creation overhead when processing large numbers of queries.
+            self._parsing_executor = self._exit_stack.enter_context(
+                concurrent.futures.ThreadPoolExecutor(
+                    max_workers=self._parsing_workers,
+                    thread_name_prefix="SqlParsingAggregator",
+                )
+            )
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
@@ -574,6 +639,8 @@ class SqlParsingAggregator(Closeable):
         self.report.compute_stats()
         self._closed = True
         self._exit_stack.close()
+        if self._parsing_executor:
+            self._parsing_executor.shutdown(wait=True)
 
     @property
     def _need_schemas(self) -> bool:
@@ -865,18 +932,39 @@ class SqlParsingAggregator(Closeable):
             user=observed.user,
             override_dialect=observed.override_dialect,
         )
+        if self._handle_parsing_errors(parsed, observed):
+            return
+
+        preparsed_query = self._create_preparsed_query(observed, parsed, session_id)
+        self.add_preparsed_query(
+            preparsed_query,
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+            _is_internal=True,
+        )
+
+    def _handle_parsing_errors(
+        self, parsed: SqlParsingResult, observed: ObservedQuery
+    ) -> bool:
+        """Handle parsing errors and return True if parsing should be aborted."""
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
                 f"{parsed.debug_info.error} on query: {observed.query[:100]}"
             )
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
-            return  # we can't do anything with this query
+            return True  # we can't do anything with this query
         elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
             if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
                 self.report.num_observed_queries_column_timeout += 1
+        return False
 
+    def _create_preparsed_query(
+        self, observed: ObservedQuery, parsed: SqlParsingResult, session_id: str
+    ) -> PreparsedQuery:
+        """Create a PreparsedQuery from an ObservedQuery and SqlParsingResult."""
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
 
         # Register the first output table (standard single-query behavior).
@@ -884,29 +972,23 @@ class SqlParsingAggregator(Closeable):
         # is added separately via add_observed_query, so each has one output.
         downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
 
-        self.add_preparsed_query(
-            PreparsedQuery(
-                query_id=query_fingerprint,
-                query_text=observed.query,
-                query_count=observed.usage_multiplier,
-                timestamp=observed.timestamp,
-                user=observed.user,
-                session_id=session_id,
-                query_type=parsed.query_type,
-                query_type_props=parsed.query_type_props,
-                upstreams=parsed.in_tables,
-                downstream=downstream_urn,
-                column_lineage=parsed.column_lineage,
-                # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=self._compute_upstream_fields(parsed),
-                inferred_schema=infer_output_schema(parsed),
-                confidence_score=parsed.debug_info.confidence,
-                extra_info=observed.extra_info,
-            ),
-            is_known_temp_table=is_known_temp_table,
-            require_out_table_schema=require_out_table_schema,
-            session_has_temp_tables=session_has_temp_tables,
-            _is_internal=True,
+        return PreparsedQuery(
+            query_id=query_fingerprint,
+            query_text=observed.query,
+            query_count=observed.usage_multiplier,
+            timestamp=observed.timestamp,
+            user=observed.user,
+            session_id=session_id,
+            query_type=parsed.query_type,
+            query_type_props=parsed.query_type_props,
+            upstreams=parsed.in_tables,
+            downstream=downstream_urn,
+            column_lineage=parsed.column_lineage,
+            # TODO: We need a full list of columns referenced, not just the out tables.
+            column_usage=self._compute_upstream_fields(parsed),
+            inferred_schema=infer_output_schema(parsed),
+            confidence_score=parsed.debug_info.confidence,
+            extra_info=observed.extra_info,
         )
 
     def add_preparsed_query(
@@ -1032,6 +1114,186 @@ class SqlParsingAggregator(Closeable):
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
                 query_fingerprint
             )
+
+    def add_batch(
+        self,
+        items: Iterable[ObservedQuery],
+    ) -> None:
+        """Add a batch of observed queries to the aggregator.
+
+        This method parses queries in parallel (when workers > 1) while maintaining
+        sequential insertion order. This is critical because queries need to be added
+        in incremental time ordering for proper temp table resolution and lineage tracking.
+
+        When SQL_AGGREGATOR_PARSING_WORKERS == 1, this method calls add_observed_query
+        sequentially with zero overhead.
+
+        Args:
+            items: An iterable of ObservedQuery objects to process. Must be in
+                increasing timestamp order for correct temp table resolution.
+        """
+        items_list = list(items)
+
+        self.report.num_batch_calls += 1
+        self.report.num_queries_processed_in_batch += len(items_list)
+
+        if not items_list:
+            return
+
+        self._validate_batch_ordering(items_list)
+
+        # When workers == 1, use sequential processing with zero overhead
+        if self._parsing_workers == 1:
+            for observed in items_list:
+                self.add_observed_query(observed)
+            return
+
+        # When workers > 1, parse in parallel, then add sequentially
+        assert self._parsing_executor is not None, (
+            "ThreadPoolExecutor should be initialized when workers > 1"
+        )
+
+        # Step 1: Parse queries in parallel
+        # Use instance method to access full schema resolver with temp tables
+        # This is critical for correct parsing when temp tables are involved
+        parse_futures = {}
+        for idx, observed in enumerate(items_list):
+            future = self._parsing_executor.submit(
+                self._parse_observed_query_for_batch,
+                observed,
+            )
+            parse_futures[future] = (idx, observed)
+
+        # Collect parse results maintaining original order
+        parse_results: List[
+            Tuple[int, ObservedQuery, Optional[Tuple[PreparsedQuery, bool]]]
+        ] = []
+        parse_errors: List[Tuple[int, ObservedQuery, Exception]] = []
+
+        # Progress logging for large batches
+        total_queries = len(items_list)
+        log_progress = total_queries > 1000
+        parsed_count = 0
+
+        for future in concurrent.futures.as_completed(parse_futures):
+            idx, observed = parse_futures[future]
+            try:
+                result = future.result()
+                parse_results.append((idx, observed, result))
+                parsed_count += 1
+                if log_progress and parsed_count % 100 == 0:
+                    logger.info(f"Parsed {parsed_count}/{total_queries} queries")
+            except Exception as e:
+                parse_errors.append((idx, observed, e))
+                parsed_count += 1
+                if log_progress and parsed_count % 100 == 0:
+                    logger.info(f"Parsed {parsed_count}/{total_queries} queries")
+
+        # Sort by original index to maintain order
+        parse_results.sort(key=lambda x: x[0])
+        parse_errors.sort(key=lambda x: x[0])
+
+        # Step 2: Add queries sequentially in original order
+        # This maintains the incremental time ordering requirement for temp table resolution
+        for _idx, _observed, parse_result in parse_results:
+            # Increment counter for all queries (successful or failed)
+            self.report.num_observed_queries += 1
+
+            if parse_result is None:
+                # Parsing failed, handle as error
+                self.report.num_observed_queries_failed += 1
+                continue
+
+            preparsed_query, session_has_temp_tables = parse_result
+            self.add_preparsed_query(
+                preparsed_query,
+                is_known_temp_table=False,
+                require_out_table_schema=False,
+                session_has_temp_tables=session_has_temp_tables,
+                _is_internal=True,
+            )
+
+        # Handle parse errors that occurred during parallel parsing
+        for _idx, observed, error in parse_errors:
+            self.report.num_observed_queries += 1
+            self.report.num_observed_queries_failed += 1
+            self.report.observed_query_parse_failures.append(
+                f"{error} on query: {observed.query[:100]}"
+            )
+            logger.debug(
+                f"Error parsing query {observed.query}: {error}",
+                exc_info=error,
+            )
+
+    def _parse_observed_query_for_batch(
+        self, observed: ObservedQuery
+    ) -> Optional[Tuple[PreparsedQuery, bool]]:
+        """Worker function for parallel query parsing.
+
+        This method is called from worker threads and can access the aggregator instance
+        to get the full schema resolver with temp tables. This is critical for correct
+        parsing when temp tables are involved.
+
+        Computes session_has_temp_tables BEFORE parsing to match add_observed_query behavior.
+        This flag indicates whether PREVIOUS queries in the session created temp tables,
+        which affects how the parser resolves table references.
+
+        NOTE ON SCHEMA RESOLVER STATE UPDATES:
+        - When eager_graph_load=False and graph is provided, SchemaResolver._resolve_schema_info()
+          may lazily fetch schemas from DataHub and update _schema_cache during parsing.
+        - FileBackedDict operations are thread-safe (they use conn_lock), so concurrent cache
+          updates are safe, but may result in duplicate network calls if multiple threads
+          fetch the same schema simultaneously.
+        - To avoid this, use eager_graph_load=True which bulk loads all schemas upfront,
+          eliminating lazy fetching during parallel parsing.
+
+        Returns tuple of (PreparsedQuery, session_has_temp_tables) or None if parsing failed.
+        """
+        session_id = observed.session_id or _MISSING_SESSION_ID
+
+        with self.report.make_schema_resolver_timer:
+            # Get schema resolver with temp tables for this session
+            # This accesses the aggregator's state (temp_lineage_map) which is safe
+            # because we process queries in order and only read (not write) during parsing
+            schema_resolver: SchemaResolverInterface = (
+                self._make_schema_resolver_for_session(session_id)
+            )
+            session_has_temp_tables = schema_resolver.includes_temp_tables()
+
+        # Parse with full schema resolver (including temp tables if present)
+        # Note: If schema_resolver has graph set and eager_graph_load=False, this may
+        # trigger lazy schema fetching which updates _schema_cache. This is thread-safe
+        # (FileBackedDict uses conn_lock) but may cause duplicate fetches or locking overhead.
+        parsed = self._run_sql_parser(
+            observed.query,
+            default_db=observed.default_db,
+            default_schema=observed.default_schema,
+            schema_resolver=schema_resolver,
+            session_id=session_id,
+            timestamp=observed.timestamp,
+            user=observed.user,
+            override_dialect=observed.override_dialect,
+        )
+
+        if self._handle_parsing_errors(parsed, observed):
+            return None
+
+        return (
+            self._create_preparsed_query(observed, parsed, session_id),
+            session_has_temp_tables,
+        )
+
+    def _validate_batch_ordering(self, items: List[ObservedQuery]) -> None:
+        """Validate that queries in a batch are in increasing timestamp order."""
+        for i in range(1, len(items)):
+            prev_timestamp = items[i - 1].timestamp
+            curr_timestamp = items[i].timestamp
+            if prev_timestamp and curr_timestamp and prev_timestamp > curr_timestamp:
+                logger.warning(
+                    f"Queries in batch are not sorted by timestamp: "
+                    f"query {i - 1} has timestamp {prev_timestamp}, "
+                    f"query {i} has timestamp {curr_timestamp}"
+                )
 
     def add_table_rename(
         self,

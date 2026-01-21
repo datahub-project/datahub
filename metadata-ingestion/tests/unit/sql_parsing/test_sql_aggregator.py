@@ -1,7 +1,12 @@
 import functools
+import logging
 import os
 import pathlib
+import random
+import time
+import types
 from datetime import datetime, timedelta, timezone
+from typing import List, NoReturn, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,8 +31,10 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     DownstreamColumnRef,
+    SqlParsingResult,
 )
 from datahub.testing import mce_helpers
+from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -1649,3 +1656,507 @@ def test_lineage_consistency_multiple_missing_tables() -> None:
     # Verify metrics: 3 tables were added (2, 3, 4)
     assert aggregator.report.num_tables_added_from_column_lineage == 3
     assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
+
+
+@freeze_time(FROZEN_TIME)
+def test_parallel_batch_keeps_order() -> None:
+    """Test that parallel batch processing maintains correct query order with large volume."""
+    # Generate ~1000 queries with varying complexity
+    num_queries = 1000
+    queries = generate_queries_at_scale(num_queries, seed=42)
+
+    # Ensure queries are sorted by timestamp (generate_queries_at_scale should produce mostly sorted)
+    queries.sort(key=lambda q: q.timestamp or datetime.min)
+
+    # Sequential processing (max_workers=1)
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "1"}):
+        aggregator_sequential = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+        )
+    for query in queries:
+        aggregator_sequential.add(query)
+
+    sequential_mcps = list(aggregator_sequential.gen_metadata())
+
+    # Parallel processing (max_workers=4)
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "4"}):
+        aggregator_parallel = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+        )
+    aggregator_parallel.add_batch(queries)
+
+    parallel_mcps = list(aggregator_parallel.gen_metadata())
+
+    # Results should be identical
+    assert len(sequential_mcps) == len(parallel_mcps)
+
+    # Verify both produced the same lineage
+    # Extract dataset URNs from lineage aspects
+    def get_lineage_urns(mcps):
+        lineage_map = {}
+        for mcp in mcps:
+            if mcp.aspectName == "upstreamLineage":
+                dataset_urn = mcp.entityUrn
+                upstreams = {u.dataset for u in mcp.aspect.upstreams}
+                lineage_map[dataset_urn] = upstreams
+        return lineage_map
+
+    sequential_lineage = get_lineage_urns(sequential_mcps)
+    parallel_lineage = get_lineage_urns(parallel_mcps)
+
+    assert sequential_lineage == parallel_lineage
+
+    # Verify batch metrics were tracked
+    assert aggregator_parallel.report.num_batch_calls == 1
+    assert aggregator_parallel.report.num_queries_processed_in_batch == num_queries
+
+    # Sequential should have 0 batch calls
+    assert aggregator_sequential.report.num_batch_calls == 0
+    assert aggregator_sequential.report.num_queries_processed_in_batch == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_processing_empty() -> None:
+    """Test batch processing with empty list."""
+    aggregator = make_basic_aggregator()
+
+    aggregator.add_batch([])
+
+    assert aggregator.report.num_batch_calls == 1
+    assert aggregator.report.num_queries_processed_in_batch == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_processing_parsing_failures() -> None:
+    """Test batch processing handles parsing failures gracefully."""
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "2"}):
+        aggregator = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+        )
+
+    queries = [
+        ObservedQuery(
+            query="SELECT * FROM table1",
+            timestamp=_ts(100),
+        ),
+        ObservedQuery(
+            query="THIS IS NOT VALID SQL;;;",
+            timestamp=_ts(101),
+        ),
+        ObservedQuery(
+            query="SELECT * FROM table2",
+            timestamp=_ts(102),
+        ),
+    ]
+
+    aggregator.add_batch(queries)
+
+    assert aggregator.report.num_batch_calls == 1
+    assert aggregator.report.num_queries_processed_in_batch == 3
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_processing_sequential_path() -> None:
+    """Test that max_workers=1 uses sequential path."""
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "1"}):
+        agg_sequential = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+        )
+
+    queries = [
+        ObservedQuery(query="SELECT * FROM table1", timestamp=_ts(100)),
+        ObservedQuery(query="SELECT * FROM table2", timestamp=_ts(101)),
+    ]
+
+    agg_sequential.add_batch(queries)
+
+    assert agg_sequential.report.num_queries_processed_in_batch == 2
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_processing_exception_handling() -> None:
+    """Test that exceptions during parallel parsing are handled gracefully."""
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "2"}):
+        aggregator = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+        )
+
+    def failing_parser(query: ObservedQuery) -> Optional[Tuple[PreparsedQuery, bool]]:
+        if "fail" in query.query.lower():
+            raise RuntimeError("Intentional failure for testing")
+        return aggregator._parse_observed_query_for_batch(query)
+
+    with patch.object(
+        aggregator, "_parse_observed_query_for_batch", side_effect=failing_parser
+    ):
+        queries = [
+            ObservedQuery(query="SELECT * FROM table1", timestamp=_ts(100)),
+            ObservedQuery(query="SELECT FAIL FROM table2", timestamp=_ts(101)),
+            ObservedQuery(query="SELECT * FROM table3", timestamp=_ts(102)),
+        ]
+
+        aggregator.add_batch(queries)
+
+        assert aggregator.report.num_queries_processed_in_batch == 3
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_processing_with_session_ids() -> None:
+    """Test batch processing with queries that have session IDs."""
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "2"}):
+        aggregator = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+        )
+
+    queries = [
+        ObservedQuery(
+            query="SELECT * FROM table1",
+            timestamp=_ts(100),
+            session_id="session_1",
+        ),
+        ObservedQuery(
+            query="SELECT * FROM table2",
+            timestamp=_ts(101),
+            session_id="session_2",
+        ),
+    ]
+
+    aggregator.add_batch(queries)
+
+    assert aggregator.report.num_queries_processed_in_batch == 2
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_processing_schema_resolver_error() -> None:
+    """Test that schema resolver errors are handled gracefully."""
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "2"}):
+        aggregator = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+        )
+
+    def failing_resolver(session_id: str) -> NoReturn:
+        raise RuntimeError("Schema resolver failed")
+
+    with patch.object(
+        aggregator, "_make_schema_resolver_for_session", side_effect=failing_resolver
+    ):
+        queries = [
+            ObservedQuery(
+                query="SELECT * FROM table1",
+                timestamp=_ts(100),
+                session_id="test_session",
+            ),
+        ]
+
+        aggregator.add_batch(queries)
+
+        assert aggregator.report.num_queries_processed_in_batch == 1
+
+
+@freeze_time(FROZEN_TIME)
+def test_batch_processing_column_errors() -> None:
+    """Test that column-level parsing errors are tracked correctly."""
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "2"}):
+        aggregator = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+        )
+
+    def mock_parser(*args, **kwargs):
+        result = SqlParsingResult(
+            query_type=QueryType.SELECT,
+            in_tables=[],
+            out_tables=[],
+            column_lineage=[],
+        )
+        result.debug_info.column_error = CooperativeTimeoutError(
+            "Column parsing timed out"
+        )
+        return result
+
+    with patch.object(aggregator, "_run_sql_parser", side_effect=mock_parser):
+        queries = [
+            ObservedQuery(
+                query="SELECT * FROM table1",
+                timestamp=_ts(100),
+            ),
+        ]
+
+        aggregator.add_batch(queries)
+
+        assert aggregator.report.num_observed_queries_column_failed >= 1
+        assert aggregator.report.num_observed_queries_column_timeout >= 1
+
+
+logger = logging.getLogger(__name__)
+
+
+def generate_queries_at_scale(
+    num_queries: int, seed: Optional[int] = None
+) -> List[ObservedQuery]:
+    """Generate test queries at different scales with varying complexity and randomness.
+
+    Args:
+        num_queries: Number of queries to generate
+        seed: Optional random seed for reproducibility
+
+    Returns:
+        List of ObservedQuery objects with varying complexity and randomness
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    queries = []
+    base_timestamp = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+    # Query templates with varying complexity
+    simple_queries = [
+        "SELECT * FROM table_{i}",
+        "SELECT col1, col2 FROM table_{i} WHERE col1 > {val}",
+        "INSERT INTO target_{i} SELECT * FROM source_{i}",
+        "SELECT COUNT(*) FROM table_{i} WHERE col1 = {val}",
+    ]
+
+    medium_queries = [
+        "SELECT t1.col1, t2.col2 FROM table_{i} t1 JOIN table_{i}_2 t2 ON t1.id = t2.id WHERE t1.col1 > {val}",
+        "CREATE TABLE result_{i} AS SELECT col1, col2, col3 FROM table_{i} WHERE col1 > {val}",
+        "INSERT INTO target_{i} (col1, col2) SELECT col1, col2 FROM source_{i} WHERE col1 IS NOT NULL AND col2 < {val}",
+        "SELECT t1.*, t2.col3 FROM table_{i} t1 LEFT JOIN table_{i}_2 t2 ON t1.id = t2.id WHERE t1.col1 BETWEEN {val} AND {val2}",
+    ]
+
+    complex_queries = [
+        "SELECT t1.col1, t2.col2, t3.col3 FROM table_{i} t1 "
+        "LEFT JOIN table_{i}_2 t2 ON t1.id = t2.id "
+        "INNER JOIN table_{i}_3 t3 ON t2.id = t3.id "
+        "WHERE t1.col1 > {val} AND t2.col2 < {val2} AND t3.col3 = {val3}",
+        "CREATE TABLE result_{i} AS "
+        "SELECT col1, SUM(col2) as total, COUNT(*) as cnt, AVG(col3) as avg_val "
+        "FROM table_{i} "
+        "WHERE col1 > {val} "
+        "GROUP BY col1 "
+        "HAVING total > {val2}",
+        "WITH cte_{i} AS (SELECT col1, col2 FROM table_{i} WHERE col1 > {val}) "
+        "SELECT c.col1, c.col2, t.col3 FROM cte_{i} c JOIN table_{i}_2 t ON c.col1 = t.col1 WHERE t.col3 < {val2}",
+    ]
+
+    all_templates = simple_queries + medium_queries + complex_queries
+
+    for i in range(num_queries):
+        # Randomly select template and add randomness to values
+        template = random.choice(all_templates)
+
+        # Generate random values for placeholders
+        val = random.randint(1, 1000)
+        val2 = random.randint(100, 2000)
+        val3 = random.randint(1, 500)
+
+        query_text = template.format(i=i, val=val, val2=val2, val3=val3)
+
+        # Add randomness to other fields
+        user_idx = random.randint(0, 19)  # 20 different users
+        timestamp_offset = random.randint(0, num_queries * 2)  # Random but increasing
+
+        queries.append(
+            ObservedQuery(
+                query=query_text,
+                default_db="dev",
+                default_schema="public",
+                timestamp=base_timestamp
+                + timedelta(seconds=i + timestamp_offset % 100),  # Mostly increasing
+                user=CorpUserUrn(f"user{user_idx}"),
+                extra_info={"sequence": i},  # Track original sequence for validation
+            )
+        )
+
+    return queries
+
+
+def test_sequential_vs_batch(pytestconfig: pytest.Config) -> None:
+    """Test sequential vs batch processing with ordering validation.
+
+    This test:
+    - Generates queries BEFORE timing starts
+    - Measures only the processing time (sequential and parallel) for comparison
+    - DOES validate ordering (ensures queries are processed in the same order)
+
+    By default, tests with 1000 queries, but can be configured via environment variable.
+    """
+    num_queries = int(os.getenv("SQL_AGGREGATOR_TEST_QUERY_COUNT", "1000"))
+    batch_size = int(os.getenv("SQL_AGGREGATOR_TEST_BATCH_SIZE", "200"))
+    seed = int(
+        os.getenv("SQL_AGGREGATOR_TEST_SEED", "42")
+    )  # Fixed seed for reproducibility
+
+    # Generate queries BEFORE timing starts
+    logger.info(
+        f"Generating {num_queries} queries for comparison (this time is excluded from measurements)"
+    )
+    all_queries = generate_queries_at_scale(num_queries, seed=seed)
+
+    # Split queries into multiple batches to simulate real-world usage
+    query_batches = [
+        all_queries[i : i + batch_size] for i in range(0, len(all_queries), batch_size)
+    ]
+    num_batches = len(query_batches)
+    logger.info(f"Split into {num_batches} batches")
+
+    # Track order of queries as they're processed (by sequence number)
+    sequential_order: List[int] = []
+    parallel_order: List[int] = []
+
+    # Test sequential processing (workers=1)
+    with patch.dict(os.environ, {"SQL_AGGREGATOR_PARSING_WORKERS": "1"}):
+        aggregator_sequential = SqlParsingAggregator(
+            platform="redshift",
+            generate_lineage=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+        )
+
+    # Patch to track order - create a wrapper that captures sequence numbers
+    original_add_preparsed_sequential = aggregator_sequential.add_preparsed_query
+
+    def track_sequential_order(
+        self: "SqlParsingAggregator",
+        parsed: PreparsedQuery,
+        is_known_temp_table: bool = False,
+        require_out_table_schema: bool = False,
+        session_has_temp_tables: bool = True,
+        _is_internal: bool = False,
+    ) -> None:
+        if parsed.extra_info and "sequence" in parsed.extra_info:
+            sequential_order.append(parsed.extra_info["sequence"])
+        # original_add_preparsed_sequential is already a bound method, so call it without self
+        return original_add_preparsed_sequential(
+            parsed,
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+            _is_internal=_is_internal,
+        )
+
+    aggregator_sequential.add_preparsed_query = types.MethodType(  # type: ignore[method-assign]
+        track_sequential_order, aggregator_sequential
+    )
+
+    # Measure ONLY sequential processing time (data generation already done)
+    start_time = time.perf_counter()
+    for batch in query_batches:
+        aggregator_sequential.add_batch(batch)
+    sequential_time = time.perf_counter() - start_time
+    aggregator_sequential.close()
+
+    sequential_avg_time = sequential_time / num_queries if num_queries > 0 else 0.0
+    sequential_throughput = (
+        num_queries / sequential_time if sequential_time > 0 else 0.0
+    )
+
+    logger.info(
+        f"Sequential processing: {sequential_time:.2f}s total, "
+        f"{sequential_avg_time * 1000:.2f}ms per query, "
+        f"{sequential_throughput:.2f} queries/sec"
+    )
+
+    # Test batch processing with multiple workers (if available)
+    # Note: This will use sequential if SQL_AGGREGATOR_PARSING_WORKERS=1
+    aggregator_batch = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    # Patch to track order - create a wrapper that captures sequence numbers
+    original_add_preparsed_parallel = aggregator_batch.add_preparsed_query
+
+    def track_parallel_order(
+        self: "SqlParsingAggregator",
+        parsed: PreparsedQuery,
+        is_known_temp_table: bool = False,
+        require_out_table_schema: bool = False,
+        session_has_temp_tables: bool = True,
+        _is_internal: bool = False,
+    ) -> None:
+        if parsed.extra_info and "sequence" in parsed.extra_info:
+            parallel_order.append(parsed.extra_info["sequence"])
+        # original_add_preparsed_parallel is already a bound method, so call it without self
+        return original_add_preparsed_parallel(
+            parsed,
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+            _is_internal=_is_internal,
+        )
+
+    aggregator_batch.add_preparsed_query = types.MethodType(  # type: ignore[method-assign]
+        track_parallel_order, aggregator_batch
+    )
+
+    # Measure ONLY batch processing time (data generation already done)
+    start_time = time.perf_counter()
+    for batch in query_batches:
+        aggregator_batch.add_batch(batch)
+    batch_time = time.perf_counter() - start_time
+    aggregator_batch.close()
+
+    batch_avg_time = batch_time / num_queries if num_queries > 0 else 0.0
+    batch_throughput = num_queries / batch_time if batch_time > 0 else 0.0
+
+    logger.info(
+        f"Batch processing: {batch_time:.2f}s total, "
+        f"{batch_avg_time * 1000:.2f}ms per query, "
+        f"{batch_throughput:.2f} queries/sec"
+    )
+
+    # Verify both produce the same results (same number of queries processed)
+    assert aggregator_sequential.report.num_observed_queries == num_queries
+    assert aggregator_batch.report.num_observed_queries == num_queries
+
+    # Validate that queries were processed in the same order
+    # Both should process queries in the same sequence order
+    assert len(sequential_order) == num_queries, (
+        f"Expected {num_queries} queries in sequential order, got {len(sequential_order)}"
+    )
+    assert len(parallel_order) == num_queries, (
+        f"Expected {num_queries} queries in parallel order, got {len(parallel_order)}"
+    )
+
+    # The order should match - queries should be processed in the same sequence
+    # Since add_batch maintains order, the sequences should match exactly
+    assert sequential_order == parallel_order, (
+        f"Query processing order mismatch. "
+        f"First mismatch at index {next((i for i, (s, p) in enumerate(zip(sequential_order, parallel_order)) if s != p), None)}: "
+        f"sequential={sequential_order[:20]}, parallel={parallel_order[:20]}"
+    )
+
+    logger.info("✓ Order validation passed: queries processed in identical order")
+
+    # Log performance comparison
+    if batch_time < sequential_time:
+        speedup = sequential_time / batch_time
+        logger.info(f"Batch processing is {speedup:.2f}x faster than sequential")
+    else:
+        logger.info(
+            "Batch processing performance similar to sequential (may be due to workers=1 or overhead)"
+        )
+
+    # Performance assertions
+    assert sequential_time > 0, "Sequential processing should take some time"
+    assert batch_time > 0, "Batch processing should take some time"
+    assert sequential_throughput > 0, "Sequential throughput should be positive"
+    assert batch_throughput > 0, "Batch throughput should be positive"

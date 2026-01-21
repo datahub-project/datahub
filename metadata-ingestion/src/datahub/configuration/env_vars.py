@@ -347,3 +347,13 @@ def get_update_entity_registry() -> str:
 def get_ci() -> Optional[str]:
     """Indicates running in CI environment."""
     return os.getenv("CI")
+
+
+def get_sql_aggregator_parsing_workers() -> int:
+    """Number of worker threads for parallel SQL query parsing."""
+    return int(os.getenv("SQL_AGGREGATOR_PARSING_WORKERS", "1"))
+
+
+def get_bigquery_observe_queries_batch_size() -> int:
+    """Batch size for BigQuery queries when using the new queries extractor."""
+    return int(os.getenv("BIGQUERY_OBSERVE_QUERIES_BATCH_SIZE", "500"))
