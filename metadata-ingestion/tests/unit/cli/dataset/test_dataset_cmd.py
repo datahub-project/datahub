@@ -392,14 +392,23 @@ class TestDatasetCli:
         mock_graph.exists.return_value = True
         mock_get_default_graph.return_value.__enter__.return_value = mock_graph
 
+        emitted_items = []
+
+        def capture_emit(item, *args, **kwargs):
+            emitted_items.append(item)
+            return None
+
+        mock_graph.emit.side_effect = capture_emit
+
         runner = CliRunner()
         result = runner.invoke(dataset, ["upsert", "-f", str(complex_type_yaml_file)])
 
         assert result.exit_code == 0, f"Expected success but got: {result.output}"
-
         assert mock_graph.emit.called, "Expected emit to be called for dataset upsert"
-
         assert "Update succeeded" in result.output
+
+        golden_file = Path(TEST_RESOURCES_DIR / "golden_test_complex_types_mpcs.json")
+        check_goldens_stream(emitted_items, golden_file)
 
     @patch("datahub.cli.specific.dataset_cli.get_default_graph")
     def test_sync_from_datahub_fail(self, mock_get_default_graph, test_yaml_file):
