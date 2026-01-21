@@ -91,6 +91,7 @@ jobs:
           PYTEST_EXTRA_ARGS: ${{ github.event.inputs.pytest_extra_args }}
 
         run: |
+          echo "Input context: ${{ toJson(github.event.inputs) }}"
           cd smoke-test
           uv venv venv --python 3.11
           source venv/bin/activate
