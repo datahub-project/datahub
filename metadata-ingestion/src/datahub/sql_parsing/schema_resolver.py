@@ -2,9 +2,12 @@ import contextlib
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
+
+if TYPE_CHECKING:
+    from datahub.sql_parsing.batch_schema_fetcher import BatchSchemaFetcher
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -66,6 +69,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         graph: Optional[DataHubGraph] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
+        batch_fetcher: Optional["BatchSchemaFetcher"] = None,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
@@ -74,6 +78,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         self.graph = graph
         self.report = report
+        self.batch_fetcher = batch_fetcher
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
@@ -206,10 +211,20 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # or _PARTITIONDATE where appropriate.
 
         if self.graph:
-            schema_info = self._fetch_schema_info(self.graph, urn)
-            if schema_info:
-                self._save_to_cache(urn, schema_info)
-                return schema_info
+            # If batch fetcher is available, queue the request instead of fetching immediately
+            if self.batch_fetcher:
+                self.batch_fetcher.request_schema(urn)
+                # Return None for now - will be available after batch flush
+                # This means parsing may fail for missing schemas, but they'll be cached
+                # for subsequent queries after the batch flush
+                self._save_to_cache(urn, None)
+                return None
+            else:
+                # No batch fetcher - fetch immediately (old behavior)
+                schema_info = self._fetch_schema_info(self.graph, urn)
+                if schema_info:
+                    self._save_to_cache(urn, schema_info)
+                    return schema_info
 
         self._save_to_cache(urn, None)
         return None

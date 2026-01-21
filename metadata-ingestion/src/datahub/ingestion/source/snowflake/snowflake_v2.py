@@ -197,7 +197,6 @@ class SnowflakeV2Source(
                     )
                     and not self.config.lazy_schema_resolver
                 ),
-                max_workers=self.config.max_workers_for_query_parsing,
                 generate_usage_statistics=False,
                 generate_operations=False,
                 generate_queries=self.config.include_queries,

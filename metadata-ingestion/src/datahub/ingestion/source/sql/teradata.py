@@ -752,7 +752,6 @@ ORDER by DataBaseName, TableName;
             if self.config.include_usage_statistics
             else None,
             eager_graph_load=False,
-            max_workers=self.config.max_workers_for_query_parsing,
         )
         self.report.sql_aggregator = self.aggregator.report
 

@@ -15,9 +15,12 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-SQL_PARSE_CACHE_SIZE = 1000
+# Increased from 1000 to handle large query volumes without eviction
+# With 70K queries, we want to cache most parsed statements
+SQL_PARSE_CACHE_SIZE = 100000
 
-FORMAT_QUERY_CACHE_SIZE = 1000
+# Increased from 1000 - formatting is expensive
+FORMAT_QUERY_CACHE_SIZE = 100000
 
 
 def _get_dialect_str(platform: str) -> str:

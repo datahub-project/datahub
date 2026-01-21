@@ -8,9 +8,8 @@ import pathlib
 import tempfile
 import uuid
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -44,8 +43,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
     SqlParsingResult,
-    SqlUnderstandingError,
-    UnsupportedStatementTypeError,
     _sqlglot_lineage_cached,
     infer_output_schema,
     sqlglot_lineage,
@@ -304,10 +301,6 @@ class SqlAggregatorReport(Report):
         default_factory=LossyList
     )
 
-    # Parallel processing (batch mode).
-    num_batch_calls: int = 0
-    num_queries_processed_in_batch: int = 0
-
     # Views.
     num_view_definitions: int = 0
     num_views_failed: int = 0
@@ -418,7 +411,6 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
-        max_workers: int = 1,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -451,7 +443,6 @@ class SqlParsingAggregator(Closeable):
 
         self.format_queries = format_queries
         self.query_log = query_log
-        self.max_workers = max_workers
 
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
@@ -853,192 +844,17 @@ class SqlParsingAggregator(Closeable):
         """
         self.report.num_observed_queries += 1
 
+        # All queries with no session ID are assumed to be part of the same session.
         session_id = observed.session_id or _MISSING_SESSION_ID
 
         with self.report.make_schema_resolver_timer:
+            # Load in the temp tables for this session.
             schema_resolver: SchemaResolverInterface = (
                 self._make_schema_resolver_for_session(session_id)
             )
             session_has_temp_tables = schema_resolver.includes_temp_tables()
 
-        preparsed_query = self._parse_and_create_preparsed_query(
-            observed, session_id, schema_resolver
-        )
-        if preparsed_query is None:
-            return
-
-        self.add_preparsed_query(
-            preparsed_query,
-            is_known_temp_table=is_known_temp_table,
-            require_out_table_schema=require_out_table_schema,
-            session_has_temp_tables=session_has_temp_tables,
-            _is_internal=True,
-        )
-
-    def add_batch(
-        self,
-        items: Iterable[Union[ObservedQuery, PreparsedQuery]],
-    ) -> None:
-        """Add multiple queries. Items must be sorted by timestamp."""
-        items_list = list(items)
-
-        self.report.num_batch_calls += 1
-        self.report.num_queries_processed_in_batch += len(items_list)
-
-        self._validate_batch_ordering(items_list)
-
-        if self.max_workers <= 1:
-            self._process_batch_sequential(items_list)
-            return
-
-        self._process_batch_parallel(items_list)
-
-    def _validate_batch_ordering(
-        self, items: List[Union[ObservedQuery, PreparsedQuery]]
-    ) -> None:
-        if len(items) <= 1:
-            return
-
-        observed_queries = [
-            q for q in items if isinstance(q, ObservedQuery) and q.timestamp
-        ]
-        if len(observed_queries) <= 1:
-            return
-
-        timestamps = [q.timestamp for q in observed_queries if q.timestamp]
-        if timestamps != sorted(timestamps, key=lambda x: x or datetime.min):
-            logger.warning(
-                f"add_batch() called with {len(timestamps)} queries not sorted by timestamp. "
-                "This may cause incorrect lineage, usage statistics, and temp table resolution. "
-                "Queries MUST be sorted by timestamp in ascending order before calling add_batch()."
-            )
-
-    def _process_batch_sequential(
-        self, items: List[Union[ObservedQuery, PreparsedQuery]]
-    ) -> None:
-        for item in items:
-            self.add(item)
-
-    def _process_batch_parallel(
-        self, items: List[Union[ObservedQuery, PreparsedQuery]]
-    ) -> None:
-        # Phase 1: Parse ObservedQuery items in parallel
-        # We track indices to preserve ordering for sequential aggregation.
-        observed_queries_with_idx = [
-            (i, item) for i, item in enumerate(items) if isinstance(item, ObservedQuery)
-        ]
-        preparsed_queries = [item for item in items if isinstance(item, PreparsedQuery)]
-
-        if observed_queries_with_idx:
-            # Parse queries in parallel (CPU-bound work)
-            parsed_results = self._parse_queries_parallel(observed_queries_with_idx)
-            # Add results sequentially in original sorted order (required for correctness)
-            self._add_parsed_results_in_order(parsed_results)
-
-        # Phase 2: Add PreparsedQuery items sequentially
-        for query in preparsed_queries:
-            self.add(query)
-
-    def _parse_queries_parallel(
-        self, queries_with_idx: List[Tuple[int, ObservedQuery]]
-    ) -> Dict[int, Optional[Tuple[PreparsedQuery, bool]]]:
-        logger.info(
-            f"Parsing {len(queries_with_idx)} queries in parallel with {self.max_workers} workers"
-        )
-
-        results: Dict[int, Optional[Tuple[PreparsedQuery, bool]]] = {}
-        completed_count = 0
-        exception_count = 0
-        total_queries = len(queries_with_idx)
-
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_idx = {
-                executor.submit(self._parse_observed_query_for_batch, query): idx
-                for idx, query in queries_with_idx
-            }
-
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    parse_result = future.result()
-                    results[idx] = parse_result
-                    completed_count += 1
-
-                    if completed_count % 1000 == 0:
-                        logger.info(f"Parsed {completed_count}/{total_queries} queries")
-                except (SqlUnderstandingError, UnsupportedStatementTypeError) as e:
-                    logger.warning(
-                        f"Failed to parse query at index {idx}: {e}", exc_info=True
-                    )
-                    exception_count += 1
-                    results[idx] = None
-                except Exception as e:
-                    logger.warning(
-                        f"Unexpected error parsing query at index {idx}: {e}",
-                        exc_info=True,
-                    )
-                    exception_count += 1
-                    results[idx] = None
-
-        total_processed = completed_count + exception_count
-        self.report.num_observed_queries += total_processed
-        self.report.num_observed_queries_failed += exception_count
-
-        return results
-
-    def _add_parsed_results_in_order(
-        self, results: Dict[int, Optional[Tuple[PreparsedQuery, bool]]]
-    ) -> None:
-        """Add parsed results sequentially in their original sorted order.
-
-        CRITICAL: Must process in sorted order to maintain:
-        - Query authoritativeness (later queries override earlier ones)
-        - Temp table lineage resolution (queries build on previous temp tables)
-        - Usage statistics correctness (temporal aggregation)
-        """
-        for idx in sorted(results.keys()):
-            parse_result = results[idx]
-            if parse_result is not None:
-                parsed_query, session_has_temp_tables = parse_result
-
-                self.add_preparsed_query(
-                    parsed_query,
-                    is_known_temp_table=False,
-                    require_out_table_schema=False,
-                    session_has_temp_tables=session_has_temp_tables,
-                    _is_internal=True,
-                )
-
-    def _parse_observed_query_for_batch(
-        self, observed: ObservedQuery
-    ) -> Optional[Tuple[PreparsedQuery, bool]]:
-        """Worker function for parallel query parsing.
-
-        Computes session_has_temp_tables BEFORE parsing to match add_observed_query behavior.
-        This flag indicates whether PREVIOUS queries in the session created temp tables,
-        which affects how the parser resolves table references.
-
-        Returns tuple of (PreparsedQuery, session_has_temp_tables) to avoid recomputing.
-        """
-        session_id = observed.session_id or _MISSING_SESSION_ID
-        schema_resolver = self._get_schema_resolver_for_query(session_id)
-        # Must compute BEFORE parsing - indicates temp tables from PREVIOUS queries
-        session_has_temp_tables = schema_resolver.includes_temp_tables()
-
-        preparsed_query = self._parse_and_create_preparsed_query(
-            observed, session_id, schema_resolver
-        )
-        if preparsed_query is None:
-            return None
-
-        return (preparsed_query, session_has_temp_tables)
-
-    def _parse_and_create_preparsed_query(
-        self,
-        observed: ObservedQuery,
-        session_id: str,
-        schema_resolver: SchemaResolverInterface,
-    ) -> Optional[PreparsedQuery]:
+        # Run the SQL parser.
         parsed = self._run_sql_parser(
             observed.query,
             default_db=observed.default_db,
@@ -1049,46 +865,18 @@ class SqlParsingAggregator(Closeable):
             user=observed.user,
             override_dialect=observed.override_dialect,
         )
-
-        if self._handle_parsing_errors(parsed, observed):
-            return None
-
-        return self._create_preparsed_query(observed, parsed, session_id)
-
-    def _get_schema_resolver_for_query(
-        self, session_id: str
-    ) -> SchemaResolverInterface:
-        try:
-            with self.report.make_schema_resolver_timer:
-                return self._make_schema_resolver_for_session(session_id)
-        except Exception as e:
-            logger.warning(
-                f"Error creating schema resolver for session {session_id}, falling back to default: {e}"
-            )
-            return self._schema_resolver
-
-    def _handle_parsing_errors(
-        self, parsed: SqlParsingResult, observed: ObservedQuery
-    ) -> bool:
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
                 f"{parsed.debug_info.error} on query: {observed.query[:100]}"
             )
-
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
-            return True
-
-        if parsed.debug_info.column_error:
+            return  # we can't do anything with this query
+        elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
             if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
                 self.report.num_observed_queries_column_timeout += 1
 
-        return False
-
-    def _create_preparsed_query(
-        self, observed: ObservedQuery, parsed: SqlParsingResult, session_id: str
-    ) -> PreparsedQuery:
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
 
         # Register the first output table (standard single-query behavior).
@@ -1096,23 +884,29 @@ class SqlParsingAggregator(Closeable):
         # is added separately via add_observed_query, so each has one output.
         downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
 
-        return PreparsedQuery(
-            query_id=query_fingerprint,
-            query_text=observed.query,
-            query_count=observed.usage_multiplier,
-            timestamp=observed.timestamp,
-            user=observed.user,
-            session_id=session_id,
-            query_type=parsed.query_type,
-            query_type_props=parsed.query_type_props,
-            upstreams=parsed.in_tables,
-            downstream=downstream_urn,
-            column_lineage=parsed.column_lineage,
-            # TODO: We need a full list of columns referenced, not just the out tables.
-            column_usage=self._compute_upstream_fields(parsed),
-            inferred_schema=infer_output_schema(parsed),
-            confidence_score=parsed.debug_info.confidence,
-            extra_info=observed.extra_info,
+        self.add_preparsed_query(
+            PreparsedQuery(
+                query_id=query_fingerprint,
+                query_text=observed.query,
+                query_count=observed.usage_multiplier,
+                timestamp=observed.timestamp,
+                user=observed.user,
+                session_id=session_id,
+                query_type=parsed.query_type,
+                query_type_props=parsed.query_type_props,
+                upstreams=parsed.in_tables,
+                downstream=downstream_urn,
+                column_lineage=parsed.column_lineage,
+                # TODO: We need a full list of columns referenced, not just the out tables.
+                column_usage=self._compute_upstream_fields(parsed),
+                inferred_schema=infer_output_schema(parsed),
+                confidence_score=parsed.debug_info.confidence,
+                extra_info=observed.extra_info,
+            ),
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+            _is_internal=True,
         )
 
     def add_preparsed_query(

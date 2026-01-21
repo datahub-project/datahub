@@ -162,7 +162,6 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
                 platform_instance=config.platform_instance,
                 env=config.env,
                 graph=self.ctx.graph,
-                max_workers=config.max_workers_for_query_parsing,
             )
 
         # Initialize stale entity removal

@@ -2,11 +2,10 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import List, NoReturn, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
-import time_machine
+from freezegun import freeze_time
 
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
@@ -27,10 +26,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     DownstreamColumnRef,
-    SqlParsingResult,
 )
 from datahub.testing import mce_helpers
-from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -65,7 +62,7 @@ def make_basic_aggregator(store: bool = False) -> SqlParsingAggregator:
     return aggregator
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = make_basic_aggregator()
     mcps = list(aggregator.gen_metadata())
@@ -76,7 +73,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_aggregator_dump(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     # Validates the query log storage + extraction functionality.
     aggregator = make_basic_aggregator(store=True)
@@ -97,7 +94,7 @@ def test_aggregator_dump(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_overlapping_inserts() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -131,7 +128,7 @@ def test_overlapping_inserts() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_temp_table() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -189,7 +186,7 @@ def test_temp_table() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_multistep_temp_table() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -250,7 +247,7 @@ def test_multistep_temp_table() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_overlapping_inserts_from_temp_tables() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -325,7 +322,7 @@ def test_overlapping_inserts_from_temp_tables() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_aggregate_operations() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -373,7 +370,7 @@ def test_aggregate_operations() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_view_lineage() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -410,7 +407,7 @@ def test_view_lineage() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_known_lineage_mapping() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -440,7 +437,7 @@ def test_known_lineage_mapping() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_column_lineage_deduplication() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -477,7 +474,7 @@ def test_column_lineage_deduplication() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_add_known_query_lineage() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -521,7 +518,7 @@ def test_add_known_query_lineage() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_table_rename() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -578,7 +575,7 @@ def test_table_rename() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_table_rename_with_temp() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -637,7 +634,7 @@ def test_table_rename_with_temp() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_table_swap() -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -723,7 +720,7 @@ def test_table_swap() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_table_swap_with_temp() -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -892,7 +889,7 @@ def test_table_swap_with_temp() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_create_table_query_mcps() -> None:
     aggregator = SqlParsingAggregator(
         platform="bigquery",
@@ -918,7 +915,7 @@ def test_create_table_query_mcps() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_table_lineage_via_temp_table_disordered_add() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -951,7 +948,7 @@ def test_table_lineage_via_temp_table_disordered_add() -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_basic_usage() -> None:
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     aggregator = SqlParsingAggregator(
@@ -1031,7 +1028,7 @@ def test_sql_aggreator_close_cleans_tmp(tmp_path):
         assert len(os.listdir(tmp_path)) == 0
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_override_dialect_passed_to_sqlglot_lineage() -> None:
     """Test that override_dialect is correctly passed to sqlglot_lineage"""
     aggregator = SqlParsingAggregator(
@@ -1073,7 +1070,7 @@ def test_override_dialect_passed_to_sqlglot_lineage() -> None:
         assert call_args.kwargs["override_dialect"] is None
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -1137,7 +1134,7 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_empty_column_in_snowflake_lineage(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
@@ -1197,7 +1194,7 @@ def test_empty_column_in_snowflake_lineage(
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_empty_downstream_column_in_snowflake_lineage(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
@@ -1248,7 +1245,7 @@ def test_empty_downstream_column_in_snowflake_lineage(
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_partial_empty_downstream_column_in_snowflake_lineage(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
@@ -1302,7 +1299,7 @@ def test_partial_empty_downstream_column_in_snowflake_lineage(
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_empty_column_in_query_subjects(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
@@ -1372,7 +1369,7 @@ def test_empty_column_in_query_subjects(
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_empty_column_in_query_subjects_only_column_usage(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
@@ -1440,7 +1437,7 @@ def test_empty_column_in_query_subjects_only_column_usage(
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_lineage_consistency_fix_tables_added_from_column_lineage() -> None:
     """Test that tables present in column lineage but missing from table lineage are automatically added.
 
@@ -1514,7 +1511,7 @@ def test_lineage_consistency_fix_tables_added_from_column_lineage() -> None:
     assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_lineage_consistency_no_fix_needed() -> None:
     """Test that no fix is applied when lineage is already consistent.
 
@@ -1578,7 +1575,7 @@ def test_lineage_consistency_no_fix_needed() -> None:
     assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 0
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@freeze_time(FROZEN_TIME)
 def test_lineage_consistency_multiple_missing_tables() -> None:
     """Test that multiple missing tables are all added correctly.
 
@@ -1652,471 +1649,3 @@ def test_lineage_consistency_multiple_missing_tables() -> None:
     # Verify metrics: 3 tables were added (2, 3, 4)
     assert aggregator.report.num_tables_added_from_column_lineage == 3
     assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_parallel_batch_processing() -> None:
-    """Test that parallel batch processing produces identical results to sequential."""
-
-    # Create test queries with temp tables to verify ordering is preserved
-    queries = [
-        ObservedQuery(
-            query="CREATE TEMP TABLE temp1 AS SELECT id, name FROM base_table",
-            timestamp=_ts(100),
-            session_id="session1",
-            default_db="dev",
-            default_schema="public",
-        ),
-        ObservedQuery(
-            query="CREATE TABLE final_table AS SELECT * FROM temp1",
-            timestamp=_ts(200),
-            session_id="session1",
-            default_db="dev",
-            default_schema="public",
-        ),
-        ObservedQuery(
-            query="INSERT INTO another_table SELECT id FROM base_table",
-            timestamp=_ts(300),
-            session_id="session2",
-            default_db="dev",
-            default_schema="public",
-        ),
-    ]
-
-    # Sequential processing (max_workers=1)
-    aggregator_sequential = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        max_workers=1,  # Sequential
-    )
-    for query in queries:
-        aggregator_sequential.add(query)
-
-    sequential_mcps = list(aggregator_sequential.gen_metadata())
-
-    # Parallel processing (max_workers=4)
-    aggregator_parallel = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        max_workers=4,  # Parallel
-    )
-    aggregator_parallel.add_batch(queries)
-
-    parallel_mcps = list(aggregator_parallel.gen_metadata())
-
-    # Results should be identical
-    assert len(sequential_mcps) == len(parallel_mcps)
-
-    # Verify both produced the same lineage
-    # Extract dataset URNs from lineage aspects
-    def get_lineage_urns(mcps):
-        lineage_map = {}
-        for mcp in mcps:
-            if mcp.aspectName == "upstreamLineage":
-                dataset_urn = mcp.entityUrn
-                upstreams = {u.dataset for u in mcp.aspect.upstreams}
-                lineage_map[dataset_urn] = upstreams
-        return lineage_map
-
-    sequential_lineage = get_lineage_urns(sequential_mcps)
-    parallel_lineage = get_lineage_urns(parallel_mcps)
-
-    assert sequential_lineage == parallel_lineage
-
-    # Verify batch metrics were tracked
-    assert aggregator_parallel.report.num_batch_calls == 1
-    assert aggregator_parallel.report.num_queries_processed_in_batch == 3
-
-    # Sequential should have 0 batch calls
-    assert aggregator_sequential.report.num_batch_calls == 0
-    assert aggregator_sequential.report.num_queries_processed_in_batch == 0
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_ordering_validation() -> None:
-    """Test that add_batch validates timestamp ordering."""
-
-    # Create queries in WRONG order
-    queries_wrong_order = [
-        ObservedQuery(
-            query="SELECT * FROM table1",
-            timestamp=_ts(200),  # Later timestamp first
-            default_db="dev",
-            default_schema="public",
-        ),
-        ObservedQuery(
-            query="SELECT * FROM table2",
-            timestamp=_ts(100),  # Earlier timestamp second
-            default_db="dev",
-            default_schema="public",
-        ),
-    ]
-
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=4,
-    )
-
-    # In debug mode, this should log a warning but not fail
-    # (We don't want to break existing code that might have unordered queries)
-    aggregator.add_batch(queries_wrong_order)
-
-    # Should still process both queries
-    assert aggregator.report.num_observed_queries == 2
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_empty() -> None:
-    """Test batch processing with empty list."""
-    aggregator = make_basic_aggregator()
-
-    aggregator.add_batch([])
-
-    assert aggregator.report.num_batch_calls == 1
-    assert aggregator.report.num_queries_processed_in_batch == 0
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_single_query() -> None:
-    """Test batch processing with single query."""
-    aggregator = make_basic_aggregator()
-
-    queries = [
-        ObservedQuery(
-            query="SELECT * FROM table1",
-            timestamp=_ts(100),
-        ),
-    ]
-
-    aggregator.add_batch(queries)
-
-    assert aggregator.report.num_batch_calls == 1
-    assert aggregator.report.num_queries_processed_in_batch == 1
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_with_preparsed() -> None:
-    """Test batch processing with mix of ObservedQuery and PreparsedQuery."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        max_workers=2,
-    )
-
-    queries: List[Union[ObservedQuery, PreparsedQuery]] = [
-        ObservedQuery(
-            query="SELECT * FROM table1",
-            timestamp=_ts(100),
-        ),
-        PreparsedQuery(
-            query_id="test_query",
-            query_text="SELECT * FROM table2",
-            timestamp=_ts(101),
-            upstreams=[],
-            column_lineage=None,
-            downstream=None,
-            query_type=QueryType.SELECT,
-        ),
-    ]
-
-    aggregator.add_batch(queries)
-
-    assert aggregator.report.num_batch_calls == 1
-    assert aggregator.report.num_queries_processed_in_batch == 2
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_parsing_failures() -> None:
-    """Test batch processing handles parsing failures gracefully."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        max_workers=2,
-    )
-
-    queries = [
-        ObservedQuery(
-            query="SELECT * FROM table1",
-            timestamp=_ts(100),
-        ),
-        ObservedQuery(
-            query="THIS IS NOT VALID SQL;;;",
-            timestamp=_ts(101),
-        ),
-        ObservedQuery(
-            query="SELECT * FROM table2",
-            timestamp=_ts(102),
-        ),
-    ]
-
-    aggregator.add_batch(queries)
-
-    assert aggregator.report.num_batch_calls == 1
-    assert aggregator.report.num_queries_processed_in_batch == 3
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_sequential_path() -> None:
-    """Test that max_workers=1 uses sequential path."""
-    agg_sequential = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        max_workers=1,
-    )
-
-    queries = [
-        ObservedQuery(query="SELECT * FROM table1", timestamp=_ts(100)),
-        ObservedQuery(query="SELECT * FROM table2", timestamp=_ts(101)),
-    ]
-
-    agg_sequential.add_batch(queries)
-
-    assert agg_sequential.report.num_queries_processed_in_batch == 2
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_with_none_timestamps() -> None:
-    """Test batch processing with queries that have None timestamps."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=2,
-    )
-
-    queries = [
-        ObservedQuery(query="SELECT * FROM table1", timestamp=None),
-        ObservedQuery(query="SELECT * FROM table2", timestamp=_ts(100)),
-        ObservedQuery(query="SELECT * FROM table3", timestamp=None),
-    ]
-
-    aggregator.add_batch(queries)
-
-    assert aggregator.report.num_queries_processed_in_batch == 3
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_progress_logging() -> None:
-    """Test that parallel batch processing logs progress for large batches."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=4,
-    )
-
-    queries = [
-        ObservedQuery(query=f"SELECT * FROM table{i}", timestamp=_ts(100 + i))
-        for i in range(1005)
-    ]
-
-    with patch("datahub.sql_parsing.sql_parsing_aggregator.logger") as mock_logger:
-        aggregator.add_batch(queries)
-
-        info_calls = [str(call) for call in mock_logger.info.call_args_list]
-        progress_logged = any(
-            "Parsed" in str(call) and "/1005" in str(call) for call in info_calls
-        )
-        assert progress_logged, f"Expected progress logging in: {info_calls}"
-
-    assert aggregator.report.num_queries_processed_in_batch == 1005
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_exception_handling() -> None:
-    """Test that exceptions during parallel parsing are handled gracefully."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=2,
-    )
-
-    def failing_parser(
-        query: ObservedQuery,
-    ) -> Optional[Tuple[PreparsedQuery, bool]]:
-        if "fail" in query.query.lower():
-            raise RuntimeError("Intentional failure for testing")
-        return aggregator._parse_observed_query_for_batch(query)
-
-    with patch.object(
-        aggregator, "_parse_observed_query_for_batch", side_effect=failing_parser
-    ):
-        queries = [
-            ObservedQuery(query="SELECT * FROM table1", timestamp=_ts(100)),
-            ObservedQuery(query="SELECT FAIL FROM table2", timestamp=_ts(101)),
-            ObservedQuery(query="SELECT * FROM table3", timestamp=_ts(102)),
-        ]
-
-        aggregator.add_batch(queries)
-
-        assert aggregator.report.num_queries_processed_in_batch == 3
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_with_session_ids() -> None:
-    """Test batch processing with queries that have session IDs."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=2,
-    )
-
-    queries = [
-        ObservedQuery(
-            query="SELECT * FROM table1",
-            timestamp=_ts(100),
-            session_id="session_1",
-        ),
-        ObservedQuery(
-            query="SELECT * FROM table2",
-            timestamp=_ts(101),
-            session_id="session_2",
-        ),
-    ]
-
-    aggregator.add_batch(queries)
-
-    assert aggregator.report.num_queries_processed_in_batch == 2
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_schema_resolver_error() -> None:
-    """Test that schema resolver errors are handled gracefully."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=2,
-    )
-
-    def failing_resolver(session_id: str) -> NoReturn:
-        raise RuntimeError("Schema resolver failed")
-
-    with patch.object(
-        aggregator, "_make_schema_resolver_for_session", side_effect=failing_resolver
-    ):
-        queries = [
-            ObservedQuery(
-                query="SELECT * FROM table1",
-                timestamp=_ts(100),
-                session_id="test_session",
-            ),
-        ]
-
-        aggregator.add_batch(queries)
-
-        assert aggregator.report.num_queries_processed_in_batch == 1
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_column_errors() -> None:
-    """Test that column-level parsing errors are tracked correctly."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=2,
-    )
-
-    def mock_parser(*args, **kwargs):
-        result = SqlParsingResult(
-            query_type=QueryType.SELECT,
-            in_tables=[],
-            out_tables=[],
-            column_lineage=[],
-        )
-        result.debug_info.column_error = CooperativeTimeoutError(
-            "Column parsing timed out"
-        )
-        return result
-
-    with patch.object(aggregator, "_run_sql_parser", side_effect=mock_parser):
-        queries = [
-            ObservedQuery(
-                query="SELECT * FROM table1",
-                timestamp=_ts(100),
-            ),
-        ]
-
-        aggregator.add_batch(queries)
-
-        assert aggregator.report.num_observed_queries_column_failed >= 1
-        assert aggregator.report.num_observed_queries_column_timeout >= 1
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_counter_thread_safety() -> None:
-    """Test that counters are incremented correctly without race conditions."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=10,
-    )
-
-    num_queries = 100
-    queries = [
-        ObservedQuery(query=f"SELECT * FROM table{i}", timestamp=_ts(100 + i))
-        for i in range(num_queries)
-    ]
-
-    aggregator.add_batch(queries)
-
-    assert aggregator.report.num_observed_queries == num_queries, (
-        f"Expected {num_queries} observed queries, got {aggregator.report.num_observed_queries}"
-    )
-    assert aggregator.report.num_queries_processed_in_batch == num_queries, (
-        f"Expected {num_queries} processed queries, got {aggregator.report.num_queries_processed_in_batch}"
-    )
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_processing_large_volume_stress_test() -> None:
-    """Stress test with large query volume to detect race conditions."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=20,
-    )
-
-    num_queries = 5000
-    queries = [
-        ObservedQuery(
-            query=f"SELECT col{i % 10} FROM table{i % 50}",
-            timestamp=_ts(100 + i),
-        )
-        for i in range(num_queries)
-    ]
-
-    aggregator.add_batch(queries)
-
-    assert aggregator.report.num_observed_queries == num_queries
-    assert aggregator.report.num_queries_processed_in_batch == num_queries
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_batch_ordering_validation_always_runs() -> None:
-    """Test that ordering validation always runs, not just in debug mode."""
-    aggregator = SqlParsingAggregator(
-        platform="redshift",
-        generate_lineage=True,
-        max_workers=2,
-    )
-
-    queries = [
-        ObservedQuery(query="SELECT * FROM table1", timestamp=_ts(200)),
-        ObservedQuery(query="SELECT * FROM table2", timestamp=_ts(100)),
-    ]
-
-    with patch("datahub.sql_parsing.sql_parsing_aggregator.logger") as mock_logger:
-        aggregator.add_batch(queries)
-        warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
-        assert any("not sorted by timestamp" in str(call) for call in warning_calls), (
-            f"Expected ordering warning in: {warning_calls}"
-        )

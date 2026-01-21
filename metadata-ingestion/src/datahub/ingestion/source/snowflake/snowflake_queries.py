@@ -15,7 +15,6 @@ import pydantic
 from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
-from datahub.configuration.source_common import SqlParsingConfigMixin
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -91,7 +90,7 @@ UserEmail = str
 UsersMapping = Dict[UserName, UserEmail]
 
 
-class SnowflakeQueriesExtractorConfig(SqlParsingConfigMixin, ConfigModel):
+class SnowflakeQueriesExtractorConfig(ConfigModel):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
@@ -243,7 +242,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 generate_operations=self.config.include_operations,
                 is_temp_table=self.is_temp_table,
                 is_allowed_table=self.is_allowed_table,
-                max_workers=self.config.max_workers_for_query_parsing,
                 format_queries=False,
             )
         )

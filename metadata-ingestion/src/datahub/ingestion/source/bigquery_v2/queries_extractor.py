@@ -2,14 +2,13 @@ import functools
 import logging
 import pathlib
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Collection, Dict, Iterable, List, Optional, TypedDict
 
 from google.cloud.bigquery import Client
 from pydantic import Field, PositiveInt
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
-from datahub.configuration.source_common import SqlParsingConfigMixin
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
@@ -53,6 +52,7 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
+from datahub.utilities.progress_timer import ProgressTimer
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class BigQueryJob(TypedDict):
     # NOTE: This does not capture referenced_view unlike GCP Logging Event
 
 
-class BigQueryQueriesExtractorConfig(BigQueryBaseConfig, SqlParsingConfigMixin):
+class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
@@ -201,7 +201,6 @@ class BigQueryQueriesExtractor(Closeable):
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
             format_queries=False,
-            max_workers=self.config.max_workers_for_query_parsing,
         )
 
         self.report.sql_aggregator = self.aggregator.report
@@ -335,21 +334,20 @@ class BigQueryQueriesExtractor(Closeable):
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
         with self.report.audit_log_load_timer, queries_deduped:
-            # Flatten and sort queries by timestamp for correctness
-            all_queries: List[ObservedQuery] = []
-            for query_instances in queries_deduped.values():
-                all_queries.extend(query_instances.values())
+            log_timer = ProgressTimer(timedelta(minutes=1))
+            report_timer = ProgressTimer(timedelta(minutes=5))
 
-            # CRITICAL: Sort by timestamp for correct lineage/usage determination
-            all_queries.sort(key=lambda q: q.timestamp or datetime.min)
+            for i, (_, query_instances) in enumerate(queries_deduped.items()):
+                for query in query_instances.values():
+                    if log_timer.should_report():
+                        logger.info(
+                            f"Added {i} deduplicated query log entries to SQL aggregator"
+                        )
 
-            logger.info(
-                f"Processing {len(all_queries)} queries with "
-                f"{self.config.max_workers_for_query_parsing} workers"
-            )
+                    if report_timer.should_report() and self.report.sql_aggregator:
+                        logger.info(self.report.sql_aggregator.as_string())
 
-            # Process queries in batch (parallel parsing happens internally)
-            self.aggregator.add_batch(all_queries)
+                    self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
 

@@ -253,7 +253,6 @@ class BigqueryLineageExtractor:
             generate_query_usage_statistics=False,
             generate_operations=False,
             format_queries=True,
-            max_workers=self.config.max_workers_for_query_parsing,
         )
         self.report.sql_aggregator = self.aggregator.report
         self.gcs_uris_regex = re.compile(r"uris=\[([^\]]+)\]")

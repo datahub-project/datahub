@@ -176,7 +176,9 @@ def _table_name_from_sqlglot_table(
 
 Urn = str
 
-SQL_PARSE_RESULT_CACHE_SIZE = 1000
+# Increased from 1000 to handle large query volumes
+# Each unique query fingerprint is cached here
+SQL_PARSE_RESULT_CACHE_SIZE = 100000
 SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )

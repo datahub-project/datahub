@@ -137,7 +137,6 @@ class RedshiftSqlLineage(Closeable):
             usage_config=self.config,
             graph=self.context.graph,
             is_temp_table=self._is_temp_table,
-            max_workers=self.config.max_workers_for_query_parsing,
         )
         self.report.sql_aggregator = self.aggregator.report
 

@@ -8,7 +8,6 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
-    SqlParsingConfigMixin,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
@@ -126,7 +125,6 @@ class DremioSourceConfig(
     BaseTimeWindowConfig,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
-    SqlParsingConfigMixin,
 ):
     domain: Optional[str] = Field(
         default=None,
