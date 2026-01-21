@@ -258,7 +258,10 @@ class SchemaFieldSpecification(StrictModel):
             "timestamp": models.TimeTypeClass,
         }
 
-        type_lower = self.type.lower() if self.type else self.type
+        if not self.type:
+            raise ValueError("Type cannot be None or empty")
+
+        type_lower = self.type.lower()
 
         if (
             type_lower not in set(get_args(PrimitiveType))
