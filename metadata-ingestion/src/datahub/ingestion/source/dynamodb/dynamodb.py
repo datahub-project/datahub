@@ -23,7 +23,7 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -113,6 +113,14 @@ class DynamoDBConfig(
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. The table name format is 'region.table'",
+    )
+    extract_table_tags: Optional[bool] = Field(
+        default=False,
+        description=(
+            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags. "
+            "This operation overwrites any existing tags on the dataset, including tags that were added "
+            "manually through the DataHub UI."
+        ),
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -282,6 +290,16 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             entityUrn=dataset_urn,
             aspect=dataset_properties,
         ).as_workunit()
+
+        # Add AWS resource tags if enabled
+        if self.config.extract_table_tags:
+            table_arn = table_info.get("TableArn")
+            if table_arn:
+                yield from self._get_table_tags_wu(
+                    dynamodb_client=dynamodb_client,
+                    table_arn=table_arn,
+                    dataset_urn=dataset_urn,
+                )
 
         yield from self._get_domain_wu(
             dataset_name=table_name,
@@ -583,4 +601,39 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             yield from add_domain_to_entity_wu(
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
+            )
+
+    def _get_table_tags_wu(
+        self,
+        dynamodb_client: "DynamoDBClient",
+        table_arn: str,
+        dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Extract AWS resource tags and yield work units to add them to the dataset."""
+        try:
+            tag_resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
+            tags_kv = tag_resp.get("Tags") or []
+
+            tags_to_add: List[str] = []
+            for t in tags_kv:
+                key = t.get("Key")
+                val = t.get("Value")
+
+                if key:
+                    if val is not None and str(val) != "":
+                        tags_to_add.append(f"{key}={val}")
+                    else:
+                        tags_to_add.append(str(key))
+
+            if tags_to_add:
+                yield from add_tags_to_entity_wu(
+                    entity_type="dataset",
+                    entity_urn=dataset_urn,
+                    tags=sorted(set(tags_to_add)),
+                )
+        except Exception as e:
+            self.report.report_warning(
+                message="Failed to extract AWS tags",
+                context=f"Collection: {dataset_urn}; error={e}",
+                title="DynamoDB Tags",
             )
