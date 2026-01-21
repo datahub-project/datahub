@@ -4,10 +4,10 @@ This connector extracts metadata from Microsoft Fabric OneLake, including worksp
 
 ## Quick Start
 
-1. **Set up authentication** - Configure Azure credentials (see [Prerequisites](./fabric_onelake.md#prerequisites))
+1. **Set up authentication** - Configure Azure credentials (see [Prerequisites](#prerequisites))
 2. **Grant permissions** - Ensure your identity has `Workspace.Read.All` and workspace access
-3. **Configure recipe** - Use `fabric_onelake_recipe.yml` as a template
-4. **Run ingestion** - Execute `datahub ingest -c fabric_onelake_recipe.yml`
+3. **Configure recipe** - Use `fabric-onelake_recipe.yml` as a template
+4. **Run ingestion** - Execute `datahub ingest -c fabric-onelake_recipe.yml`
 
 ## Key Features
 
