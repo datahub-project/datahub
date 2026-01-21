@@ -1,4 +1,5 @@
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
@@ -295,7 +296,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         if self.config.extract_table_tags:
             table_arn = table_info.get("TableArn")
             if table_arn:
-                yield from self._get_table_tags_wu(
+                yield from self._get_dynamodb_table_tags_wu(
                     dynamodb_client=dynamodb_client,
                     table_arn=table_arn,
                     dataset_urn=dataset_urn,
@@ -603,27 +604,37 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 domain_urn=domain_urn,
             )
 
-    def _get_table_tags_wu(
+    def sanitize_tag_name(self, name: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9_\-=]", "_", name)
+
+    def _get_dynamodb_table_tags_wu(
         self,
         dynamodb_client: "DynamoDBClient",
         table_arn: str,
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Extract AWS resource tags and yield work units to add them to the dataset."""
+        """Extract DynamoDB table AWS tags and add them as DataHub tags.
+        This overwrites existing DataHub tags, including those added manually via the UI.
+        """
         try:
-            tag_resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
-            tags_kv = tag_resp.get("Tags") or []
+            resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
+            tags_kv = resp.get("Tags") or []
 
             tags_to_add: List[str] = []
+
             for t in tags_kv:
                 key = t.get("Key")
                 val = t.get("Value")
 
-                if key:
-                    if val is not None and str(val) != "":
-                        tags_to_add.append(f"{key}={val}")
-                    else:
-                        tags_to_add.append(str(key))
+                if not key:
+                    continue
+
+                if val:
+                    tag = self.sanitize_tag_name(f"{key}={val}")
+                else:
+                    tag = self.sanitize_tag_name(key)
+
+                tags_to_add.append(tag)
 
             if tags_to_add:
                 yield from add_tags_to_entity_wu(
@@ -631,9 +642,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     entity_urn=dataset_urn,
                     tags=sorted(set(tags_to_add)),
                 )
+
         except Exception as e:
             self.report.report_warning(
+                title="DynamoDB Tags",
                 message="Failed to extract AWS tags",
                 context=f"Collection: {dataset_urn}; error={e}",
-                title="DynamoDB Tags",
             )
