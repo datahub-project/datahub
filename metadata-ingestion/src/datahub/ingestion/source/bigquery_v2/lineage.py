@@ -437,9 +437,6 @@ class BigqueryLineageExtractor:
         """
         logger.info("Populating lineage info via Catalog Data Linage API")
 
-        # Regions to search for BigQuery tables: projects/{project_id}/locations/{region}
-        enabled_regions: List[str] = ["US", "EU"]
-
         lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
 
         data_dictionary = BigQuerySchemaApi(
@@ -450,6 +447,24 @@ class BigqueryLineageExtractor:
 
         # Filtering datasets
         datasets = list(data_dictionary.get_datasets_for_project_id(project_id))
+
+        # Dynamically discover regions from datasets
+        # This ensures we search in the correct locations for lineage
+        discovered_regions: Set[str] = set()
+        for dataset in datasets:
+            if dataset.location:
+                # Normalize location to uppercase (API expects uppercase)
+                discovered_regions.add(dataset.location.upper())
+
+        # Fallback to default multi-regions if no locations discovered
+        enabled_regions: List[str] = (
+            list(discovered_regions) if discovered_regions else ["US", "EU"]
+        )
+
+        logger.info(
+            f"Searching for lineage in {len(enabled_regions)} region(s): {enabled_regions}"
+        )
+
         project_tables = []
         for dataset in datasets:
             # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
