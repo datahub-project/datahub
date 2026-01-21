@@ -97,18 +97,16 @@ jobs:
           uv venv venv --python 3.11
           source venv/bin/activate
           uv pip install -r ./requirements-release-test.txt
+          mkdir -p test-reports
           ../docker/smoke-test/release-tests.sh
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success() || failure()
         with:
           name: Test Results (release tests)
           path: |
-            "**/junit.*.xml"
             "smoke-test/test-reports/**"
-            "**/build/test-results/test/**"
-            "smoke-test/build/test-results/"
           retention-days: 5
       - name: Publish Test Results Summary
         uses: EnricoMi/publish-unit-test-result-action@v2

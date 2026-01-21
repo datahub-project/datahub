@@ -102,6 +102,5 @@ log_format = "%(asctime)s - %(name)s - %(funcName)s:%(lineno)d - %(levelname)s -
 log_date_format = "%Y-%m-%d %H:%M:%S"
 log_file = "test-reports/test-run.log"
 log_file_level= "DEBUG"
-junit_xml = "test-reports/junit.xml"
 
-addopts = ["-ra"]
+addopts = ["-ra", "--junit-xml=test-reports/junit.xml"]
