@@ -72,7 +72,7 @@ const MessagesContent = styled.div<{ $variant?: ChatVariant }>`
 const InputContainer = styled.div<{ $variant?: ChatVariant }>`
     display: flex;
     flex-direction: column;
-    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '12px 16px 16px 16px' : '16px')};
+    padding: ${(props) => (props.$variant === ChatVariant.Compact ? '12px 16px 4px 16px' : '16px 16px 4px 16px')};
     gap: 8px;
     ${(props) => props.$variant === ChatVariant.Compact && 'background: white;'}
 `;
@@ -81,6 +81,17 @@ const InputContent = styled.div<{ $variant?: ChatVariant }>`
     width: 100%;
     max-width: ${(props) => (props.$variant === ChatVariant.Compact ? '100%' : '800px')};
     margin: ${(props) => (props.$variant === ChatVariant.Compact ? '0' : '0 auto')};
+`;
+
+const AIDisclaimer = styled.div`
+    font-size: 12px;
+    color: ${colors.gray[1700]};
+    text-align: center;
+    margin-top: 4px;
+    flex-shrink: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 `;
 
 const LoadingContainer = styled.div`
@@ -379,6 +390,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                         onModeChange={(mode) => onModeChange(mode as ChatMode)}
                                         autoFocus
                                     />
+                                    <AIDisclaimer>Ask DataHub uses AI. Please double-check responses.</AIDisclaimer>
                                     <SuggestedQuestions
                                         onQuestionSelect={handleQuestionSelect}
                                         questions={suggestedQuestions}
@@ -420,6 +432,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                 onModeChange={(mode) => onModeChange(mode as ChatMode)}
                                 autoFocus
                             />
+                            <AIDisclaimer>Ask DataHub uses AI. Please double-check responses.</AIDisclaimer>
                         </InputContent>
                     </InputContainer>
                 )}
@@ -511,6 +524,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                     selectedMode={selectedMode}
                                     onModeChange={(mode) => setSelectedMode(mode as ChatMode)}
                                 />
+                                <AIDisclaimer>Ask DataHub uses AI. Please double-check responses.</AIDisclaimer>
                                 <SuggestedQuestions
                                     onQuestionSelect={handleQuestionSelect}
                                     questions={suggestedQuestions}
