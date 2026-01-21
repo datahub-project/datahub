@@ -109,31 +109,32 @@ class TestSqlAnalyticsEndpointClient:
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
         )
 
-        # Mock the event listener registration
-        with patch(
-            "datahub.ingestion.source.fabric.onelake.schema_client.event"
-        ) as mock_event:
-            client._create_engine(
-                workspace_id="ws-123",
-                item_id="item-456",
-                endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
-            )
+        client._create_engine(
+            workspace_id="ws-123",
+            item_id="item-456",
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+        )
 
-            # Verify engine was created with correct connection string
-            mock_create_engine.assert_called_once()
-            call_args = mock_create_engine.call_args
-            assert "mssql+pyodbc" in call_args[0][0]
+        # Verify engine was created with correct connection string
+        mock_create_engine.assert_called_once()
+        call_args = mock_create_engine.call_args
+        assert "mssql+pyodbc" in call_args[0][0]
 
-            # Verify event listener was registered
-            mock_event.listens_for.assert_called_once()
+        # Verify creator parameter is provided (for token injection)
+        assert "creator" in call_args[1] or call_args.kwargs.get("creator")
+        # Verify pool settings
+        assert call_args[1].get("pool_pre_ping") is True
+        assert call_args[1].get("pool_recycle") == 3600
 
     @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
     def test_get_engine_caching(
         self, mock_create_engine, mock_auth_helper, sql_endpoint_config
     ):
         """Test that engines are cached per workspace/item combination."""
-        mock_engine = MagicMock()
-        mock_create_engine.return_value = mock_engine
+        # Create different mock engines for different calls
+        mock_engine1 = MagicMock()
+        mock_engine2 = MagicMock()
+        mock_create_engine.side_effect = [mock_engine1, mock_engine2]
 
         client = SqlAnalyticsEndpointClient(
             auth_helper=mock_auth_helper,
@@ -141,29 +142,28 @@ class TestSqlAnalyticsEndpointClient:
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
         )
 
-        with patch("datahub.ingestion.source.fabric.onelake.schema_client.event"):
-            engine1 = client._get_engine(
-                workspace_id="ws-123",
-                item_id="item-456",
-                endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
-            )
-            engine2 = client._get_engine(
-                workspace_id="ws-123",
-                item_id="item-456",
-                endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
-            )
-            engine3 = client._get_engine(
-                workspace_id="ws-789",
-                item_id="item-456",
-                endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
-            )
+        engine1 = client._get_engine(
+            workspace_id="ws-123",
+            item_id="item-456",
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+        )
+        engine2 = client._get_engine(
+            workspace_id="ws-123",
+            item_id="item-456",
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+        )
+        engine3 = client._get_engine(
+            workspace_id="ws-789",
+            item_id="item-456",
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+        )
 
-            # Same workspace/item should return same engine
-            assert engine1 is engine2
-            # Different workspace should return different engine
-            assert engine1 is not engine3
-            # Should only create 2 engines
-            assert mock_create_engine.call_count == 2
+        # Same workspace/item should return same engine
+        assert engine1 is engine2
+        # Different workspace should return different engine
+        assert engine1 is not engine3
+        # Should only create 2 engines
+        assert mock_create_engine.call_count == 2
 
     @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
     def test_get_table_columns_success(
@@ -202,24 +202,23 @@ class TestSqlAnalyticsEndpointClient:
             report=mock_report,
         )
 
-        with patch("datahub.ingestion.source.fabric.onelake.schema_client.event"):
-            columns = client.get_table_columns(
-                workspace_id="ws-123",
-                item_id="item-456",
-                schema_name="dbo",
-                table_name="test_table",
-            )
+        columns = client.get_table_columns(
+            workspace_id="ws-123",
+            item_id="item-456",
+            schema_name="dbo",
+            table_name="test_table",
+        )
 
-            assert len(columns) == 2
-            assert columns[0].name == "id"
-            assert columns[0].data_type == "int"
-            assert columns[0].is_nullable is False
-            assert columns[0].ordinal_position == 1
+        assert len(columns) == 2
+        assert columns[0].name == "id"
+        assert columns[0].data_type == "int"
+        assert columns[0].is_nullable is False
+        assert columns[0].ordinal_position == 1
 
-            assert columns[1].name == "name"
-            assert columns[1].data_type == "varchar"
-            assert columns[1].is_nullable is True
-            assert columns[1].ordinal_position == 2
+        assert columns[1].name == "name"
+        assert columns[1].data_type == "varchar"
+        assert columns[1].is_nullable is True
+        assert columns[1].ordinal_position == 2
 
     @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
     def test_get_table_columns_error_handling(
@@ -234,6 +233,9 @@ class TestSqlAnalyticsEndpointClient:
         mock_engine.connect.return_value = mock_connection
         mock_create_engine.return_value = mock_engine
 
+        # Set up mock_report.failures as an integer attribute
+        mock_report.failures = 0
+
         client = SqlAnalyticsEndpointClient(
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
@@ -241,18 +243,17 @@ class TestSqlAnalyticsEndpointClient:
             endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
         )
 
-        with patch("datahub.ingestion.source.fabric.onelake.schema_client.event"):
-            columns = client.get_table_columns(
-                workspace_id="ws-123",
-                item_id="item-456",
-                schema_name="dbo",
-                table_name="test_table",
-            )
+        columns = client.get_table_columns(
+            workspace_id="ws-123",
+            item_id="item-456",
+            schema_name="dbo",
+            table_name="test_table",
+        )
 
-            # Should return empty list on error
-            assert columns == []
-            # Should report failure
-            assert mock_report.failures > 0
+        # Should return empty list on error
+        assert columns == []
+        # Should report failure
+        assert mock_report.failures > 0
 
     @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
     def test_get_all_table_columns(
@@ -294,20 +295,19 @@ class TestSqlAnalyticsEndpointClient:
             report=mock_report,
         )
 
-        with patch("datahub.ingestion.source.fabric.onelake.schema_client.event"):
-            columns_by_table = client.get_all_table_columns(
-                workspace_id="ws-123",
-                item_id="item-456",
-            )
+        columns_by_table = client.get_all_table_columns(
+            workspace_id="ws-123",
+            item_id="item-456",
+        )
 
-            assert len(columns_by_table) == 2
-            assert ("dbo", "table1") in columns_by_table
-            assert ("dbo", "table2") in columns_by_table
-            assert len(columns_by_table[("dbo", "table1")]) == 1
-            assert len(columns_by_table[("dbo", "table2")]) == 1
-            # Verify uppercase types are preserved
-            assert columns_by_table[("dbo", "table1")][0].data_type == "INT"
-            assert columns_by_table[("dbo", "table2")][0].data_type == "VARCHAR"
+        assert len(columns_by_table) == 2
+        assert ("dbo", "table1") in columns_by_table
+        assert ("dbo", "table2") in columns_by_table
+        assert len(columns_by_table[("dbo", "table1")]) == 1
+        assert len(columns_by_table[("dbo", "table2")]) == 1
+        # Verify uppercase types are preserved
+        assert columns_by_table[("dbo", "table1")][0].data_type == "INT"
+        assert columns_by_table[("dbo", "table2")][0].data_type == "VARCHAR"
 
     def test_close(self, mock_auth_helper, sql_endpoint_config):
         """Test closing all engine connections."""

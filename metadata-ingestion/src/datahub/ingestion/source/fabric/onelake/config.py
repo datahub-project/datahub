@@ -171,7 +171,7 @@ class FabricOneLakeSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfig
 
     # SQL Analytics Endpoint configuration
     sql_endpoint: Optional[SqlEndpointConfig] = Field(
-        default=None,
+        default_factory=SqlEndpointConfig,
         description="SQL Analytics Endpoint configuration for schema extraction. "
         "Required when extract_schema.enabled=True and extract_schema.method='sql_analytics_endpoint'.",
     )
