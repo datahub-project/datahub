@@ -120,6 +120,14 @@ DATE_TIME_TYPES: Set[str] = {
     "TIME",
 }
 
+# BigQuery string types that should be quoted
+BIGQUERY_STRING_TYPES: Set[str] = {
+    "STRING",
+    "BYTES",
+    "GEOGRAPHY",
+    "JSON",
+}
+
 
 # ============================================================================
 # Compiled Regex Patterns

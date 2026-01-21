@@ -1344,7 +1344,11 @@ LIMIT 1"""
         # For now, return a simple fallback - in practice you'd implement the full logic
         # This would include trying different date combinations, sampling, etc.
         return self._get_fallback_partition_filters(
-            table, project, schema, list(partition_cols_with_types.keys())
+            table,
+            project,
+            schema,
+            list(partition_cols_with_types.keys()),
+            partition_cols_with_types,
         )
 
     def _find_real_partition_values(
@@ -1431,18 +1435,26 @@ LIMIT 1"""
                         col_data_type
                     ):
                         date_str = test_date.strftime("%Y-%m-%d")
-                        filters.append(self._create_safe_filter(col, date_str))
+                        filters.append(
+                            self._create_safe_filter(col, date_str, col_data_type)
+                        )
                     elif col.lower() == "year":
                         filters.append(
-                            self._create_safe_filter(col, str(test_date.year))
+                            self._create_safe_filter(
+                                col, str(test_date.year), col_data_type
+                            )
                         )
                     elif col.lower() == "month":
                         filters.append(
-                            self._create_safe_filter(col, f"{test_date.month:02d}")
+                            self._create_safe_filter(
+                                col, f"{test_date.month:02d}", col_data_type
+                            )
                         )
                     elif col.lower() == "day":
                         filters.append(
-                            self._create_safe_filter(col, f"{test_date.day:02d}")
+                            self._create_safe_filter(
+                                col, f"{test_date.day:02d}", col_data_type
+                            )
                         )
                     else:
                         # For other non-date columns, use fallback values from config
@@ -1450,7 +1462,11 @@ LIMIT 1"""
                             fallback_val = (
                                 self.config.profiling.fallback_partition_values[col]
                             )
-                            filters.append(self._create_safe_filter(col, fallback_val))
+                            filters.append(
+                                self._create_safe_filter(
+                                    col, fallback_val, col_data_type
+                                )
+                            )
                         else:
                             # IS NOT NULL is safe and doesn't need the helper
                             filters.append(f"`{col}` IS NOT NULL")
@@ -1535,6 +1551,7 @@ LIMIT 1"""
         project: str,
         schema: str,
         required_columns: List[str],
+        column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
         """
         Generate fallback partition filters based on configuration when regular methods time out.
@@ -1546,11 +1563,14 @@ LIMIT 1"""
             f"Configured fallback values: {self.config.profiling.fallback_partition_values}"
         )
 
+        column_types = column_types or {}
+
         # Generate filters for each required column
         fallback_filters = []
         for col_name in required_columns:
+            col_type = column_types.get(col_name, "")
             filter_str = self._create_fallback_filter_for_column(
-                col_name, fallback_date
+                col_name, fallback_date, col_type
             )
             if filter_str:
                 fallback_filters.append(filter_str)
@@ -1559,32 +1579,40 @@ LIMIT 1"""
         return fallback_filters
 
     def _create_fallback_filter_for_column(
-        self, col_name: str, fallback_date: datetime
+        self, col_name: str, fallback_date: datetime, col_type: str = ""
     ) -> str:
         """Create a fallback filter for a specific column using safe filter creation."""
         # Check for explicit fallback value in config
         if col_name in self.config.profiling.fallback_partition_values:
             fallback_value = self.config.profiling.fallback_partition_values[col_name]
             try:
-                return self._create_safe_filter(col_name, fallback_value)
+                return self._create_safe_filter(col_name, fallback_value, col_type)
             except ValueError as e:
                 logger.warning(f"Invalid fallback value for {col_name}: {e}")
                 return f"`{col_name}` IS NOT NULL"
 
         # Use date-based fallbacks for date-like columns
         try:
-            if self._is_date_like_column(col_name):
+            if self._is_date_like_column(col_name) or self._is_date_type_column(
+                col_type
+            ):
                 # For date columns, if specific dates don't work, use IS NOT NULL as last resort
                 logger.warning(
                     f"Specific date values failed for column {col_name}, using IS NOT NULL for broader partition coverage"
                 )
                 return f"`{col_name}` IS NOT NULL"
             elif col_name.lower() == "year":
-                return self._create_safe_filter(col_name, str(fallback_date.year))
+                return self._create_safe_filter(
+                    col_name, str(fallback_date.year), col_type
+                )
             elif col_name.lower() == "month":
-                return self._create_safe_filter(col_name, f"{fallback_date.month:02d}")
+                return self._create_safe_filter(
+                    col_name, f"{fallback_date.month:02d}", col_type
+                )
             elif col_name.lower() == "day":
-                return self._create_safe_filter(col_name, f"{fallback_date.day:02d}")
+                return self._create_safe_filter(
+                    col_name, f"{fallback_date.day:02d}", col_type
+                )
             else:
                 # Last resort - use IS NOT NULL
                 logger.warning(

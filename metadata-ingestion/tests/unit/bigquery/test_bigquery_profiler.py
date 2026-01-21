@@ -2377,6 +2377,263 @@ def test_partition_discovery_empty_table():
     assert filters is not None or filters == []
 
 
+# =============================================================================
+# FILTERBUILDER TESTS
+# =============================================================================
+
+
+def test_filter_builder_numeric_type():
+    """Test FilterBuilder creates unquoted filters for numeric types"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # INT64 should not be quoted
+    filter_int = FilterBuilder.create_safe_filter("user_id", 999, "INT64")
+    assert filter_int == "`user_id` = 999"
+
+    # FLOAT64 should not be quoted
+    filter_float = FilterBuilder.create_safe_filter("amount", 123.45, "FLOAT64")
+    assert filter_float == "`amount` = 123.45"
+
+
+def test_filter_builder_string_type():
+    """Test FilterBuilder creates quoted filters for string types"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # String should be quoted
+    filter_str = FilterBuilder.create_safe_filter("status", "active", "STRING")
+    assert filter_str == "`status` = 'active'"
+
+    # String with single quote should be escaped
+    filter_str_quote = FilterBuilder.create_safe_filter("name", "O'Brien", "STRING")
+    assert filter_str_quote == "`name` = 'O''Brien'"
+
+
+def test_filter_builder_date_type_yyyymmdd():
+    """Test FilterBuilder formats YYYYMMDD dates correctly"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # YYYYMMDD format should be converted to YYYY-MM-DD
+    filter_date = FilterBuilder.create_safe_filter("date_column", "20250115", "DATE")
+    assert filter_date == "`date_column` = '2025-01-15'"
+
+
+def test_filter_builder_date_type_yyyymm():
+    """Test FilterBuilder formats YYYYMM dates correctly"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # YYYYMM format should be converted to YYYY-MM-01
+    filter_date = FilterBuilder.create_safe_filter("month_column", "202601", "DATE")
+    assert filter_date == "`month_column` = '2026-01-01'"
+
+
+def test_filter_builder_timestamp_type_yyyymmdd():
+    """Test FilterBuilder formats YYYYMMDD timestamps correctly"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # YYYYMMDD format for TIMESTAMP should use TIMESTAMP() cast
+    filter_ts = FilterBuilder.create_safe_filter(
+        "run_timestamp", "20250115", "TIMESTAMP"
+    )
+    assert filter_ts == "`run_timestamp` = TIMESTAMP('2025-01-15')"
+
+
+def test_filter_builder_timestamp_type_yyyymm():
+    """Test FilterBuilder formats YYYYMM timestamps correctly"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # YYYYMM format for TIMESTAMP should use TIMESTAMP() cast and first day of month
+    filter_ts = FilterBuilder.create_safe_filter("run_timestamp", "202601", "TIMESTAMP")
+    assert filter_ts == "`run_timestamp` = TIMESTAMP('2026-01-01')"
+
+
+def test_filter_builder_timestamp_type_yyyymmddhh():
+    """Test FilterBuilder formats YYYYMMDDHH timestamps correctly"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # YYYYMMDDHH format for TIMESTAMP should include time
+    filter_ts = FilterBuilder.create_safe_filter(
+        "run_timestamp", "2025011523", "TIMESTAMP"
+    )
+    assert filter_ts == "`run_timestamp` = '2025-01-15 23:00:00'"
+
+
+def test_filter_builder_datetime_type():
+    """Test FilterBuilder formats DATETIME types correctly"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # YYYYMMDDHH format for DATETIME should include time
+    filter_dt = FilterBuilder.create_safe_filter("event_time", "2025011523", "DATETIME")
+    assert filter_dt == "`event_time` = '2025-01-15 23:00:00'"
+
+
+def test_filter_builder_already_formatted_date():
+    """Test FilterBuilder handles already-formatted dates"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # Already formatted YYYY-MM-DD should be kept as is
+    filter_date = FilterBuilder.create_safe_filter("date_column", "2025-01-15", "DATE")
+    assert filter_date == "`date_column` = '2025-01-15'"
+
+    # Already formatted timestamp should be kept as is
+    filter_ts = FilterBuilder.create_safe_filter(
+        "run_timestamp", "2025-01-15 23:00:00", "TIMESTAMP"
+    )
+    assert filter_ts == "`run_timestamp` = '2025-01-15 23:00:00'"
+
+
+def test_filter_builder_invalid_column_name():
+    """Test FilterBuilder raises error for invalid column names"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    with pytest.raises(ValueError, match="Invalid column name"):
+        FilterBuilder.create_safe_filter("invalid-column", "value", "STRING")
+
+    with pytest.raises(ValueError, match="Invalid column name"):
+        FilterBuilder.create_safe_filter("col;name", "value", "STRING")
+
+
+def test_filter_builder_sql_injection_protection():
+    """Test FilterBuilder protects against SQL injection in values"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    with pytest.raises(ValueError, match="Invalid value"):
+        FilterBuilder.create_safe_filter("col", "value; DROP TABLE", "STRING")
+
+    with pytest.raises(ValueError, match="Invalid value"):
+        FilterBuilder.create_safe_filter("col", "value-- comment", "STRING")
+
+
+def test_filter_builder_convert_partition_id_with_column_types():
+    """Test convert_partition_id_to_filters properly uses column_types parameter"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # Test 1: YYYYMM partition with TIMESTAMP column type
+    # This tests proper TIMESTAMP formatting for 6-digit partition IDs
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="202601",
+        required_columns=["run_timestamp"],
+        column_types={"run_timestamp": "TIMESTAMP"},
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    assert "`run_timestamp` = TIMESTAMP('2026-01-01')" in filters[0]
+
+    # Test 2: Numeric partition with INT64 column type
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="999",
+        required_columns=["record_id"],
+        column_types={"record_id": "INT64"},
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    assert filters[0] == "`record_id` = 999"  # No quotes!
+
+    # Test 3: YYYYMMDD partition with DATE column type
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="20250115",
+        required_columns=["date_column"],
+        column_types={"date_column": "DATE"},
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    assert "`date_column` = '2025-01-15'" in filters[0]
+
+    # Test 4: Multi-column partition with mixed types
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="feed=pp_tse$year=2025",
+        required_columns=["feed", "year"],
+        column_types={"feed": "STRING", "year": "INT64"},
+    )
+    assert filters is not None
+    assert len(filters) == 2
+    assert "`feed` = 'pp_tse'" in filters[0]
+    assert "`year` = 2025" in filters[1]  # No quotes for INT64
+
+
+def test_filter_builder_convert_partition_id_without_column_types():
+    """Test convert_partition_id_to_filters falls back gracefully without column_types"""
+    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+        FilterBuilder,
+    )
+
+    # Without column_types, everything should be quoted (backward compatibility)
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="202601",
+        required_columns=["run_timestamp"],
+        column_types=None,  # No type info
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    # Without type info, it will try to format as string
+    assert "`run_timestamp`" in filters[0]
+
+
+def test_partition_discovery_create_safe_filter_with_types():
+    """Test PartitionDiscovery._create_safe_filter properly passes column types"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    # Test INT64
+    filter_int = discovery._create_safe_filter("user_id", 999, "INT64")
+    assert filter_int == "`user_id` = 999"
+
+    # Test TIMESTAMP with YYYYMM
+    filter_ts = discovery._create_safe_filter("run_timestamp", "202601", "TIMESTAMP")
+    assert filter_ts == "`run_timestamp` = TIMESTAMP('2026-01-01')"
+
+    # Test STRING
+    filter_str = discovery._create_safe_filter("status", "active", "STRING")
+    assert filter_str == "`status` = 'active'"
+
+
+def test_fallback_filter_with_column_types():
+    """Test _create_fallback_filter_for_column properly uses column types"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    from datetime import datetime, timezone
+
+    fallback_date = datetime(2025, 1, 15, tzinfo=timezone.utc)
+
+    # Test with TIMESTAMP type
+    filter_ts = discovery._create_fallback_filter_for_column(
+        "run_timestamp", fallback_date, "TIMESTAMP"
+    )
+    # Should format the date properly for TIMESTAMP
+    assert "`run_timestamp`" in filter_ts
+    assert "2025-01-15" in filter_ts or "IS NOT NULL" in filter_ts
+
+    # Test with INT64 type for year column
+    filter_year = discovery._create_fallback_filter_for_column(
+        "year", fallback_date, "INT64"
+    )
+    assert filter_year == "`year` = 2025"  # No quotes for INT64
+
+
 if __name__ == "__main__":
     # Run tests with pytest
     pytest.main([__file__, "-v"])

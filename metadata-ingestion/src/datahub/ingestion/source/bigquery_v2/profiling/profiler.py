@@ -256,10 +256,10 @@ ORDER BY table_name, ordinal_position
         )
 
         if partition_filters is None:
-            self.report.report_warning(
-                title="Partition discovery failed",
-                message="Could not construct partition filters - may cause increased query costs",
-                context=table_ref,
+            # Partition discovery failed, but profiling can still proceed via GE's default approach
+            # This might work for non-partitioned tables or result in higher query costs
+            logger.info(
+                f"Partition discovery failed for {table_ref}, proceeding with default profiling approach"
             )
             return base_kwargs
 
@@ -278,10 +278,10 @@ ORDER BY table_name, ordinal_position
                     f"Applied partition filters for {table_ref}: {partition_where}"
                 )
             else:
-                self.report.report_warning(
-                    title="Partition filter validation failed",
-                    message="All partition filters were rejected during validation",
-                    context=table_ref,
+                # Filters were rejected during validation, but profiling continues without them
+                # This might work for non-partitioned tables or cause query failures later
+                logger.info(
+                    f"Partition filters were rejected during validation for {table_ref}, proceeding without filters"
                 )
 
         safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
@@ -352,10 +352,9 @@ WHERE {partition_where}"""
                         custom_sql = (
                             f"SELECT * FROM {safe_table_ref} LIMIT {safety_limit}"
                         )
-                        self.report.report_warning(
-                            title="Safety limit applied",
-                            message="Applied safety limit to prevent excessive costs on large table",
-                            context=f"{table_ref} ({bq_table.rows_count:,} rows)",
+                        # This is a successful cost optimization, not an error
+                        logger.info(
+                            f"Applied safety limit of {safety_limit:,} rows to large table {table_ref} ({bq_table.rows_count:,} rows) to prevent excessive costs"
                         )
                     else:
                         custom_sql = f"SELECT * FROM {safe_table_ref}"
@@ -401,10 +400,9 @@ WHERE {partition_where}"""
 
         # STEP 2: Validate external table profiling configuration
         if bq_table.external and not self.config.profiling.profile_external_tables:
-            self.report.report_warning(
-                title="Profiling skipped for external table",
-                message="profiling.profile_external_tables is disabled",
-                context=profile_request.pretty_name,
+            # This is a config-based skip, not an error
+            logger.info(
+                f"Skipping profiling for external table {profile_request.pretty_name} (profiling.profile_external_tables is disabled)"
             )
             return None
 
