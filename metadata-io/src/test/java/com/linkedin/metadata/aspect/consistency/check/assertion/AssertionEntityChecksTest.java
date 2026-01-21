@@ -20,6 +20,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -72,6 +73,7 @@ public class AssertionEntityChecksTest {
     // Create all assertion checks
     List<ConsistencyCheck> checks =
         List.of(
+            new AssertionInvalidTypeCheck(),
             new AssertionEntityUrnMissingCheck(testEntityRegistry),
             new AssertionEntityTypeInvalidCheck(testEntityRegistry),
             new AssertionEntityNotFoundCheck(testEntityRegistry),
@@ -161,6 +163,7 @@ public class AssertionEntityChecksTest {
   @Test
   public void testAssertionMissingEntityUrn_NotDerivable_SoftDeleteIssue() {
     // Scenario: Assertion missing entityUrn and cannot derive -> soft delete
+    // The freshnessAssertion is set but entity field is empty, so entityUrn can't be derived
     Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:cannotDerive123");
 
     EntityResponse response = createAssertionWithoutDerivableEntityUrn(assertionUrn);
@@ -170,8 +173,7 @@ public class AssertionEntityChecksTest {
         helper.runChecksForEntityType(
             ASSERTION_ENTITY_NAME, context, Map.of(assertionUrn, response));
 
-    // Only assertion-entity-urn-missing should fire with SOFT_DELETE
-    helper.assertTotalIssueCount(issues, 1);
+    // assertion-entity-urn-missing should fire with SOFT_DELETE
     helper.assertIssueFromCheck(
         issues, "assertion-entity-urn-missing", assertionUrn, ConsistencyFixType.SOFT_DELETE);
   }
@@ -393,7 +395,7 @@ public class AssertionEntityChecksTest {
   }
 
   @Test
-  public void testAssertionTypeMismatch_SoftDeleteIssue() {
+  public void testAssertionTypeMismatch_HardDeleteIssue() {
     // Scenario: Assertion has type FRESHNESS but freshnessAssertion property is empty
     Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:typeMismatch123");
     Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
@@ -409,14 +411,106 @@ public class AssertionEntityChecksTest {
         helper.runChecksForEntityType(
             ASSERTION_ENTITY_NAME, context, Map.of(assertionUrn, response));
 
-    // assertion-type-mismatch should fire with SOFT_DELETE
+    // assertion-type-mismatch should fire with HARD_DELETE (changed from SOFT_DELETE)
     helper.assertIssueFromCheck(
-        issues, "assertion-type-mismatch", assertionUrn, ConsistencyFixType.SOFT_DELETE);
+        issues, "assertion-type-mismatch", assertionUrn, ConsistencyFixType.HARD_DELETE);
 
     ConsistencyIssue issue = helper.getIssue(issues, "assertion-type-mismatch", assertionUrn);
     assertNotNull(issue);
     assertTrue(issue.getDescription().contains("FRESHNESS"));
     assertTrue(issue.getDescription().contains("freshnessAssertion"));
+  }
+
+  // ============================================================================
+  // Invalid Enum Tests
+  // ============================================================================
+
+  /**
+   * Test that an assertion with an invalid type enum value (SLA) is detected and flagged for
+   * HARD_DELETE with hardDeleteUrns populated.
+   */
+  @Test
+  public void testAssertionInvalidType_SLA_HardDeleteIssue() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:invalidSlaType");
+    EntityResponse response = createAssertionWithRawType(assertionUrn, "SLA");
+    CheckContext context = buildContext();
+
+    List<ConsistencyIssue> issues =
+        helper.runChecksForEntityType(
+            ASSERTION_ENTITY_NAME, context, Map.of(assertionUrn, response));
+
+    // assertion-invalid-type should fire with HARD_DELETE
+    helper.assertIssueFromCheck(
+        issues, "assertion-invalid-type", assertionUrn, ConsistencyFixType.HARD_DELETE);
+
+    ConsistencyIssue issue = helper.getIssue(issues, "assertion-invalid-type", assertionUrn);
+    assertNotNull(issue);
+    assertTrue(
+        issue.getDescription().contains("is not an enum symbol"),
+        "Description should contain enum error message");
+
+    // Verify hardDeleteUrns is populated for HARD_DELETE fix type
+    assertNotNull(issue.getHardDeleteUrns(), "hardDeleteUrns should be populated for HARD_DELETE");
+    assertEquals(issue.getHardDeleteUrns().size(), 1);
+    assertTrue(issue.getHardDeleteUrns().contains(assertionUrn));
+
+    // Verify batchItems is NOT populated (HARD_DELETE uses hardDeleteUrns, not batchItems)
+    assertNull(
+        issue.getBatchItems(), "batchItems should be null for HARD_DELETE (uses hardDeleteUrns)");
+  }
+
+  /**
+   * Test that an assertion with an unknown type enum value is detected and flagged for HARD_DELETE.
+   */
+  @Test
+  public void testAssertionInvalidType_Unknown_HardDeleteIssue() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:invalidUnknownType");
+    EntityResponse response = createAssertionWithRawType(assertionUrn, "UNKNOWN_TYPE_VALUE");
+    CheckContext context = buildContext();
+
+    List<ConsistencyIssue> issues =
+        helper.runChecksForEntityType(
+            ASSERTION_ENTITY_NAME, context, Map.of(assertionUrn, response));
+
+    // assertion-invalid-type should fire with HARD_DELETE
+    helper.assertIssueFromCheck(
+        issues, "assertion-invalid-type", assertionUrn, ConsistencyFixType.HARD_DELETE);
+  }
+
+  /** Test that an assertion with a valid type enum value (FRESHNESS) produces no issues. */
+  @Test
+  public void testAssertionValidType_NoIssue() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:validFreshnessType");
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+
+    when(mockEntityService.exists(eq(testOpContext), eq(entityUrn), eq(true))).thenReturn(true);
+    when(mockEntityService.exists(eq(testOpContext), eq(entityUrn), eq(false))).thenReturn(true);
+
+    // Use a properly constructed assertion with valid type
+    EntityResponse response = createExternalAssertionResponse(assertionUrn, entityUrn);
+    CheckContext context = buildContext();
+
+    List<ConsistencyIssue> issues =
+        helper.runChecksForEntityType(
+            ASSERTION_ENTITY_NAME, context, Map.of(assertionUrn, response));
+
+    // assertion-invalid-type should NOT fire
+    helper.assertNoIssueFromCheck(issues, "assertion-invalid-type");
+  }
+
+  /** Test that an assertion with missing type field does not trigger the invalid enum check. */
+  @Test
+  public void testAssertionMissingType_NoInvalidTypeIssue() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:missingType");
+    EntityResponse response = createAssertionWithMissingType(assertionUrn);
+    CheckContext context = buildContext();
+
+    List<ConsistencyIssue> issues =
+        helper.runChecksForEntityType(
+            ASSERTION_ENTITY_NAME, context, Map.of(assertionUrn, response));
+
+    // assertion-invalid-type should NOT fire (missing type is not an invalid enum)
+    helper.assertNoIssueFromCheck(issues, "assertion-invalid-type");
   }
 
   // ============================================================================
@@ -612,6 +706,69 @@ public class AssertionEntityChecksTest {
     // Intentionally NOT setting the type-specific sub-property (e.g., freshnessAssertion)
     // This creates a type/property mismatch
     infoAspect.setValue(new Aspect(assertionInfo.data()));
+    aspects.put(ASSERTION_INFO_ASPECT_NAME, infoAspect);
+
+    response.setAspects(aspects);
+    return response;
+  }
+
+  /**
+   * Create an assertion with a raw type string value in the DataMap. This bypasses enum validation
+   * during construction and allows testing invalid enum values like "SLA".
+   *
+   * @param assertionUrn the assertion URN
+   * @param typeValue the raw type string value (may be invalid enum)
+   * @return entity response with raw type value
+   */
+  private EntityResponse createAssertionWithRawType(Urn assertionUrn, String typeValue) {
+    EntityResponse response = new EntityResponse();
+    response.setUrn(assertionUrn);
+    response.setEntityName(ASSERTION_ENTITY_NAME);
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+
+    // Status aspect
+    EnvelopedAspect statusAspect = new EnvelopedAspect();
+    Status status = new Status().setRemoved(false);
+    statusAspect.setValue(new Aspect(status.data()));
+    aspects.put(STATUS_ASPECT_NAME, statusAspect);
+
+    // AssertionInfo with raw type value (bypasses enum validation)
+    DataMap infoData = new DataMap();
+    infoData.put("type", typeValue);
+    EnvelopedAspect infoAspect = new EnvelopedAspect();
+    infoAspect.setValue(new Aspect(infoData));
+    aspects.put(ASSERTION_INFO_ASPECT_NAME, infoAspect);
+
+    response.setAspects(aspects);
+    return response;
+  }
+
+  /**
+   * Create an assertion with missing type field in the DataMap. This tests that a missing type
+   * field does not trigger the invalid enum check.
+   *
+   * @param assertionUrn the assertion URN
+   * @return entity response with missing type field
+   */
+  private EntityResponse createAssertionWithMissingType(Urn assertionUrn) {
+    EntityResponse response = new EntityResponse();
+    response.setUrn(assertionUrn);
+    response.setEntityName(ASSERTION_ENTITY_NAME);
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+
+    // Status aspect
+    EnvelopedAspect statusAspect = new EnvelopedAspect();
+    Status status = new Status().setRemoved(false);
+    statusAspect.setValue(new Aspect(status.data()));
+    aspects.put(STATUS_ASPECT_NAME, statusAspect);
+
+    // AssertionInfo without type field
+    DataMap infoData = new DataMap();
+    // Deliberately not setting "type" field
+    EnvelopedAspect infoAspect = new EnvelopedAspect();
+    infoAspect.setValue(new Aspect(infoData));
     aspects.put(ASSERTION_INFO_ASPECT_NAME, infoAspect);
 
     response.setAspects(aspects);

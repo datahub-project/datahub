@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
  * </ul>
  *
  * <p>If the type is set but the corresponding sub-property is null or empty, this indicates data
- * corruption and the assertion should be soft-deleted.
+ * corruption and the assertion should be hard-deleted as it cannot be fixed.
  */
 @Slf4j
 @Component("consistencyAssertionTypeMismatchCheck")
@@ -83,11 +83,11 @@ public class AssertionTypeMismatchCheck extends AbstractAssertionCheck {
     if (!checker.apply(assertionInfo)) {
       String expectedProperty = getExpectedPropertyName(type);
       return List.of(
-          createIssueBuilder(assertionUrn, ConsistencyFixType.SOFT_DELETE)
+          createIssueBuilder(assertionUrn, ConsistencyFixType.HARD_DELETE)
               .description(
                   String.format(
                       "Assertion has type '%s' but %s is null or empty", type, expectedProperty))
-              .batchItems(List.of(createSoftDeleteItem(ctx, assertionUrn, response)))
+              .hardDeleteUrns(List.of(assertionUrn))
               .build());
     }
 
