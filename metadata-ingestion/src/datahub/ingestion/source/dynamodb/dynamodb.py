@@ -622,22 +622,12 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         """
         try:
             resp = dynamodb_client.list_tags_of_resource(ResourceArn=table_arn)
-            tags_kv = resp.get("Tags") or []
-
+            tags_kv = resp.get("Tags", [])
             tags_to_add: List[str] = []
 
-            for t in tags_kv:
-                key = t.get("Key")
-                val = t.get("Value")
-
-                if not key:
-                    continue
-
-                if val:
-                    tag = self.sanitize_tag_name(f"{key}={val}")
-                else:
-                    tag = self.sanitize_tag_name(key)
-
+            for tag_dict in tags_kv:
+                key, val = tag_dict["Key"], tag_dict["Value"]
+                tag = self.sanitize_tag_name(f"{key}={val}" if val else key)
                 tags_to_add.append(tag)
 
             if tags_to_add:
