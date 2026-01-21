@@ -150,6 +150,138 @@ source:
           timeout: 120
 ```
 
+### Google BigLake REST Catalog + GCS warehouse
+
+DataHub supports ingesting metadata from [Google BigLake](https://cloud.google.com/bigquery/docs/biglake-intro) via the Iceberg REST Catalog API.
+BigLake provides unified governance and security for data across data lakes and data warehouses.
+
+PyIceberg 0.9+ natively supports BigLake authentication using Google Cloud's Application Default Credentials (ADC).
+
+#### Prerequisites
+
+1. **GCP Project** with BigLake API enabled:
+
+   ```bash
+   gcloud services enable biglake.googleapis.com --project=YOUR_PROJECT_ID
+   ```
+
+2. **Service Account** with required permissions:
+
+   - `biglake.catalogs.get`
+   - `biglake.tables.get`
+   - `biglake.tables.list`
+   - `biglake.databases.get`
+   - `biglake.databases.list`
+   - Storage Object Viewer (for GCS buckets containing Iceberg data)
+
+3. **BigLake Catalog** created in your GCP project:
+   ```bash
+   gcloud alpha biglake catalogs create CATALOG_NAME \
+     --location=REGION \
+     --project=PROJECT_ID
+   ```
+
+#### Configuration
+
+BigLake authentication uses PyIceberg's native `auth.type: google` configuration. Set up Application Default Credentials first:
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+```
+
+Then configure the catalog:
+
+```yaml
+source:
+  type: iceberg
+  config:
+    env: dev
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/v1/projects/my-project/locations/us-central1/catalogs/my_catalog
+        warehouse: gs://my-bucket/iceberg-warehouse/
+        auth:
+          type: google
+        header.x-goog-user-project: my-project
+        header.X-Iceberg-Access-Delegation: ""
+        connection:
+          timeout: 120
+          retry:
+            total: 5
+            backoff_factor: 0.3
+```
+
+**Key Configuration Parameters:**
+
+- `auth.type: google` - Uses PyIceberg's native BigLake authentication
+- `header.x-goog-user-project` - Specifies the GCP project for billing
+- `header.X-Iceberg-Access-Delegation: ""` - Uses user credentials for authentication
+- PyIceberg automatically handles OAuth2 token refresh and credential management
+
+#### Authentication Methods
+
+PyIceberg's `auth.type: google` automatically discovers credentials using Google Cloud's standard Application Default Credentials (ADC) chain:
+
+1. **Environment Variable**: `GOOGLE_APPLICATION_CREDENTIALS` pointing to service account JSON
+2. **gcloud CLI**: Credentials from `gcloud auth application-default login`
+3. **GCE/GKE Metadata Server**: Automatic when running on Google Cloud infrastructure
+4. **Workload Identity**: Automatic when using GKE Workload Identity
+
+No additional configuration is needed - PyIceberg handles token refresh automatically.
+
+#### Using Vended Credentials
+
+When using vended credentials (where BigLake provides temporary access tokens for GCS), configure the catalog to delegate access to user credentials:
+
+```yaml
+source:
+  type: iceberg
+  config:
+    env: dev
+    catalog:
+      my_biglake_catalog:
+        type: rest
+        uri: https://biglake.googleapis.com/v1/projects/my-project/locations/us-central1/catalogs/my_catalog
+        warehouse: gs://my-bucket/iceberg-warehouse/
+        auth:
+          type: google
+        header.x-goog-user-project: my-project
+        header.X-Iceberg-Access-Delegation: vended-credentials
+```
+
+**Key difference**: Set `header.X-Iceberg-Access-Delegation: vended-credentials` instead of empty string. This tells BigLake to issue temporary credentials for accessing GCS data, which is useful when:
+
+- Running ingestion from environments without direct GCS access
+- Implementing fine-grained access control through BigLake
+- Avoiding long-lived service account keys
+
+BigLake will generate short-lived STS tokens scoped to the specific tables being accessed.
+
+#### Troubleshooting
+
+**Error: "Authentication failed"**
+
+- Verify ADC is configured: `gcloud auth application-default print-access-token`
+- Check service account has required permissions
+- Ensure BigLake API is enabled: `gcloud services list --enabled | grep biglake`
+
+**Error: "Catalog not found"**
+
+- Verify catalog exists: `gcloud alpha biglake catalogs list --location=REGION --project=PROJECT`
+- Check URI format: `https://biglake.googleapis.com/v1/projects/{PROJECT}/locations/{REGION}/catalogs/{CATALOG}`
+
+**Error: "Permission denied on GCS warehouse"**
+
+- Grant Storage Object Viewer role to service account:
+  ```bash
+  gsutil iam ch serviceAccount:SA_EMAIL:roles/storage.objectViewer gs://BUCKET_NAME
+  ```
+
+**Error: "User project header required"**
+
+- Ensure `header.x-goog-user-project` is set to your GCP project ID
+
 ### SQL catalog + Azure DLS as the warehouse
 
 This example targets `Postgres` as the sql-type `Iceberg` catalog and uses Azure DLS as the warehouse.
