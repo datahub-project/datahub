@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
         with:
           ref: ${{ github.event_name == 'schedule' && 'acryl-main' || github.event.inputs.branch || github.ref }}
 
@@ -83,7 +83,7 @@ jobs:
           DATAHUB_FRONTEND_URL: ${{ github.event_name == 'schedule' && 'https://deploy-auto.acryl.io' || github.event.inputs.remote_instance_url }}
           RELEASE_TEST_NOTIFICATION_CHANNEL: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_AUTO }}
           RELEASE_TEST_NOTIFICATION_TOKEN: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_AUTO }}
-          REPORTING_DATAHUB_GMS_URL: ${{ github.event.inputs.report_run_results_datahub && 'https://acryl.acryl.io/gms' || github.event.inputs.remote_instance_url }}
+          REPORTING_DATAHUB_GMS_URL: ${{ github.event.inputs.report_run_results_datahub == 'true' && 'https://acryl.acryl.io/gms' || github.event.inputs.remote_instance_url }}
           REPORTING_DATAHUB_TOKEN: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
           USE_STATIC_SLEEP: "true"
           PYTEST_MARKERS: ${{ github.event.inputs.pytest_markers }}
