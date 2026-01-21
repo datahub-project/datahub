@@ -124,6 +124,12 @@ dependencies {
   testRuntimeOnly externalDependency.logbackClassic
   testRuntimeOnly externalDependency.janino
 
+  // testcontainers for integration tests
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+
   implementation externalDependency.sentry
   implementation externalDependency.sentryLogback
 
