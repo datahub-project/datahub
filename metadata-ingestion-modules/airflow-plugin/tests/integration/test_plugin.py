@@ -775,6 +775,9 @@ test_cases_airflow2 = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase(
+        "airflow_asset_iolets", v2_only=True, platform_instance=PLATFORM_INSTANCE
+    ),
     DagTestCase("dag_to_skip", v2_only=True, platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True, platform_instance=PLATFORM_INSTANCE),
@@ -802,6 +805,11 @@ test_cases_airflow3 = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
+    # @asset decorated DAGs - Airflow 3.0+ feature
+    DagTestCase("decorated_asset_producer", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("decorated_asset_with_file", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("consume_decorated_assets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("dag_to_skip", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False),
     DagTestCase("sqlite_operator", platform_instance=PLATFORM_INSTANCE),
