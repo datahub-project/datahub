@@ -493,6 +493,8 @@ class Dataset(
         upstreams: Optional[models.UpstreamLineageClass] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
+        # View lineage parsing option.
+        parse_view_lineage: bool = True,
     ):
         """Initialize a new Dataset instance.
 
@@ -519,6 +521,8 @@ class Dataset(
             extra_aspects: Optional list of additional aspects.
             schema: Optional schema definition for the dataset.
             upstreams: Optional upstream lineage information.
+            parse_view_lineage: Whether to auto-parse lineage from view_definition SQL.
+                Defaults to True. Set to False to disable auto-parsing.
         """
         urn = DatasetUrn.create_from_ids(
             platform_id=platform,
@@ -551,7 +555,9 @@ class Dataset(
         if last_modified is not None:
             self.set_last_modified(last_modified)
         if view_definition is not None:
-            self.set_view_definition(view_definition)
+            self.set_view_definition(
+                view_definition, parse_view_lineage=parse_view_lineage
+            )
 
         if parent_container is not unset:
             self._set_container(parent_container)
@@ -834,20 +840,27 @@ class Dataset(
             )
         except sqlglot.errors.ParseError as e:
             # Expected: invalid/unsupported SQL syntax
-            logger.debug(f"Could not parse SQL for lineage extraction: {e}")
+            logger.debug("Could not parse SQL for lineage extraction: %s", e)
             return
         except sqlglot.errors.SqlglotError as e:
-            # Unexpected sqlglot error - log at warning level
+            # Unexpected sqlglot error - log at warning level with stack trace
             logger.warning(
-                f"Unexpected sqlglot error parsing view definition for {self.urn}: "
-                f"{type(e).__name__}: {e}"
+                "Unexpected sqlglot error parsing view definition for %s: %s: %s",
+                self.urn,
+                type(e).__name__,
+                e,
+                exc_info=True,
             )
             return
         except Exception as e:
-            # Programming error or unknown issue - log with stack trace hint
+            # Programming error or unknown issue - log with full stack trace
             logger.error(
-                f"Failed to parse view definition for {self.urn}: "
-                f"{type(e).__name__}: {e}. This may be a bug - please report it."
+                "Failed to parse view definition for %s: %s: %s. "
+                "This may be a bug - please report it.",
+                self.urn,
+                type(e).__name__,
+                e,
+                exc_info=True,
             )
             return
 
@@ -892,10 +905,14 @@ class Dataset(
                     table_name=table_name,
                     env=env,
                 )
-            except Exception as e:
+            except (ValueError, TypeError) as e:
+                # Expected: invalid table name format
                 logger.debug(
-                    f"Could not create URN for table '{table_name}' "
-                    f"(platform={platform}, env={env}): {e}"
+                    "Could not create URN for table '%s' (platform=%s, env=%s): %s",
+                    table_name,
+                    platform,
+                    env,
+                    e,
                 )
                 continue
 

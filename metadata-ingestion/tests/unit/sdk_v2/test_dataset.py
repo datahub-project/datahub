@@ -542,6 +542,19 @@ def test_view_definition_parse_lineage_disabled() -> None:
     assert view.upstreams is None
 
 
+def test_view_definition_constructor_parse_lineage_disabled() -> None:
+    """parse_view_lineage=False in constructor should skip automatic lineage extraction."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT id FROM db.schema.source_table",
+        parse_view_lineage=False,
+    )
+
+    assert view.view_definition is not None
+    assert view.upstreams is None
+
+
 def test_view_definition_different_platforms() -> None:
     """Lineage extraction should work for different SQL dialects."""
     # BigQuery
