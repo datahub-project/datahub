@@ -15,9 +15,9 @@ public final class DatasetUrn extends Urn {
   private final FabricType _origin;
 
   public DatasetUrn(DataPlatformUrn platform, String name, FabricType origin) {
-    super(ENTITY_TYPE, TupleKey.create(platform, name, origin));
+    super(ENTITY_TYPE, TupleKey.create(platform, sanitizeName(name), origin));
     this._platform = platform;
-    this._datasetName = name;
+    this._datasetName = sanitizeName(name);
     this._origin = origin;
   }
 
@@ -50,7 +50,7 @@ public final class DatasetUrn extends Urn {
         try {
           return new DatasetUrn(
               (DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
-              (String) key.getAs(1, String.class),
+                  sanitizeName(key.getAs(1, String.class)),
               (FabricType) key.getAs(2, FabricType.class));
         } catch (Exception var3) {
           throw new URISyntaxException(
@@ -84,4 +84,12 @@ public final class DatasetUrn extends Urn {
         },
         DatasetUrn.class);
   }
+
+    private static String sanitizeName(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        // Remove leading + trailing whitespace
+        return raw.trim();
+    }
 }
