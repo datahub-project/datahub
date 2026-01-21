@@ -19,6 +19,26 @@ on:
         options:
           - https://deploy-auto.acryl.io
           - https://deploy-test.acryl.io
+      pytest_markers:
+        description: "Pytest markers to pass for selecting tests to run"
+        required: false
+        type: string
+        default: "release_tests or read_only"
+      tests_paths_to_run:
+        description: "Paths to pass to pytest command for test selection"
+        required: false
+        type: string
+        default: "tests/read_only tests/release_tests tests/metrics/test_metrics.py"
+      pytest_extra_args:
+        description: "Extra arguments for the pytest command"
+        required: false
+        type: string
+        default: ""
+      report_run_results_datahub:
+        description: "Report run results to Datahub Instance. Should be true only for scheduled runs"
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -63,9 +83,13 @@ jobs:
           DATAHUB_FRONTEND_URL: ${{ github.event_name == 'schedule' && 'https://deploy-auto.acryl.io' || github.event.inputs.remote_instance_url }}
           RELEASE_TEST_NOTIFICATION_CHANNEL: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_AUTO }}
           RELEASE_TEST_NOTIFICATION_TOKEN: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_AUTO }}
-          REPORTING_DATAHUB_GMS_URL: https://acryl.acryl.io/gms
+          REPORTING_DATAHUB_GMS_URL: ${{ github.event.inputs.report_run_results_datahub && 'https://acryl.acryl.io/gms' || github.event.inputs.remote_instance_url }}
           REPORTING_DATAHUB_TOKEN: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
           USE_STATIC_SLEEP: "true"
+          PYTEST_MARKERS: ${{ github.event.inputs.pytest_markers }}
+          PYTEST_TEST_PATHS: ${{ github.event.inputs.tests_paths_to_run }}
+          PYTEST_EXTRA_ARGS: ${{ github.event.inputs.pytest_extra_args }}
+
         run: |
           cd smoke-test
           uv venv venv --python 3.11
@@ -80,6 +104,7 @@ jobs:
           name: Test Results (release tests)
           path: |
             **/junit.*.xml
+            test-reports/**
             **/build/test-results/test/**
             smoke-test/build/test-results/
           retention-days: 5
