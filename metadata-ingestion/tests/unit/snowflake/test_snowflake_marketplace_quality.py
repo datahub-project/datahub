@@ -435,3 +435,24 @@ class TestMarketplaceBusinessLogic:
         ]
 
         assert len(warnings_about_shares) <= 1
+
+    def test_parse_resources_json_handles_malformed_input(
+        self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
+    ) -> None:
+        """Test that _parse_resources_json handles malformed JSON gracefully."""
+        handler = create_handler(base_config, mock_listings)
+
+        # Test invalid JSON
+        assert handler._parse_resources_json("{invalid json}") is None
+
+        # Test valid JSON without documentation key
+        assert handler._parse_resources_json('{"other_key": "value"}') is None
+
+        # Test None input
+        assert handler._parse_resources_json(None) is None
+
+        # Test valid JSON with documentation
+        result = handler._parse_resources_json(
+            '{"documentation": "https://example.com"}'
+        )
+        assert result == "https://example.com"

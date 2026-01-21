@@ -221,9 +221,9 @@ For organizations that **purchase/install** internal marketplace listings:
      enabled: true
      marketplace_mode: "consumer" # Default
      # Optional: Configure time window for usage statistics
-     start_time: "-7 days"  # Default: -1 day
+     start_time: "-7 days" # Default: -1 day
      end_time: "now"
-     bucket_duration: "DAY"  # Options: "DAY", "HOUR"
+     bucket_duration: "DAY" # Options: "DAY", "HOUR"
    ```
 
    The `marketplace` configuration inherits from `BaseTimeWindowConfig`, allowing you to control the time window for extracting marketplace usage statistics. This follows the same pattern as other DataHub connectors.
@@ -350,6 +350,51 @@ You publish a "Customer 360" listing from your `CUSTOMER_DATA` database. Provide
 Set `marketplace_mode: "both"` to track both purchased listings (consumer) AND published listings (provider) in the same ingestion.
 
 For more details, see the marketplace configuration guide in the connector documentation.
+
+#### Troubleshooting Marketplace Ingestion
+
+**Common Permission Errors:**
+
+If marketplace ingestion fails or produces incomplete data, check for these common permission issues:
+
+1. **"Failed to get marketplace listings - insufficient permissions"**
+
+   - **Cause**: Role lacks access to run `SHOW AVAILABLE LISTINGS`
+   - **Solution**: Grant imported privileges:
+     ```sql
+     grant imported privileges on database snowflake to role datahub_role;
+     ```
+
+2. **"Failed to describe provider share - insufficient permissions"**
+
+   - **Cause**: Role cannot run `DESC SHARE` (provider mode only)
+   - **Solution**: Ensure the role owns the share or has been granted appropriate privileges
+
+3. **"Failed to query imported database tables - insufficient permissions"**
+
+   - **Cause**: Role lacks access to query `INFORMATION_SCHEMA` in imported databases
+   - **Solution**: Grant usage and references on the imported database:
+     ```sql
+     grant usage on database "<imported-database>" to role datahub_role;
+     grant usage on all schemas in database "<imported-database>" to role datahub_role;
+     grant references on all tables in database "<imported-database>" to role datahub_role;
+     ```
+
+4. **Data Products created but no assets appear**
+
+   - **Cause**: Missing `shares` configuration (consumer mode)
+   - **Solution**: Add explicit `listing_global_name` mapping in your `shares` config (see consumer mode documentation above)
+
+5. **Incomplete listing metadata**
+   - **Cause**: `fetch_internal_marketplace_listing_details: true` requires additional time per listing
+   - **Note**: This is expected behavior. The connector runs `DESCRIBE AVAILABLE LISTING` for each listing to fetch enriched metadata (descriptions, owners, documentation links). For large catalogs (100+ listings), consider setting this to `false` to improve performance.
+
+**Debugging Tips:**
+
+- Check the DataHub logs for structured warnings about marketplace ingestion failures
+- All marketplace errors are logged with clear titles and context (e.g., "Optional listing enrichment failed")
+- Verify your role has `imported privileges` on the `snowflake` database
+- Test your SQL grants manually using the DataHub role before running ingestion
 
 ### Lineage and Usage
 
