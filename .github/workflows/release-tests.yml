@@ -128,5 +128,4 @@ jobs:
           path: junit.xml
           list-tests: "failed"
           max-annotations: "30"
-          only-summary: "true"
           report-title: "Test Result Summary"
