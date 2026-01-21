@@ -25,6 +25,7 @@ export enum EntityMenuItems {
     ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
     LINK_VERSION,
+    CLONE,
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`

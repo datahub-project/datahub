@@ -1,4 +1,4 @@
 {
     "password": "ELASTICSEARCH_PASSWORD",
- 	  "roles":["PREFIXaccess"]
+ 	  "roles":["PREFIX"]
  }

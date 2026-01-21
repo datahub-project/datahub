@@ -9,6 +9,7 @@ import dateutil.parser
 import requests
 from pydantic import Field, model_validator
 
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -22,6 +23,11 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.source.dbt.dbt_cloud_models import (
+    DBTCloudDeploymentType,
+    DBTCloudEnvironment,
+    DBTCloudJob,
+)
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
@@ -32,6 +38,24 @@ from datahub.ingestion.source.dbt.dbt_common import (
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
+
+
+class AutoDiscoveryConfig(ConfigModel):
+    """
+    Configuration for auto-discovery mode that automatically discovers jobs for a project.
+    Ref: DBT Jobs: http://docs.getdbt.com/docs/deploy/jobs
+    TODO: The configuration is oraganised this way to allow for future expansion to project discovery at account level.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable/disable auto-discovery mode. When enabled, discovers jobs for the specified project. Only production jobs with generate_docs=True are ingested.",
+    )
+
+    job_id_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter jobs by job_id when auto-discovering.",
+    )
 
 
 class DBTCloudConfig(DBTCommonConfig):
@@ -56,12 +80,18 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The dbt Cloud project ID to use.",
     )
 
-    job_id: int = Field(
-        description="The ID of the job to ingest metadata from.",
+    job_id: Optional[int] = Field(
+        None,
+        description="The ID of the job to ingest metadata from. Required in explicit mode (when auto_discovery is disabled).",
     )
     run_id: Optional[int] = Field(
         None,
-        description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
+        description="The ID of the run to ingest metadata from. If not specified, defaults to the latest run. In auto-discovery mode, always uses the latest run for each job.",
+    )
+
+    auto_discovery: Optional[AutoDiscoveryConfig] = Field(
+        None,
+        description="Auto-discovery configuration. When enabled, automatically discovers jobs for the specified project.",
     )
 
     external_url_mode: Literal["explore", "ide"] = Field(
@@ -85,6 +115,16 @@ class DBTCloudConfig(DBTCommonConfig):
             logger.info(f"Inferred metadata endpoint: {metadata_endpoint}")
             values["metadata_endpoint"] = metadata_endpoint
         return values
+
+    @model_validator(mode="after")
+    def validate_config(self) -> "DBTCloudConfig":
+        is_auto_discovery = self.auto_discovery and self.auto_discovery.enabled
+        if not is_auto_discovery and self.job_id is None:
+            raise ValueError(
+                "job_id is required in explicit mode. "
+                "Either provide job_id or enable auto_discovery mode."
+            )
+        return self
 
 
 def infer_metadata_endpoint(access_url: str) -> Optional[str]:
@@ -252,7 +292,6 @@ _DBT_FIELDS_BY_TYPE = {
 """,
     # Currently unsupported dbt node types:
     # - metrics
-    # - snapshots
     # - exposures
 }
 
@@ -280,20 +319,36 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         config = DBTCloudConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def _is_auto_discovery_enabled(self) -> bool:
+        """Check if auto-discovery mode is enabled."""
+        return bool(self.config.auto_discovery and self.config.auto_discovery.enabled)
+
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
             source_config = DBTCloudConfig.parse_obj_allow_extras(config_dict)
-            DBTCloudSource._send_graphql_query(
-                metadata_endpoint=source_config.metadata_endpoint,
-                token=source_config.token,
-                query=_DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
-                variables={
-                    "jobId": source_config.job_id,
-                    "runId": source_config.run_id,
-                },
+            is_auto_discovery = (
+                source_config.auto_discovery and source_config.auto_discovery.enabled
             )
+
+            if is_auto_discovery:
+                # Test auto-discovery: verify we can fetch environments
+                DBTCloudSource._get_environments_for_project(
+                    source_config.access_url,
+                    source_config.token,
+                    source_config.account_id,
+                    source_config.project_id,
+                )
+            else:
+                # Test explicit mode: verify we can query the job
+                DBTCloudSource._send_graphql_query(
+                    source_config.metadata_endpoint,
+                    source_config.token,
+                    _DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
+                    {"jobId": source_config.job_id, "runId": source_config.run_id},
+                )
+
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -331,6 +386,222 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         return data
 
+    @staticmethod
+    def _get_jobs_for_project(
+        access_url: str,
+        token: str,
+        account_id: int,
+        project_id: int,
+        environment_id: int,
+    ) -> List[DBTCloudJob]:
+        """Fetch all jobs for a specific project from the dbt Cloud REST API.
+
+        Args:
+            access_url: The dbt Cloud access URL.
+            token: The API token for authentication.
+            account_id: The dbt Cloud account ID.
+            project_id: The dbt Cloud project ID.
+            environment_id: The dbt Cloud environment ID.
+
+        Returns:
+            List of job dictionaries
+
+        Raises:
+            ValueError: If unable to fetch jobs from the API.
+        """
+        url = f"{access_url.rstrip('/')}/api/v2/accounts/{account_id}/jobs/"
+
+        logger.debug(f"Fetching jobs for account {account_id} from dbt Cloud: {url}")
+        response = requests.get(
+            url,
+            headers={
+                "Authorization": f"Token {token}",
+                "Content-Type": "application/json",
+            },
+            params={
+                "project_id": project_id,
+                "environment_id": environment_id,
+            },
+        )
+
+        try:
+            response.raise_for_status()
+            data = response.json()
+            # The API returns jobs in a 'data' field
+            jobs = [
+                DBTCloudJob(id=job["id"], generate_docs=job["generate_docs"])
+                for job in data.get("data", [])
+            ]
+
+            logger.info(f"Found {len(jobs)} jobs in dbt Cloud account {account_id}")
+            return jobs
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Unable to fetch jobs from dbt Cloud API: {e}", exc_info=True)
+            raise ValueError(
+                f"Failed to fetch jobs from dbt Cloud API. Status code: {response.status_code}"
+            ) from e
+        except JSONDecodeError as e:
+            logger.debug(
+                f"Invalid JSON response from dbt Cloud API: {e}", exc_info=True
+            )
+            raise ValueError("Received invalid JSON response from dbt Cloud API") from e
+
+    @staticmethod
+    def _get_environments_for_project(
+        access_url: str, token: str, account_id: int, project_id: int
+    ) -> List[DBTCloudEnvironment]:
+        """Fetch environments for a specific project from the dbt Cloud REST API.
+
+        Args:
+            access_url: The dbt Cloud access URL.
+            token: The API token for authentication.
+            account_id: The dbt Cloud account ID.
+            project_id: The dbt Cloud project ID.
+
+        Returns:
+            List of environment dictionaries.
+
+        Raises:
+            ValueError: If unable to fetch environments from the API.
+        """
+        url = f"{access_url.rstrip('/')}/api/v2/accounts/{account_id}/environments/"
+
+        logger.debug(
+            f"Fetching environments for project {project_id} from dbt Cloud: {url}"
+        )
+        response = requests.get(
+            url,
+            headers={
+                "Authorization": f"Token {token}",
+                "Content-Type": "application/json",
+            },
+            params={"project_id": project_id},
+        )
+
+        try:
+            response.raise_for_status()
+            data = response.json()
+            environments = []
+            logger.debug(
+                f"Found {len(data.get('data', []))} environments for project {project_id}"
+            )
+            for environment in data.get("data", []):
+                deployment_type = environment.get("deployment_type")
+                if deployment_type is None:
+                    logger.debug(
+                        f"Skipping environment {environment['id']} with null deployment_type"
+                    )
+                    continue
+                environments.append(
+                    DBTCloudEnvironment(
+                        id=environment["id"],
+                        deployment_type=DBTCloudDeploymentType(deployment_type),
+                    )
+                )
+
+            logger.debug(
+                f"Processed {len(environments)} environments out of {len(data.get('data', []))} for project {project_id}"
+            )
+            return environments
+        except requests.exceptions.RequestException as e:
+            logger.debug(
+                f"Unable to fetch environments from dbt Cloud API: {e}", exc_info=True
+            )
+            raise ValueError(
+                f"Failed to fetch environments from dbt Cloud API. Status code: {response.status_code}: {str(e)}"
+            ) from e
+        except JSONDecodeError as e:
+            logger.debug(
+                f"Invalid JSON response from dbt Cloud API: {e}", exc_info=True
+            )
+            raise ValueError("Received invalid JSON response from dbt Cloud API") from e
+
+    def _auto_discover_projects_and_jobs(self) -> List[int]:
+        """Auto-discover jobs for the configured project.
+
+        Returns:
+            List of job IDs to ingest.
+        """
+        if not self._is_auto_discovery_enabled():
+            return []
+        assert self.config.auto_discovery is not None
+        logger.info(
+            f"Starting auto-discovery for project {self.config.project_id} in account {self.config.account_id}"
+        )
+
+        # Fetch and find production environment
+        try:
+            environments: List[DBTCloudEnvironment] = (
+                self._get_environments_for_project(
+                    self.config.access_url,
+                    self.config.token,
+                    self.config.account_id,
+                    self.config.project_id,
+                )
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch environments for project {self.config.project_id}: {e}"
+            )
+            raise
+
+        production_env = next(
+            (
+                env
+                for env in environments
+                if env.deployment_type == DBTCloudDeploymentType.PRODUCTION
+            ),
+            None,
+        )
+        if not production_env:
+            raise ValueError(
+                f"Could not find production environment for project {self.config.project_id}"
+            )
+
+        logger.info(
+            f"Found production environment {production_env.id} for project {self.config.project_id}"
+        )
+
+        # Fetch and filter jobs
+        try:
+            all_jobs: List[DBTCloudJob] = self._get_jobs_for_project(
+                self.config.access_url,
+                self.config.token,
+                self.config.account_id,
+                self.config.project_id,
+                production_env.id,
+            )
+            self.report.total_jobs_retreived_from_api = len(all_jobs)
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch jobs for project {self.config.project_id}: {e}"
+            )
+            raise
+
+        # Filter jobs by generate_docs=True and job_id_pattern
+        filtered_job_ids: List[int] = []
+        for job in all_jobs:
+            if job.generate_docs and self.config.auto_discovery.job_id_pattern.allowed(
+                str(job.id)
+            ):
+                filtered_job_ids.append(job.id)
+            else:
+                self.report.total_jobs_processed_skipped += 1
+                logger.debug(
+                    f"Skipping job {job.id}: generate_docs={job.generate_docs}, "
+                    f"matches_pattern={self.config.auto_discovery.job_id_pattern.allowed(str(job.id))}"
+                )
+                self.report.warning(
+                    title="DBT Cloud Jobs Skipped Processing",
+                    message=f"Jobs from account_id: {self.config.account_id}, project_id: {self.config.project_id}, environment_id: {production_env.id} were skipped because it did not match the job_id_pattern or did not generate_docs",
+                    context=str(job.id),
+                )
+
+        logger.info(
+            f"Auto-discovery completed: found {len(filtered_job_ids)} jobs to ingest for project {self.config.project_id}"
+        )
+        return filtered_job_ids
+
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
         # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
         # each job can have multiple runs. We currently only fully support
@@ -341,56 +612,153 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # Additionally, we'd like to model dbt Cloud jobs/runs in DataHub
         # as DataProcesses or DataJobs.
 
-        raw_nodes = []
-        for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
-            logger.info(f"Fetching {node_type} from dbt Cloud")
-            data = self._send_graphql_query(
-                metadata_endpoint=self.config.metadata_endpoint,
-                token=self.config.token,
-                query=_DBT_GRAPHQL_QUERY.format(type=node_type, fields=fields),
-                variables={
-                    "jobId": self.config.job_id,
-                    "runId": self.config.run_id,
-                },
-            )
+        job_ids_to_ingest: List[int] = []
+        run_id: Optional[int] = self.config.run_id
+        if self._is_auto_discovery_enabled():
+            logger.info("Auto-discovery mode: discovering jobs for configured project")
+            job_ids_to_ingest = self._auto_discover_projects_and_jobs()
+            if not job_ids_to_ingest:
+                logger.warning("No jobs discovered in auto-discovery mode")
+                return [], {}
+            run_id = None  # Always use latest run in auto-discovery
+        else:
+            assert self.config.job_id is not None
+            logger.info(f"Explicit mode: ingesting single job {self.config.job_id}")
+            job_ids_to_ingest = [self.config.job_id]
 
-            raw_nodes.extend(data["job"][node_type])
+        # Fetch nodes from all jobs
+        raw_nodes = []
+        for job_id in job_ids_to_ingest:
+            self.report.processed_jobs_list.append(job_id)
+            self.report.total_jobs_processed += 1
+            for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
+                try:
+                    logger.info(
+                        f"Fetching {node_type} from dbt Cloud for job_id: {job_id}"
+                    )
+                    data = self._send_graphql_query(
+                        metadata_endpoint=self.config.metadata_endpoint,
+                        token=self.config.token,
+                        query=_DBT_GRAPHQL_QUERY.format(type=node_type, fields=fields),
+                        variables={
+                            "jobId": job_id,
+                            "runId": run_id,
+                        },
+                    )
+
+                    raw_nodes.extend(data["job"][node_type])
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch {node_type} from job {job_id}: {e}. Continuing with other jobs."
+                    )
+                    continue
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
         additional_metadata: Dict[str, Optional[str]] = {
-            "project_id": str(self.config.project_id),
             "account_id": str(self.config.account_id),
-            "job_id": str(self.config.job_id),
         }
 
         return nodes, additional_metadata
 
+    def _extract_code_fields(
+        self, node: Dict, materialization: Optional[str]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Extract raw_code and compiled_code from a node."""
+        key = node["uniqueId"]
+        resource_type = node["resourceType"]
+
+        if resource_type in {"model", "seed", "snapshot"}:
+            status = node["status"]
+            if status is None and materialization != "ephemeral":
+                self.report.warning(
+                    title="Schema information may be incomplete",
+                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
+                    context=key,
+                )
+
+            raw_code = node["rawCode"] or node["rawSql"]
+            compiled_code = node["compiledCode"] or node["compiledSql"]
+
+            if not compiled_code:
+                self.report.warning(
+                    title="Missing compiled_code",
+                    message=f"compiled_code is missing (materialization={materialization}). "
+                    "Column-level lineage will not be available for this model.",
+                    context=key,
+                )
+            return raw_code, compiled_code
+
+        return None, None
+
+    def _extract_test_info(
+        self, node: Dict, name: str
+    ) -> Tuple[Optional[DBTTest], Optional[DBTTestResult]]:
+        """Extract test info and result from a test node."""
+        qualified_test_name = name
+
+        for dependency in node["dependsOn"]:
+            if dependency.startswith("macro."):
+                _, macro = dependency.split(".", 1)
+                if macro.startswith("dbt."):
+                    if not macro.startswith("dbt.test_"):
+                        continue
+                    macro = macro[len("dbt.test_") :]
+
+                qualified_test_name = macro
+                break
+
+        test_info = DBTTest(
+            qualified_test_name=qualified_test_name,
+            column_name=node["columnName"],
+            kw_args={},  # TODO: dbt Cloud doesn't expose the args.
+        )
+
+        test_result = None
+        if not node["skip"]:
+            test_result = DBTTestResult(
+                invocation_id=f"job{node['jobId']}-run{node['runId']}",
+                execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                status=node["status"],
+                native_results={
+                    key: str(node[key])
+                    for key in {
+                        "columnName",
+                        "error",
+                        "fail",
+                        "warn",
+                        "skip",
+                        "state",
+                        "status",
+                    }
+                },
+            )
+        return test_info, test_result
+
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
+        resource_type = node["resourceType"]
 
         name = node["name"]
         if self.config.use_identifiers and node.get("identifier"):
             name = node["identifier"]
-        if node["resourceType"] != "test" and node.get("alias"):
+        if resource_type != "test" and node.get("alias"):
             name = node["alias"]
 
         comment = node.get("comment", "")
+        # description is table-level (more specific), sourceDescription is schema-level
+        table_level_desc = node.get("description")
+        schema_level_desc = node.get("sourceDescription")
+        description = table_level_desc or schema_level_desc or ""
 
-        # In dbt sources, there are two types of descriptions:
-        # - description: table-level description (specific to the source table)
-        # - sourceDescription: schema-level description (describes the overall source schema)
-        # The table-level description should take precedence since it's more specific.
-        description = node["description"] or node.get("sourceDescription", "")
-
-        if node["resourceType"] == "model":
+        if resource_type == "model":
             materialization = node["materializedType"]
-        elif node["resourceType"] == "snapshot":
+        elif resource_type == "snapshot":
             materialization = "snapshot"
         else:
             materialization = None
 
-        if node["resourceType"] == "snapshot":
+        if resource_type == "snapshot":
             upstream_nodes = [
                 obj["uniqueId"]
                 for obj in [
@@ -402,44 +770,23 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             upstream_nodes = node.get("dependsOn", [])
 
         catalog_type = node.get("type")
-
         meta = node["meta"]
-
-        # The dbt owner field is set to the db user, and not the meta property.
-        # owner = node.get("owner")
+        # Note: node["owner"] contains the database user, not the meta property.
+        # We use meta.owner to match dbt_core.py behavior.
         owner = meta.get("owner")
+        tags = [self.config.tag_prefix + tag for tag in node["tags"]]
 
-        tags = node["tags"]
-        tags = [self.config.tag_prefix + tag for tag in tags]
-
-        if node["resourceType"] in {"model", "seed", "snapshot"}:
-            status = node["status"]
-            if status is None and materialization != "ephemeral":
-                self.report.warning(
-                    title="Schema information may be incomplete",
-                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
-                    context=key,
-                    log=False,
-                )
-
-            # The code fields are new in dbt 1.3, and replace the sql ones.
-            raw_code = node["rawCode"] or node["rawSql"]
-            compiled_code = node["compiledCode"] or node["compiledSql"]
-        else:
-            raw_code = None
-            compiled_code = None
+        raw_code, compiled_code = self._extract_code_fields(node, materialization)
 
         max_loaded_at = None
-        if node["resourceType"] == "source":
+        if resource_type == "source":
             max_loaded_at_str = node["maxLoadedAt"]
             if max_loaded_at_str:
                 max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
-
-                # For missing data, dbt returns 0001-01-01T00:00:00.000Z.
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
-        columns = []
+        columns: List[DBTColumn] = []
         if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
@@ -451,50 +798,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         test_info = None
         test_result = None
-        if node["resourceType"] == "test":
-            qualified_test_name = name
-
-            # The qualified test name should be the test name from the dbt project.
-            # It can be simple (e.g. 'unique') or prefixed (e.g. 'dbt_expectations.expect_column_values_to_not_be_null').
-            # We attempt to guess the test name based on the macros used.
-            for dependency in node["dependsOn"]:
-                # An example dependsOn list could be:
-                #     ['model.sample_dbt.monthly_billing_with_cust', 'macro.dbt.test_not_null', 'macro.dbt.get_where_subquery']
-                # In that case, the test should be `not_null`.
-
-                if dependency.startswith("macro."):
-                    _, macro = dependency.split(".", 1)
-                    if macro.startswith("dbt."):
-                        if not macro.startswith("dbt.test_"):
-                            continue
-                        macro = macro[len("dbt.test_") :]
-
-                    qualified_test_name = macro
-                    break
-
-            test_info = DBTTest(
-                qualified_test_name=qualified_test_name,
-                column_name=node["columnName"],
-                kw_args={},  # TODO: dbt Cloud doesn't expose the args.
-            )
-            if not node["skip"]:
-                test_result = DBTTestResult(
-                    invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                    execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
-                    status=node["status"],
-                    native_results={
-                        key: str(node[key])
-                        for key in {
-                            "columnName",
-                            "error",
-                            "fail",
-                            "warn",
-                            "skip",
-                            "state",
-                            "status",
-                        }
-                    },
-                )
+        if resource_type == "test":
+            test_info, test_result = self._extract_test_info(node, name)
 
         return DBTNode(
             dbt_name=key,
@@ -506,7 +811,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name=name,
             alias=node.get("alias"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
-            node_type=node["resourceType"],
+            node_type=resource_type,
             max_loaded_at=max_loaded_at,
             comment=comment,
             description=description,

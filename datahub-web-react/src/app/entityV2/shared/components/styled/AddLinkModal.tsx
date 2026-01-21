@@ -1,27 +1,17 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button as AntButton, message } from 'antd';
+import { Button as AntButton } from 'antd';
 import React, { useState } from 'react';
 
-import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
-import { FormData, LinkFormModal } from '@app/entityV2/shared/components/styled/LinkFormModal';
+import AddLinkModalUpdated from '@app/entityV2/shared/components/links/AddLinkModal';
 import { Button } from '@src/alchemy-components';
-
-import { useAddLinkMutation } from '@graphql/mutations.generated';
 
 interface Props {
     buttonProps?: Record<string, unknown>;
-    refetch?: () => Promise<any>;
     buttonType?: string;
 }
 
-export const AddLinkModal = ({ buttonProps, refetch, buttonType }: Props) => {
+export const AddLinkModal = ({ buttonProps, buttonType }: Props) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const mutationUrn = useMutationUrn();
-    const user = useUserContext();
-    const { entityType } = useEntityData();
-    const [addLinkMutation] = useAddLinkMutation();
 
     const showModal = () => {
         setIsModalVisible(true);
@@ -29,39 +19,6 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: Props) => {
 
     const handleClose = () => {
         setIsModalVisible(false);
-    };
-
-    const handleAdd = async (formData: FormData) => {
-        if (user?.urn) {
-            try {
-                await addLinkMutation({
-                    variables: {
-                        input: {
-                            linkUrl: formData.url,
-                            label: formData.label,
-                            settings: { showInAssetPreview: formData.showInAssetPreview },
-                            resourceUrn: mutationUrn,
-                        },
-                    },
-                });
-                message.success({ content: 'Link Added', duration: 2 });
-                analytics.event({
-                    type: EventType.EntityActionEvent,
-                    entityType,
-                    entityUrn: mutationUrn,
-                    actionType: EntityActionType.UpdateLinks,
-                });
-                handleClose();
-            } catch (e: unknown) {
-                message.destroy();
-                if (e instanceof Error) {
-                    message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
-                }
-            }
-            refetch?.();
-        } else {
-            message.error({ content: `Error adding link: no user`, duration: 2 });
-        }
     };
 
     const renderButton = (bType: string | undefined) => {
@@ -92,7 +49,7 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: Props) => {
     return (
         <>
             {renderButton(buttonType)}
-            <LinkFormModal variant="create" open={isModalVisible} onSubmit={handleAdd} onCancel={handleClose} />
+            {isModalVisible && <AddLinkModalUpdated setShowAddLinkModal={handleClose} />}
         </>
     );
 };

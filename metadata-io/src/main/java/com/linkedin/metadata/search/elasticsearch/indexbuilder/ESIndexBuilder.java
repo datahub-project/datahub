@@ -60,6 +60,7 @@ import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.*;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.CreateIndexRequest;
@@ -79,6 +80,7 @@ import org.opensearch.tasks.TaskInfo;
 
 @Slf4j
 public class ESIndexBuilder {
+
   //  this setting is not allowed to change as of now in AOS:
   // https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-operations.html
   //  public static final String INDICES_MEMORY_INDEX_BUFFER_SIZE =
@@ -97,11 +99,17 @@ public class ESIndexBuilder {
   // private static final Float MINJVMHEAP = 0.1F;
 
   private final SearchClientShim<?> searchClient;
+
   @Getter @VisibleForTesting private final ElasticSearchConfiguration config;
+
   private final IndexConfiguration indexConfig;
+
   @Getter @VisibleForTesting private final StructuredPropertiesConfiguration structPropConfig;
+
   @Getter private final Map<String, Map<String, String>> indexSettingOverrides;
+
   @Getter @VisibleForTesting private final GitVersion gitVersion;
+
   private final OpenSearchJvmInfo jvminfo;
 
   private static final RequestOptions REQUEST_OPTIONS =
@@ -238,7 +246,6 @@ public class ESIndexBuilder {
       @Nonnull SettingsBuilder settingsBuilder,
       @Nonnull MappingsBuilder mappingsBuilder,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-
     Collection<MappingsBuilder.IndexMapping> indexMappings =
         mappingsBuilder.getIndexMappings(opContext, properties);
 
@@ -312,8 +319,9 @@ public class ESIndexBuilder {
     baseSettings.put(NUMBER_OF_REPLICAS, indexConfig.getNumReplicas());
     baseSettings.put(
         REFRESH_INTERVAL, String.format("%ss", indexConfig.getRefreshIntervalSeconds()));
-    // use zstd in OS only, in ES we can use it in the future with best_compression
-    if (isOpenSearch29OrHigher()) {
+    // Use zstd in OS only and only if KNN is not enabled (codec settings conflict with KNN)
+    // In ES we can use it in the future with best_compression
+    if (isOpenSearch29OrHigher() && !isKnnEnabled(baseSettings)) {
       baseSettings.put("codec", "zstd_no_dict");
     }
     baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
@@ -359,10 +367,13 @@ public class ESIndexBuilder {
     return builder.build();
   }
 
+  private static boolean isKnnEnabled(Map<String, Object> baseSettings) {
+    return baseSettings.get("knn") == Boolean.TRUE;
+  }
+
   @SuppressWarnings("unchecked")
   private void mergeStructuredPropertyMappings(
       Map<String, Object> targetMappings, Map<String, Object> currentMappings) {
-
     // Extract current structured property mapping (entire object, not just properties)
     Map<String, Object> currentStructuredPropertyMapping =
         (Map<String, Object>)
@@ -395,7 +406,6 @@ public class ESIndexBuilder {
   // ES8+ includes additional top level fields that we don't want to wipe out or detect as
   // differences
   private void mergeTopLevelFields(Map<String, Object> target, Map<String, Object> current) {
-
     current.entrySet().stream()
         .filter(entry -> !PROPERTIES.equals(entry.getKey())) // Skip properties field
         .forEach(entry -> target.putIfAbsent(entry.getKey(), entry.getValue()));
@@ -403,7 +413,6 @@ public class ESIndexBuilder {
 
   @SuppressWarnings("unchecked")
   private void mergeStructuredProperties(Map<String, Object> target, Map<String, Object> current) {
-
     Map<String, Object> currentProperties =
         (Map<String, Object>) current.getOrDefault(PROPERTIES, new HashMap<>());
 
@@ -784,10 +793,9 @@ public class ESIndexBuilder {
               tempIndexName);
           reindexTaskCompleted = true;
           break;
-
         } else {
           float progressPercentage =
-              100 * (1.0f * documentCounts.getSecond()) / documentCounts.getFirst();
+              (100 * (1.0f * documentCounts.getSecond())) / documentCounts.getFirst();
           log.warn(
               "Task: {} - Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes",
               parentTaskId,
@@ -1188,7 +1196,6 @@ public class ESIndexBuilder {
 
   private void diff(String indexA, String indexB, long maxDocs) {
     if (maxDocs <= 100) {
-
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
       searchSourceBuilder.size(100);
       searchSourceBuilder.sort(SortBuilders.fieldSort("_id").order(SortOrder.ASC));
@@ -1231,13 +1238,83 @@ public class ESIndexBuilder {
         .getCount();
   }
 
+  /**
+   * Check if an index exists.
+   *
+   * @param indexName The name of the index to check
+   * @return true if the index exists, false otherwise
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public boolean indexExists(@Nonnull String indexName) throws IOException {
+    return searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+  }
+
+  /**
+   * Refresh an index to make all operations performed since the last refresh available for search.
+   *
+   * @param indexName The name of the index to refresh
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public void refreshIndex(@Nonnull String indexName) throws IOException {
+    searchClient.refreshIndex(
+        new org.opensearch.action.admin.indices.refresh.RefreshRequest(indexName),
+        RequestOptions.DEFAULT);
+  }
+
+  /**
+   * Delete an index. Handles both aliases and concrete indices.
+   *
+   * @param indexName The name of the index or alias to delete
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public void deleteIndex(@Nonnull String indexName) throws IOException {
+    IndexDeletionUtils.IndexResolutionResult resolution =
+        IndexDeletionUtils.resolveIndexForDeletion(searchClient, indexName);
+    if (resolution == null) {
+      log.debug("Index {} does not exist, nothing to delete", indexName);
+      return;
+    }
+
+    for (String concreteIndex : resolution.indicesToDelete()) {
+      try {
+        deleteActionWithRetry(searchClient, concreteIndex);
+      } catch (Exception e) {
+        throw new IOException("Failed to delete index: " + concreteIndex, e);
+      }
+    }
+  }
+
   private void createIndex(String indexName, ReindexConfig state) throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
+    Map<String, Object> mappings = state.targetMappings();
+    Map<String, Object> settings = state.targetSettings();
+    log.info("Creating index {} with targetMappings: {}", indexName, mappings);
+    log.info("Creating index {} with targetSettings: {}", indexName, settings);
+
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
-    createIndexRequest.mapping(state.targetMappings());
-    createIndexRequest.settings(state.targetSettings());
+    createIndexRequest.mapping(mappings);
+    createIndexRequest.settings(settings);
     searchClient.createIndex(createIndexRequest, RequestOptions.DEFAULT);
     log.info("Created index {}", indexName);
+  }
+
+  /**
+   * Efficiently clear an index by deleting it and recreating it with the same configuration. This
+   * is much more efficient than deleting all documents using deleteByQuery.
+   *
+   * @param indexName The name of the index to clear (can be an alias or concrete index)
+   * @param config The ReindexConfig containing mappings and settings for the index
+   * @throws IOException If the deletion or creation fails
+   */
+  public void clearIndex(String indexName, ReindexConfig config) throws IOException {
+    deleteIndex(indexName);
+    log.info("Recreating index {} after clearing", indexName);
+    createIndex(indexName, config);
+    if (!indexExists(indexName)) {
+      throw new IOException("Index " + indexName + " was not successfully created after clearing!");
+    }
+    refreshIndex(indexName);
+    log.info("Successfully cleared and recreated index {}", indexName);
   }
 
   public static void cleanOrphanedIndices(

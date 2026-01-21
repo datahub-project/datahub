@@ -145,7 +145,7 @@ class AthenaPropertiesExtractor:
             # We need to do certain transformations on the sql create statement:
             # - table names are not quoted
             # - column expression is not quoted
-            # - sql parser fails if partition colums quoted
+            # - sql parser fails if partition columns quoted
             fixed_sql = self._fix_sql_partitioning(sql)
             parsed = parse_one(fixed_sql, dialect=Athena)
         except ParseError as e:

@@ -1,6 +1,6 @@
 import * as utils from "./utils";
 
-const TEST_USER_DISPLAY_NAME = "jdoe";
+const TEST_USER_URN = "urn:li:corpuser:jdoe";
 const TEST_GLOSSARY_NODE_URN = "urn:li:glossaryNode:CypressNode";
 const TEST_GLOSSARY_TERM_NAME = "CypressTerm";
 
@@ -12,19 +12,15 @@ describe("summary tab - glossary node", () => {
     utils.goToSummaryTab();
   });
 
-  it("glossary node - header section", () => {
+  it("summary tab", () => {
     utils.testPropertiesSection([
       { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: TEST_USER_DISPLAY_NAME },
+      { name: "Owners", type: "OWNERS", dataTestId: `owner-${TEST_USER_URN}` },
     ]);
-  });
 
-  it("glossary node - description section", () => {
-    utils.testAboutSection();
-  });
+    utils.ensureAboutSectionIsVisible();
 
-  it("glossary node - modules section", () => {
-    const defaultModules = [
+    utils.testTemplateSection([
       {
         type: "hierarchy",
         // FYI: Contents module has different type in add module menu
@@ -32,8 +28,6 @@ describe("summary tab - glossary node", () => {
         name: "Contents",
         value: TEST_GLOSSARY_TERM_NAME,
       },
-    ];
-
-    utils.testTemplateSection(defaultModules);
+    ]);
   });
 });

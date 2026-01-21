@@ -1,14 +1,14 @@
 ### Concept Mapping
 
-| Source Concept              | DataHub Concept                                           | Notes                                                                    |
-| --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `"grafana"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md) |                                                                          |
-| Grafana Folder              | [Container](../../metamodel/entities/container.md)        | Subtype `Folder`                                                         |
-| Grafana Dashboard           | [Container](../../metamodel/entities/container.md)        | Subtype `Dashboard`                                                      |
-| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md)                | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE) |
-| Grafana Data Source         | [Dataset](../../metamodel/entities/dataset.md)            | Created for each panel's data source                                     |
-| Dashboard Owner             | [Corp User](../../metamodel/entities/corpuser.md)         | Derived from dashboard UID and creator                                   |
-| Dashboard Tags              | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags                             |
+| Source Concept              | DataHub Concept                                           | Notes                                                                                                      |
+| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `"grafana"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md) |                                                                                                            |
+| Grafana Folder              | [Container](../../metamodel/entities/container.md)        | Subtype `Folder`                                                                                           |
+| Grafana Dashboard           | [Container](../../metamodel/entities/container.md)        | Subtype `Dashboard`                                                                                        |
+| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md)                | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE)                                   |
+| Grafana Data Source         | [Dataset](../../metamodel/entities/dataset.md)            | Created for each panel's data source                                                                       |
+| Dashboard Owner             | [Corp User](../../metamodel/entities/corpuser.md)         | Dashboard creator assigned as TECHNICAL_OWNER; email suffix removal configurable via `remove_email_suffix` |
+| Dashboard Tags              | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags                                                               |
 
 ### Compatibility
 
@@ -108,3 +108,27 @@ source:
 - **SQL parsing**: Supports parsing of SQL queries for detailed lineage extraction
 
 **Performance Note:** Lineage extraction can be disabled (`include_lineage: false`) to improve ingestion performance when lineage information is not needed.
+
+#### Ownership Configuration
+
+The Grafana source extracts dashboard ownership from the dashboard creator and assigns them as a Technical Owner.
+
+```yaml
+source:
+  type: grafana
+  config:
+    url: "https://grafana.company.com"
+    service_account_token: "your_token"
+
+    # Ownership extraction (default: true)
+    ingest_owners: true
+
+    # Email suffix removal like @acryl.io (default: true)
+    remove_email_suffix: true
+```
+
+**Ownership Features:**
+
+- **Technical Owner assignment**: Dashboard creators are automatically assigned as Technical Owners
+- **Email suffix control**: Configure how user email addresses are converted to DataHub user URNs via `remove_email_suffix`
+- **Disable ownership**: Set `ingest_owners: false` to skip ownership extraction entirely

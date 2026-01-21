@@ -56,6 +56,8 @@ public enum DataHubUsageEventType {
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
   MOVE_DOMAIN_EVENT("MoveDomainEvent"),
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
+  INGESTION_TEST_CONNECTION_CLICK_EVENT("IngestionTestConnectionClickEvent"),
+  INGESTION_TEST_CONNECTION_CLOSE_EVENT("IngestionTestConnectionCloseEvent"),
   INGESTION_EXECUTION_RESULT_VIEWED_EVENT("IngestionExecutionResultViewedEvent"),
   INGESTION_SOURCE_CONFIGURATION_IMPRESSION_EVENT("IngestionSourceConfigurationImpressionEvent"),
   INGESTION_VIEW_ALL_CLICK_EVENT("IngestionViewAllClickEvent"),
@@ -158,7 +160,17 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
-  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent");
+  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+  CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
+  MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
+  EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
+  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent"),
+  ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent"),
+  INGESTION_SELECT_SOURCE_EVENT("IngestionSelectSourceEvent"),
+  INGESTION_ENTER_CONFIGURATION_EVENT("IngestionEnterConfigurationEvent"),
+  INGESTION_ENTER_SYNC_SCHEDULE_EVENT("IngestionEnterSyncScheduleEvent"),
+  INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
+  CLOSE_CREATE_SOURCE_EDUCATION_MODAL_EVENT("CloseCreateSourceEducationModalEvent");
 
   private final String type;
 
