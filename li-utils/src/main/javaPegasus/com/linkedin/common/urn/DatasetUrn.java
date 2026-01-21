@@ -50,7 +50,7 @@ public final class DatasetUrn extends Urn {
         try {
           return new DatasetUrn(
               (DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
-                  sanitizeName(key.getAs(1, String.class)),
+              sanitizeName(key.getAs(1, String.class)),
               (FabricType) key.getAs(2, FabricType.class));
         } catch (Exception var3) {
           throw new URISyntaxException(
@@ -85,11 +85,11 @@ public final class DatasetUrn extends Urn {
         DatasetUrn.class);
   }
 
-    private static String sanitizeName(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        // Remove leading + trailing whitespace
-        return raw.trim();
+  private static String sanitizeName(String raw) {
+    if (raw == null) {
+      return null;
     }
+    // Remove leading + trailing whitespace
+    return raw.trim();
+  }
 }
