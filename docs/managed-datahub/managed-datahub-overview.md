@@ -101,7 +101,7 @@ know.
 | Data Quality Impact Analysis in Lineage                      | ✅      | ✅            |
 | Create Data Contracts                                        | ✅      | ✅            |
 | Manage Data Incidents                                        | ✅      | ✅            |
-| Rich In-Slack Incident management                            | ❌      | ✅            |
+| Manage Incidents in-Slack                                    | ❌      | ✅            |
 | Run Data Quality checks in-VPC                               | ❌      | ✅            |
 | AI Anomaly Detection for Freshness, Volume, and Column stats | ❌      | ✅            |
 | Bulk Configure AI Anomaly Detection                          | ❌      | ✅            |
@@ -110,10 +110,11 @@ know.
 | Monitor Table Volume                                         | ❌      | ✅            |
 | Monitor Column Quality                                       | ❌      | ✅            |
 | Monitor with Custom SQL                                      | ❌      | ✅            |
-| Get Notified where you work (Slack, Email, more)             | ❌      | ✅            |
+| Get Notified where you work (Slack, Email, Teams)            | ❌      | ✅            |
 | Data Health Dashboard                                        | ❌      | ✅            |
 | Evaluate data contracts on-demand (API)                      | ❌      | ✅            |
-| Evaluate data quality checks on-demand (API + UI)            | ❌      | ✅            |
+| Pipeline Circuit-Breaking with Data Quality checks           | ❌      | ✅            |
+| Write-audit-publish with Data Quality checks                 | ❌      | ✅            |
 
 ## Data Governance
 
