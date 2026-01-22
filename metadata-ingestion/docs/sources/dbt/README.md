@@ -2,15 +2,16 @@ Ingesting metadata from dbt requires either using the **dbt** module or the **db
 
 ### Concept Mapping
 
-| Source Concept | DataHub Concept                                                        | Notes              |
-| -------------- | ---------------------------------------------------------------------- | ------------------ |
-| Source         | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Source`   |
-| Seed           | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Seed`     |
-| Model          | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Model`    |
-| Snapshot       | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Snapshot` |
-| Test           | [Assertion](../../metamodel/entities/assertion.md)                     |                    |
-| Test Result    | [Assertion Run Result](../../metamodel/entities/assertion.md)          |                    |
-| Model Runs     | [DataProcessInstance](../../metamodel/entities/dataProcessInstance.md) |                    |
+| Source Concept | DataHub Concept                                                        | Notes                   |
+| -------------- | ---------------------------------------------------------------------- | ----------------------- |
+| Source         | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Source`        |
+| Seed           | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Seed`          |
+| Model          | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Model`         |
+| Snapshot       | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Snapshot`      |
+| Semantic View  | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Semantic View` |
+| Test           | [Assertion](../../metamodel/entities/assertion.md)                     |                         |
+| Test Result    | [Assertion Run Result](../../metamodel/entities/assertion.md)          |                         |
+| Model Runs     | [DataProcessInstance](../../metamodel/entities/dataProcessInstance.md) |                         |
 
 Note:
 

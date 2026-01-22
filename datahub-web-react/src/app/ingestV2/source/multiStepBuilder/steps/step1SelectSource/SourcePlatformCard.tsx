@@ -1,4 +1,4 @@
-import { Card } from '@components';
+import { Card, Pill } from '@components';
 import React from 'react';
 
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
@@ -15,10 +15,11 @@ const logoStyles = {
 
 interface Props {
     source: SourceConfig;
-    onSelect: (platformName: string) => void;
+    onSelect: (platform: SourceConfig) => void;
 }
 
 export default function SourcePlatformCard({ source, onSelect }: Props) {
+    const pillLabel = getPillLabel(source);
     return (
         <Card
             title={source.displayName}
@@ -29,8 +30,18 @@ export default function SourcePlatformCard({ source, onSelect }: Props) {
             noOfSubtitleLines={2}
             iconAlignment="horizontal"
             iconStyles={logoStyles}
-            pillLabel={getPillLabel(source)}
-            onClick={() => onSelect(source.name)}
+            pill={
+                pillLabel && (
+                    <Pill
+                        label={pillLabel}
+                        size="sm"
+                        color="primary"
+                        clickable={false}
+                        variant={pillLabel === 'External' ? 'outline' : 'filled'}
+                    />
+                )
+            }
+            onClick={() => onSelect(source)}
             isCardClickable
         />
     );
