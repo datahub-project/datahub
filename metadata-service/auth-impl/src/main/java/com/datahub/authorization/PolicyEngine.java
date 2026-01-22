@@ -297,7 +297,7 @@ public class PolicyEngine {
       case EQUALS:
         return filterValues.stream()
             .anyMatch(
-                expectedValue -> filterValues.stream().anyMatch(expectedValue::equalsIgnoreCase));
+                expectedValue -> fieldValues.stream().anyMatch(expectedValue::equalsIgnoreCase));
       case STARTS_WITH:
         return fieldValues.stream()
             .anyMatch(
@@ -307,7 +307,7 @@ public class PolicyEngine {
       case NOT_EQUALS:
         return filterValues.stream()
             .noneMatch(
-                expectedValue -> filterValues.stream().anyMatch(expectedValue::equalsIgnoreCase));
+                expectedValue -> fieldValues.stream().anyMatch(expectedValue::equalsIgnoreCase));
       default:
         log.error("Unsupported condition {}", condition);
         return false;
