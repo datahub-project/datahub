@@ -179,6 +179,11 @@ def get_sql_agg_query_log() -> str:
     return os.getenv("DATAHUB_SQL_AGG_QUERY_LOG", "DISABLED")
 
 
+def get_sql_agg_skip_joins() -> bool:
+    """Skip join processing in SQL aggregator (default: False)."""
+    return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
