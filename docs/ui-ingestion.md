@@ -1,8 +1,5 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Metadata Ingestion
 
 <FeatureAvailability/>
@@ -302,19 +299,13 @@ While the UI-based forms handle most common ingestion scenarios, advanced users 
 
 For these advanced use cases, DataHub supports direct YAML recipe configuration. For detailed information about YAML-based configuration, including syntax and examples, see the [Recipe Overview Guide](metadata-ingestion/recipe_overview.md).
 
-<Tabs>
-   <TabItem value="cli" label="CLI">
-
-You can deploy recipes using the CLI as mentioned in the [CLI documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
+You can deploy recipes using the CLI as mentioned in the [CLI documentation for uploading ingestion recipes](./cli.md#ingest-deploy):
 
 ```bash
 datahub ingest deploy --name "My Test Ingestion Source" --schedule "5 * * * *" --time-zone "UTC" -c recipe.yaml
 ```
 
-   </TabItem>
-   <TabItem value="graphql" label="GraphQL">
-
-Create ingestion sources using [DataHub's GraphQL API](./api/graphql/overview.md) using the **createIngestionSource** mutation endpoint.
+You can also create ingestion sources using [DataHub's GraphQL API](./api/graphql/overview.md) using the **createIngestionSource** mutation endpoint:
 
 ```graphql
 mutation {
@@ -335,9 +326,6 @@ mutation {
 ```
 
 **Note**: Recipe must be double quotes escaped when using GraphQL
-
-   </TabItem>
-</Tabs>
 
 ## Frequently Asked Questions
 
