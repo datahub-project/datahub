@@ -763,9 +763,7 @@ class Scenario(BaseModel):
                     )
                     continue
 
-                impacted_entities = set(
-                    [x["entity"]["urn"] for x in search_results]
-                )
+                impacted_entities = set([x["entity"]["urn"] for x in search_results])
                 try:
                     assert impacted_entities == impacted_entities_expectation, (
                         f"Expected impacted entities to be {impacted_entities_expectation}, found {impacted_entities}"
