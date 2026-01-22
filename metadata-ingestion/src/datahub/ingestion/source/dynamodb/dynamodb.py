@@ -21,9 +21,10 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -58,6 +59,7 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -66,6 +68,7 @@ from datahub.metadata.schema_classes import (
     SchemalessClass,
     SchemaMetadataClass,
     StringTypeClass,
+    TagAssociationClass,
     UnionTypeClass,
 )
 from datahub.utilities.lossy_collections import LossyList
@@ -119,8 +122,6 @@ class DynamoDBConfig(
         default=False,
         description=(
             "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags. "
-            "This operation overwrites any existing tags on the dataset, including tags that were added "
-            "manually through the DataHub UI."
         ),
     )
     # Custom Stateful Ingestion settings
@@ -623,7 +624,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         """Extract DynamoDB table AWS tags and add them as DataHub tags.
-        This overwrites existing DataHub tags, including those added manually via the UI.
+        merge with existing tags (including manual UI tags) when a graph client is available.
         """
         try:
             tags_kv = self._get_dynamodb_table_tags(
@@ -635,14 +636,34 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             for tag_dict in tags_kv:
                 key, val = tag_dict["Key"], tag_dict["Value"]
                 tag = f"{key}:{val}" if val else key
-                tags_to_add.append(tag)
+                tags_to_add.append(make_tag_urn(tag))
 
+            # Merge in existing tags to avoid clobbering manually added tags when graph is available.
+            if self.ctx.graph:
+                try:
+                    current_tags = self.ctx.graph.get_aspect(
+                        entity_urn=dataset_urn, aspect_type=GlobalTagsClass
+                    )
+                    if current_tags and getattr(current_tags, "tags", None):
+                        tags_to_add.extend(
+                            tag_assoc.tag for tag_assoc in current_tags.tags
+                        )
+                except Exception as merge_err:
+                    self.report.report_warning(
+                        title="DynamoDB Tags",
+                        message="Failed to merge existing tags; proceeding with AWS tags only",
+                        context=f"dataset_urn: {dataset_urn}; error={merge_err}",
+                    )
+
+            tags_to_add = sorted(set(tags_to_add))
             if tags_to_add:
-                yield from add_tags_to_entity_wu(
-                    entity_type="dataset",
-                    entity_urn=dataset_urn,
-                    tags=sorted(set(tags_to_add)),
-                )
+                yield MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    entityUrn=dataset_urn,
+                    aspect=GlobalTagsClass(
+                        tags=[TagAssociationClass(tag) for tag in tags_to_add]
+                    ),
+                ).as_workunit()
 
         except Exception as e:
             self.report.report_warning(
