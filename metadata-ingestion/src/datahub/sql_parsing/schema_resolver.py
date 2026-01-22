@@ -56,6 +56,128 @@ class SchemaResolverInterface(Protocol):
         return id(self)
 
 
+class BatchSchemaFetcher:
+    """Batches schema fetch requests to minimize API calls."""
+
+    def __init__(
+        self,
+        graph: DataHubGraph,
+        schema_resolver: "SchemaResolver",
+        batch_size: int = 50,
+        auto_flush_threshold: Optional[int] = None,
+    ):
+        self.graph = graph
+        self.schema_resolver = schema_resolver
+        self.batch_size = batch_size
+        self.auto_flush_threshold = auto_flush_threshold or batch_size
+
+        self._pending_urns: Set[str] = set()
+        self._stats_requested = 0
+        self._stats_fetched = 0
+        self._stats_api_calls = 0
+
+    def request_schema(self, urn: str) -> None:
+        """Queue a schema for batch fetching."""
+        self._pending_urns.add(urn)
+        self._stats_requested += 1
+
+        if len(self._pending_urns) >= self.auto_flush_threshold:
+            self.flush()
+
+    def flush(self) -> int:
+        """Fetch all pending schemas in batches."""
+        if not self._pending_urns:
+            return 0
+
+        urns_to_fetch = list(self._pending_urns)
+        self._pending_urns.clear()
+
+        fetched_count = 0
+
+        for i in range(0, len(urns_to_fetch), self.batch_size):
+            batch = urns_to_fetch[i : i + self.batch_size]
+
+            try:
+                fetched_count += self._fetch_batch(batch)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to batch fetch {len(batch)} schemas: {e}. "
+                    f"Falling back to individual fetches.",
+                    exc_info=True,
+                )
+                for urn in batch:
+                    try:
+                        self._fetch_single(urn)
+                        fetched_count += 1
+                    except Exception as e2:
+                        logger.debug(f"Failed to fetch schema for {urn}: {e2}")
+
+        return fetched_count
+
+    def _fetch_batch(self, urns: List[str]) -> int:
+        """Fetch a batch of schemas using OpenAPI v3 batch endpoint."""
+        self._stats_api_calls += 1
+
+        logger.debug(f"Batch fetching {len(urns)} schemas...")
+
+        try:
+            results = self.graph.get_entities(
+                entity_name="dataset",
+                urns=urns,
+                aspects=[SchemaMetadataClass.ASPECT_NAME],
+                with_system_metadata=False,
+            )
+
+            fetched = 0
+            for urn in urns:
+                schema_metadata: Optional[SchemaMetadataClass] = None
+
+                if urn in results:
+                    entity_aspects = results[urn]
+                    if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
+                        aspect_value, _ = entity_aspects[
+                            SchemaMetadataClass.ASPECT_NAME
+                        ]
+                        if isinstance(aspect_value, SchemaMetadataClass):
+                            schema_metadata = aspect_value
+
+                accepted = self.schema_resolver.add_schema_metadata_from_fetch(
+                    urn, schema_metadata
+                )
+                if accepted and schema_metadata:
+                    fetched += 1
+                    self._stats_fetched += 1
+
+            logger.debug(f"Successfully fetched {fetched}/{len(urns)} schemas in batch")
+            return fetched
+
+        except Exception as e:
+            logger.warning(f"Batch fetch failed: {e}", exc_info=True)
+            raise
+
+    def _fetch_single(self, urn: str) -> None:
+        """Fetch a single schema (fallback)."""
+        self._stats_api_calls += 1
+
+        try:
+            aspect = self.graph.get_aspect(urn, SchemaMetadataClass)
+            accepted = self.schema_resolver.add_schema_metadata_from_fetch(urn, aspect)
+            if accepted and aspect:
+                self._stats_fetched += 1
+        except Exception as e:
+            logger.debug(f"Failed to fetch schema for {urn}: {e}")
+            self.schema_resolver.add_schema_metadata_from_fetch(urn, None)
+
+    def get_stats(self) -> Dict[str, int]:
+        """Get fetch statistics."""
+        return {
+            "requested": self._stats_requested,
+            "fetched": self._stats_fetched,
+            "api_calls": self._stats_api_calls,
+            "pending": len(self._pending_urns),
+        }
+
+
 class SchemaResolver(Closeable, SchemaResolverInterface):
     def __init__(
         self,
@@ -66,7 +188,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         graph: Optional[DataHubGraph] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
-        batch_fetcher: Optional["BatchSchemaFetcher"] = None,
+        batch_fetcher: Optional[BatchSchemaFetcher] = None,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
@@ -281,11 +403,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return True
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
-        """
-        Add raw schema info from ingestion source.
-
-        Like add_schema_metadata(), this always takes precedence.
-        """
         self._save_to_cache(urn, schema_info)
 
     def add_graphql_schema_metadata(
@@ -377,128 +494,6 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
                 for urn, fields in temp_tables.items()
             }
         )
-
-
-class BatchSchemaFetcher:
-    """Batches schema fetch requests to minimize API calls."""
-
-    def __init__(
-        self,
-        graph: DataHubGraph,
-        schema_resolver: SchemaResolver,
-        batch_size: int = 50,
-        auto_flush_threshold: Optional[int] = None,
-    ):
-        self.graph = graph
-        self.schema_resolver = schema_resolver
-        self.batch_size = batch_size
-        self.auto_flush_threshold = auto_flush_threshold or batch_size
-
-        self._pending_urns: Set[str] = set()
-        self._stats_requested = 0
-        self._stats_fetched = 0
-        self._stats_api_calls = 0
-
-    def request_schema(self, urn: str) -> None:
-        """Queue a schema for batch fetching."""
-        self._pending_urns.add(urn)
-        self._stats_requested += 1
-
-        if len(self._pending_urns) >= self.auto_flush_threshold:
-            self.flush()
-
-    def flush(self) -> int:
-        """Fetch all pending schemas in batches."""
-        if not self._pending_urns:
-            return 0
-
-        urns_to_fetch = list(self._pending_urns)
-        self._pending_urns.clear()
-
-        fetched_count = 0
-
-        for i in range(0, len(urns_to_fetch), self.batch_size):
-            batch = urns_to_fetch[i : i + self.batch_size]
-
-            try:
-                fetched_count += self._fetch_batch(batch)
-            except Exception as e:
-                logger.warning(
-                    f"Failed to batch fetch {len(batch)} schemas: {e}. "
-                    f"Falling back to individual fetches.",
-                    exc_info=True,
-                )
-                for urn in batch:
-                    try:
-                        self._fetch_single(urn)
-                        fetched_count += 1
-                    except Exception as e2:
-                        logger.debug(f"Failed to fetch schema for {urn}: {e2}")
-
-        return fetched_count
-
-    def _fetch_batch(self, urns: List[str]) -> int:
-        """Fetch a batch of schemas using OpenAPI v3 batch endpoint."""
-        self._stats_api_calls += 1
-
-        logger.debug(f"Batch fetching {len(urns)} schemas...")
-
-        try:
-            results = self.graph.get_entities(
-                entity_name="dataset",
-                urns=urns,
-                aspects=[SchemaMetadataClass.ASPECT_NAME],
-                with_system_metadata=False,
-            )
-
-            fetched = 0
-            for urn in urns:
-                schema_metadata: Optional[SchemaMetadataClass] = None
-
-                if urn in results:
-                    entity_aspects = results[urn]
-                    if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
-                        aspect_value, _ = entity_aspects[
-                            SchemaMetadataClass.ASPECT_NAME
-                        ]
-                        if isinstance(aspect_value, SchemaMetadataClass):
-                            schema_metadata = aspect_value
-
-                accepted = self.schema_resolver.add_schema_metadata_from_fetch(
-                    urn, schema_metadata
-                )
-                if accepted and schema_metadata:
-                    fetched += 1
-                    self._stats_fetched += 1
-
-            logger.debug(f"Successfully fetched {fetched}/{len(urns)} schemas in batch")
-            return fetched
-
-        except Exception as e:
-            logger.warning(f"Batch fetch failed: {e}", exc_info=True)
-            raise
-
-    def _fetch_single(self, urn: str) -> None:
-        """Fetch a single schema (fallback)."""
-        self._stats_api_calls += 1
-
-        try:
-            aspect = self.graph.get_aspect(urn, SchemaMetadataClass)
-            accepted = self.schema_resolver.add_schema_metadata_from_fetch(urn, aspect)
-            if accepted and aspect:
-                self._stats_fetched += 1
-        except Exception as e:
-            logger.debug(f"Failed to fetch schema for {urn}: {e}")
-            self.schema_resolver.add_schema_metadata_from_fetch(urn, None)
-
-    def get_stats(self) -> Dict[str, int]:
-        """Get fetch statistics."""
-        return {
-            "requested": self._stats_requested,
-            "fetched": self._stats_fetched,
-            "api_calls": self._stats_api_calls,
-            "pending": len(self._pending_urns),
-        }
 
 
 def _convert_schema_field_list_to_info(
