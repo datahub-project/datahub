@@ -126,9 +126,7 @@ class ViewDefinition:
 class QueryMetadata:
     query_id: QueryId
 
-    # raw_query_string: str
-    formatted_query_string: str
-
+    raw_query_string: str
     session_id: str  # will be _MISSING_SESSION_ID if not present
     query_type: QueryType
     lineage_type: str  # from models.DatasetLineageTypeClass
@@ -144,6 +142,11 @@ class QueryMetadata:
 
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+
+    # Lazy-loaded formatted query (computed on demand)
+    _formatted_query_cache: Optional[str] = dataclasses.field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
@@ -197,10 +200,25 @@ class QueryMetadata:
                     )
         return list(query_subject_urns)
 
-    def make_query_properties(self) -> models.QueryPropertiesClass:
+    def get_formatted_query(self, platform: str, format_queries: bool) -> str:
+        """Get formatted query string, formatting lazily on first access."""
+        if not format_queries:
+            return self.raw_query_string
+
+        if self._formatted_query_cache is None:
+            self._formatted_query_cache = try_format_query(
+                self.raw_query_string, platform
+            )
+
+        return self._formatted_query_cache
+
+    def make_query_properties(
+        self, platform: str, format_queries: bool
+    ) -> models.QueryPropertiesClass:
+        """Create QueryProperties with lazy formatting."""
         return models.QueryPropertiesClass(
             statement=models.QueryStatementClass(
-                value=self.formatted_query_string,
+                value=self.get_formatted_query(platform, format_queries),
                 language=models.QueryLanguageClass.SQL,
             ),
             source=models.QuerySourceClass.SYSTEM,
@@ -479,6 +497,21 @@ class SqlParsingAggregator(Closeable):
             base_resolver=self._schema_resolver, extra_schemas={}
         )
 
+        # Batch schema fetcher for on-demand fetching (if graph is available)
+        self._batch_schema_fetcher: Optional["BatchSchemaFetcher"] = None
+        if graph is not None and self._need_schemas:
+            from datahub.sql_parsing.schema_resolver import BatchSchemaFetcher
+
+            self._batch_schema_fetcher = BatchSchemaFetcher(
+                graph=graph,
+                schema_resolver=self._schema_resolver,
+                batch_size=50,  # Fetch 50 schemas per API call
+                auto_flush_threshold=100,  # Auto-flush when 100 pending
+            )
+
+            # Connect batch fetcher to schema resolver for on-demand batching
+            self._schema_resolver.batch_fetcher = self._batch_schema_fetcher
+
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
         # In particular, it must be true that if two queries have the same fingerprint,
@@ -606,12 +639,6 @@ class SqlParsingAggregator(Closeable):
 
             yield wu
 
-    def _maybe_format_query(self, query: str) -> str:
-        if self.format_queries:
-            with self.report.sql_formatting_timer:
-                return try_format_query(query, self.platform.platform_name)
-        return query
-
     @functools.lru_cache(maxsize=128)
     def _name_from_urn(self, urn: UrnStr) -> Optional[str]:
         urn_obj = DatasetUrn.from_string(urn)
@@ -704,13 +731,12 @@ class SqlParsingAggregator(Closeable):
                     known_query_lineage.query_text,
                     platform=self.platform.platform_name,
                 )
-        formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
-                formatted_query_string=formatted_query,
+                raw_query_string=known_query_lineage.query_text,
                 session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
                 query_type=known_query_lineage.query_type,
                 lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
@@ -769,7 +795,7 @@ class SqlParsingAggregator(Closeable):
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_id,
-                formatted_query_string="-skip-",
+                raw_query_string="-skip-",  # No actual query for direct lineage
                 session_id=_MISSING_SESSION_ID,
                 query_type=QueryType.UNKNOWN,
                 lineage_type=lineage_type,
@@ -937,9 +963,6 @@ class SqlParsingAggregator(Closeable):
                 platform=self.platform.platform_name,
             )
 
-        # Format the query.
-        formatted_query = self._maybe_format_query(parsed.query_text)
-
         # Register the query's usage.
         if not self._usage_aggregator:
             pass  # usage is not enabled
@@ -947,6 +970,13 @@ class SqlParsingAggregator(Closeable):
             self.report.usage_skipped_missing_timestamp += 1
         else:
             upstream_fields = parsed.column_usage or {}
+            # Format query for usage stats if enabled
+            usage_query_text = (
+                try_format_query(parsed.query_text, self.platform.platform_name)
+                if self.format_queries
+                else parsed.query_text
+            )
+
             for upstream_urn in parsed.upstreams:
                 # If the upstream table is a temp table or otherwise denied by filters, don't log usage for it.
                 if not self.is_allowed_table(upstream_urn, allow_external=False) or (
@@ -958,7 +988,7 @@ class SqlParsingAggregator(Closeable):
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
                     start_time=parsed.timestamp,
-                    query=formatted_query,
+                    query=usage_query_text,
                     user=parsed.user.urn() if parsed.user else None,
                     fields=sorted(upstream_fields.get(upstream_urn, [])),
                     count=parsed.query_count,
@@ -976,7 +1006,7 @@ class SqlParsingAggregator(Closeable):
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
-                formatted_query_string=formatted_query,
+                raw_query_string=parsed.query_text,
                 session_id=parsed.session_id,
                 query_type=parsed.query_type,
                 lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
@@ -1174,15 +1204,12 @@ class SqlParsingAggregator(Closeable):
             self.report.num_views_column_failed += 1
 
         query_fingerprint = self._view_query_id(view_urn)
-        formatted_view_definition = self._maybe_format_query(
-            view_definition.view_definition
-        )
 
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
-                formatted_query_string=formatted_view_definition,
+                raw_query_string=view_definition.view_definition,
                 session_id=_MISSING_SESSION_ID,
                 query_type=QueryType.CREATE_VIEW,
                 lineage_type=models.DatasetLineageTypeClass.VIEW,
@@ -1252,7 +1279,8 @@ class SqlParsingAggregator(Closeable):
 
             # This assumes that queries come in order of increasing timestamps,
             # so the current query is more authoritative than the previous one.
-            current.formatted_query_string = new.formatted_query_string
+            current.raw_query_string = new.raw_query_string
+            current._formatted_query_cache = None  # Clear cache when query changes
             current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
             current.actor = new.actor or current.actor
 
@@ -1289,6 +1317,12 @@ class SqlParsingAggregator(Closeable):
             self._query_map[query_fingerprint] = new
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
+        # Flush any pending schema fetches before generating metadata
+        if self._batch_schema_fetcher:
+            fetched = self._batch_schema_fetcher.flush()
+            if fetched > 0:
+                logger.debug(f"Flushed {fetched} pending schema fetches")
+
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
@@ -1618,7 +1652,10 @@ class SqlParsingAggregator(Closeable):
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=self._query_urn(query_id),
             aspects=[
-                query.make_query_properties(),
+                query.make_query_properties(
+                    platform=self.platform.platform_name,
+                    format_queries=self.format_queries,
+                ),
                 make_query_subjects(
                     query.get_subjects(
                         downstream_urn=downstream_urn,
@@ -1833,17 +1870,19 @@ class SqlParsingAggregator(Closeable):
         )
 
         merged_query_text = ";\n\n".join(
-            deduplicate_list([q.formatted_query_string for q in ordered_queries])
+            deduplicate_list([q.raw_query_string for q in ordered_queries])
         )
 
         resolved_query = dataclasses.replace(
             base_query,
             query_id=composite_query_id,
-            formatted_query_string=merged_query_text,
+            raw_query_string=merged_query_text,
             upstreams=list(resolved_lineage_info.upstreams),
             column_lineage=list(resolved_lineage_info.column_lineage),
             confidence_score=resolved_lineage_info.confidence_score,
         )
+        # Clear the formatted query cache since we have a new query text
+        resolved_query._formatted_query_cache = None
 
         return resolved_query
 

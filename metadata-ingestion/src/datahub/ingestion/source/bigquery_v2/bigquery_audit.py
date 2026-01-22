@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import re
@@ -44,6 +45,15 @@ class BigqueryTableIdentifier:
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
     @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _get_shard_pattern() -> "re.Pattern[str]":
+        """Cache the compiled regex pattern for shard detection."""
+        return re.compile(
+            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+            re.IGNORECASE,
+        )
+
+    @staticmethod
     def get_table_and_shard(table_name: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Args:
@@ -58,11 +68,9 @@ class BigqueryTableIdentifier:
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
         new_table_name = table_name
-        match = re.match(
-            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-            table_name,
-            re.IGNORECASE,
-        )
+        # Use cached compiled pattern
+        pattern = BigqueryTableIdentifier._get_shard_pattern()
+        match = pattern.match(table_name)
         if match:
             shard: str = match[3]
             if shard:

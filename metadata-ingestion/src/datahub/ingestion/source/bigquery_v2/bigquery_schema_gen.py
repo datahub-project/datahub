@@ -2,7 +2,7 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
 
@@ -1268,14 +1268,52 @@ class BigQuerySchemaGenerator:
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str
     ) -> Dict[str, TableListItem]:
         table_items: Dict[str, TableListItem] = {}
-        # Dict to store sharded table and the last seen max shard id
-        sharded_tables: Dict[str, TableListItem] = {}
+        sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
+
+        shard_pattern = BigqueryTableIdentifier._get_shard_pattern()
 
         for table in self.schema_api.list_tables(dataset_name, project_id):
+            table_id = table.table_id
+
+            match = shard_pattern.match(table_id)
+
+            if match:
+                base_name = match[1] or ""
+                shard = match[3]
+
+                if base_name and table_id.endswith(shard):
+                    base_name = table_id[: -len(shard)].rstrip("_")
+                if not base_name or base_name.endswith("."):
+                    base_name = dataset_name
+                if table.table_type == "VIEW":
+                    table_identifier = BigqueryTableIdentifier(
+                        project_id=project_id, dataset=dataset_name, table=table_id
+                    )
+                    if (
+                        not self.config.include_views
+                        or not self.config.view_pattern.allowed(
+                            table_identifier.raw_table_name()
+                        )
+                    ):
+                        self.report.report_dropped(table_identifier.raw_table_name())
+                        continue
+                else:
+                    qualified_base = f"{project_id}.{dataset_name}.{base_name}"
+                    if not self.config.table_pattern.allowed(qualified_base):
+                        self.report.report_dropped(qualified_base)
+                        continue
+
+                if (
+                    base_name not in sharded_tables
+                    or shard > sharded_tables[base_name][1]
+                ):
+                    sharded_tables[base_name] = (table, shard)
+                continue
+
             table_identifier = BigqueryTableIdentifier(
                 project_id=project_id,
                 dataset=dataset_name,
-                table=table.table_id,
+                table=table_id,
             )
 
             if table.table_type == "VIEW":
@@ -1294,44 +1332,15 @@ class BigQuerySchemaGenerator:
                     self.report.report_dropped(table_identifier.raw_table_name())
                     continue
 
-            _, shard = BigqueryTableIdentifier.get_table_and_shard(
-                table_identifier.table
-            )
-            table_name = table_identifier.get_table_name().split(".")[-1]
-
-            # Sharded tables look like: table_20220120
-            # For sharded tables we only process the latest shard and ignore the rest
-            # to find the latest shard we iterate over the list of tables and store the maximum shard id
-            # We only have one special case where the table name is a date `20220110`
-            # in this case we merge all these tables under dataset name as table name.
-            # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
-            # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
-            if shard:
-                if table_name not in sharded_tables:
-                    sharded_tables[table_name] = table
-                    continue
-
-                stored_table_identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=sharded_tables[table_name].table_id,
-                )
-                _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
-                    stored_table_identifier.table
-                )
-                # When table is none, we use dataset_name as table_name
-                assert stored_shard
-                if stored_shard < shard:
-                    sharded_tables[table_name] = table
-                continue
-            elif str(table_identifier).startswith(temp_table_dataset_prefix):
+            if str(table_identifier).startswith(temp_table_dataset_prefix):
                 logger.debug(f"Dropping temporary table {table_identifier.table}")
                 self.report.report_dropped(table_identifier.raw_table_name())
                 continue
 
-            table_items[table.table_id] = table
+            table_items[table_id] = table
 
-        # Adding maximum shards to the list of tables
-        table_items.update({value.table_id: value for value in sharded_tables.values()})
+        table_items.update(
+            {value[0].table_id: value[0] for value in sharded_tables.values()}
+        )
 
         return table_items
