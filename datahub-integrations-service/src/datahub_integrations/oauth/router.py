@@ -52,30 +52,37 @@ URL PATH MAPPING:
         datahub-frontend/app/controllers/IntegrationsController.java
 
 SECURITY MODEL:
-    Private endpoints use Bearer token authentication (JWT). The token is decoded
-    to extract the user URN from the 'sub' claim. Security is enforced by:
+    Authenticated endpoints use Bearer token authentication (JWT). Token validity
+    is verified by making a GraphQL call to GMS, which validates the signature.
 
-    1. PRIVATE ENDPOINTS (connect, api-key, disconnect):
+    1. AUTHENTICATED ENDPOINTS (connect, api-key, disconnect):
        - Require Authorization: Bearer <token> header
-       - Token contains user identity in JWT 'sub' claim
-       - User identity comes from token, NOT from user input
-       - Credentials are stored per-user in DataHubConnection entities
-       - When making calls to GMS/GraphQL, use system credentials (the token
-         is used only to identify the user, not for GMS authentication)
+       - Token is VALIDATED by calling GMS GraphQL API with the token
+       - If GMS accepts the token, it's valid; if rejected, authentication fails
+       - User URN is retrieved from GMS (authoritative source), not decoded locally
+       - This prevents spoofed/forged tokens from being accepted
 
-    2. PUBLIC ENDPOINTS (callback):
+       WHY WE VALIDATE VIA GMS (not local JWT verification):
+       - This service doesn't have access to the JWT signing secret
+       - The frontend proxy (/integrations/* -> /public/*) passes through
+         Authorization headers without validation
+       - An attacker could craft a fake JWT and send it directly
+       - Without validation, we would accept fake tokens and write data
+       - By calling GMS first, we ensure only valid tokens are accepted
+
+       DEFENSE IN DEPTH:
+       - Token validated BEFORE any writes occur
+       - User URN comes from GMS response, not from potentially-forged token
+       - Even if validation is bypassed, credential writes use user-scoped URNs
+         that won't be accessible to other users
+
+    2. CALLBACK ENDPOINTS (OAuth provider callbacks):
        - No authentication required (OAuth provider redirects browser here)
        - User identity comes from OAuth state parameter (stored during connect)
        - State is validated against the in-memory state store
        - One-time use: state is consumed after successful validation
-
-    Note: The JWT is NOT signature-verified by this service (we don't have
-    the secret). This is acceptable because:
-    - For credential storage, we use the user URN from the token
-    - The actual credential storage uses system credentials
-    - If someone spoofs a token, they can only store credentials under a
-      fake user URN that won't be accessible to real users
-    - GMS validates tokens for any GraphQL calls that require authorization
+       - User's auth token is stored in state during connect, used for
+         subsequent GraphQL calls to update user settings
 """
 
 from typing import Annotated, Any, Dict, Optional
@@ -230,13 +237,21 @@ def get_auth_token(authorization: Optional[str] = Header(None)) -> str:
 
 def get_user_urn_from_token(token: str) -> str:
     """
-    Extract the user URN from a JWT token.
+    Extract the user URN from a JWT token WITHOUT signature verification.
 
-    IMPORTANT: This does NOT verify the JWT signature. The token is decoded
-    only to extract the user identity ('sub' claim). This is acceptable because:
-    - Credential operations use the extracted URN for storage isolation
-    - System credentials are used for actual GMS/GraphQL calls
-    - If someone spoofs a token, they can only affect their fake user's data
+    WARNING: This function does NOT validate the token. It only extracts claims.
+    DO NOT use this for authentication of incoming requests. For that, use
+    validate_token_and_get_user() which validates via GMS.
+
+    USE CASES FOR THIS FUNCTION:
+    - Extracting user URN from tokens stored in OAuth state (which were validated
+      at connect time via validate_token_and_get_user)
+    - Logging/debugging purposes where validation already happened
+
+    WHY NO SIGNATURE VERIFICATION:
+    This service doesn't have access to the JWT signing secret. For incoming
+    requests, we validate tokens by calling GMS (see validate_token_and_get_user).
+    For tokens retrieved from OAuth state, they were already validated when stored.
 
     Args:
         token: The JWT token string.
@@ -282,13 +297,132 @@ def get_user_urn_from_token(token: str) -> str:
         ) from None
 
 
+def validate_token_and_get_user(token: str) -> str:
+    """
+    Validate a JWT token by making a GraphQL call to GMS.
+
+    This function serves as the authoritative token validation for OAuth endpoints.
+    Instead of verifying the JWT signature locally (which would require access to
+    the signing secret), we validate by making a GraphQL call to GMS with the token.
+    If GMS accepts the token, it's valid. If GMS rejects it, authentication fails.
+
+    WHY THIS APPROACH:
+    The integrations service is accessible via the frontend proxy at /integrations/*,
+    which maps to /public/* on this service. The frontend proxy passes through
+    Authorization headers from incoming requests without validation. This creates
+    a potential attack vector:
+
+    1. Attacker crafts a fake JWT with arbitrary claims (e.g., sub: "admin")
+    2. Attacker sends request to /integrations/oauth/plugins/xxx/connect
+    3. Frontend proxy forwards the fake Authorization header
+    4. Without validation, this service would accept the fake token
+
+    By calling GMS first, we ensure:
+    - Only tokens with valid signatures are accepted
+    - The user URN comes from GMS (authoritative), not from the potentially-forged token
+    - Validation happens BEFORE any writes (credentials, state) occur
+
+    Args:
+        token: The JWT token to validate.
+
+    Returns:
+        The authenticated user's URN from GMS.
+
+    Raises:
+        HTTPException: 401 if the token is invalid or GMS rejects it.
+    """
+    import httpx
+
+    # Get the GMS URL from the existing graph client
+    gms_url = f"{graph._gms_server}/api/graphql"
+
+    # Use the 'me' query to validate token and get user identity
+    # This is a lightweight query that returns the authenticated user
+    query = """
+    query GetMe {
+        me {
+            corpUser {
+                urn
+            }
+        }
+    }
+    """
+
+    try:
+        response = httpx.post(
+            gms_url,
+            json={"query": query},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            timeout=10.0,
+        )
+
+        # Check for HTTP-level auth failures
+        if response.status_code == 401:
+            logger.warning("Token validation failed: GMS returned 401")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+
+        if response.status_code == 403:
+            logger.warning("Token validation failed: GMS returned 403")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied",
+            )
+
+        response.raise_for_status()
+        result = response.json()
+
+        # Check for GraphQL-level errors
+        if result.get("errors"):
+            error_msg = result["errors"][0].get("message", "Unknown error")
+            logger.warning(f"Token validation failed: GraphQL error - {error_msg}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token validation failed",
+            )
+
+        # Extract user URN from response
+        user_urn = result.get("data", {}).get("me", {}).get("corpUser", {}).get("urn")
+
+        if not user_urn:
+            logger.warning("Token validation failed: No user URN in response")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not determine user identity",
+            )
+
+        logger.debug(f"Token validated successfully for user: {user_urn}")
+        return user_urn
+
+    except httpx.RequestError as e:
+        logger.error(f"Token validation failed: Network error - {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable",
+        ) from e
+
+
 def get_authenticated_user(authorization: Optional[str] = Header(None)) -> str:
     """
     FastAPI dependency to get the authenticated user's URN from Bearer token.
 
-    This is the primary authentication dependency for private OAuth endpoints.
-    It extracts the JWT token from the Authorization header and decodes it
-    to get the user URN from the 'sub' claim.
+    This is the primary authentication dependency for OAuth endpoints.
+    It extracts the JWT token from the Authorization header and validates it
+    by making a GraphQL call to GMS. The user URN is returned from GMS's
+    response, not decoded locally from the token.
+
+    SECURITY NOTE:
+    This function validates the token via GMS rather than decoding the JWT
+    locally. This is necessary because:
+    - We don't have access to the JWT signing secret
+    - The frontend proxy passes Authorization headers without validation
+    - Attackers could send forged JWTs that would be accepted without validation
+    See validate_token_and_get_user() for detailed explanation.
 
     Usage:
         @router.post("/endpoint")
@@ -299,13 +433,13 @@ def get_authenticated_user(authorization: Optional[str] = Header(None)) -> str:
         authorization: The Authorization header (injected by FastAPI).
 
     Returns:
-        The authenticated user's URN.
+        The authenticated user's URN (from GMS, authoritative source).
 
     Raises:
-        HTTPException: 401 if not authenticated or token is invalid.
+        HTTPException: 401 if not authenticated, token is invalid, or GMS rejects it.
     """
     token = get_auth_token(authorization)
-    return get_user_urn_from_token(token)
+    return validate_token_and_get_user(token)
 
 
 def build_oauth_callback_url(plugin_id: Optional[str] = None) -> str:

@@ -16,6 +16,7 @@ from datahub_integrations.oauth.router import (
     get_oauth_server_config,
     get_plugin_config,
     get_user_urn_from_token,
+    validate_token_and_get_user,
 )
 
 
@@ -142,6 +143,134 @@ class TestGetUserUrnFromToken:
 
         with pytest.raises(HTTPException) as exc_info:
             get_user_urn_from_token(token)
+
+        assert exc_info.value.status_code == 401
+
+
+class TestValidateTokenAndGetUser:
+    """Test token validation via GMS GraphQL API.
+
+    The validate_token_and_get_user function validates JWT tokens by making
+    a GraphQL call to GMS. This ensures tokens are properly signed and valid,
+    preventing forged tokens from being accepted.
+    """
+
+    def test_valid_token_returns_user_urn(self) -> None:
+        """Test that a valid token returns the user URN from GMS."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {"me": {"corpUser": {"urn": "urn:li:corpuser:validuser"}}}
+        }
+
+        with patch("httpx.post", return_value=mock_response):
+            result = validate_token_and_get_user("valid-token")
+
+        assert result == "urn:li:corpuser:validuser"
+
+    def test_invalid_token_returns_401(self) -> None:
+        """Test that an invalid token results in 401 Unauthorized."""
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+
+        with patch("httpx.post", return_value=mock_response):
+            with pytest.raises(HTTPException) as exc_info:
+                validate_token_and_get_user("invalid-token")
+
+        assert exc_info.value.status_code == 401
+        assert "Invalid or expired token" in exc_info.value.detail
+
+    def test_forbidden_returns_403(self) -> None:
+        """Test that a forbidden response results in 403."""
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+
+        with patch("httpx.post", return_value=mock_response):
+            with pytest.raises(HTTPException) as exc_info:
+                validate_token_and_get_user("forbidden-token")
+
+        assert exc_info.value.status_code == 403
+        assert "Access denied" in exc_info.value.detail
+
+    def test_graphql_error_returns_401(self) -> None:
+        """Test that GraphQL errors result in 401."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "errors": [{"message": "Unauthorized"}],
+            "data": None,
+        }
+
+        with patch("httpx.post", return_value=mock_response):
+            with pytest.raises(HTTPException) as exc_info:
+                validate_token_and_get_user("bad-token")
+
+        assert exc_info.value.status_code == 401
+        assert "Token validation failed" in exc_info.value.detail
+
+    def test_missing_user_urn_returns_401(self) -> None:
+        """Test that missing user URN in response results in 401."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": {"me": {"corpUser": {"urn": None}}}}
+
+        with patch("httpx.post", return_value=mock_response):
+            with pytest.raises(HTTPException) as exc_info:
+                validate_token_and_get_user("token-with-no-user")
+
+        assert exc_info.value.status_code == 401
+        assert "Could not determine user identity" in exc_info.value.detail
+
+    def test_network_error_returns_503(self) -> None:
+        """Test that network errors result in 503 Service Unavailable."""
+        import httpx
+
+        with patch("httpx.post", side_effect=httpx.RequestError("Connection failed")):
+            with pytest.raises(HTTPException) as exc_info:
+                validate_token_and_get_user("any-token")
+
+        assert exc_info.value.status_code == 503
+        assert "Authentication service unavailable" in exc_info.value.detail
+
+    def test_makes_correct_graphql_request(self) -> None:
+        """Test that the correct GraphQL query is sent to GMS."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {"me": {"corpUser": {"urn": "urn:li:corpuser:testuser"}}}
+        }
+
+        with patch("httpx.post", return_value=mock_response) as mock_post:
+            validate_token_and_get_user("test-token")
+
+        # Verify the request was made with correct parameters
+        call_args = mock_post.call_args
+        assert "Bearer test-token" in str(call_args)
+        assert "GetMe" in str(call_args.kwargs["json"]["query"])
+
+    def test_forged_token_rejected(self) -> None:
+        """Test that a forged JWT token is rejected by GMS.
+
+        This is the key security test - even if an attacker crafts a JWT
+        with arbitrary claims, GMS will reject it because the signature
+        is invalid.
+        """
+        import jwt
+
+        # Create a forged token with a fake signature
+        forged_token = jwt.encode(
+            {"sub": "admin", "role": "superuser"},
+            "wrong-secret",  # Attacker doesn't know the real secret
+            algorithm="HS256",
+        )
+
+        # GMS would reject this token
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+
+        with patch("httpx.post", return_value=mock_response):
+            with pytest.raises(HTTPException) as exc_info:
+                validate_token_and_get_user(forged_token)
 
         assert exc_info.value.status_code == 401
 

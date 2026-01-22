@@ -25,6 +25,7 @@ from datahub_integrations.oauth.router import (
     get_auth_token,
     get_authenticated_user,
     get_user_urn_from_token,
+    validate_token_and_get_user,
 )
 from datahub_integrations.oauth.state_store import (
     CreateStateResult,
@@ -56,6 +57,7 @@ __all__ = [
     "get_auth_token",
     "get_authenticated_user",
     "get_user_urn_from_token",
+    "validate_token_and_get_user",
     # Routers
     "oauth_authenticated_router",
     "oauth_callback_router",
