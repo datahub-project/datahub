@@ -881,6 +881,10 @@ class TableauSourceReport(
     num_virtual_connections_processed: int = 0
     num_vc_table_references_found: int = 0
     num_vc_lineages_created: int = 0
+    num_vc_lineage_parsing_errors: int = 0
+    num_vc_upstream_columns_malformed: int = 0
+    num_vc_tables_malformed: int = 0
+    num_vc_fields_skipped_invalid: int = 0
     tableau_server_error_stats: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )

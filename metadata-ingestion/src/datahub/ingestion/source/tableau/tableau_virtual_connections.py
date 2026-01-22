@@ -89,6 +89,7 @@ class VirtualConnectionProcessor:
             logger.warning(
                 f"Expected list for upstream_columns in field '{field_name}', got {type(upstream_columns)}. Skipping."
             )
+            self.report.num_vc_upstream_columns_malformed += 1
             return vc_references
 
         for upstream_col in upstream_columns:
@@ -103,6 +104,7 @@ class VirtualConnectionProcessor:
                 logger.debug(
                     f"Skipping upstream column with non-dict table in field '{field_name}'"
                 )
+                self.report.num_vc_tables_malformed += 1
                 continue
 
             table_type = table.get(c.TYPE_NAME)
@@ -133,6 +135,7 @@ class VirtualConnectionProcessor:
                     logger.debug(
                         f"Skipping invalid Virtual Connection reference: field={field_name}, column={column_name}, table={vc_table_name}"
                     )
+                    self.report.num_vc_fields_skipped_invalid += 1
                     continue
 
                 logger.debug(
@@ -329,6 +332,21 @@ class VirtualConnectionProcessor:
         ):
             yield from self._emit_single_virtual_connection(vc)
 
+    def _build_column_name_map(self, columns: List[dict]) -> Dict[str, str]:
+        """Build case-insensitive column name mapping.
+
+        Args:
+            columns: List of column dictionaries with 'name' field
+
+        Returns:
+            Dict mapping lowercase column names to original casing
+        """
+        return {
+            col.get(c.NAME, "").lower(): col.get(c.NAME, "")
+            for col in columns
+            if col.get(c.NAME)
+        }
+
     def _group_vc_columns_by_table(
         self, vc_tables: List[dict]
     ) -> Dict[str, Dict[str, Any]]:
@@ -451,18 +469,17 @@ class VirtualConnectionProcessor:
 
                 if vc_columns and db_columns:
                     # Case-insensitive mapping for column matching
-                    db_column_map = {
-                        col.get(c.NAME, "").lower(): col.get(c.NAME, "")
-                        for col in db_columns
-                        if col.get(c.NAME)
-                    }
+                    db_column_map = self._build_column_name_map(db_columns)
 
                     for vc_column in vc_columns:
                         vc_col_name = vc_column.get(c.NAME)
                         if not vc_col_name:
                             continue
 
-                        vc_column.get(c.REMOTE_TYPE, c.UNKNOWN)
+                        vc_col_type = vc_column.get(c.REMOTE_TYPE, c.UNKNOWN)
+                        logger.debug(
+                            f"Processing VC column '{vc_col_name}' with type '{vc_col_type}'"
+                        )
 
                         if vc_col_name.lower() in db_column_map:
                             db_col_name = db_column_map[vc_col_name.lower()]
@@ -549,10 +566,27 @@ class VirtualConnectionProcessor:
             dataset_urn = DatasetUrn.from_string(datasource_urn)
             datasource_id = dataset_urn.name
             logger.debug(f"Extracted datasource ID: {datasource_id}")
+        except ValueError as e:
+            logger.error(
+                f"Invalid datasource URN format '{datasource_urn}': {e}. "
+                "Expected format: urn:li:dataset:(urn:li:dataPlatform:tableau,datasource_id,PROD). "
+                "This indicates malformed Tableau data."
+            )
+            self.report.num_vc_lineage_parsing_errors = (
+                getattr(self.report, "num_vc_lineage_parsing_errors", 0) + 1
+            )
+            return LineageResult(
+                upstream_tables=upstream_tables,
+                fine_grained_lineages=fine_grained_lineages,
+            )
         except Exception as e:
-            logger.warning(
-                f"Error parsing datasource URN {datasource_urn}: {e}. "
-                "URN format should be: urn:li:dataset:(urn:li:dataPlatform:tableau,datasource_id,PROD)"
+            logger.error(
+                f"Unexpected error parsing datasource URN '{datasource_urn}': {type(e).__name__}: {e}. "
+                "This may indicate a code bug or URN format change.",
+                exc_info=True,
+            )
+            self.report.num_vc_lineage_parsing_errors = (
+                getattr(self.report, "num_vc_lineage_parsing_errors", 0) + 1
             )
             return LineageResult(
                 upstream_tables=upstream_tables,
@@ -594,12 +628,23 @@ class VirtualConnectionProcessor:
 
             # Extract table reference from field names like "column_name (schema.table_name)"
             # Helps disambiguate which VC table a field comes from when VCs have multiple tables
+            # Note: Uses rightmost parenthetical to avoid matching nested parens like "Amount (USD) (table)"
             referenced_table = None
             clean_field_name = field_name
-            table_match = FIELD_TABLE_REFERENCE_PATTERN.search(field_name)
-            if table_match:
-                clean_field_name = table_match.group(1).strip()
-                referenced_table = table_match.group(2).strip().lower()
+
+            # Find the last occurrence of parentheses (handles nested parens)
+            last_open_paren = field_name.rfind("(")
+            last_close_paren = field_name.rfind(")")
+
+            if (
+                last_open_paren != -1
+                and last_close_paren != -1
+                and last_close_paren > last_open_paren
+            ):
+                clean_field_name = field_name[:last_open_paren].strip()
+                referenced_table = (
+                    field_name[last_open_paren + 1 : last_close_paren].strip().lower()
+                )
                 logger.debug(
                     f"Extracted referenced table '{referenced_table}' from field '{field_name}'"
                 )
@@ -607,12 +652,21 @@ class VirtualConnectionProcessor:
                 if referenced_table in vc_table_name_to_id:
                     ref_table_id = vc_table_name_to_id[referenced_table]
                     if ref_table_id != vc_table_id:
-                        logger.debug(
-                            f"Overriding table ID from {vc_table_id} to {ref_table_id} based on field name reference"
-                        )
+                        original_vc_table_id = vc_table_id
+                        original_vc_table_name = vc_table_name
                         vc_table_id = ref_table_id
                         if ref_table_id in self.vc_table_id_to_name:
                             vc_table_name = self.vc_table_id_to_name[ref_table_id]
+                        logger.info(
+                            f"Field '{field_name}': Overriding VC table from '{original_vc_table_name}' "
+                            f"(ID: {original_vc_table_id}) to '{vc_table_name}' (ID: {ref_table_id}) "
+                            f"based on table reference in field name"
+                        )
+                else:
+                    logger.debug(
+                        f"Referenced table '{referenced_table}' from field '{field_name}' "
+                        f"not found in VC table name mapping. Available tables: {list(vc_table_name_to_id.keys())}"
+                    )
 
             if vc_table_id in self.vc_table_id_to_vc_id:
                 vc_id = self.vc_table_id_to_vc_id[vc_table_id]
@@ -630,8 +684,11 @@ class VirtualConnectionProcessor:
                     vc_table_urns_seen.add(vc_table_urn)
 
                 if self.config.extract_column_level_lineage:
-                    self.vc_table_column_types.get(
+                    column_type = self.vc_table_column_types.get(
                         f"{vc_table_id}.{column_name}", c.UNKNOWN
+                    )
+                    logger.debug(
+                        f"VC column type for {vc_table_id}.{column_name}: {column_type}"
                     )
 
                     fine_grained_lineages.append(
@@ -825,11 +882,7 @@ class VirtualConnectionProcessor:
 
             if vc_columns and db_columns:
                 # Case-insensitive mapping for column matching
-                db_column_map = {
-                    col.get(c.NAME, "").lower(): col.get(c.NAME, "")
-                    for col in db_columns
-                    if col.get(c.NAME)
-                }
+                db_column_map = self._build_column_name_map(db_columns)
 
                 for vc_column in vc_columns:
                     vc_col_name = vc_column.get(c.NAME)
