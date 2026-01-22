@@ -23,7 +23,6 @@ base_requirements = {
     "pydantic_core!=2.41.3,<3.0.0",
     "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
-    "sentry-sdk>=1.33.1",
     # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
     # vulnerability), but Airflow 2.x constraints pin jaraco.context to older versions (e.g., 5.3.0).
     # This constraint is NOT included here to maintain Airflow compatibility.
