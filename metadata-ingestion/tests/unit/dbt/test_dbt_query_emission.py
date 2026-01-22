@@ -20,9 +20,8 @@ from datahub.utilities.time import datetime_to_ts_millis
 TEST_NODE_URN = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
 
-@pytest.fixture
-def dbt_source() -> DBTCoreSource:
-    """Create a test DBTCoreSource instance."""
+def _create_dbt_source() -> DBTCoreSource:
+    """Create a DBTCoreSource for tests needing custom setup."""
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     config = DBTCoreConfig(
         manifest_path="temp/manifest.json",
@@ -35,46 +34,9 @@ def dbt_source() -> DBTCoreSource:
 
 
 @pytest.fixture
-def dbt_node() -> DBTNode:
-    """Create a test DBTNode with meta.queries."""
-    return DBTNode(
-        database="test_db",
-        schema="test_schema",
-        name="test_model",
-        alias=None,
-        comment="Test model comment",
-        description="Test model description",
-        language="sql",
-        raw_code="SELECT * FROM source_table",
-        dbt_adapter="postgres",
-        dbt_name="model.test.test_model",
-        dbt_file_path="models/test_model.sql",
-        dbt_package_name="test",
-        node_type="model",
-        max_loaded_at=None,
-        materialization="table",
-        catalog_type="table",
-        missing_from_catalog=False,
-        owner=None,
-        meta={
-            "queries": [
-                {
-                    "name": "Active customers (30d)",
-                    "description": "Standard engagement pull",
-                    "sql": "SELECT * FROM test_model WHERE active = true AND last_seen > CURRENT_DATE - INTERVAL '30 days'",
-                    "tags": ["production", "analytics"],
-                    "terms": ["CustomerData", "Engagement"],
-                },
-                {
-                    "name": "Revenue by customer",
-                    "sql": "SELECT customer_id, SUM(amount) as total_revenue FROM test_model GROUP BY customer_id",
-                },
-            ]
-        },
-        query_tag={},
-        tags=[],
-        compiled_code="SELECT * FROM source_table",
-    )
+def dbt_source() -> DBTCoreSource:
+    """Fixture providing a test DBTCoreSource instance."""
+    return _create_dbt_source()
 
 
 def _create_dbt_node() -> DBTNode:
@@ -119,17 +81,10 @@ def _create_dbt_node() -> DBTNode:
     )
 
 
-def _create_dbt_source() -> DBTCoreSource:
-    """Create a DBTCoreSource for tests needing custom setup."""
-    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
-    config = DBTCoreConfig(
-        manifest_path="temp/manifest.json",
-        catalog_path="temp/catalog.json",
-        target_platform="postgres",
-        enable_meta_mapping=False,
-        write_semantics="OVERRIDE",
-    )
-    return DBTCoreSource(config, ctx)
+@pytest.fixture
+def dbt_node() -> DBTNode:
+    """Fixture providing a test DBTNode with meta.queries."""
+    return _create_dbt_node()
 
 
 @freeze_time("2024-01-01 00:00:00")
@@ -137,10 +92,8 @@ def test_emits_query_properties_and_subjects_for_each_meta_query():
     """Test that Query entities are correctly emitted from meta.queries."""
     source = _create_dbt_source()
     node = _create_dbt_node()
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
-
     # Generate query entity MCPs
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # We should have 2 queries * 2 aspects each (properties, subjects)
     # Query 1: properties (with customProperties for tags/terms), subjects = 2 aspects
@@ -154,7 +107,7 @@ def test_emits_query_properties_and_subjects_for_each_meta_query():
     assert query_properties_mcp.aspect.name == "Active customers (30d)"
     assert query_properties_mcp.aspect.description == "Standard engagement pull"
     assert "WHERE active = true" in query_properties_mcp.aspect.statement.value
-    assert query_properties_mcp.aspect.origin == node_urn
+    assert query_properties_mcp.aspect.origin == TEST_NODE_URN
 
     # Check that tags and terms are in customProperties
     assert query_properties_mcp.aspect.customProperties is not None
@@ -172,7 +125,7 @@ def test_emits_query_properties_and_subjects_for_each_meta_query():
     query_subjects_mcp = mcps[1]
     assert isinstance(query_subjects_mcp.aspect, QuerySubjectsClass)
     assert len(query_subjects_mcp.aspect.subjects) == 1
-    assert query_subjects_mcp.aspect.subjects[0].entity == node_urn
+    assert query_subjects_mcp.aspect.subjects[0].entity == TEST_NODE_URN
 
     # Check second query properties (no description, tags, or terms)
     second_query_properties_mcp = mcps[2]
@@ -208,9 +161,8 @@ def test_skips_query_with_missing_required_fields():
             {"name": "Non-string SQL", "sql": 456},  # Invalid: non-string SQL
         ]
     }
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
     # Only the valid query should produce MCPs (properties + subjects = 2)
     assert len(mcps) == 2
     # Check that report tracks failures
@@ -222,9 +174,8 @@ def test_generates_urn_from_model_and_query_name():
     """Test that query URNs are correctly generated and sanitized."""
     source = _create_dbt_source()
     node = _create_dbt_node()
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # Check that URNs are properly formatted
     first_query_urn = mcps[0].entityUrn
@@ -247,9 +198,8 @@ def test_increments_report_counters_on_emit_and_fail():
             {"name": "Valid 3", "sql": "SELECT 3"},
         ]
     }
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    list(source._create_query_entity_mcps(node, node_urn))
+    list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     assert source.report.num_queries_emitted == 3
     assert source.report.num_queries_failed == 1
@@ -266,10 +216,9 @@ def test_skips_duplicate_query_names(caplog):
             {"name": "Same Name", "sql": "SELECT 2"},  # Duplicate - will be skipped
         ]
     }
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
     with caplog.at_level(logging.WARNING):
-        mcps = list(source._create_query_entity_mcps(node, node_urn))
+        mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # Only first query is emitted (2 MCPs = 1 query * 2 aspects)
     assert len(mcps) == 2
@@ -295,10 +244,9 @@ def test_query_names_collide_after_sanitization(caplog):
             {"name": "Revenue [USD]", "sql": "SELECT 2"},  # Collides after sanitization
         ]
     }
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
     with caplog.at_level(logging.WARNING):
-        mcps = list(source._create_query_entity_mcps(node, node_urn))
+        mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # Only first query emitted (2 MCPs), second skipped due to URN collision
     assert len(mcps) == 2
@@ -314,6 +262,29 @@ def test_query_names_collide_after_sanitization(caplog):
     assert any("URN collision" in record.message for record in caplog.records)
 
 
+def test_skips_non_list_meta_queries_with_warning(caplog):
+    """Test that non-list meta.queries is skipped with a warning and report entry."""
+    source = _create_dbt_source()
+    node = _create_dbt_node()
+    # Set meta.queries to a string instead of a list
+    node.meta = {"queries": "this should be a list, not a string"}
+
+    with caplog.at_level(logging.WARNING):
+        mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
+
+    # No MCPs emitted
+    assert len(mcps) == 0
+    assert source.report.num_queries_emitted == 0
+    # Not counted as failed (it's a structural issue, not validation failure)
+    assert source.report.num_queries_failed == 0
+
+    # Warning should be logged
+    assert any(
+        "expected list" in record.message.lower() and "str" in record.message.lower()
+        for record in caplog.records
+    )
+
+
 def test_disabling_query_emission_skips_all_queries_including_valid_ones():
     """Test that disabling query emission completely bypasses query processing."""
     source = _create_dbt_source()
@@ -321,9 +292,8 @@ def test_disabling_query_emission_skips_all_queries_including_valid_ones():
     node = _create_dbt_node()
     # Node has 2 valid queries defined
     assert len(node.meta["queries"]) == 2
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # No MCPs emitted even though queries are valid
     assert len(mcps) == 0
@@ -340,9 +310,8 @@ def test_sql_at_max_length_not_truncated():
     max_length = 1 * 1024 * 1024
     long_sql = "X" * max_length
     node.meta = {"queries": [{"name": "long_query", "sql": long_sql}]}
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     assert len(mcps) == 2
     properties = mcps[0].aspect
@@ -360,9 +329,8 @@ def test_sql_exceeding_max_length_is_truncated():
     max_length = 1 * 1024 * 1024
     oversized_sql = "Y" * (max_length + 100)
     node.meta = {"queries": [{"name": "oversized_query", "sql": oversized_sql}]}
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     assert len(mcps) == 2
     properties = mcps[0].aspect
@@ -378,9 +346,8 @@ def test_shows_all_validation_errors_not_just_first():
     node = _create_dbt_node()
     # Create query missing both name and sql (should report both errors)
     node.meta = {"queries": [{"description": "Query with no name or sql"}]}
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     assert len(mcps) == 0
     assert source.report.num_queries_failed == 1
@@ -398,7 +365,6 @@ def test_uses_manifest_timestamp_when_available():
     """Test that manifest generated_at timestamp is used for Query entities."""
     source = _create_dbt_source()
     node = _create_dbt_node()
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
     manifest_timestamp = "2024-06-15T10:30:00Z"
     # Calculate expected timestamp using same method as source
@@ -411,7 +377,7 @@ def test_uses_manifest_timestamp_when_available():
         "project_name": "test_project",
     }
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     assert len(mcps) == 4  # 2 queries * 2 aspects
     # Verify the timestamp matches what we expect from manifest
@@ -457,7 +423,6 @@ def test_warns_and_uses_fallback_on_malformed_generated_at(caplog):
     """Test that malformed generated_at logs warning and uses fallback timestamp."""
     source = _create_dbt_source()
     node = _create_dbt_node()
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
     # Set manifest_info with malformed timestamp
     source.report.manifest_info = {
@@ -466,7 +431,7 @@ def test_warns_and_uses_fallback_on_malformed_generated_at(caplog):
     }
 
     with caplog.at_level(logging.WARNING):
-        mcps = list(source._create_query_entity_mcps(node, node_urn))
+        mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # Should still emit queries using fallback
     assert len(mcps) == 4
@@ -498,9 +463,8 @@ def test_rejects_unknown_fields_with_helpful_error():
             }
         ]
     }
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # Query should be rejected
     assert len(mcps) == 0
@@ -554,9 +518,8 @@ def test_queries_emit_independently_of_node_type_settings(
 
     # Test that queries ARE actually emitted
     node = _create_dbt_node()
-    node_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,test.test_model,PROD)"
 
-    mcps = list(source._create_query_entity_mcps(node, node_urn))
+    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
 
     # Should emit queries (2 queries * 2 aspects = 4 MCPs)
     assert len(mcps) == 4
