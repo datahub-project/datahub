@@ -418,6 +418,7 @@ def add_field_description(f1, description, graph_client):
 @tenacity.retry(
     wait=tenacity.wait_exponential(multiplier=1, max=10),
     stop=tenacity.stop_after_delay(60),
+    reraise=True,
 )
 def check_propagated_description(downstream_field, description, graph_client):
     documentation = graph_client.get_aspect(downstream_field, models.DocumentationClass)
