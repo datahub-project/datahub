@@ -3203,3 +3203,19 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **bfb3564132** - docs(cloud-release) DataHub Cloud v0.3.16 Release Changelog (#15869)
   *by Maggie Hays <maggiem.hays@gmail.com> on 2026-01-15*
+
+## Upstream Merge Session - 2026-01-22 07:51:41
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 1
+- **Strategy**: stacked
+- **Started**: 2026-01-22 07:51:41
+
+### Commits Included in This Merge
+
+- **17a25e2bc5** - feat(product-update) backport ProductUpdate to OSS and update product jsons (#15846)
+  *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-01-15*

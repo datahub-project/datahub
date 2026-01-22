@@ -27,9 +27,11 @@ export const ANT_NOTIFICATION_Z_INDEX = 1010;
 // S3 folder to store product assets
 export const PRODUCT_ASSETS_FOLDER = 'product_assets';
 
-// LocalStorage keys for dismissal/skip states
-export const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
+// Product update dismissal key
 export const DISMISSED_PRODUCT_UPDATES_KEY = 'dismissedProductUpdates';
+
+// Welcome modal key
+export const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 
 // Navigation sidebar
 export const NAV_SIDEBAR_ID = 'nav-sidebar';

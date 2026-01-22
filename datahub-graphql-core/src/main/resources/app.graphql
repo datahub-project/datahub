@@ -2493,7 +2493,7 @@ input UserApiKeyAiPluginConfigInput {
 }
 
 """
-Feature information for a product update
+Product update feature information
 """
 type ProductUpdateFeature {
   """
