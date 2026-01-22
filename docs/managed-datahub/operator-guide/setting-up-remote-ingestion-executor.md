@@ -287,14 +287,6 @@ Then install with:
 helm install acryl-executor-worker acryl/datahub-executor-worker -f values.yaml
 ```
 
-#### Resource Sizing Guidelines
-
-| Workload                | Memory | CPU     | Replicas | Notes                                |
-| ----------------------- | ------ | ------- | -------- | ------------------------------------ |
-| Light (< 50 sources)    | 2 GB   | 1 core  | 1        | Small schemas                        |
-| Medium (50-200 sources) | 4 GB   | 2 cores | 2        | Typical usage                        |
-| Heavy (200+ sources)    | 8 GB   | 4 cores | 2-4      | Large schemas, many concurrent tasks |
-
 #### Step 4: Configure Secret Mounting (Optional)
 
 For file-based secrets (available in DataHub Cloud v0.3.8.2+):
@@ -483,15 +475,6 @@ celery worker initialization finished
 4. Click **Save & Run**
 5. Verify the ingestion starts and completes in the UI
 
-### Verification Checklist
-
-| Check                                        | Expected Result | If Failed                      |
-| -------------------------------------------- | --------------- | ------------------------------ |
-| Executor logs show "initialization finished" | ✅              | Check GMS URL, token, network  |
-| Pool shows "Healthy" in UI                   | ✅              | Check Pool ID matches          |
-| Test ingestion starts running                | ✅              | Check executor logs for errors |
-| Ingestion completes successfully             | ✅              | Check data source connectivity |
-
 ## Assigning Ingestion Sources to an Executor Pool
 
 After verifying your deployment, assign ingestion sources to run on your executor:
@@ -541,233 +524,33 @@ Secrets can be referenced in your ingestion source configurations using the `${S
 - DataHub Secrets (managed in UI)
 - File-based secrets (mounted files)
 
-## Observability & Monitoring
-
-### Prometheus Metrics
-
-The executor exposes Prometheus metrics for monitoring:
-
-| Setting | Value        |
-| ------- | ------------ |
-| Port    | `9087`       |
-| Path    | `/telemetry` |
-
-**Scrape configuration:**
-
-```yaml
-scrape_configs:
-  - job_name: "datahub-executor"
-    static_configs:
-      - targets: ["datahub-remote-executor:9087"]
-    metrics_path: /telemetry
-```
-
-**Key metrics:**
-
-| Metric                                                       | Type    | Description                        |
-| ------------------------------------------------------------ | ------- | ---------------------------------- |
-| `datahub_executor_worker_ingestion_requests_total`           | Counter | Total ingestion tasks received     |
-| `datahub_executor_worker_ingestion_errors_total`             | Counter | Failed ingestion tasks             |
-| `datahub_executor_worker_active_threads`                     | Gauge   | Currently running tasks            |
-| `datahub_executor_worker_ingestion_visibility_timeout_total` | Counter | Tasks dropped due to queue timeout |
-
-### Kubernetes Health Probes
-
-Add these probes to your deployment for automatic restart on failure:
-
-```yaml
-livenessProbe:
-  exec:
-    command: ["find", "/tmp/worker_liveness_heartbeat", "-mmin", "-1"]
-  initialDelaySeconds: 60
-  periodSeconds: 30
-  failureThreshold: 3
-
-readinessProbe:
-  exec:
-    command: ["find", "/tmp/worker_readiness_heartbeat", "-mmin", "-1"]
-  initialDelaySeconds: 10
-  periodSeconds: 10
-  failureThreshold: 3
-```
-
-### Log Locations
-
-| Log Type            | Location                           | Purpose                           |
-| ------------------- | ---------------------------------- | --------------------------------- |
-| Executor logs       | stdout (kubectl logs / CloudWatch) | Worker process, connection status |
-| Task logs (live)    | DataHub UI → Ingestion → View Logs | Real-time ingestion output        |
-| Task logs (archive) | DataHub Cloud                      | Historical logs                   |
-
 ## Troubleshooting
 
-### Task Stuck in "Pending"
+### Common Issues
 
-**Symptoms:** Ingestion task stays "Pending" in UI, never starts.
+1. **Connection Failed**
 
-**Diagnosis (Kubernetes):**
+   - Verify network connectivity
+   - Check DataHub URL configuration
+   - Validate Executor Pool ID
+   - Validate access token
 
-```bash
-# Check if executor is running
-kubectl get pods -l app.kubernetes.io/name=datahub-executor-worker
+2. **Secret Access Failed**
 
-# Check executor logs for connection status
-kubectl logs -l app.kubernetes.io/name=datahub-executor-worker | grep -i "initialization\|error\|failed"
-```
+   - Confirm secret ARNs/names
+   - Check permissions
+   - Verify secret format
 
-**Diagnosis (ECS):**
-
-```bash
-# Check if task is running
-aws ecs list-tasks --cluster datahub-remote-executor --desired-status RUNNING
-
-# Check logs in CloudWatch
-aws logs tail /ecs/datahub-remote-executor --since 1h | grep -i "initialization\|error\|failed"
-```
-
-**Causes and solutions:**
-
-| Cause                | How to Identify                  | Solution                                          |
-| -------------------- | -------------------------------- | ------------------------------------------------- |
-| Executor not running | No pods / container not started  | Check deployment, image pull access               |
-| Pool ID mismatch     | Logs show different pool than UI | Fix `pool_id` to match exactly                    |
-| Token invalid        | "Access Denied" or 401 in logs   | Verify token is Remote Executor type, not revoked |
-| Network blocked      | Connection timeout errors        | Allow outbound HTTPS to SQS                       |
-
----
-
-### Out of Memory (Exit Code 137)
-
-**Symptoms:** Task fails with "Killed", "OOMKilled", or exit code `137`.
-
-**Cause:** Ingestion subprocess exceeded memory limit. Common with large schemas (100k+ tables/columns).
-
-**Solutions:**
-
-- **Kubernetes**: Increase container memory limits in your deployment
-- **ECS**: Increase task memory in CloudFormation parameters
-- Contact DataHub Cloud support if issues persist
-
----
-
-### Logs Not Appearing in UI
-
-**Symptoms:** Task completes but "View Logs" shows nothing or an error.
-
-**Cause:** Log upload to DataHub Cloud failed.
-
-**Diagnosis:**
-
-```bash
-kubectl logs -l app.kubernetes.io/name=datahub-executor-worker | grep -i "upload\|log\|error"
-```
-
-**Solutions:**
-
-| Issue           | Solution                                     |
-| --------------- | -------------------------------------------- |
-| Network blocked | Allow outbound HTTPS to `s3.*.amazonaws.com` |
-| Other issues    | Contact DataHub Cloud support                |
-
----
-
-### Visibility Timeout Errors
-
-**Symptoms:** Logs show `ExecutionRequest dropped due to exceeded SQS visibility timeout`.
-
-**Cause:** Task waited too long in the executor's internal queue before a worker became available. To prevent duplicate execution, it was dropped.
-
-**Solutions:**
-
-- Add more executor replicas to handle increased load
-- Contact DataHub Cloud support for tuning recommendations
-
----
-
-### Authentication Errors (401/403)
-
-**Symptoms:** `ConfigError: Unable to connect to GMS` or HTTP 401/403 errors.
-
-**Diagnosis:**
-
-```bash
-# Test token validity from inside the container
-kubectl exec -it <pod-name> -- \
-  curl -H "Authorization: Bearer $DATAHUB_GMS_TOKEN" \
-  "$DATAHUB_GMS_URL/health"
-```
-
-**Solutions:**
-
-| Issue                | Solution                                                    |
-| -------------------- | ----------------------------------------------------------- |
-| Wrong token type     | Must be **Remote Executor** type, not Personal Access Token |
-| Token revoked        | Generate new token in DataHub UI                            |
-| URL missing `/gms`   | Add `/gms` suffix: `https://company.acryl.io/gms`           |
-| Extra trailing slash | Remove trailing slash from URL                              |
-
----
-
-### Connectivity Issues (Proxy/Firewall)
-
-**Symptoms:** Timeout errors, "Connection refused", can't reach GMS or SQS.
-
-**Diagnosis:**
-
-```bash
-# Test connectivity from inside the container
-kubectl exec -it <pod-name> -- curl -v https://<company>.acryl.io/gms/health
-kubectl exec -it <pod-name> -- curl -v https://sqs.us-west-2.amazonaws.com
-```
-
-**Solutions:**
-
-1. **Corporate proxy:** Add proxy environment variables:
-
-   ```yaml
-   env:
-     - name: HTTP_PROXY
-       value: "http://proxy.corp.com:8080"
-     - name: HTTPS_PROXY
-       value: "http://proxy.corp.com:8080"
-     - name: NO_PROXY
-       value: "localhost,127.0.0.1,.internal"
-   ```
-
-2. **Firewall rules:** Allow outbound HTTPS (443) to:
-   - `*.acryl.io`
-   - `sqs.*.amazonaws.com`
-   - `s3.*.amazonaws.com` (if using S3 logs)
-
----
-
-### Container Failed to Start
-
-**Symptoms:** Pod in CrashLoopBackOff, container exits immediately.
-
-**Diagnosis:**
-
-```bash
-kubectl describe pod <pod-name>
-kubectl logs <pod-name> --previous
-```
-
-**Common causes:**
-
-| Issue                     | Solution                                  |
-| ------------------------- | ----------------------------------------- |
-| Image pull failed         | Check registry access, image tag          |
-| Missing required env vars | Ensure GMS_URL, TOKEN, POOL_ID are set    |
-| Resource limits too low   | Increase memory/CPU limits                |
-| Secret not found          | Verify secret exists in correct namespace |
-
----
+3. **Container Failed to Start**
+   - Check resource limits
+   - Verify registry access
+   - Review container logs
 
 ### Frequently Asked Questions
 
 **Do AWS Secrets Manager secrets automatically update in the executor?**
 
-No. For ECS, secrets are injected at task startup. Restart the ECS task to pick up changes. For Kubernetes with mounted secrets, updates propagate automatically (with a delay).
+No. Secrets are injected at task startup. Restart the ECS task to pick up changes.
 
 **How can I verify successful deployment?**
 
