@@ -169,6 +169,7 @@ def execute_graphql_query(auth_session, query: Dict[str, Any]) -> Dict[str, Any]
     stop=tenacity.stop_after_attempt(5),
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
     retry=tenacity.retry_if_exception_type(AssertionError),
+    reraise=True,
 )
 def verify_dataset_exists_and_has_top_users(
     auth_session,
