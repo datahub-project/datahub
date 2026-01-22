@@ -51,12 +51,12 @@ Before deploying a Remote Executor, ensure you have the following:
 
 The executor makes **outbound-only** connections. Ensure your firewall/security groups allow:
 
-| Direction | Destination               | Port   | Purpose                    |
-| --------- | ------------------------- | ------ | -------------------------- |
-| Outbound  | `<your-company>.acryl.io` | 443    | DataHub Cloud API          |
-| Outbound  | `sqs.*.amazonaws.com`     | 443    | Task queue                 |
-| Outbound  | `s3.*.amazonaws.com`      | 443    | Log upload (if configured) |
-| Outbound  | Your data sources         | Varies | Metadata extraction        |
+| Direction | Destination               | Port   | Purpose             |
+| --------- | ------------------------- | ------ | ------------------- |
+| Outbound  | `<your-company>.acryl.io` | 443    | DataHub Cloud API   |
+| Outbound  | `sqs.*.amazonaws.com`     | 443    | Task queue          |
+| Outbound  | `s3.*.amazonaws.com`      | 443    | Log upload          |
+| Outbound  | Your data sources         | Varies | Metadata extraction |
 
 ## Creating and Managing Executor Pools
 
@@ -229,12 +229,10 @@ Work with your DataHub Cloud representative to set up access to the container re
 ```bash
 # Create DataHub access token secret (required)
 kubectl create secret generic datahub-remote-executor-secrets \
-  \
   --from-literal=executor-token=<your-remote-executor-token>
 
 # Create source credentials (optional)
 kubectl create secret generic datahub-source-credentials \
-  \
   --from-literal=SNOWFLAKE_PASSWORD=<password> \
   --from-literal=REDSHIFT_PASSWORD=<password>
 ```
@@ -251,11 +249,10 @@ helm repo update
 
 ```bash
 helm install acryl-executor-worker acryl/datahub-executor-worker \
-  \
   --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
   --set global.datahub.gms.secretRef="datahub-remote-executor-secrets" \
   --set global.datahub.gms.secretKey="executor-token" \
-  --set global.datahub.executor.pool_id="production"
+  --set global.datahub.executor.pool_id="<your-pool-id>"
 ```
 
 **Option B: Install with values file** (recommended for production)
@@ -270,7 +267,7 @@ global:
       secretRef: datahub-remote-executor-secrets
       secretKey: executor-token
     executor:
-      pool_id: "production"
+      pool_id: "<your-pool-id>"
 
 datahub-executor-worker:
   image:
@@ -287,9 +284,7 @@ datahub-executor-worker:
 Then install with:
 
 ```bash
-helm install acryl-executor-worker acryl/datahub-executor-worker \
-  \
-  -f values.yaml
+helm install acryl-executor-worker acryl/datahub-executor-worker -f values.yaml
 ```
 
 #### Resource Sizing Guidelines
@@ -362,7 +357,7 @@ metadata:
   name: datahub-executor-config
 data:
   DATAHUB_GMS_URL: "https://<your-company>.acryl.io/gms"
-  DATAHUB_EXECUTOR_POOL_ID: "production"
+  DATAHUB_EXECUTOR_POOL_ID: "<your-pool-id>"
 ```
 
 **Deployment:**
@@ -486,13 +481,7 @@ celery worker initialization finished
 2. Create or edit an ingestion source
 3. In **Advanced** settings, select your **Executor Pool**
 4. Click **Save & Run**
-5. Watch the executor logs—you should see:
-
-```
-[INFO] Received task: RUN_INGEST
-[INFO] Starting ingestion for source: test-source
-[INFO] Ingestion completed successfully
-```
+5. Verify the ingestion starts and completes in the UI
 
 ### Verification Checklist
 
@@ -535,14 +524,6 @@ If you set a **Default Pool**, new ingestion sources will automatically use it. 
 | `DATAHUB_GMS_URL`          | DataHub Cloud URL (must include `/gms`) | ✅ Yes   |
 | `DATAHUB_GMS_TOKEN`        | Remote Executor access token            | ✅ Yes   |
 | `DATAHUB_EXECUTOR_POOL_ID` | Must match Pool ID in UI                | ✅ Yes   |
-
-### Performance Tuning
-
-| Variable                                  | Description                      | Default       |
-| ----------------------------------------- | -------------------------------- | ------------- |
-| `DATAHUB_EXECUTOR_INGESTION_MAX_WORKERS`  | Max concurrent ingestion tasks   | `4`           |
-| `DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS`   | Max concurrent monitoring tasks  | `10`          |
-| `DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT` | SQS visibility timeout (seconds) | `43200` (12h) |
 
 ### Logging
 
@@ -623,37 +604,11 @@ readinessProbe:
 
 ### Log Locations
 
-| Log Type            | Location                            | Purpose                           |
-| ------------------- | ----------------------------------- | --------------------------------- |
-| Executor logs       | stdout (kubectl logs / docker logs) | Worker process, connection status |
-| Task logs (live)    | DataHub UI → Ingestion → View Logs  | Real-time ingestion output        |
-| Task logs (archive) | DataHub Cloud                       | Historical logs                   |
-
-## Advanced: Performance Settings
-
-### Task Weight-Based Queuing
-
-Executors use a weight-based system to manage concurrent tasks:
-
-- **Default**: With 4 workers, each task gets weight `0.25`, allowing 4 parallel tasks
-- **Heavy tasks**: Assign weight `1.0` to run exclusively (no other tasks during execution)
-- **Queue behavior**: If total weight exceeds `1.0`, new tasks queue until capacity frees
-
-### Per-Source Configuration
-
-Configure these in ingestion source **Extra Environment Variables**:
-
-```json
-{
-  "EXECUTOR_TASK_WEIGHT": "1.0",
-  "EXECUTOR_TASK_MEMORY_LIMIT": "4000000"
-}
-```
-
-| Variable                     | Description                                              | Default         |
-| ---------------------------- | -------------------------------------------------------- | --------------- |
-| `EXECUTOR_TASK_WEIGHT`       | Task weight (0.0-1.0). Higher = more resources reserved. | `1/MAX_WORKERS` |
-| `EXECUTOR_TASK_MEMORY_LIMIT` | Memory limit per task in KB. Kills task if exceeded.     | Unlimited       |
+| Log Type            | Location                           | Purpose                           |
+| ------------------- | ---------------------------------- | --------------------------------- |
+| Executor logs       | stdout (kubectl logs / CloudWatch) | Worker process, connection status |
+| Task logs (live)    | DataHub UI → Ingestion → View Logs | Real-time ingestion output        |
+| Task logs (archive) | DataHub Cloud                      | Historical logs                   |
 
 ## Troubleshooting
 
@@ -700,35 +655,9 @@ aws logs tail /ecs/datahub-remote-executor --since 1h | grep -i "initialization\
 
 **Solutions:**
 
-1. **Increase container memory:**
-
-   ```yaml
-   # Kubernetes
-   resources:
-     limits:
-       memory: "8Gi"
-   ```
-
-   ```bash
-   # Docker
-   docker run -m 8g ...
-   ```
-
-2. **Set per-task memory limit** (prevents one task from killing others):
-
-   In ingestion source **Extra Environment Variables**:
-
-   ```json
-   { "EXECUTOR_TASK_MEMORY_LIMIT": "4000000" }
-   ```
-
-3. **Reduce parallelism:**
-
-   ```yaml
-   env:
-     - name: DATAHUB_EXECUTOR_INGESTION_MAX_WORKERS
-       value: "2"
-   ```
+- **Kubernetes**: Increase container memory limits in your deployment
+- **ECS**: Increase task memory in CloudFormation parameters
+- Contact DataHub Cloud support if issues persist
 
 ---
 
@@ -761,21 +690,8 @@ kubectl logs -l app.kubernetes.io/name=datahub-executor-worker | grep -i "upload
 
 **Solutions:**
 
-1. **Increase workers:**
-
-   ```yaml
-   env:
-     - name: DATAHUB_EXECUTOR_INGESTION_MAX_WORKERS
-       value: "8"
-   ```
-
-2. **Add more executor replicas:**
-
-   ```yaml
-   replicas: 4
-   ```
-
-3. **Reduce task weight** for fast-running sources to allow more parallelism
+- Add more executor replicas to handle increased load
+- Contact DataHub Cloud support for tuning recommendations
 
 ---
 
