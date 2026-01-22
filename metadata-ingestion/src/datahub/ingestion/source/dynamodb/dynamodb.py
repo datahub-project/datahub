@@ -118,10 +118,10 @@ class DynamoDBConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. The table name format is 'region.table'",
     )
-    extract_table_tags: Optional[bool] = Field(
+    extract_table_tags: bool = Field(
         default=False,
         description=(
-            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags. "
+            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags, AWS table tags may reappear if they are deleted and manual tags will lost if datahub api not available"
         ),
     )
     # Custom Stateful Ingestion settings
@@ -634,7 +634,17 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             tags_to_add: List[str] = []
 
             for tag_dict in tags_kv:
-                key, val = tag_dict["Key"], tag_dict["Value"]
+                key = tag_dict.get("Key")
+                val = tag_dict.get("Value")
+
+                if not key:
+                    self.report.report_warning(
+                        title="DynamoDB Tags",
+                        message="Skipping tag entry without 'Key' field.",
+                        context=f"dataset_urn: {dataset_urn}, tag_entry: {tag_dict}",
+                    )
+                    continue
+
                 tag = f"{key}:{val}" if val else key
                 tags_to_add.append(make_tag_urn(tag))
 
@@ -644,7 +654,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     current_tags = self.ctx.graph.get_aspect(
                         entity_urn=dataset_urn, aspect_type=GlobalTagsClass
                     )
-                    if current_tags and getattr(current_tags, "tags", None):
+                    if current_tags and current_tags.tags:
                         tags_to_add.extend(
                             tag_assoc.tag for tag_assoc in current_tags.tags
                         )
