@@ -199,10 +199,10 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:env=testing"
+                    "tag": "urn:li:tag:env:testing"
                 },
                 {
-                    "tag": "urn:li:tag:team=datahub"
+                    "tag": "urn:li:tag:team:datahub"
                 }
             ]
         }
@@ -248,12 +248,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:env=testing",
+    "entityUrn": "urn:li:tag:env:testing",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "env=testing"
+            "name": "env:testing"
         }
     },
     "systemMetadata": {
@@ -264,12 +264,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:team=datahub",
+    "entityUrn": "urn:li:tag:team:datahub",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "team=datahub"
+            "name": "team:datahub"
         }
     },
     "systemMetadata": {

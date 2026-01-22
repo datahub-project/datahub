@@ -1,0 +1,186 @@
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.dynamodb.dynamodb import (
+    DynamoDBConfig,
+    DynamoDBSource,
+)
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    TagAssociationClass,
+)
+
+
+@pytest.mark.unit
+class TestDynamoDBTagsIngestion:
+    """Test suite for DynamoDB tag extraction and merging."""
+
+    # Fixtures
+    @pytest.fixture
+    def mock_dynamodb_client(self):
+        """Fixture for mock DynamoDB client."""
+        return MagicMock()
+
+    @pytest.fixture
+    def dynamodb_config(self):
+        """Fixture for DynamoDB source configuration."""
+        return DynamoDBConfig(
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            aws_region="us-west-2",
+            extract_table_tags=True,
+        )
+
+    @pytest.fixture
+    def mock_context(self):
+        """Fixture for mock pipeline context with graph."""
+        mock_ctx = MagicMock(spec=PipelineContext)
+        mock_ctx.pipeline_name = "test_pipeline"
+        mock_ctx.run_id = "test_run"
+        mock_ctx.graph = MagicMock()
+        return mock_ctx
+
+    @pytest.fixture
+    def mock_context_without_graph(self):
+        """Fixture for mock pipeline context without graph."""
+        mock_ctx = MagicMock(spec=PipelineContext)
+        mock_ctx.pipeline_name = "test_pipeline"
+        mock_ctx.run_id = "test_run"
+        mock_ctx.graph = None
+        return mock_ctx
+
+    @pytest.fixture
+    def existing_tags(self):
+        """Fixture for existing DataHub tags."""
+        return GlobalTagsClass(
+            tags=[
+                TagAssociationClass(tag="urn:li:tag:manual_tag"),
+                TagAssociationClass(tag="urn:li:tag:ui_added_tag"),
+            ]
+        )
+
+    @pytest.fixture
+    def aws_tags(self):
+        """Fixture for AWS DynamoDB tags."""
+        return [
+            {"Key": "env", "Value": "prod"},
+            {"Key": "team", "Value": "data"},
+        ]
+
+    @pytest.fixture
+    def dataset_info(self):
+        """Fixture for dataset URN and table ARN."""
+        return {
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,us-west-2.test_table,PROD)",
+            "table_arn": "arn:aws:dynamodb:us-west-2:123456789012:table/test_table",
+        }
+
+    @staticmethod
+    def create_dynamodb_source(ctx, config):
+        """Helper method to create DynamoDB source instance."""
+        return DynamoDBSource(ctx=ctx, config=config, platform="dynamodb")
+
+    @staticmethod
+    def get_tag_urns_from_workunits(workunits):
+        """Helper method to extract tag URNs from workunits."""
+        assert len(workunits) == 1
+        wu = workunits[0]
+        assert wu.metadata.aspect is not None
+        tags_aspect = wu.metadata.aspect
+        assert isinstance(tags_aspect, GlobalTagsClass)
+        return {tag.tag for tag in tags_aspect.tags}
+
+    def test_tags_merge_with_existing(
+        self,
+        mock_dynamodb_client,
+        mock_context,
+        dynamodb_config,
+        existing_tags,
+        aws_tags,
+        dataset_info,
+    ):
+        """Test that DynamoDB tags are merged with existing DataHub tags when graph is available."""
+        mock_context.graph.get_aspect.return_value = existing_tags
+
+        source = self.create_dynamodb_source(mock_context, dynamodb_config)
+
+        with patch.object(source, "_get_dynamodb_table_tags", return_value=aws_tags):
+            workunits = list(
+                source._get_dynamodb_table_tags_wu(
+                    dynamodb_client=mock_dynamodb_client,
+                    table_arn=dataset_info["table_arn"],
+                    dataset_urn=dataset_info["dataset_urn"],
+                )
+            )
+
+        mock_context.graph.get_aspect.assert_called_once_with(
+            entity_urn=dataset_info["dataset_urn"], aspect_type=GlobalTagsClass
+        )
+
+        tag_urns = self.get_tag_urns_from_workunits(workunits)
+        assert tag_urns == {
+            "urn:li:tag:env:prod",
+            "urn:li:tag:team:data",
+            "urn:li:tag:manual_tag",
+            "urn:li:tag:ui_added_tag",
+        }
+
+    def test_tags_without_graph(
+        self,
+        mock_dynamodb_client,
+        mock_context_without_graph,
+        dynamodb_config,
+        aws_tags,
+        dataset_info,
+    ):
+        """Test that DynamoDB tags work when graph is not available (no merging)."""
+        source = self.create_dynamodb_source(
+            mock_context_without_graph, dynamodb_config
+        )
+
+        with patch.object(source, "_get_dynamodb_table_tags", return_value=aws_tags):
+            workunits = list(
+                source._get_dynamodb_table_tags_wu(
+                    dynamodb_client=mock_dynamodb_client,
+                    table_arn=dataset_info["table_arn"],
+                    dataset_urn=dataset_info["dataset_urn"],
+                )
+            )
+
+        tag_urns = self.get_tag_urns_from_workunits(workunits)
+        assert tag_urns == {"urn:li:tag:env:prod", "urn:li:tag:team:data"}
+
+    def test_tags_merge_error_handling(
+        self,
+        mock_dynamodb_client,
+        mock_context,
+        dynamodb_config,
+        dataset_info,
+    ):
+        """Test that errors during tag merging are handled gracefully."""
+        mock_context.graph.get_aspect.side_effect = Exception("Graph API error")
+
+        source = self.create_dynamodb_source(mock_context, dynamodb_config)
+
+        error_case_tags = [{"Key": "env", "Value": "prod"}]
+
+        with patch.object(
+            source, "_get_dynamodb_table_tags", return_value=error_case_tags
+        ):
+            workunits = list(
+                source._get_dynamodb_table_tags_wu(
+                    dynamodb_client=mock_dynamodb_client,
+                    table_arn=dataset_info["table_arn"],
+                    dataset_urn=dataset_info["dataset_urn"],
+                )
+            )
+
+        tag_urns = self.get_tag_urns_from_workunits(workunits)
+        assert tag_urns == {"urn:li:tag:env:prod"}
+
+        assert len(source.report.warnings) > 0
+        assert any(
+            "Failed to merge existing tags" in str(w) for w in source.report.warnings
+        )
