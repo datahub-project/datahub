@@ -17,14 +17,14 @@ This source extracts metadata from [Matillion Data Productivity Cloud](https://w
 
 ## Concept Mapping
 
-| Matillion Object     | DataHub Entity                                                                          | Description                                   |
-| -------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `Project`            | [Container](../../docs/generated/metamodel/entities/container.md)                       | Top-level organizational unit                 |
-| `Environment`        | [Container](../../docs/generated/metamodel/entities/container.md)                       | Sub-container within a project                |
-| `Pipeline`           | [Data Flow](../../docs/generated/metamodel/entities/dataFlow.md)                        | Orchestration or transformation pipeline      |
-| `Streaming Pipeline` | [Data Flow](../../docs/generated/metamodel/entities/dataFlow.md)                        | CDC pipeline for real-time data ingestion     |
-| `Pipeline Execution` | [Data Process Instance](../../docs/generated/metamodel/entities/dataProcessInstance.md) | Execution instance with status and statistics |
-| `Connection`         | [Dataset](../../docs/generated/metamodel/entities/dataset.md)                           | Database/warehouse connection (optional)      |
+| Matillion Object     | DataHub Entity                                                           | Description                                   |
+| -------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
+| `Project`            | [Container](../../metamodel/entities/container.md)                       | Top-level organizational unit                 |
+| `Environment`        | [Container](../../metamodel/entities/container.md)                       | Sub-container within a project                |
+| `Pipeline`           | [Data Flow](../../metamodel/entities/dataFlow.md)                        | Orchestration or transformation pipeline      |
+| `Streaming Pipeline` | [Data Flow](../../metamodel/entities/dataFlow.md)                        | CDC pipeline for real-time data ingestion     |
+| `Pipeline Execution` | [Data Process Instance](../../metamodel/entities/dataProcessInstance.md) | Execution instance with status and statistics |
+| `Connection`         | [Dataset](../../metamodel/entities/dataset.md)                           | Database/warehouse connection (optional)      |
 
 ## Features
 
