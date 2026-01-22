@@ -114,8 +114,13 @@ class SingleStoreSource(TwoTierSQLAlchemySource):
                 "SELECT DATABASE_NAME, TABLE_NAME, SUM(UNCOMPRESSED_SIZE) :> BIGINT AS UNCOMPRESSED_SIZE FROM INFORMATION_SCHEMA.COLUMNAR_SEGMENTS GROUP BY 1, 2"
             ):
                 table_id = f"{row.DATABASE_NAME}.{row.TABLE_NAME}"
-                if not table_id in self.profile_metadata_info.dataset_name_to_storage_bytes:
-                    self.profile_metadata_info.dataset_name_to_storage_bytes[table_id] = 0
+                if (
+                    table_id
+                    not in self.profile_metadata_info.dataset_name_to_storage_bytes
+                ):
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        table_id
+                    ] = 0
                 self.profile_metadata_info.dataset_name_to_storage_bytes[table_id] += (
                     row.UNCOMPRESSED_SIZE
                 )

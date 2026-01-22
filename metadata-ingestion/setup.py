@@ -434,7 +434,7 @@ sac = {
     "Authlib<2.0.0",
 }
 
-singlestore = {"sqlalchemy-singlestoredb>=1.2.0"}
+singlestore = {"sqlalchemy-singlestoredb==1.2.0"}
 
 superset_common = {
     "requests<3.0.0",
