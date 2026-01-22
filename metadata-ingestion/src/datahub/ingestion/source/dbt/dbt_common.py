@@ -297,7 +297,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     num_queries_emitted: int = 0
     num_queries_failed: int = 0
     queries_failed_list: LossyList[str] = field(default_factory=LossyList)
-    queries_using_fallback_timestamp: int = 0
+    query_timestamps_fallback_used: bool = False
 
 
 class EmitDirective(ConfigEnum):
@@ -408,6 +408,10 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_model_performance(self) -> bool:
         return self.model_performance == EmitDirective.YES
+
+    @property
+    def can_emit_queries(self) -> bool:
+        return self.queries == EmitDirective.YES
 
 
 class MaterializedNodePatternConfig(ConfigModel):
@@ -1205,9 +1209,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         f"Failed to parse manifest timestamp '{generated_at}': {e}"
                     )
 
-        # Fallback to current time
+        # Fallback to current time (manifest timestamp unavailable or unparseable)
         self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
-        self.report.queries_using_fallback_timestamp += 1
+        self.report.query_timestamps_fallback_used = True
         return self._query_timestamp_cache
 
     def create_test_entity_mcps(
@@ -2024,7 +2028,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return
 
         if not isinstance(queries, list):
-            logger.warning(f"Invalid meta.queries in {node.dbt_name}: expected list")
+            msg = f"Invalid meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
+            logger.warning(msg)
+            self.report.report_warning(node.dbt_name, msg)
+            return
+
+        # Ephemeral models don't exist in target platform, so queries can't be linked
+        if node.is_ephemeral_model():
+            logger.warning(
+                f"Queries on ephemeral model {node.dbt_name} skipped: "
+                "ephemeral models don't exist in target platform"
+            )
             return
 
         # Limit queries to prevent metadata explosion (0 = unlimited)
@@ -2084,8 +2098,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             seen_urns[query_urn_str] = query_name
 
             # Build custom properties
-            # TODO: Tags/terms stored as CSV strings until Query entities support native aspects
-            # https://github.com/datahub-project/datahub/issues/XXXXX
+            # Note: Tags/terms stored as CSV strings because Query entities don't
+            # currently support native GlobalTags/GlossaryTerms aspects.
             custom_properties: Dict[str, str] = {}
             if tags_csv := DBTQueryDefinition._list_to_csv(query.tags):
                 custom_properties["tags"] = tags_csv
@@ -2139,14 +2153,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.env,
                 mce_platform_instance,
             )
+
+            # Check if node exists in target platform first - needed for all emissions
+            # (queries need a target dataset to link to, other aspects need the dataset to exist)
+            if not node.exists_in_target_platform:
+                continue
+
+            # Emit Query entities independently of node type setting.
+            # This allows queries=YES/ONLY to work even when models=NO.
+            # (https://github.com/datahub-project/datahub/issues/15150)
+            if self.config.entities_enabled.can_emit_queries:
+                yield from auto_workunit(
+                    self._create_query_entity_mcps(node, node_datahub_urn)
+                )
+
+            # Check if we should emit other aspects (sibling, lineage) for this node type
             if not self.config.entities_enabled.can_emit_node_type(node.node_type):
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
-                continue
-
-            # We are creating empty node for platform and only add lineage/keyaspect.
-            if not node.exists_in_target_platform:
                 continue
 
             # Emit sibling patch for target platform entity BEFORE any other aspects.
@@ -2206,12 +2231,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
                     ).as_workunit(is_primary_source=False)
-
-            # Emit Query entities from meta.queries (https://github.com/datahub-project/datahub/issues/15150)
-            # These are linked to the target platform dataset
-            yield from auto_workunit(
-                self._create_query_entity_mcps(node, node_datahub_urn)
-            )
 
     def extract_query_tag_aspects(
         self,

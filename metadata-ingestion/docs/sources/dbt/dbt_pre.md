@@ -132,9 +132,9 @@ Each query in the `queries` list supports the following fields:
 2. **Manifest Generation**: When you run `dbt docs generate`, the `meta.queries` data is included in `manifest.json`
 3. **DataHub Ingestion**: DataHub reads the manifest.json and extracts the `meta.queries` field
 4. **Query Entity Creation**: Each query in `meta.queries` becomes a Query entity in DataHub
-5. **URN Generation**: Query URN is generated as `urn:li:query:{model_name}_{query_name}`
-6. **Dataset Linking**: Queries are linked to the dataset via QuerySubjects aspect
-7. **UI Visibility**: Queries appear in the "Queries" tab of the dataset in DataHub UI
+5. **URN Generation**: Query URN is generated as `urn:li:query:{dbt_unique_id}_{sanitized_query_name}` (e.g., `urn:li:query:model.my_project.customers_Active_customers_30d_`)
+6. **Dataset Linking**: Queries are linked to the **target platform** dataset (e.g., Snowflake, Postgres) via QuerySubjects aspect, so they appear where analysts actually query
+7. **UI Visibility**: Queries appear in the "Queries" tab of the target platform dataset in DataHub UI
 
 #### Technical Details
 
@@ -146,16 +146,17 @@ Each query in the `queries` list supports the following fields:
 
 #### Error Handling
 
-| Scenario                           | Behavior                                                                               |
-| ---------------------------------- | -------------------------------------------------------------------------------------- |
-| `meta.queries` not a list          | Skipped with WARNING log                                                               |
-| Query missing `name` or `sql`      | Skipped, all validation errors shown in log and `queries_failed_list`                  |
-| Duplicate query names              | Duplicate skipped, first definition wins (WARNING)                                     |
-| Invalid `description` (not string) | Field ignored with WARNING log                                                         |
-| Invalid `tags`/`terms` (not list)  | Field ignored with WARNING log                                                         |
-| Empty values in tags/terms list    | Filtered out automatically                                                             |
-| Manifest timestamp unparseable     | Falls back to current time with WARNING; tracked in `queries_using_fallback_timestamp` |
-| Exceeds `max_queries_per_model`    | Only first N processed (configurable, default 100), WARNING logged                     |
+| Scenario                           | Behavior                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `meta.queries` not a list          | Skipped with WARNING log                                                             |
+| Query missing `name` or `sql`      | Skipped, all validation errors shown in log and `queries_failed_list`                |
+| Duplicate query names              | Duplicate skipped, first definition wins (WARNING)                                   |
+| Invalid `description` (not string) | Field ignored with WARNING log                                                       |
+| Invalid `tags`/`terms` (not list)  | Field ignored with WARNING log                                                       |
+| Empty values in tags/terms list    | Filtered out automatically                                                           |
+| Manifest timestamp unparseable     | Falls back to current time with WARNING; tracked in `query_timestamps_fallback_used` |
+| Queries on ephemeral model         | Skipped with WARNING (ephemeral models don't exist in target platform)               |
+| Exceeds `max_queries_per_model`    | Only first N processed (configurable, default 100), WARNING logged                   |
 
 All validation errors are logged at WARNING level and tracked in the ingestion report.
 
@@ -164,7 +165,7 @@ All validation errors are logged at WARNING level and tracked in the ingestion r
 After ingestion, you'll see:
 
 - Query entities in DataHub with name, description, and SQL statement
-- Queries linked to the source dataset (visible in the dataset's "Queries" tab)
+- Queries linked to the target platform dataset (visible in the dataset's "Queries" tab)
 - Tags and terms visible in custom properties
 - Creation/modification timestamps from dbt manifest
 - Queries attributed to `dbt_executor` actor
@@ -229,6 +230,8 @@ source:
 2. **No SQL Validation Against Model**: The `sql` field in `meta.queries` is not validated against the model it's defined on. You could define `sql: "SELECT * FROM products"` under the `customers` model. DataHub trusts that users define meaningful queries. Consider documenting your team's conventions for query definitions.
 
 3. **URN Collision on Similar Names**: Query names are sanitized for URN generation. Names like `"Revenue (USD)"` and `"Revenue [USD]"` both become `Revenue_USD_`, causing a collision (second one is skipped with a warning). Use distinct, alphanumeric query names to avoid this.
+
+4. **Ephemeral Models Not Supported**: Queries defined on ephemeral models (`materialized: ephemeral`) are skipped because ephemeral models don't exist as physical tables in the target platform. Queries are linked to target platform datasets, so there's no dataset to link to.
 
 :::tip Choosing Between meta.queries and meta_mapping
 
