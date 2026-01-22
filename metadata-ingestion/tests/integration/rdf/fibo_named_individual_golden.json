@@ -1,0 +1,44 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768710537340,
+        "runId": "rdf-test-fibo-named-individual",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.ClassTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/ClassTerm"
+            },
+            "name": "Class Term",
+            "definition": "A term that is an OWL Class",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/ClassTerm",
+            "sourceUrl": "http://example.org/ClassTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768710537341,
+        "runId": "rdf-test-fibo-named-individual",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

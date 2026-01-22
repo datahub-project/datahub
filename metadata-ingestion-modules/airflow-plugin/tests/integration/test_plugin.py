@@ -975,6 +975,46 @@ def test_airflow_plugin(
         # Verify that no MCPs were generated.
         assert not os.path.exists(airflow_instance.metadata_file)
     else:
+        # Check if metadata file exists before trying to read it
+        if not os.path.exists(airflow_instance.metadata_file):
+            # Try to get more diagnostic information
+            print(
+                f"ERROR: Metadata file does not exist: {airflow_instance.metadata_file}"
+            )
+            print("Checking if DAG completed successfully...")
+            try:
+                api_version = get_api_version()
+                res = _make_api_request(
+                    airflow_instance.session,
+                    f"{airflow_instance.airflow_url}/api/{api_version}/dags/{dag_id}/dagRuns",
+                )
+                dag_runs = res.json()["dag_runs"]
+                if dag_runs:
+                    dag_run = dag_runs[0]
+                    print(f"DAG run state: {dag_run['state']}")
+                    print(f"DAG run ID: {dag_run['dag_run_id']}")
+            except Exception as e:
+                print(f"Failed to get DAG run info: {e}")
+
+            # Check if the connection was configured correctly
+            print(f"Expected metadata file path: {airflow_instance.metadata_file}")
+            print(
+                f"Metadata file parent directory exists: {airflow_instance.metadata_file.parent.exists()}"
+            )
+            print(
+                f"Metadata file parent directory: {airflow_instance.metadata_file.parent}"
+            )
+            if airflow_instance.metadata_file.parent.exists():
+                print(
+                    f"Files in metadata directory: {list(airflow_instance.metadata_file.parent.iterdir())}"
+                )
+
+            raise FileNotFoundError(
+                f"Metadata file not found: {airflow_instance.metadata_file}. "
+                f"This usually means the DataHub plugin did not emit any metadata. "
+                f"Check Airflow logs for plugin errors."
+            )
+
         _sanitize_output_file(airflow_instance.metadata_file)
 
         check_golden_file(
