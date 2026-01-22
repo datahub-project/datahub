@@ -661,7 +661,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 except Exception as merge_err:
                     self.report.report_warning(
                         title="DynamoDB Tags",
-                        message="Failed to merge existing tags; proceeding with AWS tags only",
+                        message="Failed to merge existing tags; proceeding with AWS tags only, Manual tags may be lost.",
                         context=f"dataset_urn: {dataset_urn}; error={merge_err}",
                     )
 
