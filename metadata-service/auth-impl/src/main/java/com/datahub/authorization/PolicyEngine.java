@@ -295,16 +295,27 @@ public class PolicyEngine {
       Set<String> fieldValues, List<String> filterValues, PolicyMatchCondition condition) {
     switch (condition) {
       case EQUALS:
-        return filterValues.stream().anyMatch(fieldValues::contains);
-      case STARTS_WITH:
         return filterValues.stream()
-            .anyMatch(filterValue -> fieldValues.stream().anyMatch(v -> v.startsWith(filterValue)));
+            .anyMatch(
+                expectedValue -> filterValues.stream().anyMatch(expectedValue::equalsIgnoreCase));
+      case STARTS_WITH:
+        return fieldValues.stream()
+            .anyMatch(
+                value ->
+                    filterValues.stream()
+                        .anyMatch(expectedValue -> startsWithIgnoreCase(value, expectedValue)));
       case NOT_EQUALS:
-        return filterValues.stream().noneMatch(fieldValues::contains);
+        return filterValues.stream()
+            .noneMatch(
+                expectedValue -> filterValues.stream().anyMatch(expectedValue::equalsIgnoreCase));
       default:
         log.error("Unsupported condition {}", condition);
         return false;
     }
+  }
+
+  private static boolean startsWithIgnoreCase(String value, String prefix) {
+    return value.regionMatches(true, 0, prefix, 0, prefix.length());
   }
 
   /**
