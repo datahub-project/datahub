@@ -1,5 +1,7 @@
 """Unit tests for PowerBI DirectLake lineage extraction."""
 
+from typing import Optional
+
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
@@ -170,9 +172,9 @@ class TestDirectLakeLineageExtraction:
 
     def create_directlake_table(
         self,
-        dependent_artifact_id: str = "2afa2dbd-555b-48c8-b082-35d94f4b7836",
-        source_schema: str = "dbo",
-        source_expression: str = "green_tripdata_2017",
+        dependent_artifact_id: Optional[str] = "2afa2dbd-555b-48c8-b082-35d94f4b7836",
+        source_schema: Optional[str] = "dbo",
+        source_expression: Optional[str] = "green_tripdata_2017",
     ) -> Table:
         """Create a test DirectLake table."""
         dataset = PowerBIDataset(
