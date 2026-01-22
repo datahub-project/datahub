@@ -113,6 +113,13 @@ class MetabaseConfig(
         default=False,
         description="Flag that if true, exclude other user collections",
     )
+    exclude_personal_collections: bool = Field(
+        default=False,
+        description="Exclude dashboards and cards from personal collections. "
+        "Personal collections are identified by the presence of personal_owner_id. "
+        "This is more reliable than exclude_other_user_collections when using admin API keys, "
+        "as it filters based on collection type rather than ownership relative to the authenticated user.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @field_validator("connect_uri", "display_uri", mode="after")
@@ -194,6 +201,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self.report = MetabaseReport()
         self.setup_session()
         self.source_config: MetabaseConfig = config
+        # Set of collection IDs that are personal collections (have personal_owner_id)
+        self._personal_collection_ids: set = set()
 
     def setup_session(self) -> None:
         self.session = requests.session()
@@ -258,6 +267,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
         super().close()
 
+    def _is_personal_collection(self, collection: dict) -> bool:
+        """Check if a collection is a personal collection based on personal_owner_id."""
+        return collection.get("personal_owner_id") is not None
+
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
             collections_response = self.session.get(
@@ -267,7 +280,29 @@ class MetabaseSource(StatefulIngestionSourceBase):
             collections_response.raise_for_status()
             collections = collections_response.json()
 
+            # Build set of personal collection IDs for filtering cards later
+            self._personal_collection_ids = {
+                collection["id"]
+                for collection in collections
+                if self._is_personal_collection(collection)
+            }
+
+            if self._personal_collection_ids:
+                logger.debug(
+                    f"Found {len(self._personal_collection_ids)} personal collections"
+                )
+
             for collection in collections:
+                # Skip personal collections if exclude_personal_collections is enabled
+                if (
+                    self.config.exclude_personal_collections
+                    and self._is_personal_collection(collection)
+                ):
+                    logger.debug(
+                        f"Skipping personal collection: {collection.get('name', collection['id'])}"
+                    )
+                    continue
+
                 collection_dashboards_response = self.session.get(
                     f"{self.config.connect_uri}/api/collection/{collection['id']}/items?models=dashboard"
                 )
@@ -411,17 +446,38 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return None
 
+    def _is_card_in_personal_collection(self, card_info: dict) -> bool:
+        """Check if a card belongs to a personal collection."""
+        collection_id = card_info.get("collection_id")
+        return (
+            collection_id is not None and collection_id in self._personal_collection_ids
+        )
+
     def emit_card_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
             card_response = self.session.get(f"{self.config.connect_uri}/api/card")
             card_response.raise_for_status()
             cards = card_response.json()
 
+            filtered_count = 0
             for card_info in cards:
+                # Skip cards in personal collections if exclude_personal_collections is enabled
+                if (
+                    self.config.exclude_personal_collections
+                    and self._is_card_in_personal_collection(card_info)
+                ):
+                    filtered_count += 1
+                    continue
+
                 chart_snapshot = self.construct_card_from_api_data(card_info)
                 if chart_snapshot is not None:
                     mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
                     yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+
+            if filtered_count > 0:
+                logger.debug(
+                    f"Filtered out {filtered_count} cards from personal collections"
+                )
 
         except HTTPError as http_error:
             self.report.report_failure(
@@ -848,8 +904,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_card_mces()
+        # Process dashboards first to populate _personal_collection_ids
+        # which is needed for filtering cards from personal collections
         yield from self.emit_dashboard_mces()
+        yield from self.emit_card_mces()
 
     def get_report(self) -> SourceReport:
         return self.report
