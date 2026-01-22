@@ -1270,19 +1270,12 @@ class BigQuerySchemaGenerator:
         table_items: Dict[str, TableListItem] = {}
         sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
 
-        shard_pattern = BigqueryTableIdentifier._get_shard_pattern()
-
         for table in self.schema_api.list_tables(dataset_name, project_id):
             table_id = table.table_id
 
-            match = shard_pattern.match(table_id)
+            base_name, shard = BigqueryTableIdentifier.get_table_and_shard(table_id)
 
-            if match:
-                base_name = match[1] or ""
-                shard = match[3]
-
-                if base_name and table_id.endswith(shard):
-                    base_name = table_id[: -len(shard)].rstrip("_")
+            if shard:
                 if not base_name or base_name.endswith("."):
                     base_name = dataset_name
                 if table.table_type == "VIEW":

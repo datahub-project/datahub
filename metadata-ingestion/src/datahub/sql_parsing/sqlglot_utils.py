@@ -15,11 +15,7 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-# Increased from 1000 to handle large query volumes without eviction
-# With 70K queries, we want to cache most parsed statements
 SQL_PARSE_CACHE_SIZE = 100000
-
-# Increased from 1000 - formatting is expensive
 FORMAT_QUERY_CACHE_SIZE = 100000
 
 
@@ -341,7 +337,6 @@ def try_format_query(
 
     try:
         dialect = get_dialect(platform)
-        # Convert to string if needed, then parse to handle multiple statements
         sql_string = _expression_to_string(expression, platform=platform)
         parsed_statements = [
             stmt for stmt in sqlglot.parse(sql_string, dialect=dialect) if stmt
@@ -349,7 +344,6 @@ def try_format_query(
         if not parsed_statements:
             return sql_string
 
-        # Format each statement and join with semicolons
         formatted_statements = [
             stmt.sql(dialect=dialect, pretty=True) for stmt in parsed_statements
         ]

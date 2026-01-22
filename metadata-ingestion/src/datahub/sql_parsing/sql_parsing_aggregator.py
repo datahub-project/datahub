@@ -497,7 +497,6 @@ class SqlParsingAggregator(Closeable):
             base_resolver=self._schema_resolver, extra_schemas={}
         )
 
-        # Batch schema fetcher for on-demand fetching (if graph is available)
         self._batch_schema_fetcher: Optional["BatchSchemaFetcher"] = None
         if graph is not None and self._need_schemas:
             from datahub.sql_parsing.schema_resolver import BatchSchemaFetcher
@@ -505,11 +504,9 @@ class SqlParsingAggregator(Closeable):
             self._batch_schema_fetcher = BatchSchemaFetcher(
                 graph=graph,
                 schema_resolver=self._schema_resolver,
-                batch_size=50,  # Fetch 50 schemas per API call
-                auto_flush_threshold=100,  # Auto-flush when 100 pending
+                batch_size=50,
+                auto_flush_threshold=100,
             )
-
-            # Connect batch fetcher to schema resolver for on-demand batching
             self._schema_resolver.batch_fetcher = self._batch_schema_fetcher
 
         # Initialize internal data structures.
@@ -795,7 +792,7 @@ class SqlParsingAggregator(Closeable):
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_id,
-                raw_query_string="-skip-",  # No actual query for direct lineage
+                raw_query_string="-skip-",
                 session_id=_MISSING_SESSION_ID,
                 query_type=QueryType.UNKNOWN,
                 lineage_type=lineage_type,
@@ -970,7 +967,6 @@ class SqlParsingAggregator(Closeable):
             self.report.usage_skipped_missing_timestamp += 1
         else:
             upstream_fields = parsed.column_usage or {}
-            # Format query for usage stats if enabled
             usage_query_text = (
                 try_format_query(parsed.query_text, self.platform.platform_name)
                 if self.format_queries
@@ -1317,7 +1313,6 @@ class SqlParsingAggregator(Closeable):
             self._query_map[query_fingerprint] = new
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
-        # Flush any pending schema fetches before generating metadata
         if self._batch_schema_fetcher:
             fetched = self._batch_schema_fetcher.flush()
             if fetched > 0:
@@ -1881,7 +1876,6 @@ class SqlParsingAggregator(Closeable):
             column_lineage=list(resolved_lineage_info.column_lineage),
             confidence_score=resolved_lineage_info.confidence_score,
         )
-        # Clear the formatted query cache since we have a new query text
         resolved_query._formatted_query_cache = None
 
         return resolved_query

@@ -224,7 +224,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         if self.graph:
             if self.batch_fetcher:
-                # Queue for batch fetch, don't cache yet (let flush or ingestion populate)
                 self.batch_fetcher.request_schema(urn)
                 return None
             else:
@@ -233,7 +232,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     self._save_to_cache(urn, schema_info)
                     return schema_info
 
-        # No graph or schema not found - cache negative result
         self._save_to_cache(urn, None)
         return None
 
@@ -266,22 +264,18 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         Returns:
             True if schema was accepted and cached, False if rejected (already cached)
         """
-        # Check if already in cache (could be from ingestion or previous batch)
         if urn in self._schema_cache:
             existing = self._schema_cache[urn]
             if existing is not None:
-                # Already have a schema (likely from ingestion) - don't overwrite
                 logger.debug(
                     f"Skipping DataHub schema for {urn} - already in cache from ingestion"
                 )
                 return False
-            # existing is None, we can populate it now
 
         if schema_metadata is not None:
             schema_info = _convert_schema_aspect_to_info(schema_metadata)
             self._save_to_cache(urn, schema_info)
         else:
-            # Cache negative result (schema not found in DataHub)
             self._save_to_cache(urn, None)
 
         return True
