@@ -155,6 +155,7 @@ def execute_graphql_query(auth_session, query: Dict[str, Any]) -> Dict[str, Any]
     stop=tenacity.stop_after_attempt(5),
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
     retry=tenacity.retry_if_exception_type(AssertionError),
+    reraise=True,
 )
 def verify_dataset_exists_with_aspects(
     auth_session, dataset_urn: str = DATASET_URN
@@ -210,6 +211,7 @@ def verify_dataset_exists_with_aspects(
     stop=tenacity.stop_after_attempt(5),
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
     retry=tenacity.retry_if_exception_type(AssertionError),
+    reraise=True,
 )
 def verify_extra_properties_in_results(
     search_results: List[Dict[str, Any]],
@@ -283,6 +285,7 @@ def ingest_cleanup_data(auth_session, graph_client, request):
     stop=tenacity.stop_after_attempt(3),
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=8),
     retry=tenacity.retry_if_exception_type(AssertionError),
+    reraise=True,
 )
 def _execute_search_with_retry(auth_session, expected_extra_fields):
     """Execute search query with retry logic."""
@@ -332,6 +335,7 @@ def test_search_across_entities_with_fetch_extra_fields(auth_session):
     stop=tenacity.stop_after_attempt(3),
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=8),
     retry=tenacity.retry_if_exception_type(AssertionError),
+    reraise=True,
 )
 def _execute_scroll_with_retry(auth_session, expected_extra_fields):
     """Execute scroll query with retry logic."""
@@ -381,6 +385,7 @@ def test_scroll_across_entities_with_fetch_extra_fields(auth_session):
     stop=tenacity.stop_after_attempt(3),
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=8),
     retry=tenacity.retry_if_exception_type(AssertionError),
+    reraise=True,
 )
 def _execute_search_without_extra_fields_with_retry(auth_session):
     """Execute search query without fetchExtraFields with retry logic."""

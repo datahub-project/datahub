@@ -464,6 +464,7 @@ class TestSessionWrapper:
         stop=tenacity.stop_after_attempt(10),
         wait=tenacity.wait_exponential(multiplier=1, min=4, max=30),
         retry=tenacity.retry_if_exception_type(Exception),
+        reraise=True,
     )
     def _generate_gms_token(self):
         actor_urn = self._upstream.cookies["actor"]
