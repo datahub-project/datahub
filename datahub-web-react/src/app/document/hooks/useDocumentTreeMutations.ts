@@ -245,7 +245,6 @@ export function useDeleteDocumentTreeMutation() {
                     documentUrn: urn,
                 });
 
-                message.success('Document deleted');
                 return true;
             } catch (error) {
                 console.error('Failed to delete document:', error);

@@ -228,6 +228,11 @@ module.exports = {
           ],
         },
         {
+          label: "Context Documents",
+          type: "doc",
+          id: "docs/features/feature-guides/context/context-documents",
+        },
+        {
           label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
