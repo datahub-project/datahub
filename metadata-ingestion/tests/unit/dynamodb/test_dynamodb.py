@@ -13,7 +13,6 @@ from datahub.metadata.schema_classes import (
 )
 
 
-@pytest.mark.unit
 class TestDynamoDBTagsIngestion:
     """Test suite for DynamoDB tag extraction and merging."""
 
