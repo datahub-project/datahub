@@ -533,24 +533,13 @@ Log upload to DataHub Cloud is handled automatically. No additional configuratio
 If you need to troubleshoot log upload issues, contact DataHub Cloud support.
 :::
 
-### Secrets Resolution
+### Secrets
 
-Configuring secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your ingestion source configurations using the `${SECRET_NAME}` syntax.
+Secrets can be referenced in your ingestion source configurations using the `${SECRET_NAME}` syntax. Secrets can be provided via:
 
-Secrets are resolved in this order:
-
-| Priority | Source               | How It Works                          |
-| -------- | -------------------- | ------------------------------------- |
-| 1        | Environment variable | Looks for env var `MY_PASSWORD`       |
-| 2        | DataHub Secrets      | Fetches from DataHub (managed in UI)  |
-| 3        | File secrets         | Reads from `/mnt/secrets/MY_PASSWORD` |
-
-**File secrets configuration:**
-
-| Variable                               | Description                | Default         |
-| -------------------------------------- | -------------------------- | --------------- |
-| `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR` | Directory for file secrets | `/mnt/secrets`  |
-| `DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN`  | Max secret file size       | `1048576` (1MB) |
+- Environment variables
+- DataHub Secrets (managed in UI)
+- File-based secrets (mounted files)
 
 ## Observability & Monitoring
 
