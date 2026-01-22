@@ -15,6 +15,7 @@ from datahub.ingestion.source.airbyte.client import (
 from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
+    OAuth2GrantType,
 )
 from datahub.ingestion.source.airbyte.models import (
     PropertyFieldPath,
@@ -413,8 +414,8 @@ class TestAirbyteCloudClient:
             oauth2_refresh_token=SecretStr("refresh-token"),
         )
 
-        # Mock the _refresh_oauth_token method to avoid HTTP requests
-        with patch.object(AirbyteCloudClient, "_refresh_oauth_token"):
+        # Mock the _acquire_token method to avoid HTTP requests
+        with patch.object(AirbyteCloudClient, "_acquire_token"):
             client = AirbyteCloudClient(config)
 
             assert client.base_url == "https://api.airbyte.com/v1"
@@ -447,8 +448,8 @@ class TestAirbyteCloudClient:
         }
         mock_post.return_value = mock_response
 
-        # Create client with patched _refresh_oauth_token to prevent initial refresh
-        with patch.object(AirbyteCloudClient, "_refresh_oauth_token"):
+        # Create client with patched _acquire_token to prevent initial token acquisition
+        with patch.object(AirbyteCloudClient, "_acquire_token"):
             config = AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.CLOUD,
                 cloud_workspace_id="workspace-id-1",
@@ -478,14 +479,12 @@ class TestAirbyteCloudClient:
             "grant_type": "refresh_token",
         }
 
-    @patch(
-        "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._refresh_oauth_token"
-    )
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteCloudClient._acquire_token")
     @patch(
         "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._paginate_results"
     )
-    def test_get_sources(self, mock_paginate_results, mock_refresh_token):
-        mock_refresh_token.return_value = None
+    def test_get_sources(self, mock_paginate_results, mock_acquire_token):
+        mock_acquire_token.return_value = None
 
         mock_paginate_results.return_value = iter(
             [
@@ -517,14 +516,12 @@ class TestAirbyteCloudClient:
             result_key="data",
         )
 
-    @patch(
-        "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._refresh_oauth_token"
-    )
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteCloudClient._acquire_token")
     @patch(
         "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._paginate_results"
     )
-    def test_get_destinations(self, mock_paginate_results, mock_refresh_token):
-        mock_refresh_token.return_value = None
+    def test_get_destinations(self, mock_paginate_results, mock_acquire_token):
+        mock_acquire_token.return_value = None
 
         mock_paginate_results.return_value = iter(
             [
@@ -556,14 +553,12 @@ class TestAirbyteCloudClient:
             result_key="data",
         )
 
-    @patch(
-        "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._refresh_oauth_token"
-    )
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteCloudClient._acquire_token")
     @patch(
         "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._paginate_results"
     )
-    def test_get_connections(self, mock_paginate_results, mock_refresh_token):
-        mock_refresh_token.return_value = None
+    def test_get_connections(self, mock_paginate_results, mock_acquire_token):
+        mock_acquire_token.return_value = None
 
         mock_paginate_results.return_value = iter(
             [
@@ -596,12 +591,10 @@ class TestAirbyteCloudClient:
             result_key="data",
         )
 
-    @patch(
-        "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._refresh_oauth_token"
-    )
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteCloudClient._acquire_token")
     @patch("datahub.ingestion.source.airbyte.client.AirbyteCloudClient._make_request")
-    def test_list_workspaces(self, mock_make_request, mock_refresh_token):
-        mock_refresh_token.return_value = None
+    def test_list_workspaces(self, mock_make_request, mock_acquire_token):
+        mock_acquire_token.return_value = None
 
         mock_make_request.return_value = {
             "workspaceId": "workspace-id-1",
@@ -635,6 +628,150 @@ class TestAirbyteCloudClient:
         mock_make_request.assert_called_once_with(
             f"/workspaces/{config.cloud_workspace_id}"
         )
+
+    @patch("requests.post")
+    def test_client_credentials_token(self, mock_post):
+        """Test OAuth2 client credentials grant type."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "access_token": "client-creds-access-token",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+        }
+        mock_post.return_value = mock_response
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.CLOUD,
+            cloud_workspace_id="workspace-id-1",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            # No refresh token - auto-detects client_credentials
+        )
+        client = AirbyteCloudClient(config)
+
+        # Verify token was obtained
+        assert client.access_token == "client-creds-access-token"
+
+        # Verify correct request was made
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        assert args[0] == "https://auth.airbyte.com/oauth/token"
+        assert kwargs["data"] == {
+            "client_id": "client-id",
+            "client_secret": "client-secret",
+            "grant_type": "client_credentials",
+        }
+
+    def test_client_credentials_missing_refresh_token(self):
+        """Test that refresh_token is not required for client_credentials grant type."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.CLOUD,
+            cloud_workspace_id="workspace-id-1",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            # oauth2_refresh_token intentionally not provided - auto-detects client_credentials
+        )
+
+        # Mock the token acquisition to avoid HTTP requests
+        with patch.object(AirbyteCloudClient, "_acquire_token"):
+            client = AirbyteCloudClient(config)
+            assert client.config.oauth2_grant_type == OAuth2GrantType.CLIENT_CREDENTIALS
+            assert client.config.oauth2_refresh_token is None
+
+    @patch("time.time")
+    @patch("requests.post")
+    def test_token_auto_refresh_client_credentials(self, mock_post, mock_time):
+        """Test automatic token refresh for client credentials before expiry."""
+        mock_time.return_value = 1000
+
+        # Mock initial token response
+        initial_response = MagicMock()
+        initial_response.status_code = 200
+        initial_response.json.return_value = {
+            "access_token": "initial-token",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+        }
+
+        # Mock refreshed token response
+        refreshed_response = MagicMock()
+        refreshed_response.status_code = 200
+        refreshed_response.json.return_value = {
+            "access_token": "refreshed-token",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+        }
+
+        mock_post.side_effect = [initial_response, refreshed_response]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.CLOUD,
+            cloud_workspace_id="workspace-id-1",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            # No refresh token - auto-detects client_credentials
+        )
+        client = AirbyteCloudClient(config)
+
+        # Verify initial token
+        assert client.access_token == "initial-token"
+
+        # Fast forward time to near token expiry (3600 - 600 = 3000 seconds buffer)
+        mock_time.return_value = 4000  # Past the refresh threshold
+
+        # Trigger token expiry check
+        client._check_token_expiry()
+
+        # Verify token was refreshed
+        assert client.access_token == "refreshed-token"
+        assert mock_post.call_count == 2
+
+    @patch("requests.post")
+    @patch("requests.Session.get")
+    def test_retry_on_401_with_client_credentials(self, mock_get, mock_post):
+        """Test automatic retry on 401 with client credentials token refresh."""
+        # Mock successful token refresh
+        mock_token_response = MagicMock()
+        mock_token_response.status_code = 200
+        mock_token_response.json.return_value = {
+            "access_token": "new-token",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+        }
+        mock_post.return_value = mock_token_response
+
+        # Mock initial 401 response, then successful response after token refresh
+        mock_401_response = MagicMock()
+        mock_401_response.status_code = 401
+        mock_401_response.raise_for_status.side_effect = requests.HTTPError(
+            response=mock_401_response
+        )
+
+        mock_success_response = MagicMock()
+        mock_success_response.status_code = 200
+        mock_success_response.json.return_value = {"workspaceId": "workspace-id-1"}
+
+        mock_get.side_effect = [mock_401_response, mock_success_response]
+
+        # Create client with client credentials
+        with patch.object(AirbyteCloudClient, "_acquire_token"):
+            config = AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.CLOUD,
+                cloud_workspace_id="workspace-id-1",
+                oauth2_client_id="client-id",
+                oauth2_client_secret=SecretStr("client-secret"),
+                # No refresh token - auto-detects client_credentials
+            )
+            client = AirbyteCloudClient(config)
+
+        # Make a request that triggers 401 and retry
+        result = client._make_request("/workspaces/workspace-id-1")
+
+        # Verify token was refreshed and request succeeded
+        assert result == {"workspaceId": "workspace-id-1"}
+        assert mock_get.call_count == 2
+        mock_post.assert_called_once()  # Token refresh after 401
 
 
 class TestClientBuildSyncCatalog:

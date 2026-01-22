@@ -27,6 +27,13 @@ class AirbyteDeploymentType(StrEnum):
     CLOUD = "cloud"
 
 
+class OAuth2GrantType(StrEnum):
+    """OAuth 2.0 grant types supported for Airbyte Cloud authentication"""
+
+    REFRESH_TOKEN = "refresh_token"
+    CLIENT_CREDENTIALS = "client_credentials"
+
+
 # Default Airbyte Cloud URLs
 DEFAULT_CLOUD_API_URL = "https://api.airbyte.com/v1"
 DEFAULT_CLOUD_OAUTH_TOKEN_URL = "https://auth.airbyte.com/oauth/token"
@@ -156,7 +163,8 @@ class AirbyteClientConfig(ConfigModel):
     )
     oauth2_refresh_token: Optional[SecretStr] = Field(
         default=None,
-        description="OAuth2 refresh token (cloud deployment)",
+        description="OAuth2 refresh token (cloud deployment). "
+        "If provided, uses refresh_token grant type; otherwise uses client_credentials grant type.",
     )
 
     verify_ssl: bool = Field(
@@ -204,6 +212,13 @@ class AirbyteClientConfig(ConfigModel):
         description="OAuth token URL for Airbyte Cloud (defaults to production URL)",
     )
 
+    @property
+    def oauth2_grant_type(self) -> OAuth2GrantType:
+        """Automatically determine OAuth2 grant type based on configuration."""
+        if self.oauth2_refresh_token:
+            return OAuth2GrantType.REFRESH_TOKEN
+        return OAuth2GrantType.CLIENT_CREDENTIALS
+
     @model_validator(mode="after")
     def validate_deployment_requirements(self) -> "AirbyteClientConfig":
         """Validate deployment-specific required fields."""
@@ -218,6 +233,12 @@ class AirbyteClientConfig(ConfigModel):
             and not self.cloud_workspace_id
         ):
             raise ValueError("cloud_workspace_id is required for cloud deployment")
+
+        if self.deployment_type == AirbyteDeploymentType.CLOUD:
+            if not self.oauth2_client_id or not self.oauth2_client_secret:
+                raise ValueError(
+                    "oauth2_client_id and oauth2_client_secret are required for cloud deployment"
+                )
 
         return self
 

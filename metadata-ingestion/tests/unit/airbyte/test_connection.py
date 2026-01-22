@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock, patch
 
+from pydantic import SecretStr
+
 from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
@@ -60,7 +62,8 @@ class TestAirbyteConnection:
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="test-workspace",
             oauth2_client_id="test-client",
-            oauth2_refresh_token="test-token",
+            oauth2_client_secret=SecretStr("test-secret"),
+            oauth2_refresh_token=SecretStr("test-token"),
         )
 
         with patch(

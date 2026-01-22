@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Generator, Optional
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.integration.airbyte.airbyte_test_setup import (  # type: ignore[import-untyped]
@@ -206,9 +206,9 @@ def update_config_file_with_api_url(
     return config_file
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_airbyte_ingest(
-    airbyte_service: None, pytestconfig: Any, tmp_path: Path, mock_time: Any
+    airbyte_service: None, pytestconfig: Any, tmp_path: Path
 ) -> None:
     """Test basic Airbyte metadata ingestion."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
@@ -239,9 +239,9 @@ def test_airbyte_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_airbyte_platform_instance_urns(
-    airbyte_service: None, pytestconfig: Any, tmp_path: Path, mock_time: Any
+    airbyte_service: None, pytestconfig: Any, tmp_path: Path
 ) -> None:
     """Test Airbyte platform instance URN generation."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
@@ -272,9 +272,9 @@ def test_airbyte_platform_instance_urns(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_airbyte_schema_filter(
-    airbyte_service: None, pytestconfig: Any, tmp_path: Path, mock_time: Any
+    airbyte_service: None, pytestconfig: Any, tmp_path: Path
 ) -> None:
     """Test Airbyte schema filtering."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
