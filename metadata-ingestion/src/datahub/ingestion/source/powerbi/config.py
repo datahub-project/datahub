@@ -137,6 +137,20 @@ class Constant:
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
 
+    # DirectLake / Fabric artifact constants
+    RELATIONS = "relations"
+    DEPENDENT_ON_ARTIFACT_ID = "dependentOnArtifactId"
+    SCHEMA_NAME = "schemaName"
+    STORAGE_MODE = "storageMode"
+
+    # Fabric artifact API keys (for parsing workspace metadata)
+    LAKEHOUSE = "Lakehouse"
+    WAREHOUSES = "warehouses"  # Note: lowercase in API response
+    SQL_ANALYTICS_ENDPOINT = "SQLAnalyticsEndpoint"
+
+    # Storage mode values
+    DIRECT_LAKE = "DirectLake"
+
 
 @dataclass
 class DataPlatformPair:

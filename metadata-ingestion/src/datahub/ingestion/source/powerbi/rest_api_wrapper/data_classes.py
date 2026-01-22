@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.source.powerbi.config import Constant
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     DateTypeClass,
@@ -363,10 +364,10 @@ class Dashboard:
 def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIDataset:
     # Extract dependent artifact ID from relations (for DirectLake lineage)
     dependent_on_artifact_id = None
-    relations = raw_instance.get("relations", [])
+    relations = raw_instance.get(Constant.RELATIONS, [])
     for relation in relations:
-        if relation.get("dependentOnArtifactId"):
-            dependent_on_artifact_id = relation["dependentOnArtifactId"]
+        if relation.get(Constant.DEPENDENT_ON_ARTIFACT_ID):
+            dependent_on_artifact_id = relation[Constant.DEPENDENT_ON_ARTIFACT_ID]
             break
 
     return PowerBIDataset(

@@ -364,40 +364,42 @@ class PowerBiAPI:
         workspace_id = workspace_metadata.get(Constant.ID, "")
 
         # Parse Lakehouses (note: key is "Lakehouse" in the API response)
-        for lakehouse in workspace_metadata.get("Lakehouse", []):
+        for lakehouse in workspace_metadata.get(Constant.LAKEHOUSE, []):
             artifact_id = lakehouse.get(Constant.ID)
             if artifact_id:
                 artifacts[artifact_id] = FabricArtifact(
                     id=artifact_id,
                     name=lakehouse.get(Constant.NAME, ""),
-                    artifact_type="Lakehouse",
+                    artifact_type=Constant.LAKEHOUSE,
                     workspace_id=workspace_id,
                 )
-                logger.debug(f"Parsed Lakehouse artifact: {artifact_id}")
+                logger.debug(f"Parsed {Constant.LAKEHOUSE} artifact: {artifact_id}")
 
-        # Parse Warehouses (note: key is "warehouses" in the API response)
-        for warehouse in workspace_metadata.get("warehouses", []):
+        # Parse Warehouses (note: key is "warehouses" in the API response - lowercase)
+        for warehouse in workspace_metadata.get(Constant.WAREHOUSES, []):
             artifact_id = warehouse.get(Constant.ID)
             if artifact_id:
                 artifacts[artifact_id] = FabricArtifact(
                     id=artifact_id,
                     name=warehouse.get(Constant.NAME, ""),
-                    artifact_type="Warehouse",
+                    artifact_type="Warehouse",  # Type is capitalized
                     workspace_id=workspace_id,
                 )
                 logger.debug(f"Parsed Warehouse artifact: {artifact_id}")
 
         # Parse SQLAnalyticsEndpoints (note: key is "SQLAnalyticsEndpoint" in the API response)
-        for endpoint in workspace_metadata.get("SQLAnalyticsEndpoint", []):
+        for endpoint in workspace_metadata.get(Constant.SQL_ANALYTICS_ENDPOINT, []):
             artifact_id = endpoint.get(Constant.ID)
             if artifact_id:
                 artifacts[artifact_id] = FabricArtifact(
                     id=artifact_id,
                     name=endpoint.get(Constant.NAME, ""),
-                    artifact_type="SQLAnalyticsEndpoint",
+                    artifact_type=Constant.SQL_ANALYTICS_ENDPOINT,
                     workspace_id=workspace_id,
                 )
-                logger.debug(f"Parsed SQLAnalyticsEndpoint artifact: {artifact_id}")
+                logger.debug(
+                    f"Parsed {Constant.SQL_ANALYTICS_ENDPOINT} artifact: {artifact_id}"
+                )
 
         if artifacts:
             logger.info(
@@ -460,6 +462,19 @@ class PowerBiAPI:
                     dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
 
+            # Extract dependent artifact ID from scan result relations (for DirectLake lineage)
+            # The individual dataset API doesn't return relations, but the scan result does
+            relations = dataset_dict.get(Constant.RELATIONS, [])
+            for relation in relations:
+                if relation.get(Constant.DEPENDENT_ON_ARTIFACT_ID):
+                    dataset_instance.dependent_on_artifact_id = relation[
+                        Constant.DEPENDENT_ON_ARTIFACT_ID
+                    ]
+                    logger.debug(
+                        f"Dataset {dataset_id} depends on artifact: {dataset_instance.dependent_on_artifact_id}"
+                    )
+                    break
+
             dataset_map[dataset_instance.id] = dataset_instance
             # set dataset-name
             dataset_name: str = (
@@ -482,13 +497,15 @@ class PowerBiAPI:
                 source_expression: Optional[str] = None
                 if source_list:
                     first_source = source_list[0]
-                    source_schema = first_source.get("schemaName")  # e.g., "dbo"
+                    source_schema = first_source.get(
+                        Constant.SCHEMA_NAME
+                    )  # e.g., "dbo"
                     source_expression = first_source.get(
                         Constant.EXPRESSION
                     )  # upstream table name
 
                 # Get storage mode (e.g., "DirectLake", "Import", "DirectQuery")
-                storage_mode: Optional[str] = table_dict.get("storageMode")
+                storage_mode: Optional[str] = table_dict.get(Constant.STORAGE_MODE)
 
                 table = Table(
                     name=table_dict[Constant.NAME],

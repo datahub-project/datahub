@@ -319,7 +319,7 @@ class Mapper:
         mcps: List[MetadataChangeProposalWrapper] = []
 
         # Check for DirectLake storage mode first - use Fabric lineage path
-        if table.storage_mode == "DirectLake":
+        if table.storage_mode == Constant.DIRECT_LAKE:
             return self.extract_directlake_lineage(table, ds_urn, workspace)
 
         # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
