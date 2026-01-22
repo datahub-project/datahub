@@ -10,7 +10,8 @@ import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/co
 export const MATILLION_API_TOKEN: RecipeField = {
     name: 'api_token',
     label: 'API Token',
-    tooltip: 'Your Matillion API Bearer Token. Generate one from Settings → API Tokens in your Matillion Data Productivity Cloud account.',
+    tooltip:
+        'Your Matillion API Bearer Token. Generate one from Settings → API Tokens in your Matillion Data Productivity Cloud account.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.api_config.api_token',
     placeholder: 'your_api_token_here',

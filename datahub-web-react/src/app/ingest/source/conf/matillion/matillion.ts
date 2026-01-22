@@ -1,4 +1,5 @@
 import { SourceConfig } from '@app/ingest/source/conf/types';
+
 import matillionLogo from '@images/matillionlogo.png';
 
 const placeholderRecipe = `\
