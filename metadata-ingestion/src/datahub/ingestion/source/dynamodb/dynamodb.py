@@ -1,5 +1,4 @@
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
@@ -609,9 +608,6 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 domain_urn=domain_urn,
             )
 
-    def sanitize_tag_name(self, name: str) -> str:
-        return re.sub(r"[^a-zA-Z0-9_\-=]", "_", name)
-
     def _get_dynamodb_table_tags(
         self,
         dynamodb_client: "DynamoDBClient",
@@ -638,7 +634,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
             for tag_dict in tags_kv:
                 key, val = tag_dict["Key"], tag_dict["Value"]
-                tag = self.sanitize_tag_name(f"{key}={val}" if val else key)
+                tag = f"{key}:{val}" if val else key
                 tags_to_add.append(tag)
 
             if tags_to_add:
@@ -652,5 +648,5 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             self.report.report_warning(
                 title="DynamoDB Tags",
                 message="Failed to extract AWS tags",
-                context=f"Collection: {dataset_urn}; error={e}",
+                context=f"dataset_urn: {dataset_urn}; error={e}",
             )
