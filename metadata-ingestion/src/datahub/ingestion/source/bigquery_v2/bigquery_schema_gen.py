@@ -1303,11 +1303,17 @@ class BigQuerySchemaGenerator:
                         self.report.report_dropped(qualified_base)
                         continue
 
-                if (
-                    base_name not in sharded_tables
-                    or shard > sharded_tables[base_name][1]
-                ):
+                if base_name not in sharded_tables:
                     sharded_tables[base_name] = (table, shard)
+                else:
+                    stored_shard = sharded_tables[base_name][1]
+                    if shard.isdigit() and stored_shard.isdigit():
+                        is_newer = int(shard) > int(stored_shard)
+                    else:
+                        is_newer = shard > stored_shard
+
+                    if is_newer:
+                        sharded_tables[base_name] = (table, shard)
                 continue
 
             table_identifier = BigqueryTableIdentifier(
