@@ -1,7 +1,7 @@
 name: Release Tests
 # This workflow runs release tests against a remote DataHub instance
 # These tests do not require building images or running quickstart locally
-
+run-name: "Environment: ${{ github.event.inputs.remote_instance_url || 'https://deploy-auto.acryl.io' }} Test branch: ${{ github.event.inputs.branch || 'acryl-main' }}"
 on:
   schedule:
     - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
@@ -19,11 +19,32 @@ on:
         options:
           - https://deploy-auto.acryl.io
           - https://deploy-test.acryl.io
+      pytest_markers:
+        description: "Pytest markers to pass for selecting tests to run"
+        required: false
+        type: string
+        default: "release_tests or read_only"
+      tests_paths_to_run:
+        description: "Paths to pass to pytest command for test selection"
+        required: false
+        type: string
+        default: "tests/read_only tests/release_tests tests/metrics/test_metrics.py"
+      pytest_extra_args:
+        description: "Extra arguments for the pytest command"
+        required: false
+        type: string
+        default: ""
+      report_run_results_datahub:
+        description: "Report run results to Datahub Instance. Should be true only for scheduled runs"
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
   id-token: write
   actions: read
+  checks: write
 
 jobs:
   release-tests:
@@ -31,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
         with:
           ref: ${{ github.event_name == 'schedule' && 'acryl-main' || github.event.inputs.branch || github.ref }}
 
@@ -55,31 +76,59 @@ jobs:
           ADMIN_PASSWORD: op://Engineering/Shared Accounts for dev0x/admin pass
           RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_AUTO: op://Engineering/slack tokens for release test of deploy-auto/slack channel deploy-auto notification
           RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_AUTO: op://Engineering/slack tokens for release test of deploy-auto/slack token deploy-auto
-          RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack channel https://deploy-test.acryl.io
-          RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack token https://deploy-test.acryl.io
+          RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack channel deploy-test
+          RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST: op://Engineering/slack tokens for release test of deploy-auto/slack token deploy-test
 
       - name: Run release tests
         env:
           DATAHUB_FRONTEND_URL: ${{ github.event_name == 'schedule' && 'https://deploy-auto.acryl.io' || github.event.inputs.remote_instance_url }}
           RELEASE_TEST_NOTIFICATION_CHANNEL: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_CHANNEL_DEPLOY_AUTO }}
           RELEASE_TEST_NOTIFICATION_TOKEN: ${{ github.event.inputs.remote_instance_url == 'https://deploy-test.acryl.io' && env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_TEST || env.RELEASE_TEST_NOTIFICATION_TOKEN_DEPLOY_AUTO }}
-          REPORTING_DATAHUB_GMS_URL: https://acryl.acryl.io/gms
+          REPORTING_DATAHUB_GMS_URL: ${{ github.event.inputs.report_run_results_datahub == 'true' && 'https://acryl.acryl.io/gms' || github.event.inputs.remote_instance_url }}
           REPORTING_DATAHUB_TOKEN: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
           USE_STATIC_SLEEP: "true"
+          PYTEST_MARKERS: ${{ github.event.inputs.pytest_markers }}
+          PYTEST_TEST_PATHS: ${{ github.event.inputs.tests_paths_to_run }}
+          PYTEST_EXTRA_ARGS: ${{ github.event.inputs.pytest_extra_args }}
+
         run: |
+          echo "Input context: ${{ toJson(github.event.inputs) }}"
           cd smoke-test
           uv venv venv --python 3.11
           source venv/bin/activate
           uv pip install -r ./requirements-release-test.txt
+          mkdir -p test-reports
           ../docker/smoke-test/release-tests.sh
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success() || failure()
         with:
-          name: Test Results (release tests)
+          name: test-reports
           path: |
-            **/junit.*.xml
-            **/build/test-results/test/**
-            smoke-test/build/test-results/
+            smoke-test/test-reports/
           retention-days: 5
+        # Provides logs in Github Checks
+      - name: Publish Test Results Summary
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: success() || failure()
+        with:
+          check_name: "Release Test Results"
+          commit: ${{ github.sha }}
+          event_name: ${{ github.event_name }}
+          files: "smoke-test/test-reports/junit.xml"
+          job_summary: true
+          comment_mode: off
+        # Provides failure message in Action Summary
+      - name: Publish Release Test Results Summary
+        uses: dorny/test-reporter@v2.5.0
+        if: success() || failure()
+        with:
+          reporter: "python-xunit"
+          artifact: test-reports
+          name: Test Run Failures
+          path: junit.xml
+          list-suites: "none"
+          list-tests: "failed"
+          max-annotations: "30"
+          report-title: "Test Result Summary"

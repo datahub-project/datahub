@@ -725,7 +725,7 @@ repos:
           .github/scripts/pre-commit-wrapper.sh ./gradlew :smoke-test:lintFix
           -x generateGitPropertiesGlobal
         language: system
-        files: ^smoke-test/.*\.(py|toml)$
+        files: ^smoke-test/.*\.py$
         pass_filenames: false
 
       - id: test-models-spotless
