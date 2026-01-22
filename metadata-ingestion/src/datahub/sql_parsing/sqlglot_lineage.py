@@ -1109,9 +1109,7 @@ def _get_column_transformation(
             expression = lineage_node.expression
         return ColumnTransformation(
             is_direct_copy=is_copy,
-            # column_logic becomes the transformOperation only if it's not a direct copy
-            # so we skip the nice and costly sql generation for direct copies
-            column_logic="" if is_copy else expression.sql(dialect=dialect),
+            column_logic=expression.sql(dialect=dialect),
         )
 
     elif len(lineage_node.downstream) > 1 or not _is_single_column_expression(
