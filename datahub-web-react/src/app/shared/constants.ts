@@ -33,7 +33,6 @@ export const DISMISSED_PRODUCT_UPDATES_KEY = 'dismissedProductUpdates';
 // Welcome modal key
 export const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 
-
 // Navigation sidebar
 export const NAV_SIDEBAR_ID = 'nav-sidebar';
 export const NAV_SIDEBAR_WIDTH_EXPANDED = 264;
