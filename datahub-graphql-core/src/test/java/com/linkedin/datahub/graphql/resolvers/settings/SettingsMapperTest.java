@@ -393,7 +393,7 @@ public class SettingsMapperTest {
     com.linkedin.settings.global.SharedApiKeyAiPluginConfig sharedConfig =
         new com.linkedin.settings.global.SharedApiKeyAiPluginConfig();
     sharedConfig.setCredentialUrn(
-        UrnUtils.getUrn("urn:li:dataHubConnection:(urn:li:service:weather-api,apiKey)"));
+        UrnUtils.getUrn("urn:li:dataHubConnection:urn_li_service_weather-api__apiKey"));
     sharedConfig.setAuthLocation(com.linkedin.settings.global.AuthInjectionLocation.HEADER);
     sharedConfig.setAuthHeaderName("X-API-Key");
     // authScheme is optional - not setting it to test that case
@@ -421,7 +421,7 @@ public class SettingsMapperTest {
     assertNotNull(mappedPlugin.getSharedApiKeyConfig());
     assertEquals(
         mappedPlugin.getSharedApiKeyConfig().getCredentialUrn(),
-        "urn:li:dataHubConnection:(urn:li:service:weather-api,apiKey)");
+        "urn:li:dataHubConnection:urn_li_service_weather-api__apiKey");
     assertEquals(
         mappedPlugin.getSharedApiKeyConfig().getAuthLocation(),
         com.linkedin.datahub.graphql.generated.AuthInjectionLocation.HEADER);
@@ -509,7 +509,7 @@ public class SettingsMapperTest {
     com.linkedin.settings.global.SharedApiKeyAiPluginConfig sharedConfig =
         new com.linkedin.settings.global.SharedApiKeyAiPluginConfig();
     sharedConfig.setCredentialUrn(
-        UrnUtils.getUrn("urn:li:dataHubConnection:(urn:li:service:minimal-api,apiKey)"));
+        UrnUtils.getUrn("urn:li:dataHubConnection:urn_li_service_minimal-api__apiKey"));
     // Not setting authLocation, authHeaderName - should use defaults
     plugin.setSharedApiKeyConfig(sharedConfig);
 
@@ -701,7 +701,7 @@ public class SettingsMapperTest {
     com.linkedin.settings.global.SharedApiKeyAiPluginConfig sharedConfig =
         new com.linkedin.settings.global.SharedApiKeyAiPluginConfig();
     sharedConfig.setCredentialUrn(
-        UrnUtils.getUrn("urn:li:dataHubConnection:(urn:li:service:bearer-api,apiKey)"));
+        UrnUtils.getUrn("urn:li:dataHubConnection:urn_li_service_bearer-api__apiKey"));
     sharedConfig.setAuthLocation(com.linkedin.settings.global.AuthInjectionLocation.HEADER);
     sharedConfig.setAuthHeaderName("Authorization");
     sharedConfig.setAuthScheme("Bearer");

@@ -475,8 +475,12 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
   /**
    * Creates a DataHubConnection entity owned by the service to store the shared API key.
    *
-   * <p>The DataHubConnection uses the service URN as the owner (first part of compound key) and
-   * "apiKey" as the connection ID (second part), making it uniquely associated with this service.
+   * <p>The DataHubConnection uses a sanitized combination of service URN and "apiKey" as the
+   * single-string ID, making it uniquely associated with this service.
+   *
+   * <p>Note: DataHubConnectionKey has a single `id` field (not a compound key), so we cannot use
+   * tuple format like (owner,connectionId). Instead, we use a sanitized single-string format:
+   * urn:li:dataHubConnection:&lt;sanitized_service_urn&gt;__apiKey
    *
    * @param context Query context
    * @param serviceUrn The service that owns this credential
@@ -486,10 +490,10 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
   private Urn createSharedCredential(
       final QueryContext context, final Urn serviceUrn, final String apiKey) throws Exception {
 
-    // DataHubConnection URN format: urn:li:dataHubConnection:(ownerUrn,connectionId)
-    // For shared credentials, the owner is the service
-    final String connectionUrn =
-        String.format("urn:li:dataHubConnection:(%s,apiKey)", serviceUrn.toString());
+    // DataHubConnection URN format: urn:li:dataHubConnection:<single_id>
+    // DataHubConnectionKey has only one field (id: string), not a compound key.
+    // We use double-underscore as separator to create a unique, parseable ID.
+    final String connectionUrn = buildServiceConnectionUrn(serviceUrn.toString(), "apiKey");
     final Urn credentialUrn = UrnUtils.getUrn(connectionUrn);
 
     // Build the connection details JSON with encrypted API key
@@ -509,5 +513,28 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
     entityClient.ingestProposal(context.getOperationContext(), connectionMcp, false);
 
     return credentialUrn;
+  }
+
+  /**
+   * Builds a DataHubConnection URN for service credentials. Format:
+   * urn:li:dataHubConnection:&lt;sanitized_service_urn&gt;__&lt;sanitized_credential_type&gt;
+   *
+   * <p>Uses `__` as separator (not a tuple) because DataHubConnection expects a single-string key.
+   * Using tuple format (a,b) causes DataHub to interpret it as a multi-part key which fails since
+   * DataHubConnectionKey only has one field.
+   *
+   * <p>All special characters are sanitized to underscores for URN safety.
+   *
+   * <p>This must match the Python implementation in credential_store.py's build_connection_urn()
+   * for consistency.
+   */
+  private static String buildServiceConnectionUrn(String serviceUrn, String credentialType) {
+    // Sanitize both parts - replace colons, commas, and parentheses with underscores
+    String sanitizedServiceUrn =
+        serviceUrn.replace(":", "_").replace(",", "_").replace("(", "_").replace(")", "_");
+    String sanitizedCredentialType =
+        credentialType.replace(":", "_").replace(",", "_").replace("(", "_").replace(")", "_");
+    return String.format(
+        "urn:li:dataHubConnection:%s__%s", sanitizedServiceUrn, sanitizedCredentialType);
   }
 }

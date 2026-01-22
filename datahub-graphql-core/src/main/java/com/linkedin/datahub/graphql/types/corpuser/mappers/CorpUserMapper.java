@@ -164,6 +164,11 @@ public class CorpUserMapper {
       result.setAiAssistant(mapCorpUserAiAssistantSettings(corpUserSettings.getAiAssistant()));
     }
 
+    // Map AI Plugin Settings.
+    if (corpUserSettings.hasAiPluginSettings()) {
+      result.setAiPluginSettings(mapUserAiPluginSettings(corpUserSettings.getAiPluginSettings()));
+    }
+
     corpUser.setSettings(result);
   }
 
@@ -262,6 +267,84 @@ public class CorpUserMapper {
       default:
         throw new IllegalArgumentException("Unknown AiInstructionState: " + state);
     }
+  }
+
+  @Nonnull
+  private com.linkedin.datahub.graphql.generated.UserAiPluginSettings mapUserAiPluginSettings(
+      @Nonnull final com.linkedin.identity.UserAiPluginSettings aiPluginSettings) {
+    com.linkedin.datahub.graphql.generated.UserAiPluginSettings result =
+        new com.linkedin.datahub.graphql.generated.UserAiPluginSettings();
+
+    if (aiPluginSettings.hasPlugins()) {
+      List<com.linkedin.datahub.graphql.generated.UserAiPluginConfig> plugins =
+          aiPluginSettings.getPlugins().stream()
+              .map(this::mapUserAiPluginConfig)
+              .collect(Collectors.toList());
+      result.setPlugins(plugins);
+    } else {
+      result.setPlugins(Collections.emptyList());
+    }
+
+    return result;
+  }
+
+  @Nonnull
+  private com.linkedin.datahub.graphql.generated.UserAiPluginConfig mapUserAiPluginConfig(
+      @Nonnull final com.linkedin.identity.UserAiPluginConfig config) {
+    com.linkedin.datahub.graphql.generated.UserAiPluginConfig result =
+        new com.linkedin.datahub.graphql.generated.UserAiPluginConfig();
+
+    result.setId(config.getId());
+
+    if (config.hasEnabled()) {
+      result.setEnabled(config.isEnabled());
+    }
+
+    if (config.hasAllowedTools()) {
+      result.setAllowedTools(config.getAllowedTools());
+    }
+
+    if (config.hasApiKeyConfig()) {
+      result.setApiKeyConfig(mapUserApiKeyConnectionConfig(config.getApiKeyConfig()));
+    }
+
+    if (config.hasOauthConfig()) {
+      result.setOauthConfig(mapUserOAuthConnectionConfig(config.getOauthConfig()));
+    }
+
+    return result;
+  }
+
+  @Nonnull
+  private com.linkedin.datahub.graphql.generated.UserApiKeyConnectionConfig
+      mapUserApiKeyConnectionConfig(
+          @Nonnull final com.linkedin.identity.UserApiKeyConnectionConfig config) {
+    com.linkedin.datahub.graphql.generated.UserApiKeyConnectionConfig result =
+        new com.linkedin.datahub.graphql.generated.UserApiKeyConnectionConfig();
+    // For isConnected, we assume true if the config exists with a connectionUrn
+    boolean hasConnectionUrn = config.hasConnectionUrn();
+    result.setIsConnected(hasConnectionUrn);
+    if (hasConnectionUrn) {
+      result.setConnectionUrn(config.getConnectionUrn().toString());
+    }
+    return result;
+  }
+
+  @Nonnull
+  private com.linkedin.datahub.graphql.generated.UserOAuthConnectionConfig
+      mapUserOAuthConnectionConfig(
+          @Nonnull final com.linkedin.identity.UserOAuthConnectionConfig config) {
+    com.linkedin.datahub.graphql.generated.UserOAuthConnectionConfig result =
+        new com.linkedin.datahub.graphql.generated.UserOAuthConnectionConfig();
+    // For isConnected, we assume true if the config exists with a connectionUrn
+    boolean hasConnectionUrn = config.hasConnectionUrn();
+    result.setIsConnected(hasConnectionUrn);
+    if (hasConnectionUrn) {
+      result.setConnectionUrn(config.getConnectionUrn().toString());
+    }
+    // Note: expiresAt would need to be retrieved from the DataHubConnection entity itself
+    // For now, we don't populate it at this level
+    return result;
   }
 
   private AuditStamp mapAuditStamp(@Nonnull com.linkedin.common.AuditStamp auditStamp) {

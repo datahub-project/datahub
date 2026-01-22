@@ -34,4 +34,10 @@ record CorpUserSettings {
    * Settings related to AI-powered chat assistant (Ask DataHub).
    */
   aiAssistant: optional AiAssistantSettings
+
+  /**
+   * User-specific settings for AI plugins (MCP servers, etc.).
+   * Contains user overrides and credentials for globally-configured plugins.
+   */
+  aiPluginSettings: optional UserAiPluginSettings
 }

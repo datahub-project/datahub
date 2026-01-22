@@ -88,6 +88,7 @@ record OAuthAuthorizationServerProperties {
    * - BASIC: client_id:client_secret in Authorization header
    * - POST_BODY: client_id and client_secret in request body
    * - NONE: No client authentication (public clients)
+   * - CUSTOM: Custom auth scheme using authScheme field (e.g., "Token" for dbt Cloud)
    */
   tokenAuthMethod: enum TokenAuthMethod {
     /**
@@ -104,6 +105,13 @@ record OAuthAuthorizationServerProperties {
      * No client authentication (for public clients).
      */
     NONE
+
+    /**
+     * Custom auth scheme: uses authScheme field to format the Authorization header.
+     * Format: Authorization: {authScheme} {client_secret}
+     * Example: Token for dbt Cloud produces Authorization: Token {client_secret}
+     */
+    CUSTOM
   } = "POST_BODY"
 
   /**

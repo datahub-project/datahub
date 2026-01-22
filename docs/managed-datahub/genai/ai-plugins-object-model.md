@@ -141,8 +141,12 @@ erDiagram
     SharedApiKeyAiPluginConfig }o--|| DataHubConnection : credentialUrn
 
     CorpUser ||--|| CorpUserSettings : "settings aspect"
-    CorpUserSettings ||--o{ UserAiPluginSettings : aiPluginSettings
-    UserAiPluginSettings }o--|| Service : serviceUrn
+    CorpUserSettings ||--|| UserAiPluginSettings : aiPluginSettings
+    UserAiPluginSettings ||--o{ UserAiPluginConfig : plugins
+    UserAiPluginConfig ||--o| UserApiKeyConnectionConfig : apiKeyConfig
+    UserAiPluginConfig ||--o| UserOAuthConnectionConfig : oauthConfig
+    UserApiKeyConnectionConfig }o--|| DataHubConnection : connection
+    UserOAuthConnectionConfig }o--|| DataHubConnection : connection
 
     CorpUser ||--o{ DataHubConnection : "user credentials"
     Service ||--o{ DataHubConnection : "shared credentials"
@@ -215,8 +219,23 @@ erDiagram
     }
 
     UserAiPluginSettings {
-        urn serviceUrn "which Service"
+        array plugins "user plugin configs"
+    }
+
+    UserAiPluginConfig {
+        string id "matches global plugin id"
         boolean enabled "user override"
+        array allowedTools "future: tool filter"
+        record apiKeyConfig "API key connection"
+        record oauthConfig "OAuth connection"
+    }
+
+    UserApiKeyConnectionConfig {
+        urn connection "DataHubConnection URN"
+    }
+
+    UserOAuthConnectionConfig {
+        urn connection "DataHubConnection URN"
     }
 
     DataHubConnection {
@@ -236,6 +255,8 @@ erDiagram
 - `AiPluginConfig.oauthConfig.serverUrn` references `OAuthAuthorizationServer` for `USER_OAUTH` auth type
 - `AiPluginConfig.sharedApiKeyConfig` embeds auth injection settings + credential URN for `SHARED_API_KEY`
 - `AiPluginConfig.userApiKeyConfig` embeds auth injection settings for `USER_API_KEY` (credentials in user's `DataHubConnection`)
+- `UserAiPluginConfig.id` matches `AiPluginConfig.id` to link user settings to global config
+- `UserAiPluginConfig.apiKeyConfig.connection` and `oauthConfig.connection` reference `DataHubConnection` for easy credential discovery
 
 ---
 
@@ -434,6 +455,14 @@ record OAuthAuthorizationServerProperties {
   /**
    * URN of DataHubSecret containing OAuth client secret.
    * Never stored as plain string - always encrypted.
+   *
+   * GraphQL visibility: Exposed as `clientSecretUrn: String` in GraphQL.
+   * The URN is safe to expose because:
+   * - It's just a reference/pointer - the actual secret value is never exposed
+   * - Access to the DataHubSecret entity is protected by authorization
+   * - Backend services need the URN to resolve secrets for token exchange
+   *
+   * The UI can also use `hasClientSecret: Boolean` to show configured state.
    */
   clientSecretUrn: optional com.linkedin.common.Urn
 
@@ -534,6 +563,9 @@ enum TokenAuthMethod {
 
   /** No client auth */
   NONE
+
+  /** Custom auth scheme using authScheme field (e.g., "Token" for dbt Cloud) */
+  CUSTOM
 }
 ```
 
@@ -737,9 +769,14 @@ enum AiPluginAuthType {
 
 ---
 
-### CorpUserSettings.aiPluginSettings (User Overrides)
+### CorpUserSettings.aiPluginSettings (User Overrides and Connections)
 
-User-level overrides for AI plugin settings. Allows users to disable globally-enabled plugins.
+User-level AI plugin settings. Tracks:
+
+1. **User preferences** - Enable/disable plugins, allowed tools
+2. **User credentials** - References to DataHubConnection entities containing OAuth tokens or API keys
+
+This structure mirrors GlobalSettings.aiPluginSettings but with user-specific data.
 
 ```pdl
 namespace com.linkedin.identity
@@ -751,10 +788,9 @@ record CorpUserSettings {
   // ... existing fields ...
 
   /**
-   * User's AI plugin settings.
-   * Keyed by service URN for easy lookup.
+   * User's AI plugin settings - preferences and credential references.
    */
-  aiPluginSettings: optional map[string, UserAiPluginSettings]
+  aiPluginSettings: optional UserAiPluginSettings
 }
 ```
 
@@ -762,23 +798,82 @@ record CorpUserSettings {
 namespace com.linkedin.identity
 
 /**
- * User-level settings for an AI plugin.
- * Overrides global settings for this user.
+ * User-level AI plugin settings.
+ * Tracks preferences and credential references for each plugin.
  */
 record UserAiPluginSettings {
-
   /**
-   * Reference to the Service entity
+   * List of user plugin configurations.
+   * Each entry corresponds to a GlobalSettings.aiPluginSettings.plugins entry by id.
    */
-  serviceUrn: com.linkedin.common.Urn
+  plugins: array[UserAiPluginConfig] = []
+}
+
+/**
+ * User-level configuration for a single AI plugin.
+ * Links to global config by id and stores user's credential references.
+ */
+record UserAiPluginConfig {
+  /**
+   * Matches GlobalSettings.aiPluginSettings.plugins[].id
+   * Used to correlate user settings with global plugin config.
+   */
+  id: string
 
   /**
-   * User's preference for this plugin.
-   * Can disable a globally-enabled plugin.
+   * User override - can disable a globally-enabled plugin.
+   * Default true means "use global setting".
    */
   enabled: boolean = true
+
+  /**
+   * Future: Which tools from this plugin the user wants enabled.
+   * Empty array or null means all tools allowed.
+   */
+  allowedTools: optional array[string]
+
+  /**
+   * For USER_API_KEY auth type - reference to user's API key connection.
+   * Present when user has saved an API key for this plugin.
+   */
+  apiKeyConfig: optional UserApiKeyConnectionConfig
+
+  /**
+   * For USER_OAUTH auth type - reference to user's OAuth connection.
+   * Present when user has completed OAuth flow for this plugin.
+   */
+  oauthConfig: optional UserOAuthConnectionConfig
+}
+
+/**
+ * Reference to user's API key stored in DataHubConnection.
+ */
+record UserApiKeyConnectionConfig {
+  /**
+   * URN of DataHubConnection containing the user's API key.
+   * Format: urn:li:dataHubConnection:(<userUrn>,<authServerId>)
+   */
+  connection: com.linkedin.common.Urn
+}
+
+/**
+ * Reference to user's OAuth tokens stored in DataHubConnection.
+ */
+record UserOAuthConnectionConfig {
+  /**
+   * URN of DataHubConnection containing the user's OAuth tokens.
+   * Format: urn:li:dataHubConnection:(<userUrn>,<authServerId>)
+   */
+  connection: com.linkedin.common.Urn
 }
 ```
+
+**Key design points:**
+
+- `id` field links to `GlobalSettings.aiPluginSettings.plugins[].id` for O(1) lookup
+- Connection URNs stored here make discovery trivial (no need to search DataHubConnection entities)
+- `allowedTools` is future-ready for tool-level permissions (Note: consider renaming to `disabledTools` - opt-out model where all tools are allowed by default)
+- Structure mirrors global settings for consistency
 
 ---
 
@@ -786,7 +881,16 @@ record UserAiPluginSettings {
 
 Following existing practice (Slack, Teams), use **DataHubConnection** for user credentials.
 
-**URN Format:** `urn:li:dataHubConnection:(<userUrn>,<authServerId>)`
+**URN Format Options:**
+
+The URN format can be structured in different ways depending on implementation needs:
+
+| Option          | URN Format                                            | Use Case                                                |
+| --------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| Per auth server | `urn:li:dataHubConnection:(<userUrn>,<authServerId>)` | Shared connection across plugins using same auth server |
+| Per plugin      | `urn:li:dataHubConnection:(<userUrn>,<pluginId>)`     | Isolated connection per plugin                          |
+
+Both options are valid. See implementation plan for the chosen approach.
 
 The JSON payload structure for OAuth credentials:
 
@@ -1017,12 +1121,26 @@ def is_plugin_enabled_for_user(global_settings, user_settings, service_urn):
 
 ### OAuth Flow Security
 
-| Feature             | Implementation                   |
-| ------------------- | -------------------------------- |
-| User identity       | Server-side state, never in URLs |
-| PKCE                | code_verifier stored server-side |
-| Single-use state    | Nonce deleted after first use    |
-| Redirect validation | Allowlist of valid prefixes      |
+| Feature               | Implementation                                 |
+| --------------------- | ---------------------------------------------- |
+| User identity         | Server-side state, never in URLs               |
+| PKCE                  | code_verifier stored server-side               |
+| Single-use state      | Nonce deleted after first use                  |
+| Redirect validation   | Allowlist of valid prefixes                    |
+| Single callback URL   | `/integrations/oauth/callback` for all plugins |
+| Plugin identification | Via OAuth state parameter, not URL path        |
+
+**Single Callback URL Design:** All OAuth providers redirect to the same URL (`/integrations/oauth/callback`). The plugin is identified from the OAuth `state` parameter. Benefits:
+
+- Simpler OAuth app registration - one URL works for all plugins
+- Admin doesn't need to know plugin URN when setting up OAuth app
+- Consistent with how Cloud Router handles multi-tenant OAuth
+
+**User Settings Update Security:** The user's JWT token is captured at `/connect` time and stored in OAuth state. During the callback, this token is used to call `updateUserAiPluginSettings` as the actual user (not the system user). This ensures:
+
+- User settings are updated with the user's own permissions
+- No privileged mutation input (like `userUrn`) that could allow impersonation
+- Token refresh doesn't need this - it only updates `DataHubConnection` (system user), not user settings
 
 ---
 
@@ -1083,6 +1201,8 @@ Each new subtype could have its own type-specific aspect.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                    |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-01-17 | **DataHubConnection URN options**: Documented both per-auth-server and per-plugin URN format options. Implementation chooses which approach to use.                                                                                                                                                       |
+| 2026-01-17 | **UserAiPluginSettings redesigned**: Changed from `map[string, UserAiPluginSettings]` to `UserAiPluginSettings { plugins: array[UserAiPluginConfig] }`. Added `id` field to match global config, `allowedTools` for future, and `apiKeyConfig`/`oauthConfig` with connection URN references.              |
 | 2026-01-16 | **Removed supportedCredentialTypes**: The `supportedCredentialTypes` field and `CredentialType` enum were removed entirely from `OAuthAuthorizationServer` since it's strictly for OAuth2 - the field was redundant.                                                                                      |
 | 2026-01-16 | **User API key config separated**: Added `UserApiKeyAiPluginConfig` with embedded auth injection settings for `USER_API_KEY` auth type. `OAuthAuthorizationServer` is now strictly for OAuth.                                                                                                             |
 | 2026-01-16 | **Removed iconUrl fields**: Removed `iconUrl` from `ServiceProperties` and `OAuthAuthorizationServerProperties` as usage was unclear.                                                                                                                                                                     |

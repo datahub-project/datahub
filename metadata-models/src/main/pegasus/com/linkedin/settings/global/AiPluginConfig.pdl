@@ -113,7 +113,8 @@ record AiPluginConfig {
     /**
      * URN of DataHubConnection containing the shared API key.
      * The DataHubConnection is owned by the Service entity.
-     * Example: urn:li:dataHubConnection:(urn:li:service:internal-tools,apiKey)
+     * Example: urn:li:dataHubConnection:urn_li_service_internal-tools__apiKey
+     * Note: Uses double-underscore separator (not tuple format) since DataHubConnectionKey has a single id field.
      */
     credentialUrn: Urn
 

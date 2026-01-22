@@ -79,8 +79,11 @@ public class OAuthAuthorizationServerMapper {
       result.setDescription(gmsProperties.getDescription());
     }
 
-    // Secret presence flag (never expose actual value)
+    // Secret presence flag and URN (the URN is safe to expose - actual value is protected)
     result.setHasClientSecret(gmsProperties.hasClientSecretUrn());
+    if (gmsProperties.hasClientSecretUrn()) {
+      result.setClientSecretUrn(gmsProperties.getClientSecretUrn().toString());
+    }
 
     // OAuth config (public fields only)
     if (gmsProperties.hasClientId()) {

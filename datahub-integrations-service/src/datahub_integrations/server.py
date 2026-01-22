@@ -32,6 +32,10 @@ from datahub_integrations.gen_ai.description_context import (
 )
 from datahub_integrations.gen_ai.router import router as gen_ai_router
 from datahub_integrations.notifications.router import router as notifications_router
+from datahub_integrations.oauth.router import (
+    authenticated_router as oauth_authenticated_router,
+    callback_router as oauth_callback_router,
+)
 from datahub_integrations.share.share_router import router as share_router
 from datahub_integrations.slack.slack import (
     SlackLinkPreview,
@@ -321,6 +325,13 @@ internal_router.include_router(share_router, prefix="/share", tags=["Share"])
 internal_router.include_router(sql_router, prefix="/sql", tags=["SQL"])
 # Chat router - only include in internal router for now
 internal_router.include_router(chat_router, tags=["Chat"])
+# OAuth router for AI plugin user authentication
+# - authenticated_router: user-facing endpoints (connect, api-key, disconnect)
+#   Requires JWT token - security enforced via Depends(get_authenticated_user)
+# - callback_router: OAuth callbacks from external providers (no auth required)
+# Both are mounted on external_router, accessible via /integrations/ frontend proxy.
+external_router.include_router(oauth_authenticated_router, tags=["OAuth"])
+external_router.include_router(oauth_callback_router, tags=["OAuth"])
 
 external_router.include_router(dist_external_router, tags=["Dist"])
 

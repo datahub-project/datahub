@@ -85,6 +85,7 @@ public class OAuthAuthorizationServerMapperTest {
     // Verify OAuth config
     assertEquals(result.getProperties().getClientId(), "glean-client-id");
     assertTrue(result.getProperties().getHasClientSecret()); // Should indicate secret exists
+    assertEquals(result.getProperties().getClientSecretUrn(), "urn:li:dataHubSecret:glean-secret");
     assertEquals(result.getProperties().getAuthorizationUrl(), "https://glean.com/oauth/authorize");
     assertEquals(result.getProperties().getTokenUrl(), "https://glean.com/oauth/token");
     assertNotNull(result.getProperties().getScopes());
@@ -358,6 +359,7 @@ public class OAuthAuthorizationServerMapperTest {
     assertNotNull(result);
     assertEquals(result.getProperties().getClientId(), "public-client-id");
     assertFalse(result.getProperties().getHasClientSecret());
+    assertNull(result.getProperties().getClientSecretUrn());
   }
 
   @Test
@@ -462,5 +464,227 @@ public class OAuthAuthorizationServerMapperTest {
     // Verify
     assertNotNull(result);
     assertEquals(result.getProperties().getDescription(), longDescription);
+  }
+
+  @Test
+  public void testMapOAuthServerClientSecretUrnMapping() {
+    // Test that clientSecretUrn is properly mapped when present
+    Urn serverUrn = UrnUtils.getUrn("urn:li:oauthAuthorizationServer:with-secret-urn");
+
+    OAuthAuthorizationServerProperties props = new OAuthAuthorizationServerProperties();
+    props.setDisplayName("Server With Secret URN");
+    props.setClientId("client-id-123");
+    props.setClientSecretUrn(UrnUtils.getUrn("urn:li:dataHubSecret:my-secret-id"));
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.OAUTH_AUTHORIZATION_SERVER_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(props.data())));
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(serverUrn);
+    entityResponse.setEntityName(Constants.OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    OAuthAuthorizationServer result =
+        OAuthAuthorizationServerMapper.map(queryContext, entityResponse);
+
+    assertNotNull(result);
+    assertTrue(result.getProperties().getHasClientSecret());
+    assertEquals(result.getProperties().getClientSecretUrn(), "urn:li:dataHubSecret:my-secret-id");
+  }
+
+  @Test
+  public void testMapOAuthServerWithMultipleScopes() {
+    // Test mapping of multiple scopes
+    Urn serverUrn = UrnUtils.getUrn("urn:li:oauthAuthorizationServer:multi-scope");
+
+    OAuthAuthorizationServerProperties props = new OAuthAuthorizationServerProperties();
+    props.setDisplayName("Multi Scope Server");
+    props.setScopes(
+        new StringArray("openid", "profile", "email", "offline_access", "custom_scope"));
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.OAUTH_AUTHORIZATION_SERVER_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(props.data())));
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(serverUrn);
+    entityResponse.setEntityName(Constants.OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    OAuthAuthorizationServer result =
+        OAuthAuthorizationServerMapper.map(queryContext, entityResponse);
+
+    assertNotNull(result);
+    assertNotNull(result.getProperties().getScopes());
+    assertEquals(result.getProperties().getScopes().size(), 5);
+    assertTrue(result.getProperties().getScopes().contains("openid"));
+    assertTrue(result.getProperties().getScopes().contains("profile"));
+    assertTrue(result.getProperties().getScopes().contains("email"));
+    assertTrue(result.getProperties().getScopes().contains("offline_access"));
+    assertTrue(result.getProperties().getScopes().contains("custom_scope"));
+  }
+
+  @Test
+  public void testMapOAuthServerWithAllTokenAuthMethods() {
+    // Test all token auth method values are properly mapped
+    Urn serverUrn = UrnUtils.getUrn("urn:li:oauthAuthorizationServer:post-body-auth");
+
+    // Test POST_BODY (default)
+    OAuthAuthorizationServerProperties propsPostBody = new OAuthAuthorizationServerProperties();
+    propsPostBody.setDisplayName("POST Body Auth Server");
+    propsPostBody.setTokenAuthMethod(com.linkedin.oauth.TokenAuthMethod.POST_BODY);
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.OAUTH_AUTHORIZATION_SERVER_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(propsPostBody.data())));
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(serverUrn);
+    entityResponse.setEntityName(Constants.OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    OAuthAuthorizationServer result =
+        OAuthAuthorizationServerMapper.map(queryContext, entityResponse);
+
+    assertEquals(result.getProperties().getTokenAuthMethod(), TokenAuthMethod.POST_BODY);
+  }
+
+  @Test
+  public void testMapOAuthServerAuthLocationHeaderWithScheme() {
+    // Test HEADER auth location with custom scheme (e.g., for dbt Cloud "Token" prefix)
+    Urn serverUrn = UrnUtils.getUrn("urn:li:oauthAuthorizationServer:header-token-auth");
+
+    OAuthAuthorizationServerProperties props = new OAuthAuthorizationServerProperties();
+    props.setDisplayName("Token Header Auth Server");
+    props.setAuthLocation(com.linkedin.oauth.AuthLocation.HEADER);
+    props.setAuthHeaderName("Authorization");
+    props.setAuthScheme("Token"); // dbt Cloud style
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.OAUTH_AUTHORIZATION_SERVER_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(props.data())));
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(serverUrn);
+    entityResponse.setEntityName(Constants.OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    OAuthAuthorizationServer result =
+        OAuthAuthorizationServerMapper.map(queryContext, entityResponse);
+
+    assertNotNull(result);
+    assertEquals(result.getProperties().getAuthLocation(), AuthLocation.HEADER);
+    assertEquals(result.getProperties().getAuthHeaderName(), "Authorization");
+    assertEquals(result.getProperties().getAuthScheme(), "Token");
+  }
+
+  @Test
+  public void testMapOAuthServerWithoutAspects() {
+    // Test edge case where aspects map is empty (no properties aspect)
+    Urn serverUrn = UrnUtils.getUrn("urn:li:oauthAuthorizationServer:no-aspects");
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    // No aspects added
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(serverUrn);
+    entityResponse.setEntityName(Constants.OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    OAuthAuthorizationServer result =
+        OAuthAuthorizationServerMapper.map(queryContext, entityResponse);
+
+    // Should still return a result with basic fields
+    assertNotNull(result);
+    assertEquals(result.getUrn(), serverUrn.toString());
+    assertNull(result.getProperties()); // No properties aspect
+  }
+
+  @Test
+  public void testMapOAuthServerForSnowflake() {
+    // Test Snowflake-specific OAuth configuration
+    Urn serverUrn = UrnUtils.getUrn("urn:li:oauthAuthorizationServer:snowflake");
+
+    OAuthAuthorizationServerProperties props = new OAuthAuthorizationServerProperties();
+    props.setDisplayName("Snowflake OAuth");
+    props.setDescription("Snowflake Security Integration OAuth");
+    props.setClientId("client-id-from-snowflake");
+    props.setClientSecretUrn(UrnUtils.getUrn("urn:li:dataHubSecret:snowflake-secret"));
+    props.setAuthorizationUrl("https://account.snowflakecomputing.com/oauth/authorize");
+    props.setTokenUrl("https://account.snowflakecomputing.com/oauth/token-request");
+    props.setScopes(new StringArray("session:role:PUBLIC"));
+    props.setTokenAuthMethod(com.linkedin.oauth.TokenAuthMethod.BASIC);
+    props.setAuthLocation(com.linkedin.oauth.AuthLocation.HEADER);
+    props.setAuthHeaderName("Authorization");
+    props.setAuthScheme("Bearer");
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.OAUTH_AUTHORIZATION_SERVER_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(props.data())));
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(serverUrn);
+    entityResponse.setEntityName(Constants.OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    OAuthAuthorizationServer result =
+        OAuthAuthorizationServerMapper.map(queryContext, entityResponse);
+
+    assertNotNull(result);
+    assertEquals(result.getProperties().getDisplayName(), "Snowflake OAuth");
+    assertEquals(
+        result.getProperties().getAuthorizationUrl(),
+        "https://account.snowflakecomputing.com/oauth/authorize");
+    assertEquals(
+        result.getProperties().getTokenUrl(),
+        "https://account.snowflakecomputing.com/oauth/token-request");
+    assertEquals(result.getProperties().getTokenAuthMethod(), TokenAuthMethod.BASIC);
+    assertTrue(result.getProperties().getScopes().contains("session:role:PUBLIC"));
+    assertTrue(result.getProperties().getHasClientSecret());
+  }
+
+  @Test
+  public void testMapOAuthServerForGitHub() {
+    // Test GitHub OAuth configuration
+    Urn serverUrn = UrnUtils.getUrn("urn:li:oauthAuthorizationServer:github");
+
+    OAuthAuthorizationServerProperties props = new OAuthAuthorizationServerProperties();
+    props.setDisplayName("GitHub OAuth");
+    props.setDescription("GitHub OAuth App integration");
+    props.setClientId("github-client-id");
+    props.setClientSecretUrn(UrnUtils.getUrn("urn:li:dataHubSecret:github-secret"));
+    props.setAuthorizationUrl("https://github.com/login/oauth/authorize");
+    props.setTokenUrl("https://github.com/login/oauth/access_token");
+    props.setScopes(new StringArray("repo", "read:user", "read:org"));
+    props.setTokenAuthMethod(com.linkedin.oauth.TokenAuthMethod.POST_BODY);
+    props.setAuthLocation(com.linkedin.oauth.AuthLocation.HEADER);
+    props.setAuthHeaderName("Authorization");
+    props.setAuthScheme("Bearer");
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.OAUTH_AUTHORIZATION_SERVER_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(props.data())));
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(serverUrn);
+    entityResponse.setEntityName(Constants.OAUTH_AUTHORIZATION_SERVER_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    OAuthAuthorizationServer result =
+        OAuthAuthorizationServerMapper.map(queryContext, entityResponse);
+
+    assertNotNull(result);
+    assertEquals(result.getProperties().getDisplayName(), "GitHub OAuth");
+    assertEquals(result.getProperties().getTokenAuthMethod(), TokenAuthMethod.POST_BODY);
+    assertTrue(result.getProperties().getScopes().contains("repo"));
+    assertTrue(result.getProperties().getScopes().contains("read:user"));
+    assertTrue(result.getProperties().getScopes().contains("read:org"));
   }
 }

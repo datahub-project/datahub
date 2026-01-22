@@ -240,6 +240,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocP
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserAiAssistantSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserAiPluginSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
@@ -1563,6 +1564,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateCorpUserAiAssistantSettings",
                   new UpdateCorpUserAiAssistantSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateUserAiPluginSettings",
+                  new UpdateUserAiPluginSettingsResolver(this.settingsService))
               .dataFetcher(
                   "refreshFormAssignment", new RefreshFormAssignmentResolver(this.formService))
               /* End SaaS Only */

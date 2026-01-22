@@ -3,6 +3,7 @@ import pathlib
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from dotenv import load_dotenv
+from loguru import logger
 
 import datahub_integrations as di
 from datahub_integrations._logging_setup import LOGGING_SETUP_COMPLETE
@@ -45,6 +46,10 @@ graph = DataHubGraph(
 _DEV_MODE_FRONTEND_URL = os.environ.get("DEV_MODE_OVERRIDE_DATAHUB_FRONTEND_URL")
 if _DEV_MODE_FRONTEND_URL:
     DATAHUB_FRONTEND_URL = _DEV_MODE_FRONTEND_URL
+    logger.info(
+        f"[DEV MODE] Using frontend URL override: {DATAHUB_FRONTEND_URL} "
+        "(set via DEV_MODE_OVERRIDE_DATAHUB_FRONTEND_URL)"
+    )
 else:
     DATAHUB_FRONTEND_URL = graph.frontend_base_url
 

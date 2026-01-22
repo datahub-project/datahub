@@ -206,6 +206,9 @@ const OAuthServerFormModal: React.FC<OAuthServerFormModalProps> = ({ editingUrn,
                         <Select.Option value={TokenAuthMethod.PostBody}>POST Body</Select.Option>
                         <Select.Option value={TokenAuthMethod.Basic}>Basic Auth Header</Select.Option>
                         <Select.Option value={TokenAuthMethod.None}>None (Public Client)</Select.Option>
+                        <Select.Option value={TokenAuthMethod.Custom}>
+                            Custom (uses Auth Scheme for token endpoint)
+                        </Select.Option>
                     </Select>
                 </Form.Item>
 

@@ -1,5 +1,7 @@
 package controllers;
 
+import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
+
 import akka.util.ByteString;
 import com.datahub.authentication.AuthenticationConstants;
 import com.typesafe.config.Config;
@@ -124,11 +126,19 @@ public class IntegrationsController extends Controller {
         .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
         // Remove Host so service meshes don't route to wrong host
         .filter(entry -> !Http.HeaderNames.HOST.equals(entry.getKey()))
+        // Remove Authorization header (we'll add it from session if available)
+        .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
         .forEach(
             entry -> {
               // HttpClient expects individual header values, not a list
               entry.getValue().forEach(value -> requestBuilder.header(entry.getKey(), value));
             });
+
+    // Add Authorization header from session or original request
+    final String authHeaderValue = getAuthorizationHeaderValueToProxy(request);
+    if (!authHeaderValue.isEmpty()) {
+      requestBuilder.header(Http.HeaderNames.AUTHORIZATION, authHeaderValue);
+    }
 
     HttpRequest httpRequest = requestBuilder.build();
 
@@ -177,5 +187,34 @@ public class IntegrationsController extends Controller {
     // Remap /integrations to /public
     // TODO: Make this configurable externally.
     return original.replaceFirst("/integrations", "/public");
+  }
+
+  /**
+   * Returns the value of the Authorization Header to be provided when proxying requests to the
+   * Integrations Service.
+   *
+   * <p>The Authorization header value may be derived from:
+   *
+   * <p>a) The value of the Authorization header provided in the original request. This takes
+   * precedence for backwards compatibility and to support programmatic requests.
+   *
+   * <p>Or if no Authorization header is provided, then we fallback to:
+   *
+   * <p>b) The value of the "token" attribute of the Session Cookie provided by the client. This
+   * value is set when creating the session token initially from a token granted by the Metadata
+   * Service. This allows browser-based requests to authenticate without explicitly passing headers.
+   *
+   * <p>If neither are found, an empty string is returned.
+   */
+  private String getAuthorizationHeaderValueToProxy(Http.Request request) {
+    // Explicit Authorization header takes precedence (backwards compatibility)
+    if (request.getHeaders().contains(Http.HeaderNames.AUTHORIZATION)) {
+      return request.getHeaders().get(Http.HeaderNames.AUTHORIZATION).get();
+    }
+    // Fall back to session cookie token for browser requests
+    if (request.session().data().containsKey(SESSION_COOKIE_GMS_TOKEN_NAME)) {
+      return "Bearer " + request.session().data().get(SESSION_COOKIE_GMS_TOKEN_NAME);
+    }
+    return "";
   }
 }

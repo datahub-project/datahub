@@ -32,6 +32,7 @@ query GetAiPlugins {
                 serverUrn
                 server {
                     urn
+                    type
                     properties {
                         displayName
                         description
@@ -201,4 +202,100 @@ mutation UpdateAiPluginSettings($input: UpdateGlobalSettingsInput!) {
 # Mutation to delete an AI plugin from GlobalSettings
 mutation DeleteAiPlugin($id: String!) {
     deleteAiPlugin(id: $id)
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# USER AI PLUGIN SETTINGS (Personal Connections)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Query for user's AI plugin settings (their connections)
+query GetUserAiPluginSettings {
+    me {
+        corpUser {
+            urn
+            settings {
+                aiPluginSettings {
+                    plugins {
+                        id
+                        enabled
+                        apiKeyConfig {
+                            connectionUrn
+                            isConnected
+                        }
+                        oauthConfig {
+                            connectionUrn
+                            isConnected
+                            expiresAt
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+# Combined query: Global plugins + user connection status
+query GetAiPluginsWithUserStatus {
+    globalSettings {
+        aiPlugins {
+            id
+            type
+            serviceUrn
+            service {
+                urn
+                type
+                subType
+                properties {
+                    displayName
+                    description
+                }
+            }
+            enabled
+            authType
+            oauthConfig {
+                serverUrn
+                server {
+                    urn
+                    type
+                    properties {
+                        displayName
+                        description
+                    }
+                }
+                requiredScopes
+            }
+            userApiKeyConfig {
+                authLocation
+                authHeaderName
+                authScheme
+                authQueryParam
+            }
+        }
+    }
+    me {
+        corpUser {
+            urn
+            settings {
+                aiPluginSettings {
+                    plugins {
+                        id
+                        enabled
+                        oauthConfig {
+                            connectionUrn
+                            isConnected
+                        }
+                        apiKeyConfig {
+                            connectionUrn
+                            isConnected
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+# Mutation to update user's AI plugin settings (enable/disable)
+mutation UpdateUserAiPluginSettings($input: UpdateUserAiPluginSettingsInput!) {
+    updateUserAiPluginSettings(input: $input)
 }

@@ -1,0 +1,18 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Configuration for user-provided API key credentials.
+ * Links to a DataHubConnection entity containing the encrypted API key.
+ */
+record UserApiKeyConnectionConfig {
+
+  /**
+   * URN of the DataHubConnection containing the user's API key.
+   * Format: urn:li:dataHubConnection:urn_li_corpuser_johndoe__pluginId
+   * Note: Uses double-underscore separator (not tuple format) since DataHubConnectionKey has a single id field.
+   * The connection payload contains: {"apiKey": "..."}
+   */
+  connectionUrn: Urn
+}

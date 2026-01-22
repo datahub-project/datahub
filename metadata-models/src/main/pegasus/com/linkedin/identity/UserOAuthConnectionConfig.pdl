@@ -1,0 +1,24 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Configuration for user OAuth credentials.
+ * Links to a DataHubConnection entity containing the OAuth tokens.
+ */
+record UserOAuthConnectionConfig {
+
+  /**
+   * URN of the DataHubConnection containing the user's OAuth tokens.
+   * Format: urn:li:dataHubConnection:urn_li_corpuser_johndoe__pluginId
+   * Note: Uses double-underscore separator (not tuple format) since DataHubConnectionKey has a single id field.
+   * The connection payload contains:
+   * {
+   *   "accessToken": "...",
+   *   "refreshToken": "...",
+   *   "expiresAt": 1234567890,
+   *   "tokenType": "Bearer"
+   * }
+   */
+  connectionUrn: Urn
+}

@@ -1256,13 +1256,17 @@ Delete MCP Server → Remove from GlobalSettings + Delete Service entity
 
 **Scope:**
 
-- Redis infrastructure (Helm + Docker Compose)
-- OAuth state storage with PKCE
-- OAuth endpoints (start flow, callback)
-- API key storage endpoint
+- CorpUserSettings.aiPluginSettings PDL and GraphQL (user preferences + credential references)
+- OAuth state storage with PKCE (in-memory using `cachetools.TTLCache`, with abstract interface for future Redis)
+- OAuth endpoints (start flow, callback, api-key, status, disconnect)
 - DataHubConnection creation for user credentials
 - User-facing "Provider Connections" UI
 - **OAuth Dynamic Client Registration (RFC 7591)** - Required for providers like Glean
+
+**Deferred to future (not Phase 2):**
+
+- Redis infrastructure (Helm + Docker Compose) - singleton deployment uses in-memory
+- Redis-based state storage - only needed for multi-instance deployments
 
 **Dynamic Client Registration (DCR):**
 
@@ -1377,6 +1381,38 @@ try (var lock = redisLockService.acquire("globalSettings:aiPluginSettings", 5, T
     // read-modify-write
 }
 ```
+
+### Shared OAuth App for SaaS (Hybrid Approach)
+
+**Request:** Support both customer-managed OAuth apps and Acryl-managed shared OAuth apps.
+
+**Background:** Currently, each customer must register their own OAuth app with providers (Glean, Confluence, etc.) and provide client ID/secret. This works for self-hosted but adds friction for SaaS customers.
+
+The Teams integration uses a "Cloud Router" pattern where Acryl maintains a single OAuth app and routes callbacks via the `state` parameter. This enables zero-config OAuth for SaaS customers.
+
+**Hybrid Approach:**
+
+| Mode                       | OAuth App                                 | Use Case                        |
+| -------------------------- | ----------------------------------------- | ------------------------------- |
+| Customer-managed (current) | Customer provides clientId/clientSecret   | Self-hosted, enterprise control |
+| Acryl-shared (future)      | Acryl's shared OAuth app via Cloud Router | SaaS zero-config                |
+
+**Implementation (if needed):**
+
+1. Add `useAcrylSharedApp: boolean` field to `OAuthAuthorizationServer`
+2. When true, skip clientId/clientSecret validation
+3. Cloud Router handles callback routing via encoded state
+4. Requires Acryl to register OAuth apps with each supported provider
+
+**Trade-offs:**
+
+- (+) Zero setup for SaaS customers
+- (+) Single redirect URI simplifies provider registration
+- (-) Acryl must maintain OAuth app registrations
+- (-) Doesn't work for self-hosted
+- (-) Some providers limit OAuth app usage
+
+**Decision:** Deferred. Current customer-managed approach works for both SaaS and self-hosted. Revisit if there's demand for zero-config SaaS OAuth.
 
 ---
 
@@ -1509,7 +1545,102 @@ _None currently._
 
 ### Phase 2 Log
 
-_Not started._
+**Started:** 2026-01-17
+
+#### Planning Decisions
+
+| Date       | Decision                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-01-17 | **Redis deferred**: Redis infrastructure moved to future improvement. Integrations service is singleton deployment, so in-memory state storage is sufficient. Will use abstract `OAuthStateStore` protocol to enable easy Redis migration later.                                                                                                                                                    |
+| 2026-01-17 | **Using cachetools.TTLCache**: Instead of custom TTL implementation, use existing `cachetools.TTLCache` (already in requirements.txt). Handles expiration automatically, battle-tested in codebase.                                                                                                                                                                                                 |
+| 2026-01-17 | **NamedTuple for returns**: Use `NamedTuple` instead of `tuple[str, str]` for `create_state()` return type. Returns `CreateStateResult(nonce=..., code_challenge=...)` for clarity.                                                                                                                                                                                                                 |
+| 2026-01-17 | **UserAiPluginSettings redesigned**: Changed from simple `map[serviceUrn, {enabled}]` to richer structure with `id` (matches global), `enabled`, `allowedTools` (future), and `apiKeyConfig`/`oauthConfig` containing DataHubConnection URN references. Makes credential discovery trivial (no search).                                                                                             |
+| 2026-01-17 | **Per-plugin DataHubConnections**: Each plugin gets its own DataHubConnection, even if multiple plugins share the same auth server. Simplifies disconnect logic and OAuth callback handling. Future improvement can combine them.                                                                                                                                                                   |
+| 2026-01-17 | **DataHubConnection URN format**: `urn:li:dataHubConnection:(<userUrn>,oauth:<pluginId>)` for OAuth, `urn:li:dataHubConnection:(<userUrn>,apikey:<pluginId>)` for API keys. Plugin ID in URN ensures uniqueness per plugin.                                                                                                                                                                         |
+| 2026-01-17 | **Per-plugin GraphQL mutations**: `updateUserAiPlugin(pluginId, ...)` and `removeUserAiPlugin(pluginId)` instead of whole-settings replacement. Matches per-plugin connection model.                                                                                                                                                                                                                |
+| 2026-01-17 | **DCR moved to Phase 3**: Dynamic Client Registration (RFC 7591) moved out of Phase 2 scope. Glean and similar providers will need manual client setup initially.                                                                                                                                                                                                                                   |
+| 2026-01-17 | **Known limitations documented**: In-memory state loss on restart, TTLCache LRU eviction, per-plugin connection duplication accepted as Phase 2 limitations.                                                                                                                                                                                                                                        |
+| 2026-01-17 | **Plugin-based endpoints**: Changed from `/oauth/auth-servers/{id}` to `/oauth/plugins/{pluginId}`. Removed status endpoint (redundant - UI gets status from CorpUserSettings query).                                                                                                                                                                                                               |
+| 2026-01-17 | **OAuth state includes plugin_id**: Added `plugin_id` to `OAuthState` dataclass so callback knows which plugin to update.                                                                                                                                                                                                                                                                           |
+| 2026-01-17 | **OAuth popup flow**: Frontend opens popup window for OAuth, receives result via postMessage. Better UX than full-page redirect.                                                                                                                                                                                                                                                                    |
+| 2026-01-17 | **Python updates CorpUserSettings via GraphQL**: Integrations service calls `updateUserAiPlugin` GraphQL mutation after OAuth callback or API key save.                                                                                                                                                                                                                                             |
+| 2026-01-17 | **OAuth router split into private/public**: Following Slack/Teams pattern, OAuth router split into `private_router` (requires DataHub auth, `/private/oauth/plugins/...`) and `public_router` (external callbacks, `/public/oauth/plugins/...`). Callback is public because OAuth providers redirect user's browser directly to it. Security via state parameter validation instead of header auth. |
+| 2026-01-17 | **Server-side callback URL construction**: Changed from frontend-provided `redirect_uri` to server-side construction using `DATAHUB_FRONTEND_URL` (from `datahub_integrations.app`). Benefits: deterministic URL for OAuth provider registration, more secure, simpler frontend, consistent with Slack/Teams pattern.                                                                               |
+| 2026-01-20 | **JWT token authentication**: Private OAuth endpoints use `Authorization: Bearer <token>` header. User identity extracted from JWT `sub` claim (without signature verification, following MCP/Chat pattern). Callback endpoint uses state parameter for user identity. This replaces the x-datahub-actor approach since the frontend proxy strips that header.                                      |
+| 2026-01-20 | **Customer-managed OAuth apps (current approach)**: Customers provide their own clientId/clientSecret for OAuth providers. Works for both self-hosted and SaaS. Added "Shared OAuth App for SaaS" to Future Enhancements as a potential hybrid approach where Acryl maintains shared OAuth apps via Cloud Router (like Teams integration).                                                          |
+
+#### Implementation Notes
+
+| Date       | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-01-17 | Planning complete. Updated object model document with new `CorpUserSettings.aiPluginSettings` structure.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-01-17 | Verified existing `CorpUserSettings.pdl` - has `appearance`, `views`, `notificationSettings`, `homePage`, `aiAssistant` fields. Adding `aiPluginSettings` is straightforward.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 2026-01-17 | **PDL models created**: `UserAiPluginSettings.pdl` with `UserAiPluginConfig`, `UserApiKeyConnectionConfig`, `UserOAuthConnectionConfig` records. Added `aiPluginSettings` field to `CorpUserSettings.pdl`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-01-17 | **GraphQL schema updated**: Added `UserAiPluginSettings` types and `updateUserAiPluginSettings` mutation to `entity.graphql`. Per-plugin updates with `pluginId`, `enabled`, `allowedTools`, `apiKey`, and `disconnectOAuth` fields.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-01-17 | **Java resolver created**: `UpdateUserAiPluginSettingsResolver.java` handles per-plugin settings updates. Registered in `GmsGraphQLEngine.java`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 2026-01-17 | **Java mapper updated**: `CorpUserMapper.java` now maps `aiPluginSettings` to GraphQL types.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2026-01-17 | **OAuth state storage implemented**: `InMemoryOAuthStateStore` using `cachetools.TTLCache` with 10-minute TTL. `OAuthState` and `CreateStateResult` as NamedTuples. PKCE helpers (`generate_code_verifier`, `generate_code_challenge`).                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 2026-01-17 | **Credential storage implemented**: `DataHubConnectionCredentialStore` with `OAuthTokens` and `ApiKeyCredential` dataclasses. Stores credentials via GraphQL `upsertConnection` mutation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-01-17 | **OAuth router implemented**: FastAPI router with `/oauth/plugins/{pluginId}/connect`, `/callback`, `/api-key`, and `/disconnect` endpoints. Popup flow with postMessage for frontend communication.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-01-17 | **OAuth router split**: Split into `private_router` (connect, api-key, disconnect) and `public_router` (callback). Following Slack/Teams integration pattern. Updated `server.py` to include both routers in internal/external respectively.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2026-01-17 | **Server-side callback URL**: Changed from frontend-provided `redirect_uri` to server-side construction using `DATAHUB_FRONTEND_URL`. More secure (deterministic URL), consistent with Slack/Teams pattern, simpler frontend code.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 2026-01-20 | **Local OAuth development guide**: Created `scripts/oauth/setup_oauth_tunnel.sh` and `scripts/oauth/README.md` following Teams integration pattern. Uses ngrok to create HTTPS tunnel for OAuth callbacks during local development.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-01-20 | **URL path mapping corrected**: External URLs use `/integrations/*` prefix (not `/public/`). The frontend proxy (`IntegrationsController.java`) remaps `/integrations/*` → `/public/*` before forwarding to integrations service. This matches how Slack/Teams integrations work.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-01-20 | **JWT token authentication implemented**: OAuth router now uses Bearer token authentication for private endpoints. Helper functions `get_auth_token()`, `get_user_urn_from_token()`, and `get_authenticated_user()` dependency follow MCP/Chat pattern. The JWT is decoded without signature verification (acceptable since credential operations use user URN for isolation, not authorization). Callback endpoint unchanged - still uses state parameter for user identity.                                                                                                                                                                                                             |
+| 2026-01-21 | **Single OAuth callback URL**: Changed from per-plugin callback URLs (`/integrations/oauth/plugins/{pluginId}/callback`) to a single, fixed callback URL (`/integrations/oauth/callback`). The plugin is identified from the OAuth `state` parameter. Benefits: (1) Easier OAuth app registration - admin doesn't need to know the plugin URN beforehand, (2) One callback URL works for all current and future plugins, (3) Simpler configuration for OAuth providers.                                                                                                                                                                                                                   |
+| 2026-01-21 | **clientSecretUrn exposed in GraphQL**: Added `clientSecretUrn: String` field to `OAuthAuthorizationServerProperties` GraphQL type. The URN is safe to expose because: (1) It's just a pointer/reference - the actual secret value is never exposed via GraphQL, (2) Access to the referenced `DataHubSecret` is protected by DataHub's authorization system, (3) Backend services (integrations service) need the URN to resolve the secret for OAuth token exchange. The existing `hasClientSecret: Boolean!` field is retained for UI convenience.                                                                                                                                     |
+| 2026-01-21 | **JWT token capture for OAuth callbacks**: The user's JWT token is captured at `/connect` time and stored in the OAuth state. During the callback, this token is used to call `updateUserAiPluginSettings` as the actual user (not the system user). This is more secure than passing `userUrn` in the mutation input, which would allow system user to update any user's settings. **Token refresh doesn't need this**: Refreshing OAuth tokens only updates the `DataHubConnection` entity (which runs as system user via `credential_store`). The `CorpUserSettings` just stores a pointer (connection URN) which doesn't change during refresh, so user settings don't need updating. |
+| 2026-01-21 | **User AI Connections UI**: Created `ManageAiConnections.tsx` as a user-facing settings page in the Personal section. Shows plugins requiring user authentication (USER_OAUTH, USER_API_KEY) with connect/disconnect buttons. Uses popup-based OAuth flow that communicates via `postMessage`. Backend returns inline HTML that handles the postMessage, so no separate frontend callback page needed.                                                                                                                                                                                                                                                                                    |
+| 2026-01-21 | **Tool filtering design note**: The `allowedTools` field should be renamed to `disabledTools` when implemented. By default all tools from a plugin should be available; users can opt-out of specific tools. This is a future feature - not implemented in current UI.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 2026-01-21 | **Plugin state model**: Three states: Disconnected → Connected+Enabled → Connected+Disabled. Connect always results in Enabled state. No disconnect option in UI - credentials persist once connected. Users can only toggle enable/disable. This simplifies UX and prevents accidental credential deletion.                                                                                                                                                                                                                                                                                                                                                                              |
+| 2026-01-21 | **All auth types in user settings**: Extended UI to show ALL enabled plugins (not just USER*OAUTH/USER_API_KEY). SHARED_API_KEY and NONE plugins show "Ready to use" status with enable/disable toggle. Default enabled state differs: USER*\_ types default to enabled after connection, SHARED\_\_/NONE default to disabled until user explicitly enables. This allows users to opt-in to shared plugins.                                                                                                                                                                                                                                                                               |
+
+#### Files Created
+
+| File                                                                              | Status   | Notes                                                 |
+| --------------------------------------------------------------------------------- | -------- | ----------------------------------------------------- |
+| `metadata-models/.../identity/UserAiPluginSettings.pdl`                           | complete | User plugin settings with connection references       |
+| `datahub-graphql-core/.../resolvers/user/UpdateUserAiPluginSettingsResolver.java` | complete | GraphQL resolver for per-plugin settings updates      |
+| `datahub-integrations-service/.../oauth/__init__.py`                              | complete | OAuth module initialization                           |
+| `datahub-integrations-service/.../oauth/state_store.py`                           | complete | In-memory OAuth state storage with TTLCache           |
+| `datahub-integrations-service/.../oauth/credential_store.py`                      | complete | Credential storage using DataHubConnection            |
+| `datahub-integrations-service/.../oauth/router.py`                                | complete | OAuth endpoints for AI plugin authentication          |
+| `datahub-integrations-service/scripts/oauth/setup_oauth_tunnel.sh`                | complete | ngrok tunnel setup script for local OAuth development |
+| `datahub-integrations-service/scripts/oauth/README.md`                            | complete | Local OAuth development guide                         |
+| `datahub-web-react/.../personal/aiConnections/ManageAiConnections.tsx`            | complete | User settings page for managing AI plugin connections |
+| `datahub-web-react/.../personal/aiConnections/AiConnectionCard.tsx`               | complete | Card component showing plugin connection status       |
+| `datahub-web-react/.../personal/aiConnections/useOAuthConnect.ts`                 | complete | Hook for popup-based OAuth flow                       |
+| `datahub-web-react/.../personal/aiConnections/ApiKeyModal.tsx`                    | complete | Modal for entering personal API keys                  |
+| `datahub-web-react/.../personal/aiConnections/index.ts`                           | complete | Module exports                                        |
+
+#### Files Modified
+
+| File                                                 | Status   | Notes                                  |
+| ---------------------------------------------------- | -------- | -------------------------------------- |
+| `metadata-models/.../identity/CorpUserSettings.pdl`  | complete | Added `aiPluginSettings` field         |
+| `datahub-graphql-core/.../entity.graphql`            | complete | Added user AI plugin settings types    |
+| `datahub-graphql-core/.../GmsGraphQLEngine.java`     | complete | Registered new resolver                |
+| `datahub-graphql-core/.../CorpUserMapper.java`       | complete | Added mapper for AI plugin settings    |
+| `datahub-integrations-service/.../server.py`         | complete | Added OAuth router                     |
+| `datahub-web-react/src/graphql/aiPlugins.graphql`    | complete | Added user AI plugin queries/mutations |
+| `datahub-web-react/.../settingsV2/settingsPaths.tsx` | complete | Added AI connections route             |
+| `datahub-web-react/.../settingsV2/SettingsPage.tsx`  | complete | Added AI Connections nav item          |
+
+#### Open Questions
+
+_None currently._
+
+#### Blockers
+
+_None currently._
+
+#### Remaining Work
+
+| Task                             | Status   | Notes                                                            |
+| -------------------------------- | -------- | ---------------------------------------------------------------- |
+| Frontend Provider Connections UI | complete | React components for user OAuth/API key management               |
+| End-to-end testing               | complete | Tested OAuth flow with GitHub OAuth provider                     |
+| Build verification               | pending  | Verify generated Java classes compile (requires ./gradlew build) |
 
 ---
 

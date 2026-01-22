@@ -3,6 +3,7 @@ import {
     Bell,
     Funnel,
     House,
+    Link as LinkIcon,
     Question,
     ShieldCheck,
     SignIn,
@@ -114,6 +115,9 @@ export const SettingsPage = () => {
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
 
+    // Show AI Connections if AI features are enabled
+    const showAiConnections = config.featureFlags.aiFeaturesEnabled;
+
     // SaaS Only
     const showGlobalSettings = me?.platformPrivileges?.manageGlobalSettings || false;
     const showAiSettings = config.featureFlags.aiFeaturesEnabled && me?.platformPrivileges?.manageGlobalSettings;
@@ -152,6 +156,14 @@ export const SettingsPage = () => {
                         link: `${url}/personal-subscriptions`,
                         isHidden: !subscriptionsEnabled,
                         icon: <Star />,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'AI Connections',
+                        key: 'ai-connections',
+                        link: `${url}/ai-connections`,
+                        isHidden: !showAiConnections,
+                        icon: <LinkIcon />,
                     },
                 ],
             },

@@ -847,6 +847,12 @@ type Mutation {
   ): Boolean
 
   """
+  Update the AI plugin settings for a user.
+  This is a per-plugin update - only the specified plugin is modified.
+  """
+  updateUserAiPluginSettings(input: UpdateUserAiPluginSettingsInput!): Boolean
+
+  """
   Update a user setting
   """
   updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -4643,6 +4649,12 @@ type CorpUserSettings {
   Settings related to AI-powered chat assistant (Ask DataHub).
   """
   aiAssistant: AiAssistantSettings
+
+  """
+  User-specific settings for AI plugins (MCP servers, etc.).
+  Contains user overrides and credentials for globally-configured plugins.
+  """
+  aiPluginSettings: UserAiPluginSettings
 }
 
 """
@@ -13975,6 +13987,138 @@ input UpdateCorpUserAiAssistantSettingsInput {
   Custom instructions to inject into the AI assistant prompt
   """
   instructions: [AiInstructionInput!]!
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# USER AI PLUGIN SETTINGS TYPES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+"""
+User-specific settings for AI plugins in Ask DataHub.
+Stored as part of CorpUserSettings.
+"""
+type UserAiPluginSettings {
+  """
+  List of user configurations for AI plugins.
+  Each entry corresponds to a globally-configured plugin (matched by id).
+  """
+  plugins: [UserAiPluginConfig!]!
+}
+
+"""
+User-specific configuration for a single AI plugin.
+"""
+type UserAiPluginConfig {
+  """
+  Unique identifier matching the global plugin configuration.
+  """
+  id: String!
+
+  """
+  Whether this plugin is enabled for the user.
+  If not set, inherits from global settings.
+  """
+  enabled: Boolean
+
+  """
+  Restrict which tools from this plugin the user wants to use.
+  If empty or not set, all tools from the plugin are available.
+  Reserved for future use.
+  """
+  allowedTools: [String!]
+
+  """
+  User's API key configuration.
+  Present when the plugin uses USER_API_KEY auth and the user has configured their key.
+  """
+  apiKeyConfig: UserApiKeyConnectionConfig
+
+  """
+  User's OAuth configuration.
+  Present when the plugin uses USER_OAUTH auth and the user has connected.
+  """
+  oauthConfig: UserOAuthConnectionConfig
+}
+
+"""
+Configuration for user-provided API key credentials.
+"""
+type UserApiKeyConnectionConfig {
+  """
+  URN of the DataHubConnection containing the user's API key.
+  """
+  connectionUrn: String!
+
+  """
+  Whether the connection is valid and has credentials.
+  """
+  isConnected: Boolean!
+}
+
+"""
+Configuration for user OAuth credentials.
+"""
+type UserOAuthConnectionConfig {
+  """
+  URN of the DataHubConnection containing the user's OAuth tokens.
+  """
+  connectionUrn: String!
+
+  """
+  Whether the user has a valid OAuth connection.
+  """
+  isConnected: Boolean!
+
+  """
+  When the OAuth tokens expire (Unix timestamp in seconds).
+  Null if no tokens or tokens don't expire.
+  """
+  expiresAt: Long
+}
+
+"""
+Input to update a user's AI plugin settings for a specific plugin.
+This is a per-plugin update - other plugins remain unchanged.
+"""
+input UpdateUserAiPluginSettingsInput {
+  """
+  The plugin ID to update settings for.
+  Must match a globally-configured plugin ID.
+  """
+  pluginId: String!
+
+  """
+  Whether to enable or disable this plugin for the user.
+  If not provided, the current value is unchanged.
+  """
+  enabled: Boolean
+
+  """
+  Restrict which tools from this plugin the user wants to use.
+  If not provided, the current value is unchanged.
+  Reserved for future use.
+  """
+  allowedTools: [String!]
+
+  """
+  API key to store for this plugin.
+  If provided, creates or updates the user's API key connection.
+  Use null or omit to keep existing. Use empty string to disconnect.
+  """
+  apiKey: String
+
+  """
+  Whether to disconnect the user's OAuth connection for this plugin.
+  Setting to true will remove the OAuth connection.
+  """
+  disconnectOAuth: Boolean
+
+  """
+  URN of the DataHubConnection containing OAuth tokens for this plugin.
+  Used by the integrations service after completing OAuth flow.
+  If provided, sets the user's OAuth connection. Takes precedence over disconnectOAuth.
+  """
+  oauthConnectionUrn: String
 }
 
 """

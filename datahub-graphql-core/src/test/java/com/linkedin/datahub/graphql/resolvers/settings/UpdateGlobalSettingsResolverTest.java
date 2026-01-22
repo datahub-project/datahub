@@ -760,8 +760,7 @@ public class UpdateGlobalSettingsResolverTest {
 
     com.linkedin.datahub.graphql.generated.SharedApiKeyAiPluginConfigInput sharedInput =
         new com.linkedin.datahub.graphql.generated.SharedApiKeyAiPluginConfigInput();
-    sharedInput.setCredentialUrn(
-        "urn:li:dataHubConnection:(urn:li:service:api-key-service,apiKey)");
+    sharedInput.setCredentialUrn("urn:li:dataHubConnection:urn_li_service_api-key-service__apiKey");
     sharedInput.setAuthLocation(
         com.linkedin.datahub.graphql.generated.AuthInjectionLocation.HEADER);
     sharedInput.setAuthHeaderName("X-API-Key");
@@ -784,7 +783,7 @@ public class UpdateGlobalSettingsResolverTest {
     assertNotNull(result.getSharedApiKeyConfig());
     assertEquals(
         result.getSharedApiKeyConfig().getCredentialUrn().toString(),
-        "urn:li:dataHubConnection:(urn:li:service:api-key-service,apiKey)");
+        "urn:li:dataHubConnection:urn_li_service_api-key-service__apiKey");
     assertEquals(
         result.getSharedApiKeyConfig().getAuthLocation(),
         com.linkedin.settings.global.AuthInjectionLocation.HEADER);

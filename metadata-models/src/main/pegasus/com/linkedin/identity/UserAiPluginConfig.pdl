@@ -1,0 +1,46 @@
+namespace com.linkedin.identity
+
+/**
+ * User-specific configuration for a single AI plugin.
+ *
+ * Users can:
+ * - Enable/disable plugins for themselves
+ * - Restrict which tools they want to use (future)
+ * - Store their own credentials (API keys or OAuth tokens)
+ *
+ * The id field must match a plugin id from AiPluginSettings in GlobalSettings.
+ */
+record UserAiPluginConfig {
+
+  /**
+   * Unique identifier matching the global plugin configuration.
+   * Example: 'urn:li:service:glean-search'
+   */
+  id: string
+
+  /**
+   * Whether this plugin is enabled for the user.
+   * If not set, inherits from global settings.
+   */
+  enabled: optional boolean
+
+  /**
+   * Restrict which tools from this plugin the user wants to use.
+   * If empty or not set, all tools from the plugin are available.
+   * This is for user preference, not security (users can only restrict, not expand).
+   * Reserved for future use.
+   */
+  allowedTools: optional array[string]
+
+  /**
+   * User's API key configuration.
+   * Present when the plugin uses USER_API_KEY auth and the user has configured their key.
+   */
+  apiKeyConfig: optional UserApiKeyConnectionConfig
+
+  /**
+   * User's OAuth configuration.
+   * Present when the plugin uses USER_OAUTH auth and the user has connected.
+   */
+  oauthConfig: optional UserOAuthConnectionConfig
+}

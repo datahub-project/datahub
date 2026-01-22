@@ -1,0 +1,18 @@
+namespace com.linkedin.identity
+
+/**
+ * User-specific settings for AI plugins in Ask DataHub.
+ * Stored as part of CorpUserSettings aspect.
+ *
+ * This mirrors the structure of AiPluginSettings in GlobalSettings,
+ * allowing users to customize their experience with AI plugins.
+ */
+record UserAiPluginSettings {
+
+  /**
+   * List of user configurations for AI plugins.
+   * Each entry corresponds to a globally-configured plugin (matched by id).
+   * Only plugins listed here have user-specific overrides.
+   */
+  plugins: array[UserAiPluginConfig] = []
+}

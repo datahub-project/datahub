@@ -459,6 +459,13 @@ type OAuthAuthorizationServerProperties {
   hasClientSecret: Boolean!
 
   """
+  URN of the DataHubSecret containing the client secret.
+  Used by backend services to resolve the secret value.
+  Note: The actual secret value is never exposed via GraphQL.
+  """
+  clientSecretUrn: String
+
+  """
   OAuth authorization endpoint URL.
   """
   authorizationUrl: String
@@ -527,6 +534,13 @@ enum TokenAuthMethod {
   No client authentication.
   """
   NONE
+
+  """
+  Custom auth scheme using authScheme field.
+  Format: Authorization: {authScheme} {client_secret}
+  Example: "Token" for dbt Cloud.
+  """
+  CUSTOM
 }
 
 """
