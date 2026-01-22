@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 from pydantic.types import SecretStr
 
 from datahub.configuration.common import AllowDenyPattern
@@ -5,6 +6,7 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
     AirbyteSourceConfig,
+    OAuth2GrantType,
 )
 
 
@@ -32,17 +34,18 @@ class TestAirbyteClientConfig:
         )
 
     def test_cloud_config_valid(self):
+        """Test cloud config requires OAuth credentials."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
-            api_key=SecretStr("test-api-key"),
             cloud_workspace_id="test-workspace-id",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            oauth2_refresh_token=SecretStr("refresh-token"),
         )
         assert config.deployment_type == AirbyteDeploymentType.CLOUD
-        assert (
-            config.api_key is not None
-            and config.api_key.get_secret_value() == "test-api-key"
-        )
         assert config.cloud_workspace_id == "test-workspace-id"
+        assert config.oauth2_client_id == "client-id"
+        assert config.oauth2_client_secret is not None
 
     def test_invalid_deployment_type(self):
         try:
@@ -60,6 +63,47 @@ class TestAirbyteClientConfig:
                 or "not a valid enum" in str(e).lower()
                 or "invalid_type" in str(e).lower()
             )
+
+    def test_cloud_config_with_refresh_token(self):
+        """Test cloud config with auto-detected refresh_token grant type."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.CLOUD,
+            cloud_workspace_id="test-workspace-id",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            oauth2_refresh_token=SecretStr("refresh-token"),
+            # oauth2_grant_type not specified - auto-detects REFRESH_TOKEN
+        )
+        assert config.deployment_type == AirbyteDeploymentType.CLOUD
+        assert config.oauth2_grant_type == OAuth2GrantType.REFRESH_TOKEN
+        assert config.oauth2_client_id == "client-id"
+        assert config.oauth2_refresh_token is not None
+
+    def test_cloud_config_with_client_credentials(self):
+        """Test cloud config with client_credentials (no refresh token)."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.CLOUD,
+            cloud_workspace_id="test-workspace-id",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            # No refresh token - auto-detects CLIENT_CREDENTIALS
+        )
+        assert config.deployment_type == AirbyteDeploymentType.CLOUD
+        assert config.oauth2_grant_type == OAuth2GrantType.CLIENT_CREDENTIALS
+        assert config.oauth2_client_id == "client-id"
+        assert config.oauth2_refresh_token is None
+
+    def test_cloud_config_missing_client_credentials(self):
+        """Test that client_id and client_secret are required for cloud deployment."""
+        try:
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.CLOUD,
+                cloud_workspace_id="test-workspace-id",
+                # Missing oauth2_client_id and oauth2_client_secret
+            )
+            raise AssertionError("Expected validation to fail")
+        except ValidationError as e:
+            assert "oauth2_client_id" in str(e) or "oauth2_client_secret" in str(e)
 
 
 class TestAirbyteSourceConfig:
@@ -81,16 +125,15 @@ class TestAirbyteSourceConfig:
         config = AirbyteSourceConfig(
             platform_instance="prod",
             deployment_type=AirbyteDeploymentType.CLOUD,
-            api_key=SecretStr("test-api-key"),
             cloud_workspace_id="test-workspace-id",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            oauth2_refresh_token=SecretStr("refresh-token"),
         )
         assert config.platform_instance == "prod"
         assert config.deployment_type == AirbyteDeploymentType.CLOUD
-        assert (
-            config.api_key is not None
-            and config.api_key.get_secret_value() == "test-api-key"
-        )
         assert config.cloud_workspace_id == "test-workspace-id"
+        assert config.oauth2_client_id == "client-id"
 
     def test_with_patterns(self):
         config = AirbyteSourceConfig(

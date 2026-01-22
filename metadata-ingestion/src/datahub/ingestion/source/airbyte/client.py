@@ -14,6 +14,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
+    OAuth2GrantType,
 )
 from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
@@ -44,6 +45,14 @@ API Response Validation:
 - Client methods return Dict[str, Any] (raw API responses)
 - Source layer validates responses using Pydantic models via model_validate()
 - This keeps the client layer thin and the validation logic centralized
+
+OAuth 2.0 Authentication (Cloud only):
+
+The AirbyteCloudClient supports two OAuth 2.0 grant types:
+- refresh_token (default): Uses a refresh token to obtain access tokens
+- client_credentials: Uses client credentials directly for access tokens
+
+Both flows support automatic token refresh with a 10-minute buffer before expiry.
 """
 
 logger = logging.getLogger(__name__)
@@ -826,61 +835,85 @@ class AirbyteCloudClient(AirbyteBaseClient):
         self._setup_oauth_authentication()
 
     def _setup_oauth_authentication(self) -> None:
-        """
-        Set up OAuth2 authentication for Airbyte Cloud
-        """
-        if not self.config.oauth2_client_id or not self.config.oauth2_refresh_token:
+        """Set up OAuth2 authentication for Airbyte Cloud."""
+        if not self.config.oauth2_client_id or not self.config.oauth2_client_secret:
             raise ValueError(
-                "OAuth2 client ID and refresh token are required for Airbyte Cloud"
+                "OAuth2 client ID and client secret are required for Airbyte Cloud"
             )
 
+        if self.config.oauth2_grant_type == OAuth2GrantType.REFRESH_TOKEN:
+            if not self.config.oauth2_refresh_token:
+                raise ValueError(
+                    "OAuth2 refresh token is required for refresh_token grant type"
+                )
+
+        self._acquire_token()
+
+    def _request_oauth_token(self, grant_type: OAuth2GrantType) -> None:
+        """Request OAuth2 access token and update session headers."""
         if not self.config.oauth2_client_secret:
-            raise ValueError("OAuth2 client secret is required for Airbyte Cloud")
+            raise ValueError("OAuth2 client secret is required")
 
-        self._refresh_oauth_token()
-
-    def _refresh_oauth_token(self) -> None:
-        """
-        Refresh the OAuth2 token
-        """
-        logger.debug("Refreshing OAuth2 token")
-
-        if not self.config.oauth2_client_secret:
-            raise ValueError("OAuth2 client secret is required for token refresh")
-
-        if not self.config.oauth2_refresh_token:
-            raise ValueError("OAuth2 refresh token is required for token refresh")
-
-        data = {
+        token_data = {
             "client_id": self.config.oauth2_client_id,
             "client_secret": self.config.oauth2_client_secret.get_secret_value(),
-            "refresh_token": self.config.oauth2_refresh_token.get_secret_value(),
-            "grant_type": "refresh_token",
+            "grant_type": grant_type.value,
         }
+
+        if grant_type == OAuth2GrantType.REFRESH_TOKEN:
+            if not self.config.oauth2_refresh_token:
+                raise ValueError("OAuth2 refresh token is required")
+            token_data["refresh_token"] = (
+                self.config.oauth2_refresh_token.get_secret_value()
+            )
 
         try:
             response = requests.post(
                 self.token_url,
-                data=data,
+                data=token_data,
                 headers={"Content-Type": CONTENT_TYPE_FORM_URLENCODED},
                 timeout=self.config.request_timeout,
                 verify=self.session.verify,
             )
             response.raise_for_status()
 
-            token_data = response.json()
-            self.access_token = token_data.get("access_token")
-            expires_in = token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
+            response_data = response.json()
+            self.access_token = response_data.get("access_token")
+            expires_in = response_data.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
             self.token_expiry = time.time() + expires_in
 
             self.session.headers.update(
                 {"Authorization": f"Bearer {self.access_token}"}
             )
 
-            logger.debug("OAuth2 token refreshed successfully")
+            logger.debug(f"OAuth2 token obtained successfully via {grant_type.value}")
+        except requests.HTTPError as e:
+            error_message = f"Failed to get OAuth2 token via {grant_type.value}: HTTP {e.response.status_code}"
+            try:
+                error_details = e.response.json()
+                error_message += f" - {error_details.get('error_description', error_details.get('message', e.response.text))}"
+            except (ValueError, KeyError):
+                error_message += f" - {e.response.text}"
+            logger.error(error_message)
+            raise AirbyteAuthenticationError(error_message) from e
         except Exception as e:
-            logger.error("Failed to refresh OAuth2 token: %s", str(e))
-            raise
+            error_message = (
+                f"Failed to get OAuth2 token via {grant_type.value}: {str(e)}"
+            )
+            logger.error(error_message)
+            raise AirbyteAuthenticationError(error_message) from e
+
+    def _get_client_credentials_token(self) -> None:
+        """Get OAuth2 access token using client credentials grant type."""
+        self._request_oauth_token(OAuth2GrantType.CLIENT_CREDENTIALS)
+
+    def _refresh_oauth_token(self) -> None:
+        """Refresh OAuth2 access token using refresh token grant type."""
+        self._request_oauth_token(OAuth2GrantType.REFRESH_TOKEN)
+
+    def _acquire_token(self) -> None:
+        """Acquire or refresh OAuth2 token based on configured grant type."""
+        self._request_oauth_token(self.config.oauth2_grant_type)
 
     def _make_request(self, endpoint: str, params: Optional[dict] = None) -> Any:
         """Override to add OAuth token retry logic for 401/403 responses."""
@@ -906,7 +939,7 @@ class AirbyteCloudClient(AirbyteBaseClient):
                 )
                 try:
                     logger.info("Refreshing token after server invalidation")
-                    self._refresh_oauth_token()
+                    self._acquire_token()
 
                     response = self.session.get(
                         url, params=params, timeout=self.config.request_timeout
@@ -940,11 +973,11 @@ class AirbyteCloudClient(AirbyteBaseClient):
             raise AirbyteApiError(error_message) from e
 
     def _check_token_expiry(self) -> None:
-        """Check token expiry with 10-minute buffer to avoid race conditions."""
+        """Check token expiry with 10-minute buffer and refresh if needed."""
         if hasattr(self, "token_expiry") and time.time() >= (
             self.token_expiry - TOKEN_REFRESH_BUFFER_SECONDS
         ):
-            self._refresh_oauth_token()
+            self._acquire_token()
 
     def _get_full_url(self, endpoint: str) -> str:
         """
