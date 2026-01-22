@@ -1360,6 +1360,8 @@ def test_excluding_empty_projects_from_ingestion(
 
     def get_datasets_for_project_id_side_effect(
         project_id: str,
+        maxResults: Optional[int] = None,
+        dataset_filter: Optional[Any] = None,
     ) -> List[BigqueryDataset]:
         return (
             []
@@ -1446,3 +1448,36 @@ def test_get_projects_with_project_labels(
         BigqueryProject("dev", "dev_project"),
         BigqueryProject("qa", "qa_project"),
     ]
+
+
+def test_bigquery_filter_is_dataset_allowed():
+    """Test BigQueryFilter.is_dataset_allowed() for early dataset filtering."""
+    from datahub.ingestion.source.bigquery_v2.common import BigQueryFilter
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "dataset_pattern": {
+                "allow": ["^prod_.*"],
+                "deny": [".*_backup$"],
+            },
+            "match_fully_qualified_names": False,
+        }
+    )
+    report = BigQueryV2Report()
+    filters = BigQueryFilter(config, report)
+
+    assert filters.is_dataset_allowed("prod_data", "my-project") is True
+    assert filters.is_dataset_allowed("dev_data", "my-project") is False
+    assert filters.is_dataset_allowed("prod_data_backup", "my-project") is False
+
+    config_fqn = BigQueryV2Config.model_validate(
+        {
+            "dataset_pattern": {"allow": ["my-project\\.prod_.*"]},
+            "match_fully_qualified_names": True,
+        }
+    )
+    filters_fqn = BigQueryFilter(config_fqn, BigQueryV2Report())
+
+    # Pattern includes project_id
+    assert filters_fqn.is_dataset_allowed("prod_data", "my-project") is True
+    assert filters_fqn.is_dataset_allowed("prod_data", "other-project") is False

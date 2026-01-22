@@ -163,6 +163,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
             identifiers=self.identifiers,
+            filters=self.filters,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -203,6 +204,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.filters,
             self.ctx.graph,
         )
 
@@ -220,11 +222,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         """
-        The ininitialization of SchemaResolver prefetches all existing urns and schemas in the env/platform/instance.
-        Because of that, it's important all classes requiring a SchemaResolver use this instance, as it has an already pre-populated cache.
-        An alternative strategy would be to do an on-demand resolution of the urns/schemas.
+        Initialize SchemaResolver for SQL parsing and lineage resolution.
 
-        TODO: prove pre-fetch is better strategy than on-demand resolution or make this behaviour configurable.
+        Two strategies are available (controlled by schema_resolver_strategy config):
+        - 'prefetch': Loads all schemas from DataHub upfront. Complete data but slower startup.
+        - 'on_demand': Fetches schemas as needed during SQL parsing. Faster startup but requires
+          DataHub connection during parsing.
+
+        When schema ingestion is enabled, schemas are populated during ingestion and no
+        prefetch/on-demand resolution from DataHub is needed.
         """
         schema_resolution_required = (
             self.config.use_queries_v2 or self.config.lineage_use_sql_parser
@@ -238,12 +244,23 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if schema_resolution_required and not schema_ingestion_enabled:
             if self.ctx.graph:
-                return self.ctx.graph.initialize_schema_resolver_from_datahub(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                    batch_size=self.config.schema_resolution_batch_size,
-                )
+                if self.config.schema_resolver_strategy == "prefetch":
+                    return self.ctx.graph.initialize_schema_resolver_from_datahub(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                        batch_size=self.config.schema_resolution_batch_size,
+                    )
+                else:
+                    logger.info(
+                        "Using on-demand schema resolution strategy. "
+                        "Schemas will be fetched from DataHub as needed during SQL parsing."
+                    )
+                    return SchemaResolver(
+                        platform=self.platform,
+                        env=self.config.env,
+                        graph=self.ctx.graph,
+                    )
             else:
                 logger.warning(
                     "Failed to load schema info from DataHub as DataHubGraph is missing. "

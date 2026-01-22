@@ -2,7 +2,7 @@ import logging
 import re
 from copy import deepcopy
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import (
     Field,
@@ -468,6 +468,14 @@ class BigQueryV2Config(
     schema_resolution_batch_size: HiddenFromDocs[int] = Field(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
+    )
+
+    schema_resolver_strategy: Literal["prefetch", "on_demand"] = Field(
+        default="prefetch",
+        description="Strategy for resolving table schemas for lineage when schema ingestion is disabled. "
+        "'prefetch' loads all schemas from DataHub upfront in batches - better when queries reference most tables. "
+        "'on_demand' fetches schemas one-by-one as tables are encountered during SQL parsing - "
+        "better when you have many tables in DataHub but queries only reference a small subset.",
     )
 
     max_threads_dataset_parallelism: int = Field(

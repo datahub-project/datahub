@@ -51,6 +51,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
+    BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
@@ -176,6 +177,7 @@ class BigQuerySchemaGenerator:
         sql_parser_schema_resolver: SchemaResolver,
         profiler: BigqueryProfiler,
         identifiers: BigQueryIdentifierBuilder,
+        filters: BigQueryFilter,
         graph: Optional[DataHubGraph] = None,
     ):
         self.config = config
@@ -185,6 +187,7 @@ class BigQuerySchemaGenerator:
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
         self.identifiers = identifiers
+        self.filters = filters
         self.graph = graph
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
@@ -364,7 +367,10 @@ class BigQuerySchemaGenerator:
         project_id = bigquery_project.id
         try:
             bigquery_project.datasets = self.schema_api.get_datasets_for_project_id(
-                project_id
+                project_id,
+                dataset_filter=lambda dataset_name: self.filters.is_dataset_allowed(
+                    dataset_name, project_id
+                ),
             )
         except Exception as e:
             if self.config.project_ids and "not enabled BigQuery." in str(e):

@@ -50,6 +50,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATETIME_FORMAT,
+    BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.queries import (
@@ -220,6 +221,7 @@ class BigqueryLineageExtractor:
         *,
         schema_resolver: SchemaResolver,
         identifiers: BigQueryIdentifierBuilder,
+        filters: BigQueryFilter,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         self.config = config
@@ -227,6 +229,7 @@ class BigqueryLineageExtractor:
         self.schema_resolver = schema_resolver
 
         self.identifiers = identifiers
+        self.filters = filters
         self.audit_log_api = BigQueryAuditLogApi(
             report.audit_log_api_perf,
             self.config.rate_limit,
@@ -449,7 +452,14 @@ class BigqueryLineageExtractor:
         )
 
         # Filtering datasets
-        datasets = list(data_dictionary.get_datasets_for_project_id(project_id))
+        datasets = list(
+            data_dictionary.get_datasets_for_project_id(
+                project_id,
+                dataset_filter=lambda dataset_name: self.filters.is_dataset_allowed(
+                    dataset_name, project_id
+                ),
+            )
+        )
         project_tables = []
         for dataset in datasets:
             # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
@@ -467,12 +477,7 @@ class BigqueryLineageExtractor:
             # Convert project table to <project_id>.<dataset_id>.<table_id> format
             table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
 
-            if not is_schema_allowed(
-                self.config.dataset_pattern,
-                schema_name=project_table.dataset_id,
-                db_name=project_table.project,
-                match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
-            ) or not self.config.table_pattern.allowed(table):
+            if not self.config.table_pattern.allowed(table):
                 self.report.num_skipped_lineage_entries_not_allowed[
                     project_table.project
                 ] += 1

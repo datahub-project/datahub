@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
@@ -278,13 +278,22 @@ class BigQuerySchemaApi:
                 return []
 
     def get_datasets_for_project_id(
-        self, project_id: str, maxResults: Optional[int] = None
+        self,
+        project_id: str,
+        maxResults: Optional[int] = None,
+        dataset_filter: Optional[Callable[[str], bool]] = None,
     ) -> List[BigqueryDataset]:
         with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             result = []
             for d in datasets:
+                if dataset_filter is not None and not dataset_filter(d.dataset_id):
+                    logger.debug(
+                        f"Skipping dataset {project_id}.{d.dataset_id} due to dataset_pattern filter"
+                    )
+                    continue
+
                 # TODO: Fetch dataset description individually impacts overall performance if the number of datasets is high (hundreds); instead we should fetch in batch for all datasets.
                 # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.client.Client#google_cloud_bigquery_client_Client_get_dataset
                 # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dataset.Dataset
