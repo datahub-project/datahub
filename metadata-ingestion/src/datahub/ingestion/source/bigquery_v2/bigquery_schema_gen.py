@@ -530,13 +530,37 @@ class BigQuerySchemaGenerator:
             logger.debug(
                 f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
             )
+
+            shard_pattern = BigqueryTableIdentifier._get_shard_pattern()
+            seen_base_tables: Set[str] = set()
+
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
+                table_id = table_item.table_id
                 table_type = getattr(table_item, "table_type", "UNKNOWN")
+
+                # Fast shard detection without object creation
+                match = shard_pattern.match(table_id)
+                if match:
+                    base_name = match[1] or ""
+                    if base_name and table_id.endswith(match[3]):
+                        base_name = table_id[: -len(match[3])].rstrip("_")
+                    if not base_name or base_name.endswith("."):
+                        base_name = dataset_name
+
+                    # Skip if we've already processed this base table
+                    if base_name in seen_base_tables:
+                        continue
+                    seen_base_tables.add(base_name)
+
+                    # Use base name for identifier
+                    table_id = (
+                        base_name + BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX
+                    )
 
                 identifier = BigqueryTableIdentifier(
                     project_id=project_id,
                     dataset=dataset_name,
-                    table=table_item.table_id,
+                    table=table_id,
                 )
 
                 logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
@@ -1225,18 +1249,29 @@ class BigQuerySchemaGenerator:
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
             # way we can merge that info with the queried one.
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
-            if with_partitions:
-                max_batch_size = (
-                    self.config.number_of_datasets_process_in_batch_if_profiling_enabled
-                )
-            else:
-                max_batch_size = self.config.number_of_datasets_process_in_batch
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
             table_items = self.get_core_table_details(
                 dataset.name, project_id, self.config.temp_table_dataset_prefix
             )
+
+            # Adaptive batch sizing: increase batch size for datasets with many sharded tables
+            # since sharded tables share schemas
+            if with_partitions:
+                base_batch_size = (
+                    self.config.number_of_datasets_process_in_batch_if_profiling_enabled
+                )
+            else:
+                base_batch_size = self.config.number_of_datasets_process_in_batch
+
+            # If we have many tables (likely sharded), increase batch size
+            if len(table_items) > 200:
+                max_batch_size = min(base_batch_size * 3, 500)
+            elif len(table_items) > 100:
+                max_batch_size = min(base_batch_size * 2, 300)
+            else:
+                max_batch_size = base_batch_size
 
             items_to_get: Dict[str, TableListItem] = {}
             for table_item in table_items:
