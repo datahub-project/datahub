@@ -317,6 +317,9 @@ class PostgresSource(SQLAlchemySource):
                     generate_lineage=True,
                     generate_queries=True,
                     generate_usage_statistics=self.config.include_usage_statistics,
+                    usage_config=self.config
+                    if self.config.include_usage_statistics
+                    else None,
                 )
                 logger.info(
                     "SQL parsing aggregator initialized for query-based lineage"
