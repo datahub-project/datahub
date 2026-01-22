@@ -183,13 +183,17 @@ PyIceberg 0.9+ natively supports BigLake authentication using Google Cloud's App
 
 #### Configuration
 
-BigLake authentication uses PyIceberg's native `auth.type: google` configuration. Set up Application Default Credentials first:
+BigLake authentication uses Application Default Credentials (ADC). DataHub provides automatic OAuth scope fixing for seamless integration.
+
+**Setup:**
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+export GCP_PROJECT_ID=your-project-id
+export GCS_WAREHOUSE_BUCKET=your-bucket-name
 ```
 
-Then configure the catalog:
+#### Configuration
 
 ```yaml
 source:
@@ -199,12 +203,15 @@ source:
     catalog:
       my_biglake_catalog:
         type: rest
-        uri: https://biglake.googleapis.com/v1/projects/my-project/locations/us-central1/catalogs/my_catalog
-        warehouse: gs://my-bucket/iceberg-warehouse/
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
         auth:
           type: google
+          google:
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
         header.x-goog-user-project: my-project
-        header.X-Iceberg-Access-Delegation: ""
+        header.X-Iceberg-Access-Delegation: "" # End-user credentials mode
         connection:
           timeout: 120
           retry:
@@ -214,25 +221,36 @@ source:
 
 **Key Configuration Parameters:**
 
-- `auth.type: google` - Uses PyIceberg's native BigLake authentication
+- `auth.type: google` - Uses Application Default Credentials
+- `auth.google.scopes` - OAuth scopes required for BigLake access
 - `header.x-goog-user-project` - Specifies the GCP project for billing
-- `header.X-Iceberg-Access-Delegation: ""` - Uses user credentials for authentication
-- PyIceberg automatically handles OAuth2 token refresh and credential management
+- `header.X-Iceberg-Access-Delegation: ""` - Uses end-user credentials mode
 
-#### Authentication Methods
+#### How Authentication Works
 
-PyIceberg's `auth.type: google` automatically discovers credentials using Google Cloud's standard Application Default Credentials (ADC) chain:
+When using `auth.type: google` with explicit scopes:
 
-1. **Environment Variable**: `GOOGLE_APPLICATION_CREDENTIALS` pointing to service account JSON
-2. **gcloud CLI**: Credentials from `gcloud auth application-default login`
-3. **GCE/GKE Metadata Server**: Automatic when running on Google Cloud infrastructure
-4. **Workload Identity**: Automatic when using GKE Workload Identity
+1. **Discovers credentials** using Google Cloud's Application Default Credentials (ADC) chain:
 
-No additional configuration is needed - PyIceberg handles token refresh automatically.
+   - **Environment Variable**: `GOOGLE_APPLICATION_CREDENTIALS` pointing to service account JSON (most common)
+   - **gcloud CLI**: Credentials from `gcloud auth application-default login`
+   - **GCE/GKE Metadata Server**: Automatic when running on Google Cloud infrastructure
+   - **Workload Identity**: Automatic when using GKE Workload Identity
 
-#### Using Vended Credentials
+2. **Uses explicit OAuth scopes**: The `auth.google.scopes` configuration ensures the correct `cloud-platform` scope is used for BigLake access
 
-When using vended credentials (where BigLake provides temporary access tokens for GCS), configure the catalog to delegate access to user credentials:
+   - PyIceberg passes the scopes directly to `google.auth.default()`
+   - Requires `google-auth` library to be installed (included in DataHub dependencies)
+
+3. **Handles token refresh**: Automatic token refresh with no manual management needed
+
+#### Using Vended Credentials (Optional)
+
+**Important**: Vended credentials require your BigLake catalog to be configured with `CREDENTIAL_MODE_SERVICE_ACCOUNT`. Most BigLake catalogs use `CREDENTIAL_MODE_END_USER` by default, which **does not** support vended credentials.
+
+If you get an error stating "X-Iceberg-Access-Delegation header must not contain vended-credentials when credential mode is CREDENTIAL_MODE_END_USER", your catalog doesn't support this feature. Use the standard configuration with `header.X-Iceberg-Access-Delegation: ""` instead.
+
+For catalogs that support vended credentials, set `header.X-Iceberg-Access-Delegation: vended-credentials`:
 
 ```yaml
 source:
@@ -242,15 +260,18 @@ source:
     catalog:
       my_biglake_catalog:
         type: rest
-        uri: https://biglake.googleapis.com/v1/projects/my-project/locations/us-central1/catalogs/my_catalog
-        warehouse: gs://my-bucket/iceberg-warehouse/
+        uri: https://biglake.googleapis.com/iceberg/v1/restcatalog
+        warehouse: gs://my-bucket
         auth:
           type: google
+          google:
+            scopes:
+              - https://www.googleapis.com/auth/cloud-platform
         header.x-goog-user-project: my-project
-        header.X-Iceberg-Access-Delegation: vended-credentials
+        header.X-Iceberg-Access-Delegation: vended-credentials # Only for CREDENTIAL_MODE_SERVICE_ACCOUNT
 ```
 
-**Key difference**: Set `header.X-Iceberg-Access-Delegation: vended-credentials` instead of empty string. This tells BigLake to issue temporary credentials for accessing GCS data, which is useful when:
+**When to use vended credentials:**
 
 - Running ingestion from environments without direct GCS access
 - Implementing fine-grained access control through BigLake
@@ -259,6 +280,20 @@ source:
 BigLake will generate short-lived STS tokens scoped to the specific tables being accessed.
 
 #### Troubleshooting
+
+**Error: "invalid_scope: Invalid OAuth scope or ID token audience provided"**
+
+This error occurs when OAuth scopes are not properly configured. To fix:
+
+- Ensure `auth.google.scopes` is set to `["https://www.googleapis.com/auth/cloud-platform"]` in your configuration
+- Verify `google-auth` library is installed: `pip install google-auth`
+- Check that `GOOGLE_APPLICATION_CREDENTIALS` points to a valid service account JSON file
+
+**Error: "X-Iceberg-Access-Delegation header must not contain vended-credentials when credential mode is CREDENTIAL_MODE_END_USER"**
+
+- Your BigLake catalog uses end-user credentials mode, which doesn't support vended credentials
+- **Solution**: Use `header.X-Iceberg-Access-Delegation: ""` (empty string) in your configuration
+- Vended credentials only work with `CREDENTIAL_MODE_SERVICE_ACCOUNT`
 
 **Error: "Authentication failed"**
 
