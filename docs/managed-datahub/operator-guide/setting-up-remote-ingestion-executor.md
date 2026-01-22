@@ -31,11 +31,11 @@ Before deploying a Remote Executor, ensure you have the following:
 
 ### 1. DataHub Cloud Access
 
-| Requirement                                       | How to Get It                                                                   |
-| ------------------------------------------------- | ------------------------------------------------------------------------------- |
-| User with **Manage Metadata Ingestion** privilege | Admin grants in Settings → Users & Groups                                       |
-| Remote Executor Access Token                      | Settings → Access Tokens → Generate new token → Select **Remote Executor** type |
-| Your DataHub Cloud URL                            | Format: `https://<your-company>.acryl.io/gms` (**must** include `/gms`)         |
+| Requirement                  | How to Get It                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| **Admin** role               | Assigned in Settings → Users & Groups                                           |
+| Remote Executor Access Token | Settings → Access Tokens → Generate new token → Select **Remote Executor** type |
+| Your DataHub Cloud URL       | Format: `https://<your-company>.acryl.io/gms` (**must** include `/gms`)         |
 
 ### 2. Deployment Environment
 
@@ -57,10 +57,6 @@ The executor makes **outbound-only** connections. Ensure your firewall/security 
 | Outbound  | `sqs.*.amazonaws.com`     | 443    | Task queue                 |
 | Outbound  | `s3.*.amazonaws.com`      | 443    | Log upload (if configured) |
 | Outbound  | Your data sources         | Varies | Metadata extraction        |
-
-### 5. Version Compatibility
-
-The executor version should be compatible with your DataHub Cloud version. Using mismatched versions may cause recipe parsing errors or unexpected behavior. Check your DataHub Cloud version in **Settings → Platform → Version**.
 
 ## Creating and Managing Executor Pools
 
@@ -129,11 +125,12 @@ The DataHub Team will provide a [CloudFormation Template](https://raw.githubuser
 
 **Optional parameters:**
 
-| Parameter              | Description                           | Example                              |
-| ---------------------- | ------------------------------------- | ------------------------------------ |
-| `ImageTag`             | Executor version (defaults to latest) | `v0.3.15.4`                          |
-| `SourceSecrets`        | AWS Secrets Manager secrets           | `DB_PASS=arn:aws:secretsmanager:...` |
-| `EnvironmentVariables` | Additional env vars                   | `LOG_LEVEL=DEBUG`                    |
+| Parameter                             | Description                                                  | Example                              |
+| ------------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
+| `ExistingDataHubAccessTokenSecretArn` | ARN of existing secret (alternative to `DataHubAccessToken`) | `arn:aws:secretsmanager:...`         |
+| `ImageTag`                            | Executor version (defaults to latest)                        | `v0.3.15.4`                          |
+| `SourceSecrets`                       | AWS Secrets Manager secrets for data sources                 | `DB_PASS=arn:aws:secretsmanager:...` |
+| `EnvironmentVariables`                | Additional env vars                                          | `LOG_LEVEL=DEBUG`                    |
 
 #### Step 3: Deploy Stack
 
@@ -143,7 +140,7 @@ aws --region <your-region> cloudformation create-stack \
   --template-body file://datahub-executor.ecs.template.yaml \
   --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
   --parameters \
-    ParameterKey=ExecutorPoolId,ParameterValue="production" \
+    ParameterKey=ExecutorPoolId,ParameterValue="<your-pool-id>" \
     ParameterKey=VPCID,ParameterValue="<your-vpc>" \
     ParameterKey=SubnetID,ParameterValue="<your-subnet>" \
     ParameterKey=DataHubBaseUrl,ParameterValue="https://<your-company>.acryl.io/gms" \
@@ -227,28 +224,22 @@ Work with your DataHub Cloud representative to set up access to the container re
 - **Google Cloud GKE**: The cluster's IAM service account email (e.g., `my-sa@my-project.iam.gserviceaccount.com`)
 - **Other platforms**: Contact DataHub team for registry credentials
 
-#### Step 2: Create Namespace
-
-```bash
-kubectl create namespace datahub
-```
-
-#### Step 3: Create Secrets
+#### Step 2: Create Secrets
 
 ```bash
 # Create DataHub access token secret (required)
 kubectl create secret generic datahub-remote-executor-secrets \
-  -n datahub \
+  \
   --from-literal=executor-token=<your-remote-executor-token>
 
 # Create source credentials (optional)
 kubectl create secret generic datahub-source-credentials \
-  -n datahub \
+  \
   --from-literal=SNOWFLAKE_PASSWORD=<password> \
   --from-literal=REDSHIFT_PASSWORD=<password>
 ```
 
-#### Step 4: Install Helm Chart
+#### Step 3: Install Helm Chart
 
 ```bash
 # Add Helm repository
@@ -260,7 +251,7 @@ helm repo update
 
 ```bash
 helm install acryl-executor-worker acryl/datahub-executor-worker \
-  -n datahub \
+  \
   --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
   --set global.datahub.gms.secretRef="datahub-remote-executor-secrets" \
   --set global.datahub.gms.secretKey="executor-token" \
@@ -297,7 +288,7 @@ Then install with:
 
 ```bash
 helm install acryl-executor-worker acryl/datahub-executor-worker \
-  -n datahub \
+  \
   -f values.yaml
 ```
 
@@ -309,7 +300,7 @@ helm install acryl-executor-worker acryl/datahub-executor-worker \
 | Medium (50-200 sources) | 4 GB   | 2 cores | 2        | Typical usage                        |
 | Heavy (200+ sources)    | 8 GB   | 4 cores | 2-4      | Large schemas, many concurrent tasks |
 
-#### Step 5: Configure Secret Mounting (Optional)
+#### Step 4: Configure Secret Mounting (Optional)
 
 For file-based secrets (available in DataHub Cloud v0.3.8.2+):
 
@@ -346,7 +337,6 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: datahub-remote-executor-sa
-  namespace: datahub
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/DataHubRemoteExecutorRole
 ```
@@ -358,7 +348,6 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: datahub-remote-executor-secrets
-  namespace: datahub
 type: Opaque
 stringData:
   executor-token: "<your-remote-executor-token>"
@@ -371,7 +360,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: datahub-executor-config
-  namespace: datahub
 data:
   DATAHUB_GMS_URL: "https://<your-company>.acryl.io/gms"
   DATAHUB_EXECUTOR_POOL_ID: "production"
@@ -384,7 +372,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: datahub-remote-executor
-  namespace: datahub
 spec:
   replicas: 2
   selector:
@@ -469,14 +456,7 @@ aws logs tail /ecs/datahub-remote-executor --follow
 <TabItem value="k8s" label="Kubernetes">
 
 ```bash
-kubectl logs -n datahub -l app.kubernetes.io/name=datahub-executor-worker -f
-```
-
-</TabItem>
-<TabItem value="docker" label="Docker (Local Testing)">
-
-```bash
-docker logs -f datahub-executor
+kubectl logs -l app.kubernetes.io/name=datahub-executor-worker -f
 ```
 
 </TabItem>
@@ -485,10 +465,7 @@ docker logs -f datahub-executor
 **Expected output (success):**
 
 ```
-[INFO] Starting datahub executor worker
-[INFO] Connecting to DataHub at https://acme.acryl.io/gms
-[INFO] Executor pool: production
-[INFO] celery worker initialization finished   ← This means success!
+celery worker initialization finished
 ```
 
 **If you see errors**, check the [Troubleshooting](#troubleshooting) section.
@@ -688,10 +665,10 @@ Configure these in ingestion source **Extra Environment Variables**:
 
 ```bash
 # Check if executor is running
-kubectl get pods -n datahub -l app.kubernetes.io/name=datahub-executor-worker
+kubectl get pods -l app.kubernetes.io/name=datahub-executor-worker
 
 # Check executor logs for connection status
-kubectl logs -n datahub -l app.kubernetes.io/name=datahub-executor-worker | grep -i "initialization\|error\|failed"
+kubectl logs -l app.kubernetes.io/name=datahub-executor-worker | grep -i "initialization\|error\|failed"
 ```
 
 **Diagnosis (ECS):**
@@ -764,7 +741,7 @@ aws logs tail /ecs/datahub-remote-executor --since 1h | grep -i "initialization\
 **Diagnosis:**
 
 ```bash
-kubectl logs -n datahub -l app.kubernetes.io/name=datahub-executor-worker | grep -i "upload\|log\|error"
+kubectl logs -l app.kubernetes.io/name=datahub-executor-worker | grep -i "upload\|log\|error"
 ```
 
 **Solutions:**
@@ -810,7 +787,7 @@ kubectl logs -n datahub -l app.kubernetes.io/name=datahub-executor-worker | grep
 
 ```bash
 # Test token validity from inside the container
-kubectl exec -it -n datahub <pod-name> -- \
+kubectl exec -it <pod-name> -- \
   curl -H "Authorization: Bearer $DATAHUB_GMS_TOKEN" \
   "$DATAHUB_GMS_URL/health"
 ```
@@ -834,8 +811,8 @@ kubectl exec -it -n datahub <pod-name> -- \
 
 ```bash
 # Test connectivity from inside the container
-kubectl exec -it -n datahub <pod-name> -- curl -v https://<company>.acryl.io/gms/health
-kubectl exec -it -n datahub <pod-name> -- curl -v https://sqs.us-west-2.amazonaws.com
+kubectl exec -it <pod-name> -- curl -v https://<company>.acryl.io/gms/health
+kubectl exec -it <pod-name> -- curl -v https://sqs.us-west-2.amazonaws.com
 ```
 
 **Solutions:**
@@ -866,8 +843,8 @@ kubectl exec -it -n datahub <pod-name> -- curl -v https://sqs.us-west-2.amazonaw
 **Diagnosis:**
 
 ```bash
-kubectl describe pod -n datahub <pod-name>
-kubectl logs -n datahub <pod-name> --previous
+kubectl describe pod <pod-name>
+kubectl logs <pod-name> --previous
 ```
 
 **Common causes:**
@@ -892,11 +869,3 @@ No. For ECS, secrets are injected at task startup. Restart the ECS task to pick 
 1. Check logs for `celery worker initialization finished`
 2. Verify Pool shows "Healthy" in DataHub UI
 3. Run a test ingestion and confirm it starts
-
-**Can I run multiple executors in one Pool?**
-
-Yes. Multiple executors in the same Pool provide high availability and increased throughput. Tasks are distributed across available executors.
-
-**What happens if an executor goes down during ingestion?**
-
-The task will eventually time out (based on SQS visibility timeout) and can be retried. For critical workloads, run multiple executor replicas.
