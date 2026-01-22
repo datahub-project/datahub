@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,8 +43,7 @@ public class ListExecutionRequestsResolver
   private static final String EXECUTION_REQUEST_INGESTION_SOURCE_FIELD = "ingestionSource";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_FIELD = "sourceType";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_SYSTEM = "SYSTEM";
-  // Assumes system sources are always < 1000
-  private static final Integer SYSTEM_INGESTION_SOURCES_LIMIT = 1000;
+  private static final Integer INGESTION_SOURCE_BATCH_SIZE = 1000;
 
   private final EntityClient _entityClient;
 
@@ -52,61 +52,101 @@ public class ListExecutionRequestsResolver
       final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
-
     final ListExecutionRequestsInput input =
         bindArgument(environment.getArgument("input"), ListExecutionRequestsInput.class);
 
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
-    List<FacetFilterInput> filters =
+    final List<FacetFilterInput> filters =
         input.getFilters() == null ? new ArrayList<>() : input.getFilters();
-
-    // construct sort criteria, defaulting to systemCreated
-    final SortCriterion sortCriterion;
-
-    // if query is expecting to sort by something, use that
-    final com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput = input.getSort();
-    if (sortCriterionInput != null) {
-      sortCriterion =
-          new SortCriterion()
-              .setField(sortCriterionInput.getField())
-              .setOrder(SortOrder.valueOf(sortCriterionInput.getSortOrder().name()));
-    } else {
-      sortCriterion = new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING);
-    }
+    final SortCriterion sortCriterion = buildSortCriterion(input.getSort());
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            // Add additional filters to show only or hide all system ingestion sources
-            addDefaultFilters(context, filters, input.getSystemSources());
-            // First, get all execution request Urns.
-            final SearchResult gmsResult =
-                _entityClient.search(
-                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
-                    Constants.EXECUTION_REQUEST_ENTITY_NAME,
-                    query,
-                    buildFilter(filters, Collections.emptyList()),
-                    sortCriterion != null ? List.of(sortCriterion) : null,
-                    start,
-                    count);
-
-            log.info(String.format("Found %d execution requests", gmsResult.getNumEntities()));
-
-            // Now that we have entities we can bind this to a result.
-            final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
-            result.setStart(gmsResult.getFrom());
-            result.setCount(gmsResult.getPageSize());
-            result.setTotal(gmsResult.getNumEntities());
-            result.setExecutionRequests(mapUnresolvedExecutionRequests(gmsResult.getEntities()));
-            return result;
+            List<Urn> sourceUrns =
+                getUrnsOfIngestionSources(context.getOperationContext(), input.getSystemSources());
+            SearchResult searchResult =
+                fetchExecutionRequests(
+                    context, query, filters, sortCriterion, start, count, sourceUrns);
+            return buildResponse(searchResult);
           } catch (Exception e) {
             throw new RuntimeException("Failed to list executions", e);
           }
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private SortCriterion buildSortCriterion(
+      @Nullable com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput) {
+    if (sortCriterionInput != null) {
+      return new SortCriterion()
+          .setField(sortCriterionInput.getField())
+          .setOrder(SortOrder.valueOf(sortCriterionInput.getSortOrder().name()));
+    }
+    return new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING);
+  }
+
+  private SearchResult fetchExecutionRequests(
+      QueryContext context,
+      String query,
+      List<FacetFilterInput> filters,
+      SortCriterion sortCriterion,
+      int start,
+      int count,
+      List<Urn> sourceUrns)
+      throws Exception {
+    try {
+      List<FacetFilterInput> modifiedFilters = new ArrayList<>(filters);
+      modifiedFilters.add(getIngestionSourceFilter(sourceUrns));
+      return searchExecutionRequests(
+          context, query, modifiedFilters, sortCriterion, start, count, sourceUrns);
+    } catch (Exception e) {
+      log.warn(
+          String.format(
+              "Failed to query execution requests with filter of %d ingestion sources, retrying without filter",
+              sourceUrns.size()),
+          e);
+      return searchExecutionRequests(
+          context, query, filters, sortCriterion, start, count, sourceUrns);
+    }
+  }
+
+  private SearchResult searchExecutionRequests(
+      QueryContext context,
+      String query,
+      List<FacetFilterInput> filters,
+      SortCriterion sortCriterion,
+      int start,
+      int count,
+      List<Urn> sourceUrns)
+      throws Exception {
+    SearchResult result =
+        _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            Constants.EXECUTION_REQUEST_ENTITY_NAME,
+            query,
+            buildFilter(filters, Collections.emptyList()),
+            sortCriterion != null ? List.of(sortCriterion) : null,
+            start,
+            count);
+
+    log.info(
+        String.format(
+            "Found %d execution requests using filter with %d ingestion sources",
+            result.getNumEntities(), sourceUrns.size()));
+    return result;
+  }
+
+  private IngestionSourceExecutionRequests buildResponse(SearchResult searchResult) {
+    final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
+    result.setStart(searchResult.getFrom());
+    result.setCount(searchResult.getPageSize());
+    result.setTotal(searchResult.getNumEntities());
+    result.setExecutionRequests(mapUnresolvedExecutionRequests(searchResult.getEntities()));
+    return result;
   }
 
   // This method maps urns returned from the list endpoint into Partial execution request objects
@@ -125,53 +165,76 @@ public class ListExecutionRequestsResolver
   }
 
   /**
-   * Saas only: This method adds a filter based on systemSources parameter to restrict execution
-   * requests to system or non-system sources.
+   * SaaS only: This method adds a filter restrict execution requests to only ingestion sources
+   * accessible by the current user, and filtered by system / non-system sources if specified.
    */
-  private void addDefaultFilters(
-      final QueryContext context,
-      List<FacetFilterInput> filters,
-      @Nullable final Boolean systemSources)
-      throws Exception {
-    // Only add filter when systemSources is explicitly set
-    if (systemSources == null) {
-      return;
-    }
-
-    List<Urn> systemSourceUrns = getUrnsOfSystemSources(context);
-
-    // Add filter with negation flag to toggle between system and non-system sources
-    filters.add(
-        new FacetFilterInput(
-            EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
-            null,
-            systemSourceUrns.stream().map(Urn::toString).toList(),
-            !systemSources,
-            FilterOperator.EQUAL));
+  private FacetFilterInput getIngestionSourceFilter(List<Urn> sourceUrns) {
+    return new FacetFilterInput(
+        EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
+        null,
+        sourceUrns.stream().map(Urn::toString).toList(),
+        false,
+        FilterOperator.EQUAL);
   }
 
-  /** Fetches all system ingestion sources. */
-  private List<Urn> getUrnsOfSystemSources(final QueryContext context) throws Exception {
-    List<FacetFilterInput> filters = new ArrayList<>();
+  private List<Urn> getUrnsOfIngestionSources(
+      final OperationContext context, @Nullable final Boolean systemSources) throws Exception {
+    List<FacetFilterInput> filters =
+        systemSources != null
+            ? List.of(
+                new FacetFilterInput(
+                    INGESTION_SOURCE_SOURCE_TYPE_FIELD,
+                    null,
+                    ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
+                    !systemSources,
+                    FilterOperator.EQUAL))
+            : Collections.emptyList();
 
-    filters.add(
-        new FacetFilterInput(
-            INGESTION_SOURCE_SOURCE_TYPE_FIELD,
-            null,
-            ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
-            false,
-            FilterOperator.EQUAL));
+    List<Urn> allSourceUrns = new ArrayList<>();
+    int start = 0;
 
-    final SearchResult gmsResult =
-        _entityClient.search(
-            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
-            Constants.INGESTION_SOURCE_ENTITY_NAME,
-            DEFAULT_QUERY,
-            buildFilter(filters, Collections.emptyList()),
-            null,
-            0,
-            SYSTEM_INGESTION_SOURCES_LIMIT);
+    // Fetch first page of ingestion sources
+    final SearchResult firstResult = searchIngestionSources(context, filters, start);
+    int totalResults = firstResult.getNumEntities();
+    log.info(
+        String.format(
+            "Fetching %d total ingestion sources in batches of %d",
+            totalResults, INGESTION_SOURCE_BATCH_SIZE));
 
-    return gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
+    List<Urn> pageUrns = firstResult.getEntities().stream().map(SearchEntity::getEntity).toList();
+    allSourceUrns.addAll(pageUrns);
+
+    log.debug(
+        String.format(
+            "Fetched first page of %d ingestion sources, total count: %d",
+            pageUrns.size(), totalResults));
+
+    start += INGESTION_SOURCE_BATCH_SIZE;
+    while (start < totalResults && !pageUrns.isEmpty()) {
+      final SearchResult searchResult = searchIngestionSources(context, filters, start);
+      pageUrns = searchResult.getEntities().stream().map(SearchEntity::getEntity).toList();
+      allSourceUrns.addAll(pageUrns);
+
+      log.debug(
+          String.format(
+              "Fetched page of %d ingestion sources at offset %d", pageUrns.size(), start));
+
+      start += INGESTION_SOURCE_BATCH_SIZE;
+    }
+
+    log.info(String.format("Fetched %d total ingestion source URNs", allSourceUrns.size()));
+    return allSourceUrns;
+  }
+
+  private SearchResult searchIngestionSources(
+      OperationContext context, List<FacetFilterInput> filters, int start) throws Exception {
+    return _entityClient.search(
+        context,
+        Constants.INGESTION_SOURCE_ENTITY_NAME,
+        DEFAULT_QUERY,
+        buildFilter(filters, Collections.emptyList()),
+        null,
+        start,
+        INGESTION_SOURCE_BATCH_SIZE);
   }
 }
