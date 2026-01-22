@@ -119,7 +119,7 @@ Download the [CloudFormation Template](https://raw.githubusercontent.com/acrylda
 | `DataHubBaseUrl` | Your DataHub Cloud URL (must include `/gms`)             | `https://acme.acryl.io/gms` |
 | `ExecutorPoolId` | Pool Identifier from "Creating an Executor Pool" section | `remote`                    |
 
-**Access Token (provide one of the following):**
+**Access Token (required - provide one of the following):**
 
 | Parameter                             | Description                                           | Example                                                    |
 | ------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
@@ -128,16 +128,16 @@ Download the [CloudFormation Template](https://raw.githubusercontent.com/acrylda
 
 **Optional Parameters:**
 
-| Parameter                       | Default           | Description                                                          |
-| ------------------------------- | ----------------- | -------------------------------------------------------------------- |
-| `ImageTag`                      | `v0.3.15.4-acryl` | Executor version                                                     |
-| `DesiredCount`                  | `1`               | Number of executor replicas                                          |
-| `TaskCpu`                       | `2048`            | CPU units (256, 512, 1024, 2048, 4096)                               |
-| `TaskMemory`                    | `8192`            | Memory in MiB                                                        |
-| `TaskEphemeralStorageSizeInGiB` | `21`              | Ephemeral storage in GiB                                             |
-| `AwsRegion`                     | `us-west-2`       | AWS region for the executor                                          |
-| `OptionalSecrets`               | -                 | Data source secrets (format: `NAME=ARN,NAME2=ARN2`)                  |
-| `OptionalEnvVars`               | -                 | Additional environment variables (format: `NAME=VALUE,NAME2=VALUE2`) |
+| Parameter                       | Description                                                          |
+| ------------------------------- | -------------------------------------------------------------------- |
+| `ImageTag`                      | Executor version                                                     |
+| `DesiredCount`                  | Number of executor replicas                                          |
+| `TaskCpu`                       | CPU units (256, 512, 1024, 2048, 4096)                               |
+| `TaskMemory`                    | Memory in MiB                                                        |
+| `TaskEphemeralStorageSizeInGiB` | Ephemeral storage in GiB                                             |
+| `AwsRegion`                     | AWS region for the executor                                          |
+| `OptionalSecrets`               | Data source secrets (format: `NAME=ARN,NAME2=ARN2`)                  |
+| `OptionalEnvVars`               | Additional environment variables (format: `NAME=VALUE,NAME2=VALUE2`) |
 
 :::warning
 The following parameters should only be changed after consulting with your DataHub representative:
@@ -253,9 +253,9 @@ helm install acryl-executor-worker acryl/datahub-executor-worker \
 | `global.datahub.gms.url`          | Your DataHub Cloud URL (must include `/gms`)             | `https://acme.acryl.io/gms` |
 | `global.datahub.executor.pool_id` | Pool Identifier from "Creating an Executor Pool" section | `remote`                    |
 
-**Access Token Configuration:**
+**Access Token (required - uses the secret created in Step 2):**
 
-The Helm chart uses the secret created in Step 2. Default settings:
+The Helm chart references the Kubernetes Secret you created. These defaults match the secret name from Step 2:
 
 | Value                          | Default                           | Description            |
 | ------------------------------ | --------------------------------- | ---------------------- |
@@ -264,16 +264,16 @@ The Helm chart uses the secret created in Step 2. Default settings:
 
 **Optional Helm Values:**
 
-| Value                                            | Default           | Description                      |
-| ------------------------------------------------ | ----------------- | -------------------------------- |
-| `image.tag`                                      | `v0.3.15.4-acryl` | Executor version                 |
-| `replicaCount`                                   | `1`               | Number of executor replicas      |
-| `resources.requests.cpu`                         | `4`               | CPU allocation                   |
-| `resources.requests.memory`                      | `8Gi`             | Memory allocation                |
-| `global.datahub.executor.ingestions.max_workers` | `4`               | Max concurrent ingestion tasks   |
-| `extraVolumes`                                   | `[]`              | Additional volumes for secrets   |
-| `extraVolumeMounts`                              | `[]`              | Volume mount paths               |
-| `extraEnvs`                                      | `[]`              | Additional environment variables |
+| Value                                            | Description                      |
+| ------------------------------------------------ | -------------------------------- |
+| `image.tag`                                      | Executor version                 |
+| `replicaCount`                                   | Number of executor replicas      |
+| `resources.requests.cpu`                         | CPU allocation                   |
+| `resources.requests.memory`                      | Memory allocation                |
+| `global.datahub.executor.ingestions.max_workers` | Max concurrent ingestion tasks   |
+| `extraVolumes`                                   | Additional volumes for secrets   |
+| `extraVolumeMounts`                              | Volume mount paths               |
+| `extraEnvs`                                      | Additional environment variables |
 
 #### Step 4: Configure Secret Mounting (Optional)
 
