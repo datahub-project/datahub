@@ -1400,7 +1400,8 @@ LIMIT 1"""
                 actual_filters = []
                 for col, val in actual_partition_values.items():
                     try:
-                        filter_expr = self._create_safe_filter(col, val)
+                        col_type = column_types.get(col, "")
+                        filter_expr = self._create_safe_filter(col, val, col_type)
                         actual_filters.append(filter_expr)
                     except ValueError as e:
                         logger.warning(f"Skipping invalid filter for {col}={val}: {e}")
@@ -1526,7 +1527,8 @@ LIMIT 1"""
             actual_filters = []
             for col, val in actual_partition_values.items():
                 try:
-                    filter_expr = self._create_safe_filter(col, val)
+                    col_type = column_types.get(col, "")
+                    filter_expr = self._create_safe_filter(col, val, col_type)
                     actual_filters.append(filter_expr)
                 except ValueError as e:
                     logger.warning(f"Skipping invalid filter for {col}={val}: {e}")

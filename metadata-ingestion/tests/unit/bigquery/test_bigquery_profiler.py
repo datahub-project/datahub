@@ -1364,7 +1364,7 @@ def test_internal_table_finds_actual_latest_date_comprehensive():
     filter_str = " ".join(partition_filters)
     assert "2024-11-15" in filter_str or "20241115" in filter_str
 
-    print(f"✅ Discovery found partition filters: {partition_filters}")
+    print(f"Discovery found partition filters: {partition_filters}")
 
     # Now test the profiling phase with windowing
     report = BigQueryV2Report()
@@ -1821,26 +1821,135 @@ def test_security_edge_cases():
     assert len(result) >= 3
 
 
-def test_sqlglot_ddl_parsing_date_partition():
-    """Test sqlglot-based DDL parsing for DATE(column) partition."""
+@pytest.mark.parametrize(
+    "table_name,ddl,mock_columns,expected_column,expected_type",
+    [
+        pytest.param(
+            "test_date_partition",
+            """
+            CREATE TABLE `project.dataset.test_date_partition`
+            PARTITION BY DATE(timestamp_column)
+            AS SELECT * FROM source_table
+            """,
+            [("timestamp_column", "TIMESTAMP")],
+            "timestamp_column",
+            "TIMESTAMP",
+            id="date_partition",
+        ),
+        pytest.param(
+            "test_datetime_partition",
+            """
+            CREATE TABLE `project.dataset.test_datetime_partition`
+            PARTITION BY DATETIME_TRUNC(event_time, DAY)
+            AS SELECT * FROM source_table
+            """,
+            [("event_time", "DATETIME")],
+            "event_time",
+            "DATETIME",
+            id="datetime_trunc_partition",
+        ),
+        pytest.param(
+            "test_timestamp_partition",
+            """
+            CREATE TABLE `project.dataset.test_timestamp_partition`
+            PARTITION BY TIMESTAMP_TRUNC(created_at, HOUR)
+            OPTIONS(
+                partition_expiration_days=7
+            )
+            """,
+            [("created_at", "TIMESTAMP")],
+            "created_at",
+            "TIMESTAMP",
+            id="timestamp_trunc_partition",
+        ),
+        pytest.param(
+            "test_range_partition",
+            """
+            CREATE TABLE `project.dataset.test_range_partition`
+            PARTITION BY RANGE_BUCKET(user_id, GENERATE_ARRAY(0, 100, 10))
+            AS SELECT * FROM source_table
+            """,
+            [("user_id", "INT64")],
+            "user_id",
+            "INT64",
+            id="range_bucket_partition",
+        ),
+        pytest.param(
+            "test_simple_partition",
+            """
+            CREATE TABLE `project.dataset.test_simple_partition` (
+                date STRING,
+                region STRING,
+                value INT64
+            )
+            PARTITION BY date
+            """,
+            [("date", "STRING")],
+            "date",
+            "STRING",
+            id="simple_column_partition",
+        ),
+        pytest.param(
+            "test_complex_format",
+            """
+            CREATE TABLE
+                `project.dataset.test_complex_format`
+            (
+                id INT64,
+                event_timestamp TIMESTAMP,
+                data STRING
+            )
+            PARTITION BY
+                DATE(event_timestamp)
+            CLUSTER BY
+                id
+            OPTIONS(
+                description="Complex formatted table",
+                partition_expiration_days=30
+            )
+            """,
+            [("event_timestamp", "TIMESTAMP")],
+            "event_timestamp",
+            "TIMESTAMP",
+            id="complex_multiline_format",
+        ),
+        pytest.param(
+            "test_no_partition",
+            """
+            CREATE TABLE `project.dataset.test_no_partition` (
+                id INT64,
+                name STRING
+            )
+            """,
+            [],
+            None,
+            None,
+            id="no_partition",
+        ),
+        pytest.param(
+            "test_invalid_ddl",
+            "INVALID SQL STATEMENT",
+            [],
+            None,
+            None,
+            id="invalid_ddl",
+        ),
+    ],
+)
+def test_sqlglot_ddl_parsing(
+    table_name, ddl, mock_columns, expected_column, expected_type
+):
+    """Test sqlglot-based DDL parsing for various partition configurations"""
     config = BigQueryV2Config()
     discovery = PartitionDiscovery(config)
 
-    # Create a mock table with DATE partition DDL
-    table = create_test_table(
-        name="test_date_partition",
-        ddl="""
-        CREATE TABLE `project.dataset.test_date_partition`
-        PARTITION BY DATE(timestamp_column)
-        AS SELECT * FROM source_table
-        """,
-    )
+    table = create_test_table(name=table_name, ddl=ddl)
 
     def mock_execute(query, job_config=None, context=""):
-        # Mock response for column type query
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
+        if "INFORMATION_SCHEMA.COLUMNS" in query and mock_columns:
             return [
-                SimpleNamespace(column_name="timestamp_column", data_type="TIMESTAMP")
+                SimpleNamespace(column_name=col, data_type=dtype)
+                for col, dtype in mock_columns
             ]
         return []
 
@@ -1848,248 +1957,63 @@ def test_sqlglot_ddl_parsing_date_partition():
         table, "project", "dataset", mock_execute
     )
 
-    assert "timestamp_column" in result
-    assert result["timestamp_column"] == "TIMESTAMP"
+    if expected_column is None:
+        assert len(result) == 0
+    else:
+        assert expected_column in result
+        assert result[expected_column] == expected_type
 
 
-def test_sqlglot_ddl_parsing_datetime_trunc_partition():
-    """Test sqlglot-based DDL parsing for DATETIME_TRUNC partition."""
-    config = BigQueryV2Config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(
-        name="test_datetime_partition",
-        ddl="""
-        CREATE TABLE `project.dataset.test_datetime_partition`
-        PARTITION BY DATETIME_TRUNC(event_time, DAY)
-        AS SELECT * FROM source_table
-        """,
-    )
-
-    def mock_execute(query, job_config=None, context=""):
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
-            return [SimpleNamespace(column_name="event_time", data_type="DATETIME")]
-        return []
-
-    result = discovery.get_partition_columns_from_ddl(
-        table, "project", "dataset", mock_execute
-    )
-
-    assert "event_time" in result
-    assert result["event_time"] == "DATETIME"
-
-
-def test_sqlglot_ddl_parsing_timestamp_trunc_partition():
-    """Test sqlglot-based DDL parsing for TIMESTAMP_TRUNC partition."""
-    config = BigQueryV2Config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(
-        name="test_timestamp_partition",
-        ddl="""
-        CREATE TABLE `project.dataset.test_timestamp_partition`
-        PARTITION BY TIMESTAMP_TRUNC(created_at, HOUR)
-        OPTIONS(
-            partition_expiration_days=7
+@pytest.mark.parametrize(
+    "partition_id,should_succeed,expected_checks",
+    [
+        pytest.param(
+            "2024",
+            True,
+            {"start_year": 2024, "start_month": 1, "start_day": 1, "end_year": 2025},
+            id="yearly_format_yyyy",
+        ),
+        pytest.param(
+            "202411",
+            True,
+            {"start_year": 2024, "start_month": 11, "end_month": 12},
+            id="monthly_format_yyyymm",
+        ),
+        pytest.param(
+            "20241115",
+            True,
+            {"start_year": 2024, "start_month": 11, "start_day": 15, "end_day": 16},
+            id="daily_format_yyyymmdd",
+        ),
+        pytest.param(
+            "2024111523",
+            True,
+            {"start_hour": 23},
+            id="hourly_format_yyyymmddhh",
+        ),
+        pytest.param(
+            "invalid",
+            False,
+            None,
+            id="invalid_format",
+        ),
+    ],
+)
+def test_get_partition_range_formats(partition_id, should_succeed, expected_checks):
+    """Test partition range calculation for various partition ID formats"""
+    if not should_succeed:
+        with pytest.raises(ValueError, match="Invalid partition_id"):
+            PartitionDiscovery.get_partition_range_from_partition_id(partition_id, None)
+    else:
+        start, end = PartitionDiscovery.get_partition_range_from_partition_id(
+            partition_id, None
         )
-        """,
-    )
 
-    def mock_execute(query, job_config=None, context=""):
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
-            return [SimpleNamespace(column_name="created_at", data_type="TIMESTAMP")]
-        return []
-
-    result = discovery.get_partition_columns_from_ddl(
-        table, "project", "dataset", mock_execute
-    )
-
-    assert "created_at" in result
-    assert result["created_at"] == "TIMESTAMP"
-
-
-def test_sqlglot_ddl_parsing_range_bucket_partition():
-    """Test sqlglot-based DDL parsing for RANGE_BUCKET partition."""
-    config = BigQueryV2Config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(
-        name="test_range_partition",
-        ddl="""
-        CREATE TABLE `project.dataset.test_range_partition`
-        PARTITION BY RANGE_BUCKET(user_id, GENERATE_ARRAY(0, 100, 10))
-        AS SELECT * FROM source_table
-        """,
-    )
-
-    def mock_execute(query, job_config=None, context=""):
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
-            return [SimpleNamespace(column_name="user_id", data_type="INT64")]
-        return []
-
-    result = discovery.get_partition_columns_from_ddl(
-        table, "project", "dataset", mock_execute
-    )
-
-    assert "user_id" in result
-    assert result["user_id"] == "INT64"
-
-
-def test_sqlglot_ddl_parsing_simple_column_partition():
-    """Test sqlglot-based DDL parsing for simple column partition."""
-    config = BigQueryV2Config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(
-        name="test_simple_partition",
-        ddl="""
-        CREATE TABLE `project.dataset.test_simple_partition` (
-            date STRING,
-            region STRING,
-            value INT64
-        )
-        PARTITION BY date
-        """,
-    )
-
-    def mock_execute(query, job_config=None, context=""):
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
-            return [SimpleNamespace(column_name="date", data_type="STRING")]
-        return []
-
-    result = discovery.get_partition_columns_from_ddl(
-        table, "project", "dataset", mock_execute
-    )
-
-    assert "date" in result
-    assert result["date"] == "STRING"
-
-
-def test_sqlglot_ddl_parsing_complex_multiline_format():
-    """Test sqlglot-based DDL parsing with complex multiline formatting."""
-    config = BigQueryV2Config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(
-        name="test_complex_format",
-        ddl="""
-        CREATE TABLE
-            `project.dataset.test_complex_format`
-        (
-            id INT64,
-            event_timestamp TIMESTAMP,
-            data STRING
-        )
-        PARTITION BY
-            DATE(event_timestamp)
-        CLUSTER BY
-            id
-        OPTIONS(
-            description="Complex formatted table",
-            partition_expiration_days=30
-        )
-        """,
-    )
-
-    def mock_execute(query, job_config=None, context=""):
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
-            return [
-                SimpleNamespace(column_name="event_timestamp", data_type="TIMESTAMP")
-            ]
-        return []
-
-    result = discovery.get_partition_columns_from_ddl(
-        table, "project", "dataset", mock_execute
-    )
-
-    assert "event_timestamp" in result
-    assert result["event_timestamp"] == "TIMESTAMP"
-
-
-def test_sqlglot_ddl_parsing_no_partition():
-    """Test sqlglot-based DDL parsing for tables without partitions."""
-    config = BigQueryV2Config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(
-        name="test_no_partition",
-        ddl="""
-        CREATE TABLE `project.dataset.test_no_partition` (
-            id INT64,
-            name STRING
-        )
-        """,
-    )
-
-    def mock_execute(query, job_config=None, context=""):
-        return []
-
-    result = discovery.get_partition_columns_from_ddl(
-        table, "project", "dataset", mock_execute
-    )
-
-    assert len(result) == 0
-
-
-def test_sqlglot_ddl_parsing_invalid_ddl():
-    """Test sqlglot-based DDL parsing with invalid DDL."""
-    config = BigQueryV2Config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(
-        name="test_invalid_ddl",
-        ddl="INVALID SQL STATEMENT",
-    )
-
-    def mock_execute(query, job_config=None, context=""):
-        return []
-
-    result = discovery.get_partition_columns_from_ddl(
-        table, "project", "dataset", mock_execute
-    )
-
-    # Should handle gracefully and return empty dict
-    assert len(result) == 0
-
-
-def test_get_partition_range_invalid_format():
-    """Test error handling for invalid partition ID formats"""
-    with pytest.raises(ValueError, match="Invalid partition_id"):
-        PartitionDiscovery.get_partition_range_from_partition_id("invalid", None)
-
-
-def test_get_partition_range_valid_formats():
-    """Test partition range calculation for all valid formats"""
-    # Test yearly format (YYYY)
-    start, end = PartitionDiscovery.get_partition_range_from_partition_id("2024", None)
-    assert start.year == 2024
-    assert start.month == 1
-    assert start.day == 1
-    assert end.year == 2025
-
-    # Test monthly format (YYYYMM)
-    start, end = PartitionDiscovery.get_partition_range_from_partition_id(
-        "202411", None
-    )
-    assert start.year == 2024
-    assert start.month == 11
-    assert end.month == 12
-
-    # Test daily format (YYYYMMDD)
-    start, end = PartitionDiscovery.get_partition_range_from_partition_id(
-        "20241115", None
-    )
-    assert start.year == 2024
-    assert start.month == 11
-    assert start.day == 15
-    assert end.day == 16
-
-    # Test hourly format (YYYYMMDDHH)
-    start, end = PartitionDiscovery.get_partition_range_from_partition_id(
-        "2024111523", None
-    )
-    assert start.hour == 23
-    assert end.day == 16 or end.hour == 0
+        for attr, expected_value in expected_checks.items():
+            if attr.startswith("start_"):
+                assert getattr(start, attr.replace("start_", "")) == expected_value
+            elif attr.startswith("end_"):
+                assert getattr(end, attr.replace("end_", "")) == expected_value
 
 
 def test_partition_discovery_with_non_date_columns():
@@ -2382,147 +2306,169 @@ def test_partition_discovery_empty_table():
 # =============================================================================
 
 
-def test_filter_builder_numeric_type():
-    """Test FilterBuilder creates unquoted filters for numeric types"""
+@pytest.mark.parametrize(
+    "column_name,value,col_type,expected_filter,should_raise,error_match",
+    [
+        pytest.param(
+            "user_id",
+            999,
+            "INT64",
+            "`user_id` = 999",
+            False,
+            None,
+            id="int64_unquoted",
+        ),
+        pytest.param(
+            "amount",
+            123.45,
+            "FLOAT64",
+            "`amount` = 123.45",
+            False,
+            None,
+            id="float64_unquoted",
+        ),
+        pytest.param(
+            "status",
+            "active",
+            "STRING",
+            "`status` = 'active'",
+            False,
+            None,
+            id="string_quoted",
+        ),
+        pytest.param(
+            "name",
+            "O'Brien",
+            "STRING",
+            "`name` = 'O''Brien'",
+            False,
+            None,
+            id="string_quote_escaped",
+        ),
+        pytest.param(
+            "date_column",
+            "20250115",
+            "DATE",
+            "`date_column` = '2025-01-15'",
+            False,
+            None,
+            id="date_yyyymmdd_formatted",
+        ),
+        pytest.param(
+            "month_column",
+            "202601",
+            "DATE",
+            "`month_column` = '2026-01-01'",
+            False,
+            None,
+            id="date_yyyymm_formatted",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "20250115",
+            "TIMESTAMP",
+            "`run_timestamp` = TIMESTAMP('2025-01-15')",
+            False,
+            None,
+            id="timestamp_yyyymmdd_with_cast",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "202601",
+            "TIMESTAMP",
+            "`run_timestamp` = TIMESTAMP('2026-01-01')",
+            False,
+            None,
+            id="timestamp_yyyymm_with_cast",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "2025011523",
+            "TIMESTAMP",
+            "`run_timestamp` = '2025-01-15 23:00:00'",
+            False,
+            None,
+            id="timestamp_yyyymmddhh_with_time",
+        ),
+        pytest.param(
+            "event_time",
+            "2025011523",
+            "DATETIME",
+            "`event_time` = '2025-01-15 23:00:00'",
+            False,
+            None,
+            id="datetime_yyyymmddhh_with_time",
+        ),
+        pytest.param(
+            "date_column",
+            "2025-01-15",
+            "DATE",
+            "`date_column` = '2025-01-15'",
+            False,
+            None,
+            id="date_already_formatted",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "2025-01-15 23:00:00",
+            "TIMESTAMP",
+            "`run_timestamp` = '2025-01-15 23:00:00'",
+            False,
+            None,
+            id="timestamp_already_formatted",
+        ),
+        pytest.param(
+            "invalid-column",
+            "value",
+            "STRING",
+            None,
+            True,
+            "Invalid column name",
+            id="invalid_column_hyphen",
+        ),
+        pytest.param(
+            "col;name",
+            "value",
+            "STRING",
+            None,
+            True,
+            "Invalid column name",
+            id="invalid_column_semicolon",
+        ),
+        pytest.param(
+            "col",
+            "value; DROP TABLE",
+            "STRING",
+            None,
+            True,
+            "Invalid value",
+            id="sql_injection_drop_table",
+        ),
+        pytest.param(
+            "col",
+            "value-- comment",
+            "STRING",
+            None,
+            True,
+            "Invalid value",
+            id="sql_injection_comment",
+        ),
+    ],
+)
+def test_filter_builder_type_handling(
+    column_name, value, col_type, expected_filter, should_raise, error_match
+):
+    """Test FilterBuilder type-aware filter creation with comprehensive scenarios"""
     from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
         FilterBuilder,
     )
 
-    # INT64 should not be quoted
-    filter_int = FilterBuilder.create_safe_filter("user_id", 999, "INT64")
-    assert filter_int == "`user_id` = 999"
-
-    # FLOAT64 should not be quoted
-    filter_float = FilterBuilder.create_safe_filter("amount", 123.45, "FLOAT64")
-    assert filter_float == "`amount` = 123.45"
-
-
-def test_filter_builder_string_type():
-    """Test FilterBuilder creates quoted filters for string types"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # String should be quoted
-    filter_str = FilterBuilder.create_safe_filter("status", "active", "STRING")
-    assert filter_str == "`status` = 'active'"
-
-    # String with single quote should be escaped
-    filter_str_quote = FilterBuilder.create_safe_filter("name", "O'Brien", "STRING")
-    assert filter_str_quote == "`name` = 'O''Brien'"
-
-
-def test_filter_builder_date_type_yyyymmdd():
-    """Test FilterBuilder formats YYYYMMDD dates correctly"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # YYYYMMDD format should be converted to YYYY-MM-DD
-    filter_date = FilterBuilder.create_safe_filter("date_column", "20250115", "DATE")
-    assert filter_date == "`date_column` = '2025-01-15'"
-
-
-def test_filter_builder_date_type_yyyymm():
-    """Test FilterBuilder formats YYYYMM dates correctly"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # YYYYMM format should be converted to YYYY-MM-01
-    filter_date = FilterBuilder.create_safe_filter("month_column", "202601", "DATE")
-    assert filter_date == "`month_column` = '2026-01-01'"
-
-
-def test_filter_builder_timestamp_type_yyyymmdd():
-    """Test FilterBuilder formats YYYYMMDD timestamps correctly"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # YYYYMMDD format for TIMESTAMP should use TIMESTAMP() cast
-    filter_ts = FilterBuilder.create_safe_filter(
-        "run_timestamp", "20250115", "TIMESTAMP"
-    )
-    assert filter_ts == "`run_timestamp` = TIMESTAMP('2025-01-15')"
-
-
-def test_filter_builder_timestamp_type_yyyymm():
-    """Test FilterBuilder formats YYYYMM timestamps correctly"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # YYYYMM format for TIMESTAMP should use TIMESTAMP() cast and first day of month
-    filter_ts = FilterBuilder.create_safe_filter("run_timestamp", "202601", "TIMESTAMP")
-    assert filter_ts == "`run_timestamp` = TIMESTAMP('2026-01-01')"
-
-
-def test_filter_builder_timestamp_type_yyyymmddhh():
-    """Test FilterBuilder formats YYYYMMDDHH timestamps correctly"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # YYYYMMDDHH format for TIMESTAMP should include time
-    filter_ts = FilterBuilder.create_safe_filter(
-        "run_timestamp", "2025011523", "TIMESTAMP"
-    )
-    assert filter_ts == "`run_timestamp` = '2025-01-15 23:00:00'"
-
-
-def test_filter_builder_datetime_type():
-    """Test FilterBuilder formats DATETIME types correctly"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # YYYYMMDDHH format for DATETIME should include time
-    filter_dt = FilterBuilder.create_safe_filter("event_time", "2025011523", "DATETIME")
-    assert filter_dt == "`event_time` = '2025-01-15 23:00:00'"
-
-
-def test_filter_builder_already_formatted_date():
-    """Test FilterBuilder handles already-formatted dates"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    # Already formatted YYYY-MM-DD should be kept as is
-    filter_date = FilterBuilder.create_safe_filter("date_column", "2025-01-15", "DATE")
-    assert filter_date == "`date_column` = '2025-01-15'"
-
-    # Already formatted timestamp should be kept as is
-    filter_ts = FilterBuilder.create_safe_filter(
-        "run_timestamp", "2025-01-15 23:00:00", "TIMESTAMP"
-    )
-    assert filter_ts == "`run_timestamp` = '2025-01-15 23:00:00'"
-
-
-def test_filter_builder_invalid_column_name():
-    """Test FilterBuilder raises error for invalid column names"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    with pytest.raises(ValueError, match="Invalid column name"):
-        FilterBuilder.create_safe_filter("invalid-column", "value", "STRING")
-
-    with pytest.raises(ValueError, match="Invalid column name"):
-        FilterBuilder.create_safe_filter("col;name", "value", "STRING")
-
-
-def test_filter_builder_sql_injection_protection():
-    """Test FilterBuilder protects against SQL injection in values"""
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
-        FilterBuilder,
-    )
-
-    with pytest.raises(ValueError, match="Invalid value"):
-        FilterBuilder.create_safe_filter("col", "value; DROP TABLE", "STRING")
-
-    with pytest.raises(ValueError, match="Invalid value"):
-        FilterBuilder.create_safe_filter("col", "value-- comment", "STRING")
+    if should_raise:
+        with pytest.raises(ValueError, match=error_match):
+            FilterBuilder.create_safe_filter(column_name, value, col_type)
+    else:
+        result = FilterBuilder.create_safe_filter(column_name, value, col_type)
+        assert result == expected_filter
 
 
 def test_filter_builder_convert_partition_id_with_column_types():
@@ -2632,6 +2578,160 @@ def test_fallback_filter_with_column_types():
         "year", fallback_date, "INT64"
     )
     assert filter_year == "`year` = 2025"  # No quotes for INT64
+
+
+@pytest.mark.parametrize(
+    "column_types,partition_values,expected_filters,expected_count",
+    [
+        pytest.param(
+            {
+                "partition_col1": "INT64",
+                "partition_col2": "STRING",
+                "partition_col3": "DATE",
+            },
+            {
+                "partition_col1": "20241021",
+                "partition_col2": "region_a",
+                "partition_col3": "2024-10-21",
+            },
+            [
+                "`partition_col1` = 20241021",  # INT64 unquoted
+                "`partition_col2` = 'region_a'",  # STRING quoted
+                "`partition_col3` = '2024-10-21'",  # DATE quoted
+            ],
+            3,
+            id="mixed_types_int64_string_date",
+        ),
+        pytest.param(
+            {
+                "region_id": "INT64",
+                "batch_name": "STRING",
+            },
+            {
+                "region_id": "12345",
+                "batch_name": "batch_xyz",
+            },
+            [
+                "`region_id` = 12345",  # INT64 unquoted
+                "`batch_name` = 'batch_xyz'",  # STRING quoted
+            ],
+            2,
+            id="fallback_non_date_partitions",
+        ),
+        pytest.param(
+            {"event_timestamp": "TIMESTAMP"},
+            {"event_timestamp": "202601"},  # YYYYMM format
+            [
+                "TIMESTAMP(",
+                "2026-01-01",
+            ],  # Check for both TIMESTAMP() and formatted date
+            1,
+            id="timestamp_yyyymm_format_conversion",
+        ),
+        pytest.param(
+            {
+                "year_num": "INT64",
+                "month_num": "INT64",
+                "region_code": "INT64",
+            },
+            {
+                "year_num": "2024",
+                "month_num": "10",
+                "region_code": "5",
+            },
+            [
+                "`year_num` = 2024",  # All INT64 unquoted
+                "`month_num` = 10",
+                "`region_code` = 5",
+            ],
+            3,
+            id="all_int64_partitions",
+        ),
+        pytest.param(
+            {
+                "event_date": "DATE",
+                "batch_id": "INT64",
+                "shard_num": "INT64",
+            },
+            {
+                "event_date": "2024-10-21",
+                "batch_id": "9876",
+                "shard_num": "3",
+            },
+            [
+                "`event_date` = '2024-10-21'",  # DATE quoted
+                "`batch_id` = 9876",  # INT64 unquoted
+                "`shard_num` = 3",  # INT64 unquoted
+            ],
+            3,
+            id="date_with_numeric_partitions",
+        ),
+    ],
+)
+def test_find_real_partition_values_type_propagation(
+    column_types, partition_values, expected_filters, expected_count
+):
+    """Test _find_real_partition_values properly passes column types to filter creation.
+
+    This is a parameterized test covering multiple scenarios for the bug fix where column types
+    weren't being passed to _create_safe_filter(), causing type mismatch errors like:
+    - "No matching signature for operator = for argument types: INT64, STRING"
+    - "Could not cast literal '202601' to type TIMESTAMP"
+
+    Fixed at lines 1403-1404 and 1530-1531 in discovery.py
+    """
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_partition_table",
+        partitioned=True,
+    )
+
+    project = "test-project"
+    schema = "test_schema"
+    required_columns = list(column_types.keys())
+
+    mock_execute = Mock()
+
+    with (
+        patch.object(
+            discovery,
+            "_get_partition_column_types",
+            return_value=column_types,
+        ) as mock_get_types,
+        patch.object(
+            discovery,
+            "_get_partition_info_from_table_query",
+            return_value=partition_values,
+        ) as mock_get_partition_info,
+    ):
+        result = discovery._find_real_partition_values(
+            table, project, schema, required_columns, mock_execute
+        )
+
+        # Verify column types were retrieved
+        mock_get_types.assert_called_once_with(
+            table, project, schema, required_columns, mock_execute
+        )
+
+        # Verify partition info was queried
+        mock_get_partition_info.assert_called_once_with(
+            table, project, schema, required_columns, mock_execute
+        )
+
+        # Verify the result contains properly formatted filters
+        assert result is not None, "Expected filters but got None"
+        assert len(result) == expected_count, (
+            f"Expected {expected_count} filters, got {len(result)}"
+        )
+
+        # Check each expected filter is present
+        filter_str = " ".join(result)
+        for expected in expected_filters:
+            assert expected in filter_str, (
+                f"Expected '{expected}' in filters, got: {result}"
+            )
 
 
 if __name__ == "__main__":

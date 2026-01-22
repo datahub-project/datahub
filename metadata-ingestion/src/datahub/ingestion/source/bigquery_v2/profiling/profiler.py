@@ -255,14 +255,6 @@ ORDER BY table_name, ordinal_position
             cached_partition_metadata=cached_metadata,
         )
 
-        if partition_filters is None:
-            # Partition discovery failed, but profiling can still proceed via GE's default approach
-            # This might work for non-partitioned tables or result in higher query costs
-            logger.info(
-                f"Partition discovery failed for {table_ref}, proceeding with default profiling approach"
-            )
-            return base_kwargs
-
         # STEP 4: Validate and apply partition filters for security
         validated_filters = []
         partition_where = ""
