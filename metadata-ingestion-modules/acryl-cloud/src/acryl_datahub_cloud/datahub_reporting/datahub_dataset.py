@@ -428,10 +428,11 @@ class DataHubBasedS3Dataset:
         dataset_urn: str,
         physical_uri: str,
         local_file: str,
+        custom_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         aspects: List = []
         mcps: List[MetadataChangeProposalWrapper] = self._update_presigned_url(
-            dataset_urn, physical_uri
+            dataset_urn, physical_uri, custom_properties=custom_properties
         )
         current_time_millis = int(time.time()) * 1000
         aspects.extend(
@@ -474,6 +475,7 @@ class DataHubBasedS3Dataset:
         dataset_urn: str,
         physical_uri: str,
         dataset_properties: Optional[DatasetPropertiesClass] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
     ) -> List[MetadataChangeProposalWrapper]:
         if self.config.generate_presigned_url:
             external_url = self._generate_presigned_url(physical_uri)
@@ -485,7 +487,14 @@ class DataHubBasedS3Dataset:
         )
         if dataset_properties is not None:
             dataset_properties.externalUrl = external_url
+            if custom_properties:
+                existing = dataset_properties.customProperties or {}
+                dataset_properties.customProperties = {**existing, **custom_properties}
         else:
+            merged_properties = {"physical_uri": physical_uri}
+            if custom_properties:
+                merged_properties.update(custom_properties)
+
             current_time_millis = int(time.time()) * 1000
             dataset_properties = DatasetPropertiesClass(
                 name=self.dataset_metadata.displayName or self.config.dataset_name,
@@ -495,9 +504,7 @@ class DataHubBasedS3Dataset:
                 lastModified=TimeStampClass(
                     time=current_time_millis, actor="urn:li:corpuser:datahub"
                 ),
-                customProperties={
-                    "physical_uri": physical_uri,
-                },
+                customProperties=merged_properties,
             )
 
         return MetadataChangeProposalWrapper.construct_many(

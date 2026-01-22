@@ -1,10 +1,12 @@
+import hashlib
 import logging
 import os
 import shutil
 import zipfile
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, List, Literal, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -34,6 +36,17 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExtractionStats:
+    """Statistics about the extraction process."""
+
+    source_path: str
+    file_count: int
+    total_size_bytes: int
+    source_files_md5: str  # Combined MD5 of all source file checksums
+    zip_md5: str  # MD5 of final ZIP file
 
 
 class S3ClientConfig(ConfigModel):
@@ -181,14 +194,14 @@ class DataHubReportingExtractSQLSource(Source):
 
             self._clean_up_old_state(state_directory=tmp_dir)
 
-            files_downloaded: bool = self._download_and_zip_in_batches(
+            extraction_stats = self._download_and_zip_in_batches(
                 bucket=self.config.sql_backup_config.bucket,
                 prefix=bucket_prefix,
                 batch_dir=f"{tmp_dir}/download/",
                 output_zip=f"{tmp_dir}/{output_file}",
                 batch_size_bytes=self.config.batch_size_bytes,
             )
-            if not files_downloaded:
+            if extraction_stats is None:
                 logger.warning(f"Skipping as no files were found in {bucket_prefix}")
                 return
 
@@ -199,6 +212,13 @@ class DataHubReportingExtractSQLSource(Source):
                 dataset_urn=self.datahub_based_s3_dataset.get_dataset_urn(),
                 physical_uri=self.datahub_based_s3_dataset.get_file_uri(),
                 local_file=f"{tmp_dir}/download/*.parquet",
+                custom_properties={
+                    "source_path": extraction_stats.source_path,
+                    "source_file_count": str(extraction_stats.file_count),
+                    "source_total_size_bytes": str(extraction_stats.total_size_bytes),
+                    "source_files_md5": extraction_stats.source_files_md5,
+                    "zip_md5": extraction_stats.zip_md5,
+                },
             )
 
             # Force update the DataHubBasedS3Dataset local file path to match where the zip file was created.
@@ -228,8 +248,9 @@ class DataHubReportingExtractSQLSource(Source):
         zipf: zipfile.ZipFile,
         file_name: str,
         chunk_size: int,
-    ) -> None:
-        """Stream file from local disk to ZIP using chunked reads."""
+    ) -> str:
+        """Stream file from local disk to ZIP, returning MD5 checksum."""
+        file_md5 = hashlib.md5()
         with (
             open(local_file_path, "rb") as local_file,
             zipf.open(file_name, "w") as zip_entry,
@@ -238,7 +259,9 @@ class DataHubReportingExtractSQLSource(Source):
                 chunk = local_file.read(chunk_size)
                 if not chunk:
                     break
+                file_md5.update(chunk)
                 zip_entry.write(chunk)
+        return file_md5.hexdigest()
 
     def _stream_file_to_zip_from_s3(
         self,
@@ -247,8 +270,9 @@ class DataHubReportingExtractSQLSource(Source):
         zipf: zipfile.ZipFile,
         file_name: str,
         chunk_size: int,
-    ) -> None:
-        """Stream file from S3 to ZIP using chunked reads."""
+    ) -> str:
+        """Stream file from S3 to ZIP, returning MD5 checksum."""
+        file_md5 = hashlib.md5()
         s3_response = self.s3_client.get_object(Bucket=bucket, Key=file_key)
         body_stream = s3_response["Body"]
 
@@ -257,7 +281,9 @@ class DataHubReportingExtractSQLSource(Source):
                 chunk = body_stream.read(chunk_size)
                 if not chunk:
                     break
+                file_md5.update(chunk)
                 zip_entry.write(chunk)
+        return file_md5.hexdigest()
 
     @staticmethod
     def _group_objects_into_batches(
@@ -307,6 +333,65 @@ class DataHubReportingExtractSQLSource(Source):
 
         return batches
 
+    @staticmethod
+    def _verify_zip_file(
+        output_zip: str, expected_count: int, files_written: int
+    ) -> int:
+        """
+        Verify ZIP file integrity after writing.
+
+        Returns the ZIP file size in bytes on success.
+        Raises RuntimeError with diagnostic info on failure.
+        """
+        if not os.path.exists(output_zip):
+            raise RuntimeError(
+                f"ZIP file {output_zip} does not exist after writing {files_written} files"
+            )
+
+        zip_file_size = os.path.getsize(output_zip)
+        logger.info(
+            f"ZIP file size: {zip_file_size / (1024 * 1024 * 1024):.2f} GB ({zip_file_size:,} bytes)"
+        )
+
+        if zip_file_size == 0:
+            raise RuntimeError(
+                f"ZIP file {output_zip} is empty (0 bytes) after writing {files_written} files"
+            )
+
+        try:
+            with zipfile.ZipFile(output_zip, "r") as verify_zipf:
+                actual_count = len(verify_zipf.namelist())
+                if actual_count != expected_count:
+                    raise RuntimeError(
+                        f"ZIP verification failed: expected {expected_count} files, got {actual_count}. "
+                        f"ZIP file may be corrupted."
+                    )
+        except zipfile.BadZipFile as e:
+            # Provide diagnostic info to help debug production issues
+            first_bytes = b""
+            try:
+                with open(output_zip, "rb") as f:
+                    first_bytes = f.read(4)
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"ZIP verification failed: {e}. "
+                f"File size: {zip_file_size:,} bytes, "
+                f"First 4 bytes: {first_bytes.hex() if first_bytes else 'unreadable'} "
+                f"(expected: 504b0304 for PK ZIP header)"
+            ) from e
+
+        return zip_file_size
+
+    @staticmethod
+    def _compute_file_md5(file_path: str, chunk_size: int = 8 * 1024 * 1024) -> str:
+        """Compute MD5 checksum of a file."""
+        md5 = hashlib.md5()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(chunk_size), b""):
+                md5.update(chunk)
+        return md5.hexdigest()
+
     def _download_and_zip_in_batches(
         self,
         bucket: str,
@@ -314,7 +399,7 @@ class DataHubReportingExtractSQLSource(Source):
         batch_dir: str,
         output_zip: str,
         batch_size_bytes: int,
-    ) -> bool:
+    ) -> Optional[ExtractionStats]:
         """
         Stream files from S3 directly into ZIP using chunked streaming, processing in batches to limit memory usage.
 
@@ -329,13 +414,13 @@ class DataHubReportingExtractSQLSource(Source):
             batch_size_bytes: Maximum total size of files to stream in each batch before flushing
 
         Returns:
-            True if any files were processed, False otherwise
+            ExtractionStats with file count, total size, and source path if files were processed, None otherwise
         """
         s3_resource = boto3.resource("s3")
         objects = list(s3_resource.Bucket(bucket).objects.filter(Prefix=prefix))
 
         if not objects:
-            return False
+            return None
 
         logger.info(
             f"Found {len(objects)} files in s3://{bucket}/{prefix}, streaming in batches of up to {batch_size_bytes / (1024**2):.2f} MB"
@@ -366,18 +451,23 @@ class DataHubReportingExtractSQLSource(Source):
         # Track whether we've processed the first file to avoid downloading it twice
         first_obj_processed = False
 
-        # Process each batch: stream from S3 directly to ZIP using chunked reads
-        zip_mode: Literal["x", "a"] = "x"  # Create new file for first batch
+        # Process all batches with a single ZIP file session to avoid append mode issues.
+        # ZIP append mode ("a") can corrupt the central directory at scale, causing files
+        # from later batches to be silently lost. By keeping the ZIP open for the entire
+        # operation, the central directory is written only once at the end.
         chunk_size = 8 * 1024 * 1024  # 8MB chunks for constant memory usage
+        files_written = 0
+        file_checksums: List[str] = []
 
-        for batch_idx, batch in enumerate(batches):
-            batch_size_mb = sum(obj.size for obj in batch) / (1024 * 1024)
-            logger.info(
-                f"Processing batch {batch_idx + 1}/{len(batches)} with {len(batch)} files ({batch_size_mb:.2f} MB)"
-            )
+        with zipfile.ZipFile(
+            output_zip, "w", zipfile.ZIP_STORED, allowZip64=True
+        ) as zipf:
+            for batch_idx, batch in enumerate(batches):
+                batch_size_mb = sum(obj.size for obj in batch) / (1024 * 1024)
+                logger.info(
+                    f"Processing batch {batch_idx + 1}/{len(batches)} with {len(batch)} files ({batch_size_mb:.2f} MB)"
+                )
 
-            # Stream files from S3 directly into ZIP using chunked reads
-            with zipfile.ZipFile(output_zip, zip_mode, zipfile.ZIP_DEFLATED) as zipf:
                 for obj in batch:
                     file_key = obj.key
 
@@ -395,7 +485,7 @@ class DataHubReportingExtractSQLSource(Source):
                                 f"Adding {file_name} ({obj.size / (1024**2):.2f} MB) to ZIP from local file "
                                 f"(already downloaded for schema computation)"
                             )
-                            self._stream_file_to_zip_from_local(
+                            file_md5 = self._stream_file_to_zip_from_local(
                                 sample_file_path, zipf, file_name, chunk_size
                             )
                             first_obj_processed = True
@@ -404,11 +494,13 @@ class DataHubReportingExtractSQLSource(Source):
                             logger.info(
                                 f"Streaming {file_name} ({obj.size / (1024**2):.2f} MB) from S3 using chunked reads"
                             )
-                            self._stream_file_to_zip_from_s3(
+                            file_md5 = self._stream_file_to_zip_from_s3(
                                 bucket, file_key, zipf, file_name, chunk_size
                             )
 
-                        logger.info(f"Added {file_name} to ZIP file")
+                        file_checksums.append(f"{file_name}:{file_md5}")
+                        files_written += 1
+                        logger.info(f"Added {file_name} to ZIP file (md5: {file_md5})")
 
                     except ClientError as e:
                         logger.error(f"Failed to stream s3://{bucket}/{file_key}: {e}")
@@ -423,18 +515,43 @@ class DataHubReportingExtractSQLSource(Source):
                             f"Failed to process file {file_key}: {e}"
                         ) from e
 
-            # After first batch, switch to append mode for subsequent batches
-            zip_mode = "a"
+                logger.info(
+                    f"Batch {batch_idx + 1}/{len(batches)} complete, {files_written} files written so far"
+                )
 
-            logger.info(
-                f"Batch {batch_idx + 1}/{len(batches)} complete, streamed {len(batch)} files"
-            )
+        # ZIP context manager has exited - central directory should now be written
+        # Ensure ZIP file is fully flushed to disk before verification
+        # This is critical for large files where OS buffering can delay writes
+        with open(output_zip, "r+b") as f:
+            os.fsync(f.fileno())
 
-        total_size_mb = sum(obj.size for obj in objects) / (1024 * 1024)
         logger.info(
-            f"Successfully streamed all {len(objects)} files ({total_size_mb:.2f} MB) across {len(batches)} batches"
+            f"ZIP file closed after writing {files_written} files, verifying integrity..."
         )
-        return True
+
+        zip_file_size = self._verify_zip_file(output_zip, len(objects), files_written)
+
+        # Compute combined source checksum from individual file checksums
+        # Sort for deterministic ordering, then hash the concatenated checksums
+        file_checksums.sort()
+        combined_md5 = hashlib.md5("\n".join(file_checksums).encode()).hexdigest()
+
+        # Compute ZIP file checksum
+        zip_md5 = self._compute_file_md5(output_zip)
+
+        total_size_bytes = sum(obj.size for obj in objects)
+        logger.info(
+            f"ZIP verification passed: {len(objects)} files ({total_size_bytes / (1024 * 1024):.2f} MB source) "
+            f"compressed to {zip_file_size / (1024 * 1024):.2f} MB across {len(batches)} batches"
+        )
+        logger.info(f"Source files combined MD5: {combined_md5}, ZIP MD5: {zip_md5}")
+        return ExtractionStats(
+            source_path=f"s3://{bucket}/{prefix}",
+            file_count=len(objects),
+            total_size_bytes=total_size_bytes,
+            source_files_md5=combined_md5,
+            zip_md5=zip_md5,
+        )
 
     def get_report(self) -> SourceReport:
         return self.report
