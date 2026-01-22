@@ -3184,3 +3184,22 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **e86783d01d** - feat(ingestion/deps): add upper bounds to dependency versions in setup.py (#15813)
   *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2026-01-15*
+
+## Upstream Merge Session - 2026-01-22 06:54:32
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 2
+- **Strategy**: stacked
+- **Started**: 2026-01-22 06:54:32
+
+### Commits Included in This Merge
+
+- **7090d123de** - fix(tests): fix new CI failures (#15887)
+  *by RyanHolstien <RyanHolstien@users.noreply.github.com> on 2026-01-15*
+
+- **bfb3564132** - docs(cloud-release) DataHub Cloud v0.3.16 Release Changelog (#15869)
+  *by Maggie Hays <maggiem.hays@gmail.com> on 2026-01-15*
