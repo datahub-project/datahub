@@ -71,14 +71,6 @@ flowchart TB
 4. **Execution**: The executor receives the task and spawns a subprocess to run ingestion
 5. **Reporting**: Status updates and metadata are sent back to DataHub via HTTPS
 
-### Security Model
-
-| Aspect                   | Description                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| **Outbound-Only**        | The executor only makes outbound HTTPS connections. No inbound ports needed. No load balancer required. |
-| **Credential Isolation** | Your database credentials (passwords, keys) stay in your network. They are never sent to DataHub Cloud. |
-| **Process Isolation**    | Each ingestion task runs in an isolated subprocess. If one task crashes, it doesn't affect others.      |
-
 ## Next Steps
 
 To get started with Remote Executor:

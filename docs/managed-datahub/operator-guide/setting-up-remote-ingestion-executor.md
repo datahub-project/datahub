@@ -112,19 +112,40 @@ Download the [CloudFormation Template](https://raw.githubusercontent.com/acrylda
 
 **Required Parameters:**
 
-| Parameter            | Description                                  | Example                     |
-| -------------------- | -------------------------------------------- | --------------------------- |
-| `VPCID`              | Your VPC ID                                  | `vpc-12345678`              |
-| `SubnetID`           | Subnet with outbound internet access         | `subnet-12345678`           |
-| `DataHubBaseUrl`     | Your DataHub Cloud URL (must include `/gms`) | `https://acme.acryl.io/gms` |
-| `ExecutorPoolId`     | Pool Identifier from Step 4 above            | `remote`                    |
-| `DataHubAccessToken` | Remote Executor access token                 | `eyJ...`                    |
+| Parameter        | Description                                              | Example                     |
+| ---------------- | -------------------------------------------------------- | --------------------------- |
+| `VPCID`          | Your VPC ID                                              | `vpc-12345678`              |
+| `SubnetID`       | Subnet with outbound internet access                     | `subnet-12345678`           |
+| `DataHubBaseUrl` | Your DataHub Cloud URL (must include `/gms`)             | `https://acme.acryl.io/gms` |
+| `ExecutorPoolId` | Pool Identifier from "Creating an Executor Pool" section | `remote`                    |
 
-**Or use an existing secret:**
+**Access Token (provide one of the following):**
 
-| Parameter                             | Description                                                                                           |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `ExistingDataHubAccessTokenSecretArn` | ARN of existing AWS Secrets Manager secret containing the token (use instead of `DataHubAccessToken`) |
+| Parameter                             | Description                                           | Example                                                    |
+| ------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| `DataHubAccessToken`                  | Remote Executor access token (plaintext)              | `eyJ...`                                                   |
+| `ExistingDataHubAccessTokenSecretArn` | ARN of existing Secrets Manager secret with the token | `arn:aws:secretsmanager:us-west-2:123456789:secret:my-tok` |
+
+**Optional Parameters:**
+
+| Parameter                       | Default           | Description                                                          |
+| ------------------------------- | ----------------- | -------------------------------------------------------------------- |
+| `ImageTag`                      | `v0.3.15.4-acryl` | Executor version                                                     |
+| `DesiredCount`                  | `1`               | Number of executor replicas                                          |
+| `TaskCpu`                       | `2048`            | CPU units (256, 512, 1024, 2048, 4096)                               |
+| `TaskMemory`                    | `8192`            | Memory in MiB                                                        |
+| `TaskEphemeralStorageSizeInGiB` | `21`              | Ephemeral storage in GiB                                             |
+| `AwsRegion`                     | `us-west-2`       | AWS region for the executor                                          |
+| `OptionalSecrets`               | -                 | Data source secrets (format: `NAME=ARN,NAME2=ARN2`)                  |
+| `OptionalEnvVars`               | -                 | Additional environment variables (format: `NAME=VALUE,NAME2=VALUE2`) |
+
+:::warning
+The following parameters should only be changed after consulting with your DataHub representative:
+
+- `DataHubIngestionsMaxWorkers`
+- `DataHubMonitorsMaxWorkers`
+- `DataHubIngestionsSignalPollInterval`
+  :::
 
 **Deploy using AWS CLI:**
 
@@ -171,27 +192,6 @@ source:
   config:
     password: "${DB_PASSWORD}"
 ```
-
-#### Optional Parameters Reference
-
-| Parameter                       | Default           | Description                                                          |
-| ------------------------------- | ----------------- | -------------------------------------------------------------------- |
-| `ImageTag`                      | `v0.3.15.4-acryl` | Executor version                                                     |
-| `DesiredCount`                  | `1`               | Number of executor replicas                                          |
-| `TaskCpu`                       | `2048`            | CPU units (256, 512, 1024, 2048, 4096)                               |
-| `TaskMemory`                    | `8192`            | Memory in MiB                                                        |
-| `TaskEphemeralStorageSizeInGiB` | `21`              | Ephemeral storage in GiB                                             |
-| `AwsRegion`                     | `us-west-2`       | AWS region for the executor                                          |
-| `OptionalSecrets`               | -                 | Data source secrets (format: `NAME=ARN,NAME2=ARN2`)                  |
-| `OptionalEnvVars`               | -                 | Additional environment variables (format: `NAME=VALUE,NAME2=VALUE2`) |
-
-:::warning
-The following parameters should only be changed after consulting with your DataHub representative:
-
-- `DataHubIngestionsMaxWorkers`
-- `DataHubMonitorsMaxWorkers`
-- `DataHubIngestionsSignalPollInterval`
-  :::
 
 ### Update ECS Deployment
 
@@ -246,12 +246,34 @@ helm install acryl-executor-worker acryl/datahub-executor-worker \
   --set global.datahub.executor.pool_id="<your-pool-id>"
 ```
 
-**Required Helm values:**
+**Required Helm Values:**
 
-| Value                             | Description                                  |
-| --------------------------------- | -------------------------------------------- |
-| `global.datahub.gms.url`          | Your DataHub Cloud URL (must include `/gms`) |
-| `global.datahub.executor.pool_id` | Your Executor Pool ID                        |
+| Value                             | Description                                              | Example                     |
+| --------------------------------- | -------------------------------------------------------- | --------------------------- |
+| `global.datahub.gms.url`          | Your DataHub Cloud URL (must include `/gms`)             | `https://acme.acryl.io/gms` |
+| `global.datahub.executor.pool_id` | Pool Identifier from "Creating an Executor Pool" section | `remote`                    |
+
+**Access Token Configuration:**
+
+The Helm chart uses the secret created in Step 2. Default settings:
+
+| Value                          | Default                           | Description            |
+| ------------------------------ | --------------------------------- | ---------------------- |
+| `global.datahub.gms.secretRef` | `datahub-access-token-secret`     | Kubernetes Secret name |
+| `global.datahub.gms.secretKey` | `datahub-access-token-secret-key` | Key within the Secret  |
+
+**Optional Helm Values:**
+
+| Value                                            | Default           | Description                      |
+| ------------------------------------------------ | ----------------- | -------------------------------- |
+| `image.tag`                                      | `v0.3.15.4-acryl` | Executor version                 |
+| `replicaCount`                                   | `1`               | Number of executor replicas      |
+| `resources.requests.cpu`                         | `4`               | CPU allocation                   |
+| `resources.requests.memory`                      | `8Gi`             | Memory allocation                |
+| `global.datahub.executor.ingestions.max_workers` | `4`               | Max concurrent ingestion tasks   |
+| `extraVolumes`                                   | `[]`              | Additional volumes for secrets   |
+| `extraVolumeMounts`                              | `[]`              | Volume mount paths               |
+| `extraEnvs`                                      | `[]`              | Additional environment variables |
 
 #### Step 4: Configure Secret Mounting (Optional)
 
