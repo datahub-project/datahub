@@ -1,7 +1,7 @@
 name: Release Tests
 # This workflow runs release tests against a remote DataHub instance
 # These tests do not require building images or running quickstart locally
-run-name: "Environment: ${{ github.event.inputs.remote_instance_url }} Test branch: ${{ github.event.inputs.branch }}"
+run-name: "Environment: ${{ github.event.inputs.remote_instance_url || 'https://deploy-auto.acryl.io' }} Test branch: ${{ github.event.inputs.branch || 'acryl-main' }}"
 on:
   schedule:
     - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
@@ -114,8 +114,8 @@ jobs:
         if: success() || failure()
         with:
           check_name: "Release Test Results"
-          commit: ${{ github.event.workflow_run.head_sha }}
-          event_name: ${{ github.event.workflow_run.event }}
+          commit: ${{ github.sha }}
+          event_name: ${{ github.event_name }}
           files: "smoke-test/test-reports/junit.xml"
           job_summary: true
           comment_mode: off
