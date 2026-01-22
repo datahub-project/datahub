@@ -8,6 +8,7 @@ from typing import ContextManager, Optional
 import click
 
 import datahub._version as datahub_version
+from datahub.cli.agent_cli import agent
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     enable_auto_decorators,
@@ -358,6 +359,7 @@ def init(
     click.echo(f"✓ Configuration written to {DATAHUB_CONFIG_PATH}")
 
 
+datahub.add_command(agent)
 datahub.add_command(check)
 datahub.add_command(docker)
 datahub.add_command(ingest)
