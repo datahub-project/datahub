@@ -4,6 +4,8 @@ import { Typography } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
 
+import colors from '@components/theme/foundations/colors';
+
 import { IconWrapper } from '@app/searchV2/filters/SearchFilterView';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
 import { FilterPredicate } from '@app/searchV2/filters/types';
@@ -72,22 +74,23 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
                 data-testid={`more-filter-${displayName?.replace(/\s/g, '-')}`}
                 ref={labelRef}
             >
-                <Tooltip title={displayName} placement="left">
-                    <IconNameWrapper>
-                        {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                        <Typography.Text
-                            ellipsis={{
-                                tooltip: {
-                                    title: displayName,
-                                    showArrow: false,
-                                },
-                            }}
-                        >
-                            {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                        </Typography.Text>
-                    </IconNameWrapper>
-                    <StyledRightOutlined />
-                </Tooltip>
+                <IconNameWrapper>
+                    {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
+                    <Typography.Text
+                        ellipsis={{
+                            tooltip: {
+                                title: displayName,
+                                showArrow: false,
+                                color: 'white',
+                                overlayInnerStyle: { color: colors.gray[1700] },
+                                placement: 'left',
+                            },
+                        }}
+                    >
+                        {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    </Typography.Text>
+                </IconNameWrapper>
+                <StyledRightOutlined />
             </MoreFilterOptionLabel>
         </StyledValueSelector>
     );
