@@ -2,7 +2,7 @@ import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useEntityData} from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     RoleAccessData,
@@ -11,7 +11,7 @@ import {
 import AccessManagerDescription from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
 import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
 
-import { GetDatasetQuery, useGetExternalRolesQuery } from '@graphql/dataset.generated';
+import { useGetExternalRolesQuery } from '@graphql/dataset.generated';
 
 const StyledTable = styled(Table)`
     overflow: inherit;
