@@ -48,6 +48,8 @@ export function ScheduleStep() {
     const [scheduleTimezone, setScheduleTimezone] = useState(timezone);
     const analyticsRef = useRef(false);
 
+    const analyticsRef = useRef(false);
+
     const cronAsText = useMemo(() => {
         if (scheduleCronInterval) {
             try {
