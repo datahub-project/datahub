@@ -1,169 +1,207 @@
-## Lineage Extraction
+### Configuration Notes
 
-The Matillion connector extracts lineage information from OpenLineage events provided by the Matillion Public API's `/v1/lineage/events` endpoint. These events contain dataset-level and column-level lineage in standard OpenLineage format.
+#### OpenLineage Namespace Mapping
 
-### Namespace Mapping
+The `namespace_to_platform_instance` configuration maps OpenLineage namespace URIs to DataHub platform information. This is critical for connecting lineage from Matillion pipelines to your existing datasets.
 
-OpenLineage events use namespace URIs to identify data sources (e.g., `snowflake://account.region`, `postgresql://host:5432`). The connector automatically maps these namespaces to DataHub platforms using the platform prefix (the part before `://`).
-
-#### Pre-Mapped Platforms
-
-The following platforms are automatically mapped without additional configuration:
-
-| OpenLineage Namespace Prefix     | DataHub Platform |
-| -------------------------------- | ---------------- |
-| `postgres://` or `postgresql://` | `postgres`       |
-| `sqlserver://`                   | `mssql`          |
-| `snowflake://`                   | `snowflake`      |
-| `bigquery://`                    | `bigquery`       |
-| `redshift://`                    | `redshift`       |
-| `mysql://`                       | `mysql`          |
-| `oracle://`                      | `oracle`         |
-| `s3://`                          | `s3`             |
-| `databricks://`                  | `databricks`     |
-| `mongodb://`                     | `mongodb`        |
-
-For platforms not in this list, the namespace prefix is used as-is as the DataHub platform name.
-
-**Unmapped Namespaces:** When a namespace is encountered without an explicit `namespace_to_platform_instance` configuration:
-
-- Platform is automatically extracted from the namespace URI (e.g., `postgresql://host:5432` → `postgres` platform)
-- Environment defaults to `PROD`
-- No `platform_instance` is set (None)
-- No database/schema defaults are applied (None)
-- URN lowercasing is disabled (False)
-
-This allows the connector to extract lineage from any data source without requiring explicit configuration for every namespace.
-
-#### Custom Platform Mappings
-
-To override default mappings or add new ones, use the `lineage_platform_mapping` configuration:
-
-```yaml
-source:
-  type: matillion
-  config:
-    # ... other config ...
-    lineage_platform_mapping:
-      customdb: postgres # Map "customdb://" to DataHub's postgres platform
-      mywarehouse: snowflake # Map "mywarehouse://" to DataHub's snowflake platform
-```
-
-#### Platform Instance Mapping
-
-When you have multiple instances of the same platform (e.g., production and staging Snowflake), use `namespace_to_platform_instance` with longest-prefix matching:
-
-```yaml
-source:
-  type: matillion
-  config:
-    # ... other config ...
-    namespace_to_platform_instance:
-      "snowflake://prod-account.us-east-1":
-        platform_instance: "snowflake_prod"
-        env: "PROD"
-        database: "PROD_DB" # Optional: default database for incomplete names
-        schema: "PUBLIC" # Optional: default schema for incomplete names
-        convert_urns_to_lowercase: true # Lowercase dataset URNs (matches Snowflake connector)
-      "postgresql://staging-db.example.com:5432":
-        platform_instance: "postgres_staging"
-        env: "DEV"
-        database: "staging_db"
-        schema: "public"
-        convert_urns_to_lowercase: false # Preserve case for PostgreSQL
-      "mysql://prod-db:3306":
-        platform_instance: "mysql_prod"
-        env: "PROD"
-        database: "prod_db" # MySQL uses 2-part names (database.table)
-        # No schema for MySQL
-```
-
-**How it works:**
-
-- The connector finds the longest matching prefix from your configuration
-- For `snowflake://prod-account.us-east-1/db.schema.table`, it matches `snowflake://prod-account.us-east-1`
-- Datasets from this namespace get `platform_instance="snowflake_prod"` and `env="PROD"`
-
-**Configuration Options:**
+**Configuration fields:**
 
 - **`platform_instance`**: Platform instance identifier for the data source
 
   - When set, DataHub prepends this to the dataset name in the final URN
   - Example: `platform_instance.schema.table` or `platform_instance.table` depending on platform type
-  - **Important**: When `platform_instance` is configured, the `database` is omitted from normalized names because DataHub will prepend the platform_instance automatically
+  - Must match the platform instance used when ingesting the source data platform
 
 - **`database` and `schema`**: Handle incomplete dataset names from OpenLineage events
 
   - **3-tier platforms** (Snowflake, Postgres, Redshift): Use `database.schema.table` format
     - Without platform_instance: `table` → `database.schema.table`
-    - With platform_instance: `table` → `schema.table` (database omitted, platform_instance prepended by DataHub)
-  - **2-tier platforms** (MySQL, Hive, Teradata): Use `database.table` format
-    - Without platform_instance: `table` → `database.table`
-    - With platform_instance: `table` → `table` (database omitted, platform_instance prepended by DataHub)
-  - Already qualified names remain unchanged
+    - Without platform_instance: `schema.table` → `database.schema.table`
+    - With platform_instance: `table` → `schema.table` (platform_instance is prepended by URN builder)
+    - With platform_instance: `schema.table` → `schema.table` (no change)
+  - **2-tier platforms** (MySQL, Hive): Use `schema.table` format
+    - Without platform_instance: `table` → `schema.table`
+    - With platform_instance: `table` → `table` (platform_instance is prepended by URN builder)
+  - **Defaults** only apply when the dataset name from OpenLineage doesn't include that context
 
-- **`convert_urns_to_lowercase`**: Whether to lowercase dataset URNs (default: `false`)
-  - Set to `true` for Snowflake to match the Snowflake connector's default behavior
-  - Ensures lineage correctly links between Snowflake connector ingestion and Matillion pipelines
-  - Note: Schema field names are handled separately (Snowflake fields are always lowercased)
+- **`convert_urns_to_lowercase`**: Whether to normalize dataset URNs to lowercase
 
-### Lineage Time Range
+  - Set to `true` for case-insensitive platforms like Snowflake
+  - Set to `false` for case-sensitive platforms
+  - Default: `false`
 
-By default, the connector fetches OpenLineage events from the last 7 days. Configure this using:
+- **`env`**: Environment tag for datasets (PROD, DEV, STAGING, etc.)
+  - Default: `PROD`
+  - Should match the environment used in your existing dataset URNs
+
+**Example for unmapped namespaces:**
+
+If an OpenLineage namespace is not explicitly configured in `namespace_to_platform_instance`, the connector will:
+
+1. Extract the platform type from the namespace URI (e.g., `postgresql://...` → `postgres`)
+2. Use default environment (`PROD`)
+3. Not apply any database/schema defaults
+4. Not assign a platform instance
+
+This fallback behavior allows lineage extraction even for ad-hoc or development data sources, but may not correctly link to existing datasets if platform instances are used.
+
+#### SQL Parsing for Column-Level Lineage
+
+When `parse_sql_for_lineage: true` is enabled, DataHub uses the `SqlParsingAggregator` to parse SQL queries extracted from OpenLineage events. This provides additional column-level lineage beyond what's explicitly provided in the OpenLineage column lineage data.
+
+**How it works:**
+
+1. SQL queries are extracted from the `sql` field in OpenLineage run events
+2. Schemas of input/output datasets are registered with the aggregator (from OpenLineage schema info)
+3. SQL is parsed using platform-specific SQL dialects to infer column-level dependencies
+4. Parsed lineage is combined with explicit OpenLineage column lineage
+5. Final lineage is emitted to DataHub
+
+**Requirements:**
+
+- DataHub graph connection configured (for schema lookups)
+- `include_lineage: true` (to extract OpenLineage events)
+- Input/output datasets must have schema information in OpenLineage events
+
+**Limitations:**
+
+- SQL dialect must be supported by DataHub's SQL parser (sqlglot)
+- Complex SQL with unsupported syntax may fail to parse (gracefully skipped with warning)
+- Cross-platform transformations (e.g., Postgres SQL writing to Snowflake) project correctly as long as schema information is available
+
+#### Platform-Specific Handling
+
+**Snowflake:**
+
+- Automatically lowercases schema field names for schema field URNs (Snowflake normalizes identifiers to uppercase, but DataHub stores them lowercase)
+- Use `convert_urns_to_lowercase: true` in namespace mapping to match standard Snowflake dataset ingestion
+- Database context in table names is omitted when `platform_instance` is set (URN builder handles it)
+
+**BigQuery:**
+
+- Uses 3-tier naming: `project.dataset.table`
+- Set `database: project-id` and `schema: dataset-name` in namespace mapping
+- Platform instance should match your BigQuery source ingestion
+
+**MySQL / 2-tier platforms:**
+
+- Uses 2-tier naming: `schema.table` (no database level)
+- Only set `schema` in namespace mapping, leave `database` unset
+- System automatically detects 2-tier platforms and adjusts normalization logic
+
+**Postgres / Redshift:**
+
+- Uses 3-tier naming: `database.schema.table`
+- Set both `database` and `schema` in namespace mapping
+- Default schema is often `public` for Postgres
+
+### Troubleshooting
+
+#### Lineage Not Showing Up
+
+**1. Check namespace mapping configuration:**
+
+Verify that OpenLineage namespace URIs are correctly mapped to platform instances:
+
+```yaml
+namespace_to_platform_instance:
+  "postgresql://your-actual-host.rds.amazonaws.com:5432":
+    platform_instance: postgres_prod # Must match your postgres source ingestion
+    env: PROD
+```
+
+**2. Verify platform instance consistency:**
+
+Ensure the `platform_instance` values in your Matillion recipe match exactly what you used when ingesting the source data platforms. You can check existing dataset URNs in DataHub:
+
+```
+urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.users,PROD)
+                                             ^^^^^^^^^^^^^^^^
+                                             This is the platform_instance
+```
+
+**3. Check OpenLineage events:**
+
+Enable debug logging to see raw OpenLineage events:
 
 ```yaml
 source:
-  type: matillion
   config:
-    lineage_start_days_ago: 14 # Fetch events from last 14 days
+    # ... other config
 ```
 
-### Column-Level Lineage
+Then check logs for `Processing OpenLineage event` messages to verify events are being received and parsed.
 
-Column-level lineage is enabled by default when `include_lineage: true`. The connector extracts column lineage from two sources:
+**4. Verify dataset names:**
 
-1. **OpenLineage columnLineage facets**: Direct column-to-column mappings from OpenLineage events
-2. **SQL Parsing** (when `parse_sql_for_lineage: true`): Enhanced lineage from SQL queries in OpenLineage events using DataHub's SqlParsingAggregator
+Check that dataset names in OpenLineage match your actual table names. Use debug logging to inspect normalized dataset names.
 
-To customize column-level lineage behavior:
+#### Column-Level Lineage Missing
+
+**1. Enable column lineage extraction:**
 
 ```yaml
-source:
-  type: matillion
-  config:
-    include_lineage: true
-    include_column_lineage: true # Enable column lineage (default: true)
-    parse_sql_for_lineage: true # Use SQL parsing (default: true)
+include_column_lineage: true
 ```
 
-To disable column-level lineage and only extract dataset-level lineage:
+**2. Check if OpenLineage provides column lineage:**
+
+Not all Matillion components emit column-level lineage in OpenLineage events. This is a Matillion API limitation.
+
+**3. Try SQL parsing:**
+
+If OpenLineage doesn't include column lineage, enable SQL parsing:
 
 ```yaml
-source:
-  type: matillion
-  config:
-    include_lineage: true
-    include_column_lineage: false # Disable fine-grained lineage
+parse_sql_for_lineage: true
 ```
 
-**Platform-Specific Handling:**
+This requires a DataHub graph connection and may not work for all SQL dialects.
 
-The connector automatically normalizes dataset names and field names based on platform conventions:
+#### Execution History Not Appearing
 
-**Dataset Names:**
+**1. Enable execution ingestion:**
 
-- **3-tier platforms** (Snowflake, Postgres, Redshift, BigQuery, Oracle, MS SQL, DB2): Use `database.schema.table` naming
-- **2-tier platforms** (MySQL, Hive, Teradata, ClickHouse, Glue, Iceberg): Use `database.table` or `schema.table` naming
-- **With platform_instance**: Database is omitted from the normalized name (DataHub prepends platform_instance to create the final URN)
+```yaml
+include_pipeline_executions: true
+```
 
-**Field Names:**
+**2. Check execution lookback window:**
 
-- **Snowflake**: Field names are automatically lowercased to match the Snowflake connector's behavior
-  - Example: `CUSTOMER_ID` in OpenLineage → `customer_id` in schema field URN
-- **Other platforms**: Field names preserve their original casing from OpenLineage events
+```yaml
+execution_start_days_ago: 7 # Default is 7 days
+```
 
-## Known Limitations
+**3. Verify API permissions:**
 
-- OpenLineage events are only available for pipeline executions that occurred during the configured time window (`lineage_start_days_ago`)
-- Lineage requires Matillion to have generated OpenLineage events for your pipelines
-- The connector caches all lineage events for the time range at startup to optimize API calls
+Ensure your API token has permissions to read execution history.
+
+#### Performance Issues
+
+**1. Reduce execution lookback period:**
+
+```yaml
+execution_start_days_ago: 1 # Only ingest last 24 hours
+```
+
+**2. Filter specific projects:**
+
+```yaml
+project_pattern:
+  allow:
+    - "production_.*"
+```
+
+**3. Disable unused features:**
+
+```yaml
+include_pipeline_executions: false
+include_streaming_pipelines: false
+```
+
+**4. Increase timeout for large environments:**
+
+```yaml
+api_config:
+  request_timeout_seconds: 300 # Default is 300 (5 minutes)
+```
