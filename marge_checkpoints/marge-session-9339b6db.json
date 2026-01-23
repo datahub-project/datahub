@@ -1,0 +1,144 @@
+{
+  "version": "1.0",
+  "session_id": "marge-session-9339b6db",
+  "checkpoint_timestamp": "2026-01-23T14:15:30.957237",
+  "upstream_remote": "upstream",
+  "upstream_branch": "master",
+  "target_branch": "acryl-main",
+  "merge_strategy": "stacked",
+  "pr_number": null,
+  "max_attempts": 3,
+  "commits_to_merge": [
+    "5c65c5d23ad45494187241b095d32cffb62f5b72",
+    "7fe15dd45bf89eebbfa1d2bf9303eb3e234b0e66",
+    "049bd4e81c22ac7b3e43597b94459f1f038a8d9b",
+    "0e19147e06df65c583cf22326779960a66a7b090",
+    "8f4bc58bc93f00b319115e17b8c6bc7dd15b899b",
+    "0acb5bb457e318371e33589fa8f417b4bcb06163",
+    "c31a9dd513a870d68097847cc5df2a8fe4c35ac9",
+    "71bd8297b640accb4ee67f69033c83be0538fc09",
+    "c55c950956fc2046e47e4fa103b91c0438c30e6d",
+    "4e62e4ff6ad300f7aa940df0b2d0601b2c548076",
+    "0bbf55303f1e9ad56bb9d6325065115cacece7ce",
+    "85d6cb1624146e51afcc5efef0608a5709be92fa",
+    "14aa5baf2dbf913703d6771a6c4372b0415899c6",
+    "0f05a962e942681819d43fa076bc80dbeb1f8f1c",
+    "2c4bee82fc3f2d92845d00b88d7455b383d3325f",
+    "f093d7511b442eccc5312dfa4cbc96cb7416166f",
+    "ad7975ece66890ae7e03b53f2e73937a7a710392",
+    "b61661ea9904146710e65ebad9d9a1cddfb4336d",
+    "f0ac3c0d8d925dac9322cf48508e78a6dd38d5de",
+    "1960378bb92656680593038a55ea4558ce0a79e6"
+  ],
+  "next_commit_index": 9,
+  "processed_commits": [
+    {
+      "sha": "5c65c5d23ad45494187241b095d32cffb62f5b72",
+      "short_hash": "5c65c5d23a",
+      "message": "fix(context): Add some context documents improvements and fixes (#15868)",
+      "author": "John Joyce <john@acryl.io>",
+      "status": "merged_with_conflicts",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "7fe15dd45bf89eebbfa1d2bf9303eb3e234b0e66",
+      "short_hash": "7fe15dd45b",
+      "message": "Update release notes for version 0.3.16 (#15894)",
+      "author": "Gabe Lyons <gabe.lyons@acryl.io>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "049bd4e81c22ac7b3e43597b94459f1f038a8d9b",
+      "short_hash": "049bd4e81c",
+      "message": "docs(release): Update v0.3.16 recommended versions (#15897)",
+      "author": "Andrew Sikowitz <andrew.sikowitz@acryl.io>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "0e19147e06df65c583cf22326779960a66a7b090",
+      "short_hash": "0e19147e06",
+      "message": "feat(docs): Adding Context Documents + Ask DataHub User Docs Updates (#15695)",
+      "author": "John Joyce <john@acryl.io>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "8f4bc58bc93f00b319115e17b8c6bc7dd15b899b",
+      "short_hash": "8f4bc58bc9",
+      "message": "docs(ingestion) Update ui-ingestion.md with new workflow and demo video (#15891)",
+      "author": "Maggie Hays <maggiem.hays@gmail.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "0acb5bb457e318371e33589fa8f417b4bcb06163",
+      "short_hash": "0acb5bb457",
+      "message": "docs(assertions): Add docs for query attribution (#15879)",
+      "author": "Adrian Machado <adrian.machado@datahub.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "c31a9dd513a870d68097847cc5df2a8fe4c35ac9",
+      "short_hash": "c31a9dd513",
+      "message": "feat(smoke-test): add skip support for concurrent openapi tests (#15903)",
+      "author": "david-leifker <114954101+david-leifker@users.noreply.github.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "71bd8297b640accb4ee67f69033c83be0538fc09",
+      "short_hash": "71bd8297b6",
+      "message": "feat(consistency): add issue consolidation and invalid enum checks (#15902)",
+      "author": "david-leifker <114954101+david-leifker@users.noreply.github.com>",
+      "status": "merged_with_conflicts",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    },
+    {
+      "sha": "c55c950956fc2046e47e4fa103b91c0438c30e6d",
+      "short_hash": "c55c950956",
+      "message": "fix(ui) Show loading for slow ingestion source executions (#15861)",
+      "author": "Chris Collins <chriscollins3456@gmail.com>",
+      "status": "stacked",
+      "timestamp": null,
+      "attempt_count": 0,
+      "conflict_files": []
+    }
+  ],
+  "stack": {
+    "size": 1,
+    "commit_shas": [
+      "c55c950956fc2046e47e4fa103b91c0438c30e6d"
+    ],
+    "commit_messages": [
+      "fix(ui) Show loading for slow ingestion source executions (#15861)"
+    ],
+    "last_committed": "2026-01-23T14:15:30.957244"
+  },
+  "git_state": {
+    "head_sha": "ffefd50937032c5ac1952292afb90cc7aa38d8be",
+    "branch": "marge-session-9339b6db-branch",
+    "working_tree_clean": false,
+    "uncommitted_files": [
+      "marge_checkpoints/marge-session-9339b6db.json"
+    ]
+  }
+}
