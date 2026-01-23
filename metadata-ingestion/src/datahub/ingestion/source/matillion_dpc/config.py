@@ -86,13 +86,14 @@ class MatillionAPIConfig(ConfigModel):
     @field_validator("custom_base_url")
     @classmethod
     def validate_custom_base_url(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            if not v:
-                raise ValueError("custom_base_url cannot be empty string")
-            if not (v.startswith("http://") or v.startswith("https://")):
-                raise ValueError("custom_base_url must start with http:// or https://")
-            return v.removesuffix("/")
-        return v
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("custom_base_url cannot be empty")
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("custom_base_url must start with http:// or https://")
+        return v.removesuffix("/")
 
     def get_base_url(self) -> str:
         if self.custom_base_url:

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import requests
 from pydantic import BaseModel, ValidationError
-from requests import HTTPError, RequestException
+from requests import HTTPError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -77,18 +77,14 @@ class MatillionAPIClient:
     ) -> Dict[str, Any]:
         url = f"{self.config.get_base_url()}/{endpoint}"
 
-        try:
-            response = self.session.request(
-                method,
-                url,
-                timeout=self.config.request_timeout_sec,
-                **kwargs,
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Request failed for {url}: {type(e).__name__}: {e}")
-            raise
+        response = self.session.request(
+            method,
+            url,
+            timeout=self.config.request_timeout_sec,
+            **kwargs,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def _make_paginated_request(
         self,
@@ -182,9 +178,15 @@ class MatillionAPIClient:
         return all_items
 
     def _fetch_entities(
-        self, endpoint: str, model_class: Type[T], entity_name: str
+        self,
+        endpoint: str,
+        model_class: Type[T],
+        entity_name: str,
+        additional_params: Optional[Dict[str, Any]] = None,
     ) -> List[T]:
-        response_data = self._make_paginated_request(endpoint)
+        response_data = self._make_paginated_request(
+            endpoint, additional_params=additional_params
+        )
         entities = []
 
         for item in response_data:
@@ -198,114 +200,71 @@ class MatillionAPIClient:
         logger.info(f"Successfully fetched {len(entities)} {entity_name}s")
         return entities
 
+    def _fetch_token_paginated_entities(
+        self,
+        endpoint: str,
+        model_class: Type[T],
+        entity_name: str,
+        pagination_params: Optional[TokenPaginationParams] = None,
+        additional_params: Optional[Dict[str, Any]] = None,
+    ) -> List[T]:
+        response_data = self._make_token_paginated_request(
+            endpoint,
+            pagination_params=pagination_params,
+            additional_params=additional_params,
+        )
+        entities = []
+
+        for item in response_data:
+            try:
+                entity = model_class.model_validate(item)
+                entities.append(entity)
+            except ValidationError as e:
+                logger.warning(f"Failed to parse {entity_name}: {e}")
+                continue
+
+        return entities
+
     def get_projects(self) -> List[MatillionProject]:
         return self._fetch_entities(API_ENDPOINT_PROJECTS, MatillionProject, "project")
 
     def get_environments(self, project_id: str) -> List[MatillionEnvironment]:
         endpoint = API_ENDPOINT_ENVIRONMENTS.format(projectId=project_id)
-
-        response_data = self._make_paginated_request(endpoint)
-        environments = []
-
-        for item in response_data:
-            try:
-                env = MatillionEnvironment.model_validate(item)
-                environments.append(env)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse environment: {e}")
-                continue
-
-        logger.info(
-            f"Successfully fetched {len(environments)} environments for project {project_id}"
-        )
-        return environments
+        return self._fetch_entities(endpoint, MatillionEnvironment, "environment")
 
     def get_pipelines(
         self, project_id: str, environment_name: str
     ) -> List[MatillionPipeline]:
         endpoint = API_ENDPOINT_PIPELINES.format(projectId=project_id)
-        additional_params = {"environmentName": environment_name}
-
-        response_data = self._make_paginated_request(
-            endpoint, additional_params=additional_params
+        return self._fetch_entities(
+            endpoint,
+            MatillionPipeline,
+            "pipeline",
+            additional_params={"environmentName": environment_name},
         )
-        pipelines = []
-
-        for item in response_data:
-            try:
-                pipeline = MatillionPipeline.model_validate(item)
-                pipelines.append(pipeline)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse pipeline: {e}")
-                continue
-
-        logger.info(
-            f"Successfully fetched {len(pipelines)} pipelines for project {project_id}, environment {environment_name}"
-        )
-        return pipelines
 
     def get_pipeline_executions(
         self, pipeline_name: str, limit: int = 10
     ) -> List[MatillionPipelineExecution]:
-        pagination_params = TokenPaginationParams(limit=limit)
-        additional_params = {"pipelineName": pipeline_name}
-
-        response_data = self._make_token_paginated_request(
+        return self._fetch_token_paginated_entities(
             API_ENDPOINT_PIPELINE_EXECUTIONS,
-            pagination_params=pagination_params,
-            additional_params=additional_params,
+            MatillionPipelineExecution,
+            "pipeline execution",
+            pagination_params=TokenPaginationParams(limit=limit),
+            additional_params={"pipelineName": pipeline_name},
         )
-        executions = []
-
-        for item in response_data:
-            try:
-                execution = MatillionPipelineExecution.model_validate(item)
-                executions.append(execution)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse pipeline execution: {e}")
-                continue
-
-        return executions
 
     def get_schedules(self, project_id: str) -> List[MatillionSchedule]:
         endpoint = API_ENDPOINT_SCHEDULES.format(projectId=project_id)
-
-        response_data = self._make_paginated_request(endpoint)
-        schedules = []
-
-        for item in response_data:
-            try:
-                schedule = MatillionSchedule.model_validate(item)
-                schedules.append(schedule)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse schedule: {e}")
-                continue
-
-        logger.debug(
-            f"Successfully fetched {len(schedules)} schedules for project {project_id}"
-        )
-        return schedules
+        return self._fetch_entities(endpoint, MatillionSchedule, "schedule")
 
     def get_streaming_pipelines(
         self, project_id: str
     ) -> List[MatillionStreamingPipeline]:
         endpoint = API_ENDPOINT_STREAMING_PIPELINES.format(projectId=project_id)
-
-        response_data = self._make_paginated_request(endpoint)
-        streaming_pipelines = []
-
-        for item in response_data:
-            try:
-                streaming_pipeline = MatillionStreamingPipeline.model_validate(item)
-                streaming_pipelines.append(streaming_pipeline)
-            except ValidationError as e:
-                logger.warning(f"Failed to parse streaming pipeline: {e}")
-                continue
-
-        logger.info(
-            f"Successfully fetched {len(streaming_pipelines)} streaming pipelines for project {project_id}"
+        return self._fetch_entities(
+            endpoint, MatillionStreamingPipeline, "streaming pipeline"
         )
-        return streaming_pipelines
 
     def get_lineage_events(
         self,
@@ -344,6 +303,3 @@ class MatillionAPIClient:
                 )
                 return []
             raise
-        except RequestException as e:
-            logger.warning(f"Error fetching lineage events: {e}")
-            return []

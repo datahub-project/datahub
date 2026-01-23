@@ -81,7 +81,6 @@ class OpenLineageParser:
                     convert_urns_to_lowercase=mapping.convert_urns_to_lowercase,
                 )
             else:
-                # Dict fallback (support both 'schema' and 'default_schema')
                 return MatillionPlatformInstanceInfo(
                     platform_instance=mapping.get("platform_instance"),
                     env=mapping.get("env", self.default_env),
@@ -111,9 +110,8 @@ class OpenLineageParser:
             platform, _ = self._parse_namespace(namespace)
             info = self._get_platform_instance_info(namespace)
 
-            # When platform_instance is used, it replaces the database in the URN
-            # (DataHub prepends platform_instance to the dataset name)
-            # So we omit the database from the normalized name
+            # When platform_instance is used, DataHub prepends it to the dataset name,
+            # so we omit the database from the normalized name
             normalized_name = MatillionDatasetInfo.normalize_name(
                 name,
                 platform,
@@ -255,7 +253,6 @@ class OpenLineageParser:
         fine_grained_lineages = []
         output_urn = self._make_dataset_urn(output_dataset)
 
-        # Group column lineages by downstream field
         downstream_to_upstreams: Dict[str, Set[tuple[str, str]]] = {}
         for col_lineage in column_lineages:
             if col_lineage.downstream_field not in downstream_to_upstreams:
@@ -272,7 +269,6 @@ class OpenLineageParser:
         for downstream_field, upstream_set in downstream_to_upstreams.items():
             upstreams_list = []
 
-            # Group upstreams by dataset to normalize field names by platform
             upstream_by_urn: Dict[str, List[str]] = {}
             for upstream_urn, upstream_field in upstream_set:
                 if upstream_urn not in upstream_by_urn:

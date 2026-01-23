@@ -340,9 +340,9 @@ class MatillionSource(StatefulIngestionSourceBase):
                     dataflow.custom_properties["schedule_cron"] = (
                         schedule.cron_expression
                     )
-                if schedule.enabled is not None:
+                if schedule.schedule_enabled is not None:
                     dataflow.custom_properties["schedule_enabled"] = str(
-                        schedule.enabled
+                        schedule.schedule_enabled
                     )
         except (HTTPError, RequestException) as e:
             logger.debug(
@@ -550,17 +550,16 @@ class MatillionSource(StatefulIngestionSourceBase):
             logger.debug(
                 f"Registered SQL for DataJob {pipeline.name} on platform {output.platform}"
             )
-        except (AttributeError, TypeError) as e:
-            # AttributeError/TypeError indicate programming errors (e.g., None where object expected,
-            # incorrect type passed to aggregator). These should not occur in production and indicate
-            # a bug in the connector logic, so we re-raise them for visibility.
-            logger.error(
-                f"Programming error registering SQL for {pipeline.name}: "
-                f"{type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
+            log_level = (
+                logging.ERROR
+                if isinstance(e, (AttributeError, TypeError))
+                else logging.DEBUG
+            )
+            logger.log(
+                log_level,
+                f"Failed to parse SQL for {pipeline.name}: {type(e).__name__}: {e}",
+            )
             self.report.sql_parsing_failures += 1
             self.report.warning(
                 title="SQL parsing error",
@@ -571,7 +570,6 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"sql_preview: {sql_query[:100]}...",
                 exc=e,
             )
-            logger.debug(f"Failed to parse SQL for DataJob {pipeline.name}: {e}")
 
     def _build_data_job_custom_properties(
         self, pipeline: MatillionPipeline, project: MatillionProject
@@ -769,7 +767,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                             f"Emitted lineage for {output_urn} with {len(upstream_lineage.upstreams)} upstreams"
                         )
 
-            except Exception as e:
+            except (KeyError, ValueError, IndexError) as e:
                 logger.warning(
                     f"Error parsing lineage event for pipeline {pipeline.name}: {e}"
                 )
@@ -777,6 +775,12 @@ class MatillionSource(StatefulIngestionSourceBase):
                     "lineage_parsing",
                     f"Failed to parse lineage event for {pipeline.name}: {e}",
                 )
+            except (AttributeError, TypeError) as e:
+                logger.error(
+                    f"Programming error parsing lineage event for pipeline {pipeline.name}: {e}",
+                    exc_info=True,
+                )
+                raise
 
     def _generate_pipeline_workunits(
         self,

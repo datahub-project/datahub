@@ -79,7 +79,6 @@ class MatillionStreamingHandler:
             "pipeline_type": "streaming",
         }
 
-        # Build external URL - remove API path suffix if present
         base_url = self.config.api_config.get_base_url()
         if base_url.endswith(API_PATH_SUFFIX):
             base_url = base_url[: -len(API_PATH_SUFFIX)]

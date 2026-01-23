@@ -63,8 +63,6 @@ class MatillionUrnBuilder:
         flow_urn = self.make_pipeline_urn(pipeline, project)
 
         # Use GUID to ensure URN safety with special characters in pipeline names
-        # The job_id should be unique within the flow, but we can use the pipeline name
-        # since there's a 1:1 relationship between DataFlow and DataJob for Matillion
         job_id = datahub_guid(
             {
                 "platform": MATILLION_PLATFORM,
