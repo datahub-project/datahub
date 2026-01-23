@@ -1,44 +1,133 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "project_id": "proj-1",
-                "platform": "matillion"
+                "platform": "matillion",
+                "env": "PROD",
+                "project_id": "proj-1"
             },
             "name": "CDC Project",
-            "description": "CDC streaming project"
+            "description": "CDC streaming project",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200161,
+        "lastObserved": 1704067200546,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200548,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200550,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+            "container": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200161,
+        "lastObserved": 1704067200553,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "entityUrn": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "matillion",
+                "env": "PROD",
+                "project_id": "proj-1",
+                "environment_name": "CDC Project"
+            },
+            "name": "CDC Project",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200554,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200554,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:matillion"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200549,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -49,76 +138,51 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200162,
+        "lastObserved": 1704067200549,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
+    "entityUrn": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatform:matillion",
-                    "urn": "urn:li:dataPlatform:matillion"
-                },
-                {
-                    "id": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
-                    "urn": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+                    "id": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
+                    "urn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200115,
+        "lastObserved": 1704067200556,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
+    "entityUrn": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf",
     "changeType": "UPSERT",
-    "aspectName": "containerProperties",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "customProperties": {
-                "environment_name": "CDC Project",
-                "project_id": "proj-1",
-                "platform": "matillion"
-            },
-            "name": "CDC Project"
+            "platform": "urn:li:dataPlatform:matillion"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200163,
+        "lastObserved": 1704067200555,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200163,
-        "runId": "matillion-streaming-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
+    "entityUrn": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -129,65 +193,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200164,
-        "runId": "matillion-streaming-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatform:matillion",
-                    "urn": "urn:li:dataPlatform:matillion"
-                },
-                {
-                    "id": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
-                    "urn": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
-                },
-                {
-                    "id": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
-                    "urn": "urn:li:container:123922819b39b6b5eab9c77d432d776a"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200117,
+        "lastObserved": 1704067200555,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)",
+    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "customProperties": {
-                "pipeline_name": "CDC Project",
-                "project_id": "proj-1",
-                "project_name": "CDC Project"
-            },
-            "externalUrl": "http://localhost:8080/api/pipelines/CDC Project",
-            "name": "CDC Project"
+            "platform": "urn:li:dataPlatform:matillion"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200165,
+        "lastObserved": 1704067200583,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)",
+    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -196,30 +225,38 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200165,
+        "lastObserved": 1704067200589,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)",
+    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
-            "container": "urn:li:container:123922819b39b6b5eab9c77d432d776a"
+            "customProperties": {
+                "pipeline_name": "CDC Project",
+                "project_id": "proj-1",
+                "project_name": "CDC Project",
+                "environment_name": "CDC Project"
+            },
+            "externalUrl": "http://localhost:8080/api/pipelines/CDC Project",
+            "name": "CDC Project",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200166,
+        "lastObserved": 1704067200584,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)",
+    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -230,29 +267,61 @@
                     "urn": "urn:li:dataPlatform:matillion"
                 },
                 {
-                    "id": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
-                    "urn": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
+                    "id": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
+                    "urn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f"
                 },
                 {
-                    "id": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
-                    "urn": "urn:li:container:123922819b39b6b5eab9c77d432d776a"
+                    "id": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf",
+                    "urn": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf"
                 },
                 {
-                    "id": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)",
-                    "urn": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)"
+                    "id": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)",
+                    "urn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200119,
+        "lastObserved": 1704067200585,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD),a8411e0be7ced3ce2366d06f3e964b59)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD),proj-1.CDC Project.CDC Project)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:matillion"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200587,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:80b452da438d15a3f1bb31780a6f89cf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200584,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD),proj-1.CDC Project.CDC Project)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -262,35 +331,21 @@
             },
             "name": "CDC Project",
             "type": {
-                "string": "Matillion Pipeline"
-            }
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200075,
+        "lastObserved": 1704067200587,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD),a8411e0be7ced3ce2366d06f3e964b59)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200167,
-        "runId": "matillion-streaming-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD),a8411e0be7ced3ce2366d06f3e964b59)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD),proj-1.CDC Project.CDC Project)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -299,76 +354,46 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200168,
+        "lastObserved": 1704067200590,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD),a8411e0be7ced3ce2366d06f3e964b59)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD),proj-1.CDC Project.CDC Project)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Matillion Pipeline"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200588,
+        "runId": "matillion-streaming-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD),proj-1.CDC Project.CDC Project)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatform:matillion",
-                    "urn": "urn:li:dataPlatform:matillion"
-                },
-                {
-                    "id": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
-                    "urn": "urn:li:container:68fa980fbe984395e16366230e8b99ab"
-                },
-                {
-                    "id": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
-                    "urn": "urn:li:container:123922819b39b6b5eab9c77d432d776a"
-                },
-                {
-                    "id": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)",
-                    "urn": "urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD)"
-                },
-                {
-                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD),a8411e0be7ced3ce2366d06f3e964b59)",
-                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,CDC Project.426f1ceab5ee586e1fd1263fc008c9fc,PROD),a8411e0be7ced3ce2366d06f3e964b59)"
+                    "id": "proj-1.CDC Project.CDC Project",
+                    "urn": "urn:li:dataFlow:(matillion,proj-1.CDC Project.CDC Project,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200122,
-        "runId": "matillion-streaming-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:123922819b39b6b5eab9c77d432d776a",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200168,
-        "runId": "matillion-streaming-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:68fa980fbe984395e16366230e8b99ab",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200169,
+        "lastObserved": 1704067200589,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }

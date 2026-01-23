@@ -16,6 +16,7 @@ from datahub.ingestion.source.matillion_dpc.constants import (
     API_ENDPOINT_PROJECTS,
     API_ENDPOINT_SCHEDULES,
     API_ENDPOINT_STREAMING_PIPELINES,
+    API_MAX_PAGE_SIZE,
     API_RESPONSE_FIELD_RESULTS,
     HTTP_CONTENT_TYPE_JSON,
     HTTP_HEADER_AUTHORIZATION,
@@ -307,13 +308,17 @@ class MatillionAPIClient:
         return streaming_pipelines
 
     def get_lineage_events(
-        self, generated_from: str, generated_before: str, page: int = 0, size: int = 100
+        self,
+        generated_from: str,
+        generated_before: str,
+        page: int = 0,
+        size: int = API_MAX_PAGE_SIZE,
     ) -> List[Dict]:
         params = {
             "generatedFrom": generated_from,
             "generatedBefore": generated_before,
             "page": page,
-            "size": min(size, 100),  # Cap at 100 per API spec
+            "size": min(size, API_MAX_PAGE_SIZE),
         }
 
         try:

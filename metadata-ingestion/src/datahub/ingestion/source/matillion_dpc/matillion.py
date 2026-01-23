@@ -46,6 +46,7 @@ from datahub.ingestion.source.matillion_dpc.models import (
     MatillionPipeline,
     MatillionPipelineExecution,
     MatillionProject,
+    PipelineLineageResult,
 )
 from datahub.ingestion.source.matillion_dpc.urn_builder import MatillionUrnBuilder
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -56,10 +57,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ContainerClass,
-    DataFlowInfoClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
     DataProcessInstancePropertiesClass,
     DataProcessInstanceRelationshipsClass,
     DataProcessInstanceRunEventClass,
@@ -70,8 +67,10 @@ from datahub.metadata.schema_classes import (
     QueryLanguageClass,
     QueryStatementClass,
     RunResultTypeClass,
-    StatusClass,
 )
+from datahub.metadata.urns import DataJobUrn
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger = logging.getLogger(__name__)
@@ -97,6 +96,22 @@ EXECUTION_STATUS_TO_RESULT_TYPE = {
     "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
 class MatillionSource(StatefulIngestionSourceBase):
+    """
+    Matillion Data Productivity Cloud (DPC) connector for DataHub.
+
+    Lineage Sources:
+    ================
+    - OpenLineage events (/v1/lineage/events): Provides pipeline execution lineage including
+      data transformations, input/output datasets, and SQL statements for column-level lineage
+    - Pipeline executions (/v1/pipeline-executions): Provides operational metadata emitted
+      as DataProcessInstances
+
+    Not Used:
+    =========
+    - Audit Log API (/v1/audit): Administrative actions only (user logins, config changes),
+      not applicable for data lineage
+    """
+
     config: MatillionSourceConfig
     report: MatillionSourceReport
     platform: str = MATILLION_PLATFORM
@@ -300,38 +315,13 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         logger.info("Completed Matillion metadata extraction")
 
-    def _build_pipeline_dataflow_info(
-        self, pipeline: MatillionPipeline, project: MatillionProject
-    ) -> DataFlowInfoClass:
-        custom_properties = {
-            "pipeline_name": pipeline.name,
-            "project_id": project.id,
-            "project_name": project.name,
-        }
-
-        base_url = self.config.api_config.get_base_url()
-        if base_url.endswith(API_PATH_SUFFIX):
-            base_url = base_url[: -len(API_PATH_SUFFIX)]
-
-        return DataFlowInfoClass(
-            name=pipeline.name,
-            externalUrl=f"{base_url}/{UI_PATH_PIPELINES}/{pipeline.name}",
-            customProperties=custom_properties,
-        )
-
-    def _enrich_with_repository_details(
-        self, dataflow_info: DataFlowInfoClass, pipeline: MatillionPipeline
-    ) -> None:
-        logger.debug(
-            f"Repository details not available via public API for pipeline {pipeline.name}"
-        )
-
-    def _enrich_with_schedule_details(
+    def _enrich_sdk_dataflow_with_schedule(
         self,
-        dataflow_info: DataFlowInfoClass,
+        dataflow: DataFlow,
         pipeline: MatillionPipeline,
         project_id: str,
     ) -> None:
+        """Enrich SDK V2 DataFlow with schedule information from Matillion API."""
         try:
             if project_id not in self._schedules_cache:
                 self.report.report_api_call()
@@ -347,11 +337,11 @@ class MatillionSource(StatefulIngestionSourceBase):
             if matching_schedules:
                 schedule = matching_schedules[0]
                 if schedule.cron_expression:
-                    dataflow_info.customProperties["schedule_cron"] = (
+                    dataflow.custom_properties["schedule_cron"] = (
                         schedule.cron_expression
                     )
                 if schedule.enabled is not None:
-                    dataflow_info.customProperties["schedule_enabled"] = str(
+                    dataflow.custom_properties["schedule_enabled"] = str(
                         schedule.enabled
                     )
         except (HTTPError, RequestException) as e:
@@ -482,17 +472,19 @@ class MatillionSource(StatefulIngestionSourceBase):
         self,
         pipeline: MatillionPipeline,
         data_job_urn: str,
-    ) -> tuple[List[str], List[str], List[str]]:
-        input_urns: List[str] = []
-        output_urns: List[str] = []
-        sql_queries: List[str] = []
+    ) -> PipelineLineageResult:
+        """Extract lineage information for a pipeline from OpenLineage events.
+
+        Returns a PipelineLineageResult containing input URNs, output URNs, and SQL queries.
+        """
+        result = PipelineLineageResult()
 
         if not self.config.include_lineage:
-            return input_urns, output_urns, sql_queries
+            return result
 
         all_events = self._fetch_lineage_events()
         if not all_events:
-            return input_urns, output_urns, sql_queries
+            return result
 
         for event_wrapper in all_events:
             event = event_wrapper.get("event", {})
@@ -507,20 +499,20 @@ class MatillionSource(StatefulIngestionSourceBase):
 
                 for input_dataset in inputs:
                     input_urn = self.openlineage_parser._make_dataset_urn(input_dataset)
-                    if input_urn not in input_urns:
-                        input_urns.append(input_urn)
+                    if input_urn not in result.input_urns:
+                        result.input_urns.append(input_urn)
 
                 for output_dataset in outputs:
                     output_urn = self.openlineage_parser._make_dataset_urn(
                         output_dataset
                     )
-                    if output_urn not in output_urns:
-                        output_urns.append(output_urn)
+                    if output_urn not in result.output_urns:
+                        result.output_urns.append(output_urn)
 
                 if self.config.parse_sql_for_lineage and outputs:
                     sql_query = self.openlineage_parser.extract_sql_from_event(event)
-                    if sql_query and sql_query not in sql_queries:
-                        sql_queries.append(sql_query)
+                    if sql_query and sql_query not in result.sql_queries:
+                        result.sql_queries.append(sql_query)
                         self._register_sql_for_parsing(
                             pipeline, data_job_urn, sql_query, outputs[0]
                         )
@@ -530,7 +522,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                     f"Error extracting lineage for DataJob {pipeline.name}: {e}"
                 )
 
-        return input_urns, output_urns, sql_queries
+        return result
 
     def _register_sql_for_parsing(
         self,
@@ -640,27 +632,41 @@ class MatillionSource(StatefulIngestionSourceBase):
         pipeline_urn: str,
         environment: Optional[MatillionEnvironment] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        data_job_urn = self.urn_builder.make_data_job_urn(pipeline, project)
-
-        input_urns, output_urns, sql_queries = self._extract_lineage_for_pipeline(
-            pipeline, data_job_urn
-        )
-
         custom_properties = self._build_data_job_custom_properties(pipeline, project)
 
-        data_job_info = DataJobInfoClass(
-            name=pipeline.name,
-            type=JobContainerSubTypes.MATILLION_PIPELINE,
-            customProperties=custom_properties,
+        if environment:
+            job_name = f"{project.id}.{environment.name}.{pipeline.name}"
+        else:
+            job_name = f"{project.id}.{pipeline.name}"
+
+        data_job_urn = DataJobUrn.create_from_ids(
+            job_id=job_name,
+            data_flow_urn=pipeline_urn,
         )
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_job_urn,
-            aspect=data_job_info,
-        ).as_workunit()
+        lineage = self._extract_lineage_for_pipeline(pipeline, data_job_urn.urn())
 
-        if sql_queries:
-            combined_sql = "\n\n-- ===== Query Separator =====\n\n".join(sql_queries)
+        datajob = DataJob(
+            name=job_name,
+            flow_urn=pipeline_urn,
+            display_name=pipeline.name,
+            custom_properties=custom_properties,
+            subtype=JobContainerSubTypes.MATILLION_PIPELINE,
+            inlets=lineage.input_urns or None,
+            outlets=lineage.output_urns or None,
+        )
+
+        yield from datajob.as_workunits()
+
+        logger.debug(
+            f"Emitted DataJob {data_job_urn} with {len(lineage.input_urns)} inputs, {len(lineage.output_urns)} outputs"
+        )
+
+        # SQL transformation logic still needs to be emitted as MCP (not part of SDK V2 DataJob)
+        if lineage.sql_queries:
+            combined_sql = "\n\n-- ===== Query Separator =====\n\n".join(
+                lineage.sql_queries
+            )
 
             data_transform_logic = DataTransformLogicClass(
                 transforms=[
@@ -674,46 +680,14 @@ class MatillionSource(StatefulIngestionSourceBase):
             )
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=data_job_urn,
+                entityUrn=data_job_urn.urn(),
                 aspect=data_transform_logic,
             ).as_workunit()
 
             logger.debug(
                 f"Emitted SQL transformation logic for DataJob {pipeline.name} "
-                f"({len(sql_queries)} queries)"
+                f"({len(lineage.sql_queries)} queries)"
             )
-
-        if input_urns or output_urns:
-            data_job_input_output = DataJobInputOutputClass(
-                inputDatasets=input_urns,
-                outputDatasets=output_urns,
-                inputDatajobs=[],
-            )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=data_job_urn,
-                aspect=data_job_input_output,
-            ).as_workunit()
-
-            logger.debug(
-                f"Emitted DataJob {data_job_urn} with {len(input_urns)} inputs, {len(output_urns)} outputs"
-            )
-
-        container = ContainerClass(container=pipeline_urn)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_job_urn,
-            aspect=container,
-        ).as_workunit()
-
-        yield from self._emit_data_job_browse_path(
-            data_job_urn, pipeline_urn, project, environment
-        )
-
-        status = StatusClass(removed=False)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_job_urn,
-            aspect=status,
-        ).as_workunit()
 
     def _generate_pipeline_lineage_workunits(
         self,
@@ -810,26 +784,42 @@ class MatillionSource(StatefulIngestionSourceBase):
         project: MatillionProject,
         environment: Optional[MatillionEnvironment] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        pipeline_urn = self.urn_builder.make_pipeline_urn(pipeline, project)
+        custom_properties = {
+            "pipeline_name": pipeline.name,
+            "project_id": project.id,
+            "project_name": project.name,
+        }
 
-        dataflow_info = self._build_pipeline_dataflow_info(pipeline, project)
-        self._enrich_with_repository_details(dataflow_info, pipeline)
-        self._enrich_with_schedule_details(dataflow_info, pipeline, project.id)
+        if environment:
+            flow_name = f"{project.id}.{environment.name}.{pipeline.name}"
+            custom_properties["environment_name"] = environment.name
+        else:
+            flow_name = f"{project.id}.{pipeline.name}"
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=str(pipeline_urn),
-            aspect=dataflow_info,
-        ).as_workunit()
+        base_url = self.config.api_config.get_base_url()
+        if base_url.endswith(API_PATH_SUFFIX):
+            base_url = base_url[: -len(API_PATH_SUFFIX)]
+        external_url = f"{base_url}/{UI_PATH_PIPELINES}/{pipeline.name}"
 
-        status = StatusClass(removed=False)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=str(pipeline_urn),
-            aspect=status,
-        ).as_workunit()
+        dataflow = DataFlow(
+            name=flow_name,
+            platform=MATILLION_PLATFORM,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=pipeline.name,
+            external_url=external_url,
+            custom_properties=custom_properties,
+        )
+
+        self._enrich_sdk_dataflow_with_schedule(dataflow, pipeline, project.id)
+
+        yield from dataflow.as_workunits()
+
+        pipeline_urn = str(dataflow.urn)
 
         if self.config.extract_projects_to_containers:
             yield from self.container_handler.add_pipeline_to_container(
-                str(pipeline_urn), project, environment=environment
+                pipeline_urn, project, environment=environment
             )
 
         self.report.report_pipelines_emitted()

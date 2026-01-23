@@ -1,3 +1,14 @@
+"""
+Unit tests for Matillion DPC API client.
+
+Tests cover:
+- HTTP request/response handling and error handling
+- Pagination logic for multi-page API responses
+- Retry behavior for transient failures
+- URL construction and parameter handling
+- Pydantic model validation for API responses
+"""
+
 import pytest
 from pydantic import SecretStr
 from requests import HTTPError

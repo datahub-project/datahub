@@ -25,6 +25,9 @@ API_RESPONSE_FIELD_TOTAL = "total"
 API_RESPONSE_FIELD_PAGE = "page"
 API_RESPONSE_FIELD_SIZE = "size"
 
+# API pagination limits (per Matillion DPC API specification)
+API_MAX_PAGE_SIZE = 100
+
 MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
 

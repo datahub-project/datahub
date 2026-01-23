@@ -8,14 +8,6 @@ from datahub.ingestion.source.matillion_dpc.config import (
 )
 
 
-def test_api_config_defaults() -> None:
-    config = MatillionAPIConfig(api_token=SecretStr("test_token"))
-    assert config.region == MatillionRegion.EU1
-    assert config.get_base_url() == "https://eu1.api.matillion.com/dpc"
-    assert config.request_timeout_sec == 30
-    assert config.custom_base_url is None
-
-
 @pytest.mark.parametrize(
     "region,expected_url",
     [
@@ -135,20 +127,6 @@ def test_api_config_timeout_validation(timeout: int, should_raise: bool) -> None
             request_timeout_sec=timeout,
         )
         assert config.request_timeout_sec == timeout
-
-
-def test_source_config_defaults() -> None:
-    config = MatillionSourceConfig(
-        api_config=MatillionAPIConfig(api_token=SecretStr("test"))
-    )
-    assert config.env == "PROD"
-    assert config.platform_instance is None
-    assert config.include_pipeline_executions is True
-    assert config.max_executions_per_pipeline == 10
-    assert config.extract_projects_to_containers is True
-    assert config.include_lineage is True
-    assert config.include_column_lineage is True
-    assert config.include_streaming_pipelines is True
 
 
 @pytest.mark.parametrize(

@@ -1,12 +1,9 @@
 import logging
 from typing import Dict, Iterable, Optional
 
-from datahub.emitter.mce_builder import (
-    datahub_guid,
-    make_container_urn,
-    make_data_platform_urn,
-)
+from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.matillion_dpc.config import (
@@ -25,11 +22,21 @@ from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     ContainerClass,
-    ContainerPropertiesClass,
-    SubTypesClass,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class MatillionProjectKey(ContainerKey):
+    """Container key for Matillion DPC projects."""
+
+    project_id: str
+
+
+class MatillionEnvironmentKey(MatillionProjectKey):
+    """Container key for Matillion DPC environments (inherits from ProjectKey for hierarchy)."""
+
+    environment_name: str
 
 
 class MatillionContainerHandler:
@@ -51,30 +58,32 @@ class MatillionContainerHandler:
     def get_project(self, project_id: str) -> Optional[MatillionProject]:
         return self._projects_cache.get(project_id)
 
-    def get_project_container_urn(self, project: MatillionProject) -> str:
-        guid = datahub_guid(
-            {
-                "platform": MATILLION_PLATFORM,
-                "instance": self.config.platform_instance,
-                "env": self.config.env,
-                "project_id": project.id,
-            }
+    def _get_project_key(self, project: MatillionProject) -> MatillionProjectKey:
+        return MatillionProjectKey(
+            platform=MATILLION_PLATFORM,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            project_id=project.id,
         )
-        return make_container_urn(guid)
+
+    def _get_environment_key(
+        self, environment: MatillionEnvironment, project: MatillionProject
+    ) -> MatillionEnvironmentKey:
+        return MatillionEnvironmentKey(
+            platform=MATILLION_PLATFORM,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            project_id=project.id,
+            environment_name=environment.name,
+        )
+
+    def get_project_container_urn(self, project: MatillionProject) -> str:
+        return self._get_project_key(project).as_urn()
 
     def get_environment_container_urn(
         self, environment: MatillionEnvironment, project: MatillionProject
     ) -> str:
-        guid = datahub_guid(
-            {
-                "platform": MATILLION_PLATFORM,
-                "instance": self.config.platform_instance,
-                "env": self.config.env,
-                "project_id": project.id,
-                "environment_name": environment.name,
-            }
-        )
-        return make_container_urn(guid)
+        return self._get_environment_key(environment, project).as_urn()
 
     def emit_project_container(
         self, project: MatillionProject
@@ -84,47 +93,15 @@ class MatillionContainerHandler:
         if container_urn in self._containers_emitted:
             return
 
-        container_properties = ContainerPropertiesClass(
+        yield from gen_containers(
+            container_key=self._get_project_key(project),
             name=project.name,
             description=project.description,
-            customProperties={
+            sub_types=[DatasetContainerSubTypes.MATILLION_PROJECT],
+            extra_properties={
                 "project_id": project.id,
-                "platform": MATILLION_PLATFORM,
             },
         )
-
-        container = ContainerClass(container=container_urn)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=container_urn,
-            aspect=container_properties,
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=container_urn,
-            aspect=container,
-        ).as_workunit()
-
-        platform_urn = make_data_platform_urn(MATILLION_PLATFORM)
-        browse_path = BrowsePathsV2Class(
-            path=[
-                BrowsePathEntryClass(id=platform_urn, urn=platform_urn),
-                BrowsePathEntryClass(id=container_urn, urn=container_urn),
-            ]
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=container_urn,
-            aspect=browse_path,
-        ).as_workunit()
-
-        sub_types = SubTypesClass(
-            typeNames=[DatasetContainerSubTypes.MATILLION_PROJECT]
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=container_urn,
-            aspect=sub_types,
-        ).as_workunit()
 
         self._containers_emitted.add(container_urn)
         self.report.report_containers_emitted()
@@ -143,50 +120,15 @@ class MatillionContainerHandler:
         if environment_urn in self._containers_emitted:
             return
 
-        container_properties = ContainerPropertiesClass(
+        yield from gen_containers(
+            container_key=self._get_environment_key(environment, project),
             name=environment.name,
-            customProperties={
+            sub_types=[DatasetContainerSubTypes.MATILLION_ENVIRONMENT],
+            parent_container_key=self._get_project_key(project),
+            extra_properties={
                 "environment_name": environment.name,
-                "project_id": project.id,
-                "platform": MATILLION_PLATFORM,
             },
         )
-
-        container = ContainerClass(container=project_container_urn)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=environment_urn,
-            aspect=container_properties,
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=environment_urn,
-            aspect=container,
-        ).as_workunit()
-
-        platform_urn = make_data_platform_urn(MATILLION_PLATFORM)
-        browse_path = BrowsePathsV2Class(
-            path=[
-                BrowsePathEntryClass(id=platform_urn, urn=platform_urn),
-                BrowsePathEntryClass(
-                    id=project_container_urn, urn=project_container_urn
-                ),
-                BrowsePathEntryClass(id=environment_urn, urn=environment_urn),
-            ]
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=environment_urn,
-            aspect=browse_path,
-        ).as_workunit()
-
-        sub_types = SubTypesClass(
-            typeNames=[DatasetContainerSubTypes.MATILLION_ENVIRONMENT]
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=environment_urn,
-            aspect=sub_types,
-        ).as_workunit()
 
         self._containers_emitted.add(environment_urn)
         self.report.report_containers_emitted()

@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
 from datahub.ingestion.source.matillion_dpc.constants import TWO_TIER_PLATFORMS
+from datahub.metadata.urns import DatasetUrn
 
 
 class MatillionPlatformInstanceInfo(BaseModel):
@@ -157,3 +158,17 @@ class MatillionColumnLineageInfo(BaseModel):
     downstream_field: str
     upstream_datasets: List[MatillionDatasetInfo]
     upstream_fields: List[str]
+
+
+class PipelineLineageResult(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
+
+    input_urns: List[Union[str, DatasetUrn]] = Field(
+        default_factory=list,
+    )
+    output_urns: List[Union[str, DatasetUrn]] = Field(
+        default_factory=list,
+    )
+    sql_queries: List[str] = Field(
+        default_factory=list,
+    )
