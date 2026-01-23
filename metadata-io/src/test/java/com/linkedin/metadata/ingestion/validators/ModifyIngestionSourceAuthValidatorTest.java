@@ -1,13 +1,9 @@
 package com.linkedin.metadata.ingestion.validators;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
@@ -21,12 +17,12 @@ import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValid
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import io.datahubproject.test.metadata.context.TestAuthSession;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -40,8 +36,6 @@ public class ModifyIngestionSourceAuthValidatorTest {
 
   private EntityRegistry entityRegistry;
   @Mock private RetrieverContext mockRetrieverContext;
-
-  @Mock private AuthorizationSession mockSession = Mockito.mock(AuthorizationSession.class);
 
   @Mock private AspectRetriever mockAspectRetriever;
 
@@ -80,13 +74,10 @@ public class ModifyIngestionSourceAuthValidatorTest {
   @Test
   public void testCreateAllow() {
     Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "CREATE", "CREATE_ENTITY");
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(result);
+    EntitySpec entitySpec = new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING);
+
+    AuthorizationSession authorizationSession =
+        TestAuthSession.allowOnly(entitySpec, allowedPrivileges);
 
     assertEquals(
         validator
@@ -113,7 +104,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
                                 .getAspectSpec(INGESTION_INFO_ASPECT_NAME))
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                authorizationSession)
             .count(),
         0,
         "Expected creating Ingestion source to be allowed");
@@ -121,15 +112,6 @@ public class ModifyIngestionSourceAuthValidatorTest {
 
   @Test
   public void testCreateDenied() {
-    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "CREATE", "CREATE_ENTITY");
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(result);
-
     assertEquals(
         validator
             .validateProposed(
@@ -155,7 +137,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
                                 .getAspectSpec(INGESTION_INFO_ASPECT_NAME))
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                TestAuthSession.DENY_ALL)
             .count(),
         2,
         "Expected creating Ingestion source to be denied");
@@ -164,13 +146,10 @@ public class ModifyIngestionSourceAuthValidatorTest {
   @Test
   public void testEditAllow() {
     Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EDIT_ENTITY");
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(result);
+    EntitySpec entitySpec = new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING);
+
+    AuthorizationSession authorizationSession =
+        TestAuthSession.allowOnly(entitySpec, allowedPrivileges);
 
     assertEquals(
         validator
@@ -207,7 +186,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
                                 .getAspectSpec(INGESTION_INFO_ASPECT_NAME))
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                authorizationSession)
             .count(),
         0,
         "Expected edits on the Ingestion source to be allowed");
@@ -215,15 +194,6 @@ public class ModifyIngestionSourceAuthValidatorTest {
 
   @Test
   public void testEditDenied() {
-    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EDIT_ENTITY");
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(result);
-
     assertEquals(
         validator
             .validateProposed(
@@ -259,7 +229,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
                                 .getAspectSpec(INGESTION_INFO_ASPECT_NAME))
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                TestAuthSession.DENY_ALL)
             .count(),
         3,
         "Expected edits on the Ingestion source to be denied");
@@ -267,15 +237,6 @@ public class ModifyIngestionSourceAuthValidatorTest {
 
   @Test
   public void testDeleteDenied() {
-    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "DELETE_ENTITY");
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(result);
-
     assertEquals(
         validator
             .validateProposed(
@@ -291,7 +252,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
                                 .getAspectSpec(INGESTION_INFO_ASPECT_NAME))
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                TestAuthSession.DENY_ALL)
             .count(),
         1,
         "Expected deletes on the Ingestion source to be denied");
@@ -300,13 +261,10 @@ public class ModifyIngestionSourceAuthValidatorTest {
   @Test
   public void testDeleteAllowed() {
     Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "DELETE_ENTITY");
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(result);
+    EntitySpec entitySpec = new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING);
+
+    AuthorizationSession authorizationSession =
+        TestAuthSession.allowOnly(entitySpec, allowedPrivileges);
 
     assertEquals(
         validator
@@ -323,7 +281,7 @@ public class ModifyIngestionSourceAuthValidatorTest {
                                 .getAspectSpec(INGESTION_INFO_ASPECT_NAME))
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                authorizationSession)
             .count(),
         0,
         "Expected deletes on the Ingestion source to be allowed");
@@ -358,7 +316,8 @@ public class ModifyIngestionSourceAuthValidatorTest {
     // Test with empty collection of batch items
     assertEquals(
         validator
-            .validateProposed(Collections.emptySet(), mockRetrieverContext, mockSession)
+            .validateProposed(
+                Collections.emptySet(), mockRetrieverContext, TestAuthSession.DENY_ALL)
             .count(),
         0,
         "Expected no exceptions for empty batch items");

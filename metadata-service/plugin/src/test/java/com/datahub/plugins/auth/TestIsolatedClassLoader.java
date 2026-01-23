@@ -4,8 +4,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorContext;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.BatchAuthorizationRequest;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -58,7 +59,7 @@ import org.testng.annotations.Test;
  * com.datahub.plugins.auth.TestIsolatedClassLoader#testIncorrectImplementation ()}. The test case
  * tries to load authorizer plugin as authenticator plugin
  */
-class TestIsolatedClassLoader {
+public class TestIsolatedClassLoader {
 
   @BeforeClass
   public void setSecurityManager() {
@@ -192,11 +193,16 @@ class TestIsolatedClassLoader {
                 PluginConstant.PLUGIN_HOME,
                 authorizerPluginConfig.getPluginHomeDirectory().toString()),
             null);
-    AuthorizationRequest authorizationRequest =
-        new AuthorizationRequest(
-            "urn:li:user:fake", "test", Optional.empty(), Collections.emptyList());
+    BatchAuthorizationRequest authorizationRequest =
+        new BatchAuthorizationRequest(
+            "urn:li:user:fake", Set.of("test"), Optional.empty(), Collections.emptyList());
     authorizer.init(authorizerPluginConfig.getConfigs().orElse(new HashMap<>()), authorizerContext);
-    assert authorizer.authorize(authorizationRequest).getMessage().equals("fake message");
+    assert authorizer
+        .authorizeBatch(authorizationRequest)
+        .getResults()
+        .get("test")
+        .getMessage()
+        .equals("fake message");
   }
 
   @Test

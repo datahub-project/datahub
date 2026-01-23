@@ -14,7 +14,6 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -38,7 +37,6 @@ import org.springframework.web.bind.annotation.*;
 
 public abstract class GenericRelationshipController {
 
-  @Autowired private EntityRegistry entityRegistry;
   @Autowired private GraphService graphService;
   @Autowired private AuthorizerChain authorizationChain;
 

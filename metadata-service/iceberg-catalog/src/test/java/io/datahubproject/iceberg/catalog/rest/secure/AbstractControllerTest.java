@@ -7,9 +7,11 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -24,7 +26,7 @@ import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
-import java.util.*;
+import java.util.Collections;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -97,8 +99,11 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
         isAuthorized ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY;
     String message = isAuthorized ? "Authorized" : "Not authorized";
 
-    when(authorizer.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(mock(AuthorizationRequest.class), resultType, message));
+    when(authorizer.authorizeBatch(any(BatchAuthorizationRequest.class)))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                mock(BatchAuthorizationRequest.class),
+                new ConstantAuthorizationResultMap(resultType)));
   }
 
   private void injectField(String fieldName, Object value) throws Exception {
