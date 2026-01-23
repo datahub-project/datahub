@@ -10,7 +10,7 @@ from datahub.ingestion.source.sql.singlestore import (
 
 class TestSingleStoreConfig:
     def test_default_config(self):
-        config_dict = {}
+        config_dict: dict[str, object] = {}
         config = SingleStoreConfig.model_validate(config_dict)
 
         assert config.host_port == "localhost:3306"
@@ -21,7 +21,7 @@ class TestSingleStoreConfig:
 
 class TestSingleStoreSource:
     def test_add_profile_metadata_handles_errors(self):
-        config_dict = {
+        config_dict: dict[str, object] = {
             "host_port": "localhost:3306",
             "username": "testuser",
             "database": "testdb",
@@ -54,7 +54,7 @@ class TestSingleStoreSource:
         source.report.warning.assert_called()
 
     def test_error_handling_in_get_procedures(self):
-        config_dict = {
+        config_dict: dict[str, object] = {
             "host_port": "localhost:3306",
             "username": "testuser",
             "database": "testdb",
