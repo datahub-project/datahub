@@ -1,4 +1,5 @@
 MATILLION_PLATFORM = "matillion"
+MATILLION_NAMESPACE_PREFIX = "matillion://"
 
 API_ENDPOINT_PROJECTS = "v1/projects"
 API_ENDPOINT_ENVIRONMENTS = "v1/projects/{projectId}/environments"

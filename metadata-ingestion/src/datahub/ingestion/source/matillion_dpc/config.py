@@ -173,6 +173,8 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     sql_parsing_successes: int = 0
     sql_parsing_failures: int = 0
     schemas_preloaded: int = 0
+    unpublished_pipelines_discovered: int = 0
+    unpublished_pipelines_emitted: int = 0
 
     def report_projects_scanned(self, count: int = 1) -> None:
         self.projects_scanned += count
@@ -279,6 +281,12 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
     streaming_pipeline_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for filtering Matillion streaming pipelines to ingest.",
+    )
+
+    include_unpublished_pipelines: bool = Field(
+        default=False,
+        description="Ingest pipelines from lineage events even if not in published-pipelines list. "
+        "Captures unpublished pipelines and ad-hoc runs.",
     )
 
     pipeline_patterns: AllowDenyPattern = Field(
