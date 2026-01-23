@@ -253,6 +253,7 @@ import com.linkedin.datahub.graphql.resolvers.type.ResolvedActorResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.user.CreateNativeUserResetTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.user.ListUsersAndGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
@@ -1086,6 +1087,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
                 .dataFetcher("listGroups", new ListGroupsResolver(this.entityClient))
+                .dataFetcher(
+                    "listUsersAndGroups",
+                    new ListUsersAndGroupsResolver(
+                        this.entityClient, this.viewService, this.formService))
                 .dataFetcher(
                     "listRecommendations",
                     new ListRecommendationsResolver(recommendationsService, viewService))
