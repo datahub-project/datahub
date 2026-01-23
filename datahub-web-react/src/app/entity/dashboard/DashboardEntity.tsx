@@ -14,6 +14,7 @@ import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sideba
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import EmbeddedProfile from '@app/entity/shared/embed/EmbeddedProfile';
+import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '@app/entity/shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '@app/entity/shared/tabs/Entity/DashboardChartsTab';
@@ -27,11 +28,10 @@ import { LOOKER_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '@types';
-import AccessManagement from "@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement";
-import { useAppConfig } from "@app/useAppConfig";
 
 /**
  * Definition of the DataHub Dashboard entity.
