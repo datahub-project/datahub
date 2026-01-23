@@ -130,8 +130,8 @@ class OpenLineageParser:
                 env=info.env,
             )
         except Exception as e:
-            logger.warning(
-                f"Error parsing {event_type} dataset {namespace}/{name}: {e}"
+            logger.info(
+                f"Skipping {event_type} dataset {namespace}/{name} due to parsing error: {e}"
             )
             return None
 

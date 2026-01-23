@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.ingestion.source.matillion_dpc.constants import (
     API_MAX_PAGE_SIZE,
@@ -83,24 +83,10 @@ class PaginationParams(BaseModel):
     page: int = Field(default=0, ge=0)
     size: int = Field(default=25, ge=1, le=API_MAX_PAGE_SIZE)
 
-    @field_validator("size")
-    @classmethod
-    def validate_size(cls, v: int) -> int:
-        if v < 1 or v > API_MAX_PAGE_SIZE:
-            raise ValueError(f"size must be between 1 and {API_MAX_PAGE_SIZE}")
-        return v
-
 
 class TokenPaginationParams(BaseModel):
     limit: int = Field(default=25, ge=1, le=API_MAX_PAGE_SIZE)
     pagination_token: Optional[str] = Field(default=None)
-
-    @field_validator("limit")
-    @classmethod
-    def validate_limit(cls, v: int) -> int:
-        if v < 1 or v > API_MAX_PAGE_SIZE:
-            raise ValueError(f"limit must be between 1 and {API_MAX_PAGE_SIZE}")
-        return v
 
 
 class MatillionDatasetInfo(BaseModel):

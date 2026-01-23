@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
+from requests.exceptions import ConnectionError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
@@ -74,7 +75,7 @@ def test_test_connection(
         with patch.object(
             source.api_client,
             "get_projects",
-            side_effect=Exception("Connection failed"),
+            side_effect=ConnectionError("Connection failed"),
         ):
             report = source.test_connection()
 
@@ -84,6 +85,7 @@ def test_test_connection(
 
     if not should_succeed:
         assert report.basic_connectivity.failure_reason is not None
+        assert "Network connection failed" in report.basic_connectivity.failure_reason
         assert "Connection failed" in report.basic_connectivity.failure_reason
     else:
         assert report.basic_connectivity.failure_reason is None

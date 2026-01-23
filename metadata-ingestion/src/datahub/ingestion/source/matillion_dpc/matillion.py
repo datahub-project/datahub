@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List, Optional
 
 from pydantic import ValidationError
 from requests import HTTPError, RequestException
+from requests.exceptions import ConnectionError, Timeout
 
 from datahub.emitter.mce_builder import datahub_guid, make_data_process_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -82,7 +83,7 @@ EXECUTION_STATUS_TO_RESULT_TYPE = {
 }
 
 
-@platform_name("Matillion DPC", id="matillion-dpc")
+@platform_name("matillion", id="matillion-dpc")
 @config_class(MatillionSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -153,12 +154,27 @@ class MatillionSource(StatefulIngestionSourceBase):
         try:
             self.api_client.get_projects()
             test_report.basic_connectivity = CapabilityReport(capable=True)
-        except Exception as e:
+        except HTTPError as e:
+            if e.response.status_code == 401:
+                failure_reason = "Authentication failed. Please verify your API token."
+            elif e.response.status_code == 403:
+                failure_reason = (
+                    "Authorization failed. Token needs 'Read' permission for Projects."
+                )
+            elif e.response.status_code == 404:
+                failure_reason = f"API endpoint not found. Verify region is correct: {self.config.api_config.region}"
+            else:
+                failure_reason = (
+                    f"HTTP error {e.response.status_code}: {e.response.text}"
+                )
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=failure_reason
+            )
+        except (ConnectionError, Timeout) as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False,
-                failure_reason=f"Failed to connect to Matillion API: {str(e)}",
+                failure_reason=f"Network connection failed: {str(e)}. Verify API is reachable.",
             )
-            return test_report
 
         return test_report
 
@@ -198,11 +214,14 @@ class MatillionSource(StatefulIngestionSourceBase):
             )
             return self._sql_aggregators[platform]
 
+        except (ValueError, TypeError, KeyError) as e:
+            logger.info(f"SQL aggregator skipped for {platform}: {e}")
+            self._sql_aggregators[platform] = None
+            return None
         except Exception as e:
-            logger.warning(
-                f"Failed to create SQL aggregator for platform {platform}. "
-                f"SQL parsing will be disabled for this platform, but basic lineage will still be emitted. "
-                f"Error: {e}"
+            logger.error(
+                f"Unexpected error creating SQL aggregator for {platform}: {type(e).__name__}: {e}",
+                exc_info=True,
             )
             self._sql_aggregators[platform] = None
             return None
@@ -344,9 +363,18 @@ class MatillionSource(StatefulIngestionSourceBase):
                     dataflow.custom_properties["schedule_enabled"] = str(
                         schedule.schedule_enabled
                     )
-        except (HTTPError, RequestException) as e:
-            logger.debug(
-                f"API error fetching schedule for pipeline {pipeline.name}: {e}"
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                logger.debug(
+                    f"No schedule found for pipeline {pipeline.name} (HTTP 404)"
+                )
+            else:
+                logger.info(
+                    f"API error fetching schedule for pipeline {pipeline.name}: HTTP {e.response.status_code}"
+                )
+        except RequestException as e:
+            logger.info(
+                f"Network error fetching schedule for pipeline {pipeline.name}: {e}"
             )
         except (ValidationError, KeyError) as e:
             logger.debug(
@@ -518,8 +546,12 @@ class MatillionSource(StatefulIngestionSourceBase):
                         )
 
             except Exception as e:
-                logger.debug(
-                    f"Error extracting lineage for DataJob {pipeline.name}: {e}"
+                logger.info(
+                    f"Skipping lineage for DataJob {pipeline.name} due to parsing error: {e}"
+                )
+                self.report.report_warning(
+                    "lineage_parsing_error",
+                    f"Failed to parse lineage for {pipeline.name}: {e}",
                 )
 
         return result
