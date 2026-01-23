@@ -7,7 +7,6 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.application.ApplicationProperties;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Documentation;
 import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.DocumentationAssociationArray;
@@ -702,7 +701,6 @@ public class DescriptionUtils {
     // Add the new UI-authored documentation
     associations.add(newDocAssociation);
     documentation.setDocumentations(associations);
-    documentation.setLastModified(new AuditStamp().setTime(currentTime).setActor(actor));
 
     persistAspect(
         opContext,

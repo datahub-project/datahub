@@ -23,6 +23,30 @@ function checkIsUiAuthoredDocumentation(documentation?: DocumentationAssociation
     );
 }
 
+import { DocumentationAssociation } from '@types';
+
+function checkIsInferredDocumentation(documentation?: DocumentationAssociation) {
+    return !!documentation?.attribution?.sourceDetail?.find(
+        (mapEntry) => mapEntry.key === 'inferred' && mapEntry.value === 'true',
+    );
+}
+
+function checkIsPropagatedDocumentation(documentation?: DocumentationAssociation) {
+    return !!documentation?.attribution?.sourceDetail?.find(
+        (mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true',
+    );
+}
+
+/**
+ * Checks if documentation was authored via the UI.
+ * UI-authored documentation has sourceDetail with "ui" = "true".
+ */
+function checkIsUiAuthoredDocumentation(documentation?: DocumentationAssociation) {
+    return !!documentation?.attribution?.sourceDetail?.find(
+        (mapEntry) => mapEntry.key === 'ui' && mapEntry.value === 'true',
+    );
+}
+
 export function getAssetDescriptionDetails({
     entityProperties,
     defaultDescription,
