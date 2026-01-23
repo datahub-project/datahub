@@ -47,7 +47,7 @@ class TestLazyQueryFormatting:
     )
     def test_get_formatted_query_behavior(
         self, format_queries: bool, should_format: bool, description: str
-    ):
+    ) -> None:
         """Test get_formatted_query behavior with format_queries flag."""
         raw_query = "SELECT a, b FROM foo WHERE x > 10"
         query_metadata = create_test_query_metadata(raw_query)

@@ -1459,7 +1459,7 @@ def test_get_projects_with_project_labels(
 )
 def test_numeric_shard_comparison(
     shard1: str, shard2: str, expected_is_newer: bool, description: str
-):
+) -> None:
     """Test shard comparison logic for various shard formats."""
     if shard1.isdigit() and shard2.isdigit():
         is_newer = int(shard1) > int(shard2)
@@ -1540,7 +1540,7 @@ def test_shard_deduplication_in_lightweight_discovery():
 )
 def test_adaptive_batch_sizing(
     table_count: int, expected_batch_size: int, description: str
-):
+) -> None:
     """Test adaptive batch sizing for different dataset sizes."""
     base_batch_size = 200 if table_count == 300 else 100
 
@@ -1562,7 +1562,7 @@ def test_adaptive_batch_sizing(
         "table_20240101",
     ],
 )
-def test_shard_pattern_respects_case_insensitivity(table_id: str):
+def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
     """Test that pattern matching is case-insensitive."""
     pattern = BigqueryTableIdentifier._get_shard_pattern()
 

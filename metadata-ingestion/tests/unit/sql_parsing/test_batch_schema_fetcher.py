@@ -1,7 +1,13 @@
 from unittest.mock import Mock
 
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
 from datahub.sql_parsing.schema_resolver import BatchSchemaFetcher, SchemaResolver
 
 
@@ -11,7 +17,7 @@ def create_mock_schema(fields: list) -> SchemaMetadataClass:
         SchemaFieldClass(
             fieldPath=field,
             nativeDataType="STRING",
-            type={"type": {"com.linkedin.schema.StringType": {}}},
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
         )
         for field in fields
     ]
@@ -20,7 +26,7 @@ def create_mock_schema(fields: list) -> SchemaMetadataClass:
         platform="urn:li:dataPlatform:bigquery",
         version=0,
         hash="",
-        platformSchema={"com.linkedin.schema.MySqlDDL": {"tableSchema": ""}},
+        platformSchema=SchemalessClass(),
         fields=schema_fields,
     )
 
