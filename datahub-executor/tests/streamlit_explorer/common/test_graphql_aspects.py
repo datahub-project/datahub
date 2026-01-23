@@ -666,9 +666,11 @@ class TestCreateAnomalyEventRest:
 
         assert success is True
         assert error_msg is None
-        mock_session.post.assert_called_once()
-        # Verify the URL is the entity endpoint
-        call_args = mock_session.post.call_args
+        # The function makes 2 POST calls: first to GraphQL to fetch run events,
+        # then to REST API to create the anomaly event
+        assert mock_session.post.call_count == 2
+        # Verify the last call (REST API) is to the entity endpoint
+        call_args = mock_session.post.call_args_list[-1]
         assert call_args[0][0] == "http://test/openapi/v3/entity/monitor"
         # Verify the payload is an array containing the entity
         payload = call_args[1]["json"]

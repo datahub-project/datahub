@@ -149,10 +149,10 @@ public class MonitorAnomalyEventUtils {
     final Map<Long, MonitorAnomalyEvent> anomalyEventMap = new HashMap<>();
 
     for (MonitorAnomalyEvent anomalyEvent : anomalyEvents) {
-      if (anomalyEvent.getSource().hasProperties()
-          && anomalyEvent.getSource().getProperties().hasAssertionMetric()
-          && anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs()
-              == null) {
+      if (!anomalyEvent.getSource().hasProperties()
+          || !anomalyEvent.getSource().getProperties().hasAssertionMetric()
+          || (anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs()
+              == null)) {
         continue;
       }
       final MonitorAnomalyEvent maybeExistingEvent =

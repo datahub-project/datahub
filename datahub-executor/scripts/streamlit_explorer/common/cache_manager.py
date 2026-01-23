@@ -218,6 +218,7 @@ class AnomalyEdit:
         - original_state is None
         - local_state is CONFIRMED (marking a point as anomalous)
         - run_event_timestamp_ms is the assertion run event timestamp
+        - metric_value is the metric value at that timestamp (required for matching)
     """
 
     monitor_urn: str
@@ -230,6 +231,7 @@ class AnomalyEdit:
     run_event_timestamp_ms: Optional[int] = (
         None  # For new anomalies: the run event timestamp
     )
+    metric_value: Optional[float] = None  # For new anomalies: the metric value
 
 
 class AnomalyEditTracker:
@@ -286,6 +288,7 @@ class AnomalyEditTracker:
         new_state: str,
         is_new: bool = False,
         run_event_timestamp_ms: Optional[int] = None,
+        metric_value: Optional[float] = None,
     ) -> None:
         """Set a local state override for an anomaly or create a new anomaly.
 
@@ -297,6 +300,7 @@ class AnomalyEditTracker:
             new_state: The new local state (CONFIRMED or REJECTED)
             is_new: True if this is a new anomaly to be created
             run_event_timestamp_ms: For new anomalies, the run event timestamp
+            metric_value: For new anomalies, the metric value at that timestamp
         """
         idx = self._find_edit_index(monitor_urn, timestamp_ms)
         edit_data = {
@@ -312,6 +316,9 @@ class AnomalyEditTracker:
         if run_event_timestamp_ms is not None:
             edit_data["run_event_timestamp_ms"] = run_event_timestamp_ms
 
+        if metric_value is not None:
+            edit_data["metric_value"] = metric_value
+
         if idx >= 0:
             self._data["edits"][idx] = edit_data
         else:
@@ -324,6 +331,7 @@ class AnomalyEditTracker:
         monitor_urn: str,
         assertion_urn: str,
         run_event_timestamp_ms: int,
+        metric_value: Optional[float] = None,
     ) -> None:
         """Create a new local anomaly marking for a run event.
 
@@ -334,6 +342,7 @@ class AnomalyEditTracker:
             monitor_urn: The monitor URN
             assertion_urn: The assertion URN
             run_event_timestamp_ms: The timestamp of the assertion run event
+            metric_value: The metric value at that timestamp (for matching in backend)
         """
         # For new anomalies, we use the run event timestamp as the identifier
         self.set_local_state(
@@ -344,6 +353,7 @@ class AnomalyEditTracker:
             new_state="CONFIRMED",
             is_new=True,
             run_event_timestamp_ms=run_event_timestamp_ms,
+            metric_value=metric_value,
         )
 
     def clear_local_edit(self, monitor_urn: str, timestamp_ms: int) -> bool:
@@ -396,6 +406,7 @@ class AnomalyEditTracker:
                 edited_at=edit["edited_at"],
                 is_new=edit.get("is_new", False),
                 run_event_timestamp_ms=edit.get("run_event_timestamp_ms"),
+                metric_value=edit.get("metric_value"),
             )
         return None
 
@@ -415,6 +426,7 @@ class AnomalyEditTracker:
                 edited_at=e["edited_at"],
                 is_new=e.get("is_new", False),
                 run_event_timestamp_ms=e.get("run_event_timestamp_ms"),
+                metric_value=e.get("metric_value"),
             )
             for e in self._data.get("edits", [])
         ]
@@ -435,6 +447,7 @@ class AnomalyEditTracker:
                 edited_at=e["edited_at"],
                 is_new=True,
                 run_event_timestamp_ms=e.get("run_event_timestamp_ms"),
+                metric_value=e.get("metric_value"),
             )
             for e in self._data.get("edits", [])
             if e.get("is_new", False)
@@ -505,6 +518,7 @@ class AnomalyEditTracker:
                             edited_at=e["edited_at"],
                             is_new=e.get("is_new", False),
                             run_event_timestamp_ms=e.get("run_event_timestamp_ms"),
+                            metric_value=e.get("metric_value"),
                         )
                     )
         return result

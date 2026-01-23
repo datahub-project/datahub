@@ -148,7 +148,9 @@ def extract_timeseries(
 
     Returns:
         DataFrame with columns 'ds' (datetime), 'y' (value),
-        and optionally 'anomaly_state'.
+        'timestampMillis' (original timestamp for anomaly matching),
+        and optionally 'anomaly_timestampMillis' (indicates anomaly exists)
+        and 'anomaly_state' (user review state, may be null for unreviewed).
     """
     base_cols = ["ds", "y", "anomaly_state"] if include_anomalies else ["ds", "y"]
 
@@ -189,12 +191,21 @@ def extract_timeseries(
     result = pd.DataFrame()
     result["ds"] = pd.to_datetime(df[TIMESTAMP_COLUMN], unit="ms")
     result["y"] = pd.to_numeric(df["measure"], errors="coerce")
+    # Preserve timestampMillis for anomaly matching (used by assertion_browser.py)
+    result["timestampMillis"] = df[TIMESTAMP_COLUMN].values
 
-    # Add anomaly state if requested and available
-    if include_anomalies and "anomaly_state" in df.columns:
-        result["anomaly_state"] = df["anomaly_state"].values
-    elif include_anomalies:
-        result["anomaly_state"] = None
+    # Add anomaly data if requested and available
+    # Note: anomaly_timestampMillis indicates an anomaly exists (auto-detected or confirmed)
+    # anomaly_state is the user's review state (can be null for unreviewed anomalies)
+    if include_anomalies:
+        if "anomaly_timestampMillis" in df.columns:
+            result["anomaly_timestampMillis"] = df["anomaly_timestampMillis"].values
+        else:
+            result["anomaly_timestampMillis"] = None
+        if "anomaly_state" in df.columns:
+            result["anomaly_state"] = df["anomaly_state"].values
+        else:
+            result["anomaly_state"] = None
 
     # Drop rows with null ds or y
     result = result.dropna(subset=["ds", "y"])

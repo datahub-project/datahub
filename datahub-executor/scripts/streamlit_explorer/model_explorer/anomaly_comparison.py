@@ -160,14 +160,21 @@ def _load_ground_truth_anomalies(hostname: str, assertion_urn: str) -> pd.DataFr
         # Extract anomaly timestamps and their status
         anomalies = []
         for _, row in raw_events.iterrows():
-            timestamp = row.get("timestampMillis") or row.get("timestamp")
+            # Use source event timestamp (the metric/run event time), not the anomaly event time
+            timestamp = (
+                row.get("source_assertionMetric_timestampMillis")
+                or row.get("source_sourceEventTimestampMillis")
+                or row.get("timestampMillis")
+            )
             if timestamp:
-                # Determine status from event data
-                status = "unconfirmed"
-                if row.get("confirmed") is True:
+                # Determine status from state field
+                state = row.get("state")
+                if state == "CONFIRMED":
                     status = "confirmed"
-                elif row.get("rejected") is True:
+                elif state == "REJECTED":
                     status = "rejected"
+                else:
+                    status = "unconfirmed"
 
                 anomalies.append(
                     {

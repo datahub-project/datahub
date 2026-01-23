@@ -157,10 +157,72 @@ def _render_timeseries_viewer_section(
         )
     )
 
-    # Show anomalies from metric cube data
-    if "anomaly_state" in filtered_df.columns:
-        anomaly_points = filtered_df[filtered_df["anomaly_state"].notna()]
-        if len(anomaly_points) > 0:
+    # Show anomalies from metric cube data, differentiated by state:
+    # - CONFIRMED: orange diamonds
+    # - REJECTED: gray X (crossed out)
+    # - Unreviewed (null state): yellow diamonds
+    if "anomaly_timestampMillis" in filtered_df.columns:
+        anomaly_points = filtered_df[filtered_df["anomaly_timestampMillis"].notna()]
+        has_state = "anomaly_state" in anomaly_points.columns
+
+        if len(anomaly_points) > 0 and has_state:
+            # Split by state for different visualization
+            confirmed = anomaly_points[anomaly_points["anomaly_state"] == "CONFIRMED"]
+            rejected = anomaly_points[anomaly_points["anomaly_state"] == "REJECTED"]
+            unreviewed = anomaly_points[
+                (anomaly_points["anomaly_state"].isna())
+                | (~anomaly_points["anomaly_state"].isin(["CONFIRMED", "REJECTED"]))
+            ]
+
+            if len(confirmed) > 0:
+                fig.add_trace(
+                    go.Scatter(
+                        x=confirmed["ds"],
+                        y=confirmed["y"],
+                        mode="markers",
+                        name="Confirmed Anomaly",
+                        marker=dict(
+                            size=12,
+                            color="orange",
+                            symbol="diamond",
+                            line=dict(width=2, color="darkorange"),
+                        ),
+                    )
+                )
+
+            if len(rejected) > 0:
+                fig.add_trace(
+                    go.Scatter(
+                        x=rejected["ds"],
+                        y=rejected["y"],
+                        mode="markers",
+                        name="Rejected (Not Anomaly)",
+                        marker=dict(
+                            size=10,
+                            color="gray",
+                            symbol="x",
+                            line=dict(width=2, color="darkgray"),
+                        ),
+                    )
+                )
+
+            if len(unreviewed) > 0:
+                fig.add_trace(
+                    go.Scatter(
+                        x=unreviewed["ds"],
+                        y=unreviewed["y"],
+                        mode="markers",
+                        name="Unreviewed Anomaly",
+                        marker=dict(
+                            size=12,
+                            color="#FFD700",  # Gold/yellow
+                            symbol="diamond",
+                            line=dict(width=2, color="#DAA520"),  # Darker gold
+                        ),
+                    )
+                )
+        elif len(anomaly_points) > 0:
+            # No state column - show all as generic anomalies
             fig.add_trace(
                 go.Scatter(
                     x=anomaly_points["ds"],
@@ -271,9 +333,21 @@ def _render_anomaly_marking_section_metric_cube(
         display_events["timestampMillis"], unit="ms"
     )
 
-    # For metric cube data, use measure column and anomaly_state
-    value_col = "measure" if "measure" in display_events.columns else None
+    # For metric cube data, use measure column (raw) or y column (from extract_timeseries)
+    if "measure" in display_events.columns:
+        value_col = "measure"
+    elif "y" in display_events.columns:
+        value_col = "y"
+    else:
+        value_col = None
     has_anomaly_state = "anomaly_state" in display_events.columns
+
+    # Debug logging for metric value extraction
+    logger.info(
+        "Anomaly marking: columns=%s, value_col=%s",
+        list(display_events.columns),
+        value_col,
+    )
 
     # =========================================================================
     # Column Filters (Quick Filters)
@@ -438,15 +512,28 @@ def _render_anomaly_marking_section_metric_cube(
 
             for i, (_idx, row) in enumerate(edited_df.iterrows()):
                 ts_ms = int(limited_events.iloc[i]["timestampMillis"])
+                # Get metric value for the anomaly event payload
+                metric_val = None
+                if value_col and value_col in limited_events.columns:
+                    raw_val = limited_events.iloc[i][value_col]
+                    if pd.notna(raw_val):
+                        metric_val = float(raw_val)
 
                 is_now_marked = row["Mark Anomaly"]
                 was_marked = ts_ms in pending_ts_set
 
                 if is_now_marked and not was_marked:
+                    logger.info(
+                        "Creating anomaly: ts=%s, value_col=%s, metric_val=%s",
+                        ts_ms,
+                        value_col,
+                        metric_val,
+                    )
                     edit_tracker.create_new_anomaly(
                         monitor_urn=monitor_urn,
                         assertion_urn=assertion_urn,
                         run_event_timestamp_ms=ts_ms,
+                        metric_value=metric_val,
                     )
                     anomaly_additions += 1
                 elif not is_now_marked and was_marked:

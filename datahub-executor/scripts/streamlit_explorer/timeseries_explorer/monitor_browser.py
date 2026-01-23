@@ -1322,6 +1322,127 @@ def _delete_anomaly_event(
         )
 
 
+def _fetch_run_event_for_metric(
+    graphql_url: str,
+    headers: dict,
+    assertion_urn: str,
+    metric_timestamp_ms: int,
+) -> tuple[Optional[int], Optional[float]]:
+    """Fetch the assertion run event that corresponds to a metric timestamp.
+
+    The product UI links anomaly events to run events via sourceEventTimestampMillis.
+    This function queries the GraphQL API to find the run event whose
+    result.metric.timestampMillis matches our metric cube timestamp.
+
+    Args:
+        graphql_url: The GraphQL endpoint URL
+        headers: Request headers including auth
+        assertion_urn: The assertion URN to query
+        metric_timestamp_ms: The metric cube timestamp to match
+
+    Returns:
+        Tuple of (run_event_timestamp_ms, metric_value) if found, otherwise (None, None)
+    """
+    # Query run events in a window around the metric timestamp
+    # Run events typically happen slightly after metric sampling (~500ms)
+    window_ms = 60 * 60 * 1000  # 1 hour window
+    start_time = metric_timestamp_ms - window_ms
+    end_time = metric_timestamp_ms + window_ms
+
+    query = """
+    query GetAssertionRunEvents($urn: String!, $startTime: Long!, $endTime: Long!) {
+      assertion(urn: $urn) {
+        runEvents(startTimeMillis: $startTime, endTimeMillis: $endTime, limit: 50) {
+          runEvents {
+            timestampMillis
+            result {
+              metric {
+                timestampMillis
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    variables = {
+        "urn": assertion_urn,
+        "startTime": start_time,
+        "endTime": end_time,
+    }
+
+    try:
+        session = _get_retry_session()
+        response = session.post(
+            graphql_url,
+            json={"query": query, "variables": variables},
+            headers={**headers, "Content-Type": "application/json"},
+            timeout=30,
+        )
+
+        if response.status_code != 200:
+            logger.warning("Failed to fetch run events: HTTP %s", response.status_code)
+            return None, None
+
+        try:
+            data = response.json()
+        except (ValueError, json.JSONDecodeError):
+            logger.warning("Failed to parse run events response as JSON")
+            return None, None
+
+        if "errors" in data:
+            logger.warning("GraphQL errors: %s", data["errors"])
+            return None, None
+
+        assertion_data = data.get("data", {}).get("assertion")
+        if not assertion_data:
+            logger.debug("No assertion data found for %s", assertion_urn)
+            return None, None
+
+        run_events_result = assertion_data.get("runEvents")
+        if not run_events_result:
+            logger.debug("No runEvents result for %s", assertion_urn)
+            return None, None
+
+        run_events = run_events_result.get("runEvents", [])
+        if not run_events:
+            logger.debug("No run events found for %s", assertion_urn)
+            return None, None
+
+        # Find the run event whose metric timestamp matches our metric timestamp
+        for event in run_events:
+            result = event.get("result")
+            if not result:
+                continue
+            metric = result.get("metric")
+            if not metric:
+                continue
+            event_metric_ts = metric.get("timestampMillis")
+            if event_metric_ts == metric_timestamp_ms:
+                run_event_ts = event.get("timestampMillis")
+                metric_value = metric.get("value")
+                logger.info(
+                    "Found matching run event: metric_ts=%s -> run_ts=%s, value=%s",
+                    metric_timestamp_ms,
+                    run_event_ts,
+                    metric_value,
+                )
+                return run_event_ts, metric_value
+
+        logger.debug(
+            "No run event found with matching metric timestamp %s (checked %d events)",
+            metric_timestamp_ms,
+            len(run_events),
+        )
+        return None, None
+
+    except requests.RequestException as e:
+        logger.warning("Failed to fetch run events: %s", str(e))
+        return None, None
+
+
 def _create_anomaly_event_rest(
     base_url: str,
     headers: dict,
@@ -1331,12 +1452,66 @@ def _create_anomaly_event_rest(
 
     Uses the entity endpoint which can create/upsert the monitor entity
     along with the aspect, rather than requiring the entity to exist first.
+
+    The source.properties.assertionMetric.timestampMs field is critical for matching
+    anomaly events to metric cube events in MonitorMetricsResolver.java.
+
+    For product UI compatibility, sourceEventTimestampMillis should be the run event
+    timestamp (when the assertion ran), while assertionMetric.timestampMs should be
+    the metric sampling timestamp (when the data was sampled).
     """
-    source_event_ts = (
+    # The metric timestamp from the metric cube event
+    metric_timestamp_ms = (
         change.run_event_timestamp_ms if change.is_new else change.timestamp_ms
     )
 
+    # Try to fetch the actual run event via GraphQL
+    # This gives us both the run event timestamp (for product UI linking)
+    # and the authoritative metric value
+    graphql_url = base_url.rstrip("/") + "/api/graphql"
+    run_event_timestamp_ms, run_event_metric_value = _fetch_run_event_for_metric(
+        graphql_url,
+        headers,
+        change.assertion_urn,
+        metric_timestamp_ms,
+    )
+
+    # Use run event timestamp as source event timestamp if found,
+    # otherwise fall back to metric timestamp (product UI linking may not work)
+    if run_event_timestamp_ms:
+        source_event_ts = run_event_timestamp_ms
+    else:
+        source_event_ts = metric_timestamp_ms
+        logger.warning(
+            "Could not find run event for metric timestamp %s on %s - "
+            "product UI anomaly linking may not work correctly",
+            metric_timestamp_ms,
+            change.assertion_urn,
+        )
+
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+
+    # Build assertionMetric - timestampMs is required for matching, value is required by schema
+    # The Java backend (MonitorAnomalyEventUtils.buildAnomalyEventMapByMetric) uses timestampMs
+    # to match anomalies to metric cube events.
+    # Use the original metric timestamp for matching, not the run event timestamp
+    assertion_metric: dict = {"timestampMs": metric_timestamp_ms}
+
+    # Prefer metric value from run event (authoritative), fall back to local state
+    if run_event_metric_value is not None:
+        assertion_metric["value"] = run_event_metric_value
+    else:
+        local_metric_value = getattr(change, "metric_value", None)
+        if local_metric_value is not None:
+            assertion_metric["value"] = local_metric_value
+        else:
+            # Schema requires value field - use 0.0 as fallback
+            assertion_metric["value"] = 0.0
+            logger.warning(
+                "No metric value available for %s at %s - using 0.0",
+                change.assertion_urn,
+                metric_timestamp_ms,
+            )
 
     # Entity endpoint payload - must be an array of entities
     entity_payload = [
@@ -1350,6 +1525,9 @@ def _create_anomaly_event_rest(
                         "type": "USER_FEEDBACK",
                         "sourceUrn": change.assertion_urn,
                         "sourceEventTimestampMillis": source_event_ts,
+                        "properties": {
+                            "assertionMetric": assertion_metric,
+                        },
                     },
                     "created": {"time": now_ms},
                     "lastUpdated": {"time": now_ms},

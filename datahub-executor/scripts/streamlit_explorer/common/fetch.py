@@ -1567,8 +1567,9 @@ def _convert_metric_cube_events(events: list[dict]) -> pd.DataFrame:
             "aspectName": "dataHubMetricCubeEvent",
         }
 
-        # Add anomaly data if present
-        if event.get("anomaly_state"):
+        # Add anomaly data if present (check timestampMillis, not state, since
+        # auto-detected anomalies may have null state until user reviews them)
+        if event.get("anomaly_timestampMillis"):
             row["anomaly_timestampMillis"] = event.get("anomaly_timestampMillis")
             row["anomaly_state"] = event.get("anomaly_state")
             row["anomaly_source_type"] = event.get("anomaly_source_type")
