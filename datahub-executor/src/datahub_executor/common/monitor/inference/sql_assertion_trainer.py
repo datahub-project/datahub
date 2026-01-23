@@ -7,11 +7,13 @@ from datahub.metadata.schema_classes import (
     AssertionEvaluationContextClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
+    MonitorErrorTypeClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
 )
 
 from datahub_executor.common.aspect_builder import get_assertion_info
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.adjustment_utils import (
     extract_lookback_days,
@@ -129,17 +131,37 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
             else min_window_duration
         )
 
-        metrics = self.metrics_client.fetch_metric_values(
-            metric_cube_urn,
-            lookback=final_window_duration,
-            limit=2000,
-        )
+        try:
+            metrics = self.metrics_client.fetch_metric_values(
+                metric_cube_urn,
+                lookback=final_window_duration,
+                limit=2000,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch metrics for {metric_cube_urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_metric_values",
+                    "metric_cube_urn": metric_cube_urn,
+                },
+            ) from e
 
-        anomalies = self.monitor_client.fetch_monitor_anomalies(
-            urn=monitor.urn,
-            lookback=training_window_duration,
-            limit=2000,
-        )
+        try:
+            anomalies = self.monitor_client.fetch_monitor_anomalies(
+                urn=monitor.urn,
+                lookback=training_window_duration,
+                limit=2000,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch anomalies for {monitor.urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_monitor_anomalies",
+                    "monitor_urn": monitor.urn,
+                },
+            ) from e
 
         metrics_without_anomalies = [
             metric for metric in metrics if not is_metric_anomaly(metric, anomalies)
@@ -162,9 +184,16 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
 
         new_context = self.create_empty_context(0)
 
-        self.monitor_client.patch_sql_metric_monitor_evaluation_context(
-            monitor.urn, assertion.urn, new_context, evaluation_spec
-        )
+        try:
+            self.monitor_client.patch_sql_metric_monitor_evaluation_context(
+                monitor.urn, assertion.urn, new_context, evaluation_spec
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to persist SQL context for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "patch_sql_metric_monitor_evaluation_context"},
+            ) from e
 
     def train_and_update_assertion(
         self,
@@ -232,7 +261,14 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
         )
 
         # 6) Persist the updated assertion info
-        self.monitor_client.update_assertion_info(assertion.urn, assertion_info)
+        try:
+            self.monitor_client.update_assertion_info(assertion.urn, assertion_info)
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to persist assertion info for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "update_assertion_info"},
+            ) from e
 
         # 7) Retunr teh updated assertion
         updated_assertion = self._rebuild_assertion(assertion, assertion_info)
@@ -249,8 +285,13 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
         """
         assertion_info = get_assertion_info(assertion.raw_info_aspect)
         if not assertion_info or not assertion_info.sqlAssertion:
-            raise RuntimeError(
-                f"Missing raw assertionInfo aspect or SQL assertion info for assertion {assertion.urn}"
+            raise TrainingErrorException(
+                message=(
+                    "Missing raw assertionInfo aspect or SQL assertion info for "
+                    f"assertion {assertion.urn}"
+                ),
+                error_type=MonitorErrorTypeClass.INVALID_PARAMETERS,
+                properties={"detail": "missing_sql_assertion_info"},
             )
         return assertion_info
 
@@ -326,6 +367,11 @@ class SqlAssertionTrainer(BaseAssertionTrainer[Metric]):
             logger.exception(
                 f"Failed to update embedded assertions for {monitor_urn}: {e}"
             )
+            raise TrainingErrorException(
+                message=str(e),
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "patch_sql_metric_monitor_evaluation_context"},
+            ) from e
 
     def _rebuild_assertion(
         self, original_assertion: Assertion, assertion_info: AssertionInfoClass

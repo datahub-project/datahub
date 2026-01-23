@@ -56,7 +56,7 @@ def extract_assertion_evaluation_result_error(
         )
     elif isinstance(error, UnsupportedPlatformException):
         return AssertionEvaluationResultError(
-            type=AssertionResultErrorType.SOURCE_QUERY_FAILED,
+            type=AssertionResultErrorType.UNSUPPORTED_PLATFORM,
             properties={"message": error.message, "platform_urn": error.platform_urn},
         )
     elif isinstance(error, CustomSQLErrorException):

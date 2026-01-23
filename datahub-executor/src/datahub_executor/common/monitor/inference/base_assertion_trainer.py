@@ -10,8 +10,10 @@ from datahub.metadata.schema_classes import (
     AssertionInferenceDetailsClass,
     AssertionMonitorMetricsCubeBootstrapStateClass,
     AssertionMonitorMetricsCubeBootstrapStatusClass,
+    MonitorErrorTypeClass,
 )
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.adjustment_utils import (
@@ -220,9 +222,19 @@ class BaseAssertionTrainer(Generic[Event], ABC):
             return []
 
         # 2. Fetch the historical data
-        metrics_data = self.try_get_historical_data_for_bootstrap(
-            assertion, maybe_adjustment_settings
-        )
+        try:
+            metrics_data = self.try_get_historical_data_for_bootstrap(
+                assertion, maybe_adjustment_settings
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch bootstrap data for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "try_get_historical_data_for_bootstrap",
+                    "assertion_urn": assertion.urn,
+                },
+            ) from e
         if metrics_data is None or len(metrics_data) == 0:
             logger.debug(
                 f"No historical data found for assertion {assertion.urn}. Skipping bootstrap."
@@ -240,23 +252,33 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         datahub_profile_metrics: List[Metric],
     ) -> None:
         if len(datahub_profile_metrics) > 0:
-            # 1. Store the metrics in the metrics cube
-            metric_cube_urn = get_metric_cube_urn(monitor.urn)
-            self.metrics_client.save_metric_values(
-                metric_cube_urn,
-                datahub_profile_metrics,
-            )
-
-            # 2. Mark the metrics cube as bootstrapped
-            metrics_cube_bootstrap_status = (
-                AssertionMonitorMetricsCubeBootstrapStatusClass(
-                    state=AssertionMonitorMetricsCubeBootstrapStateClass.COMPLETED,
+            try:
+                # 1. Store the metrics in the metrics cube
+                metric_cube_urn = get_metric_cube_urn(monitor.urn)
+                self.metrics_client.save_metric_values(
+                    metric_cube_urn,
+                    datahub_profile_metrics,
                 )
-            )
-            self.monitor_client.patch_assertion_monitor_metrics_cube_bootstrap_status(
-                monitor.urn,
-                metrics_cube_bootstrap_status,
-            )
+
+                # 2. Mark the metrics cube as bootstrapped
+                metrics_cube_bootstrap_status = (
+                    AssertionMonitorMetricsCubeBootstrapStatusClass(
+                        state=AssertionMonitorMetricsCubeBootstrapStateClass.COMPLETED,
+                    )
+                )
+                self.monitor_client.patch_assertion_monitor_metrics_cube_bootstrap_status(
+                    monitor.urn,
+                    metrics_cube_bootstrap_status,
+                )
+            except Exception as e:
+                raise TrainingErrorException(
+                    message=f"Failed to persist metrics cube bootstrap for {monitor.urn}: {e}",
+                    error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                    properties={
+                        "step": "bootstrap_metrics_cube_with_data",
+                        "monitor_urn": monitor.urn,
+                    },
+                ) from e
 
     @classmethod
     def filter_training_timeseries(

@@ -1,11 +1,7 @@
-from typing import Dict, cast
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.schema_classes import (
-    MonitorErrorTypeClass,
-    MonitorStateClass,
-)
 
 from datahub_executor.common.assertion.engine.evaluator.evaluator import (
     AssertionEvaluator,
@@ -59,28 +55,13 @@ class TestEvaluator(AssertionEvaluator):
 
 class TestAssertionEvaluator:
     @pytest.fixture
-    def mock_dependencies(self) -> Dict[str, MagicMock]:
-        """Set up mock dependencies for the evaluator"""
-        connection_provider = MagicMock()
-        state_provider = MagicMock()
-        source_provider = MagicMock()
-        monitor_client = MagicMock()
-
-        return {
-            "connection_provider": connection_provider,
-            "state_provider": state_provider,
-            "source_provider": source_provider,
-            "monitor_client": monitor_client,
-        }
-
-    @pytest.fixture
-    def evaluator(self, mock_dependencies: Dict[str, MagicMock]) -> TestEvaluator:
+    def evaluator(self) -> TestEvaluator:
         """Create a test evaluator instance"""
         return TestEvaluator(
-            connection_provider=mock_dependencies["connection_provider"],
-            state_provider=mock_dependencies["state_provider"],
-            source_provider=mock_dependencies["source_provider"],
-            monitor_client=mock_dependencies["monitor_client"],
+            connection_provider=MagicMock(),
+            state_provider=MagicMock(),
+            source_provider=MagicMock(),
+            monitor_client=MagicMock(),
         )
 
     @pytest.fixture
@@ -122,17 +103,11 @@ class TestAssertionEvaluator:
         assertion: MagicMock,
         parameters: AssertionEvaluationParameters,
         context: MagicMock,
-        mock_dependencies: Dict[str, MagicMock],
     ) -> None:
         """Test successful evaluation"""
         result = evaluator.evaluate(assertion, parameters, context)
 
         assert result.type == AssertionResultType.SUCCESS
-        mock_dependencies["monitor_client"].patch_monitor_state.assert_called_once_with(
-            monitor_urn=context.monitor_urn,
-            new_state=MonitorStateClass.EVALUATION,
-            error=None,
-        )
 
     def test_evaluate_init(
         self,
@@ -140,7 +115,6 @@ class TestAssertionEvaluator:
         assertion: MagicMock,
         parameters: AssertionEvaluationParameters,
         context: MagicMock,
-        mock_dependencies: Dict[str, MagicMock],
     ) -> None:
         """Test initialization evaluation"""
         # Patch the _evaluate_internal method to return INIT type
@@ -152,13 +126,6 @@ class TestAssertionEvaluator:
             result = evaluator.evaluate(assertion, parameters, context)
 
             assert result.type == AssertionResultType.INIT
-            mock_dependencies[
-                "monitor_client"
-            ].patch_monitor_state.assert_called_once_with(
-                monitor_urn=context.monitor_urn,
-                new_state=MonitorStateClass.TRAINING,
-                error=None,
-            )
 
     def test_evaluate_no_monitor(
         self,
@@ -166,14 +133,12 @@ class TestAssertionEvaluator:
         assertion: MagicMock,
         parameters: AssertionEvaluationParameters,
         context_no_monitor: MagicMock,
-        mock_dependencies: Dict[str, MagicMock],
     ) -> None:
         """Test evaluation without monitor URN"""
         result = evaluator.evaluate(assertion, parameters, context_no_monitor)
 
         assert result.type == AssertionResultType.SUCCESS
         # Should not call patch_monitor_state when no monitor_urn is present
-        mock_dependencies["monitor_client"].patch_monitor_state.assert_not_called()
 
     def test_evaluate_with_source_connection_error(
         self,
@@ -181,7 +146,6 @@ class TestAssertionEvaluator:
         assertion: MagicMock,
         parameters: AssertionEvaluationParameters,
         context: MagicMock,
-        mock_dependencies: Dict[str, MagicMock],
     ) -> None:
         """Test evaluation with SourceConnectionErrorException"""
         # Create source connection error
@@ -207,21 +171,12 @@ class TestAssertionEvaluator:
                 == "urn:li:connection:test"
             )
 
-            # Check monitor state update
-            mock_dependencies["monitor_client"].patch_monitor_state.assert_called_once()
-            call_args = mock_dependencies[
-                "monitor_client"
-            ].patch_monitor_state.call_args[1]
-            assert call_args["monitor_urn"] == context.monitor_urn
-            assert call_args["new_state"] == MonitorStateClass.ERROR
-
     def test_evaluate_with_insufficient_data(
         self,
         evaluator: TestEvaluator,
         assertion: MagicMock,
         parameters: AssertionEvaluationParameters,
         context: MagicMock,
-        mock_dependencies: Dict[str, MagicMock],
     ) -> None:
         """Test evaluation with InsufficientDataException"""
         exception = InsufficientDataException(
@@ -246,7 +201,6 @@ class TestAssertionEvaluator:
         assertion: MagicMock,
         parameters: AssertionEvaluationParameters,
         context: MagicMock,
-        mock_dependencies: Dict[str, MagicMock],
     ) -> None:
         """Test evaluation with generic Exception"""
         exception = Exception("Generic error")
@@ -264,24 +218,11 @@ class TestAssertionEvaluator:
             assert "Generic error" in result.error.properties["message"]
             assert "stacktrace" in result.error.properties
 
-            # Check monitor state update
-            mock_dependencies["monitor_client"].patch_monitor_state.assert_called_once()
-            call_args = mock_dependencies[
-                "monitor_client"
-            ].patch_monitor_state.call_args[1]
-            assert call_args["monitor_urn"] == context.monitor_urn
-            assert (
-                call_args["new_state"] == "ERROR"
-            )  # Note: using string instead of enum
-            assert call_args["error"] is not None
-            assert "An unknown error occurred" in call_args["error"].message
-
     def test_evaluate_with_default_parameters(
         self,
         evaluator: TestEvaluator,
         assertion: MagicMock,
         context: MagicMock,
-        mock_dependencies: Dict[str, MagicMock],
     ) -> None:
         """Test evaluation using default parameters when None is provided"""
         # Use an explicit cast to help the type checker understand this is intentional
@@ -289,7 +230,6 @@ class TestAssertionEvaluator:
         result = evaluator.evaluate(assertion, default_params, context)
 
         assert result.type == AssertionResultType.SUCCESS
-        mock_dependencies["monitor_client"].patch_monitor_state.assert_called_once()
 
     # Tests for _compare_values method
     def test_compare_values_between_valid(self, evaluator: TestEvaluator) -> None:
@@ -565,52 +505,3 @@ class TestAssertionEvaluator:
             assert call_args[2] == pytest.approx(110.0)
             assert call_args[3] == pytest.approx(105.0)
             assert call_args[4] == pytest.approx(115.0)
-
-    # Tests for _update_monitor_state method
-    def test_update_monitor_state_success(
-        self, evaluator: TestEvaluator, mock_dependencies: Dict[str, MagicMock]
-    ) -> None:
-        """Test _update_monitor_state without error message"""
-        evaluator._update_monitor_state(
-            "urn:li:monitor:123", MonitorStateClass.EVALUATION, None
-        )
-
-        mock_dependencies["monitor_client"].patch_monitor_state.assert_called_once_with(
-            monitor_urn="urn:li:monitor:123",
-            new_state=MonitorStateClass.EVALUATION,
-            error=None,
-        )
-
-    def test_update_monitor_state_with_error(
-        self, evaluator: TestEvaluator, mock_dependencies: Dict[str, MagicMock]
-    ) -> None:
-        """Test _update_monitor_state with error message"""
-        evaluator._update_monitor_state(
-            "urn:li:monitor:123", MonitorStateClass.ERROR, "Test error message"
-        )
-
-        mock_dependencies["monitor_client"].patch_monitor_state.assert_called_once()
-        call_args = mock_dependencies["monitor_client"].patch_monitor_state.call_args[1]
-        assert call_args["monitor_urn"] == "urn:li:monitor:123"
-        assert call_args["new_state"] == MonitorStateClass.ERROR
-        assert call_args["error"] is not None
-        assert call_args["error"].type == MonitorErrorTypeClass.UNKNOWN
-        assert call_args["error"].message == "Test error message"
-
-    def test_update_monitor_state_with_exception(
-        self, evaluator: TestEvaluator, mock_dependencies: Dict[str, MagicMock]
-    ) -> None:
-        """Test _update_monitor_state handling exception from monitor_client"""
-        mock_dependencies["monitor_client"].patch_monitor_state.side_effect = Exception(
-            "Connection error"
-        )
-
-        # Should not raise the exception
-        with patch("logging.Logger.exception") as mock_logger:
-            evaluator._update_monitor_state(
-                "urn:li:monitor:123", MonitorStateClass.EVALUATION, None
-            )
-
-            # Verify logging
-            mock_logger.assert_called_once()
-            assert "Failed to patch monitor state" in mock_logger.call_args[0][0]

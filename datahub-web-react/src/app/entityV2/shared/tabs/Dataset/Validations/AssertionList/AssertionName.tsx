@@ -98,6 +98,7 @@ export const AssertionName = ({
     const isSmartAssertion = assertionInfo?.source?.type === AssertionSourceType.Inferred;
 
     const generatedAt = extractLatestGeneratedAt(monitor);
+    // NOTE: replace this with the Assertion status
     const smartAssertionAgeDays = generatedAt ? moment().diff(moment(generatedAt), 'days') : undefined;
     const isSmartAssertionStale =
         isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;

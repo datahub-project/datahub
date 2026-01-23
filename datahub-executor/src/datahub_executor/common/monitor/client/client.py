@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,7 +20,6 @@ from datahub.metadata.schema_classes import (
     FreshnessFieldSpecClass,
     MonitorAnomalyEventClass,
     MonitorErrorClass,
-    MonitorStateClass,
     MonitorTypeClass,
     SystemMetadataClass,
 )
@@ -316,28 +315,22 @@ class MonitorClient:
         mcps = monitor_patch_builder.build()
         self.graph.emit_mcps(mcps)
 
-    def patch_monitor_state(
+    def patch_monitor_error(
         self,
         monitor_urn: str,
-        new_state: Union[MonitorStateClass, str],
-        error: Optional[MonitorErrorClass],
+        error: MonitorErrorClass,
     ) -> None:
         """
-        Patch the state for the monitor
+        Patch the error for the monitor without updating state.
         """
         logger.debug(
-            "AssertionsClient: Patching monitor state info %s",
-            new_state,
+            "AssertionsClient: Patching monitor error info %s",
+            error,
         )
         monitor_patch_builder = MonitorPatchBuilder(
             urn=monitor_urn,
         )
-
-        monitor_patch_builder.set_state(new_state)
-
-        if error:
-            monitor_patch_builder.set_error(error)
-
+        monitor_patch_builder.set_error(error)
         mcps = monitor_patch_builder.build()
         self.graph.emit_mcps(mcps)
 

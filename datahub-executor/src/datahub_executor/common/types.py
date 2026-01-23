@@ -77,6 +77,7 @@ class AssertionType(Enum):
     SQL = "SQL"
     FIELD = "FIELD"
     DATA_SCHEMA = "DATA_SCHEMA"
+    UNKNOWN = "UNKNOWN"
 
 
 class AssertionResultErrorType(Enum):
@@ -1068,6 +1069,19 @@ class AssertionInfo(PermissiveBaseModel):
             values["schemaAssertion"] = values["info"]["schemaAssertion"]
 
         return values
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def coerce_assertion_type(cls, value: Any) -> Any:
+        if isinstance(value, AssertionType):
+            return value
+        if isinstance(value, str):
+            try:
+                return AssertionType(value)
+            except ValueError:
+                logger.warning("Unknown assertion type %s; coercing to UNKNOWN", value)
+                return AssertionType.UNKNOWN
+        return value
 
 
 class AssertionAdjustmentAlgorithm(Enum):

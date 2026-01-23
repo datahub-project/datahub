@@ -27,6 +27,7 @@ from datahub_executor.common.monitor.inference.volume_assertion_trainer import (
 from datahub_executor.common.types import (
     Assertion,
     AssertionEvaluationSpec,
+    AssertionSourceType,
     AssertionType,
     Monitor,
 )
@@ -122,9 +123,18 @@ def field_monitor() -> Mock:
 @pytest.fixture
 def unsupported_monitor() -> Mock:
     """Create a mock monitor with an unsupported assertion type."""
-    unsupported_assertion = Mock(spec=Assertion)
-    unsupported_assertion.type = "UNSUPPORTED"  # type: ignore  # For testing unsupported types
-    unsupported_assertion.urn = "urn:li:assertion:unsupported-assertion"
+    unsupported_assertion = Assertion.model_validate(
+        {
+            "type": "UNSUPPORTED",
+            "urn": "urn:li:assertion:unsupported-assertion",
+            "entity": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+                "platformUrn": "urn:li:dataPlatform:foo",
+            },
+            "sourceType": AssertionSourceType.INFERRED,
+        }
+    )
+    assert unsupported_assertion.type == AssertionType.UNKNOWN
 
     unsupported_eval_spec = Mock(spec=AssertionEvaluationSpec)
     unsupported_eval_spec.assertion = unsupported_assertion
@@ -197,7 +207,6 @@ def test_get_trainer(engine: MonitorTrainingEngine) -> None:
     assert engine.get_trainer(AssertionType.VOLUME) is not None
     assert engine.get_trainer(AssertionType.FRESHNESS) is not None
     assert engine.get_trainer(AssertionType.FIELD) is not None
-    assert engine.get_trainer("UNSUPPORTED") is None  # type: ignore  # For testing unsupported types
 
 
 def test_train_null_monitor(engine: MonitorTrainingEngine, null_monitor: Mock) -> None:

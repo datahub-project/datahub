@@ -2,10 +2,12 @@ import logging
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import MonitorErrorClass, MonitorErrorTypeClass
 
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     is_smart_assertion,
 )
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.monitor.inference.base_assertion_trainer import (
@@ -159,10 +161,47 @@ class MonitorTrainingEngine:
 
             try:
                 self._train_assertion(monitor, assertion, assertion_evaluation_spec)
+            except TrainingErrorException as e:
+                logger.exception(
+                    f"Error training assertion {assertion.urn} of type {assertion.type}: {e}"
+                )
+                if monitor.urn:
+                    assertion_type_value = assertion.type.value
+                    properties = {
+                        "monitor_urn": monitor.urn,
+                        "assertion_urn": assertion.urn,
+                        "assertion_type": str(assertion_type_value),
+                    }
+                    properties.update(e.properties)
+
+                    error = MonitorErrorClass(
+                        type=e.error_type,
+                        message=str(e),
+                        properties=properties,
+                    )
+                    self.monitor_client.patch_monitor_error(
+                        monitor_urn=monitor.urn,
+                        error=error,
+                    )
             except Exception as e:
                 logger.exception(
                     f"Error training assertion {assertion.urn} of type {assertion.type}: {e}"
                 )
+                if monitor.urn:
+                    assertion_type_value = assertion.type.value
+                    error = MonitorErrorClass(
+                        type=MonitorErrorTypeClass.MODEL_TRAINING_FAILED,
+                        message=str(e),
+                        properties={
+                            "monitor_urn": monitor.urn,
+                            "assertion_urn": assertion.urn,
+                            "assertion_type": str(assertion_type_value),
+                        },
+                    )
+                    self.monitor_client.patch_monitor_error(
+                        monitor_urn=monitor.urn,
+                        error=error,
+                    )
 
         logger.info(f"Completed training run for monitor {monitor.urn}!")
 

@@ -41,6 +41,9 @@ import logging
 from typing import TYPE_CHECKING, Optional, Union
 
 import pandas as pd
+from datahub.metadata.schema_classes import MonitorErrorTypeClass
+
+from datahub_executor.common.exceptions import TrainingErrorException
 
 if TYPE_CHECKING:
     from datahub_observe.algorithms.anomaly_detection.anomaly_base import (
@@ -80,7 +83,7 @@ def extract_quality_score(
         Quality score between 0.0 and 1.0
 
     Raises:
-        RuntimeError: If insufficient data to validate model quality
+        TrainingErrorException: If insufficient data to validate model quality
     """
     # Get min_samples from model or use default
     min_samples = getattr(
@@ -89,10 +92,17 @@ def extract_quality_score(
 
     # FAIL FAST: Check data size before anything else
     if len(train_df) < min_samples:
-        raise RuntimeError(
-            f"Insufficient data for quality evaluation "
-            f"({len(train_df)} < {min_samples} samples). "
-            f"Cannot validate model quality."
+        raise TrainingErrorException(
+            message=(
+                "Insufficient data for quality evaluation "
+                f"({len(train_df)} < {min_samples} samples). "
+                "Cannot validate model quality."
+            ),
+            error_type=MonitorErrorTypeClass.TRAINING_DATA_INSUFFICIENT,
+            properties={
+                "sample_count": str(len(train_df)),
+                "min_samples": str(min_samples),
+            },
         )
 
     if anomaly_model is None:

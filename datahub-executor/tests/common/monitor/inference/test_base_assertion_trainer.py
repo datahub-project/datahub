@@ -4,7 +4,9 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import MonitorErrorTypeClass
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.client import MonitorClient
@@ -547,6 +549,25 @@ def test_bootstrap_metrics_cube_with_data(
         "test:metric:cube:urn", metrics
     )
     trainer.monitor_client.patch_assertion_monitor_metrics_cube_bootstrap_status.assert_called_once()  # type: ignore[attr-defined]
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.get_metric_cube_urn"
+)
+def test_bootstrap_metrics_cube_with_data_persistence_failure(
+    mock_get_metric_cube_urn: MagicMock, trainer: TestableAssertionTrainer
+) -> None:
+    """Test bootstrap_metrics_cube_with_data surfaces persistence errors."""
+    monitor = Mock(spec=Monitor)
+    monitor.urn = "test:monitor:urn"
+    metrics: List[Metric] = [Mock(spec=Metric)]
+    mock_get_metric_cube_urn.return_value = "test:metric:cube:urn"
+    trainer.metrics_client.save_metric_values.side_effect = RuntimeError("write failed")  # type: ignore[attr-defined]
+
+    with pytest.raises(TrainingErrorException) as excinfo:
+        trainer.bootstrap_metrics_cube_with_data(monitor, metrics)
+
+    assert excinfo.value.error_type == MonitorErrorTypeClass.PERSISTENCE_FAILED
 
 
 @patch(

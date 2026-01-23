@@ -5,6 +5,9 @@ Volume assertion trainer V2 using observe-models.
 import logging
 from typing import Optional
 
+from datahub.metadata.schema_classes import MonitorErrorTypeClass
+
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.monitor.adjustment_utils import get_sensitivity_level
 from datahub_executor.common.monitor.inference_v2.base_trainer_v2 import BaseTrainerV2
 from datahub_executor.common.monitor.inference_v2.types import AssertionTrainingContext
@@ -51,10 +54,17 @@ class VolumeTrainerV2(BaseTrainerV2):
         # TODO: Move this minimum samples check out of the trainer and let _run_training_pipeline
         # throw an InsufficientSamplesException so we can handle it properly at the coordinator level.
         if len(metrics) < VOLUME_MIN_TRAINING_SAMPLES:
-            logger.warning(
-                f"[V2] Insufficient samples ({len(metrics)}) for assertion {assertion.urn}"
+            raise TrainingErrorException(
+                message=(
+                    f"[V2] Insufficient samples ({len(metrics)}) for assertion {assertion.urn}"
+                ),
+                error_type=MonitorErrorTypeClass.TRAINING_DATA_INSUFFICIENT,
+                state="TRAINING",
+                properties={
+                    "sample_count": str(len(metrics)),
+                    "min_samples": str(VOLUME_MIN_TRAINING_SAMPLES),
+                },
             )
-            return
 
         # Fetch anomalies and build training dataframe + ground truth
         anomalies = self._fetch_anomalies(monitor, adjustment_settings)
@@ -66,7 +76,6 @@ class VolumeTrainerV2(BaseTrainerV2):
         )
 
         try:
-            # TODO: if this throws an error because of not confident enough predictions, we should report that to the monitor status.
             training_result = self._run_training_pipeline(
                 df=df,
                 context=context,
@@ -87,8 +96,21 @@ class VolumeTrainerV2(BaseTrainerV2):
                 f"with {num_predictions} predictions"
             )
 
+        except TrainingErrorException as e:
+            logger.exception(f"[V2] Training failed for assertion {assertion.urn}: {e}")
+            raise
+        except RuntimeError as e:
+            logger.exception(f"[V2] Training failed for assertion {assertion.urn}: {e}")
+            raise TrainingErrorException(
+                message=str(e),
+                error_type=MonitorErrorTypeClass.UNKNOWN,
+            ) from e
         except Exception as e:
             logger.exception(f"[V2] Training failed for assertion {assertion.urn}: {e}")
+            raise TrainingErrorException(
+                message=str(e),
+                error_type=MonitorErrorTypeClass.UNKNOWN,
+            ) from e
 
     def get_assertion_category(self) -> str:
         return "volume"

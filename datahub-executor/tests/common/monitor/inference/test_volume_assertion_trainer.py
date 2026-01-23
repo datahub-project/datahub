@@ -14,11 +14,13 @@ from datahub.metadata.schema_classes import (
     DatasetFilterClass,
     DatasetFilterTypeClass,
     EmbeddedAssertionClass,
+    MonitorErrorTypeClass,
     RowCountTotalClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.client import MonitorClient
@@ -362,6 +364,35 @@ def test_get_metric_data(
 @patch(
     "datahub_executor.common.monitor.inference.volume_assertion_trainer.get_metric_cube_urn"
 )
+def test_get_metric_data_fetch_failure(
+    mock_get_metric_cube_urn: MagicMock,
+    trainer: VolumeAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_assertion: Mock,
+) -> None:
+    """Test that get_metric_data surfaces metric fetch failures."""
+    mock_get_metric_cube_urn.return_value = (
+        "urn:li:dataHubMetricCube:encoded-monitor-urn"
+    )
+    mock_dependencies["metrics_client"].fetch_metric_values.side_effect = RuntimeError(
+        "fetch failed"
+    )
+
+    with pytest.raises(TrainingErrorException) as excinfo:
+        trainer.get_metric_data(
+            cast(Monitor, mock_monitor),
+            cast(Assertion, mock_assertion),
+            None,
+            [],
+        )
+
+    assert excinfo.value.error_type == MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.get_metric_cube_urn"
+)
 def test_get_metric_data_with_anomalies(
     mock_get_metric_cube_urn: MagicMock,
     trainer: VolumeAssertionTrainer,
@@ -464,6 +495,32 @@ def test_remove_inferred_assertion(
     ].patch_volume_monitor_evaluation_context.call_args[0][2]
     assert isinstance(context_arg, AssertionEvaluationContextClass)
     assert context_arg.inferenceDetails.generatedAt == 0  # type: ignore
+
+
+def test_update_volume_monitor_evaluation_context_failure(
+    trainer: VolumeAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_evaluation_spec: Mock,
+    mock_boundaries: List[Mock],
+) -> None:
+    """Test update evaluation context surfaces persistence failures."""
+    mock_dependencies[
+        "monitor_client"
+    ].patch_volume_monitor_evaluation_context.side_effect = RuntimeError("patch failed")
+
+    with pytest.raises(TrainingErrorException) as excinfo:
+        trainer._update_volume_monitor_evaluation_context(
+            assertion_urn="urn:li:assertion:test-assertion",
+            monitor_urn=mock_monitor.urn,
+            entity_urn="urn:li:dataset:test-dataset",
+            boundaries=cast(List[MetricBoundary], mock_boundaries),
+            evaluation_spec=mock_evaluation_spec,
+            assertion_description=None,
+            filter=None,
+        )
+
+    assert excinfo.value.error_type == MonitorErrorTypeClass.PERSISTENCE_FAILED
 
 
 @patch(
@@ -678,10 +735,12 @@ def test_get_assertion_info_missing(
 
     # Act & Assert
     with pytest.raises(
-        RuntimeError,
+        TrainingErrorException,
         match=f"Missing raw assertionInfo aspect for assertion {mock_assertion.urn}",
-    ):
+    ) as excinfo:
         trainer._get_assertion_info(cast(Assertion, mock_assertion))
+    assert excinfo.value.error_type == MonitorErrorTypeClass.INVALID_PARAMETERS
+    assert excinfo.value.properties == {"detail": "missing_assertion_info"}
 
 
 def test_build_volume_assertion_info(

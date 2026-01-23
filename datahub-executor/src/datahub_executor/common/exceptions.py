@@ -1,5 +1,7 @@
 from typing import Optional, Union
 
+from datahub.metadata.schema_classes import MonitorErrorTypeClass
+
 from datahub_executor.common.types import DatasetFreshnessSourceType, EntityEventType
 
 
@@ -76,3 +78,21 @@ class FieldAssertionErrorException(AssertionResultException):
     def __init__(self, message: str, query: Optional[str] = None):
         super().__init__(message)
         self.query = query
+
+
+class TrainingErrorException(Exception):
+    """Raised when training/inference fails with actionable details."""
+
+    def __init__(
+        self,
+        message: str,
+        error_type: Union[
+            MonitorErrorTypeClass, str
+        ] = MonitorErrorTypeClass.MODEL_TRAINING_FAILED,
+        properties: Optional[dict[str, str]] = None,
+        state: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.error_type = error_type
+        self.properties = properties or {}
+        self.state = state

@@ -9,7 +9,6 @@ from datahub.metadata.schema_classes import (
     AssertionMonitorMetricsCubeBootstrapStatusClass,
     CronScheduleClass,
     MonitorInfoClass,
-    MonitorStateClass,
     MonitorStatusClass,
     MonitorTypeClass,
     SystemMetadataClass,
@@ -177,42 +176,6 @@ class TestMonitorPatchBuilder:
         assert patch_data[0]["path"] == "/status"
         assert patch_data[0]["value"]["mode"] == "ACTIVE"
 
-    def test_set_state(self, monitor_urn: str) -> None:
-        """Test setting the monitor state."""
-        builder = MonitorPatchBuilder(urn=monitor_urn)
-
-        # Test with enum value
-        result = builder.set_state(MonitorStateClass.EVALUATION)
-        assert result == builder  # Should return self for chaining
-
-        # Verify patch was added correctly
-        patches = builder.build()
-        assert len(patches) == 1
-        mcp = patches[0]
-
-        # Verify basic properties
-        assert mcp.entityUrn == monitor_urn
-        assert mcp.aspectName == MonitorInfoClass.ASPECT_NAME
-
-        # Extract and check patch data
-        patch_json = mcp.aspect.value  # type: ignore
-        patch_data = json.loads(patch_json.decode("utf-8"))
-        assert len(patch_data) == 1
-        assert patch_data[0]["op"] == "add"
-        assert patch_data[0]["path"] == "/status/state"
-        assert patch_data[0]["value"] == "EVALUATION"
-
-        # Test with string value
-        builder = MonitorPatchBuilder(urn=monitor_urn)
-        builder.set_state("EVALUATION")
-        patches = builder.build()
-
-        patch_json = patches[0].aspect.value  # type: ignore
-        patch_data = json.loads(patch_json.decode("utf-8"))
-        assert patch_data[0]["op"] == "add"
-        assert patch_data[0]["path"] == "/status/state"
-        assert patch_data[0]["value"] == "EVALUATION"
-
     def test_set_error(self, monitor_urn: str) -> None:
         """Test setting the monitor error."""
         builder = MonitorPatchBuilder(urn=monitor_urn)
@@ -293,7 +256,7 @@ class TestMonitorPatchBuilder:
 
         builder.set_type(MonitorTypeClass.ASSERTION).set_assertion_monitor_assertions(
             assertions
-        ).set_state("EVALUATION").set_error("Test error message")
+        ).set_error("Test error message")
 
         # Verify all patches were added
         patches = builder.build()
@@ -303,13 +266,12 @@ class TestMonitorPatchBuilder:
         # Extract patch operations
         patch_json = mcp.aspect.value  # type: ignore
         patch_data = json.loads(patch_json.decode("utf-8"))
-        assert len(patch_data) == 4
+        assert len(patch_data) == 3
 
         # Verify each operation path
         paths = [op["path"] for op in patch_data]
         assert "/type" in paths
         assert "/assertionMonitor/assertions" in paths
-        assert "/status/state" in paths
         assert "/status/error" in paths
 
     @patch.object(MetadataPatchProposal, "_add_patch")
@@ -352,13 +314,6 @@ class TestMonitorPatchBuilder:
         builder.set_status(status)
         mock_add_patch.assert_called_with(
             MonitorInfoClass.ASPECT_NAME, "add", path=("status",), value=status
-        )
-
-        # Test set_state
-        state = MonitorStateClass.EVALUATION
-        builder.set_state(state)
-        mock_add_patch.assert_called_with(
-            MonitorInfoClass.ASPECT_NAME, "add", path=("status", "state"), value=state
         )
 
         # Test set_error

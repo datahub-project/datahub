@@ -18,9 +18,11 @@ from datahub.metadata.schema_classes import (
     FieldAssertionTypeClass,
     FieldMetricAssertionClass,
     FieldMetricTypeClass,
+    MonitorErrorTypeClass,
     SchemaFieldSpecClass,
 )
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.client import MonitorClient
@@ -1049,10 +1051,12 @@ def test_get_field_assertion_details_missing_info(
 
     # Act & Assert
     with pytest.raises(
-        RuntimeError,
+        TrainingErrorException,
         match=f"Missing raw assertionInfo aspect or field assertion info for assertion {mock_field_assertion.urn}",
-    ):
+    ) as excinfo:
         trainer._get_field_assertion_details(cast(Assertion, mock_field_assertion))
+    assert excinfo.value.error_type == MonitorErrorTypeClass.INVALID_PARAMETERS
+    assert excinfo.value.properties == {"detail": "missing_field_assertion_info"}
 
 
 @patch(
@@ -1070,10 +1074,12 @@ def test_get_field_assertion_details_missing_field_assertion(
 
     # Act & Assert
     with pytest.raises(
-        RuntimeError,
+        TrainingErrorException,
         match=f"Missing raw assertionInfo aspect or field assertion info for assertion {mock_field_assertion.urn}",
-    ):
+    ) as excinfo:
         trainer._get_field_assertion_details(cast(Assertion, mock_field_assertion))
+    assert excinfo.value.error_type == MonitorErrorTypeClass.INVALID_PARAMETERS
+    assert excinfo.value.properties == {"detail": "missing_field_assertion_info"}
 
 
 def test_build_field_metric_assertion_info(

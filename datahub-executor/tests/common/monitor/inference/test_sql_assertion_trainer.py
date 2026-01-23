@@ -12,10 +12,12 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     EmbeddedAssertionClass,
+    MonitorErrorTypeClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
 )
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.client import MonitorClient
@@ -657,10 +659,12 @@ def test_get_assertion_info_missing(
 
     # Act & Assert
     with pytest.raises(
-        RuntimeError,
+        TrainingErrorException,
         match=f"Missing raw assertionInfo aspect or SQL assertion info for assertion {mock_assertion.urn}",
-    ):
+    ) as excinfo:
         trainer._get_assertion_info(cast(Assertion, mock_assertion))
+    assert excinfo.value.error_type == MonitorErrorTypeClass.INVALID_PARAMETERS
+    assert excinfo.value.properties == {"detail": "missing_sql_assertion_info"}
 
 
 @patch(
@@ -682,10 +686,12 @@ def test_get_assertion_info_missing_sql_assertion(
 
     # Act & Assert
     with pytest.raises(
-        RuntimeError,
+        TrainingErrorException,
         match=f"Missing raw assertionInfo aspect or SQL assertion info for assertion {mock_assertion.urn}",
-    ):
+    ) as excinfo:
         trainer._get_assertion_info(cast(Assertion, mock_assertion))
+    assert excinfo.value.error_type == MonitorErrorTypeClass.INVALID_PARAMETERS
+    assert excinfo.value.properties == {"detail": "missing_sql_assertion_info"}
 
 
 def test_build_sql_assertion_info(

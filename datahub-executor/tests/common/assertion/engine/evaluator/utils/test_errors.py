@@ -125,9 +125,7 @@ class TestErrorUtils:
         result = extract_assertion_evaluation_result_error(exception)
 
         assert isinstance(result, AssertionEvaluationResultError)
-        assert (
-            result.type == AssertionResultErrorType.SOURCE_QUERY_FAILED
-        )  # Note: This maps to SOURCE_QUERY_FAILED
+        assert result.type == AssertionResultErrorType.UNSUPPORTED_PLATFORM
         assert result.properties is not None
         assert result.properties["message"] == "Platform not supported"
         assert result.properties["platform_urn"] == platform_urn

@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import (
     FieldAssertionTypeClass,
     FieldMetricAssertionClass,
     FieldMetricTypeClass,
+    MonitorErrorTypeClass,
     SchemaFieldSpecClass,
 )
 
@@ -19,6 +20,7 @@ from datahub_executor.common.aspect_builder import get_assertion_info
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     is_field_metric_assertion,
 )
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.adjustment_utils import (
     extract_lookback_days,
@@ -150,21 +152,41 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         )
 
         # Fetch metrics
-        metrics = self.metrics_client.fetch_metric_values(
-            metric_cube_urn,
-            lookback=final_window_duration,
-            limit=2000,
-        )
+        try:
+            metrics = self.metrics_client.fetch_metric_values(
+                metric_cube_urn,
+                lookback=final_window_duration,
+                limit=2000,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch metrics for {metric_cube_urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_metric_values",
+                    "metric_cube_urn": metric_cube_urn,
+                },
+            ) from e
 
         # Coalesce metrics with prefetched metrics if available
         coalesced_metrics = coalesce_metrics(metrics, prefetched_metrics_data)
 
         # Fetch anomalies
-        anomalies = self.monitor_client.fetch_monitor_anomalies(
-            urn=monitor.urn,
-            lookback=training_window_duration,
-            limit=2000,
-        )
+        try:
+            anomalies = self.monitor_client.fetch_monitor_anomalies(
+                urn=monitor.urn,
+                lookback=training_window_duration,
+                limit=2000,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch anomalies for {monitor.urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_monitor_anomalies",
+                    "monitor_urn": monitor.urn,
+                },
+            ) from e
 
         # Filter out anomalies to avoid using in training
         metrics_without_anomalies = [
@@ -192,9 +214,16 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         new_context = self.create_empty_context(0)
 
         # Update the assertion inference details
-        self.monitor_client.patch_field_metric_monitor_evaluation_context(
-            monitor.urn, assertion.urn, new_context, evaluation_spec
-        )
+        try:
+            self.monitor_client.patch_field_metric_monitor_evaluation_context(
+                monitor.urn, assertion.urn, new_context, evaluation_spec
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to persist field context for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "patch_field_metric_monitor_evaluation_context"},
+            ) from e
 
     def train_and_update_assertion(
         self,
@@ -257,7 +286,14 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         )
 
         # 6) Persist the updated assertion info
-        self.monitor_client.update_assertion_info(assertion.urn, assertion_info)
+        try:
+            self.monitor_client.update_assertion_info(assertion.urn, assertion_info)
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to persist assertion info for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "update_assertion_info"},
+            ) from e
 
         # 7) Return updated assertion
         updated_assertion = self._rebuild_assertion(assertion, assertion_info)
@@ -282,8 +318,13 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
             or not assertion_info.fieldAssertion
             or not assertion_info.fieldAssertion.fieldMetricAssertion
         ):
-            raise RuntimeError(
-                f"Missing raw assertionInfo aspect or field assertion info for assertion {assertion.urn}"
+            raise TrainingErrorException(
+                message=(
+                    "Missing raw assertionInfo aspect or field assertion info for "
+                    f"assertion {assertion.urn}"
+                ),
+                error_type=MonitorErrorTypeClass.INVALID_PARAMETERS,
+                properties={"detail": "missing_field_assertion_info"},
             )
 
         field = assertion_info.fieldAssertion.fieldMetricAssertion.field
@@ -372,6 +413,11 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
             logger.exception(
                 f"Failed to update embedded assertions for {monitor_urn}: {e}"
             )
+            raise TrainingErrorException(
+                message=str(e),
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "patch_field_metric_monitor_evaluation_context"},
+            ) from e
 
     def _rebuild_assertion(
         self, original_assertion: Assertion, assertion_info: AssertionInfoClass

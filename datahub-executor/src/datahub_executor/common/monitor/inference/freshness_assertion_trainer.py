@@ -12,9 +12,11 @@ from datahub.metadata.schema_classes import (
     FreshnessAssertionScheduleClass,
     FreshnessAssertionScheduleTypeClass,
     FreshnessAssertionTypeClass,
+    MonitorErrorTypeClass,
 )
 
 from datahub_executor.common.aspect_builder import get_assertion_info
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.types import Metric, Operation
 from datahub_executor.common.monitor.adjustment_utils import (
     extract_lookback_days,
@@ -139,19 +141,39 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         )
 
         # Fetch operations
-        operations = self.metrics_client.fetch_operations(
-            entity_urn=entity_urn,
-            lookback=final_window_duration,
-            limit=2000,
-            ignore_types=FRESHNESS_OPERATION_TYPES_TO_IGNORE,
-        )
+        try:
+            operations = self.metrics_client.fetch_operations(
+                entity_urn=entity_urn,
+                lookback=final_window_duration,
+                limit=2000,
+                ignore_types=FRESHNESS_OPERATION_TYPES_TO_IGNORE,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch operations for {entity_urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_operations",
+                    "entity_urn": entity_urn,
+                },
+            ) from e
 
         # Fetch anomalies
-        anomalies = self.monitor_client.fetch_monitor_anomalies(
-            urn=monitor.urn,
-            lookback=training_window_duration,
-            limit=2000,
-        )
+        try:
+            anomalies = self.monitor_client.fetch_monitor_anomalies(
+                urn=monitor.urn,
+                lookback=training_window_duration,
+                limit=2000,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch anomalies for {monitor.urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_monitor_anomalies",
+                    "monitor_urn": monitor.urn,
+                },
+            ) from e
 
         # Now, merge the anomalies and the operations
         # to mark operations following anomaly intervals.
@@ -178,9 +200,16 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
             cron=FRESHNESS_DEFAULT_EVALUATION_CRON_SCHEDULE,
             timezone="UTC",
         )
-        self.monitor_client.patch_freshness_monitor_evaluation_spec(
-            monitor.urn, assertion.urn, new_context, new_schedule, evaluation_spec
-        )
+        try:
+            self.monitor_client.patch_freshness_monitor_evaluation_spec(
+                monitor.urn, assertion.urn, new_context, new_schedule, evaluation_spec
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to persist freshness context for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "patch_freshness_monitor_evaluation_spec"},
+            ) from e
 
     def train_and_update_assertion(
         self,
@@ -232,7 +261,14 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         )
 
         # 6) Persist the updated assertion info
-        self.monitor_client.update_assertion_info(assertion.urn, assertion_info)
+        try:
+            self.monitor_client.update_assertion_info(assertion.urn, assertion_info)
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to persist assertion info for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "update_assertion_info"},
+            ) from e
 
         # 7) Return updated assertion
         updated_assertion = self._rebuild_assertion(assertion, assertion_info)
@@ -249,8 +285,12 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         """
         assertion_info = get_assertion_info(assertion.raw_info_aspect)
         if not assertion_info:
-            raise RuntimeError(
-                f"Missing raw assertionInfo aspect for assertion {assertion.urn}"
+            raise TrainingErrorException(
+                message=(
+                    f"Missing raw assertionInfo aspect for assertion {assertion.urn}"
+                ),
+                error_type=MonitorErrorTypeClass.INVALID_PARAMETERS,
+                properties={"detail": "missing_assertion_info"},
             )
         return assertion_info
 
@@ -292,13 +332,25 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         )
 
         # Update the monitor's evaluation context
-        self.monitor_client.patch_freshness_monitor_evaluation_spec(
-            monitor.urn,
-            assertion.urn,
-            new_context,
-            new_schedule,
-            evaluation_spec,
-        )
+        try:
+            self.monitor_client.patch_freshness_monitor_evaluation_spec(
+                monitor.urn,
+                assertion.urn,
+                new_context,
+                new_schedule,
+                evaluation_spec,
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to update freshness evaluation spec for %s: %s",
+                monitor.urn,
+                e,
+            )
+            raise TrainingErrorException(
+                message=str(e),
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={"step": "patch_freshness_monitor_evaluation_spec"},
+            ) from e
 
     def _rebuild_assertion(
         self, original_assertion: Assertion, assertion_info: AssertionInfoClass

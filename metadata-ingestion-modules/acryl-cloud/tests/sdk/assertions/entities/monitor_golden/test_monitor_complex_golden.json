@@ -13,7 +13,6 @@
             "type": "FRESHNESS",
             "status": {
                 "mode": "PASSIVE",
-                "state": "TRAINING",
                 "reviewedAt": 1234567890
             },
             "assertionMonitor": {

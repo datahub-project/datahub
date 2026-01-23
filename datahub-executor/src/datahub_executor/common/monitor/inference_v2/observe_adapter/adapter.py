@@ -12,7 +12,9 @@ import logging
 from typing import Optional
 
 import pandas as pd
+from datahub.metadata.schema_classes import MonitorErrorTypeClass
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.monitor.inference_v2.inference_utils import ModelConfig
 from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
     InputDataContext,
@@ -97,6 +99,26 @@ class ObserveAdapter:
             model_config, and step_results tracking success/failure of each step.
         """
         step_results: dict[str, StepResult] = {}
+        if df is None or df.empty:
+            raise TrainingErrorException(
+                message="No training data available for observe pipeline",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={"detail": "empty_training_dataframe"},
+            )
+
+        required_columns = {"ds", "y"}
+        missing_columns = required_columns - set(df.columns)
+        if missing_columns:
+            raise TrainingErrorException(
+                message=(
+                    "Training data is missing required columns: "
+                    f"{', '.join(sorted(missing_columns))}"
+                ),
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INVALID,
+                properties={
+                    "missing_columns": ",".join(sorted(missing_columns)),
+                },
+            )
 
         # ------------------------------------------------------------------------ #
         # ------- TODO: migrate to supplier pattern / fallbacks workflow --------- #
@@ -117,36 +139,41 @@ class ObserveAdapter:
         )
 
         # Quality-based retuning: if quality is bad and we haven't already retuned,
-        # retry with fresh tuning to see if we can get better results
+        # retry with fresh tuning to see if we can get better results.
         if quality_score < DEFAULT_QUALITY_THRESHOLD and not has_tuned:
             logger.info(
                 f"Quality score {quality_score:.3f} below threshold "
                 f"{DEFAULT_QUALITY_THRESHOLD}, forcing retune and retraining"
             )
-            step_results["quality_retune"] = StepResult(success=True)
-
-            try:
-                models, quality_score, forecast_evals, anomaly_evals, _, eval_df = (
-                    self._train_and_evaluate(
-                        df=df,
-                        defaults=defaults,
-                        existing_model_config=existing_model_config,
-                        step_results=step_results,
-                        force_retune=True,
-                        ground_truth=ground_truth,
-                    )
+            models, quality_score, forecast_evals, anomaly_evals, _, eval_df = (
+                self._train_and_evaluate(
+                    df=df,
+                    defaults=defaults,
+                    existing_model_config=existing_model_config,
+                    step_results=step_results,
+                    force_retune=True,
+                    ground_truth=ground_truth,
                 )
-                logger.info(f"Post-retune quality score: {quality_score:.3f}")
-            except Exception as e:
-                logger.warning(f"Retune and retraining failed: {e}")
-                step_results["quality_retune"] = StepResult(success=False, error=str(e))
+            )
+            logger.info(f"Post-retune quality score: {quality_score:.3f}")
 
-        is_confident = quality_score >= DEFAULT_QUALITY_THRESHOLD
-
-        # ------------------------------------------------------------------------ #
-
-        if not is_confident:
-            raise RuntimeError("Prediction is not confident enough")
+        if quality_score < DEFAULT_QUALITY_THRESHOLD:
+            logger.warning(
+                "Training quality score %.3f below threshold %.3f",
+                quality_score,
+                DEFAULT_QUALITY_THRESHOLD,
+            )
+            raise TrainingErrorException(
+                message=(
+                    "Training quality score "
+                    f"{quality_score:.3f} below threshold {DEFAULT_QUALITY_THRESHOLD:.3f}"
+                ),
+                error_type=MonitorErrorTypeClass.PREDICTION_NOT_CONFIDENT,
+                properties={
+                    "quality_score": str(quality_score),
+                    "quality_threshold": str(DEFAULT_QUALITY_THRESHOLD),
+                },
+            )
 
         # Step 4: Get predictions with detection bands using detect()
         # NOTE: detect() gives us predictions WITH detection bands
@@ -230,7 +257,8 @@ class ObserveAdapter:
             eval_df is the holdout DataFrame used for evaluation.
 
         Raises:
-            RuntimeError: If model creation or training fails.
+            ModelCreationError: If model creation fails.
+            ModelTrainingError: If model training fails.
         """
         # Step 1: Create and configure models
         try:
@@ -241,7 +269,10 @@ class ObserveAdapter:
             step_results["model_creation"] = StepResult(success=True)
         except Exception as e:
             logger.error(f"Model creation failed: {e}")
-            raise RuntimeError(f"Model creation failed: {e}") from e
+            raise TrainingErrorException(
+                message=f"Model creation failed: {e}",
+                error_type=MonitorErrorTypeClass.MODEL_CREATION_FAILED,
+            ) from e
 
         # Determine if tuning will occur: happens when hyperparameters are empty
         # (either due to force_retune or no existing hyperparameters)
@@ -259,12 +290,25 @@ class ObserveAdapter:
         except Exception as e:
             logger.error(f"Training failed: {e}")
             step_results["training"] = StepResult(success=False, error=str(e))
-            raise RuntimeError(f"Training failed: {e}") from e
+            raise TrainingErrorException(
+                message=f"Training failed: {e}",
+                error_type=MonitorErrorTypeClass.MODEL_TRAINING_FAILED,
+            ) from e
 
         # Step 3: Evaluate training quality
-        quality_score, forecast_evals, anomaly_evals, eval_df = self._evaluate_quality(
-            df, models, ground_truth, step_results
-        )
+        try:
+            quality_score, forecast_evals, anomaly_evals, eval_df = (
+                self._evaluate_quality(df, models, ground_truth, step_results)
+            )
+        except TrainingErrorException:
+            raise
+        except Exception as e:
+            logger.warning(f"Model evaluation failed: {e}")
+            step_results["evaluation"] = StepResult(success=False, error=str(e))
+            raise TrainingErrorException(
+                message=f"Model evaluation failed: {e}",
+                error_type=MonitorErrorTypeClass.MODEL_EVALUATION_FAILED,
+            ) from e
         # After training completes, tuning_required becomes has_tuned
         has_tuned = tuning_required
         return models, quality_score, forecast_evals, anomaly_evals, has_tuned, eval_df
@@ -288,32 +332,23 @@ class ObserveAdapter:
         Returns:
             Tuple of (quality_score, forecast_evals, anomaly_evals, eval_df).
         """
-        try:
-            # Extract quality score from grid search best_score
-            # This is the TRUE validation metric from hyperparameter tuning
-            quality_score = extract_quality_score(df, models.anomaly_model)
+        # Extract quality score from grid search best_score
+        # This is the TRUE validation metric from hyperparameter tuning
+        quality_score = extract_quality_score(df, models.anomaly_model)
 
-            # Compute evaluation metrics using validation split
-            # Note: These are "optimistic" for forecast since model saw full data
-            # See evaluator.py docstring for discrepancies with streamlit_explorer
-            forecast_evals, anomaly_evals, eval_df = compute_evaluation_metrics(
-                train_df=df,
-                forecast_model=models.forecast_model,
-                anomaly_model=models.anomaly_model,
-                ground_truth=ground_truth,
-            )
+        # Compute evaluation metrics using validation split
+        # Note: These are "optimistic" for forecast since model saw full data
+        # See evaluator.py docstring for discrepancies with streamlit_explorer
+        forecast_evals, anomaly_evals, eval_df = compute_evaluation_metrics(
+            train_df=df,
+            forecast_model=models.forecast_model,
+            anomaly_model=models.anomaly_model,
+            ground_truth=ground_truth,
+        )
 
-            step_results["evaluation"] = StepResult(success=True)
-            logger.info(f"Training quality score: {quality_score:.3f}")
-            return quality_score, forecast_evals, anomaly_evals, eval_df
-        except Exception as e:
-            logger.warning(f"Model evaluation failed: {e}")
-            step_results["evaluation"] = StepResult(success=False, error=str(e))
-            # Re-raise RuntimeError for insufficient data (fail fast)
-            if isinstance(e, RuntimeError):
-                raise
-            # Default to confident if other evaluation fails
-            return 1.0, {}, {}, None
+        step_results["evaluation"] = StepResult(success=True)
+        logger.info(f"Training quality score: {quality_score:.3f}")
+        return quality_score, forecast_evals, anomaly_evals, eval_df
 
     def _generate_future_timestamps(
         self,
@@ -346,7 +381,11 @@ class ObserveAdapter:
         if "ds" in results.columns:
             result["timestamp_ms"] = results["ds"].astype("int64") // 10**6
         else:
-            raise ValueError("Prediction results missing 'ds' column")
+            raise TrainingErrorException(
+                message="Prediction results missing 'ds' column",
+                error_type=MonitorErrorTypeClass.PREDICTION_FORMAT_ERROR,
+                properties={"detail": "missing_prediction_timestamp"},
+            )
 
         result["detection_band_lower"] = results.get("detection_band_lower", 0)
         result["detection_band_upper"] = results.get("detection_band_upper", 0)

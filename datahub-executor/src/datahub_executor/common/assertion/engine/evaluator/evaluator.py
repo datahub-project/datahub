@@ -2,12 +2,6 @@ import logging
 import traceback
 from typing import Optional, Union
 
-from datahub.metadata.schema_classes import (
-    MonitorErrorClass,
-    MonitorErrorTypeClass,
-    MonitorStateClass,
-)
-
 from datahub_executor.common.assertion.engine.evaluator.utils.errors import (
     extract_assertion_evaluation_result_error,
 )
@@ -75,22 +69,6 @@ class AssertionEvaluator:
                 parameters if parameters is not None else self.default_parameters,
                 context,
             )
-
-            # Assertion evaluated successfully.
-            if context.monitor_urn:
-                if result.type != AssertionResultType.INIT:
-                    self._update_monitor_state(
-                        context.monitor_urn,
-                        MonitorStateClass.EVALUATION,
-                        error_message=None,
-                    )
-                else:
-                    self._update_monitor_state(
-                        context.monitor_urn,
-                        MonitorStateClass.TRAINING,
-                        error_message=None,
-                    )
-
             return result
         except AssertionResultException as e:
             error = extract_assertion_evaluation_result_error(e)
@@ -98,12 +76,6 @@ class AssertionEvaluator:
                 AssertionResultType.ERROR,
                 error=error,
             )
-            if context.monitor_urn:
-                self._update_monitor_state(
-                    context.monitor_urn,
-                    MonitorStateClass.ERROR,
-                    f"An error occurred while attempting to connect to data source for assertion: {str(e)}",
-                )
             logger.exception(
                 f"Caught error of type {error.type} when attempting to evaluate assertion with urn {assertion.urn} and properties {error.properties}. Caused by: {e}"
             )
@@ -113,22 +85,17 @@ class AssertionEvaluator:
                 f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Caused by: {e}"
             )
             stack_trace_string = traceback.format_exc(limit=2)
-            if context.monitor_urn:
-                self._update_monitor_state(
-                    context.monitor_urn,
-                    "ERROR",
-                    f"An unknown error occurred while attempting to evaluate assertion: {str(e)}",
-                )
+            error = AssertionEvaluationResultError(
+                type=AssertionResultErrorType.UNKNOWN_ERROR,
+                properties={
+                    "assertion_urn": assertion.urn,
+                    "message": repr(e),
+                    "stacktrace": stack_trace_string,
+                },
+            )
             return AssertionEvaluationResult(
                 AssertionResultType.ERROR,
-                error=AssertionEvaluationResultError(
-                    type=AssertionResultErrorType.UNKNOWN_ERROR,
-                    properties={
-                        "assertion_urn": assertion.urn,
-                        "message": repr(e),
-                        "stacktrace": stack_trace_string,
-                    },
-                ),
+                error=error,
             )
 
     def _evaluate_internal(
@@ -242,29 +209,3 @@ class AssertionEvaluator:
         return self._compare_values(
             current_value, operator, new_value, new_min_value, new_max_value
         )
-
-    def _update_monitor_state(
-        self,
-        monitor_urn: str,
-        new_state: str,
-        error_message: Optional[str],
-    ) -> None:
-        """
-        Patches the monitor's state in DataHub using the MonitorClient.
-        """
-        logger.debug(f"Updating monitor state for {monitor_urn} => {new_state}")
-
-        error = (
-            MonitorErrorClass(type=MonitorErrorTypeClass.UNKNOWN, message=error_message)
-            if error_message
-            else None
-        )
-
-        try:
-            self.monitor_client.patch_monitor_state(
-                monitor_urn=monitor_urn, new_state=new_state, error=error
-            )
-        except Exception as e:
-            logger.exception(
-                f"Failed to patch monitor state={new_state} for {monitor_urn}: {e}"
-            )

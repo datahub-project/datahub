@@ -14,8 +14,10 @@ from datahub.metadata.schema_classes import (
     FreshnessAssertionScheduleClass,
     FreshnessAssertionScheduleTypeClass,
     FreshnessAssertionTypeClass,
+    MonitorErrorTypeClass,
 )
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Operation
 from datahub_executor.common.monitor.client.client import MonitorClient
@@ -598,10 +600,12 @@ def test_get_assertion_info_missing(
 
     # Act & Assert
     with pytest.raises(
-        RuntimeError,
+        TrainingErrorException,
         match=f"Missing raw assertionInfo aspect for assertion {mock_assertion.urn}",
-    ):
+    ) as excinfo:
         trainer._get_assertion_info(cast(Assertion, mock_assertion))
+    assert excinfo.value.error_type == MonitorErrorTypeClass.INVALID_PARAMETERS
+    assert excinfo.value.properties == {"detail": "missing_assertion_info"}
 
 
 def test_build_fixed_interval_freshness_assertion_info(

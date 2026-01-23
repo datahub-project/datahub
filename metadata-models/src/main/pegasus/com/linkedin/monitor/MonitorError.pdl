@@ -13,7 +13,47 @@ record MonitorError {
     @Searchable = { }
     type: enum MonitorErrorType {
       /**
-       * An unknown error occurred
+       * Insufficient data to train or evaluate model quality.
+       */
+      TRAINING_DATA_INSUFFICIENT
+      /**
+       * Input data is invalid or missing required fields.
+       */
+      INPUT_DATA_INVALID
+      /**
+       * Input data could not be retrieved or is incomplete.
+       */
+      INPUT_DATA_INSUFFICIENT
+      /**
+       * Invalid training configuration or parameters.
+       */
+      INVALID_PARAMETERS
+      /**
+       * Model creation failed before training.
+       */
+      MODEL_CREATION_FAILED
+      /**
+       * Model training failed.
+       */
+      MODEL_TRAINING_FAILED
+      /**
+       * Model evaluation failed.
+       */
+      MODEL_EVALUATION_FAILED
+      /**
+       * Training succeeded but model quality is below threshold.
+       */
+      PREDICTION_NOT_CONFIDENT
+      /**
+       * Prediction is not in the expected format (ex. missing fields).
+       */
+      PREDICTION_FORMAT_ERROR
+      /**
+       * Failed to persist training outputs or related metadata.
+       */
+      PERSISTENCE_FAILED
+      /**
+       * An unknown error occurred during training.
        */
       UNKNOWN
     }
@@ -22,4 +62,9 @@ record MonitorError {
      * Optional custom message for the error
      */
      message: optional string
+
+    /**
+     * Additional metadata depending on the type of error
+     */
+    properties: optional map[string, string]
 }

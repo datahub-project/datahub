@@ -47,6 +47,7 @@ import com.linkedin.datahub.graphql.generated.MonitorMode;
 import com.linkedin.datahub.graphql.generated.MonitorState;
 import com.linkedin.datahub.graphql.generated.MonitorStatus;
 import com.linkedin.datahub.graphql.generated.MonitorType;
+import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -108,7 +109,7 @@ public class MonitorMapper {
     if (backendMonitorInfo.hasExecutorId()) {
       monitorInfo.setExecutorId(backendMonitorInfo.getExecutorId());
     }
-    monitorInfo.setStatus(mapMonitorStatus(backendMonitorInfo.getStatus()));
+    monitorInfo.setStatus(mapMonitorStatus(context, backendMonitorInfo.getStatus()));
     return monitorInfo;
   }
 
@@ -451,7 +452,8 @@ public class MonitorMapper {
     return result;
   }
 
-  private static MonitorStatus mapMonitorStatus(com.linkedin.monitor.MonitorStatus backendStatus) {
+  private static MonitorStatus mapMonitorStatus(
+      @Nullable final QueryContext context, com.linkedin.monitor.MonitorStatus backendStatus) {
     MonitorStatus monitorStatus = new MonitorStatus();
     monitorStatus.setMode(MonitorMode.valueOf(backendStatus.getMode().toString()));
 
@@ -460,16 +462,20 @@ public class MonitorMapper {
     }
 
     if (backendStatus.hasError()) {
-      monitorStatus.setError(mapMonitorError(backendStatus.getError()));
+      monitorStatus.setError(mapMonitorError(context, backendStatus.getError()));
     }
 
     return monitorStatus;
   }
 
-  private static MonitorError mapMonitorError(com.linkedin.monitor.MonitorError backendError) {
+  private static MonitorError mapMonitorError(
+      @Nullable final QueryContext context, com.linkedin.monitor.MonitorError backendError) {
     MonitorError monitorError = new MonitorError();
     monitorError.setType(MonitorErrorType.valueOf(backendError.getType().toString()));
     monitorError.setMessage(backendError.getMessage(GetMode.NULL));
+    if (backendError.hasProperties()) {
+      monitorError.setProperties(StringMapMapper.map(context, backendError.getProperties()));
+    }
     return monitorError;
   }
 

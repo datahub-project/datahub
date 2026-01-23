@@ -16,7 +16,6 @@ from datahub.metadata.schema_classes import (
     FreshnessFieldSpecClass,
     MonitorAnomalyEventClass,
     MonitorErrorClass,
-    MonitorStateClass,
     MonitorTypeClass,
     TimeStampClass,
 )
@@ -362,35 +361,29 @@ class TestMonitorClient:
         )
 
     @patch("datahub_executor.common.monitor.client.client.MonitorPatchBuilder")
-    def test_patch_monitor_state(
+    def test_patch_monitor_error(
         self,
         mock_patch_builder_class: MagicMock,
         monitor_client: MonitorClient,
         test_monitor_urn: str,
         mock_graph: MagicMock,
     ) -> None:
-        """Test patching monitor state."""
+        """Test patching monitor error."""
         # Setup mock patch builder
         mock_patch_builder = MagicMock()
         mock_patch_builder_class.return_value = mock_patch_builder
         mock_patch_builder.build.return_value = ["mock_mcp"]
 
-        # Create a MonitorStateClass instance for the test instead of using an enum
-        new_state = MonitorStateClass.EVALUATION
         error = MonitorErrorClass(type="UNKNOWN", message="Test error")
 
         # Call method
-        monitor_client.patch_monitor_state(
+        monitor_client.patch_monitor_error(
             test_monitor_urn,
-            new_state,
             error,
         )
 
         # Verify the patch builder was created with the correct URN
         mock_patch_builder_class.assert_called_once_with(urn=test_monitor_urn)
-
-        # Verify set_state was called with the new state
-        mock_patch_builder.set_state.assert_called_once_with(new_state)
 
         # Verify set_error was called with the error
         mock_patch_builder.set_error.assert_called_once_with(error)

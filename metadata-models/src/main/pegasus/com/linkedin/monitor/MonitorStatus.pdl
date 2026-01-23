@@ -31,9 +31,10 @@ record MonitorStatus {
     }
 
     /**
-     * The start time of the monitor
+     * The phase the monitor is in
      */
      @Searchable = { }
+     @deprecated = "Monitor state is not reliable, as the assertion can be in both training and evaluation states at the same time. Use MonitorError plus latest AssertionRunEvent for health."
      state: optional enum MonitorState {
         /**
          * The monitor is in the training stage.
@@ -44,8 +45,9 @@ record MonitorStatus {
          */
         EVALUATION
         /**
-         * The monitor is in the evaluation stage.
+         * The monitor is in the error stage.
          */
+        @deprecated = "Use the error field to determine error state."
         ERROR
      }
 

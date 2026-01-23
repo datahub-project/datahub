@@ -31,7 +31,6 @@ _any_complex_monitor_info = models.MonitorInfoClass(
     type=models.MonitorTypeClass.FRESHNESS,
     status=models.MonitorStatusClass(
         mode=models.MonitorModeClass.PASSIVE,
-        state=models.MonitorStateClass.TRAINING,
         reviewedAt=1234567890,
     ),
     assertionMonitor=models.AssertionMonitorClass(

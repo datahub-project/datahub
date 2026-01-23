@@ -16,7 +16,9 @@ from typing import List, Optional
 
 import pandas as pd
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import MonitorErrorTypeClass
 
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.adjustment_utils import (
@@ -269,11 +271,21 @@ class BaseTrainerV2(ABC):
         metric_cube_urn = get_metric_cube_urn(monitor.urn)
         lookback_days = extract_lookback_days(adjustment_settings)
 
-        return self.metrics_client.fetch_metric_values(
-            metric_cube_urn,
-            lookback=timedelta(days=lookback_days),
-            limit=2000,
-        )
+        try:
+            return self.metrics_client.fetch_metric_values(
+                metric_cube_urn,
+                lookback=timedelta(days=lookback_days),
+                limit=2000,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch metrics for {metric_cube_urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_metrics",
+                    "metric_cube_urn": metric_cube_urn,
+                },
+            ) from e
 
     def _fetch_anomalies(
         self,
@@ -286,11 +298,21 @@ class BaseTrainerV2(ABC):
         """
         lookback_days = extract_lookback_days(adjustment_settings)
 
-        return self.monitor_client.fetch_monitor_anomalies(
-            urn=monitor.urn,
-            lookback=timedelta(days=lookback_days),
-            limit=2000,
-        )
+        try:
+            return self.monitor_client.fetch_monitor_anomalies(
+                urn=monitor.urn,
+                lookback=timedelta(days=lookback_days),
+                limit=2000,
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to fetch anomalies for {monitor.urn}: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT,
+                properties={
+                    "step": "fetch_anomalies",
+                    "monitor_urn": monitor.urn,
+                },
+            ) from e
 
     def _build_training_dataframe(
         self,
@@ -307,36 +329,45 @@ class BaseTrainerV2(ABC):
               anomaly feedback. All anomalies passed here are non-rejected
               (rejected anomalies are filtered out upstream).
         """
-        # Build training dataframe with all metrics
-        training_records = []
-        for metric in metrics:
-            training_records.append(
-                {
-                    "ds": pd.Timestamp(metric.timestamp_ms, unit="ms"),
-                    "y": metric.value,
-                }
-            )
+        try:
+            # Build training dataframe with all metrics
+            training_records = []
+            for metric in metrics:
+                training_records.append(
+                    {
+                        "ds": pd.Timestamp(metric.timestamp_ms, unit="ms"),
+                        "y": metric.value,
+                    }
+                )
 
-        training_df = pd.DataFrame(training_records)
-        if not training_df.empty:
-            training_df = training_df.sort_values("ds").reset_index(drop=True)
+            training_df = pd.DataFrame(training_records)
+            if not training_df.empty:
+                training_df = training_df.sort_values("ds").reset_index(drop=True)
 
-        # Build ground truth dataframe from anomalies
-        # All anomalies here are non-rejected (filtered upstream)
-        ground_truth_records = []
-        for anomaly in anomalies:
-            ground_truth_records.append(
-                {
-                    "ds": pd.Timestamp(anomaly.timestamp_ms, unit="ms"),
-                    "is_anomaly_gt": anomaly.is_confirmed,
-                }
-            )
+            # Build ground truth dataframe from anomalies
+            # All anomalies here are non-rejected (filtered upstream)
+            ground_truth_records = []
+            for anomaly in anomalies:
+                ground_truth_records.append(
+                    {
+                        "ds": pd.Timestamp(anomaly.timestamp_ms, unit="ms"),
+                        "is_anomaly_gt": anomaly.is_confirmed,
+                    }
+                )
 
-        ground_truth_df = pd.DataFrame(ground_truth_records)
-        if not ground_truth_df.empty:
-            ground_truth_df = ground_truth_df.sort_values("ds").reset_index(drop=True)
+            ground_truth_df = pd.DataFrame(ground_truth_records)
+            if not ground_truth_df.empty:
+                ground_truth_df = ground_truth_df.sort_values("ds").reset_index(
+                    drop=True
+                )
 
-        return training_df, ground_truth_df
+            return training_df, ground_truth_df
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to build training dataframes: {e}",
+                error_type=MonitorErrorTypeClass.INPUT_DATA_INVALID,
+                properties={"step": "build_training_dataframe"},
+            ) from e
 
     def _update_assertion(
         self,
@@ -357,21 +388,32 @@ class BaseTrainerV2(ABC):
             )
             return
 
-        # Convert prediction_df with detection bands to embedded assertions
-        embedded_assertions = AnomalyAssertions.from_df(
-            training_result.prediction_df,
-            entity_urn=context.entity_urn,
-            window_size_seconds=context.interval_hours * 3600,
-        )
+        try:
+            # Convert prediction_df with detection bands to embedded assertions
+            embedded_assertions = AnomalyAssertions.from_df(
+                training_result.prediction_df,
+                entity_urn=context.entity_urn,
+                window_size_seconds=context.interval_hours * 3600,
+            )
 
-        # Build evaluation context
-        evaluation_context = build_evaluation_context(
-            model_config=training_result.model_config,
-            embedded_assertions=embedded_assertions,
-            generated_at_millis=int(time.time() * 1000),
-        )
+            # Build evaluation context
+            evaluation_context = build_evaluation_context(
+                model_config=training_result.model_config,
+                embedded_assertions=embedded_assertions,
+                generated_at_millis=int(time.time() * 1000),
+            )
 
-        # Update the assertion context via monitor client
-        self.monitor_client.patch_volume_monitor_evaluation_context(
-            monitor.urn, assertion.urn, evaluation_context, evaluation_spec
-        )
+            # Update the assertion context via monitor client
+            self.monitor_client.patch_volume_monitor_evaluation_context(
+                monitor.urn, assertion.urn, evaluation_context, evaluation_spec
+            )
+        except Exception as e:
+            raise TrainingErrorException(
+                message=f"Failed to persist training outputs for {assertion.urn}: {e}",
+                error_type=MonitorErrorTypeClass.PERSISTENCE_FAILED,
+                properties={
+                    "step": "patch_volume_monitor_evaluation_context",
+                    "monitor_urn": monitor.urn,
+                    "assertion_urn": assertion.urn,
+                },
+            ) from e

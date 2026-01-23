@@ -1,12 +1,19 @@
 """Tests for ObserveAdapter and ModelFactory configuration."""
 
+import pandas as pd
 import pytest
 
 pytest.importorskip("datahub_observe")
 
 from unittest.mock import MagicMock, patch
 
+from datahub.metadata.schema_classes import MonitorErrorTypeClass
+
+from datahub_executor.common.exceptions import TrainingErrorException
 from datahub_executor.common.monitor.inference_v2.inference_utils import ModelConfig
+from datahub_executor.common.monitor.inference_v2.observe_adapter.adapter import (
+    ObserveAdapter,
+)
 from datahub_executor.common.monitor.inference_v2.observe_adapter.defaults import (
     InputDataContext,
     get_defaults_for_context,
@@ -209,6 +216,28 @@ class TestModelFactoryWarmStart:
 
         assert result is not None
         assert result.hyperparameters == {"deviation_threshold": 1.8}
+
+
+class TestObserveAdapterInputValidation:
+    def test_empty_dataframe_raises(self) -> None:
+        adapter = ObserveAdapter()
+        context = _make_context()
+        df = pd.DataFrame()
+
+        with pytest.raises(TrainingErrorException) as excinfo:
+            adapter.run_training_pipeline(df=df, context=context, num_intervals=24)
+
+        assert excinfo.value.error_type == MonitorErrorTypeClass.INPUT_DATA_INSUFFICIENT
+
+    def test_missing_columns_raises(self) -> None:
+        adapter = ObserveAdapter()
+        context = _make_context()
+        df = pd.DataFrame({"ds": [pd.Timestamp("2024-01-01")]})
+
+        with pytest.raises(TrainingErrorException) as excinfo:
+            adapter.run_training_pipeline(df=df, context=context, num_intervals=24)
+
+        assert excinfo.value.error_type == MonitorErrorTypeClass.INPUT_DATA_INVALID
 
     def test_get_existing_preprocessing_config_returns_deserialized(self) -> None:
         """Returns deserialized preprocessing config when available."""
@@ -795,7 +824,7 @@ class TestExtractQualityScore:
         assert result == 1.0
 
     def test_extract_quality_score_fails_with_insufficient_data(self) -> None:
-        """Raises RuntimeError when data is below min_samples_for_cv."""
+        """Raises TrainingErrorException when data is below min_samples_for_cv."""
         import pandas as pd
 
         mock_model = MagicMock()
@@ -807,5 +836,10 @@ class TestExtractQualityScore:
             {"ds": pd.date_range("2024-01-01", periods=5), "y": range(5)}
         )
 
-        with pytest.raises(RuntimeError, match="Insufficient data"):
+        with pytest.raises(
+            TrainingErrorException, match="Insufficient data"
+        ) as excinfo:
             extract_quality_score(train_df, mock_model)
+        assert (
+            excinfo.value.error_type == MonitorErrorTypeClass.TRAINING_DATA_INSUFFICIENT
+        )
