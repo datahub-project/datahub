@@ -1,0 +1,10 @@
+# LangChain 1.x dependencies
+langchain>=1.2.7
+langchain-aws>=1.2.1
+langchain-core>=1.2.7
+boto3>=1.42.35
+
+# DataHub agent context with LangChain support
+# For local development: pip install -e "../../[langchain]"
+# For published package: pip install "acryl-datahub-agent-context[langchain]>=0.1.0"
+-e ../../[langchain]
