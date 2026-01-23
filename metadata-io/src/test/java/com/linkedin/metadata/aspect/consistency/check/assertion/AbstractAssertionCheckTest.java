@@ -210,7 +210,7 @@ public class AbstractAssertionCheckTest {
     // Verify assertion info was cached
     AssertionInfo cached = checkContext.getCachedAspect(urn, ASSERTION_INFO_ASPECT_NAME);
     assertNotNull(cached);
-    assertEquals(cached.getEntityUrn(), entityUrn);
+    assertEquals(cached.getType(), AssertionType.FRESHNESS);
   }
 
   // ============================================================================
@@ -256,12 +256,13 @@ public class AbstractAssertionCheckTest {
     statusAspect.setValue(new Aspect(status.data()));
     aspects.put(STATUS_ASPECT_NAME, statusAspect);
 
-    // Add assertion info aspect
+    // Add assertion info aspect with freshness assertion
     EnvelopedAspect infoAspect = new EnvelopedAspect();
     AssertionInfo assertionInfo = new AssertionInfo();
     assertionInfo.setType(AssertionType.FRESHNESS);
-    assertionInfo.setEntityUrn(entityUrn);
-    assertionInfo.setFreshnessAssertion(new FreshnessAssertionInfo());
+    FreshnessAssertionInfo freshnessInfo = new FreshnessAssertionInfo();
+    freshnessInfo.setEntity(entityUrn);
+    assertionInfo.setFreshnessAssertion(freshnessInfo);
     infoAspect.setValue(new Aspect(assertionInfo.data()));
     aspects.put(ASSERTION_INFO_ASPECT_NAME, infoAspect);
 
