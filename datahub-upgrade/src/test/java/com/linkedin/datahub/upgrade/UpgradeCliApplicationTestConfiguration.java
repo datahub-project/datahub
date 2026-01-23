@@ -12,7 +12,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
@@ -59,9 +58,10 @@ public class UpgradeCliApplicationTestConfiguration {
 
   @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 
-  // Mock TestEngine to prevent background ScheduledExecutorService threads from running
-  // These threads cause test hangs when SearchClientShim mock returns null
-  @MockBean public TestEngine testEngine;
+  // ACRYL-ONLY: TestEngine mock removed - TestEngineFactory is now excluded from
+  // GeneralUpgradeConfiguration's component scan, so no TestEngine bean is created
+  // during system updates. For EvaluateTests, EvaluateTestsConfig explicitly imports
+  // TestEngineFactory to create the real TestEngine when needed.
 
   @PostConstruct
   public void configureMocks() {

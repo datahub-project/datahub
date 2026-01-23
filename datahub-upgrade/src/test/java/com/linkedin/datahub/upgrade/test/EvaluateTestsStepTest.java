@@ -16,6 +16,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
+import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -42,6 +43,7 @@ import java.util.function.Function;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -62,9 +64,26 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private TestEngine testEngine;
 
+  @Autowired private ApplicationContext applicationContext;
+
   @Test
   public void testInit() {
     assertNotNull(testEngine);
+  }
+
+  /**
+   * ACRYL-ONLY: Verifies that TestEngineFactory is included for EvaluateTests upgrade.
+   *
+   * <p>This complements the tests in GeneralUpgradeConfigurationTest which verify that
+   * TestEngineFactory is EXCLUDED for SystemUpdateBlocking and SystemUpdateNonBlocking upgrades.
+   * EvaluateTestsConfig explicitly imports TestEngineFactory to create TestEngine.
+   */
+  @Test
+  public void testTestEngineFactoryIsIncluded() {
+    assertNotNull(
+        applicationContext.getBean(TestEngineFactory.class),
+        "TestEngineFactory should be included for EvaluateTests upgrade. "
+            + "EvaluateTestsConfig must import TestEngineFactory to create TestEngine.");
   }
 
   @Test
