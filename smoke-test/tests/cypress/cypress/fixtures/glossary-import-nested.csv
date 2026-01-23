@@ -1,0 +1,8 @@
+entity_type,urn,name,description,term_source,source_ref,source_url,ownership_users,ownership_groups,parent_nodes,related_contains,related_inherits,domain_urn,domain_name,custom_properties,status
+glossaryNode,,ImportCypressRootNode,Root level node for nested hierarchy testing,,,,,,,,,,,,
+glossaryNode,,ImportCypressLevel2Node,Second level node in hierarchy,,,,,,ImportCypressRootNode,,,,,,
+glossaryNode,,ImportCypressLevel3Node,Third level node in hierarchy,,,,,,ImportCypressRootNode.ImportCypressLevel2Node,,,,,,
+glossaryNode,,ImportCypressLevel4Node,Fourth level node in hierarchy,,,,,,ImportCypressRootNode.ImportCypressLevel2Node.ImportCypressLevel3Node,,,,,,
+glossaryTerm,,ImportCypressDeepTerm,Term at the deepest level of the hierarchy,INTERNAL,,,,,ImportCypressRootNode.ImportCypressLevel2Node.ImportCypressLevel3Node.ImportCypressLevel4Node,,,,,,
+glossaryTerm,,ImportCypressLevel3Term,Term at third level,INTERNAL,,,,,ImportCypressRootNode.ImportCypressLevel2Node.ImportCypressLevel3Node,,,,,,
+

@@ -1,5 +1,8 @@
-import { Button, Tooltip } from '@components';
+import { FileTextOutlined, FolderOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Tooltip } from '@components';
+import { MenuProps } from 'antd';
 import React, { useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -10,6 +13,7 @@ import GlossarySearch from '@app/glossaryV2/GlossarySearch';
 import { SidebarWrapper } from '@app/sharedV2/sidebar/components';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 
 import { useGetRootGlossaryNodesQuery } from '@graphql/glossary.generated';
 import { EntityType } from '@types';
@@ -53,14 +57,37 @@ type Props = {
 
 export default function GlossarySidebar({ isEntityProfile }: Props) {
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
 
     const { refetch: refetchForNodes } = useGetRootGlossaryNodesQuery();
+    const history = useHistory();
 
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
     const width = useSidebarWidth(0.2);
     const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const dropdownItems: MenuProps['items'] = [
+        {
+            key: 'create-group',
+            label: 'Create Glossary',
+            icon: <FolderOutlined />,
+            onClick: () => setIsCreateNodeModalVisible(true),
+        },
+        {
+            key: 'create-term',
+            label: 'Create Term',
+            icon: <FileTextOutlined />,
+            onClick: () => setIsCreateTermModalVisible(true),
+        },
+        {
+            key: 'import',
+            label: 'Import CSV',
+            icon: <UploadOutlined />,
+            onClick: () => history.push(PageRoutes.GLOSSARY_IMPORT),
+        },
+    ];
 
     return (
         <>
@@ -72,15 +99,16 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
             >
                 <SidebarTitleWrapper>
                     <GlossaryTitle>Business Glossary</GlossaryTitle>
-                    <Tooltip title="Create Glossary" placement="left" showArrow={false}>
-                        <StyledButton
-                            variant="filled"
-                            color="violet"
-                            isCircle
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                            onClick={() => setIsCreateNodeModalVisible(true)}
-                            data-testid="create-glossary-button"
-                        />
+                    <Tooltip title="Glossary Actions" placement="left" showArrow={false}>
+                        <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="bottomRight">
+                            <StyledButton
+                                id="create-glossary-object-button-sidebar"
+                                data-testid="create-glossary-object-button-sidebar"
+                                variant="text"
+                                color="gray"
+                                icon={{ icon: 'DotsThreeVertical', source: 'phosphor' }}
+                            />
+                        </Dropdown>
                     </Tooltip>
                 </SidebarTitleWrapper>
                 <GlossarySearch />
@@ -93,6 +121,14 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
                     canSelectParentUrn={false}
+                />
+            )}
+            {isCreateTermModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={!!canManageGlossaries}
+                    onClose={() => setIsCreateTermModalVisible(false)}
+                    refetchData={refetchForNodes}
                 />
             )}
         </>

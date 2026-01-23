@@ -16,6 +16,7 @@ import { EntityPage } from '@app/entity/EntityPage';
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
 import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
+import WizardPage from '@app/glossaryV2/import/WizardPage/WizardPage';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
@@ -136,6 +137,7 @@ export const SearchRoutes = (): JSX.Element => {
                 {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
                 {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
 
+                <Route path={PageRoutes.GLOSSARY_IMPORT} render={() => <WizardPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
                     path={`${PageRoutes.GLOSSARY}*`}

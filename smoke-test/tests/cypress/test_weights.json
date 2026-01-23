@@ -36,6 +36,12 @@
     "duration": "54.443s"
   },
   {
+    "filePath": "glossaryV2/v2_glossary_import.js",
+    "duration": "55.000s"
+  },
+  {
+    "filePath": "lineageV2/v2_impact_analysis.js",
+    "duration": "63.187s"
     "filePath": "schema_blame/schema_blame.js",
     "duration": "51.195s"
   },
@@ -416,6 +422,108 @@
     "duration": "2.556s"
   },
   {
+    "filePath": "homeV2/v2_home.js",
+    "duration": "3.393s"
+  },
+  {
+    "filePath": "operrationsV2/v2_operations.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "mutations/managed_ingestion.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "homeV3/modules.js",
+    "duration": "5.000s"
+  },
+  {
+    "filePath": "homeV3/templates.js",
+    "duration": "5.000s"
+  },
+  {
+    "filePath": "homeV3/utils.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "ingestionV2/utils.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "manage_tagsV2/assign_unassign_tags.js",
+    "duration": "15.000s"
+  },
+  {
+    "filePath": "manage_tagsV2/create_edit_remove_tags.js",
+    "duration": "15.000s"
+  },
+  {
+    "filePath": "manage_tagsV2/helpers/dataset_helper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "manage_tagsV2/helpers/tags_page_helper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "manage_tagsV2/search_bar_placeholder.js",
+    "duration": "5.000s"
+  },
+  {
+    "filePath": "manage_tagsV2/search_not_exists.js",
+    "duration": "5.000s"
+  },
+  {
+    "filePath": "manage_tagsV2/title_search_results.js",
+    "duration": "5.000s"
+  },
+  {
+    "filePath": "searchV2/helpers/searchBarV2FiltersHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "searchV2/helpers/searchBarV2Helper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "searchV2/helpers/searchV2Helper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "statsTabV2/helpers/apiResponseHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "statsTabV2/helpers/baseChartHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "statsTabV2/helpers/changeHistoryChartHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "statsTabV2/helpers/chartHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "statsTabV2/helpers/columnStatsTableHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "statsTabV2/helpers/highlightCardHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "statsTabV2/helpers/statsTabHelper.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "summaryTab/utils.js",
+    "duration": "1.000s"
+  },
+  {
+    "filePath": "utils.js",
+    "duration": "1.000s"
     "filePath": "home/home.js",
     "duration": "2.530s"
   },
