@@ -91,7 +91,7 @@ class MatillionAPIConfig(ConfigModel):
                 raise ValueError("custom_base_url cannot be empty string")
             if not (v.startswith("http://") or v.startswith("https://")):
                 raise ValueError("custom_base_url must start with http:// or https://")
-            return v.rstrip("/")
+            return v.removesuffix("/")
         return v
 
     def get_base_url(self) -> str:
@@ -152,17 +152,11 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     def report_api_call(self, count: int = 1) -> None:
         self.api_calls_count += count
 
-    def report_lineage_emitted(self, count: int = 1) -> None:
-        self.lineage_emitted += count
-
     def report_streaming_pipeline_scanned(self, count: int = 1) -> None:
         self.streaming_pipelines_scanned += count
 
     def report_streaming_pipeline_emitted(self, count: int = 1) -> None:
         self.streaming_pipelines_emitted += count
-
-    def report_executions_scanned(self, count: int = 1) -> None:
-        self.executions_scanned += count
 
 
 class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):

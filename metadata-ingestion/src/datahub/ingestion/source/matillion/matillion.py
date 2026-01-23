@@ -559,6 +559,9 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"Registered SQL for DataJob {pipeline.name} on platform {output.platform}"
             )
         except (AttributeError, TypeError) as e:
+            # AttributeError/TypeError indicate programming errors (e.g., None where object expected,
+            # incorrect type passed to aggregator). These should not occur in production and indicate
+            # a bug in the connector logic, so we re-raise them for visibility.
             logger.error(
                 f"Programming error registering SQL for {pipeline.name}: "
                 f"{type(e).__name__}: {e}",
