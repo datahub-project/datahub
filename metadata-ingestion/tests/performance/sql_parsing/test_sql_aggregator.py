@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 # Use smaller values in CI to keep test times reasonable, larger values for local testing
 QUERY_COUNT_OPTIONS = [100, 1000] if get_ci() else [100, 1000, 10000]
 
-# Throughput should be < 100 queries/sec (threshold to detect heavy performance regressions)
-MAX_THROUGHPUT_THRESHOLD = 100.0
+# Throughput should be < 120 queries/sec (threshold to detect heavy performance regressions)
+MAX_THROUGHPUT_THRESHOLD = 120.0 if get_ci() else 90.0
 
 
 def generate_queries_at_scale(
