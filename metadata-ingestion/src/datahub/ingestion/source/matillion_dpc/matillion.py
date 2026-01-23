@@ -82,7 +82,7 @@ EXECUTION_STATUS_TO_RESULT_TYPE = {
 }
 
 
-@platform_name("Matillion DPC", id="matillion")
+@platform_name("Matillion DPC", id="matillion-dpc")
 @config_class(MatillionSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
