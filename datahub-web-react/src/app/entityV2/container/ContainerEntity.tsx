@@ -2,7 +2,7 @@ import { AppstoreOutlined, FileOutlined, FolderOutlined, UnlockOutlined } from '
 import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 
-import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
+import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ContainerEntitiesTab } from '@app/entityV2/container/ContainerEntitiesTab';
 import ContainerSummaryTab from '@app/entityV2/container/ContainerSummaryTab';

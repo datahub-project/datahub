@@ -2,7 +2,7 @@ import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useEntityData} from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     RoleAccessData,
@@ -64,8 +64,7 @@ const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
  * and "Request" (enabled) buttons for roles they can request access to.
  */
 export default function AccessManagement() {
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const entityUrn = baseEntity?.dataset?.urn as string;
+    const { urn: entityUrn } = useEntityData();
 
     const { data: externalRoles } = useGetExternalRolesQuery({
         variables: { urn: entityUrn },

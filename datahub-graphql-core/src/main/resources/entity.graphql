@@ -6172,6 +6172,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   The forms associated with the Dataset
   """
   forms: Forms
+
+  """
+  The Roles and the properties to access the dashboard
+  """
+  access: Access
 }
 
 """

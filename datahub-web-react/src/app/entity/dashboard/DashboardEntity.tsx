@@ -30,6 +30,8 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '@types';
+import AccessManagement from "@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement";
+import { useAppConfig } from "@app/useAppConfig";
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -77,6 +79,8 @@ export class DashboardEntity implements Entity<Dashboard> {
     getCollectionName = () => 'Dashboards';
 
     useEntityQuery = useGetDashboardQuery;
+
+    appconfig = useAppConfig;
 
     getSidebarSections = () => [
         {
@@ -157,6 +161,18 @@ export class DashboardEntity implements Entity<Dashboard> {
                     component: LineageTab,
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
+                    },
+                },
+                {
+                    name: 'Access',
+                    component: AccessManagement,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, dashboard: GetDashboardQuery) => {
+                            const accessAspect = dashboard?.dashboard?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
                     },
                 },
                 {

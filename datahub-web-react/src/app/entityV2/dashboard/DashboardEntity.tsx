@@ -6,6 +6,7 @@ import {
     FileOutlined,
     PartitionOutlined,
     TableOutlined,
+    UnlockOutlined,
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
@@ -56,6 +57,8 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, SearchResult } from '@types';
+import AccessManagement from "@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement";
+import { useAppConfig } from "@app/useAppConfig";
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -111,6 +114,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     useEntityQuery = useGetDashboardQuery;
 
+    appconfig = useAppConfig;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -152,6 +157,15 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Documentation',
                     component: DocumentationTab,
                     icon: FileOutlined,
+                },
+                {
+                    name: 'Access',
+                    component: AccessManagement,
+                    icon: UnlockOutlined,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, _2) => true,
+                    },
                 },
                 {
                     name: 'Preview',
