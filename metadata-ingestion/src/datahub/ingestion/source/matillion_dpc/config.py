@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Optional
 
-from pydantic import ConfigDict, Field, SecretStr, field_validator
+from pydantic import ConfigDict, Field, SecretStr, ValidationInfo, field_validator
 
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -68,16 +68,24 @@ class NamespacePlatformMapping(ConfigModel):
 
 
 class MatillionAPIConfig(ConfigModel):
-    api_token: SecretStr = Field(
-        description="Matillion API bearer token for authentication"
+    client_id: SecretStr = Field(
+        description="Matillion API Client ID for OAuth2 authentication.",
     )
+    client_secret: SecretStr = Field(
+        description="Matillion API Client Secret for OAuth2 authentication.",
+    )
+
     region: MatillionRegion = Field(
         default=MatillionRegion.EU1,
         description="Matillion Data Productivity Cloud region (EU1 or US1)",
     )
     custom_base_url: Optional[str] = Field(
         default=None,
-        description="Custom API base URL (for testing or on-premise installations). Overrides region if set.",
+        description="Custom API base URL for VPC endpoints or on-premise installations.",
+    )
+    custom_oauth_token_url: Optional[str] = Field(
+        default=None,
+        description="Custom OAuth2 token endpoint URL for VPC endpoints or on-premise installations.",
     )
     request_timeout_sec: int = Field(
         default=30, description="Request timeout in seconds"
@@ -93,6 +101,37 @@ class MatillionAPIConfig(ConfigModel):
             raise ValueError("custom_base_url cannot be empty")
         if not (v.startswith("http://") or v.startswith("https://")):
             raise ValueError("custom_base_url must start with http:// or https://")
+        return v.removesuffix("/")
+
+    @field_validator("custom_oauth_token_url")
+    @classmethod
+    def validate_custom_oauth_token_url(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        if v is None:
+            custom_base_url = info.data.get("custom_base_url")
+            if custom_base_url:
+                logger.warning(
+                    "custom_base_url is set but custom_oauth_token_url is not. "
+                    "For VPC endpoints or on-premise installations, you likely need both."
+                )
+            return v
+
+        v = v.strip()
+        if not v:
+            raise ValueError("custom_oauth_token_url cannot be empty")
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError(
+                "custom_oauth_token_url must start with http:// or https://"
+            )
+
+        custom_base_url = info.data.get("custom_base_url")
+        if not custom_base_url:
+            logger.warning(
+                "custom_oauth_token_url is set but custom_base_url is not. "
+                "For VPC endpoints or on-premise installations, you likely need both."
+            )
+
         return v.removesuffix("/")
 
     def get_base_url(self) -> str:

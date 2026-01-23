@@ -14,6 +14,11 @@ from datahub.testing import mce_helpers
 FROZEN_TIME = "2024-01-01 00:00:00"
 
 
+def mock_oauth_generation(self: Any) -> None:
+    """Mock OAuth token generation for integration tests"""
+    pass
+
+
 def load_fixture(test_resources_dir: Path, fixture_name: str) -> Dict[str, Any]:
     """Load a JSON fixture from the setup directory."""
     fixture_path = test_resources_dir / "setup" / fixture_name
@@ -47,7 +52,12 @@ def test_matillion_source_basic(pytestconfig: pytest.Config, tmp_path: Any) -> N
             return {"results": []}
         return mock_empty_response
 
-    with patch.object(MatillionAPIClient, "_make_request", mock_make_request):
+    with (
+        patch.object(
+            MatillionAPIClient, "_generate_oauth_token", mock_oauth_generation
+        ),
+        patch.object(MatillionAPIClient, "_make_request", mock_make_request),
+    ):
         pipeline_config = load_config_file(
             test_resources_dir / "matillion_basic_to_file.yml"
         )
@@ -102,7 +112,12 @@ def test_matillion_source_with_lineage(
             return {"results": []}
         return mock_empty_response
 
-    with patch.object(MatillionAPIClient, "_make_request", mock_make_request):
+    with (
+        patch.object(
+            MatillionAPIClient, "_generate_oauth_token", mock_oauth_generation
+        ),
+        patch.object(MatillionAPIClient, "_make_request", mock_make_request),
+    ):
         pipeline_config = load_config_file(
             test_resources_dir / "matillion_lineage_to_file.yml"
         )
@@ -161,7 +176,12 @@ def test_matillion_source_with_streaming_pipelines(
             return {"results": []}
         return mock_empty_response
 
-    with patch.object(MatillionAPIClient, "_make_request", mock_make_request):
+    with (
+        patch.object(
+            MatillionAPIClient, "_generate_oauth_token", mock_oauth_generation
+        ),
+        patch.object(MatillionAPIClient, "_make_request", mock_make_request),
+    ):
         pipeline_config = load_config_file(
             test_resources_dir / "matillion_streaming_to_file.yml"
         )
@@ -229,7 +249,12 @@ def test_matillion_source_comprehensive(
             return mock_pipelines_response
         return mock_empty_response
 
-    with patch.object(MatillionAPIClient, "_make_request", mock_make_request):
+    with (
+        patch.object(
+            MatillionAPIClient, "_generate_oauth_token", mock_oauth_generation
+        ),
+        patch.object(MatillionAPIClient, "_make_request", mock_make_request),
+    ):
         pipeline_config = load_config_file(
             test_resources_dir / "matillion_comprehensive_to_file.yml"
         )
@@ -297,7 +322,12 @@ def test_matillion_postgres_to_snowflake_with_sql_parsing(
             return {"results": []}
         return mock_empty_response
 
-    with patch.object(MatillionAPIClient, "_make_request", mock_make_request):
+    with (
+        patch.object(
+            MatillionAPIClient, "_generate_oauth_token", mock_oauth_generation
+        ),
+        patch.object(MatillionAPIClient, "_make_request", mock_make_request),
+    ):
         pipeline_config = load_config_file(
             test_resources_dir / "matillion_postgres_snowflake_to_file.yml"
         )

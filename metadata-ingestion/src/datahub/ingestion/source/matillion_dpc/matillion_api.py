@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import requests
@@ -29,6 +30,11 @@ from datahub.ingestion.source.matillion_dpc.constants import (
     HTTP_RETRY_BACKOFF_FACTOR,
     HTTP_RETRY_MAX_ATTEMPTS,
     HTTP_RETRY_STATUS_CODES,
+    MATILLION_OAUTH_TOKEN_URL,
+    OAUTH_AUDIENCE,
+    OAUTH_GRANT_TYPE,
+    OAUTH_TOKEN_EXPIRY_SECONDS,
+    OAUTH_TOKEN_REFRESH_BUFFER_SECONDS,
 )
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
@@ -49,7 +55,11 @@ T = TypeVar("T", bound=BaseModel)
 class MatillionAPIClient:
     def __init__(self, config: MatillionAPIConfig):
         self.config = config
+        self._token_expiry_time: Optional[float] = None
         self.session = self._create_session()
+
+        logger.info("Using OAuth2 client credentials for authentication")
+        self._generate_oauth_token()
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -66,17 +76,83 @@ class MatillionAPIClient:
 
         session.headers.update(
             {
-                HTTP_HEADER_AUTHORIZATION: f"Bearer {self.config.api_token.get_secret_value()}",
                 HTTP_HEADER_CONTENT_TYPE: HTTP_CONTENT_TYPE_JSON,
             }
         )
 
         return session
 
+    def _generate_oauth_token(self) -> None:
+        """Generate OAuth2 access token using client credentials"""
+        data = {
+            "grant_type": OAUTH_GRANT_TYPE,
+            "client_id": self.config.client_id.get_secret_value(),
+            "client_secret": self.config.client_secret.get_secret_value(),
+            "audience": OAUTH_AUDIENCE,
+        }
+
+        oauth_token_url = (
+            self.config.custom_oauth_token_url or MATILLION_OAUTH_TOKEN_URL
+        )
+
+        logger.debug(f"Requesting OAuth2 access token from {oauth_token_url}")
+        response = requests.post(
+            oauth_token_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=data,
+            timeout=self.config.request_timeout_sec,
+        )
+        response.raise_for_status()
+
+        token_data = response.json()
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise ValueError("No access_token in OAuth2 response")
+
+        self.session.headers.update(
+            {
+                HTTP_HEADER_AUTHORIZATION: f"Bearer {access_token}",
+            }
+        )
+
+        self._token_expiry_time = time.time() + OAUTH_TOKEN_EXPIRY_SECONDS
+        expiry_minutes = OAUTH_TOKEN_EXPIRY_SECONDS / 60
+        refresh_minutes = (
+            OAUTH_TOKEN_EXPIRY_SECONDS - OAUTH_TOKEN_REFRESH_BUFFER_SECONDS
+        ) / 60
+        logger.info(
+            f"Successfully obtained OAuth2 access token "
+            f"(expires in {expiry_minutes:.0f} minutes, will refresh after {refresh_minutes:.0f} minutes)"
+        )
+
+    def _should_refresh_token(self) -> bool:
+        """Check if OAuth2 token should be refreshed"""
+        if self._token_expiry_time is None:
+            return False
+
+        time_until_expiry = self._token_expiry_time - time.time()
+        should_refresh = time_until_expiry < OAUTH_TOKEN_REFRESH_BUFFER_SECONDS
+
+        if should_refresh:
+            logger.debug(
+                f"Token expires in {int(time_until_expiry)} seconds, refreshing (buffer: {OAUTH_TOKEN_REFRESH_BUFFER_SECONDS}s)"
+            )
+
+        return should_refresh
+
+    def _ensure_valid_token(self) -> None:
+        """Ensure we have a valid OAuth2 token, refreshing if necessary"""
+        if self._should_refresh_token():
+            logger.info("OAuth2 token expiring soon, refreshing proactively...")
+            self._generate_oauth_token()
+            logger.info("OAuth2 token refreshed successfully")
+
     def _make_request(
         self, method: str, endpoint: str, **kwargs: Any
     ) -> Dict[str, Any]:
         url = f"{self.config.get_base_url()}/{endpoint}"
+
+        self._ensure_valid_token()
 
         response = self.session.request(
             method,
@@ -84,6 +160,19 @@ class MatillionAPIClient:
             timeout=self.config.request_timeout_sec,
             **kwargs,
         )
+
+        if response.status_code == 401:
+            logger.warning(
+                "Received 401 Unauthorized, refreshing OAuth2 token and retrying..."
+            )
+            self._generate_oauth_token()
+            response = self.session.request(
+                method,
+                url,
+                timeout=self.config.request_timeout_sec,
+                **kwargs,
+            )
+
         response.raise_for_status()
         return response.json()
 

@@ -2,42 +2,48 @@
 
 #### Obtain API Credentials
 
-To connect DataHub to Matillion Data Productivity Cloud, you need an API token with sufficient permissions to read project and pipeline metadata.
+The connector uses OAuth2 client credentials and automatically handles token generation and refresh.
 
-**For Matillion DPC Cloud:**
+1. Log into Matillion Data Productivity Cloud as a **Super Admin**
+2. Navigate to **Profile & Account** → **API credentials**
+3. Click **Set an API Credential**
+4. Provide a descriptive name (e.g., "DataHub Integration")
+5. Assign an **Account Role** with read permissions to required APIs
+6. Click **Save** and immediately copy the **Client Secret** (not shown again)
+7. Note the **Client ID** (remains visible)
 
-1. Log into your Matillion Data Productivity Cloud account
-2. Navigate to **Settings** → **API Tokens**
-3. Click **Create New Token**
-4. Name your token (e.g., "DataHub Integration")
-5. Copy the generated token - you'll need it for the configuration
-
-**For Self-Hosted Matillion:**
-
-If you're using a self-hosted Matillion instance behind an API gateway or proxy, you may need to configure HTTP basic authentication in addition to the API token.
+For detailed instructions, see [Matillion API Authentication](https://docs.matillion.com/data-productivity-cloud/api/docs/authentication/).
 
 #### Required Permissions
 
-The API token needs the following permissions:
+The API credentials must have an **Account Role** with **Read** permissions to:
 
-- **Read Projects**: View project names, environments, and metadata
-- **Read Pipelines**: Access pipeline definitions and metadata
-- **Read Lineage Events**: Access OpenLineage events for lineage extraction
-- **Read Executions**: View pipeline execution history (optional, for DataProcessInstance extraction)
+- **Projects** (`/v1/projects`)
+- **Environments** (`/v1/environments`)
+- **Pipelines** (`/v1/pipelines`)
+- **Schedules** (`/v1/schedules`)
+- **Lineage Events** (`/v1/lineage/events`)
+- **Pipeline Executions** (`/v1/pipeline-executions`) - optional
+- **Streaming Pipelines** (`/v1/streaming-pipelines`) - optional
 
-Refer to the [Matillion API documentation](https://docs.matillion.com/data-productivity-cloud/api/) for the latest information on API permissions and authentication.
+If using an account role other than **Super Admin**, grant project and environment-level roles as needed.
 
-#### Setup OpenLineage Namespace Mapping
+See [Matillion RBAC documentation](https://docs.matillion.com/data-productivity-cloud/hub/docs/role-based-access-control-overview/) for details.
 
-The connector extracts lineage from OpenLineage events provided by the Matillion API. To correctly link Matillion pipelines to your existing datasets in DataHub, you must configure namespace mapping.
+#### Lineage Data Sources
 
-OpenLineage events include namespace URIs like:
+Lineage is extracted from:
 
-- `postgresql://prod-db.us-east-1.rds.amazonaws.com:5432`
-- `snowflake://prod-account.snowflakecomputing.com`
-- `bigquery://my-gcp-project`
+1. **OpenLineage Events API** (`/v1/lineage/events`) - Primary source for table and column-level lineage ([docs](https://docs.matillion.com/data-productivity-cloud/api/docs/endpoint-reference/?fullpage=true#/Data%20Lineage/get-lineage-events))
+2. **Pipeline Executions API** (`/v1/pipeline-executions`) - Operational metadata emitted as DataProcessInstance entities ([docs](https://docs.matillion.com/data-productivity-cloud/api/docs/endpoint-reference/?fullpage=true#/Pipeline%20Execution/getPipelineExecutions))
 
-You need to map these to your DataHub platform instances:
+#### OpenLineage Namespace Mapping (Optional)
+
+**Optional**: Map OpenLineage namespace URIs to DataHub platform instances for lineage connections. If not configured, the connector extracts platform type from URIs (e.g., `postgresql://...` → `postgres`) with default environment (`PROD`).
+
+**When to use**: Configure this when you need lineage to connect to existing datasets with platform instances.
+
+Example namespaces: `postgresql://host:5432`, `snowflake://account.snowflakecomputing.com`, `bigquery://project`
 
 ```yaml
 namespace_to_platform_instance:
@@ -53,10 +59,4 @@ namespace_to_platform_instance:
     convert_urns_to_lowercase: true
 ```
 
-**Why this is important:**
-
-- Without proper mapping, lineage will not connect to your existing datasets in DataHub
-- Platform instances must match what you used when ingesting data from those sources
-- Database and schema defaults help normalize incomplete table names from OpenLineage events
-
-See the configuration section below for complete details on namespace mapping options.
+Platform instances must match those used when ingesting the source data platforms.

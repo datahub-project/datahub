@@ -25,7 +25,8 @@ from datahub.ingestion.source.matillion_dpc.config import (
 )
 def test_api_config_regions(region: MatillionRegion, expected_url: str) -> None:
     config = MatillionAPIConfig(
-        api_token=SecretStr("test_token"),
+        client_id=SecretStr("test_client_id"),
+        client_secret=SecretStr("test_client_secret"),
         region=region,
     )
     assert config.region == region
@@ -67,7 +68,8 @@ def test_api_config_custom_base_url(
     expected_result: str,
 ) -> None:
     config = MatillionAPIConfig(
-        api_token=SecretStr("test_token"),
+        client_id=SecretStr("test_client_id"),
+        client_secret=SecretStr("test_client_secret"),
         region=region,
         custom_base_url=custom_url,
     )
@@ -99,7 +101,11 @@ def test_api_config_custom_base_url_validation_errors(
     error_match: str,
 ) -> None:
     with pytest.raises(ValidationError, match=error_match):
-        MatillionAPIConfig(api_token=SecretStr("test"), custom_base_url=invalid_url)
+        MatillionAPIConfig(
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
+            custom_base_url=invalid_url,
+        )
 
 
 @pytest.mark.parametrize(
@@ -118,12 +124,14 @@ def test_api_config_timeout_validation(timeout: int, should_raise: bool) -> None
             ValidationError, match="request_timeout_sec must be positive"
         ):
             MatillionAPIConfig(
-                api_token=SecretStr("test"),
+                client_id=SecretStr("test_client_id"),
+                client_secret=SecretStr("test_client_secret"),
                 request_timeout_sec=timeout,
             )
     else:
         config = MatillionAPIConfig(
-            api_token=SecretStr("test"),
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
             request_timeout_sec=timeout,
         )
         assert config.request_timeout_sec == timeout
@@ -148,12 +156,18 @@ def test_source_config_max_executions_validation(
             ValidationError, match="max_executions_per_pipeline must be non-negative"
         ):
             MatillionSourceConfig(
-                api_config=MatillionAPIConfig(api_token=SecretStr("test")),
+                api_config=MatillionAPIConfig(
+                    client_id=SecretStr("test_client_id"),
+                    client_secret=SecretStr("test_client_secret"),
+                ),
                 max_executions_per_pipeline=max_executions,
             )
     else:
         config = MatillionSourceConfig(
-            api_config=MatillionAPIConfig(api_token=SecretStr("test")),
+            api_config=MatillionAPIConfig(
+                client_id=SecretStr("test_client_id"),
+                client_secret=SecretStr("test_client_secret"),
+            ),
             max_executions_per_pipeline=max_executions,
         )
         assert config.max_executions_per_pipeline == max_executions
@@ -227,7 +241,10 @@ def test_source_config_patterns(
     }
 
     config = MatillionSourceConfig(
-        api_config=MatillionAPIConfig(api_token=SecretStr("test")),
+        api_config=MatillionAPIConfig(
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
+        ),
         **kwargs,
     )
 

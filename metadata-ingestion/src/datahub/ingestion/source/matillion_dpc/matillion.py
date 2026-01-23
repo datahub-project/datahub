@@ -86,7 +86,7 @@ EXECUTION_STATUS_TO_RESULT_TYPE = {
 }
 
 
-@platform_name("matillion", id="matillion-dpc")
+@platform_name("Matillion DPC", id="matillion-dpc")
 @config_class(MatillionSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -100,17 +100,6 @@ EXECUTION_STATUS_TO_RESULT_TYPE = {
     "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
 class MatillionSource(StatefulIngestionSourceBase):
-    """
-    Matillion Data Productivity Cloud (DPC) connector for DataHub.
-
-    Lineage Sources:
-    ================
-    - OpenLineage events (/v1/lineage/events): Provides pipeline execution lineage including
-      data transformations, input/output datasets, and SQL statements for column-level lineage
-    - Pipeline executions (/v1/pipeline-executions): Provides operational metadata emitted
-      as DataProcessInstances
-    """
-
     config: MatillionSourceConfig
     report: MatillionSourceReport
     platform: str = MATILLION_PLATFORM

@@ -17,7 +17,8 @@ from datahub.ingestion.source.matillion_dpc.urn_builder import MatillionUrnBuild
 def config() -> MatillionSourceConfig:
     return MatillionSourceConfig(
         api_config=MatillionAPIConfig(
-            api_token=SecretStr("test_token"),
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
             custom_base_url="http://test.com",
         ),
         platform_instance="test-instance",
@@ -28,7 +29,8 @@ def config() -> MatillionSourceConfig:
 def config_no_platform_instance() -> MatillionSourceConfig:
     return MatillionSourceConfig(
         api_config=MatillionAPIConfig(
-            api_token=SecretStr("test_token"),
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
             custom_base_url="http://test.com",
         ),
     )

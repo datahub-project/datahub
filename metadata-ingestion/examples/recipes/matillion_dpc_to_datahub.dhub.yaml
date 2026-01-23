@@ -1,23 +1,20 @@
----
-# see https://datahubproject.io/docs/generated/ingestion/sources/matillion/ for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/matillion-dpc/ for complete documentation
 source:
-  type: matillion
+  type: matillion-dpc
   config:
-    # API Configuration
     api_config:
-      api_token: "${MATILLION_API_TOKEN}"
-      region: US1 # US1 or EU1 for cloud deployments
-      # For self-hosted: custom_base_url: "https://your-instance.com/api"
+      client_id: "${MATILLION_CLIENT_ID}"
+      client_secret: "${MATILLION_CLIENT_SECRET}"
+      region: US1 # EU1 or US1
 
-    # Options
     env: PROD
     include_lineage: true
     include_column_lineage: true
     include_pipeline_executions: true
     extract_projects_to_containers: true
 
-    # Map OpenLineage namespaces to DataHub platform instances
-    # Critical for connecting lineage to existing datasets
+    # Optional: Map OpenLineage namespaces to DataHub platform instances
+    # Required if existing datasets use platform instances
     namespace_to_platform_instance:
       "postgresql://prod-db.us-east-1.rds.amazonaws.com:5432":
         platform_instance: postgres_prod
@@ -30,24 +27,16 @@ source:
         env: PROD
         convert_urns_to_lowercase: true
 
-    # Optional: Parse SQL for additional column-level lineage
+    # Optional configurations
     # parse_sql_for_lineage: true
-
-    # Optional: Control lineage lookback period
     # lineage_start_days_ago: 7
-
-    # Optional: Include streaming pipelines (experimental)
     # include_streaming_pipelines: false
-
-    # Optional: Filter specific projects or pipelines
     # project_pattern:
     #   allow:
     #     - "my_project"
     # pipeline_pattern:
     #   allow:
     #     - "prod_.*"
-
-    # Optional: Stateful ingestion
     # stateful_ingestion:
     #   enabled: true
     #   remove_stale_metadata: true

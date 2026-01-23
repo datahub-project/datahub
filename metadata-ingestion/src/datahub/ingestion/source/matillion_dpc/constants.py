@@ -30,8 +30,15 @@ API_MAX_PAGE_SIZE = 100
 
 MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
+MATILLION_OAUTH_TOKEN_URL = "https://id.core.matillion.com/oauth/dpc/token"
 
 API_PATH_SUFFIX = "/dpc"
+
+# OAuth2 configuration
+OAUTH_GRANT_TYPE = "client_credentials"
+OAUTH_AUDIENCE = "https://api.matillion.com"
+OAUTH_TOKEN_EXPIRY_SECONDS = 1800  # 30 minutes
+OAUTH_TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh 5 minutes before expiry
 UI_PATH_PIPELINES = "pipelines"
 UI_PATH_STREAMING_PIPELINES = "streaming-pipelines"
 

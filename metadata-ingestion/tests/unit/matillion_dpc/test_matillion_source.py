@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 from pydantic import SecretStr
 from requests.exceptions import ConnectionError
+from requests_mock import Mocker
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
@@ -20,11 +21,21 @@ from datahub.ingestion.source.matillion_dpc.models import (
 )
 
 
+@pytest.fixture(autouse=True)
+def mock_oauth_token(requests_mock: Mocker) -> None:
+    """Mock OAuth2 token endpoint for all tests"""
+    requests_mock.post(
+        "https://id.core.matillion.com/oauth/dpc/token",
+        json={"access_token": "test_token", "token_type": "Bearer"},
+    )
+
+
 @pytest.fixture
 def config() -> MatillionSourceConfig:
     return MatillionSourceConfig(
         api_config=MatillionAPIConfig(
-            api_token=SecretStr("test_token"),
+            client_id=SecretStr("test_client_id"),
+            client_secret=SecretStr("test_client_secret"),
             custom_base_url="http://test.com",
         ),
     )
@@ -137,7 +148,8 @@ def test_get_workunits_internal_lineage_error(
 def test_create_method(pipeline_context: PipelineContext) -> None:
     config_dict = {
         "api_config": {
-            "api_token": "test_token",
+            "client_id": "test_client_id",
+            "client_secret": "test_client_secret",
             "custom_base_url": "http://test.com",
         }
     }
@@ -145,7 +157,11 @@ def test_create_method(pipeline_context: PipelineContext) -> None:
     source = MatillionSource.create(config_dict, pipeline_context)
 
     assert isinstance(source, MatillionSource)
-    assert source.config.api_config.api_token.get_secret_value() == "test_token"
+    assert source.config.api_config.client_id.get_secret_value() == "test_client_id"
+    assert (
+        source.config.api_config.client_secret.get_secret_value()
+        == "test_client_secret"
+    )
 
 
 def test_get_report(
