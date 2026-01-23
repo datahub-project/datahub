@@ -54,6 +54,7 @@ export function computeRows(popular: SourceConfig[], nonPopular: SourceConfig[],
 }
 
 export function getPillLabel(source: SourceConfig) {
+    if (source.isNew) return 'New';
     if (source.isPopular) return 'Popular';
     if (source.isExternal) return 'External';
     return '';
