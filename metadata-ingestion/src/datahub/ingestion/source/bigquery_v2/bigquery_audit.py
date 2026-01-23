@@ -1,4 +1,3 @@
-import functools
 import json
 import logging
 import re
@@ -45,16 +44,11 @@ class BigqueryTableIdentifier:
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
     @staticmethod
-    @functools.lru_cache(maxsize=10)
-    def _get_compiled_shard_pattern(pattern_str: str) -> "re.Pattern[str]":
-        """Get the compiled regex pattern for shard detection (cached)."""
-        return re.compile(pattern_str, re.IGNORECASE)
-
-    @staticmethod
     def _get_shard_pattern() -> "re.Pattern[str]":
         """Get the compiled regex pattern for shard detection."""
-        return BigqueryTableIdentifier._get_compiled_shard_pattern(
-            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
+        return re.compile(
+            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+            re.IGNORECASE,
         )
 
     @staticmethod
