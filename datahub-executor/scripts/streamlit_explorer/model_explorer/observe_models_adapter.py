@@ -120,7 +120,7 @@ def _build_input_context_from_session() -> Any:
         return InputDataContext(
             assertion_category=assertion_category,
             is_dataframe_cumulative=is_cumulative,
-            allow_negative=None,  # Let defaults determine based on category
+            is_delta=None,  # Let defaults determine based on category
         )
     except ImportError:
         return None

@@ -56,8 +56,9 @@ class AssertionTrainingContext:
         assertion_category: Type of assertion ("volume", "field", "freshness").
         metric_type: For field assertions, the metric type (e.g., "NULL_COUNT").
         existing_model_config: Previously trained model config for warm start.
-        allow_negative: Whether negative values are valid for this metric.
-            Set to False for metrics like counts, percentages, and lengths.
+        is_delta: Whether data represents deltas/changes (True) or cumulative values
+            (False). If True (default), negative values are allowed. If False,
+            negative values will be filtered during preprocessing.
         is_dataframe_cumulative: Whether the input dataframe contains cumulative
             values (e.g., ROW_COUNT_TOTAL). If True, differencing will be applied.
     """
@@ -71,5 +72,5 @@ class AssertionTrainingContext:
     assertion_category: str = "volume"
     metric_type: Optional[str] = None
     existing_model_config: Optional[ModelConfig] = None
-    allow_negative: Optional[bool] = None
+    is_delta: Optional[bool] = None
     is_dataframe_cumulative: bool = False

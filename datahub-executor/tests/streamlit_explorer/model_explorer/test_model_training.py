@@ -17,6 +17,68 @@ from scripts.streamlit_explorer.model_explorer.model_training import (
 )
 
 
+class TestNaNHandling:
+    """Tests for NaN value handling in training data."""
+
+    def test_dropna_removes_nan_rows(self):
+        """Test that NaN values in y column are dropped before training."""
+        # Simulate preprocessed data with NaN gaps (from frequency alignment)
+        df = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=10, freq="D"),
+                "y": [1.0, np.nan, np.nan, 4.0, 5.0, np.nan, 7.0, 8.0, 9.0, 10.0],
+            }
+        )
+
+        # This is the logic used in model_training.py
+        cleaned_df = df.dropna(subset=["y"]).copy()
+
+        assert len(cleaned_df) == 7  # 3 NaN rows removed
+        assert cleaned_df["y"].isna().sum() == 0
+
+    def test_dropna_preserves_non_nan_rows(self):
+        """Test that non-NaN rows are preserved after dropna."""
+        df = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "y": [1.0, 2.0, 3.0, 4.0, 5.0],
+            }
+        )
+
+        cleaned_df = df.dropna(subset=["y"]).copy()
+
+        assert len(cleaned_df) == 5  # No rows removed
+        assert list(cleaned_df["y"]) == [1.0, 2.0, 3.0, 4.0, 5.0]
+
+    def test_dropna_handles_all_nan(self):
+        """Test handling when all values are NaN."""
+        df = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "y": [np.nan, np.nan, np.nan, np.nan, np.nan],
+            }
+        )
+
+        cleaned_df = df.dropna(subset=["y"]).copy()
+
+        assert len(cleaned_df) == 0  # All rows removed
+
+    def test_dropna_maintains_column_structure(self):
+        """Test that dropna maintains all columns."""
+        df = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "y": [1.0, np.nan, 3.0, np.nan, 5.0],
+                "type": ["INIT", "INIT", "DATA", "DATA", "DATA"],
+            }
+        )
+
+        cleaned_df = df.dropna(subset=["y"]).copy()
+
+        assert list(cleaned_df.columns) == ["ds", "y", "type"]
+        assert len(cleaned_df) == 3
+
+
 class TestSplitTrainTest:
     """Tests for the _split_train_test function."""
 

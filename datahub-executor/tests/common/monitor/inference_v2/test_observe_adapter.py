@@ -29,13 +29,13 @@ from datahub_executor.common.monitor.inference_v2.observe_adapter.model_factory 
 def _make_context(
     assertion_category: str = "volume",
     is_dataframe_cumulative: bool = False,
-    allow_negative: bool | None = None,
+    is_delta: bool | None = None,
 ) -> InputDataContext:
     """Helper to create InputDataContext for tests."""
     return InputDataContext(
         assertion_category=assertion_category,
         is_dataframe_cumulative=is_dataframe_cumulative,
-        allow_negative=allow_negative,
+        is_delta=is_delta,
     )
 
 
@@ -286,7 +286,7 @@ class TestModelFactoryPreprocessingConfig:
 
         assert isinstance(result, VolumePreprocessorConfig)
         assert result.convert_cumulative is True
-        assert result.allow_negative is False
+        assert result.is_delta is False
 
     def test_build_preprocessing_config_returns_assertion_config_when_not_cumulative(
         self,
@@ -302,6 +302,68 @@ class TestModelFactoryPreprocessingConfig:
         result = factory._build_preprocessing_config()
 
         assert isinstance(result, AssertionPreprocessingConfig)
+
+    def test_build_preprocessing_config_respects_is_delta_true(
+        self,
+    ) -> None:
+        """AssertionPreprocessingConfig uses is_delta=True when explicitly set."""
+        from datahub_observe.assertions.config import AssertionPreprocessingConfig
+
+        context = _make_context(
+            assertion_category="volume",
+            is_dataframe_cumulative=False,
+            is_delta=True,
+        )
+        factory = _make_factory(context=context)
+        result = factory._build_preprocessing_config()
+
+        assert isinstance(result, AssertionPreprocessingConfig)
+        assert result.is_delta is True
+
+    def test_build_preprocessing_config_respects_is_delta_false(
+        self,
+    ) -> None:
+        """AssertionPreprocessingConfig uses is_delta=False when explicitly set."""
+        from datahub_observe.assertions.config import AssertionPreprocessingConfig
+
+        context = _make_context(
+            assertion_category="volume",
+            is_dataframe_cumulative=False,
+            is_delta=False,
+        )
+        factory = _make_factory(context=context)
+        result = factory._build_preprocessing_config()
+
+        assert isinstance(result, AssertionPreprocessingConfig)
+        assert result.is_delta is False
+
+    def test_build_preprocessing_config_defaults_is_delta_by_category(
+        self,
+    ) -> None:
+        """is_delta defaults based on assertion category when not explicitly set."""
+        from datahub_observe.assertions.config import AssertionPreprocessingConfig
+
+        # Volume category should default to is_delta=False (cumulative semantics)
+        volume_context = _make_context(
+            assertion_category="volume",
+            is_dataframe_cumulative=False,
+            is_delta=None,
+        )
+        volume_factory = _make_factory(context=volume_context)
+        volume_result = volume_factory._build_preprocessing_config()
+        assert isinstance(volume_result, AssertionPreprocessingConfig)
+        assert volume_result.is_delta is False
+
+        # Rate category should default to is_delta=True (delta semantics)
+        rate_context = _make_context(
+            assertion_category="rate",
+            is_dataframe_cumulative=False,
+            is_delta=None,
+        )
+        rate_factory = _make_factory(context=rate_context)
+        rate_result = rate_factory._build_preprocessing_config()
+        assert isinstance(rate_result, AssertionPreprocessingConfig)
+        assert rate_result.is_delta is True
 
     def test_build_preprocessing_config_uses_existing_config_if_available(
         self,

@@ -14,6 +14,7 @@ from ..common import (
     init_explorer_state,
     render_before_after_chart,
     render_preprocessing_config_panel,
+    render_preprocessing_context,
     render_preprocessing_stats,
 )
 from ..common.preprocessing_ui import (
@@ -249,13 +250,19 @@ def _render_saved_preprocessings(
                 if loaded_df is not None:
                     # Update the main preprocessed_df so the visualization above updates
                     st.session_state["preprocessed_df"] = loaded_df
-                    # Load the metadata with config
+                    # Load the metadata with config and result
                     metadata = endpoint_cache.get_preprocessing_metadata(selected_id)
                     if metadata:
                         saved_config = metadata.get("preprocessing_config")
                         if saved_config:
                             st.session_state["applied_preprocessing_config"] = (
                                 saved_config
+                            )
+                        # Restore the preprocessing result dict for context info
+                        saved_result = metadata.get("preprocessing_result")
+                        if saved_result:
+                            st.session_state["_preprocessing_result_dict"] = (
+                                saved_result
                             )
                     # Track which saved preprocessing is loaded
                     st.session_state["loaded_saved_preprocessing_id"] = selected_id
@@ -593,16 +600,20 @@ def render_preprocessing_page():
                         f"Preprocessing ID '{preprocessing_id}' already exists. Choose a different ID."
                     )
                 else:
-                    # Build metadata including the preprocessing config
+                    # Build metadata including the preprocessing config and result
                     assertion_urn = st.session_state.get("selected_assertion_urn")
                     applied_config = st.session_state.get(
                         "applied_preprocessing_config", {}
+                    )
+                    preprocessing_result_dict = st.session_state.get(
+                        "_preprocessing_result_dict"
                     )
                     metadata = {
                         "source_assertion_urn": assertion_urn,
                         "source_hostname": hostname,
                         "original_row_count": len(ts_df) if ts_df is not None else 0,
                         "preprocessing_config": applied_config,
+                        "preprocessing_result": preprocessing_result_dict,
                     }
 
                     endpoint_cache.save_preprocessing(
@@ -649,6 +660,9 @@ def render_preprocessing_page():
                 render_config_expander(
                     applied_config, title="Applied Preprocessing Configuration"
                 )
+
+            # Show preprocessing context (frequency analysis, aggregation, etc.)
+            render_preprocessing_context()
 
             # Show applied exclusions info
             applied_exclusions = st.session_state.get("applied_exclusions", [])

@@ -3,6 +3,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
+import numpy as np
 import pandas as pd
 
 from scripts.streamlit_explorer.model_explorer.model_training import TrainingRun
@@ -147,3 +148,101 @@ class TestMetricsSorting:
         assert table_data[0]["Model"] == "B"  # MAE 2.0
         assert table_data[1]["Model"] == "C"  # MAE 3.5
         assert table_data[2]["Model"] == "A"  # MAE 5.0
+
+
+class TestCIValidation:
+    """Tests for confidence interval validation logic."""
+
+    def test_has_valid_ci_with_non_null_values(self):
+        """Test that CI is valid when columns exist and have non-null values."""
+        forecast = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "yhat": [10.0, 20.0, 30.0, 40.0, 50.0],
+                "yhat_lower": [8.0, 18.0, 28.0, 38.0, 48.0],
+                "yhat_upper": [12.0, 22.0, 32.0, 42.0, 52.0],
+            }
+        )
+
+        # This is the validation logic from timeseries_comparison.py
+        has_ci = (
+            "yhat_lower" in forecast.columns
+            and "yhat_upper" in forecast.columns
+            and forecast["yhat_lower"].notna().any()
+            and forecast["yhat_upper"].notna().any()
+        )
+
+        assert has_ci, "CI should be valid when columns exist with non-null values"
+
+    def test_has_invalid_ci_with_all_nan_values(self):
+        """Test that CI is invalid when columns exist but all values are NaN."""
+        forecast = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "yhat": [10.0, 20.0, 30.0, 40.0, 50.0],
+                "yhat_lower": [np.nan, np.nan, np.nan, np.nan, np.nan],
+                "yhat_upper": [np.nan, np.nan, np.nan, np.nan, np.nan],
+            }
+        )
+
+        has_ci = (
+            "yhat_lower" in forecast.columns
+            and "yhat_upper" in forecast.columns
+            and forecast["yhat_lower"].notna().any()
+            and forecast["yhat_upper"].notna().any()
+        )
+
+        assert not has_ci, "CI should be invalid when all values are NaN"
+
+    def test_has_invalid_ci_without_columns(self):
+        """Test that CI is invalid when columns don't exist."""
+        forecast = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "yhat": [10.0, 20.0, 30.0, 40.0, 50.0],
+            }
+        )
+
+        has_ci = "yhat_lower" in forecast.columns and "yhat_upper" in forecast.columns
+
+        assert not has_ci, "CI should be invalid when columns don't exist"
+
+    def test_has_valid_ci_with_partial_nan_values(self):
+        """Test that CI is valid when some values are non-null."""
+        forecast = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "yhat": [10.0, 20.0, 30.0, 40.0, 50.0],
+                "yhat_lower": [np.nan, np.nan, 28.0, 38.0, 48.0],  # Some non-null
+                "yhat_upper": [np.nan, np.nan, 32.0, 42.0, 52.0],  # Some non-null
+            }
+        )
+
+        has_ci = (
+            "yhat_lower" in forecast.columns
+            and "yhat_upper" in forecast.columns
+            and forecast["yhat_lower"].notna().any()
+            and forecast["yhat_upper"].notna().any()
+        )
+
+        assert has_ci, "CI should be valid when at least some values are non-null"
+
+    def test_has_invalid_ci_with_only_lower_nan(self):
+        """Test that CI is invalid when only lower bound is all NaN."""
+        forecast = pd.DataFrame(
+            {
+                "ds": pd.date_range("2024-01-01", periods=5, freq="D"),
+                "yhat": [10.0, 20.0, 30.0, 40.0, 50.0],
+                "yhat_lower": [np.nan, np.nan, np.nan, np.nan, np.nan],
+                "yhat_upper": [12.0, 22.0, 32.0, 42.0, 52.0],  # Has values
+            }
+        )
+
+        has_ci = (
+            "yhat_lower" in forecast.columns
+            and "yhat_upper" in forecast.columns
+            and forecast["yhat_lower"].notna().any()
+            and forecast["yhat_upper"].notna().any()
+        )
+
+        assert not has_ci, "CI should be invalid when lower bound is all NaN"

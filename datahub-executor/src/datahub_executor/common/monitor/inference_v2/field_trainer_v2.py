@@ -178,16 +178,16 @@ class FieldTrainerV2(BaseTrainerV2):
         adjustment_settings: Optional[AssertionAdjustmentSettings],
         evaluation_spec: AssertionEvaluationSpec,
     ) -> AssertionTrainingContext:
-        # Determine floor/ceiling and allow_negative based on metric type
+        # Determine floor/ceiling and is_delta based on metric type
         floor_value: Optional[float] = None
         ceiling_value: Optional[float] = None
-        allow_negative: Optional[bool] = None
+        is_delta: Optional[bool] = None
 
         metric_type = self._get_metric_type(assertion)
         if metric_type in FLOOR_ZERO_METRICS:
             floor_value = 0.0
-            # Metrics with floor=0 should not allow negative values during preprocessing
-            allow_negative = False
+            # Metrics with floor=0 are not delta data - filter negative values
+            is_delta = False
         if metric_type in CEILING_100_METRICS:
             ceiling_value = 100.0
 
@@ -206,7 +206,7 @@ class FieldTrainerV2(BaseTrainerV2):
             assertion_category=assertion_category,
             metric_type=metric_type,
             existing_model_config=self._extract_existing_model_config(evaluation_spec),
-            allow_negative=allow_negative,
+            is_delta=is_delta,
         )
 
     def _get_metric_type(self, assertion: Assertion) -> str:

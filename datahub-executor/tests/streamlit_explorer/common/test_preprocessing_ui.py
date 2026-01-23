@@ -1,5 +1,6 @@
 """Tests for the preprocessing_ui module."""
 
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -693,9 +694,7 @@ class TestPipelineConfigOverrides:
         mock_get_registry.return_value = mock_registry
 
         # Call with overrides including None values
-        instantiate_pipeline(
-            "volume", {"convert_cumulative": True, "allow_negative": None}
-        )
+        instantiate_pipeline("volume", {"convert_cumulative": True, "is_delta": None})
 
         # Verify only non-None values passed to config class
         mock_config_cls.assert_called_once_with(convert_cumulative=True)
@@ -832,13 +831,75 @@ class TestPipelineConfigDiscovery:
         )
 
         mock_config_cls = MagicMock()
-        mock_config_cls.get_defaults.return_value = {"convert_cumulative": False}
+        # Mock a parameterless get_defaults
+        mock_get_defaults = MagicMock(return_value={"convert_cumulative": False})
+        mock_get_defaults.__code__ = MagicMock()
+        mock_get_defaults.__code__.co_varnames = ()
+        mock_config_cls.get_defaults = mock_get_defaults
         mock_get_config_cls.return_value = mock_config_cls
 
-        result = get_pipeline_config_defaults("volume")
+        result = get_pipeline_config_defaults("field")
 
         assert result == {"convert_cumulative": False}
         mock_config_cls.get_defaults.assert_called_once()
+
+    @patch(
+        "scripts.streamlit_explorer.common.preprocessing_ui.get_pipeline_config_class"
+    )
+    def test_get_pipeline_config_defaults_passes_context_to_get_defaults(
+        self, mock_get_config_cls
+    ):
+        """Verify context parameters are passed to get_defaults() when signature accepts them."""
+
+        from scripts.streamlit_explorer.common.preprocessing_ui import (
+            get_pipeline_config_defaults,
+        )
+
+        # Create a mock config class with get_defaults that accepts convert_cumulative
+        def mock_get_defaults(convert_cumulative: bool) -> dict:
+            if convert_cumulative:
+                return {"is_delta": False, "strict_validation": True}
+            else:
+                return {"is_delta": False, "strict_validation": False}
+
+        mock_config_cls = MagicMock()
+        mock_config_cls.get_defaults = mock_get_defaults
+        mock_get_config_cls.return_value = mock_config_cls
+
+        # Test with convert_cumulative=True
+        result = get_pipeline_config_defaults("volume", convert_cumulative=True)
+        assert result["is_delta"] is False
+        assert result["strict_validation"] is True
+
+        # Test with convert_cumulative=False
+        result = get_pipeline_config_defaults("volume", convert_cumulative=False)
+        assert result["is_delta"] is False
+        assert result["strict_validation"] is False
+
+    @patch(
+        "scripts.streamlit_explorer.common.preprocessing_ui.get_pipeline_config_class"
+    )
+    def test_get_pipeline_config_defaults_filters_context_to_valid_params(
+        self, mock_get_config_cls
+    ):
+        """Verify only valid context params are passed to get_defaults()."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import (
+            get_pipeline_config_defaults,
+        )
+
+        # Create a mock config class with get_defaults that only accepts metric_type
+        def mock_get_defaults(metric_type: Optional[str] = None) -> dict:
+            return {"convert_to_delta": True, "metric_type": metric_type}
+
+        mock_config_cls = MagicMock()
+        mock_config_cls.get_defaults = mock_get_defaults
+        mock_get_config_cls.return_value = mock_config_cls
+
+        # Pass both metric_type and an invalid param - should not error
+        result = get_pipeline_config_defaults(
+            "field", metric_type="NULL_COUNT", invalid_param="ignored"
+        )
+        assert result["metric_type"] == "NULL_COUNT"
 
     @patch("scripts.streamlit_explorer.common.preprocessing_ui.HAS_REGISTRY", False)
     def test_get_pipeline_config_metadata_returns_empty_dict_when_no_registry(self):
@@ -928,7 +989,7 @@ class TestHelperFunctions:
         )
 
         assert _format_field_label("convert_cumulative") == "Convert Cumulative"
-        assert _format_field_label("allow_negative") == "Allow Negative"
+        assert _format_field_label("is_delta") == "Is Delta"
         assert _format_field_label("metric_type") == "Metric Type"
 
     def test_get_field_help_returns_help_text(self):
@@ -1432,3 +1493,123 @@ class TestRenderInferenceConfigInfo:
         )
         mock_st.session_state.pop.assert_any_call("_loaded_inference_source_urn", None)
         mock_st.rerun.assert_called()
+
+
+class TestStateToConfig:
+    """Tests for state_to_config function."""
+
+    @pytest.mark.skipif(
+        not pytest.importorskip(
+            "datahub_observe", reason="observe-models not installed"
+        ),
+        reason="observe-models not installed",
+    )
+    def test_state_to_config_includes_frequency_analysis(self):
+        """Verify state_to_config includes FrequencyAnalysisConfig in pipeline."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import state_to_config
+
+        state = PreprocessingState()
+        config = state_to_config(state)
+
+        assert config is not None
+        # Find FrequencyAnalysisConfig in pandas_transformers
+        transformer_types = [type(t).__name__ for t in config.pandas_transformers]
+        assert "FrequencyAnalysisConfig" in transformer_types
+
+    @pytest.mark.skipif(
+        not pytest.importorskip(
+            "datahub_observe", reason="observe-models not installed"
+        ),
+        reason="observe-models not installed",
+    )
+    def test_state_to_config_includes_frequency_truncation(self):
+        """Verify state_to_config includes FrequencyTruncationConfig in pipeline."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import state_to_config
+
+        state = PreprocessingState()
+        config = state_to_config(state)
+
+        assert config is not None
+        # Find FrequencyTruncationConfig in pandas_transformers
+        transformer_types = [type(t).__name__ for t in config.pandas_transformers]
+        assert "FrequencyTruncationConfig" in transformer_types
+
+    @pytest.mark.skipif(
+        not pytest.importorskip(
+            "datahub_observe", reason="observe-models not installed"
+        ),
+        reason="observe-models not installed",
+    )
+    def test_state_to_config_transformer_order(self):
+        """Verify transformers are in correct order in the pipeline."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import state_to_config
+
+        state = PreprocessingState()
+        config = state_to_config(state)
+
+        assert config is not None
+        transformer_types = [type(t).__name__ for t in config.pandas_transformers]
+
+        # Verify expected order: InitDataFilter -> AnomalyDataFilter -> DataFilter ->
+        # FrequencyAlignment -> FrequencyAnalysis -> FrequencyTruncation -> MissingData
+        expected_order = [
+            "InitDataFilterConfig",
+            "AnomalyDataFilterConfig",
+            "DataFilterConfig",
+            "FrequencyAlignmentConfig",
+            "FrequencyAnalysisConfig",
+            "FrequencyTruncationConfig",
+            "MissingDataConfig",
+        ]
+        assert transformer_types == expected_order
+
+    @pytest.mark.skipif(
+        not pytest.importorskip(
+            "datahub_observe", reason="observe-models not installed"
+        ),
+        reason="observe-models not installed",
+    )
+    def test_state_to_config_frequency_analysis_params(self):
+        """Verify FrequencyAnalysisConfig has expected default parameters."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import state_to_config
+
+        state = PreprocessingState()
+        config = state_to_config(state)
+
+        assert config is not None
+        # Find FrequencyAnalysisConfig
+        freq_analysis = None
+        for t in config.pandas_transformers:
+            if type(t).__name__ == "FrequencyAnalysisConfig":
+                freq_analysis = t
+                break
+
+        assert freq_analysis is not None
+        assert freq_analysis.enabled is True
+        assert freq_analysis.significance_threshold == 0.10
+        assert freq_analysis.lookback_window == 10
+
+    @pytest.mark.skipif(
+        not pytest.importorskip(
+            "datahub_observe", reason="observe-models not installed"
+        ),
+        reason="observe-models not installed",
+    )
+    def test_state_to_config_frequency_truncation_params(self):
+        """Verify FrequencyTruncationConfig has expected default parameters."""
+        from scripts.streamlit_explorer.common.preprocessing_ui import state_to_config
+
+        state = PreprocessingState()
+        config = state_to_config(state)
+
+        assert config is not None
+        # Find FrequencyTruncationConfig
+        freq_truncation = None
+        for t in config.pandas_transformers:
+            if type(t).__name__ == "FrequencyTruncationConfig":
+                freq_truncation = t
+                break
+
+        assert freq_truncation is not None
+        assert freq_truncation.enabled is True
+        assert freq_truncation.min_samples == 30

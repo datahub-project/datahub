@@ -62,8 +62,14 @@ def _create_individual_model_chart(run: TrainingRun) -> go.Figure:
         )
     )
 
-    # Confidence interval
-    if "yhat_upper" in test_forecast.columns:
+    # Confidence interval (only if columns exist AND have non-null values)
+    has_valid_ci = (
+        "yhat_upper" in test_forecast.columns
+        and "yhat_lower" in test_forecast.columns
+        and test_forecast["yhat_upper"].notna().any()
+        and test_forecast["yhat_lower"].notna().any()
+    )
+    if has_valid_ci:
         fig.add_trace(
             go.Scatter(
                 x=pd.concat([test_forecast["ds"], test_forecast["ds"][::-1]]),
@@ -171,8 +177,14 @@ def _create_prediction_chart(run: TrainingRun) -> go.Figure:
         )
     )
 
-    # Confidence interval
-    if "yhat_upper" in test_forecast.columns:
+    # Confidence interval (only if columns exist AND have non-null values)
+    has_valid_ci = (
+        "yhat_upper" in test_forecast.columns
+        and "yhat_lower" in test_forecast.columns
+        and test_forecast["yhat_upper"].notna().any()
+        and test_forecast["yhat_lower"].notna().any()
+    )
+    if has_valid_ci:
         fig.add_trace(
             go.Scatter(
                 x=pd.concat([test_forecast["ds"], test_forecast["ds"][::-1]]),
@@ -305,28 +317,56 @@ def _render_detailed_comparison_table(
     comparison_df = test_df[["ds", "y"]].copy()
     comparison_df = comparison_df.rename(columns={"y": "Actual"})
 
-    # Add predictions from each run
+    # Build column config dynamically
+    column_config = {
+        "Date": st.column_config.DatetimeColumn("Date", format="YYYY-MM-DD HH:mm"),
+        "Actual": st.column_config.NumberColumn("Actual", format="%.2f"),
+    }
+
+    # Add predictions from each run (including CI if available)
     for run in selected_runs:
         forecast = run.forecast
-        test_forecast = forecast[forecast["ds"].isin(test_df["ds"])][
-            ["ds", "yhat"]
-        ].copy()
-        test_forecast = test_forecast.rename(columns={"yhat": run.display_name})
+        test_forecast = forecast[forecast["ds"].isin(test_df["ds"])].copy()
+
+        # Select columns to include
+        cols_to_select = ["ds", "yhat"]
+        # Check if CI columns exist AND have non-null values
+        has_ci = (
+            "yhat_lower" in forecast.columns
+            and "yhat_upper" in forecast.columns
+            and forecast["yhat_lower"].notna().any()
+            and forecast["yhat_upper"].notna().any()
+        )
+
+        if has_ci:
+            cols_to_select.extend(["yhat_lower", "yhat_upper"])
+
+        test_forecast = test_forecast[cols_to_select].copy()
+
+        # Rename columns with run name prefix
+        rename_map = {"yhat": run.display_name}
+        column_config[run.display_name] = st.column_config.NumberColumn(
+            run.display_name, format="%.2f"
+        )
+
+        if has_ci:
+            lower_col = f"{run.display_name}_lower"
+            upper_col = f"{run.display_name}_upper"
+            rename_map["yhat_lower"] = lower_col
+            rename_map["yhat_upper"] = upper_col
+            column_config[lower_col] = st.column_config.NumberColumn(
+                f"{run.display_name} CI Lower", format="%.2f"
+            )
+            column_config[upper_col] = st.column_config.NumberColumn(
+                f"{run.display_name} CI Upper", format="%.2f"
+            )
+
+        test_forecast = test_forecast.rename(columns=rename_map)
         comparison_df = comparison_df.merge(test_forecast, on="ds", how="left")
 
     comparison_df = comparison_df.rename(columns={"ds": "Date"})
 
     with st.expander("View Detailed Predictions", expanded=False):
-        # Build column config dynamically
-        column_config = {
-            "Date": st.column_config.DatetimeColumn("Date", format="YYYY-MM-DD HH:mm"),
-            "Actual": st.column_config.NumberColumn("Actual", format="%.2f"),
-        }
-        for run in selected_runs:
-            column_config[run.display_name] = st.column_config.NumberColumn(
-                run.display_name, format="%.2f"
-            )
-
         st.dataframe(
             comparison_df,
             hide_index=True,

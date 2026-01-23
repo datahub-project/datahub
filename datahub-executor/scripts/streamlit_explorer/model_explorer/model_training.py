@@ -186,6 +186,61 @@ def _check_transformer_config(
 # =============================================================================
 
 
+def _display_truncation_warning() -> None:
+    """Display a warning if preprocessing truncated data due to frequency shift.
+
+    Reads the preprocessing result dict from session state and displays
+    a warning with truncation details if data was truncated.
+    """
+    result_dict = st.session_state.get("_preprocessing_result_dict")
+    if result_dict is None:
+        return
+
+    if not result_dict.get("was_truncated", False):
+        return
+
+    # Extract truncation info from the nested context
+    context = result_dict.get("context", {})
+    freq_analysis = context.get("frequency_analysis", {})
+
+    if not freq_analysis:
+        return
+
+    # Calculate original vs truncated counts
+    timeseries_length = result_dict.get("timeseries_length", 0)
+    regime_start_idx = freq_analysis.get("regime_start_idx", 0)
+    original_count = timeseries_length + regime_start_idx
+    truncated_count = regime_start_idx
+    pct_removed = (truncated_count / original_count * 100) if original_count > 0 else 0
+
+    # Build warning message with available info
+    regime_start = freq_analysis.get("regime_start_timestamp")
+    original_start = freq_analysis.get("original_start_timestamp")
+    original_end = freq_analysis.get("original_end_timestamp")
+    kept_freq = freq_analysis.get("most_recent_class")
+    freq_classes = freq_analysis.get("significant_classes", [])
+
+    warning_parts = ["⚠️ **Data was truncated due to frequency shift.**"]
+
+    # Show data point counts
+    warning_parts.append(
+        f"**{truncated_count}** of **{original_count}** data points removed "
+        f"({pct_removed:.1f}%)"
+    )
+
+    if regime_start and original_start:
+        warning_parts.append(f"Truncated at: `{regime_start}`")
+        warning_parts.append(f"Original range: `{original_start}` to `{original_end}`")
+
+    if kept_freq:
+        warning_parts.append(f"Keeping frequency: **{kept_freq}**")
+
+    if len(freq_classes) > 1:
+        warning_parts.append(f"Detected frequencies: {', '.join(freq_classes)}")
+
+    st.warning("\n\n".join(warning_parts))
+
+
 def _split_train_test(
     df: pd.DataFrame, train_ratio: float
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -468,7 +523,7 @@ def _render_training_runs_panel() -> None:
         st.caption(f"{len(runs)} run(s) in session")
     with col_clear:
         if st.button("Clear All", key="clear_all_runs"):
-            _clear_training_runs()
+            _clear_training_runs(clear_cache=True)  # Also delete from disk cache
             st.rerun()
 
     # List runs sorted by MAE (best/lowest first)
@@ -535,9 +590,9 @@ def _render_training_runs_panel() -> None:
             params = get_model_hyperparameters(run.model)
             with st.container():
                 st.markdown("**Hyperparameters:**")
-                # Format as a nice display
+                # Format as a nice display, sorted by key for easier comparison
                 param_lines = []
-                for key, value in params.items():
+                for key, value in sorted(params.items()):
                     if isinstance(value, dict):
                         param_lines.append(f"- **{key}**: `{value}`")
                     elif isinstance(value, float):
@@ -654,6 +709,9 @@ def render_model_training_page() -> None:
         # 1. Train/Test Split (moved to top)
         # =================================================================
         st.subheader("Train/Test Split")
+
+        # Display truncation warning if data was truncated during preprocessing
+        _display_truncation_warning()
 
         col_min, col_slider, col_max = st.columns([1, 4, 1])
         with col_min:
@@ -875,6 +933,10 @@ def render_model_training_page() -> None:
                             f"{label}: Failed to load preprocessing data"
                         )
                         continue
+
+                    # Drop NaN values before training - models can't handle NaN
+                    # Preprocessing may create NaN gaps from frequency alignment
+                    preprocessed_df = preprocessed_df.dropna(subset=["y"]).copy()
 
                     # Validate data points
                     total_points = len(preprocessed_df)

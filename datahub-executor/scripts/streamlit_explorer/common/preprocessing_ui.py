@@ -23,12 +23,16 @@ try:
         DataFilterConfig,
         DifferenceConfig,
         FrequencyAlignmentConfig,
+        FrequencyAnalysisConfig,
+        FrequencyTruncationConfig,
         InitDataFilterConfig,
         MissingDataConfig,
         PreprocessingConfig,
+        PreprocessingResult,
         ResamplingConfig,
         TimeRange,
         TimeSeriesPreprocessor,
+        ValueFilterConfig,
         default_darts_transformers,
         default_pandas_transformers,
     )
@@ -37,9 +41,13 @@ try:
 except ImportError:
     HAS_PREPROCESSING = False
     PreprocessingConfig = None  # type: ignore[assignment,misc]
+    PreprocessingResult = None  # type: ignore[assignment,misc]
     TimeSeriesPreprocessor = None  # type: ignore[assignment,misc]
     InitDataFilterConfig = None  # type: ignore[assignment,misc]
     FrequencyAlignmentConfig = None  # type: ignore[assignment,misc]
+    FrequencyAnalysisConfig = None  # type: ignore[assignment,misc]
+    FrequencyTruncationConfig = None  # type: ignore[assignment,misc]
+    ValueFilterConfig = None  # type: ignore[assignment,misc]
     AnomalyDataFilterConfig = None  # type: ignore[assignment,misc]
     default_pandas_transformers = None  # type: ignore[assignment]
     default_darts_transformers = None  # type: ignore[assignment]
@@ -583,11 +591,14 @@ def get_pipeline_config_class(pipeline_name: str) -> Optional[type]:
         return None
 
 
-def get_pipeline_config_defaults(pipeline_name: str) -> dict:
+def get_pipeline_config_defaults(pipeline_name: str, **context: Any) -> dict:
     """Get default values for a pipeline's configuration.
 
     Args:
         pipeline_name: The pipeline name (e.g., "volume", "field")
+        **context: Context parameters passed to the config's get_defaults().
+            For "volume" pipeline: convert_cumulative (bool) is required.
+            For "field" pipeline: metric_type (Optional[str]) is optional.
 
     Returns:
         Dictionary of parameter names to default values.
@@ -598,7 +609,15 @@ def get_pipeline_config_defaults(pipeline_name: str) -> dict:
 
     # Check if config class has a get_defaults method
     if hasattr(config_cls, "get_defaults"):
-        return config_cls.get_defaults()
+        import inspect
+
+        sig = inspect.signature(config_cls.get_defaults)
+        if sig.parameters:
+            # Filter context to only params the method accepts
+            valid_params = {k: v for k, v in context.items() if k in sig.parameters}
+            return config_cls.get_defaults(**valid_params)
+        else:
+            return config_cls.get_defaults()
 
     # Fall back to inspecting dataclass fields
     from dataclasses import MISSING, fields as dc_fields
@@ -651,8 +670,21 @@ def render_pipeline_config_ui(state: PreprocessingState, pipeline_name: str) -> 
         if config_cls is None:
             return
 
-        # Get defaults and current values
-        defaults = get_pipeline_config_defaults(pipeline_name)
+        # Build context for getting defaults based on pipeline type and current state
+        context: dict[str, Any] = {}
+        if pipeline_name == "volume":
+            # For volume, convert_cumulative determines other defaults
+            existing_config = state.pipeline_configs.get(pipeline_name, {})
+            context["convert_cumulative"] = existing_config.get(
+                "convert_cumulative", False
+            )
+        elif pipeline_name == "field":
+            # For field, metric_type can influence defaults
+            existing_config = state.pipeline_configs.get(pipeline_name, {})
+            context["metric_type"] = existing_config.get("metric_type")
+
+        # Get defaults with context and current values
+        defaults = get_pipeline_config_defaults(pipeline_name, **context)
         metadata = get_pipeline_config_metadata(pipeline_name)
 
         # Initialize pipeline config if not present
@@ -726,6 +758,21 @@ def render_pipeline_config_ui(state: PreprocessingState, pipeline_name: str) -> 
                 )
                 current_config[f.name] = val
 
+                # For volume pipeline: when convert_cumulative changes, update related
+                # defaults (is_delta, strict_validation) to match the new context
+                if pipeline_name == "volume" and f.name == "convert_cumulative":
+                    new_defaults = get_pipeline_config_defaults(
+                        pipeline_name, convert_cumulative=val
+                    )
+                    # Update is_delta and strict_validation to new defaults if user
+                    # hasn't explicitly customized them (i.e., they match old defaults)
+                    old_defaults = get_pipeline_config_defaults(
+                        pipeline_name, convert_cumulative=not val
+                    )
+                    for dep_field in ("is_delta", "strict_validation"):
+                        if current_config.get(dep_field) == old_defaults.get(dep_field):
+                            current_config[dep_field] = new_defaults.get(dep_field)
+
             # Optional[bool] fields
             elif "Optional[bool]" in str(field_type):
                 label = _format_field_label(f.name)
@@ -789,9 +836,9 @@ def _get_field_help(field_name: str, pipeline_name: str, metadata: dict) -> str:
             "Enable to convert absolute values to period-over-period changes. "
             "Field metrics like NULL_COUNT are absolute values that need differencing for forecasting."
         ),
-        "allow_negative": (
-            "Set to 'No' to validate that values are non-negative. "
-            "Useful for metrics that should never be negative (e.g., row counts)."
+        "is_delta": (
+            "If True (default), data represents deltas and negative values are allowed. "
+            "If False, data is cumulative and negative values are filtered."
         ),
         "metric_type": (
             "The field metric type determines aggregation behavior. "
@@ -903,9 +950,10 @@ def render_inference_config_info() -> None:
 
     st.info(f"**From Inference** - Using {config_type} config from monitor")
 
-    # Show source URN
+    # Show source URN in copyable code block
     if source_urn:
-        st.caption(f"Source: `{source_urn[-60:]}`")
+        st.markdown("**Source URN:**")
+        st.code(source_urn, language=None)
 
     # Show config details
     try:
@@ -1332,7 +1380,24 @@ def state_to_config(
     # 3. Frequency alignment (always included for proper time series handling)
     pandas_transformers.append(FrequencyAlignmentConfig())
 
-    # 4. Missing data handling
+    # 4. Frequency analysis (detects frequency characteristics, populates context)
+    pandas_transformers.append(
+        FrequencyAnalysisConfig(
+            enabled=True,
+            significance_threshold=0.10,
+            lookback_window=10,
+        )
+    )
+
+    # 5. Frequency truncation (truncates to most recent regime if shift detected)
+    pandas_transformers.append(
+        FrequencyTruncationConfig(
+            enabled=True,
+            min_samples=30,
+        )
+    )
+
+    # 6. Missing data handling
     pandas_transformers.append(
         MissingDataConfig(
             strategy=state.missing_data_strategy,
@@ -1422,10 +1487,13 @@ def apply_preprocessing(
 
     try:
         preprocessor = TimeSeriesPreprocessor(config)
-        ts = preprocessor.process(df, datetime_col="ds", value_col="y")
+        result = preprocessor.process(df, datetime_col="ds", value_col="y")
+
+        # Store preprocessing result dict for truncation info display
+        st.session_state["_preprocessing_result_dict"] = result.to_dict()
 
         # Convert back to DataFrame
-        result_df = ts.to_dataframe().reset_index()
+        result_df = result.timeseries.to_dataframe().reset_index()
         result_df.columns = ["ds", "y"]
 
         return result_df
@@ -1474,10 +1542,13 @@ def _apply_predefined_pipeline(
         preprocessor = instantiate_pipeline(pipeline_name, config_overrides)
 
         # Process the filtered data
-        ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+        result = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+
+        # Store preprocessing result dict for truncation info display
+        st.session_state["_preprocessing_result_dict"] = result.to_dict()
 
         # Convert back to DataFrame
-        result_df = ts.to_dataframe().reset_index()
+        result_df = result.timeseries.to_dataframe().reset_index()
         result_df.columns = ["ds", "y"]
 
         return result_df
@@ -1547,7 +1618,7 @@ def _apply_inference_config(
             )
 
             preprocessor = VolumeTimeSeriesPreprocessor.from_config(loaded_config)
-            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+            result = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
 
         elif config_type == "field":
             # FieldMetricPreprocessorConfig - use FieldMetricTimeSeriesPreprocessor
@@ -1556,7 +1627,7 @@ def _apply_inference_config(
             )
 
             preprocessor = FieldMetricTimeSeriesPreprocessor.from_config(loaded_config)
-            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+            result = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
 
         elif isinstance(loaded_config, dict):
             # Raw dict - try to deserialize as PreprocessingConfig
@@ -1572,15 +1643,18 @@ def _apply_inference_config(
                 )
                 return None
             preprocessor = TimeSeriesPreprocessor(config)
-            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+            result = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
 
         else:
             # Assume it's a PreprocessingConfig
             preprocessor = TimeSeriesPreprocessor(loaded_config)
-            ts = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+            result = preprocessor.process(filtered_df, datetime_col="ds", value_col="y")
+
+        # Store preprocessing result dict for truncation info display
+        st.session_state["_preprocessing_result_dict"] = result.to_dict()
 
         # Convert back to DataFrame
-        result_df = ts.to_dataframe().reset_index()
+        result_df = result.timeseries.to_dataframe().reset_index()
         result_df.columns = ["ds", "y"]
 
         return result_df
@@ -1653,6 +1727,137 @@ def render_before_after_chart(
     st.plotly_chart(fig, use_container_width=True)
 
 
+def render_truncation_info() -> None:
+    """Display truncation information if data was truncated during preprocessing.
+
+    Reads the preprocessing result dict from session state and displays
+    an info box with truncation details if data was truncated due to
+    frequency shift detection.
+    """
+    result_dict = st.session_state.get("_preprocessing_result_dict")
+    if result_dict is None:
+        return
+
+    if not result_dict.get("was_truncated", False):
+        return
+
+    # Extract truncation info from the nested context
+    context = result_dict.get("context", {})
+    freq_analysis = context.get("frequency_analysis", {})
+
+    if not freq_analysis:
+        return
+
+    # Calculate original vs truncated counts
+    # Use original_length from frequency analysis (pre-transformation count)
+    original_count = freq_analysis.get("original_length", 0)
+    regime_start_idx = freq_analysis.get("regime_start_idx", 0)
+    truncated_count = regime_start_idx
+    pct_removed = (truncated_count / original_count * 100) if original_count > 0 else 0
+
+    # Build warning message
+    regime_start = freq_analysis.get("regime_start_timestamp", "")
+    original_start = freq_analysis.get("original_start_timestamp", "")
+    original_end = freq_analysis.get("original_end_timestamp", "")
+    kept_freq = freq_analysis.get("most_recent_class", "")
+    freq_classes = freq_analysis.get("significant_classes", [])
+
+    st.warning(
+        f"⚠️ **Frequency Shift Detected - Data Truncated**\n\n"
+        f"**{truncated_count}** of **{original_count}** data points removed "
+        f"({pct_removed:.1f}%)\n\n"
+        f"- Original range: `{original_start}` to `{original_end}`\n"
+        f"- Truncated at: `{regime_start}`\n"
+        f"- Keeping frequency: **{kept_freq}**\n"
+        + (
+            f"- Detected frequencies: {', '.join(freq_classes)}"
+            if len(freq_classes) > 1
+            else ""
+        )
+    )
+
+
+def render_preprocessing_context() -> None:
+    """Display the preprocessing context information.
+
+    Shows details about frequency analysis, aggregation method, and other
+    context information generated during preprocessing. This provides
+    visibility into what the preprocessing pipeline detected and applied.
+    """
+    result_dict = st.session_state.get("_preprocessing_result_dict")
+    if result_dict is None:
+        return
+
+    context = result_dict.get("context", {})
+    if not context:
+        return
+
+    with st.expander("🔍 Preprocessing Context (Analysis Results)", expanded=False):
+        # Frequency Analysis section
+        freq_analysis = context.get("frequency_analysis", {})
+        if freq_analysis:
+            st.markdown("**Frequency Analysis**")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                detected_freq = freq_analysis.get("detected_frequency", "N/A")
+                st.markdown(f"- **Detected Frequency:** `{detected_freq}`")
+
+                most_recent_class = freq_analysis.get("most_recent_class", "N/A")
+                st.markdown(f"- **Frequency Class:** `{most_recent_class}`")
+
+                has_shift = freq_analysis.get("has_shift", False)
+                shift_icon = "⚠️" if has_shift else "✓"
+                st.markdown(f"- **Frequency Shift:** {shift_icon} `{has_shift}`")
+
+            with col2:
+                median_interval = freq_analysis.get("median_interval")
+                if median_interval:
+                    st.markdown(f"- **Median Interval:** `{median_interval}`")
+
+                significant_classes = freq_analysis.get("significant_classes", [])
+                if significant_classes:
+                    st.markdown(
+                        f"- **Significant Classes:** `{', '.join(significant_classes)}`"
+                    )
+
+                regime_start_idx = freq_analysis.get("regime_start_idx", 0)
+                if regime_start_idx > 0:
+                    st.markdown(f"- **Regime Start Index:** `{regime_start_idx}`")
+
+            # Show timestamps if available
+            original_start = freq_analysis.get("original_start_timestamp")
+            original_end = freq_analysis.get("original_end_timestamp")
+            regime_start = freq_analysis.get("regime_start_timestamp")
+
+            if original_start and original_end:
+                st.markdown("---")
+                st.markdown("**Time Range**")
+                st.markdown(f"- **Original:** `{original_start}` → `{original_end}`")
+                if regime_start and freq_analysis.get("has_shift"):
+                    st.markdown(f"- **Regime Start:** `{regime_start}`")
+
+        # Aggregation Hint section
+        aggregation_hint = context.get("aggregation_hint")
+        if aggregation_hint:
+            st.markdown("---")
+            st.markdown("**Aggregation**")
+            st.markdown(
+                f"- **Method Used:** `{aggregation_hint}` "
+                "(applied during frequency alignment and resampling)"
+            )
+
+        # Timeseries info
+        timeseries_length = result_dict.get("timeseries_length", 0)
+        was_truncated = result_dict.get("was_truncated", False)
+        if timeseries_length:
+            st.markdown("---")
+            st.markdown("**Result**")
+            st.markdown(f"- **Output Length:** `{timeseries_length}` data points")
+            if was_truncated:
+                st.markdown("- **Truncated:** ⚠️ Yes (due to frequency shift)")
+
+
 def render_preprocessing_stats(
     before_df: pd.DataFrame,
     after_df: pd.DataFrame,
@@ -1663,6 +1868,9 @@ def render_preprocessing_stats(
         before_df: Original DataFrame with 'ds' and 'y'
         after_df: Preprocessed DataFrame with 'ds' and 'y'
     """
+    # Display truncation warning if applicable
+    render_truncation_info()
+
     col1, col2, col3 = st.columns(3)
 
     with col1:

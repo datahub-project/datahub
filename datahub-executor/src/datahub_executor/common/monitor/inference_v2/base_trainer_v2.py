@@ -238,7 +238,7 @@ class BaseTrainerV2(ABC):
         input_context = InputDataContext(
             assertion_category=context.assertion_category,
             is_dataframe_cumulative=context.is_dataframe_cumulative,
-            allow_negative=context.allow_negative,
+            is_delta=context.is_delta,
         )
 
         adapter = ObserveAdapter()

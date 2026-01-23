@@ -50,15 +50,15 @@ class InputDataContext:
         is_dataframe_cumulative: Whether the input dataframe contains cumulative
             values (e.g., ROW_COUNT_TOTAL). If True, differencing will be applied
             to convert to deltas.
-        allow_negative: Whether negative values are valid for this metric.
+        is_delta: Whether data represents deltas/changes (True) or cumulative
+            values (False). If True (default), negative values are allowed.
+            If False, negative values will be filtered during preprocessing.
             If None, the default is determined by assertion_category.
-            Set explicitly to False for metrics like counts, percentages, and
-            lengths that cannot be negative.
     """
 
     assertion_category: str = "volume"
     is_dataframe_cumulative: bool = False
-    allow_negative: Optional[bool] = None
+    is_delta: Optional[bool] = None
 
 
 class ObserveDefaultsBuilder:
@@ -72,7 +72,7 @@ class ObserveDefaultsBuilder:
         >>> context = InputDataContext(
         ...     assertion_category="volume",
         ...     is_dataframe_cumulative=True,
-        ...     allow_negative=False,
+        ...     is_delta=False,
         ... )
         >>> builder = ObserveDefaultsBuilder(context)
         >>> preprocessing = builder.preprocessing_config()
@@ -119,21 +119,23 @@ class ObserveDefaultsBuilder:
                 convert_cumulative=True,
                 # Validates input dataframe before differencing - raw cumulative
                 # row counts should never be negative. Should almost always be False.
-                allow_negative=False,
+                is_delta=False,
+                strict_validation=True,
             )
 
         # Default: use AssertionPreprocessingConfig with category-specific defaults
-        # Determine allow_negative: explicit override > category-based default
-        if self.context.allow_negative is not None:
-            allow_negative = self.context.allow_negative
+        # Determine is_delta: explicit override > category-based default
+        if self.context.is_delta is not None:
+            is_delta = self.context.is_delta
         else:
-            # Volume should not allow negative values, other categories may
-            allow_negative = self._category_enum != AssertionCategory.VOLUME
+            # Volume should not allow negative values (is_delta=False),
+            # other categories may (is_delta=True)
+            is_delta = self._category_enum != AssertionCategory.VOLUME
 
         return AssertionPreprocessingConfig(
             assertion_type=self._category_enum,
             frequency="auto",
-            allow_negative=allow_negative,
+            is_delta=is_delta,
         )
 
     def forecast_config(self) -> ForecastModelConfig:

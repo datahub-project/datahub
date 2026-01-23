@@ -163,7 +163,7 @@ def _render_urn_with_link(
     assertion_urn: str | None = None,
     max_display_length: int = 50,
 ) -> None:
-    """Render a URN with optional link and tooltip showing full URN.
+    """Render a URN with optional link and copyable code block.
 
     Args:
         label: Label to show before the URN (e.g., "URN", "Entity")
@@ -171,7 +171,7 @@ def _render_urn_with_link(
         hostname: DataHub endpoint hostname for generating links
         assertee_urn: For assertion URNs, the entity the assertion is for
         assertion_urn: For monitor URNs, the associated assertion to link to
-        max_display_length: Max characters to display before truncating
+        max_display_length: Max characters to display before truncating (unused, kept for compatibility)
     """
     if not urn:
         st.markdown(f"**{label}:** -")
@@ -181,18 +181,15 @@ def _render_urn_with_link(
     url = _get_datahub_url(
         urn, hostname, assertee_urn=assertee_urn, assertion_urn=assertion_urn
     )
-    short_urn = _shorten_urn(urn, max_display_length)
 
-    # Build the URN display (link or plain text with hover tooltip)
+    # Show label with optional link
     if url:
-        urn_html = f'<a href="{url}" target="_blank" title="{urn}">{short_urn}</a>'
+        st.markdown(f"**{label}:** [🔗 Open in DataHub]({url})")
     else:
-        urn_html = f'<span title="{urn}">{short_urn}</span>'
+        st.markdown(f"**{label}:**")
 
-    st.markdown(
-        f"<strong>{label}:</strong> {urn_html}",
-        unsafe_allow_html=True,
-    )
+    # Always show full URN in copyable code block
+    st.code(urn, language=None)
 
 
 def _get_datahub_url(
