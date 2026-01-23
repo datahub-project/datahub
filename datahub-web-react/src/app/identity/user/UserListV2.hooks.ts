@@ -3,8 +3,8 @@ import { message } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { NO_ROLE_URN, buildFilters } from '@app/identity/user/UserListV2.utils';
 import { UserListItem } from '@app/identity/user/UserListV2.components';
+import { NO_ROLE_URN, buildFilters } from '@app/identity/user/UserListV2.utils';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';
 import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';

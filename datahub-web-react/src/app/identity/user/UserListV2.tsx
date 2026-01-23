@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
-import { NO_ROLE_TEXT, NO_ROLE_URN, STATUS_FILTER_OPTIONS } from '@app/identity/user/UserListV2.utils';
 import {
     ActionsContainer,
     FilterContainer,
@@ -22,6 +21,7 @@ import {
     useUserListData,
     useUserListState,
 } from '@app/identity/user/UserListV2.hooks';
+import { NO_ROLE_TEXT, NO_ROLE_URN, STATUS_FILTER_OPTIONS } from '@app/identity/user/UserListV2.utils';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
