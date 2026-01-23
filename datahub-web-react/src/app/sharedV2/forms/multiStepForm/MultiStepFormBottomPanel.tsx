@@ -35,12 +35,14 @@ interface Props {
     showSubmitButton?: boolean;
     renderLeftButtons?: (buttons: React.ReactNode[]) => React.ReactNode;
     renderRightButtons?: (buttons: React.ReactNode[]) => React.ReactNode;
+    disabledNextTooltip?: string;
 }
 
 export function MultiStepFormBottomPanel<TState, TStep extends Step>({
     showSubmitButton,
     renderLeftButtons,
     renderRightButtons,
+    disabledNextTooltip,
 }: Props) {
     const {
         goToNext,
@@ -99,7 +101,12 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
 
             buttons.push(
                 isDisabled ? (
-                    <Tooltip key="next" title="Please complete all required fields before moving to the next step">
+                    <Tooltip
+                        key="next"
+                        title={
+                            disabledNextTooltip || 'Please complete all required fields before moving to the next step'
+                        }
+                    >
                         <span>{nextButton}</span>
                     </Tooltip>
                 ) : (
@@ -124,6 +131,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
 
         return buttons;
     }, [
+        disabledNextTooltip,
         canGoToNext,
         isFinalStep,
         cancel,

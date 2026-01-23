@@ -2,13 +2,13 @@
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
 
-graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
+graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
 emitter = DatahubRestEmitter("http://localhost:8080")
 
 assertion_urn = "urn:li:assertion:432475190cc846f2894b5b3aa4d55af2"

@@ -4,6 +4,10 @@ const DBT_URN =
   "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)";
 
 describe("siblings", () => {
+  beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
+  });
+
   it("will merge metadata to non-primary sibling", () => {
     cy.visitWithLogin(`/dataset/${BIGQUERY_URN}/?is_lineage_mode=false`);
 
@@ -62,14 +66,28 @@ describe("siblings", () => {
     cy.get(".ant-table-row").should("be.visible");
     cy.clickOptionWithText("Add Term");
 
-    cy.selectOptionInTagTermModal("CypressTerm");
+    // Type in modal and select the EXACT term by URN (not CypressTermToProposeOn)
+    cy.enterTextInTestId(
+      "tag-term-modal-input",
+      "urn:li:glossaryTerm:CypressNode.CypressTerm",
+    );
+    cy.get('[data-testid="tag-term-option"]').first().click();
+    cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
+
+    // Verify term was added to BigQuery before navigating to sibling
+    cy.get(
+      'a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]',
+    ).should("be.visible");
 
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
     );
 
+    // Wait for page to fully load
+    cy.get(".ant-table-row").should("be.visible");
     cy.get(
       'a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]',
+      { timeout: 15000 },
     ).within(() => cy.get("span[aria-label=close]").click());
     cy.clickOptionWithText("Yes");
 

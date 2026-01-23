@@ -47,6 +47,7 @@ jobs:
             "testIntegrationBatch3",
             "testIntegrationBatch4",
             "testIntegrationBatch5",
+            "testIntegrationBatchRecording", # Recording tests - isolated execution to avoid module patching interference
           ]
         include:
           # Version compatibility tests.
