@@ -314,6 +314,11 @@ def get_ui_ingestion_default_cli_version() -> Optional[str]:
     return os.getenv("UI_INGESTION_DEFAULT_CLI_VERSION")
 
 
+def get_quickstart_max_wait_time() -> int:
+    """Max wait time for quickstart (set during init)."""
+    return int(os.getenv("DATAHUB_QUICKSTART_MAX_WAIT_TIME", "300"))
+
+
 # ============================================================================
 # Utility & Helper Configuration
 # ============================================================================
