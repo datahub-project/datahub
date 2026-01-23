@@ -22,7 +22,6 @@ fragment actionRequestFields on ActionRequest {
                     logoUrl
                 }
             }
-            ...datasetSchema
         }
         ... on Dashboard {
             tool
@@ -366,7 +365,6 @@ fragment actionRequestFieldsV2 on ActionRequest {
                     logoUrl
                 }
             }
-            ...datasetSchema
         }
         ... on Dashboard {
             tool
