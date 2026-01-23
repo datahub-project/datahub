@@ -72,7 +72,10 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownQueryLineageInfo,
+    SqlParsingAggregator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -530,7 +533,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                     if sql_query and sql_query not in result.sql_queries:
                         result.sql_queries.append(sql_query)
                         self._register_sql_for_parsing(
-                            pipeline, data_job_urn, sql_query, outputs[0]
+                            pipeline, data_job_urn, sql_query, inputs, outputs[0]
                         )
 
             except (KeyError, ValueError, IndexError) as e:
@@ -549,6 +552,7 @@ class MatillionSource(StatefulIngestionSourceBase):
         pipeline: MatillionPipeline,
         data_job_urn: str,
         sql_query: str,
+        inputs: List[MatillionDatasetInfo],
         output: MatillionDatasetInfo,
     ) -> None:
         aggregator = self._get_sql_aggregator_for_platform(
@@ -560,6 +564,20 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         self.report.sql_parsing_attempts += 1
         try:
+            input_urns = [
+                self.openlineage_parser._make_dataset_urn(input_dataset)
+                for input_dataset in inputs
+            ]
+            output_urn = self.openlineage_parser._make_dataset_urn(output)
+
+            aggregator.add_known_query_lineage(
+                KnownQueryLineageInfo(
+                    query_text=sql_query,
+                    downstream=output_urn,
+                    upstreams=input_urns,
+                )
+            )
+
             aggregator.add_view_definition(
                 view_urn=data_job_urn,
                 view_definition=sql_query,
@@ -568,7 +586,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             )
             self.report.sql_parsing_successes += 1
             logger.debug(
-                f"Registered SQL for DataJob {pipeline.name} on platform {output.platform}"
+                f"Registered SQL and known lineage for DataJob {pipeline.name} on platform {output.platform}"
             )
         except Exception as e:
             log_level = (
