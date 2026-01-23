@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "id": "exec-1",
+      "pipelineId": "pipe-1",
+      "status": "success",
+      "startedAt": "2024-01-01T00:00:00Z",
+      "completedAt": "2024-01-01T00:05:00Z",
+      "durationMs": 300000,
+      "rowsProcessed": 10000,
+      "triggerType": "schedule"
+    }
+  ]
+}

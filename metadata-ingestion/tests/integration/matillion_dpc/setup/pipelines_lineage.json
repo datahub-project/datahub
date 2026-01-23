@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "id": "pipe-1",
+      "name": "Customer Transform",
+      "projectId": "proj-1",
+      "environmentId": "env-1",
+      "type": "transformation",
+      "description": "Transform customer data",
+      "version": "1.0.0",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "size": 25
+}

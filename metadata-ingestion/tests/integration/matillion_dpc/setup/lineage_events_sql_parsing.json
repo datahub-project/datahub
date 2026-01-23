@@ -1,0 +1,284 @@
+{
+  "results": [
+    {
+      "event": {
+        "eventType": "COMPLETE",
+        "eventTime": "2024-01-01T00:00:00.000Z",
+        "job": {
+          "namespace": "matillion://prod-account.analytics-proj",
+          "name": "production/Customer Aggregation",
+          "facets": {
+            "sql": {
+              "query": "\nSELECT \n    c.customer_id,\n    c.first_name || ' ' || c.last_name AS customer_name,\n    c.email,\n    COUNT(o.order_id) AS total_orders,\n                                    SUM(o.total_amount) AS total_spent,\n    MAX(o.order_date) AS last_order_date\nFROM postgres.public.customers c\nLEFT JOIN postgres.public.orders o \n    ON c.customer_id = o.customer_id\nWHERE o.status = 'completed'\nGROUP BY c.customer_id, c.first_name, c.last_name, c.email\n                                ",
+              "_producer": "https://www.matillion.com",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SqlJobFacet.json"
+            }
+          }
+        },
+        "inputs": [
+          {
+            "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+            "name": "public.customers",
+            "facets": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "customer_id",
+                    "type": "INTEGER",
+                    "description": "Primary key"
+                  },
+                  {
+                    "name": "first_name",
+                    "type": "VARCHAR(100)"
+                  },
+                  {
+                    "name": "last_name",
+                    "type": "VARCHAR(100)"
+                  },
+                  {
+                    "name": "email",
+                    "type": "VARCHAR(255)"
+                  },
+                  {
+                    "name": "created_at",
+                    "type": "TIMESTAMP"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+            "name": "public.orders",
+            "facets": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "order_id",
+                    "type": "INTEGER"
+                  },
+                  {
+                    "name": "customer_id",
+                    "type": "INTEGER"
+                  },
+                  {
+                    "name": "order_date",
+                    "type": "DATE"
+                  },
+                  {
+                    "name": "total_amount",
+                    "type": "DECIMAL(10,2)"
+                  },
+                  {
+                    "name": "status",
+                    "type": "VARCHAR(50)"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake://prod-account.snowflakecomputing.com",
+            "name": "analytics_db.analytics_schema.customer_orders",
+            "facets": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "customer_id",
+                    "type": "NUMBER"
+                  },
+                  {
+                    "name": "customer_name",
+                    "type": "VARCHAR"
+                  },
+                  {
+                    "name": "email",
+                    "type": "VARCHAR"
+                  },
+                  {
+                    "name": "total_orders",
+                    "type": "NUMBER"
+                  },
+                  {
+                    "name": "total_spent",
+                    "type": "NUMBER(10,2)"
+                  },
+                  {
+                    "name": "last_order_date",
+                    "type": "DATE"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "fields": {
+                  "customer_id": {
+                    "inputFields": [
+                      {
+                        "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+                        "name": "public.customers",
+                        "field": "customer_id"
+                      }
+                    ]
+                  },
+                  "customer_name": {
+                    "inputFields": [
+                      {
+                        "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+                        "name": "public.customers",
+                        "field": "first_name"
+                      },
+                      {
+                        "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+                        "name": "public.customers",
+                        "field": "last_name"
+                      }
+                    ]
+                  },
+                  "email": {
+                    "inputFields": [
+                      {
+                        "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+                        "name": "public.customers",
+                        "field": "email"
+                      }
+                    ]
+                  },
+                  "total_orders": {
+                    "inputFields": [
+                      {
+                        "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+                        "name": "public.orders",
+                        "field": "order_id"
+                      }
+                    ],
+                    "transformationType": "AGGREGATION"
+                  },
+                  "total_spent": {
+                    "inputFields": [
+                      {
+                        "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+                        "name": "public.orders",
+                        "field": "total_amount"
+                      }
+                    ],
+                    "transformationType": "AGGREGATION"
+                  },
+                  "last_order_date": {
+                    "inputFields": [
+                      {
+                        "namespace": "postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432",
+                        "name": "public.orders",
+                        "field": "order_date"
+                      }
+                    ],
+                    "transformationType": "AGGREGATION"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "event": {
+        "eventType": "COMPLETE",
+        "eventTime": "2024-01-01T00:00:00.000Z",
+        "job": {
+          "namespace": "matillion://prod-account.analytics-proj",
+          "name": "production/Daily Summary",
+          "facets": {
+            "sql": {
+              "query": "\nSELECT \n    DATE_TRUNC('day', last_order_date) AS summary_date,\n    COUNT(DISTINCT customer_id) AS active_customers,\n    SUM(total_orders) AS total_orders,\n    SUM(total_spent) AS total_revenue\nFROM analytics_db.analytics_schema.customer_orders\nWHERE last_order_date >= CURRENT_DATE - INTERVAL '30 days'\nGROUP BY DATE_TRUNC('day', last_order_date)\nORDER BY summary_date DESC\n                                ",
+              "_producer": "https://www.matillion.com",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SqlJobFacet.json"
+            }
+          }
+        },
+        "inputs": [
+          {
+            "namespace": "snowflake://prod-account.snowflakecomputing.com",
+            "name": "analytics_db.analytics_schema.customer_orders"
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "snowflake://prod-account.snowflakecomputing.com",
+            "name": "analytics_db.analytics_schema.daily_summary",
+            "facets": {
+              "schema": {
+                "fields": [
+                  {
+                    "name": "summary_date",
+                    "type": "DATE"
+                  },
+                  {
+                    "name": "active_customers",
+                    "type": "NUMBER"
+                  },
+                  {
+                    "name": "total_orders",
+                    "type": "NUMBER"
+                  },
+                  {
+                    "name": "total_revenue",
+                    "type": "NUMBER(10,2)"
+                  }
+                ]
+              },
+              "columnLineage": {
+                "fields": {
+                  "summary_date": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake://prod-account.snowflakecomputing.com",
+                        "name": "analytics_db.analytics_schema.customer_orders",
+                        "field": "last_order_date"
+                      }
+                    ],
+                    "transformationType": "TRANSFORMATION"
+                  },
+                  "active_customers": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake://prod-account.snowflakecomputing.com",
+                        "name": "analytics_db.analytics_schema.customer_orders",
+                        "field": "customer_id"
+                      }
+                    ],
+                    "transformationType": "AGGREGATION"
+                  },
+                  "total_orders": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake://prod-account.snowflakecomputing.com",
+                        "name": "analytics_db.analytics_schema.customer_orders",
+                        "field": "total_orders"
+                      }
+                    ],
+                    "transformationType": "AGGREGATION"
+                  },
+                  "total_revenue": {
+                    "inputFields": [
+                      {
+                        "namespace": "snowflake://prod-account.snowflakecomputing.com",
+                        "name": "analytics_db.analytics_schema.customer_orders",
+                        "field": "total_spent"
+                      }
+                    ],
+                    "transformationType": "AGGREGATION"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "total": 2,
+  "page": 0,
+  "size": 25
+}

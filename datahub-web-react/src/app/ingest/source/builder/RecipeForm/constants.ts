@@ -136,7 +136,7 @@ import {
     MATILLION_REGION,
     MATILLION_REQUEST_TIMEOUT,
     MATILLION_STATEFUL_INGESTION,
-} from '@app/ingest/source/builder/RecipeForm/matillion';
+} from '@app/ingest/source/builder/RecipeForm/matillion-dpc';
 import {
     MSSQL,
     MSSQL_DATABASE,
@@ -256,7 +256,7 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
-    MATILLION,
+    MATILLION_DPC,
     MYSQL,
     OKTA,
     POWER_BI,
@@ -520,7 +520,7 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
-    [MATILLION]: {
+    [MATILLION_DPC]: {
         fields: [MATILLION_API_TOKEN, MATILLION_REGION, MATILLION_ENV, MATILLION_PLATFORM_INSTANCE],
         filterFields: [
             MATILLION_PROJECT_ALLOW,
@@ -665,6 +665,6 @@ export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
     BIGQUERY_BETA,
     BIGQUERY,
     DATABRICKS,
-    MATILLION,
+    MATILLION_DPC,
     SAC,
 ]);
