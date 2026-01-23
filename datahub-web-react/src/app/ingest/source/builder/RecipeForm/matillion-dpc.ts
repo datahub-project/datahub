@@ -12,14 +12,25 @@
  */
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
-export const MATILLION_API_TOKEN: RecipeField = {
-    name: 'api_token',
-    label: 'API Token',
+export const MATILLION_CLIENT_ID: RecipeField = {
+    name: 'client_id',
+    label: 'Client ID',
+    tooltip: 'Matillion API Client ID from Settings → API credentials in your Matillion Data Productivity Cloud account.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.api_config.client_id',
+    placeholder: 'your-client-id',
+    rules: null,
+    required: true,
+};
+
+export const MATILLION_CLIENT_SECRET: RecipeField = {
+    name: 'client_secret',
+    label: 'Client Secret',
     tooltip:
-        'Your Matillion API Bearer Token. Generate one from Settings → API Tokens in your Matillion Data Productivity Cloud account.',
+        'Matillion API Client Secret (copy immediately after generation as it will only be shown once).',
     type: FieldType.SECRET,
-    fieldPath: 'source.config.api_config.api_token',
-    placeholder: 'your_api_token_here',
+    fieldPath: 'source.config.api_config.client_secret',
+    placeholder: 'your-client-secret',
     rules: null,
     required: true,
 };
@@ -138,6 +149,17 @@ export const MATILLION_INCLUDE_STREAMING: RecipeField = {
     section: 'Advanced',
 };
 
+export const MATILLION_INCLUDE_UNPUBLISHED: RecipeField = {
+    name: 'include_unpublished_pipelines',
+    label: 'Include Unpublished Pipelines',
+    tooltip:
+        'Ingest pipelines discovered from lineage events even if not in published-pipelines list. May include test/dev pipelines.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_unpublished_pipelines',
+    rules: null,
+    section: 'Pipelines',
+};
+
 export const MATILLION_PIPELINE_ALLOW: RecipeField = {
     name: 'pipeline_patterns.allow',
     label: 'Pipeline Allow Patterns',
@@ -208,23 +230,17 @@ export const MATILLION_STATEFUL_INGESTION: RecipeField = {
 };
 
 const allFields: RecipeField[] = [
-    MATILLION_API_TOKEN,
+    MATILLION_CLIENT_ID,
+    MATILLION_CLIENT_SECRET,
     MATILLION_REGION,
     MATILLION_ENV,
     MATILLION_PLATFORM_INSTANCE,
     MATILLION_INCLUDE_EXECUTIONS,
-    MATILLION_MAX_EXECUTIONS,
-    MATILLION_EXTRACT_CONTAINERS,
     MATILLION_INCLUDE_LINEAGE,
-    MATILLION_INCLUDE_COLUMN_LINEAGE,
-    MATILLION_PARSE_SQL,
-    MATILLION_LINEAGE_START_DAYS,
-    MATILLION_INCLUDE_STREAMING,
     MATILLION_PIPELINE_ALLOW,
     MATILLION_PIPELINE_DENY,
     MATILLION_PROJECT_ALLOW,
     MATILLION_PROJECT_DENY,
-    MATILLION_REQUEST_TIMEOUT,
     MATILLION_STATEFUL_INGESTION,
 ];
 

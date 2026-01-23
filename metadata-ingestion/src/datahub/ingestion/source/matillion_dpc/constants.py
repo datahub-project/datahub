@@ -8,6 +8,7 @@ API_ENDPOINT_PIPELINE_EXECUTIONS = "v1/pipeline-executions"
 API_ENDPOINT_SCHEDULES = "v1/projects/{projectId}/schedules"
 API_ENDPOINT_STREAMING_PIPELINES = "v1/projects/{projectId}/streaming-pipelines"
 API_ENDPOINT_LINEAGE_EVENTS = "v1/lineage/events"
+API_ENDPOINT_ARTIFACT_DETAILS = "v1/projects/{projectId}/artifacts/details"
 
 HTTP_METHOD_GET = "GET"
 HTTP_PROTOCOL_HTTP = "http://"
@@ -95,3 +96,11 @@ TWO_TIER_PLATFORMS = {
 # Platforms that require lowercase field names for schema field URNs
 # to match DataHub connector behavior (e.g., Snowflake's convert_urns_to_lowercase)
 LOWERCASE_FIELD_PLATFORMS = {"snowflake"}
+
+# Matillion UI URL patterns
+MATILLION_OBSERVABILITY_DASHBOARD_URL = (
+    "https://app.matillion.com/observability-dashboard/pipeline/{execution_id}"
+)
+MATILLION_PROJECT_BRANCHES_URL = (
+    "https://app.matillion.com/projects/{project_id}/branches"
+)

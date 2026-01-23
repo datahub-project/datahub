@@ -31,7 +31,9 @@ from datahub.ingestion.source.matillion_dpc.config import (
 from datahub.ingestion.source.matillion_dpc.constants import (
     API_PATH_SUFFIX,
     MATILLION_NAMESPACE_PREFIX,
+    MATILLION_OBSERVABILITY_DASHBOARD_URL,
     MATILLION_PLATFORM,
+    MATILLION_PROJECT_BRANCHES_URL,
     UI_PATH_PIPELINES,
 )
 from datahub.ingestion.source.matillion_dpc.matillion_api import MatillionAPIClient
@@ -147,11 +149,9 @@ class MatillionSource(StatefulIngestionSourceBase):
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except HTTPError as e:
             if e.response.status_code == 401:
-                failure_reason = "Authentication failed. Please verify your API token."
+                failure_reason = "Authentication failed. Please verify your OAuth2 client ID and client secret."
             elif e.response.status_code == 403:
-                failure_reason = (
-                    "Authorization failed. Token needs 'Read' permission for Projects."
-                )
+                failure_reason = "Authorization failed. Credentials need 'pipeline-execution' scope for API access."
             elif e.response.status_code == 404:
                 failure_reason = f"API endpoint not found. Verify region is correct: {self.config.api_config.region}"
             else:
@@ -591,13 +591,22 @@ class MatillionSource(StatefulIngestionSourceBase):
             ]
             output_urn = self.openlineage_parser._make_dataset_urn(output)
 
-            aggregator.add_known_query_lineage(
-                KnownQueryLineageInfo(
-                    query_text=sql_query,
-                    downstream=output_urn,
-                    upstreams=input_urns,
+            # Only emit upstream lineage if downstream dataset is known (has schema in DataHub)
+            if output_urn in self._registered_urns:
+                aggregator.add_known_query_lineage(
+                    KnownQueryLineageInfo(
+                        query_text=sql_query,
+                        downstream=output_urn,
+                        upstreams=input_urns,
+                    )
                 )
-            )
+                logger.debug(
+                    f"Registered known lineage for DataJob {pipeline.name}: {len(input_urns)} upstreams -> {output_urn}"
+                )
+            else:
+                logger.debug(
+                    f"Skipping known lineage for DataJob {pipeline.name}: downstream {output_urn} not found in DataHub"
+                )
 
             aggregator.add_view_definition(
                 view_urn=data_job_urn,
@@ -607,7 +616,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             )
             self.report.sql_parsing_successes += 1
             logger.debug(
-                f"Registered SQL and known lineage for DataJob {pipeline.name} on platform {output.platform}"
+                f"Registered SQL for DataJob {pipeline.name} on platform {output.platform}"
             )
         except Exception as e:
             log_level = (
@@ -940,6 +949,11 @@ class MatillionSource(StatefulIngestionSourceBase):
         )
 
         execution_trigger = execution.trigger or "API"
+        # Link to observability dashboard for this specific execution
+        execution_url = MATILLION_OBSERVABILITY_DASHBOARD_URL.format(
+            execution_id=exec_id
+        )
+
         properties = DataProcessInstancePropertiesClass(
             name=f"{pipeline.name}-{exec_id}",
             created=AuditStampClass(
@@ -949,6 +963,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             type="BATCH_SCHEDULED"
             if execution_trigger == "SCHEDULE"
             else "BATCH_AD_HOC",
+            externalUrl=execution_url,
             customProperties={
                 "execution_id": exec_id,
                 "pipeline_name": execution.pipeline_name,
@@ -1092,7 +1107,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                 yield from self._generate_unpublished_pipeline_workunits(
                     job_metadata, lineage_events
                 )
-            except Exception as e:
+            except (KeyError, ValueError, ValidationError, AttributeError) as e:
                 job_name = job_metadata.get("job_name", "unknown")
                 logger.warning(
                     f"Failed to generate metadata for unpublished pipeline {job_name}: {e}",
@@ -1138,12 +1153,11 @@ class MatillionSource(StatefulIngestionSourceBase):
                         project_id = ids[1]
 
                         folder_path = None
-                        base_pipeline_name = job_name
+                        base_pipeline_name = self._extract_base_pipeline_name(job_name)
 
                         if "/" in job_name:
                             parts = job_name.rsplit("/", 1)
                             folder_path = parts[0]
-                            base_pipeline_name = parts[1]
 
                         # Get pipeline type from facets, fallback to inferring from extension
                         job_facets = job.get("facets", {})
@@ -1207,12 +1221,13 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"Created minimal project info for unpublished pipeline: {project_id}"
             )
 
+        # Construct flow name using base_pipeline_name (extension stripped) with folder path if present
         if folder_path:
             flow_name = f"{project_id}.{folder_path}.{base_pipeline_name}"
             display_name = f"{folder_path}/{base_pipeline_name}"
         else:
-            flow_name = f"{project_id}.{job_name}"
-            display_name = job_name
+            flow_name = f"{project_id}.{base_pipeline_name}"
+            display_name = base_pipeline_name
 
         custom_properties = {
             "pipeline_name": job_name,
@@ -1228,10 +1243,8 @@ class MatillionSource(StatefulIngestionSourceBase):
         if pipeline_type:
             custom_properties["pipeline_type"] = pipeline_type
 
-        base_url = self.config.api_config.get_base_url()
-        if base_url.endswith(API_PATH_SUFFIX):
-            base_url = base_url[: -len(API_PATH_SUFFIX)]
-        external_url = f"{base_url}/{UI_PATH_PIPELINES}/{job_name}"
+        # For unpublished pipelines, link to the project branches page where users can find the pipeline
+        external_url = MATILLION_PROJECT_BRANCHES_URL.format(project_id=project_id)
 
         dataflow = DataFlow(
             name=flow_name,
@@ -1246,11 +1259,21 @@ class MatillionSource(StatefulIngestionSourceBase):
         yield from dataflow.as_workunits()
 
         pipeline_urn = str(dataflow.urn)
+
+        # Add pipeline to project container for browse paths
+        if self.config.extract_projects_to_containers:
+            yield from self.container_handler.add_pipeline_to_container(
+                pipeline_urn, project, environment=None
+            )
+
         self.report.unpublished_pipelines_emitted += 1
 
-        logger.debug(f"Emitted unpublished DataFlow: {job_name}")
+        logger.debug(f"Emitted unpublished DataFlow: {base_pipeline_name}")
 
         from datahub.ingestion.source.matillion_dpc.models import MatillionPipeline
+
+        # Create DataJob with distinct name from DataFlow by appending "job" suffix
+        job_name_for_datajob = f"{flow_name}.job"
 
         pipeline = MatillionPipeline(
             name=job_name,
@@ -1258,13 +1281,78 @@ class MatillionSource(StatefulIngestionSourceBase):
             published_time=None,
         )
 
-        yield from self._generate_data_job_workunits(
-            pipeline, project, pipeline_urn, environment=None
+        # Generate DataJob workunits using the distinct job name
+        yield from self._generate_data_job_workunits_for_unpublished(
+            pipeline, project, pipeline_urn, job_name_for_datajob, display_name
         )
 
         if self.config.include_lineage:
             yield from self._generate_pipeline_lineage_workunits(
                 pipeline, project, pipeline_urn
+            )
+
+    def _generate_data_job_workunits_for_unpublished(
+        self,
+        pipeline: MatillionPipeline,
+        project: MatillionProject,
+        pipeline_urn: str,
+        job_name: str,
+        display_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+
+        custom_properties = {
+            "project_id": project.id,
+            "source": "unpublished",
+        }
+
+        data_job_urn = DataJobUrn.create_from_ids(
+            job_id=job_name,
+            data_flow_urn=pipeline_urn,
+        )
+
+        lineage = self._extract_lineage_for_pipeline(pipeline, data_job_urn.urn())
+
+        datajob = DataJob(
+            name=job_name,
+            flow_urn=pipeline_urn,
+            display_name=display_name,
+            custom_properties=custom_properties,
+            subtype=JobContainerSubTypes.MATILLION_PIPELINE,
+            inlets=lineage.input_urns or None,
+            outlets=lineage.output_urns or None,
+        )
+
+        yield from datajob.as_workunits()
+
+        logger.debug(
+            f"Emitted DataJob {data_job_urn} with {len(lineage.input_urns)} inputs, {len(lineage.output_urns)} outputs"
+        )
+
+        if lineage.sql_queries:
+            combined_sql = "\n\n-- ===== Query Separator =====\n\n".join(
+                lineage.sql_queries
+            )
+
+            data_transform_logic = DataTransformLogicClass(
+                transforms=[
+                    DataTransformClass(
+                        queryStatement=QueryStatementClass(
+                            value=combined_sql,
+                            language=QueryLanguageClass.SQL,
+                        )
+                    )
+                ]
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job_urn.urn(),
+                aspect=data_transform_logic,
+            ).as_workunit()
+
+            logger.debug(
+                f"Emitted SQL transformation logic for DataJob {display_name} "
+                f"({len(lineage.sql_queries)} queries)"
             )
 
     def get_report(self) -> SourceReport:

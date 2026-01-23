@@ -326,3 +326,13 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
                 f"Consider using a value below {MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD}."
             )
         return v
+
+    @field_validator("include_unpublished_pipelines")
+    @classmethod
+    def validate_include_unpublished_pipelines(cls, v: bool) -> bool:
+        if v:
+            logger.warning(
+                "include_unpublished_pipelines may ingest test/dev pipelines. "
+                "Consider using pipeline_patterns to filter unwanted pipelines."
+            )
+        return v

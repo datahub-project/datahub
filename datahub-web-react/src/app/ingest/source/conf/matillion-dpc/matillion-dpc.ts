@@ -7,7 +7,8 @@ source:
     type: matillion-dpc
     config:
         api_config:
-            api_token: "\${MATILLION_API_TOKEN}"
+            client_id: "\${MATILLION_CLIENT_ID}"
+            client_secret: "\${MATILLION_CLIENT_SECRET}"
             region: US1  # or EU1
         env: "PROD"
         include_pipeline_executions: true

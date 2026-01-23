@@ -422,7 +422,7 @@ def test_discover_unpublished_pipelines_with_folder_path(
     assert len(result) == 1
     assert result[0]["job_name"] == "analytics/reports/sales-report.orch.yaml"
     assert result[0]["folder_path"] == "analytics/reports"
-    assert result[0]["base_pipeline_name"] == "sales-report.orch.yaml"
+    assert result[0]["base_pipeline_name"] == "sales-report"
 
 
 def test_discover_unpublished_pipelines_filters_non_matillion_namespace(

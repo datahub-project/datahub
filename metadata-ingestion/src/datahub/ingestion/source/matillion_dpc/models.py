@@ -148,3 +148,22 @@ class PipelineLineageResult(BaseModel):
     sql_queries: List[str] = Field(
         default_factory=list,
     )
+
+
+class ArtifactDetails(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    branch: Optional[str] = None
+    commit_hash: Optional[str] = Field(default=None, alias="commitHash")
+    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
+    deployed_at: Optional[datetime] = Field(default=None, alias="deployedAt")
+    enabled: Optional[bool] = None
+    provider: Optional[str] = None
+    version_name: Optional[str] = Field(default=None, alias="versionName")
+
+
+class ArtifactDetailsWithAssets(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    assets: Optional[List[str]] = None
+    details: Optional[ArtifactDetails] = None

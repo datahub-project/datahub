@@ -437,6 +437,43 @@ def test_oauth_401_triggers_refresh_and_retry(
     assert client.session.headers["Authorization"] == f"Bearer {refreshed_token}"
 
 
+def test_oauth_401_retry_also_fails(
+    oauth_config: MatillionAPIConfig, requests_mock: Mocker
+) -> None:
+    """Test that if retry after token refresh also returns 401, HTTPError is raised"""
+    initial_token = "initial_token"
+    refreshed_token = "refreshed_token"
+
+    # Mock token endpoint
+    requests_mock.post(
+        "https://id.core.matillion.com/oauth/dpc/token",
+        [
+            {"json": {"access_token": initial_token, "token_type": "Bearer"}},
+            {"json": {"access_token": refreshed_token, "token_type": "Bearer"}},
+        ],
+    )
+
+    client = MatillionAPIClient(oauth_config)
+
+    # Mock API to return 401 both times (even after refresh)
+    api_mock = requests_mock.get(
+        "http://test.com/v1/projects?page=0&size=25",
+        [
+            {"status_code": 401, "text": "Unauthorized"},
+            {"status_code": 401, "text": "Still Unauthorized"},
+        ],
+    )
+
+    # Make API call - should get 401, refresh token, retry, then raise HTTPError
+    with pytest.raises(HTTPError) as exc_info:
+        client.get_projects()
+
+    assert exc_info.value.response.status_code == 401
+    assert api_mock.call_count == 2  # Initial attempt + 1 retry
+    # Token should still have been refreshed
+    assert client.session.headers["Authorization"] == f"Bearer {refreshed_token}"
+
+
 def test_oauth_long_running_session_simulation(
     oauth_config: MatillionAPIConfig, requests_mock: Mocker
 ) -> None:

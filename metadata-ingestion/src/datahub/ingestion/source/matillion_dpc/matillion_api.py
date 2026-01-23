@@ -11,6 +11,7 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.matillion_dpc.config import MatillionAPIConfig
 from datahub.ingestion.source.matillion_dpc.constants import (
+    API_ENDPOINT_ARTIFACT_DETAILS,
     API_ENDPOINT_ENVIRONMENTS,
     API_ENDPOINT_LINEAGE_EVENTS,
     API_ENDPOINT_PIPELINE_EXECUTIONS,
@@ -37,6 +38,7 @@ from datahub.ingestion.source.matillion_dpc.constants import (
     OAUTH_TOKEN_REFRESH_BUFFER_SECONDS,
 )
 from datahub.ingestion.source.matillion_dpc.models import (
+    ArtifactDetailsWithAssets,
     MatillionEnvironment,
     MatillionPipeline,
     MatillionPipelineExecution,
@@ -361,6 +363,37 @@ class MatillionAPIClient:
         return self._fetch_entities(
             endpoint, MatillionStreamingPipeline, "streaming pipeline"
         )
+
+    def get_artifact_details(
+        self, project_id: str, environment_name: str
+    ) -> Optional[ArtifactDetailsWithAssets]:
+        endpoint = API_ENDPOINT_ARTIFACT_DETAILS.format(projectId=project_id)
+        try:
+            response = self._make_request(
+                HTTP_METHOD_GET,
+                endpoint,
+                params={"environmentName": environment_name},
+            )
+            if not response:
+                return None
+            return ArtifactDetailsWithAssets.model_validate(response)
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                logger.debug(
+                    f"No artifact details found for project {project_id} environment {environment_name}"
+                )
+                return None
+            raise
+        except (ValidationError, ValueError) as e:
+            logger.warning(
+                f"Failed to parse artifact details for project {project_id} environment {environment_name}: {e}"
+            )
+            return None
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch artifact details for project {project_id} environment {environment_name}: {e}"
+            )
+            return None
 
     def get_lineage_events(
         self,
