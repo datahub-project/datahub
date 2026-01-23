@@ -106,11 +106,6 @@ class MatillionSource(StatefulIngestionSourceBase):
       data transformations, input/output datasets, and SQL statements for column-level lineage
     - Pipeline executions (/v1/pipeline-executions): Provides operational metadata emitted
       as DataProcessInstances
-
-    Not Used:
-    =========
-    - Audit Log API (/v1/audit): Administrative actions only (user logins, config changes),
-      not applicable for data lineage
     """
 
     config: MatillionSourceConfig
@@ -216,13 +211,6 @@ class MatillionSource(StatefulIngestionSourceBase):
 
         except (ValueError, TypeError, KeyError) as e:
             logger.info(f"SQL aggregator skipped for {platform}: {e}")
-            self._sql_aggregators[platform] = None
-            return None
-        except Exception as e:
-            logger.error(
-                f"Unexpected error creating SQL aggregator for {platform}: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
             self._sql_aggregators[platform] = None
             return None
 
@@ -807,12 +795,6 @@ class MatillionSource(StatefulIngestionSourceBase):
                     "lineage_parsing",
                     f"Failed to parse lineage event for {pipeline.name}: {e}",
                 )
-            except (AttributeError, TypeError) as e:
-                logger.error(
-                    f"Programming error parsing lineage event for pipeline {pipeline.name}: {e}",
-                    exc_info=True,
-                )
-                raise
 
     def _generate_pipeline_workunits(
         self,

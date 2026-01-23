@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
@@ -194,8 +195,6 @@ class MatillionAPIClient:
                 entity = model_class.model_validate(item)
                 entities.append(entity)
             except ValidationError as e:
-                import json
-
                 item_preview = json.dumps(item)[:500]
                 logger.warning(
                     f"Failed to parse {entity_name}: {e}. Item data: {item_preview}..."
@@ -225,8 +224,6 @@ class MatillionAPIClient:
                 entity = model_class.model_validate(item)
                 entities.append(entity)
             except ValidationError as e:
-                import json
-
                 item_preview = json.dumps(item)[:500]
                 logger.warning(
                     f"Failed to parse {entity_name}: {e}. Item data: {item_preview}..."
