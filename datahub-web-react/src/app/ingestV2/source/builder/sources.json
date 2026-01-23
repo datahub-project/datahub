@@ -480,6 +480,17 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:notion",
+        "name": "notion",
+        "displayName": "Notion",
+        "description": "Import pages from Notion as Documents.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/notion/",
+        "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
+    },
+    {
         "urn": "urn:li:dataPlatform:airflow",
         "name": "airflow",
         "displayName": "Airflow",

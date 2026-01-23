@@ -35,7 +35,7 @@ export default function SourcePlatformCard({ source, onSelect }: Props) {
                     <Pill
                         label={pillLabel}
                         size="sm"
-                        color="primary"
+                        color={pillLabel === 'New' ? 'blue' : 'primary'}
                         clickable={false}
                         variant={pillLabel === 'External' ? 'outline' : 'filled'}
                     />
