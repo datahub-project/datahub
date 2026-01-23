@@ -129,7 +129,7 @@ class OpenLineageParser:
                 platform_instance=info.platform_instance,
                 env=info.env,
             )
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError) as e:
             logger.info(
                 f"Skipping {event_type} dataset {namespace}/{name} due to parsing error: {e}"
             )
@@ -200,7 +200,7 @@ class OpenLineageParser:
                 query = sql_facet.get("query")
                 if query and isinstance(query, str):
                     return query
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.debug(f"Error extracting SQL from OpenLineage event: {e}")
 
         return None

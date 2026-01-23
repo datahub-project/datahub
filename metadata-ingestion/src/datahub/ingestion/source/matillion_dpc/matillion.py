@@ -533,7 +533,7 @@ class MatillionSource(StatefulIngestionSourceBase):
                             pipeline, data_job_urn, sql_query, outputs[0]
                         )
 
-            except Exception as e:
+            except (KeyError, ValueError, IndexError) as e:
                 logger.info(
                     f"Skipping lineage for DataJob {pipeline.name} due to parsing error: {e}"
                 )
