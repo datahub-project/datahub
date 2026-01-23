@@ -266,19 +266,18 @@ def update_description(
             }
         else:
             action = "update" if operation in ("replace", "append") else "remove"
-            return {
-                "success": False,
-                "urn": entity_urn,
-                "column_path": column_path,
-                "message": f"Failed to {action} description - operation returned false",
-            }
+            raise RuntimeError(
+                f"Failed to {action} description for {entity_urn}"
+                + (f" column {column_path}" if column_path else "")
+                + " - operation returned false"
+            )
 
     except Exception as e:
-        logger.error(f"Failed to update description for {entity_urn}: {e}")
-        action = "updating" if operation in ("replace", "append") else "removing"
-        return {
-            "success": False,
-            "urn": entity_urn,
-            "column_path": column_path,
-            "message": f"Error {action} description: {str(e)}",
-        }
+        if isinstance(e, RuntimeError):
+            raise
+        action = "update" if operation in ("replace", "append") else "remove"
+        raise RuntimeError(
+            f"Error {action} description for {entity_urn}"
+            + (f" column {column_path}" if column_path else "")
+            + f": {str(e)}"
+        ) from e

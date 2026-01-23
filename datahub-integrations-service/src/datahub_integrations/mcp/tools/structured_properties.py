@@ -77,7 +77,6 @@ def _validate_and_fetch_structured_property(
     except Exception as e:
         if isinstance(e, ValueError):
             raise
-        logger.error(f"Failed to validate structured property URN: {e}")
         raise ValueError(f"Failed to validate structured property URN: {str(e)}") from e
 
 
@@ -250,12 +249,9 @@ def add_structured_properties(
     # Validate all structured properties and fetch their definitions
     property_definitions = {}
     for property_urn in property_values.keys():
-        try:
-            property_definitions[property_urn] = (
-                _validate_and_fetch_structured_property(client, property_urn)
-            )
-        except ValueError as e:
-            return {"success": False, "message": str(e)}
+        property_definitions[property_urn] = _validate_and_fetch_structured_property(
+            client, property_urn
+        )
 
     # Build structured property input params with type validation
     structured_property_params = []
@@ -269,10 +265,9 @@ def add_structured_properties(
                 converted_value = _validate_property_value(property_def, value)
                 converted_values.append(converted_value)
             except ValueError as e:
-                return {
-                    "success": False,
-                    "message": f"Value validation failed for {property_urn}: {str(e)}",
-                }
+                raise ValueError(
+                    f"Value validation failed for {property_urn}: {str(e)}"
+                ) from e
 
         structured_property_params.append(
             {"structuredPropertyUrn": property_urn, "values": converted_values}
@@ -313,9 +308,13 @@ def add_structured_properties(
 
             if result.get("upsertStructuredProperties"):
                 success_count += 1
+            else:
+                failed_urns.append(entity_urn)
+                error_messages.append(
+                    f"{entity_urn}: operation returned false or empty result"
+                )
 
         except Exception as e:
-            logger.error(f"Failed to add structured properties to {entity_urn}: {e}")
             failed_urns.append(entity_urn)
             error_messages.append(f"{entity_urn}: {str(e)}")
 
@@ -323,10 +322,9 @@ def add_structured_properties(
         error_details = "; ".join(error_messages[:3])
         if len(error_messages) > 3:
             error_details += f"; and {len(error_messages) - 3} more error(s)"
-        return {
-            "success": False,
-            "message": f"Failed to add structured properties to {len(failed_urns)} entit(ies). Errors: {error_details}",
-        }
+        raise RuntimeError(
+            f"Failed to add structured properties to {len(failed_urns)} entit(ies). Errors: {error_details}"
+        )
 
     return {
         "success": True,
@@ -379,10 +377,7 @@ def remove_structured_properties(
 
     # Validate all structured properties exist
     for property_urn in property_urns:
-        try:
-            _validate_and_fetch_structured_property(client, property_urn)
-        except ValueError as e:
-            return {"success": False, "message": str(e)}
+        _validate_and_fetch_structured_property(client, property_urn)
 
     # Execute remove for each entity
     mutation = """
@@ -419,11 +414,13 @@ def remove_structured_properties(
 
             if result.get("removeStructuredProperties"):
                 success_count += 1
+            else:
+                failed_urns.append(entity_urn)
+                error_messages.append(
+                    f"{entity_urn}: operation returned false or empty result"
+                )
 
         except Exception as e:
-            logger.error(
-                f"Failed to remove structured properties from {entity_urn}: {e}"
-            )
             failed_urns.append(entity_urn)
             error_messages.append(f"{entity_urn}: {str(e)}")
 
@@ -431,10 +428,9 @@ def remove_structured_properties(
         error_details = "; ".join(error_messages[:3])
         if len(error_messages) > 3:
             error_details += f"; and {len(error_messages) - 3} more error(s)"
-        return {
-            "success": False,
-            "message": f"Failed to remove structured properties from {len(failed_urns)} entit(ies). Errors: {error_details}",
-        }
+        raise RuntimeError(
+            f"Failed to remove structured properties from {len(failed_urns)} entit(ies). Errors: {error_details}"
+        )
 
     return {
         "success": True,

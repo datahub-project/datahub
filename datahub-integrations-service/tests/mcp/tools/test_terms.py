@@ -171,10 +171,8 @@ def test_add_glossary_terms_with_nonexistent_term(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "do not exist in DataHub" in result["message"]
+        with pytest.raises(ValueError, match="do\ not\ exist\ in\ DataHub"):
+            add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
 
 
 def test_add_glossary_terms_with_non_term_urn(mock_datahub_client):
@@ -193,10 +191,8 @@ def test_add_glossary_terms_with_non_term_urn(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "not glossary term entities" in result["message"]
+        with pytest.raises(ValueError, match="not\ glossary\ term\ entities"):
+            add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
 
 
 def test_add_glossary_terms_mismatched_column_paths_length(mock_datahub_client):
@@ -255,10 +251,8 @@ def test_add_glossary_terms_mutation_returns_false(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to add glossary terms" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ add\ glossary\ terms"):
+            add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
 
 
 def test_add_glossary_terms_graphql_exception(mock_datahub_client):
@@ -276,10 +270,8 @@ def test_add_glossary_terms_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error adding glossary terms" in result["message"]
+        with pytest.raises(RuntimeError, match="Error add\ glossary\ terms"):
+            add_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
 
 
 # ===== Tests for remove_glossary_terms =====
@@ -422,10 +414,8 @@ def test_remove_glossary_terms_with_nonexistent_term(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "do not exist in DataHub" in result["message"]
+        with pytest.raises(ValueError, match="do\ not\ exist\ in\ DataHub"):
+            remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
 
 
 def test_remove_glossary_terms_with_non_term_urn(mock_datahub_client):
@@ -444,10 +434,8 @@ def test_remove_glossary_terms_with_non_term_urn(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "not glossary term entities" in result["message"]
+        with pytest.raises(ValueError, match="not\ glossary\ term\ entities"):
+            remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
 
 
 def test_remove_glossary_terms_mismatched_column_paths_length(mock_datahub_client):
@@ -508,10 +496,8 @@ def test_remove_glossary_terms_mutation_returns_false(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to remove glossary terms" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ remove\ glossary\ terms"):
+            remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
 
 
 def test_remove_glossary_terms_graphql_exception(mock_datahub_client):
@@ -529,7 +515,5 @@ def test_remove_glossary_terms_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error removing glossary terms" in result["message"]
+        with pytest.raises(RuntimeError, match="Error remove\ glossary\ terms"):
+            remove_glossary_terms(term_urns=term_urns, entity_urns=entity_urns)

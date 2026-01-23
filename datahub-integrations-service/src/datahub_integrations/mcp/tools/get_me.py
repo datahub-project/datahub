@@ -89,16 +89,9 @@ def get_me() -> dict[str, Any]:
                 "message": "Successfully retrieved authenticated user information",
             }
         else:
-            return {
-                "success": False,
-                "data": None,
-                "message": "No authenticated user found",
-            }
+            raise RuntimeError("No authenticated user found")
 
     except Exception as e:
-        logger.error(f"Failed to get authenticated user information: {e}")
-        return {
-            "success": False,
-            "data": None,
-            "message": f"Error retrieving user information: {str(e)}",
-        }
+        if isinstance(e, RuntimeError):
+            raise
+        raise RuntimeError(f"Error retrieving user information: {str(e)}") from e

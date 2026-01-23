@@ -69,7 +69,6 @@ def _validate_glossary_term_urns(client: DataHubClient, term_urns: List[str]) ->
     except Exception as e:
         if isinstance(e, ValueError):
             raise
-        logger.error(f"Failed to validate glossary term URNs: {e}")
         raise ValueError(f"Failed to validate glossary term URNs: {str(e)}") from e
 
 
@@ -96,10 +95,7 @@ def _batch_modify_glossary_terms(
         raise ValueError("entity_urns cannot be empty")
 
     # Validate that all glossary term URNs exist
-    try:
-        _validate_glossary_term_urns(client, term_urns)
-    except ValueError as e:
-        return {"success": False, "message": str(e)}
+    _validate_glossary_term_urns(client, term_urns)
 
     # Handle column_paths - if not provided, create list of Nones
     if column_paths is None:
@@ -159,15 +155,14 @@ def _batch_modify_glossary_terms(
                 "message": f"Successfully {success_verb} {len(term_urns)} glossary term(s) {preposition} {len(entity_urns)} entit(ies)",
             }
         else:
-            return {
-                "success": False,
-                "message": f"Failed to {failure_verb} glossary terms - operation returned false",
-            }
+            raise RuntimeError(
+                f"Failed to {failure_verb} glossary terms - operation returned false"
+            )
 
     except Exception as e:
-        logger.error(f"Failed to batch {failure_verb} glossary terms: {e}")
-        action = "adding" if operation == "add" else "removing"
-        return {"success": False, "message": f"Error {action} glossary terms: {str(e)}"}
+        if isinstance(e, RuntimeError):
+            raise
+        raise RuntimeError(f"Error {failure_verb} glossary terms: {str(e)}") from e
 
 
 def add_glossary_terms(

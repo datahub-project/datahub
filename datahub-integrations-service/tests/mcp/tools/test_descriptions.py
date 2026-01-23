@@ -335,12 +335,10 @@ def test_update_description_mutation_returns_false(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = update_description(
-            entity_urn=entity_urn, operation="replace", description=description
-        )
-
-    assert result["success"] is False
-    assert "Failed to update description" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ update\ description"):
+            update_description(
+                entity_urn=entity_urn, operation="replace", description=description
+            )
 
 
 def test_update_description_graphql_exception(mock_datahub_client):
@@ -355,12 +353,10 @@ def test_update_description_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = update_description(
-            entity_urn=entity_urn, operation="replace", description=description
-        )
-
-    assert result["success"] is False
-    assert "GraphQL error" in result["message"]
+        with pytest.raises(RuntimeError, match="GraphQL\ error"):
+            update_description(
+                entity_urn=entity_urn, operation="replace", description=description
+            )
 
 
 def test_update_description_append_fetch_failure(mock_datahub_client):

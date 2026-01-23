@@ -230,10 +230,8 @@ def test_set_domains_nonexistent_domain(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Domain URN does not exist" in result["message"]
+        with pytest.raises(ValueError, match="Domain\ URN\ does\ not\ exist"):
+            set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
 
 
 def test_set_domains_invalid_domain_type(mock_datahub_client):
@@ -250,10 +248,8 @@ def test_set_domains_invalid_domain_type(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "not a domain entity" in result["message"]
+        with pytest.raises(ValueError, match="not\ a\ domain\ entity"):
+            set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
 
 
 # Error handling tests
@@ -273,10 +269,8 @@ def test_set_domains_mutation_returns_false(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to set domain" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ set\ domain"):
+            set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
 
 
 def test_remove_domains_mutation_returns_false(mock_datahub_client):
@@ -289,10 +283,8 @@ def test_remove_domains_mutation_returns_false(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_domains(entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to remove domain" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ remove\ domain"):
+            remove_domains(entity_urns=entity_urns)
 
 
 def test_set_domains_graphql_exception(mock_datahub_client):
@@ -309,11 +301,8 @@ def test_set_domains_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error setting domain" in result["message"]
-    assert "GraphQL error" in result["message"]
+        with pytest.raises(RuntimeError, match="Error\ setting\ domain"):
+            set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
 
 
 def test_remove_domains_graphql_exception(mock_datahub_client):
@@ -326,11 +315,8 @@ def test_remove_domains_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_domains(entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error removing domain" in result["message"]
-    assert "Network error" in result["message"]
+        with pytest.raises(RuntimeError, match="Error removing domain"):
+            remove_domains(entity_urns=entity_urns)
 
 
 def test_set_domains_validation_exception(mock_datahub_client):
@@ -346,7 +332,5 @@ def test_set_domains_validation_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = set_domains(domain_urn=domain_urn, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to validate domain URN" in result["message"]
+        with pytest.raises(ValueError, match="Failed\ to\ validate\ domain\ URN"):
+            set_domains(domain_urn=domain_urn, entity_urns=entity_urns)

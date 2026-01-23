@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
     from mypy_boto3_bedrock_runtime.type_defs import SystemContentBlockTypeDef
 
-
 # Feature flag for planning tools
 from datahub_integrations.gen_ai.model_config import model_config
 

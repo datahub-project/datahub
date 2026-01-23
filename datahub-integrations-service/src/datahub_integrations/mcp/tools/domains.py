@@ -56,7 +56,6 @@ def _validate_domain_urn(client: DataHubClient, domain_urn: str) -> None:
     except Exception as e:
         if isinstance(e, ValueError):
             raise
-        logger.error(f"Failed to validate domain URN: {e}")
         raise ValueError(f"Failed to validate domain URN: {str(e)}") from e
 
 
@@ -119,10 +118,7 @@ def set_domains(
     if not entity_urns:
         raise ValueError("entity_urns cannot be empty")
 
-    try:
-        _validate_domain_urn(client, domain_urn)
-    except ValueError as e:
-        return {"success": False, "message": str(e)}
+    _validate_domain_urn(client, domain_urn)
 
     resources = []
     for resource_urn in entity_urns:
@@ -150,14 +146,12 @@ def set_domains(
                 "message": f"Successfully set domain for {len(entity_urns)} entit(ies)",
             }
         else:
-            return {
-                "success": False,
-                "message": "Failed to set domain - operation returned false",
-            }
+            raise RuntimeError("Failed to set domain - operation returned false")
 
     except Exception as e:
-        logger.error(f"Failed to set domain: {e}")
-        return {"success": False, "message": f"Error setting domain: {str(e)}"}
+        if isinstance(e, RuntimeError):
+            raise
+        raise RuntimeError(f"Error setting domain: {str(e)}") from e
 
 
 def remove_domains(
@@ -235,14 +229,12 @@ def remove_domains(
                 "message": f"Successfully removed domain from {len(entity_urns)} entit(ies)",
             }
         else:
-            return {
-                "success": False,
-                "message": "Failed to remove domain - operation returned false",
-            }
+            raise RuntimeError("Failed to remove domain - operation returned false")
 
     except Exception as e:
-        logger.error(f"Failed to remove domain: {e}")
-        return {"success": False, "message": f"Error removing domain: {str(e)}"}
+        if isinstance(e, RuntimeError):
+            raise
+        raise RuntimeError(f"Error removing domain: {str(e)}") from e
 
 
 if __name__ == "__main__":

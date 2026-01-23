@@ -69,7 +69,6 @@ def _validate_tag_urns(client: DataHubClient, tag_urns: List[str]) -> None:
     except Exception as e:
         if isinstance(e, ValueError):
             raise
-        logger.error(f"Failed to validate tag URNs: {e}")
         raise ValueError(f"Failed to validate tag URNs: {str(e)}") from e
 
 
@@ -96,10 +95,7 @@ def _batch_modify_tags(
         raise ValueError("entity_urns cannot be empty")
 
     # Validate that all tag URNs exist
-    try:
-        _validate_tag_urns(client, tag_urns)
-    except ValueError as e:
-        return {"success": False, "message": str(e)}
+    _validate_tag_urns(client, tag_urns)
 
     # Handle column_paths - if not provided, create list of Nones
     if column_paths is None:
@@ -159,15 +155,14 @@ def _batch_modify_tags(
                 "message": f"Successfully {success_verb} {len(tag_urns)} tag(s) {preposition} {len(entity_urns)} entit(ies)",
             }
         else:
-            return {
-                "success": False,
-                "message": f"Failed to {failure_verb} tags - operation returned false",
-            }
+            raise RuntimeError(
+                f"Failed to {failure_verb} tags - operation returned false"
+            )
 
     except Exception as e:
-        logger.error(f"Failed to batch {failure_verb} tags: {e}")
-        action = "adding" if operation == "add" else "removing"
-        return {"success": False, "message": f"Error {action} tags: {str(e)}"}
+        if isinstance(e, RuntimeError):
+            raise
+        raise RuntimeError(f"Error {failure_verb} tags: {str(e)}") from e
 
 
 def add_tags(

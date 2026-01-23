@@ -157,10 +157,8 @@ def test_add_owners_with_nonexistent_owner(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "do not exist in DataHub" in result["message"]
+        with pytest.raises(ValueError, match="do\ not\ exist\ in\ DataHub"):
+            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
 
 
 def test_add_owners_with_invalid_owner_type(mock_datahub_client):
@@ -177,10 +175,8 @@ def test_add_owners_with_invalid_owner_type(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "not valid owner entities" in result["message"]
+        with pytest.raises(ValueError, match="not\ valid\ owner\ entities"):
+            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
 
 
 def test_add_owners_empty_owner_urns(mock_datahub_client):
@@ -218,10 +214,8 @@ def test_add_owners_mutation_returns_false(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to add owners" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ add\ owners"):
+            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
 
 
 def test_add_owners_graphql_exception(mock_datahub_client):
@@ -239,10 +233,8 @@ def test_add_owners_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error adding owners" in result["message"]
+        with pytest.raises(RuntimeError, match="Error add\ owners"):
+            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
 
 
 # ===== Tests for remove_owners =====
@@ -380,10 +372,8 @@ def test_remove_owners_with_nonexistent_owner(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "do not exist in DataHub" in result["message"]
+        with pytest.raises(ValueError, match="do\ not\ exist\ in\ DataHub"):
+            remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
 
 
 def test_remove_owners_with_invalid_owner_type(mock_datahub_client):
@@ -400,10 +390,8 @@ def test_remove_owners_with_invalid_owner_type(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "not valid owner entities" in result["message"]
+        with pytest.raises(ValueError, match="not\ valid\ owner\ entities"):
+            remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
 
 
 def test_remove_owners_empty_owner_urns(mock_datahub_client):
@@ -441,10 +429,8 @@ def test_remove_owners_mutation_returns_false(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to remove owners" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ remove\ owners"):
+            remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
 
 
 def test_remove_owners_graphql_exception(mock_datahub_client):
@@ -462,7 +448,5 @@ def test_remove_owners_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error removing owners" in result["message"]
+        with pytest.raises(RuntimeError, match="Error remove\ owners"):
+            remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)

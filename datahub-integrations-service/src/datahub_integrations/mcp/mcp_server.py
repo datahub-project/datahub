@@ -279,7 +279,9 @@ def async_background(fn: Callable[_P, _R]) -> Callable[_P, Awaitable[_R]]:
     return wrapper
 
 
-mcp = FastMCP[None](name="datahub")
+mcp = FastMCP[None](
+    name="datahub",
+)
 
 
 _mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")

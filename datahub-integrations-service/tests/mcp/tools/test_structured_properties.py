@@ -501,7 +501,7 @@ def test_remove_structured_properties_empty_entity_urns(mock_datahub_client):
 
 
 def test_add_structured_properties_nonexistent_property(mock_datahub_client):
-    """Test that nonexistent property URN returns error."""
+    """Test that nonexistent property URN raises ValueError."""
     property_values = {"urn:li:structuredProperty:io.acryl.nonexistent": ["value"]}
     entity_urns = ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test,PROD)"]
 
@@ -512,16 +512,14 @@ def test_add_structured_properties_nonexistent_property(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_structured_properties(
-            property_values=property_values, entity_urns=entity_urns
-        )
-
-    assert result["success"] is False
-    assert "Structured property URN does not exist" in result["message"]
+        with pytest.raises(ValueError, match="Structured property URN does not exist"):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
 
 
 def test_add_structured_properties_invalid_property_type(mock_datahub_client):
-    """Test that URN with wrong entity type returns error."""
+    """Test that URN with wrong entity type raises ValueError."""
     property_values = {"urn:li:tag:not-a-property": ["value"]}
     entity_urns = ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test,PROD)"]
 
@@ -534,16 +532,14 @@ def test_add_structured_properties_invalid_property_type(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_structured_properties(
-            property_values=property_values, entity_urns=entity_urns
-        )
-
-    assert result["success"] is False
-    assert "not a structured property entity" in result["message"]
+        with pytest.raises(ValueError, match="not a structured property entity"):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
 
 
 def test_add_structured_properties_type_mismatch(mock_datahub_client):
-    """Test that value type mismatch returns error."""
+    """Test that value type mismatch raises ValueError."""
     property_values = {
         "urn:li:structuredProperty:io.acryl.dataQuality.scoreThreshold": [
             "not-a-number"
@@ -578,12 +574,10 @@ def test_add_structured_properties_type_mismatch(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_structured_properties(
-            property_values=property_values, entity_urns=entity_urns
-        )
-
-    assert result["success"] is False
-    assert "Value validation failed" in result["message"]
+        with pytest.raises(ValueError, match="Value validation failed"):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
 
 
 def test_add_structured_properties_mixed_entity_types(mock_datahub_client):
@@ -718,13 +712,10 @@ def test_add_structured_properties_invalid_urn_type(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_structured_properties(
-            property_values=property_values, entity_urns=entity_urns
-        )
-
-    assert result["success"] is False
-    assert "URN type" in result["message"]
-    assert "invalid URN" in result["message"]
+        with pytest.raises(ValueError, match="invalid URN"):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
 
 
 def test_add_structured_properties_date_type(mock_datahub_client):
@@ -846,13 +837,10 @@ def test_add_structured_properties_invalid_date(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_structured_properties(
-            property_values=property_values, entity_urns=entity_urns
-        )
-
-    assert result["success"] is False
-    assert "date type" in result["message"]
-    assert "ISO 8601" in result["message"]
+        with pytest.raises(ValueError, match="ISO 8601"):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
 
 
 def test_add_structured_properties_rich_text_type(mock_datahub_client):
@@ -943,12 +931,13 @@ def test_add_structured_properties_mutation_failure(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_structured_properties(
-            property_values=property_values, entity_urns=entity_urns
-        )
-
-    assert result["success"] is False
-    assert "Failed to add structured properties to 1 entit(ies)" in result["message"]
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to add structured properties to 1 entit\\(ies\\)",
+        ):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
 
 
 def test_remove_structured_properties_mutation_failure(mock_datahub_client):
@@ -978,11 +967,269 @@ def test_remove_structured_properties_mutation_failure(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_structured_properties(
-            property_urns=property_urns, entity_urns=entity_urns
-        )
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to remove structured properties from 1 entit\\(ies\\)",
+        ):
+            remove_structured_properties(
+                property_urns=property_urns, entity_urns=entity_urns
+            )
 
-    assert result["success"] is False
-    assert (
-        "Failed to remove structured properties from 1 entit(ies)" in result["message"]
-    )
+
+def test_add_structured_properties_empty_mutation_result(mock_datahub_client):
+    """Test handling when mutation returns empty/None result."""
+    property_values = {
+        "urn:li:structuredProperty:io.acryl.common.businessCriticality": ["HIGH"]
+    }
+    entity_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test2,PROD)",
+    ]
+
+    mock_datahub_client._graph.execute_graphql.side_effect = [
+        {
+            "entity": {
+                "urn": "urn:li:structuredProperty:io.acryl.common.businessCriticality",
+                "type": "STRUCTURED_PROPERTY",
+                "definition": {
+                    "qualifiedName": "io.acryl.common.businessCriticality",
+                    "valueType": {
+                        "urn": "urn:li:dataType:datahub.string",
+                        "info": {"qualifiedName": "string"},
+                    },
+                    "cardinality": "SINGLE",
+                    "entityTypes": [
+                        {
+                            "urn": "urn:li:entityType:datahub.dataset",
+                            "type": "DATASET",
+                            "info": {"type": "DATASET"},
+                        }
+                    ],
+                },
+            }
+        },
+        {"upsertStructuredProperties": {"properties": []}},
+        {},  # Empty result for second entity
+    ]
+
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client",
+        return_value=mock_datahub_client,
+    ):
+        with pytest.raises(
+            RuntimeError, match="operation returned false or empty result"
+        ):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
+
+
+def test_add_structured_properties_none_mutation_result(mock_datahub_client):
+    """Test handling when mutation returns None (upsertStructuredProperties key missing)."""
+    property_values = {
+        "urn:li:structuredProperty:io.acryl.common.businessCriticality": ["HIGH"]
+    }
+    entity_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test,PROD)",
+    ]
+
+    mock_datahub_client._graph.execute_graphql.side_effect = [
+        {
+            "entity": {
+                "urn": "urn:li:structuredProperty:io.acryl.common.businessCriticality",
+                "type": "STRUCTURED_PROPERTY",
+                "definition": {
+                    "qualifiedName": "io.acryl.common.businessCriticality",
+                    "valueType": {
+                        "urn": "urn:li:dataType:datahub.string",
+                        "info": {"qualifiedName": "string"},
+                    },
+                    "cardinality": "SINGLE",
+                    "entityTypes": [
+                        {
+                            "urn": "urn:li:entityType:datahub.dataset",
+                            "type": "DATASET",
+                            "info": {"type": "DATASET"},
+                        }
+                    ],
+                },
+            }
+        },
+        {"someOtherKey": "value"},  # Result without upsertStructuredProperties key
+    ]
+
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client",
+        return_value=mock_datahub_client,
+    ):
+        with pytest.raises(
+            RuntimeError, match="operation returned false or empty result"
+        ):
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
+
+
+def test_remove_structured_properties_empty_mutation_result(mock_datahub_client):
+    """Test handling when remove mutation returns empty/None result."""
+    property_urns = ["urn:li:structuredProperty:io.acryl.privacy.retentionTime"]
+    entity_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test2,PROD)",
+    ]
+
+    mock_datahub_client._graph.execute_graphql.side_effect = [
+        {
+            "entity": {
+                "urn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+                "type": "STRUCTURED_PROPERTY",
+                "definition": {
+                    "qualifiedName": "io.acryl.privacy.retentionTime",
+                    "entityTypes": [],
+                },
+            }
+        },
+        {"removeStructuredProperties": {"properties": []}},
+        {},  # Empty result for second entity
+    ]
+
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client",
+        return_value=mock_datahub_client,
+    ):
+        with pytest.raises(
+            RuntimeError, match="operation returned false or empty result"
+        ):
+            remove_structured_properties(
+                property_urns=property_urns, entity_urns=entity_urns
+            )
+
+
+def test_remove_structured_properties_none_mutation_result(mock_datahub_client):
+    """Test handling when remove mutation returns None (removeStructuredProperties key missing)."""
+    property_urns = ["urn:li:structuredProperty:io.acryl.privacy.retentionTime"]
+    entity_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test,PROD)",
+    ]
+
+    mock_datahub_client._graph.execute_graphql.side_effect = [
+        {
+            "entity": {
+                "urn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+                "type": "STRUCTURED_PROPERTY",
+                "definition": {
+                    "qualifiedName": "io.acryl.privacy.retentionTime",
+                    "entityTypes": [],
+                },
+            }
+        },
+        {"someOtherKey": "value"},  # Result without removeStructuredProperties key
+    ]
+
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client",
+        return_value=mock_datahub_client,
+    ):
+        with pytest.raises(
+            RuntimeError, match="operation returned false or empty result"
+        ):
+            remove_structured_properties(
+                property_urns=property_urns, entity_urns=entity_urns
+            )
+
+
+def test_add_structured_properties_partial_success(mock_datahub_client):
+    """Test handling when some entities succeed and some fail."""
+    property_values = {
+        "urn:li:structuredProperty:io.acryl.common.businessCriticality": ["HIGH"]
+    }
+    entity_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test3,PROD)",
+    ]
+
+    mock_datahub_client._graph.execute_graphql.side_effect = [
+        {
+            "entity": {
+                "urn": "urn:li:structuredProperty:io.acryl.common.businessCriticality",
+                "type": "STRUCTURED_PROPERTY",
+                "definition": {
+                    "qualifiedName": "io.acryl.common.businessCriticality",
+                    "valueType": {
+                        "urn": "urn:li:dataType:datahub.string",
+                        "info": {"qualifiedName": "string"},
+                    },
+                    "cardinality": "SINGLE",
+                    "entityTypes": [
+                        {
+                            "urn": "urn:li:entityType:datahub.dataset",
+                            "type": "DATASET",
+                            "info": {"type": "DATASET"},
+                        }
+                    ],
+                },
+            }
+        },
+        {"upsertStructuredProperties": {"properties": []}},  # Success for first entity
+        {},  # Empty result for second entity
+        Exception("Network error"),  # Exception for third entity
+    ]
+
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client",
+        return_value=mock_datahub_client,
+    ):
+        with pytest.raises(RuntimeError) as exc_info:
+            add_structured_properties(
+                property_values=property_values, entity_urns=entity_urns
+            )
+
+        # Should contain both types of errors
+        assert "Failed to add structured properties to 2 entit(ies)" in str(
+            exc_info.value
+        )
+        assert "operation returned false or empty result" in str(exc_info.value)
+        assert "Network error" in str(exc_info.value)
+
+
+def test_remove_structured_properties_partial_success(mock_datahub_client):
+    """Test handling when some entities succeed and some fail during removal."""
+    property_urns = ["urn:li:structuredProperty:io.acryl.privacy.retentionTime"]
+    entity_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.test3,PROD)",
+    ]
+
+    mock_datahub_client._graph.execute_graphql.side_effect = [
+        {
+            "entity": {
+                "urn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+                "type": "STRUCTURED_PROPERTY",
+                "definition": {
+                    "qualifiedName": "io.acryl.privacy.retentionTime",
+                    "entityTypes": [],
+                },
+            }
+        },
+        {"removeStructuredProperties": {"properties": []}},  # Success for first entity
+        {},  # Empty result for second entity
+        Exception("Permission denied"),  # Exception for third entity
+    ]
+
+    with patch(
+        "datahub_integrations.mcp.mcp_server.get_datahub_client",
+        return_value=mock_datahub_client,
+    ):
+        with pytest.raises(RuntimeError) as exc_info:
+            remove_structured_properties(
+                property_urns=property_urns, entity_urns=entity_urns
+            )
+
+        # Should contain both types of errors
+        assert "Failed to remove structured properties from 2 entit(ies)" in str(
+            exc_info.value
+        )
+        assert "operation returned false or empty result" in str(exc_info.value)
+        assert "Permission denied" in str(exc_info.value)

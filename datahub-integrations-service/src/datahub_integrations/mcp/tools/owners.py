@@ -71,7 +71,6 @@ def _validate_owner_urns(client: DataHubClient, owner_urns: List[str]) -> None:
     except Exception as e:
         if isinstance(e, ValueError):
             raise
-        logger.error(f"Failed to validate owner URNs: {e}")
         raise ValueError(f"Failed to validate owner URNs: {str(e)}") from e
 
 
@@ -98,10 +97,7 @@ def _batch_modify_owners(
         raise ValueError("entity_urns cannot be empty")
 
     # Validate that all owner URNs exist and are valid types
-    try:
-        _validate_owner_urns(client, owner_urns)
-    except ValueError as e:
-        return {"success": False, "message": str(e)}
+    _validate_owner_urns(client, owner_urns)
 
     # Build the resources list for GraphQL mutation
     resources = []
@@ -180,15 +176,14 @@ def _batch_modify_owners(
                 "message": f"Successfully {success_verb} {len(owner_urns)} owner(s) {preposition} {len(entity_urns)} entit(ies)",
             }
         else:
-            return {
-                "success": False,
-                "message": f"Failed to {failure_verb} owners - operation returned false",
-            }
+            raise RuntimeError(
+                f"Failed to {failure_verb} owners - operation returned false"
+            )
 
     except Exception as e:
-        logger.error(f"Failed to batch {failure_verb} owners: {e}")
-        action = "adding" if operation == "add" else "removing"
-        return {"success": False, "message": f"Error {action} owners: {str(e)}"}
+        if isinstance(e, RuntimeError):
+            raise
+        raise RuntimeError(f"Error {failure_verb} owners: {str(e)}") from e
 
 
 def add_owners(

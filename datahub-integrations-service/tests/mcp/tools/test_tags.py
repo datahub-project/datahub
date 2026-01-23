@@ -205,10 +205,8 @@ def test_add_tags_graphql_failure(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to add tags" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ add\ tags"):
+            add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
 
 
 def test_add_tags_graphql_exception(mock_datahub_client):
@@ -230,11 +228,8 @@ def test_add_tags_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error adding tags" in result["message"]
-    assert "Network error" in result["message"]
+        with pytest.raises(RuntimeError, match="Error add\ tags"):
+            add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
 
 
 # Tests for remove_tags
@@ -420,10 +415,8 @@ def test_remove_tags_graphql_failure(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Failed to remove tags" in result["message"]
+        with pytest.raises(RuntimeError, match="Failed\ to\ remove\ tags"):
+            remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
 
 
 def test_remove_tags_graphql_exception(mock_datahub_client):
@@ -444,11 +437,8 @@ def test_remove_tags_graphql_exception(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "Error removing tags" in result["message"]
-    assert "Authorization error" in result["message"]
+        with pytest.raises(RuntimeError, match="Error remove\ tags"):
+            remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
 
 
 def test_add_tags_with_empty_string_subresource(mock_datahub_client):
@@ -531,11 +521,8 @@ def test_add_tags_with_nonexistent_tag(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "do not exist in DataHub" in result["message"]
-    assert "NonExistent" in result["message"]
+        with pytest.raises(ValueError, match="do\ not\ exist\ in\ DataHub"):
+            add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
 
 
 def test_add_tags_with_non_tag_urn(mock_datahub_client):
@@ -552,10 +539,8 @@ def test_add_tags_with_non_tag_urn(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "not tag entities" in result["message"]
+        with pytest.raises(ValueError, match="not\ tag\ entities"):
+            add_tags(tag_urns=tag_urns, entity_urns=entity_urns)
 
 
 def test_remove_tags_with_nonexistent_tag(mock_datahub_client):
@@ -570,11 +555,8 @@ def test_remove_tags_with_nonexistent_tag(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "do not exist in DataHub" in result["message"]
-    assert "NonExistent" in result["message"]
+        with pytest.raises(ValueError, match="do\ not\ exist\ in\ DataHub"):
+            remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
 
 
 def test_remove_tags_with_non_tag_urn(mock_datahub_client):
@@ -591,7 +573,5 @@ def test_remove_tags_with_non_tag_urn(mock_datahub_client):
         "datahub_integrations.mcp.mcp_server.get_datahub_client",
         return_value=mock_datahub_client,
     ):
-        result = remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
-
-    assert result["success"] is False
-    assert "not tag entities" in result["message"]
+        with pytest.raises(ValueError, match="not\ tag\ entities"):
+            remove_tags(tag_urns=tag_urns, entity_urns=entity_urns)
