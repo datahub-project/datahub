@@ -165,9 +165,9 @@ type Query {
   listGroups(input: ListGroupsInput!): ListGroupsResult
 
   """
-  List all DataHub Users and Groups using search
+  Search DataHub Users
   """
-  listUsersAndGroups(input: SearchAcrossEntitiesInput!): SearchResults
+  searchUsers(input: SearchAcrossEntitiesInput!): SearchResults
 
   """
   Fetches the number of entities ingested by type

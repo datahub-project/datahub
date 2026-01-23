@@ -229,8 +229,8 @@ query listUsers($input: ListUsersInput!) {
     }
 }
 
-query listUsersAndGroups($input: SearchAcrossEntitiesInput!) {
-    listUsersAndGroups(input: $input) {
+query searchUsers($input: SearchAcrossEntitiesInput!) {
+    searchUsers(input: $input) {
         start
         count
         total

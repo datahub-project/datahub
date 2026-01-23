@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { SimpleSelect, Text, Tooltip } from '@components';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';

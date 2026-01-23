@@ -1,21 +1,19 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ColorValues } from '@components/theme/config';
-
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserList.utils';
+import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserListV2.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Avatar, Button, Pill, ResizablePills, Text, colors } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
-import { ListUsersAndGroupsQuery } from '@graphql/user.generated';
+import { SearchUsersQuery } from '@graphql/user.generated';
 import { CorpUserStatus, EntityType } from '@types';
 
 // Type alias for user data from search results
 export type UserListItem = Extract<
-    NonNullable<NonNullable<ListUsersAndGroupsQuery['listUsersAndGroups']>['searchResults'][0]['entity']>,
+    NonNullable<NonNullable<SearchUsersQuery['searchUsers']>['searchResults'][0]['entity']>,
     { __typename?: 'CorpUser' }
 >;
 

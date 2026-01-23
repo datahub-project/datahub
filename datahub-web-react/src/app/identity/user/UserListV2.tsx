@@ -1,10 +1,7 @@
-import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
-import React, { useEffect, useState } from 'react';
-import { useDebounce } from 'react-use';
+import React, { useEffect } from 'react';
 
-import { useUserContext } from '@app/context/useUserContext';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
+import { NO_ROLE_TEXT, NO_ROLE_URN, STATUS_FILTER_OPTIONS } from '@app/identity/user/UserListV2.utils';
 import {
     ActionsContainer,
     FilterContainer,
@@ -19,221 +16,73 @@ import {
     UserNameCell,
     UserStatusCell,
 } from '@app/identity/user/UserListV2.components';
-import { STATUS_FILTER_OPTIONS } from '@app/identity/user/UserList.utils';
+import {
+    useRoleAssignment,
+    useUserListActions,
+    useUserListData,
+    useUserListState,
+} from '@app/identity/user/UserListV2.hooks';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
-import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';
-import { useRoleSelector } from '@app/identity/user/useRoleSelector';
-import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
 import { Button, Modal, Pagination, SearchBar, SimpleSelect, Table, Text } from '@src/alchemy-components';
 
-import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
-import { useListUsersAndGroupsQuery } from '@graphql/user.generated';
 import { DataHubRole } from '@types';
 
-const NO_ROLE_TEXT = 'No Role';
-const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
-
 export const UserList = () => {
-    const client = useApolloClient();
-    const [query, setQuery] = useState<string>('');
-    const [debouncedQuery, setDebouncedQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [usersList, setUsersList] = useState<UserListItem[]>([]);
-    const [isViewingResetToken, setIsViewingResetToken] = useState(false);
-    const [resetTokenUser, setResetTokenUser] = useState<UserListItem | null>(null);
-    const [roleAssignmentState, setRoleAssignmentState] = useState<{
-        isViewingAssignRole: boolean;
-        userUrn: string;
-        username: string;
-        currentRoleUrn: string;
-        originalRoleUrn: string;
-    } | null>(null);
+    // State management
+    const {
+        query,
+        setQuery,
+        debouncedQuery,
+        statusFilter,
+        setStatusFilter,
+        usersList,
+        setUsersList,
+        isViewingResetToken,
+        setIsViewingResetToken,
+        resetTokenUser,
+        setResetTokenUser,
+        page,
+        setPage,
+        pageSize,
+        setPageSize,
+        canManagePolicies,
+    } = useUserListState();
 
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(DEFAULT_USER_LIST_PAGE_SIZE);
-
-    const authenticatedUser = useUserContext();
-    const canManagePolicies = authenticatedUser?.platformPrivileges?.managePolicies || false;
-
-    // Debounce search query
-    useDebounce(
-        () => {
-            const trimmedQuery = query.trim();
-            if (trimmedQuery === '' || trimmedQuery.length >= 3) {
-                setDebouncedQuery(trimmedQuery);
-            }
-        },
-        300,
-        [query],
+    // Data fetching
+    const { data, loading, error, totalUsers, selectRoleOptions, refetch } = useUserListData(
+        debouncedQuery,
+        page,
+        pageSize,
+        statusFilter,
     );
 
-    // Reset to page 1 when search or filter changes
-    useEffect(() => {
-        setPage(1);
-    }, [debouncedQuery, statusFilter]);
+    // Actions
+    const { onResetPassword, onCloseResetModal, onDelete } = useUserListActions(
+        setIsViewingResetToken,
+        setResetTokenUser,
+        page,
+        pageSize,
+        refetch,
+    );
 
-    // Build filters for server-side status filtering
-    const buildFilters = (statusFilterParam?: string) => {
-        if (!statusFilterParam || statusFilterParam === 'all') {
-            return undefined;
-        }
+    // Role assignment
+    const { roleAssignmentState, onSelectRole, onCancelRoleAssignment, onConfirmRoleAssignment } = useRoleAssignment(
+        usersList,
+        setUsersList,
+        selectRoleOptions,
+        refetch,
+    );
 
-        switch (statusFilterParam.toLowerCase()) {
-            case 'active':
-                return [{ field: 'status', values: ['ACTIVE'] }];
-            case 'suspended':
-                return [{ field: 'status', values: ['SUSPENDED'] }];
-            default:
-                return undefined;
-        }
-    };
-
-    const filters = buildFilters(statusFilter);
-
-    const { data, loading, error, refetch } = useListUsersAndGroupsQuery({
-        variables: {
-            input: {
-                start: (page - 1) * pageSize,
-                count: pageSize,
-                query: debouncedQuery || '*',
-                filters,
-                sortInput: undefined, // TODO: Add sorting support
-            },
-        },
-        fetchPolicy: 'no-cache',
-    });
-
-    const totalUsers = data?.listUsersAndGroups?.total || 0;
-
+    // Update local users list when data changes
     useEffect(() => {
         const users =
-            (data?.listUsersAndGroups?.searchResults
+            (data?.searchUsers?.searchResults
                 ?.map((result) => result.entity)
                 .filter((entity) => entity?.__typename === 'CorpUser') as UserListItem[]) || [];
         setUsersList(users);
-    }, [data]);
-
-    const handleDelete = (urn: string) => {
-        removeUserFromListUsersCache(urn, client, page, pageSize);
-        refetch();
-    };
-
-    const onResetPassword = (user: UserListItem) => {
-        setResetTokenUser(user);
-        setIsViewingResetToken(true);
-    };
-
-    const onCloseResetModal = () => {
-        setIsViewingResetToken(false);
-        setResetTokenUser(null);
-    };
-
-    const onDelete = (urn: string) => {
-        handleDelete(urn);
-    };
-
-    // Fetch roles for the role selector
-    const { roles: selectRoleOptions } = useRoleSelector();
-
-    // Utility function to update user role in list
-    const updateUserRole = (userUrn: string, roleUrn: string) => {
-        setUsersList((prevUsers) =>
-            prevUsers.map((user) => {
-                if (user.urn === userUrn) {
-                    const updatedUser = { ...user };
-                    if (roleUrn === NO_ROLE_URN) {
-                        // Remove role
-                        updatedUser.roles = null;
-                    } else {
-                        // Update role
-                        const role = selectRoleOptions.find((r) => r.urn === roleUrn);
-                        if (role) {
-                            updatedUser.roles = {
-                                ...updatedUser.roles,
-                                relationships: [
-                                    {
-                                        entity: role,
-                                    },
-                                ],
-                            };
-                        }
-                    }
-                    return updatedUser;
-                }
-                return user;
-            }),
-        );
-    };
-
-    // Role assignment handlers
-    const onSelectRole = (userUrn: string, username: string, currentRoleUrn: string, newRoleUrn: string) => {
-        // Optimistically update the UI immediately
-        updateUserRole(userUrn, newRoleUrn);
-
-        setRoleAssignmentState({
-            isViewingAssignRole: true,
-            userUrn,
-            username,
-            currentRoleUrn: newRoleUrn,
-            originalRoleUrn: currentRoleUrn,
-        });
-    };
-
-    const onCancelRoleAssignment = () => {
-        if (!roleAssignmentState) return;
-
-        // Revert optimistic update by restoring original role
-        updateUserRole(roleAssignmentState.userUrn, roleAssignmentState.originalRoleUrn);
-        setRoleAssignmentState(null);
-    };
-
-    const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
-
-    const onConfirmRoleAssignment = () => {
-        if (!roleAssignmentState) return;
-
-        const roleToAssign = selectRoleOptions.find((role) => role.urn === roleAssignmentState.currentRoleUrn);
-
-        batchAssignRoleMutation({
-            variables: {
-                input: {
-                    roleUrn: roleToAssign?.urn === NO_ROLE_URN ? null : roleToAssign?.urn,
-                    actors: [roleAssignmentState.userUrn],
-                },
-            },
-        })
-            .then(({ errors }) => {
-                if (!errors) {
-                    message.success({
-                        content:
-                            roleToAssign?.urn === NO_ROLE_URN
-                                ? `Removed role from user ${roleAssignmentState.username}!`
-                                : `Assigned role ${roleToAssign?.name} to user ${roleAssignmentState.username}!`,
-                        duration: 2,
-                    });
-                    setRoleAssignmentState(null);
-                    setTimeout(() => {
-                        refetch();
-                        clearRoleListCache(client);
-                    }, 3000);
-                }
-            })
-            .catch((e) => {
-                // Revert optimistic update on API failure
-                updateUserRole(roleAssignmentState.userUrn, roleAssignmentState.originalRoleUrn);
-
-                message.destroy();
-                message.error({
-                    content:
-                        roleToAssign?.urn === NO_ROLE_URN
-                            ? `Failed to remove role from ${roleAssignmentState.username}: \n ${e.message || ''}`
-                            : `Failed to assign role ${roleToAssign?.name} to ${roleAssignmentState.username}: \n ${e.message || ''}`,
-                    duration: 3,
-                });
-            });
-    };
+    }, [data, setUsersList]);
 
     const columns = [
         {
@@ -271,7 +120,8 @@ export const UserList = () => {
                 const currentRoleUrn = userRole?.urn || NO_ROLE_URN;
 
                 // Find role in options, or use userRole directly if not in options yet (during load)
-                const currentRole = selectRoleOptions.find((role) => role.urn === currentRoleUrn) || userRole || undefined;
+                const currentRole =
+                    selectRoleOptions.find((role) => role.urn === currentRoleUrn) || userRole || undefined;
 
                 return (
                     <SimpleSelectRole
