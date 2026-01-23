@@ -15,6 +15,8 @@ import com.linkedin.datahub.graphql.generated.AiPluginConfig;
 import com.linkedin.datahub.graphql.generated.AiPluginType;
 import com.linkedin.datahub.graphql.generated.DocumentationAiSettings;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
+import com.linkedin.datahub.graphql.generated.MaintenanceSeverity;
+import com.linkedin.datahub.graphql.generated.MaintenanceWindowSettings;
 import com.linkedin.settings.global.AiInstructionArray;
 import com.linkedin.settings.global.AiInstructionType;
 import com.linkedin.settings.global.AiPluginConfigArray;
@@ -780,5 +782,53 @@ public class SettingsMapperTest {
     assertEquals(
         mappedPlugin.getUserApiKeyConfig().getAuthLocation(),
         com.linkedin.datahub.graphql.generated.AuthInjectionLocation.HEADER);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Maintenance Window Settings Tests
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private GlobalSettingsInfo createGlobalSettingsInfo() {
+    GlobalSettingsInfo info = new GlobalSettingsInfo();
+    info.setIntegrations(new com.linkedin.settings.global.GlobalIntegrationSettings());
+    info.setNotifications(new com.linkedin.settings.global.GlobalNotificationSettings());
+    return info;
+  }
+
+  @Test
+  public void testMapMaintenanceWindowSettings() {
+    GlobalSettingsInfo globalSettingsInfo = createGlobalSettingsInfo();
+
+    com.linkedin.settings.global.MaintenanceWindowSettings maintenanceSettings =
+        new com.linkedin.settings.global.MaintenanceWindowSettings();
+    maintenanceSettings.setEnabled(true);
+    maintenanceSettings.setMessage("Scheduled maintenance in progress");
+    maintenanceSettings.setSeverity(com.linkedin.settings.global.MaintenanceSeverity.CRITICAL);
+    maintenanceSettings.setLinkUrl("https://status.example.com");
+    maintenanceSettings.setLinkText("Status Page");
+    maintenanceSettings.setEnabledAt(1700000000000L);
+    maintenanceSettings.setEnabledBy("urn:li:corpuser:admin");
+    globalSettingsInfo.setMaintenanceWindow(maintenanceSettings);
+
+    GlobalSettings result = settingsMapper.mapGlobalSettings(queryContext, globalSettingsInfo);
+
+    MaintenanceWindowSettings mapped = result.getMaintenanceWindow();
+    assertNotNull(mapped);
+    assertTrue(mapped.getEnabled());
+    assertEquals(mapped.getMessage(), "Scheduled maintenance in progress");
+    assertEquals(mapped.getSeverity(), MaintenanceSeverity.CRITICAL);
+    assertEquals(mapped.getLinkUrl(), "https://status.example.com");
+    assertEquals(mapped.getLinkText(), "Status Page");
+    assertEquals(mapped.getEnabledAt(), Long.valueOf(1700000000000L));
+    assertEquals(mapped.getEnabledBy(), "urn:li:corpuser:admin");
+  }
+
+  @Test
+  public void testMapMaintenanceWindowSettingsWhenAbsent() {
+    GlobalSettingsInfo globalSettingsInfo = createGlobalSettingsInfo();
+
+    GlobalSettings result = settingsMapper.mapGlobalSettings(queryContext, globalSettingsInfo);
+
+    assertNull(result.getMaintenanceWindow());
   }
 }

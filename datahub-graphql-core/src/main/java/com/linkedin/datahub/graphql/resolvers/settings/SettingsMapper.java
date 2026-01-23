@@ -21,6 +21,8 @@ import com.linkedin.datahub.graphql.generated.GlobalNotificationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.datahub.graphql.generated.GlobalVisualSettings;
 import com.linkedin.datahub.graphql.generated.HelpLink;
+import com.linkedin.datahub.graphql.generated.MaintenanceSeverity;
+import com.linkedin.datahub.graphql.generated.MaintenanceWindowSettings;
 import com.linkedin.datahub.graphql.generated.OAuthAiPluginConfig;
 import com.linkedin.datahub.graphql.generated.OAuthAuthorizationServer;
 import com.linkedin.datahub.graphql.generated.OidcSettings;
@@ -115,6 +117,11 @@ public class SettingsMapper {
     // Map AI Plugins
     List<AiPluginConfig> aiPlugins = mapAiPlugins(input);
     result.setAiPlugins(aiPlugins);
+
+    // Map Maintenance Window Settings
+    if (input.hasMaintenanceWindow() && input.getMaintenanceWindow() != null) {
+      result.setMaintenanceWindow(mapMaintenanceWindowSettings(input.getMaintenanceWindow()));
+    }
 
     return result;
   }
@@ -459,5 +466,44 @@ public class SettingsMapper {
     result.setService(partialService);
 
     return result;
+  }
+
+  private MaintenanceWindowSettings mapMaintenanceWindowSettings(
+      @Nonnull com.linkedin.settings.global.MaintenanceWindowSettings input) {
+    MaintenanceWindowSettings result = new MaintenanceWindowSettings();
+    result.setEnabled(input.isEnabled());
+    if (input.hasMessage()) {
+      result.setMessage(input.getMessage());
+    }
+    if (input.hasSeverity()) {
+      result.setSeverity(mapMaintenanceSeverity(input.getSeverity()));
+    }
+    if (input.hasLinkUrl()) {
+      result.setLinkUrl(input.getLinkUrl());
+    }
+    if (input.hasLinkText()) {
+      result.setLinkText(input.getLinkText());
+    }
+    if (input.hasEnabledAt()) {
+      result.setEnabledAt(input.getEnabledAt());
+    }
+    if (input.hasEnabledBy()) {
+      result.setEnabledBy(input.getEnabledBy());
+    }
+    return result;
+  }
+
+  private MaintenanceSeverity mapMaintenanceSeverity(
+      @Nonnull com.linkedin.settings.global.MaintenanceSeverity severity) {
+    switch (severity) {
+      case INFO:
+        return MaintenanceSeverity.INFO;
+      case WARNING:
+        return MaintenanceSeverity.WARNING;
+      case CRITICAL:
+        return MaintenanceSeverity.CRITICAL;
+      default:
+        throw new IllegalArgumentException("Unknown MaintenanceSeverity: " + severity);
+    }
   }
 }

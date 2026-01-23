@@ -1,0 +1,19 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Severity level for maintenance window announcements.
+ */
+enum MaintenanceSeverity {
+  /**
+   * Informational maintenance notice (e.g., scheduled maintenance window).
+   */
+  INFO,
+  /**
+   * Warning level maintenance (e.g., degraded performance expected).
+   */
+  WARNING,
+  /**
+   * Critical maintenance (e.g., major outage or emergency maintenance).
+   */
+  CRITICAL
+}

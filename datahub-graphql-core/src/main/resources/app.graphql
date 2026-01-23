@@ -841,6 +841,11 @@ type GlobalSettings {
   Maps plugin ID to plugin configuration.
   """
   aiPlugins: [AiPluginConfig!]
+
+  """
+  Settings for platform-wide maintenance window announcements.
+  """
+  maintenanceWindow: MaintenanceWindowSettings
 }
 
 """
@@ -2116,6 +2121,58 @@ type AiAssistantSettings {
   Custom instructions to inject into the AI assistant prompt
   """
   instructions: [AiInstruction!]!
+}
+
+"""
+Severity level for maintenance window announcements.
+"""
+enum MaintenanceSeverity {
+  """
+  Informational maintenance notice (e.g., scheduled maintenance window).
+  """
+  INFO
+  """
+  Warning level maintenance (e.g., degraded performance expected).
+  """
+  WARNING
+  """
+  Critical maintenance (e.g., major outage or emergency maintenance).
+  """
+  CRITICAL
+}
+
+"""
+Settings for platform-wide maintenance window announcements.
+"""
+type MaintenanceWindowSettings {
+  """
+  Whether maintenance mode is currently active.
+  """
+  enabled: Boolean!
+  """
+  Message to display to users during maintenance.
+  """
+  message: String
+  """
+  Severity level affecting banner color.
+  """
+  severity: MaintenanceSeverity
+  """
+  Optional URL for more details (e.g., status page).
+  """
+  linkUrl: String
+  """
+  Optional text for the link.
+  """
+  linkText: String
+  """
+  Timestamp when maintenance mode was enabled (epoch millis).
+  """
+  enabledAt: Long
+  """
+  URN of user who enabled maintenance mode.
+  """
+  enabledBy: String
 }
 
 """

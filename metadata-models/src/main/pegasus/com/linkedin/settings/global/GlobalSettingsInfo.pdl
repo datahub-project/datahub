@@ -69,4 +69,9 @@ record GlobalSettingsInfo {
    * AI plugin settings for Ask DataHub (MCP servers, etc.).
    */
   aiPluginSettings: optional AiPluginSettings
+
+  /**
+   * Settings for platform-wide maintenance window announcements
+   */
+  maintenanceWindow: optional MaintenanceWindowSettings
 }

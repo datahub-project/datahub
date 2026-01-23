@@ -10,6 +10,7 @@ import HomePageProvider from '@app/homeV3/context/HomePageProvider';
 import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import SearchContextProvider from '@app/search/context/SearchContextProvider';
 import { BrowserTitleProvider } from '@app/shared/BrowserTabTitleContext';
+import MaintenanceBanner from '@app/shared/MaintenanceBanner';
 import { ReloadableProvider } from '@app/sharedV2/reloadableContext/ReloadableContext';
 import { EducationStepsProvider } from '@providers/EducationStepsProvider';
 import QuickFiltersProvider from '@providers/QuickFiltersProvider';
@@ -22,6 +23,7 @@ interface Props {
 export default function AppProviders({ children }: Props) {
     return (
         <GlobalSettingsContextProvider>
+            <MaintenanceBanner />
             <AppConfigProvider>
                 <GlobalSettingsProvider>
                     <UserContextProvider>

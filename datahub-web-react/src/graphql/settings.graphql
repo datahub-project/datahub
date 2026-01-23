@@ -193,6 +193,15 @@ query getGlobalSettings {
                 }
             }
         }
+        maintenanceWindow {
+            enabled
+            message
+            severity
+            linkUrl
+            linkText
+            enabledAt
+            enabledBy
+        }
     }
 }
 

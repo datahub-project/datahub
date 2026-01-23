@@ -1,0 +1,42 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Settings for platform-wide maintenance window announcements.
+ * When enabled, a banner is displayed to all authenticated users.
+ */
+record MaintenanceWindowSettings {
+  /**
+   * Whether maintenance mode is currently active.
+   */
+  enabled: boolean = false
+
+  /**
+   * Message to display to users during maintenance.
+   */
+  message: optional string
+
+  /**
+   * Severity level affecting banner color.
+   */
+  severity: optional MaintenanceSeverity
+
+  /**
+   * Optional URL for more details (e.g., status page).
+   */
+  linkUrl: optional string
+
+  /**
+   * Optional text for the link (defaults to "Learn more" if linkUrl provided).
+   */
+  linkText: optional string
+
+  /**
+   * Timestamp when maintenance mode was enabled (epoch millis).
+   */
+  enabledAt: optional long
+
+  /**
+   * URN of user who enabled maintenance mode.
+   */
+  enabledBy: optional string
+}
