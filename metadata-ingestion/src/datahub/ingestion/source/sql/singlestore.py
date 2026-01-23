@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List
+from typing import List
 
 from pydantic import Field
 from sqlalchemy.engine import Inspector
@@ -7,6 +7,7 @@ from sqlalchemy_singlestoredb import JSON, VECTOR
 
 from datahub._version import __version__
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -49,8 +50,8 @@ class SingleStoreConfig(TwoTierSQLAlchemyConfig):
 
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for stored procedures to filter in ingestion."
-        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns in database.procedure_name format. "
+        "e.g., 'northwind.Add.*' to match procedures starting with Add in northwind database.",
     )
 
 
@@ -75,7 +76,7 @@ class SingleStoreSource(TwoTierSQLAlchemySource):
 
     config: SingleStoreConfig
 
-    def __init__(self, config: SingleStoreConfig, ctx: Any):
+    def __init__(self, config: SingleStoreConfig, ctx: PipelineContext):
         # Add SingleStore connection attributes for identification
         if config.options is None:
             config.options = {}
@@ -98,32 +99,35 @@ class SingleStoreSource(TwoTierSQLAlchemySource):
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():
             return
-        with inspector.engine.connect() as conn:
-            # https://support.singlestore.com/hc/en-us/articles/360061597292-The-size-of-a-table-and-an-index
-            # data in memory
-            for row in conn.execute(
-                "SELECT DATABASE_NAME, TABLE_NAME, SUM(MEMORY_USE) :> BIGINT AS MEMORY_USE FROM INFORMATION_SCHEMA.TABLE_STATISTICS GROUP BY 1, 2"
-            ):
-                table_id = f"{row.DATABASE_NAME}.{row.TABLE_NAME}"
-                self.profile_metadata_info.dataset_name_to_storage_bytes[table_id] = (
-                    row.MEMORY_USE
-                )
-
-            # data on disk
-            for row in conn.execute(
-                "SELECT DATABASE_NAME, TABLE_NAME, SUM(UNCOMPRESSED_SIZE) :> BIGINT AS UNCOMPRESSED_SIZE FROM INFORMATION_SCHEMA.COLUMNAR_SEGMENTS GROUP BY 1, 2"
-            ):
-                table_id = f"{row.DATABASE_NAME}.{row.TABLE_NAME}"
-                if (
-                    table_id
-                    not in self.profile_metadata_info.dataset_name_to_storage_bytes
+        try:
+            with inspector.engine.connect() as conn:
+                # https://support.singlestore.com/hc/en-us/articles/360061597292-The-size-of-a-table-and-an-index
+                # data in memory
+                for row in conn.execute(
+                    "SELECT DATABASE_NAME, TABLE_NAME, SUM(MEMORY_USE) :> BIGINT AS MEMORY_USE FROM INFORMATION_SCHEMA.TABLE_STATISTICS GROUP BY 1, 2"
                 ):
+                    table_id = f"{row.DATABASE_NAME}.{row.TABLE_NAME}"
                     self.profile_metadata_info.dataset_name_to_storage_bytes[
                         table_id
-                    ] = 0
-                self.profile_metadata_info.dataset_name_to_storage_bytes[table_id] += (
-                    row.UNCOMPRESSED_SIZE
-                )
+                    ] = row.MEMORY_USE
+
+                # data on disk
+                for row in conn.execute(
+                    "SELECT DATABASE_NAME, TABLE_NAME, SUM(UNCOMPRESSED_SIZE) :> BIGINT AS UNCOMPRESSED_SIZE FROM INFORMATION_SCHEMA.COLUMNAR_SEGMENTS GROUP BY 1, 2"
+                ):
+                    table_id = f"{row.DATABASE_NAME}.{row.TABLE_NAME}"
+                    if (
+                        table_id
+                        not in self.profile_metadata_info.dataset_name_to_storage_bytes
+                    ):
+                        self.profile_metadata_info.dataset_name_to_storage_bytes[
+                            table_id
+                        ] = 0
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        table_id
+                    ] += row.UNCOMPRESSED_SIZE
+        except Exception as e:
+            self.report.warning(message="Failed to add profile metadata", exc=e)
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -132,38 +136,48 @@ class SingleStoreSource(TwoTierSQLAlchemySource):
         Get stored procedures for a specific schema.
         """
         base_procedures = []
-        with inspector.engine.connect() as conn:
-            procedures = conn.execute(
-                """
-                SELECT ROUTINE_NAME,
-                    ROUTINE_DEFINITION,
-                    CREATED,
-                    LAST_ALTERED,
-                    ROUTINE_COMMENT,
-                    EXTERNAL_LANGUAGE,
-                    ROUTINE_SCHEMA
-                FROM information_schema.ROUTINES
-                WHERE ROUTINE_TYPE = 'PROCEDURE'
-                AND ROUTINE_SCHEMA = %s
-                """,
-                (schema,),
+
+        try:
+            with inspector.engine.connect() as conn:
+                procedures = conn.execute(
+                    """
+                    SELECT ROUTINE_NAME,
+                        ROUTINE_DEFINITION,
+                        CREATED,
+                        LAST_ALTERED,
+                        ROUTINE_COMMENT,
+                        EXTERNAL_LANGUAGE,
+                        ROUTINE_SCHEMA
+                    FROM information_schema.ROUTINES
+                    WHERE ROUTINE_TYPE = 'PROCEDURE'
+                    AND ROUTINE_SCHEMA = %s
+                    """,
+                    (schema,),
+                )
+
+                procedure_rows = list(procedures)
+                for row in procedure_rows:
+                    base_procedures.append(
+                        BaseProcedure(
+                            name=row.ROUTINE_NAME,
+                            procedure_definition=row.ROUTINE_DEFINITION,
+                            created=row.CREATED,
+                            last_altered=row.LAST_ALTERED,
+                            comment=row.ROUTINE_COMMENT,
+                            argument_signature=None,
+                            return_type=None,
+                            extra_properties=None,
+                            language=row.EXTERNAL_LANGUAGE,
+                            default_db=row.ROUTINE_SCHEMA,
+                            default_schema=None,
+                        )
+                    )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get procedures for schema",
+                message="Please check permissions or set 'include_stored_procedures: false' to disable.",
+                context=f"{schema}",
+                exc=e,
             )
 
-            procedure_rows = list(procedures)
-            for row in procedure_rows:
-                base_procedures.append(
-                    BaseProcedure(
-                        name=row.ROUTINE_NAME,
-                        procedure_definition=row.ROUTINE_DEFINITION,
-                        created=row.CREATED,
-                        last_altered=row.LAST_ALTERED,
-                        comment=row.ROUTINE_COMMENT,
-                        argument_signature=None,
-                        return_type=None,
-                        extra_properties=None,
-                        language=row.EXTERNAL_LANGUAGE,
-                        default_db=row.ROUTINE_SCHEMA,
-                        default_schema=None,
-                    )
-                )
-            return base_procedures
+        return base_procedures
