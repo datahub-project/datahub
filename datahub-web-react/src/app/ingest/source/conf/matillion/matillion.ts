@@ -8,9 +8,12 @@ source:
     config:
         api_config:
             api_token: "\${MATILLION_API_TOKEN}"
-            base_url: "https://eu1.api.matillion.com/dpc"
+            region: US1  # or EU1
         env: "PROD"
         include_pipeline_executions: true
+        include_lineage: true
+        include_column_lineage: true
+        parse_sql_for_lineage: false
         extract_projects_to_containers: true
         stateful_ingestion:
             enabled: true

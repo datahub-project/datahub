@@ -4,6 +4,11 @@
  * Note: This file is intentionally duplicated in both V1 (ingest) and V2 (ingestV2) folders
  * to maintain backward compatibility during the UI transition period. Any changes should be
  * applied to both files until V1 is fully deprecated.
+ *
+ * IMPORTANT: For advanced lineage configuration (namespace_to_platform_instance mapping),
+ * users should use the YAML editor mode. This complex nested structure maps OpenLineage
+ * namespace URIs to DataHub platform instances and is critical for connecting lineage
+ * to existing datasets in DataHub. See the example recipes for configuration details.
  */
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
@@ -78,6 +83,59 @@ export const MATILLION_EXTRACT_CONTAINERS: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.extract_projects_to_containers',
     rules: null,
+};
+
+export const MATILLION_INCLUDE_LINEAGE: RecipeField = {
+    name: 'include_lineage',
+    label: 'Include Lineage',
+    tooltip:
+        'Extract dataset lineage from OpenLineage events. Connects Matillion pipelines to upstream and downstream datasets.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_lineage',
+    rules: null,
+    section: 'Lineage',
+};
+
+export const MATILLION_INCLUDE_COLUMN_LINEAGE: RecipeField = {
+    name: 'include_column_lineage',
+    label: 'Include Column-Level Lineage',
+    tooltip: 'Extract column-level lineage from OpenLineage events. Requires include_lineage to be enabled.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_column_lineage',
+    rules: null,
+    section: 'Lineage',
+};
+
+export const MATILLION_PARSE_SQL: RecipeField = {
+    name: 'parse_sql_for_lineage',
+    label: 'Parse SQL for Lineage',
+    tooltip:
+        'Parse SQL queries to infer additional column-level lineage. Requires a DataHub graph connection and include_lineage enabled.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.parse_sql_for_lineage',
+    rules: null,
+    section: 'Lineage',
+};
+
+export const MATILLION_LINEAGE_START_DAYS: RecipeField = {
+    name: 'lineage_start_days_ago',
+    label: 'Lineage Start Days Ago',
+    tooltip: 'Extract lineage from OpenLineage events generated in the last N days. Default is 7 days.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.lineage_start_days_ago',
+    placeholder: '7',
+    rules: null,
+    section: 'Lineage',
+};
+
+export const MATILLION_INCLUDE_STREAMING: RecipeField = {
+    name: 'include_streaming_pipelines',
+    label: 'Include Streaming Pipelines',
+    tooltip: 'Include streaming pipeline metadata (experimental feature).',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_streaming_pipelines',
+    rules: null,
+    section: 'Advanced',
 };
 
 export const MATILLION_PIPELINE_ALLOW: RecipeField = {
@@ -157,6 +215,11 @@ const allFields: RecipeField[] = [
     MATILLION_INCLUDE_EXECUTIONS,
     MATILLION_MAX_EXECUTIONS,
     MATILLION_EXTRACT_CONTAINERS,
+    MATILLION_INCLUDE_LINEAGE,
+    MATILLION_INCLUDE_COLUMN_LINEAGE,
+    MATILLION_PARSE_SQL,
+    MATILLION_LINEAGE_START_DAYS,
+    MATILLION_INCLUDE_STREAMING,
     MATILLION_PIPELINE_ALLOW,
     MATILLION_PIPELINE_DENY,
     MATILLION_PROJECT_ALLOW,
