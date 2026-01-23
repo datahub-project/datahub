@@ -35,17 +35,16 @@ def test_api_client_initialization(api_client):
 
 def test_get_projects(api_client: MatillionAPIClient, requests_mock: Mocker) -> None:
     mock_response = {
-        "content": [
+        "results": [
             {
                 "id": "proj-1",
                 "name": "Test Project",
                 "description": "A test project",
             }
         ],
-        "totalElements": 1,
-        "number": 0,
+        "total": 1,
+        "page": 0,
         "size": 25,
-        "totalPages": 1,
     }
 
     requests_mock.get(
@@ -63,29 +62,25 @@ def test_get_projects(api_client: MatillionAPIClient, requests_mock: Mocker) -> 
 
 def test_get_pipelines(api_client: MatillionAPIClient, requests_mock: Mocker) -> None:
     mock_response = {
-        "content": [
+        "results": [
             {
-                "id": "pipe-1",
                 "name": "Test Pipeline",
-                "projectId": "proj-1",
-                "type": "orchestration",
+                "publishedTime": "2024-01-01T00:00:00Z",
             }
         ],
-        "totalElements": 1,
-        "number": 0,
+        "total": 1,
+        "page": 0,
         "size": 25,
-        "totalPages": 1,
     }
 
     requests_mock.get(
-        "https://eu1.api.matillion.com/dpc/v1/pipelines?projectId=proj-1&page=0&size=25",
+        "https://eu1.api.matillion.com/dpc/v1/projects/proj-1/published-pipelines?environmentName=Production&page=0&size=25",
         json=mock_response,
     )
 
-    pipelines = api_client.get_pipelines("proj-1")
+    pipelines = api_client.get_pipelines("proj-1", "Production")
 
     assert len(pipelines) == 1
-    assert pipelines[0].id == "pipe-1"
     assert pipelines[0].name == "Test Pipeline"
     assert isinstance(pipelines[0], MatillionPipeline)
 

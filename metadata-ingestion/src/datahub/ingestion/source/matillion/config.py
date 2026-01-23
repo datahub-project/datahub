@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator
 
@@ -10,6 +10,8 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.matillion.constants import (
     MATILLION_EU1_URL,
     MATILLION_US1_URL,
+    MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD,
+    MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -23,19 +25,46 @@ logger = logging.getLogger(__name__)
 
 
 class MatillionRegion(ConfigEnum):
-    """Matillion Data Productivity Cloud regions"""
-
     EU1 = "EU1"
     US1 = "US1"
 
     def get_url(self) -> str:
-        """Get the API base URL for this region"""
         if self == MatillionRegion.EU1:
             return MATILLION_EU1_URL
         elif self == MatillionRegion.US1:
             return MATILLION_US1_URL
         else:
             raise ValueError(f"Unknown region: {self}")
+
+
+class NamespacePlatformMapping(ConfigModel):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="DataHub platform instance to use for datasets from this namespace",
+    )
+
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="Environment (PROD, DEV, etc.) to use for datasets from this namespace",
+    )
+
+    database: Optional[str] = Field(
+        default=None,
+        description="Default database name to prepend if dataset name doesn't include database context",
+    )
+
+    default_schema: Optional[str] = Field(
+        default=None,
+        description="Default schema name to prepend if dataset name doesn't include schema context",
+        alias="schema",
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description=(
+            "Whether to convert dataset URNs to lowercase for this namespace."
+        ),
+    )
 
 
 class MatillionAPIConfig(ConfigModel):
@@ -66,7 +95,6 @@ class MatillionAPIConfig(ConfigModel):
         return v
 
     def get_base_url(self) -> str:
-        """Get the API base URL - uses custom_base_url if set, otherwise region"""
         if self.custom_base_url:
             return self.custom_base_url
         return self.region.get_url()
@@ -76,10 +104,10 @@ class MatillionAPIConfig(ConfigModel):
     def validate_request_timeout_sec(cls, v: int) -> int:
         if v <= 0:
             raise ValueError("request_timeout_sec must be positive")
-        if v > 300:
+        if v > MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD:
             logger.warning(
                 f"request_timeout_sec is set to {v} seconds, which is quite high. "
-                f"Consider a value below 300 seconds to prevent long-running API calls."
+                f"Consider a value below {MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD} seconds to prevent long-running API calls."
             )
         return v
 
@@ -89,7 +117,6 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     environments_scanned: int = 0
     pipelines_scanned: int = 0
     pipelines_emitted: int = 0
-    connections_scanned: int = 0
     agents_scanned: int = 0
     executions_scanned: int = 0
     schedules_scanned: int = 0
@@ -102,9 +129,10 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     lineage_emitted: int = 0
     streaming_pipelines_scanned: int = 0
     streaming_pipelines_emitted: int = 0
-    audit_events_emitted: int = 0
-    consumption_metrics_emitted: int = 0
-    connection_datasets_emitted: int = 0
+    sql_parsing_attempts: int = 0
+    sql_parsing_successes: int = 0
+    sql_parsing_failures: int = 0
+    schemas_preloaded: int = 0
 
     def report_projects_scanned(self, count: int = 1) -> None:
         self.projects_scanned += count
@@ -135,15 +163,6 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
 
     def report_executions_scanned(self, count: int = 1) -> None:
         self.executions_scanned += count
-
-    def report_audit_events_emitted(self, count: int = 1) -> None:
-        self.audit_events_emitted += count
-
-    def report_consumption_metrics_emitted(self, count: int = 1) -> None:
-        self.consumption_metrics_emitted += count
-
-    def report_connection_datasets_emitted(self, count: int = 1) -> None:
-        self.connection_datasets_emitted += count
 
 
 class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -182,6 +201,41 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         "Requires include_lineage to be True. Provides fine-grained lineage between specific columns.",
     )
 
+    parse_sql_for_lineage: bool = Field(
+        default=True,
+        description="Whether to parse SQL from OpenLineage events to extract additional column-level lineage. "
+        "Requires DataHub graph access. When enabled, SQL queries are parsed to infer lineage beyond what's "
+        "explicitly provided in OpenLineage column mappings.",
+    )
+
+    lineage_start_days_ago: int = Field(
+        default=7,
+        description=(
+            "Number of days in the past to start fetching OpenLineage events. "
+            "Events from this many days ago until now will be fetched."
+        ),
+    )
+
+    namespace_to_platform_instance: Optional[Dict[str, NamespacePlatformMapping]] = (
+        Field(
+            default=None,
+            description=(
+                "Maps OpenLineage namespace prefixes to platform instance/environment using longest prefix matching. "
+                "Unmapped namespaces extract platform from URI with defaults (env=PROD). "
+                'Example: {"snowflake://prod-account": {"platform_instance": "snowflake_prod", "env": "PROD"}}'
+            ),
+        )
+    )
+
+    lineage_platform_mapping: Optional[Dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Override platform name mappings from OpenLineage namespaces to DataHub platforms. "
+            "Only needed for non-standard platforms. See documentation for list of pre-mapped platforms. "
+            'Example: {"customdb": "postgres", "mywarehouse": "snowflake"}'
+        ),
+    )
+
     include_streaming_pipelines: bool = Field(
         default=True,
         description="Whether to ingest Matillion streaming pipelines (CDC pipelines). "
@@ -209,21 +263,6 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         "When enabled, pipelines are organized under project containers, providing hierarchical navigation.",
     )
 
-    include_audit_events: bool = Field(
-        default=True,
-        description="Whether to fetch and add audit event metadata (who modified pipelines, when) as custom properties.",
-    )
-
-    include_consumption_metrics: bool = Field(
-        default=False,
-        description="Whether to fetch and add Matillion consumption/credit usage metrics as custom properties.",
-    )
-
-    emit_connection_datasets: bool = Field(
-        default=True,
-        description="Whether to emit Matillion connections as dataset entities and create relationships to pipelines.",
-    )
-
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion configuration."
     )
@@ -238,10 +277,10 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
     def validate_max_executions(cls, v: int) -> int:
         if v < 0:
             raise ValueError("max_executions_per_pipeline must be non-negative")
-        if v > 100:
+        if v > MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD:
             logger.warning(
                 f"max_executions_per_pipeline is set to {v}, which is quite high. "
                 f"This may result in many API calls and slower ingestion. "
-                f"Consider using a value below 100."
+                f"Consider using a value below {MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD}."
             )
         return v

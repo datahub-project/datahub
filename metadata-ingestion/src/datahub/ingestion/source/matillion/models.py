@@ -1,208 +1,159 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from datahub.ingestion.source.matillion.constants import TWO_TIER_PLATFORMS
+
+
+class MatillionPlatformInstanceInfo(BaseModel):
+    platform_instance: Optional[str] = None
+    env: str = "PROD"
+    database: Optional[str] = None
+    default_schema: Optional[str] = None
+    convert_urns_to_lowercase: bool = False
 
 
 class MatillionProject(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-    updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
 
     class Config:
         populate_by_name = True
 
 
 class MatillionEnvironment(BaseModel):
-    id: str
     name: str
-    project_id: str = Field(alias="projectId")
-    description: Optional[str] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-
-    class Config:
-        populate_by_name = True
-
-
-class MatillionAgent(BaseModel):
-    id: str
-    name: str
-    agent_type: Optional[str] = Field(default=None, alias="agentType")
-    status: Optional[str] = None
-    version: Optional[str] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-
-    class Config:
-        populate_by_name = True
-
-
-class MatillionConnection(BaseModel):
-    id: str
-    name: str
-    connection_type: Optional[str] = Field(default=None, alias="type")
-    project_id: Optional[str] = Field(default=None, alias="projectId")
-    environment_id: Optional[str] = Field(default=None, alias="environmentId")
-    description: Optional[str] = None
-    configuration: Optional[Dict[str, Any]] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-    updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
+    default_agent_id: Optional[str] = Field(default=None, alias="defaultAgentId")
+    default_agent_name: Optional[str] = Field(default=None, alias="defaultAgentName")
 
     class Config:
         populate_by_name = True
 
 
 class MatillionPipeline(BaseModel):
-    id: str
     name: str
-    project_id: str = Field(alias="projectId")
-    environment_id: Optional[str] = Field(default=None, alias="environmentId")
-    pipeline_type: Optional[str] = Field(default=None, alias="type")
-    description: Optional[str] = None
-    version: Optional[str] = None
-    branch: Optional[str] = None
-    repository_id: Optional[str] = Field(default=None, alias="repositoryId")
-    configuration: Optional[Dict[str, Any]] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-    updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
-    created_by: Optional[str] = Field(default=None, alias="createdBy")
-    updated_by: Optional[str] = Field(default=None, alias="updatedBy")
+    published_time: Optional[datetime] = Field(default=None, alias="publishedTime")
 
     class Config:
         populate_by_name = True
 
 
 class MatillionPipelineExecution(BaseModel):
-    id: str
-    pipeline_id: str = Field(alias="pipelineId")
+    pipeline_execution_id: str = Field(alias="pipelineExecutionId")
+    pipeline_name: str = Field(alias="pipelineName")
     status: str
     started_at: Optional[datetime] = Field(default=None, alias="startedAt")
-    completed_at: Optional[datetime] = Field(default=None, alias="completedAt")
-    duration_ms: Optional[int] = Field(default=None, alias="durationMs")
-    triggered_by: Optional[str] = Field(default=None, alias="triggeredBy")
-    trigger_type: Optional[str] = Field(default=None, alias="triggerType")
-    agent_id: Optional[str] = Field(default=None, alias="agentId")
-    error_message: Optional[str] = Field(default=None, alias="errorMessage")
-    rows_processed: Optional[int] = Field(default=None, alias="rowsProcessed")
+    finished_at: Optional[datetime] = Field(default=None, alias="finishedAt")
+    environment_name: Optional[str] = Field(default=None, alias="environmentName")
+    project_id: Optional[str] = Field(default=None, alias="projectId")
+    pipeline_type: Optional[str] = Field(default=None, alias="pipelineType")
+    trigger: Optional[str] = None
+    schedule_id: Optional[str] = Field(default=None, alias="scheduleId")
+    message: Optional[str] = None
 
     class Config:
         populate_by_name = True
 
 
 class MatillionSchedule(BaseModel):
-    id: str
+    schedule_id: Optional[str] = Field(default=None, alias="scheduleId")
     name: str
-    pipeline_id: str = Field(alias="pipelineId")
+    pipeline_name: str = Field(alias="pipelineName")
     cron_expression: Optional[str] = Field(default=None, alias="cronExpression")
-    enabled: bool = True
-    description: Optional[str] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-    updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
-
-    class Config:
-        populate_by_name = True
-
-
-class MatillionRepository(BaseModel):
-    id: str
-    name: str
-    project_id: str = Field(alias="projectId")
-    repository_url: Optional[str] = Field(default=None, alias="url")
-    branch: Optional[str] = None
-    provider: Optional[str] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
+    schedule_enabled: Optional[bool] = Field(default=None, alias="scheduleEnabled")
+    environment_name: Optional[str] = Field(default=None, alias="environmentName")
 
     class Config:
         populate_by_name = True
 
 
 class MatillionStreamingPipeline(BaseModel):
-    id: str
+    streaming_pipeline_id: Optional[str] = Field(
+        default=None, alias="streamingPipelineId"
+    )
     name: str
     project_id: str = Field(alias="projectId")
-    environment_id: str = Field(alias="environmentId")
-    description: Optional[str] = None
-    source_type: Optional[str] = Field(default=None, alias="sourceType")
-    target_type: Optional[str] = Field(default=None, alias="targetType")
-    source_connection_id: Optional[str] = Field(
-        default=None, alias="sourceConnectionId"
-    )
-    target_connection_id: Optional[str] = Field(
-        default=None, alias="targetConnectionId"
-    )
-    status: Optional[str] = None
     agent_id: Optional[str] = Field(default=None, alias="agentId")
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-    updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
 
     class Config:
         populate_by_name = True
 
 
-class MatillionLineageNode(BaseModel):
-    id: str
+class PaginationParams(BaseModel):
+    page: int = Field(default=0, ge=0)
+    size: int = Field(default=25, ge=1, le=100)
+
+    @field_validator("size")
+    @classmethod
+    def validate_size(cls, v: int) -> int:
+        if v < 1 or v > 100:
+            raise ValueError("size must be between 1 and 100")
+        return v
+
+
+class TokenPaginationParams(BaseModel):
+    limit: int = Field(default=25, ge=1, le=100)
+    pagination_token: Optional[str] = Field(default=None)
+
+    @field_validator("limit")
+    @classmethod
+    def validate_limit(cls, v: int) -> int:
+        if v < 1 or v > 100:
+            raise ValueError("limit must be between 1 and 100")
+        return v
+
+
+class MatillionDatasetInfo(BaseModel):
+    platform: str
     name: str
-    node_type: str = Field(alias="type")
-    platform: Optional[str] = None
-    schema_name: Optional[str] = Field(default=None, alias="schema")
-    table_name: Optional[str] = Field(default=None, alias="table")
-    column_name: Optional[str] = Field(default=None, alias="column")
+    namespace: str
+    platform_instance: Optional[str] = None
+    env: str = Field(default="PROD")
 
-    class Config:
-        populate_by_name = True
+    @staticmethod
+    def normalize_name(
+        name: str,
+        platform: str,
+        database: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> str:
+        parts = name.split(".")
+        is_two_tier = platform in TWO_TIER_PLATFORMS
 
+        # If we have 3+ parts, assume it's fully qualified
+        if len(parts) >= 3:
+            return name
 
-class MatillionLineageEdge(BaseModel):
-    source_id: str = Field(alias="sourceId")
-    target_id: str = Field(alias="targetId")
-    edge_type: Optional[str] = Field(default=None, alias="type")
+        # If we have 2 parts (e.g., "schema.table" or "database.table")
+        if len(parts) == 2:
+            if is_two_tier:
+                # 2-tier platforms: schema.table is complete, don't add database
+                return name
+            else:
+                # 3-tier platforms: if we have a database, prepend it
+                if database:
+                    return f"{database}.{name}"
+                return name
 
-    class Config:
-        populate_by_name = True
+        # Single part name - prepend based on platform type and config
+        if is_two_tier:
+            # 2-tier: only prepend schema (or database, which acts as schema)
+            return f"{schema or database}.{name}" if (schema or database) else name
+        else:
+            # 3-tier: build database.schema.table
+            if database and schema:
+                return f"{database}.{schema}.{name}"
+            elif schema:
+                return f"{schema}.{name}"
+            elif database:
+                return f"{database}.{name}"
 
-
-class MatillionLineageGraph(BaseModel):
-    pipeline_id: str = Field(alias="pipelineId")
-    nodes: List[MatillionLineageNode] = Field(default_factory=list)
-    edges: List[MatillionLineageEdge] = Field(default_factory=list)
-
-    class Config:
-        populate_by_name = True
-
-
-class MatillionConsumption(BaseModel):
-    project_id: str = Field(alias="projectId")
-    environment_id: Optional[str] = Field(default=None, alias="environmentId")
-    pipeline_id: Optional[str] = Field(default=None, alias="pipelineId")
-    credits_consumed: Optional[float] = Field(default=None, alias="creditsConsumed")
-    period_start: Optional[datetime] = Field(default=None, alias="periodStart")
-    period_end: Optional[datetime] = Field(default=None, alias="periodEnd")
-
-    class Config:
-        populate_by_name = True
-
-
-class MatillionAuditEvent(BaseModel):
-    id: str
-    event_type: str = Field(alias="eventType")
-    resource_type: Optional[str] = Field(default=None, alias="resourceType")
-    resource_id: Optional[str] = Field(default=None, alias="resourceId")
-    user_id: Optional[str] = Field(default=None, alias="userId")
-    timestamp: Optional[datetime] = None
-    details: Optional[Dict[str, Any]] = None
-
-    class Config:
-        populate_by_name = True
+        return name
 
 
-class MatillionConnector(BaseModel):
-    id: str
-    name: str
-    connector_type: str = Field(alias="type")
-    category: Optional[str] = None
-    description: Optional[str] = None
-    is_available: Optional[bool] = Field(default=None, alias="isAvailable")
-
-    class Config:
-        populate_by_name = True
+class MatillionColumnLineageInfo(BaseModel):
+    downstream_field: str
+    upstream_datasets: List[MatillionDatasetInfo]
+    upstream_fields: List[str]

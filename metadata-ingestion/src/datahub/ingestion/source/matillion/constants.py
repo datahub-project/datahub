@@ -1,36 +1,12 @@
 MATILLION_PLATFORM = "matillion"
 
-# Container subtypes are now defined in datahub.ingestion.source.common.subtypes:
-# - DatasetContainerSubTypes.MATILLION_PROJECT
-# - DatasetContainerSubTypes.MATILLION_ENVIRONMENT
-
 API_ENDPOINT_PROJECTS = "v1/projects"
-API_ENDPOINT_ENVIRONMENTS = "v1/environments"
-API_ENDPOINT_PIPELINES = "v1/pipelines"
-API_ENDPOINT_PIPELINE_EXECUTIONS = "v1/pipelines/executions"
-API_ENDPOINT_CONNECTIONS = "v1/connections"
-API_ENDPOINT_AGENTS = "v1/agents"
-API_ENDPOINT_SCHEDULES = "v1/schedules"
-API_ENDPOINT_REPOSITORIES = "v1/repositories"
-API_ENDPOINT_LINEAGE = "v1/data-lineage"
-API_ENDPOINT_STREAMING_PIPELINES = "v1/streaming-pipelines"
-API_ENDPOINT_CONSUMPTION = "v1/consumption"
-API_ENDPOINT_AUDIT_EVENTS = "v1/audit-events"
-API_ENDPOINT_CONNECTORS = "v1/connectors"
-
-ENTITY_NAME_PROJECT = "project"
-ENTITY_NAME_ENVIRONMENT = "environment"
-ENTITY_NAME_PIPELINE = "pipeline"
-ENTITY_NAME_PIPELINE_EXECUTION = "pipeline execution"
-ENTITY_NAME_CONNECTION = "connection"
-ENTITY_NAME_AGENT = "agent"
-ENTITY_NAME_SCHEDULE = "schedule"
-ENTITY_NAME_REPOSITORY = "repository"
-ENTITY_NAME_STREAMING_PIPELINE = "streaming pipeline"
-ENTITY_NAME_LINEAGE = "lineage data"
-ENTITY_NAME_CONSUMPTION = "consumption data"
-ENTITY_NAME_AUDIT_EVENT = "audit event"
-ENTITY_NAME_CONNECTOR = "connector"
+API_ENDPOINT_ENVIRONMENTS = "v1/projects/{projectId}/environments"
+API_ENDPOINT_PIPELINES = "v1/projects/{projectId}/published-pipelines"
+API_ENDPOINT_PIPELINE_EXECUTIONS = "v1/pipeline-executions"
+API_ENDPOINT_SCHEDULES = "v1/projects/{projectId}/schedules"
+API_ENDPOINT_STREAMING_PIPELINES = "v1/projects/{projectId}/streaming-pipelines"
+API_ENDPOINT_LINEAGE_EVENTS = "v1/lineage/events"
 
 HTTP_METHOD_GET = "GET"
 HTTP_PROTOCOL_HTTP = "http://"
@@ -44,16 +20,67 @@ HTTP_RETRY_BACKOFF_FACTOR = 1
 HTTP_RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 HTTP_RETRY_ALLOWED_METHODS = [HTTP_METHOD_GET]
 
-API_PAGINATION_DEFAULT_SIZE = 25
-API_PAGINATION_DEFAULT_PAGE = 0
-
-API_RESPONSE_FIELD_CONTENT = "content"
-API_RESPONSE_FIELD_TOTAL_ELEMENTS = "totalElements"
-API_RESPONSE_FIELD_NUMBER = "number"
+API_RESPONSE_FIELD_RESULTS = "results"
+API_RESPONSE_FIELD_TOTAL = "total"
+API_RESPONSE_FIELD_PAGE = "page"
 API_RESPONSE_FIELD_SIZE = "size"
 
 MATILLION_EU1_URL = "https://eu1.api.matillion.com/dpc"
 MATILLION_US1_URL = "https://us1.api.matillion.com/dpc"
 
+API_PATH_SUFFIX = "/dpc"
+UI_PATH_PIPELINES = "pipelines"
+UI_PATH_STREAMING_PIPELINES = "streaming-pipelines"
+
 DEFAULT_REQUEST_TIMEOUT_SEC = 30
 MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD = 300
+MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD = 100
+
+# Platform-related constants
+# Maps platform identifiers from various sources (connection types, OpenLineage namespaces)
+# to DataHub platform names
+PLATFORM_MAPPING = {
+    "snowflake": "snowflake",
+    "bigquery": "bigquery",
+    "redshift": "redshift",
+    "postgres": "postgres",
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "sqlserver": "mssql",
+    "mssql": "mssql",
+    "oracle": "oracle",
+    "s3": "s3",
+    "azure": "abs",
+    "gcs": "gcs",
+    "databricks": "databricks",
+    "db2": "db2",
+    "teradata": "teradata",
+    "sap-hana": "sap-hana",
+    "saphana": "sap-hana",
+    "mongodb": "mongodb",
+    "mongo": "mongodb",
+    "cassandra": "cassandra",
+    "elasticsearch": "elasticsearch",
+    "elastic": "elasticsearch",
+    "kafka": "kafka",
+    "delta-lake": "delta-lake",
+    "delta": "delta-lake",
+    "deltalake": "delta-lake",
+    "dremio": "dremio",
+    "firebolt": "firebolt",
+}
+
+# Platforms that use 2-tier naming (schema.table) vs 3-tier (database.schema.table)
+# Based on DataHub's TwoTierSQLAlchemySource pattern
+TWO_TIER_PLATFORMS = {
+    "mysql",
+    "hive",
+    "teradata",
+    "clickhouse",
+    "glue",
+    "iceberg",
+}
+
+# Platforms that require lowercase field names for schema field URNs
+# to match DataHub connector behavior (e.g., Snowflake's convert_urns_to_lowercase)
+LOWERCASE_FIELD_PLATFORMS = {"snowflake"}

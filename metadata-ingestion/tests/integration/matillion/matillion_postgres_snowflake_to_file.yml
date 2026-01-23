@@ -1,0 +1,26 @@
+source:
+  type: matillion
+  config:
+    api_config:
+      api_token: test_token
+      custom_base_url: http://localhost:8080/api
+    include_pipeline_executions: false
+    include_lineage: true
+    parse_sql_for_lineage: true
+    include_streaming_pipelines: false
+    extract_projects_to_containers: true
+    namespace_to_platform_instance:
+      postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432:
+        platform_instance: postgres_prod
+        env: PROD
+        database: postgres
+        schema: public
+      snowflake://prod-account.snowflakecomputing.com:
+        platform_instance: snowflake_prod
+        env: PROD
+        convert_urns_to_lowercase: true
+
+sink:
+  type: file
+  config:
+    filename: ./matillion_postgres_snowflake_mces.json

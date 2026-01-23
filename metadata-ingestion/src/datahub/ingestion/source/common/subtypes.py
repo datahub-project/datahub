@@ -94,6 +94,7 @@ class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    MATILLION_PIPELINE = "Matillion Pipeline"
 
 
 class BIAssetSubTypes(StrEnum):

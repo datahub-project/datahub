@@ -2,15 +2,17 @@ import logging
 from typing import Optional
 
 from datahub.emitter.mce_builder import (
+    datahub_guid,
     make_container_urn,
     make_data_flow_urn,
+    make_data_job_urn_with_flow,
     make_dataplatform_instance_urn,
-    make_dataset_urn,
 )
 from datahub.ingestion.source.matillion.config import MatillionSourceConfig
-from datahub.ingestion.source.matillion.constants import MATILLION_PLATFORM
+from datahub.ingestion.source.matillion.constants import (
+    MATILLION_PLATFORM,
+)
 from datahub.ingestion.source.matillion.models import (
-    MatillionConnection,
     MatillionEnvironment,
     MatillionPipeline,
     MatillionProject,
@@ -32,69 +34,49 @@ class MatillionUrnBuilder:
         self, environment: MatillionEnvironment, project: MatillionProject
     ) -> str:
         return make_container_urn(
-            guid=f"{project.id}.{environment.id}",
+            guid=f"{project.id}.{environment.name}",
         )
 
     def make_pipeline_urn(
         self, pipeline: MatillionPipeline, project: MatillionProject
     ) -> str:
+        # Use GUID to ensure URN safety with special characters in pipeline names
+        flow_id = datahub_guid(
+            {
+                "platform": MATILLION_PLATFORM,
+                "instance": self.config.platform_instance,
+                "env": self.config.env,
+                "project_id": project.id,
+                "pipeline_name": pipeline.name,
+            }
+        )
         return make_data_flow_urn(
             orchestrator=MATILLION_PLATFORM,
-            flow_id=pipeline.id,
+            flow_id=flow_id,
             cluster=self.config.env,
             platform_instance=self.config.platform_instance or project.name,
         )
 
-    def make_connection_dataset_urn(
-        self, connection: MatillionConnection
-    ) -> Optional[str]:
-        if not connection.name:
-            return None
+    def make_data_job_urn(
+        self, pipeline: MatillionPipeline, project: MatillionProject
+    ) -> str:
+        flow_urn = self.make_pipeline_urn(pipeline, project)
 
-        platform = self._get_platform_for_connection(connection)
-        dataset_name = connection.name
-
-        return make_dataset_urn(
-            platform=platform,
-            name=dataset_name,
-            env=self.config.env,
+        # Use GUID to ensure URN safety with special characters in pipeline names
+        # The job_id should be unique within the flow, but we can use the pipeline name
+        # since there's a 1:1 relationship between DataFlow and DataJob for Matillion
+        job_id = datahub_guid(
+            {
+                "platform": MATILLION_PLATFORM,
+                "instance": self.config.platform_instance,
+                "env": self.config.env,
+                "project_id": project.id,
+                "pipeline_name": pipeline.name,
+                "entity_type": "job",  # Distinguish from flow_id
+            }
         )
 
-    def _get_platform_for_connection(self, connection: MatillionConnection) -> str:
-        connection_type = connection.connection_type or "generic"
-
-        platform_mapping = {
-            "snowflake": "snowflake",
-            "bigquery": "bigquery",
-            "redshift": "redshift",
-            "postgres": "postgres",
-            "postgresql": "postgres",
-            "mysql": "mysql",
-            "sqlserver": "mssql",
-            "mssql": "mssql",
-            "oracle": "oracle",
-            "s3": "s3",
-            "azure": "abs",
-            "gcs": "gcs",
-            "databricks": "databricks",
-            "db2": "db2",
-            "teradata": "teradata",
-            "sap-hana": "sap-hana",
-            "saphana": "sap-hana",
-            "mongodb": "mongodb",
-            "mongo": "mongodb",
-            "cassandra": "cassandra",
-            "elasticsearch": "elasticsearch",
-            "elastic": "elasticsearch",
-            "kafka": "kafka",
-            "delta-lake": "delta-lake",
-            "delta": "delta-lake",
-            "deltalake": "delta-lake",
-            "dremio": "dremio",
-            "firebolt": "firebolt",
-        }
-
-        return platform_mapping.get(connection_type.lower(), "external")
+        return make_data_job_urn_with_flow(flow_urn, job_id)
 
     def make_platform_instance_urn(self) -> Optional[str]:
         if self.config.platform_instance:

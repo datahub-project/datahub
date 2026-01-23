@@ -66,12 +66,9 @@ def test_make_streaming_pipeline_urn(
     streaming_handler: MatillionStreamingHandler,
 ) -> None:
     streaming_pipeline = MatillionStreamingPipeline(
-        id="sp-123",
+        streaming_pipeline_id="sp-123",
         name="Test Streaming Pipeline",
         project_id="proj-1",
-        environment_id="env-1",
-        source_type="postgres",
-        target_type="snowflake",
     )
 
     project = MatillionProject(
@@ -81,8 +78,9 @@ def test_make_streaming_pipeline_urn(
 
     urn = streaming_handler._make_streaming_pipeline_urn(streaming_pipeline, project)
 
-    assert "streaming.sp-123" in urn
+    assert "urn:li:dataFlow:" in urn
     assert "matillion" in urn
+    # URN uses GUID hash for safety, not the streaming pipeline ID directly
 
 
 def test_emit_streaming_pipeline_basic(

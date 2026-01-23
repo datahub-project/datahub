@@ -44,7 +44,7 @@ def test_source_initialization(
     assert source.api_client is not None
     assert source.urn_builder is not None
     assert source.container_handler is not None
-    assert source.lineage_handler is not None
+    assert source.openlineage_parser is not None
     assert source.streaming_handler is not None
 
 
@@ -105,14 +105,11 @@ def test_get_workunits_internal_lineage_error(
 
     mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
     mock_environments = [
-        MatillionEnvironment(id="env-1", name="Production", project_id="proj-1")
+        MatillionEnvironment(name="Production", default_agent_id="agent-1")
     ]
     mock_pipelines = [
         MatillionPipeline(
-            id="pipe-1",
             name="Test Pipeline",
-            project_id="proj-1",
-            pipeline_type="orchestration",
         )
     ]
 
@@ -121,19 +118,10 @@ def test_get_workunits_internal_lineage_error(
         patch.object(
             source.api_client, "get_environments", return_value=mock_environments
         ),
-        patch.object(source.api_client, "get_connections", return_value=[]),
         patch.object(source.api_client, "get_pipelines", return_value=mock_pipelines),
-        patch.object(
-            source.api_client,
-            "get_pipeline_lineage",
-            side_effect=Exception("Lineage API error"),
-        ),
         patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
         patch.object(source.api_client, "get_pipeline_executions", return_value=[]),
         patch.object(source.api_client, "get_schedules", return_value=[]),
-        patch.object(source.api_client, "get_repository_by_id", return_value=None),
-        patch.object(source.api_client, "get_audit_events", return_value=[]),
-        patch.object(source.api_client, "get_consumption", return_value=[]),
     ):
         workunits = list(source.get_workunits_internal())
 
@@ -210,23 +198,20 @@ def test_execution_workunits_with_no_timestamps(
 
     mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
     mock_environments = [
-        MatillionEnvironment(id="env-1", name="Production", project_id="proj-1")
+        MatillionEnvironment(name="Production", default_agent_id="agent-1")
     ]
     mock_pipelines = [
         MatillionPipeline(
-            id="pipe-1",
             name="Test Pipeline",
-            project_id="proj-1",
-            pipeline_type="orchestration",
         )
     ]
     mock_executions = [
         MatillionPipelineExecution(
-            id="exec-1",
-            pipeline_id="pipe-1",
-            status="success",
+            pipeline_execution_id="exec-1",
+            pipeline_name="Test Pipeline",
+            status="SUCCESS",
             started_at=None,
-            completed_at=None,
+            finished_at=None,
         )
     ]
 
@@ -235,16 +220,12 @@ def test_execution_workunits_with_no_timestamps(
         patch.object(
             source.api_client, "get_environments", return_value=mock_environments
         ),
-        patch.object(source.api_client, "get_connections", return_value=[]),
         patch.object(source.api_client, "get_pipelines", return_value=mock_pipelines),
         patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
         patch.object(
             source.api_client, "get_pipeline_executions", return_value=mock_executions
         ),
         patch.object(source.api_client, "get_schedules", return_value=[]),
-        patch.object(source.api_client, "get_repository_by_id", return_value=None),
-        patch.object(source.api_client, "get_audit_events", return_value=[]),
-        patch.object(source.api_client, "get_consumption", return_value=[]),
     ):
         workunits = list(source.get_workunits_internal())
 

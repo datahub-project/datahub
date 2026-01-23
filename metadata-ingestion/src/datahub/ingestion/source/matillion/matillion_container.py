@@ -27,7 +27,6 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
     SubTypesClass,
-    TimeStampClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,7 +71,7 @@ class MatillionContainerHandler:
                 "instance": self.config.platform_instance,
                 "env": self.config.env,
                 "project_id": project.id,
-                "environment_id": environment.id,
+                "environment_name": environment.name,
             }
         )
         return make_container_urn(guid)
@@ -94,12 +93,6 @@ class MatillionContainerHandler:
             },
         )
 
-        if project.created_at:
-            container_properties.created = TimeStampClass(
-                time=int(project.created_at.timestamp() * 1000),
-                actor="urn:li:corpuser:datahub",
-            )
-
         container = ContainerClass(container=container_urn)
 
         yield MetadataChangeProposalWrapper(
@@ -112,10 +105,11 @@ class MatillionContainerHandler:
             aspect=container,
         ).as_workunit()
 
+        platform_urn = make_data_platform_urn(MATILLION_PLATFORM)
         browse_path = BrowsePathsV2Class(
             path=[
-                BrowsePathEntryClass(id=make_data_platform_urn(MATILLION_PLATFORM)),
-                BrowsePathEntryClass(id=container_urn),
+                BrowsePathEntryClass(id=platform_urn, urn=platform_urn),
+                BrowsePathEntryClass(id=container_urn, urn=container_urn),
             ]
         )
 
@@ -151,19 +145,12 @@ class MatillionContainerHandler:
 
         container_properties = ContainerPropertiesClass(
             name=environment.name,
-            description=environment.description,
             customProperties={
-                "environment_id": environment.id,
+                "environment_name": environment.name,
                 "project_id": project.id,
                 "platform": MATILLION_PLATFORM,
             },
         )
-
-        if environment.created_at:
-            container_properties.created = TimeStampClass(
-                time=int(environment.created_at.timestamp() * 1000),
-                actor="urn:li:corpuser:datahub",
-            )
 
         container = ContainerClass(container=project_container_urn)
 
@@ -177,11 +164,14 @@ class MatillionContainerHandler:
             aspect=container,
         ).as_workunit()
 
+        platform_urn = make_data_platform_urn(MATILLION_PLATFORM)
         browse_path = BrowsePathsV2Class(
             path=[
-                BrowsePathEntryClass(id=make_data_platform_urn(MATILLION_PLATFORM)),
-                BrowsePathEntryClass(id=project_container_urn),
-                BrowsePathEntryClass(id=environment_urn),
+                BrowsePathEntryClass(id=platform_urn, urn=platform_urn),
+                BrowsePathEntryClass(
+                    id=project_container_urn, urn=project_container_urn
+                ),
+                BrowsePathEntryClass(id=environment_urn, urn=environment_urn),
             ]
         )
 
@@ -222,19 +212,18 @@ class MatillionContainerHandler:
             aspect=container,
         ).as_workunit()
 
+        platform_urn = make_data_platform_urn(MATILLION_PLATFORM)
+        project_urn = self.get_project_container_urn(project)
         path_elements = [
-            BrowsePathEntryClass(id=make_data_platform_urn(MATILLION_PLATFORM)),
-            BrowsePathEntryClass(id=self.get_project_container_urn(project)),
+            BrowsePathEntryClass(id=platform_urn, urn=platform_urn),
+            BrowsePathEntryClass(id=project_urn, urn=project_urn),
         ]
 
         if environment:
-            path_elements.append(
-                BrowsePathEntryClass(
-                    id=self.get_environment_container_urn(environment, project)
-                )
-            )
+            env_urn = self.get_environment_container_urn(environment, project)
+            path_elements.append(BrowsePathEntryClass(id=env_urn, urn=env_urn))
 
-        path_elements.append(BrowsePathEntryClass(id=pipeline_urn))
+        path_elements.append(BrowsePathEntryClass(id=pipeline_urn, urn=pipeline_urn))
 
         browse_path = BrowsePathsV2Class(path=path_elements)
 

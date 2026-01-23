@@ -1,0 +1,852 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "project_id": "analytics-proj",
+                "platform": "matillion"
+            },
+            "name": "Analytics Pipeline",
+            "description": "Postgres to Snowflake analytics pipelines"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200219,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200220,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200220,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion",
+                    "urn": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+                    "urn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200106,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "environment_name": "production",
+                "project_id": "analytics-proj",
+                "platform": "matillion"
+            },
+            "name": "production"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200221,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200222,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Environment"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200222,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion",
+                    "urn": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+                    "urn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+                },
+                {
+                    "id": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+                    "urn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200108,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "pipeline_name": "Customer Aggregation",
+                "project_id": "analytics-proj",
+                "project_name": "Analytics Pipeline"
+            },
+            "externalUrl": "http://localhost:8080/api/pipelines/Customer Aggregation",
+            "name": "Customer Aggregation"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200223,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200224,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200224,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion",
+                    "urn": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+                    "urn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+                },
+                {
+                    "id": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+                    "urn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32"
+                },
+                {
+                    "id": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)",
+                    "urn": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200110,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "project_id": "analytics-proj",
+                "published_time": "2024-01-01T00:00:00+00:00"
+            },
+            "name": "Customer Aggregation",
+            "type": {
+                "string": "Matillion Pipeline"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200172,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "\nSELECT \n    c.customer_id,\n    c.first_name || ' ' || c.last_name AS customer_name,\n    c.email,\n    COUNT(o.order_id) AS total_orders,\n                                    SUM(o.total_amount) AS total_spent,\n    MAX(o.order_date) AS last_order_date\nFROM postgres.public.customers c\nLEFT JOIN postgres.public.orders o \n    ON c.customer_id = o.customer_id\nWHERE o.status = 'completed'\nGROUP BY c.customer_id, c.first_name, c.last_name, c.email\n                                ",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200898,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200225,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200899,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200226,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion",
+                    "urn": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+                    "urn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+                },
+                {
+                    "id": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+                    "urn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32"
+                },
+                {
+                    "id": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)",
+                    "urn": "urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD)"
+                },
+                {
+                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)",
+                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.5424d42e05d1348670d7d98deed15dad,PROD),2c67c69422356ce7bc3e8921021ff423)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200112,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "pipeline_name": "Daily Summary",
+                "project_id": "analytics-proj",
+                "project_name": "Analytics Pipeline"
+            },
+            "externalUrl": "http://localhost:8080/api/pipelines/Daily Summary",
+            "name": "Daily Summary"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200227,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200228,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.customers,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.customers,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.customers,PROD),first_name)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.customers,PROD),last_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),customer_name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.customers,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),email)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.orders,PROD),order_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),total_orders)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.orders,PROD),total_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),total_spent)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_prod.public.orders,PROD),order_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),last_order_date)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200906,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200228,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion",
+                    "urn": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+                    "urn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+                },
+                {
+                    "id": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+                    "urn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32"
+                },
+                {
+                    "id": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)",
+                    "urn": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200115,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "project_id": "analytics-proj",
+                "published_time": "2024-01-01T00:00:00+00:00"
+            },
+            "name": "Daily Summary",
+            "type": {
+                "string": "Matillion Pipeline"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200176,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200230,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200231,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "\nSELECT \n    DATE_TRUNC('day', last_order_date) AS summary_date,\n    COUNT(DISTINCT customer_id) AS active_customers,\n    SUM(total_orders) AS total_orders,\n    SUM(total_spent) AS total_revenue\nFROM analytics_db.analytics_schema.customer_orders\nWHERE last_order_date >= CURRENT_DATE - INTERVAL '30 days'\nGROUP BY DATE_TRUNC('day', last_order_date)\nORDER BY summary_date DESC\n                                ",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200914,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatform:matillion",
+                    "urn": "urn:li:dataPlatform:matillion"
+                },
+                {
+                    "id": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+                    "urn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490"
+                },
+                {
+                    "id": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+                    "urn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32"
+                },
+                {
+                    "id": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)",
+                    "urn": "urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD)"
+                },
+                {
+                    "id": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)",
+                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200117,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,Analytics Pipeline.71ec39ce5c0e6721ed8e0ccaa459e9ff,PROD),6b1ce81c0fdfac38d223918dbafa4dc3)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.daily_summary,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200914,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b01262bf84bf2e68066c2e12728f8d32",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200231,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e550a612c9d82817c10b8fce90c9e490",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200232,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.daily_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),last_order_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.daily_summary,PROD),summary_date)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.daily_summary,PROD),active_customers)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),total_orders)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.daily_summary,PROD),total_orders)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD),total_spent)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.daily_summary,PROD),total_revenue)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200921,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.customer_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200931,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_prod.analytics_db.analytics_schema.daily_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200932,
+        "runId": "matillion-postgres-snowflake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

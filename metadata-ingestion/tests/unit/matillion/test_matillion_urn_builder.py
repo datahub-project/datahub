@@ -6,7 +6,6 @@ from datahub.ingestion.source.matillion.config import (
     MatillionSourceConfig,
 )
 from datahub.ingestion.source.matillion.models import (
-    MatillionConnection,
     MatillionEnvironment,
     MatillionPipeline,
     MatillionProject,
@@ -66,15 +65,14 @@ def test_make_environment_container_urn(urn_builder: MatillionUrnBuilder) -> Non
     )
 
     environment = MatillionEnvironment(
-        id="env-456",
         name="Production",
-        project_id="proj-123",
+        default_agent_id="agent-1",
     )
 
     urn = urn_builder.make_environment_container_urn(environment, project)
 
     assert "urn:li:container:" in urn
-    assert "env-456" in urn
+    assert "Production" in urn
 
 
 @pytest.mark.parametrize(
@@ -95,10 +93,7 @@ def test_make_pipeline_urn(
     )
 
     pipeline = MatillionPipeline(
-        id="pipe-789",
         name="Test Pipeline",
-        project_id="proj-123",
-        pipeline_type="orchestration",
     )
 
     builder = urn_builder if has_platform_instance else urn_builder_no_platform
@@ -106,133 +101,7 @@ def test_make_pipeline_urn(
 
     assert "urn:li:dataFlow:" in urn
     assert "matillion" in urn
-    assert "pipe-789" in urn
-
-
-@pytest.mark.parametrize(
-    "connection_type,expected_platform,connection_name",
-    [
-        pytest.param(
-            "snowflake",
-            "snowflake",
-            "snowflake_prod",
-            id="snowflake",
-        ),
-        pytest.param(
-            "bigquery",
-            "bigquery",
-            "bigquery_analytics",
-            id="bigquery",
-        ),
-        pytest.param(
-            "redshift",
-            "redshift",
-            "redshift_warehouse",
-            id="redshift",
-        ),
-        pytest.param(
-            "postgres",
-            "postgres",
-            "postgres_source",
-            id="postgres",
-        ),
-        pytest.param(
-            "mysql",
-            "mysql",
-            "mysql_db",
-            id="mysql",
-        ),
-        pytest.param(
-            "sqlserver",
-            "mssql",
-            "sqlserver_db",
-            id="sqlserver",
-        ),
-        pytest.param(
-            "oracle",
-            "oracle",
-            "oracle_db",
-            id="oracle",
-        ),
-        pytest.param(
-            "s3",
-            "s3",
-            "s3_bucket",
-            id="s3",
-        ),
-        pytest.param(
-            "azure",
-            "abs",
-            "azure_storage",
-            id="azure",
-        ),
-        pytest.param(
-            "gcs",
-            "gcs",
-            "gcs_bucket",
-            id="gcs",
-        ),
-        pytest.param(
-            "SNOWFLAKE",
-            "snowflake",
-            "snowflake_upper",
-            id="snowflake_uppercase",
-        ),
-        pytest.param(
-            "unknown_db",
-            "external",
-            "unknown_connection",
-            id="unknown_platform",
-        ),
-    ],
-)
-def test_make_connection_dataset_urn_platforms(
-    urn_builder: MatillionUrnBuilder,
-    connection_type: str,
-    expected_platform: str,
-    connection_name: str,
-) -> None:
-    connection = MatillionConnection(
-        id=f"conn-{connection_type}",
-        name=connection_name,
-        connection_type=connection_type,
-        project_id="proj-123",
-    )
-
-    urn = urn_builder.make_connection_dataset_urn(connection)
-
-    assert urn is not None
-    assert "urn:li:dataset:" in str(urn)
-    assert expected_platform in str(urn)
-    assert connection_name in str(urn)
-
-
-@pytest.mark.parametrize(
-    "connection_name,should_be_none",
-    [
-        pytest.param("", True, id="empty_name"),
-        pytest.param("valid_name", False, id="valid_name"),
-    ],
-)
-def test_make_connection_dataset_urn_name_validation(
-    urn_builder: MatillionUrnBuilder,
-    connection_name: str,
-    should_be_none: bool,
-) -> None:
-    connection = MatillionConnection(
-        id="conn-test",
-        name=connection_name,
-        connection_type="snowflake",
-        project_id="proj-123",
-    )
-
-    urn = urn_builder.make_connection_dataset_urn(connection)
-
-    if should_be_none:
-        assert urn is None
-    else:
-        assert urn is not None
-        assert connection_name in str(urn)
+    # URN uses GUID hash for safety with special characters, not the pipeline name directly
 
 
 @pytest.mark.parametrize(

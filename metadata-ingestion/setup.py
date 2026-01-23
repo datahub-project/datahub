@@ -661,7 +661,7 @@ plugins: Dict[str, Set[str]] = {
     | databricks_common
     | sqlalchemy_lib
     | sqlglot_lib,
-    "matillion": {"requests<3.0.0"},
+    "matillion": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
     "sigma": sqlglot_lib | {"requests<3.0.0"},
