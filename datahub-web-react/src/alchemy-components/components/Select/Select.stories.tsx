@@ -204,6 +204,9 @@ const meta: Meta = {
                 defaultValue: { summary: 'undefined' },
             },
         },
+        visibilityDeps: {
+            description: 'Additional dependencies to trigger computing of visibility state',
+        },
     },
 
     // Define defaults

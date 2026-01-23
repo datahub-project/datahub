@@ -37,6 +37,7 @@ type Props = {
     onUpdate?: (selectedValues: string[]) => void;
     onClose?: () => void;
     onClearSearch?: () => void;
+    visibilityDeps?: React.DependencyList;
 };
 
 const EntitySelectFilter = ({
@@ -48,13 +49,20 @@ const EntitySelectFilter = ({
     onUpdate,
     onClose,
     onClearSearch,
+    visibilityDeps,
 }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedValues, setSelectedValues] = useState<string[]>(values || []);
 
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const { isOpen, toggle: toggleDropdown } = useSelectDropdown(false, selectRef, dropdownRef, onClose);
+    const { isOpen, toggle: toggleDropdown } = useSelectDropdown(
+        false,
+        selectRef,
+        dropdownRef,
+        visibilityDeps,
+        onClose,
+    );
 
     useEffect(() => {
         if (!isLoading) {
