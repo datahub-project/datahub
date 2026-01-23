@@ -1,5 +1,4 @@
 import { RightOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
