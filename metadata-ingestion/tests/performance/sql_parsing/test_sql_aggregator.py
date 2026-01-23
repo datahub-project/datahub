@@ -5,7 +5,7 @@ query processing capabilities.
 
 Usage:
     # Run the benchmark test
-    pytest tests/performance/test_sql_aggregator.py::test_benchmark -s --log-cli-level=INFO
+    pytest tests/performance/sql_parsing/test_sql_aggregator.py::test_benchmark -s --log-cli-level=INFO
 """
 
 import logging
