@@ -102,6 +102,21 @@ export const SUPPORTED_INTEGRATIONS = [
 ];
 
 /**
+ * Notification-related integrations (Slack, Teams)
+ */
+export const NOTIFICATION_INTEGRATIONS = [SLACK_INTEGRATION, TEAMS_INTEGRATION];
+
+/**
+ * Data integrations (DataHub, Snowflake, BigQuery, Databricks)
+ */
+export const DATA_INTEGRATIONS = [
+    ACRYL_INSTANCE_INTEGRATION,
+    SNOWFLAKE_INTEGRATION,
+    BIGQUERY_INTEGRATION,
+    DATABRICKS_INTEGRATION,
+];
+
+/**
  * Notifications
  */
 const CHANGE_NOTIFICATIONS = [
