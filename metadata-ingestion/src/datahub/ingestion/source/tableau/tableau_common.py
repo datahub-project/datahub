@@ -2,10 +2,12 @@ import copy
 import html
 import json
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
+from pydantic import BaseModel
 from pydantic.fields import Field
 from tableauserverclient import Server
 
@@ -17,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
+    Upstream,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
@@ -37,8 +40,26 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+
+class DatasourceType(StrEnum):
+    """Enum for Tableau datasource types used in Virtual Connection processing."""
+
+    EMBEDDED = "embedded"
+    PUBLISHED = "published"
+
+
+class LineageResult(BaseModel):
+    """Result of lineage processing with upstream tables and fine-grained lineage."""
+
+    upstream_tables: List[Upstream]
+    fine_grained_lineages: List[FineGrainedLineage]
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class TableauLineageOverrides(ConfigModel):
@@ -228,19 +249,22 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -394,19 +418,22 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -437,15 +464,25 @@ published_datasource_graphql_query = """
         name
     }
 }
-        """
+"""
 
 database_tables_graphql_query = """
 {
     id
+    name
+    fullName
+    schema
     isEmbedded
+    database {
+        name
+        id
+        connectionType
+    }
     columns {
-      remoteType
-      name
+        id
+        name
+        remoteType
+        description
     }
 }
 """
@@ -457,6 +494,46 @@ database_servers_graphql_query = """
     connectionType
     extendedConnectionType
     hostName
+}
+"""
+
+virtual_connection_graphql_query = """
+{
+    id
+    name
+    luid
+    projectName
+    description
+    tables {
+        id
+        name
+        columns {
+            id
+            name
+            remoteType
+            description
+        }
+    }
+}
+"""
+
+virtual_connection_detailed_graphql_query = """
+{
+    id
+    name
+    luid
+    projectName
+    description
+    tables {
+        id
+        name
+        columns {
+            id
+            name
+            remoteType
+            description
+        }
+    }
 }
 """
 
@@ -1029,3 +1106,56 @@ def optimize_query_filter(query_filter: dict) -> dict:
             OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
         )
     return optimized_query
+
+
+# Translation table for removing special characters (created once, reused)
+# Characters to remove: [ ] " ` ' \" \
+_CLEAN_TABLE_NAME_TRANSLATION = str.maketrans("", "", '[]"`\'\\"\\')
+
+
+def clean_table_name(name: str) -> str:
+    """Clean table name by removing brackets, quotes, and other special characters"""
+    if not name:
+        return name
+
+    # Use translate() for efficient character removal in a single pass
+    return name.translate(_CLEAN_TABLE_NAME_TRANSLATION).strip()
+
+
+def is_table_name_field(field_name: str, field_type: str = "") -> bool:
+    """
+    Determine if a field is actually a table name reference rather than a column field.
+
+    Common patterns:
+    - "TABLE_NAME (SCHEMA.TABLE_NAME)"
+    - Field name matches table name exactly
+    - Field has no proper column mapping
+
+    Args:
+        field_name: The field name to check
+        field_type: The field type (optional)
+
+    Returns:
+        True if this appears to be a table name field, False otherwise
+    """
+    if not field_name:
+        return False
+
+    # Pattern for "TABLE_NAME (SCHEMA.TABLE_NAME)" format
+    # Allow alphanumeric characters, underscores, and numbers in table/schema names
+    table_pattern = (
+        r"^([A-Z0-9_]+)\s*\([A-Z0-9_]+\.[A-Z0-9_]+\)(\s*\([^)]+\))*(\s*\(\d+\))?$"
+    )
+
+    if re.match(table_pattern, field_name):
+        return True
+
+    # Additional checks for other table-like patterns
+    # If field name is all uppercase and contains schema-like patterns
+    if field_name.isupper() and ("." in field_name or "_" in field_name):
+        # Check if it looks like a fully qualified table name
+        parts = field_name.split(".")
+        if len(parts) >= 2 and all(part.replace("_", "").isalnum() for part in parts):
+            return True
+
+    return False
