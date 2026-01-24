@@ -10,7 +10,6 @@ source:
     env: PROD
     include_lineage: true
     include_column_lineage: true
-    include_pipeline_executions: true
     extract_projects_to_containers: true
 
     # Optional: Map OpenLineage namespaces to DataHub platform instances
@@ -29,7 +28,7 @@ source:
 
     # Optional configurations
     # parse_sql_for_lineage: true
-    # lineage_start_days_ago: 7
+    # start_time: "-7 days"  # Time window for lineage and execution history
     # include_streaming_pipelines: false
     # project_pattern:
     #   allow:

@@ -1,4 +1,3 @@
-from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
@@ -13,10 +12,12 @@ from datahub.ingestion.source.matillion_dpc.config import (
     MatillionSourceConfig,
     MatillionSourceReport,
 )
-from datahub.ingestion.source.matillion_dpc.constants import (
-    MATILLION_NAMESPACE_PREFIX,
-)
 from datahub.ingestion.source.matillion_dpc.matillion import MatillionSource
+from datahub.ingestion.source.matillion_dpc.matillion_utils import (
+    extract_base_pipeline_name,
+    match_pipeline_name,
+    normalize_pipeline_name,
+)
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionPipeline,
@@ -120,8 +121,6 @@ def test_source_with_project_patterns_configured(
 def test_get_workunits_internal_lineage_error(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
-    config.include_lineage = True
-
     source = MatillionSource(config, pipeline_context)
 
     mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
@@ -192,29 +191,27 @@ def test_capabilities(
 
 
 @pytest.mark.parametrize(
-    "include_lineage,include_streaming,include_executions",
+    "include_streaming,include_unpublished",
     [
-        pytest.param(False, False, False, id="all_disabled"),
-        pytest.param(True, True, True, id="all_enabled"),
-        pytest.param(True, False, True, id="lineage_and_executions"),
+        pytest.param(False, False, id="all_disabled"),
+        pytest.param(True, True, id="all_enabled"),
+        pytest.param(False, True, id="unpublished_only"),
+        pytest.param(True, False, id="published_streaming_only"),
     ],
 )
 def test_source_with_feature_flags(
     config: MatillionSourceConfig,
     pipeline_context: PipelineContext,
-    include_lineage: bool,
     include_streaming: bool,
-    include_executions: bool,
+    include_unpublished: bool,
 ) -> None:
-    config.include_lineage = include_lineage
     config.include_streaming_pipelines = include_streaming
-    config.include_pipeline_executions = include_executions
+    config.include_unpublished_pipelines = include_unpublished
 
     source = MatillionSource(config, pipeline_context)
 
-    assert source.config.include_lineage is include_lineage
     assert source.config.include_streaming_pipelines is include_streaming
-    assert source.config.include_pipeline_executions is include_executions
+    assert source.config.include_unpublished_pipelines is include_unpublished
 
 
 def test_workunit_processors(
@@ -230,8 +227,6 @@ def test_workunit_processors(
 def test_execution_workunits_with_no_timestamps(
     config: MatillionSourceConfig, pipeline_context: PipelineContext
 ) -> None:
-    config.include_pipeline_executions = True
-
     source = MatillionSource(config, pipeline_context)
 
     mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
@@ -290,8 +285,7 @@ def test_extract_base_pipeline_name(
     job_name: str,
     expected: str,
 ) -> None:
-    source = MatillionSource(config, pipeline_context)
-    result = source._extract_base_pipeline_name(job_name)
+    result = extract_base_pipeline_name(job_name)
     assert result == expected
 
 
@@ -312,8 +306,7 @@ def test_normalize_pipeline_name(
     pipeline_name: str,
     expected: str,
 ) -> None:
-    source = MatillionSource(config, pipeline_context)
-    result = source._normalize_pipeline_name(pipeline_name)
+    result = normalize_pipeline_name(pipeline_name)
     assert result == expected
 
 
@@ -343,269 +336,5 @@ def test_match_pipeline_name(
     job_name: str,
     should_match: bool,
 ) -> None:
-    source = MatillionSource(config, pipeline_context)
-    result = source._match_pipeline_name(published_name, job_name)
+    result = match_pipeline_name(published_name, job_name)
     assert result == should_match
-
-
-def test_discover_unpublished_pipelines_basic(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    assert MATILLION_NAMESPACE_PREFIX == "matillion://", (
-        f"Expected 'matillion://' but got '{MATILLION_NAMESPACE_PREFIX}'"
-    )
-
-    lineage_events = [
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.project-456",
-                    "name": "unpublished-pipeline",
-                    "facets": {"jobType": {"jobType": "TRANSFORMATION"}},
-                }
-            }
-        },
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.project-456",
-                    "name": "published-pipeline",
-                    "facets": {},
-                }
-            }
-        },
-    ]
-
-    published_pipeline_names = {"published-pipeline"}
-
-    # Test that the matching function works correctly first
-    assert not source._match_pipeline_name("published-pipeline", "unpublished-pipeline")
-    assert source._match_pipeline_name("published-pipeline", "published-pipeline")
-
-    result = source._discover_unpublished_pipelines(
-        lineage_events, published_pipeline_names
-    )
-
-    assert len(result) == 1, f"Expected 1 result but got {len(result)}: {result}"
-    assert result[0]["job_name"] == "unpublished-pipeline"
-    assert result[0]["base_pipeline_name"] == "unpublished-pipeline"
-    assert result[0]["project_id"] == "project-456"
-    assert result[0]["account_id"] == "account-123"
-    assert result[0]["pipeline_type"] == "TRANSFORMATION"
-
-
-def test_discover_unpublished_pipelines_with_folder_path(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    lineage_events = [
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.project-456",
-                    "name": "analytics/reports/sales-report.orch.yaml",
-                    "facets": {},
-                }
-            }
-        }
-    ]
-
-    published_pipeline_names: set[str] = set()
-
-    result = source._discover_unpublished_pipelines(
-        lineage_events, published_pipeline_names
-    )
-
-    assert len(result) == 1
-    assert result[0]["job_name"] == "analytics/reports/sales-report.orch.yaml"
-    assert result[0]["folder_path"] == "analytics/reports"
-    assert result[0]["base_pipeline_name"] == "sales-report"
-
-
-def test_discover_unpublished_pipelines_filters_non_matillion_namespace(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    lineage_events = [
-        {
-            "event": {
-                "job": {
-                    "namespace": "snowflake://account.region",
-                    "name": "some-table",
-                    "facets": {},
-                }
-            }
-        },
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.project-456",
-                    "name": "real-pipeline",
-                    "facets": {},
-                }
-            }
-        },
-    ]
-
-    published_pipeline_names: set[str] = set()
-
-    result = source._discover_unpublished_pipelines(
-        lineage_events, published_pipeline_names
-    )
-
-    assert len(result) == 1
-    assert result[0]["job_name"] == "real-pipeline"
-
-
-def test_discover_unpublished_pipelines_skips_published(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    lineage_events = [
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.project-456",
-                    "name": "published-pipeline.tran.yaml",
-                    "facets": {},
-                }
-            }
-        }
-    ]
-
-    published_pipeline_names = {"published-pipeline"}
-
-    result = source._discover_unpublished_pipelines(
-        lineage_events, published_pipeline_names
-    )
-
-    assert len(result) == 0
-
-
-def test_discover_unpublished_pipelines_infers_type_from_extension(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    lineage_events = [
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.project-456",
-                    "name": "transformation-pipeline.tran.yaml",
-                    "facets": {},
-                }
-            }
-        },
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.project-456",
-                    "name": "orchestration-pipeline.orch.yaml",
-                    "facets": {},
-                }
-            }
-        },
-    ]
-
-    published_pipeline_names: set[str] = set()
-
-    result = source._discover_unpublished_pipelines(
-        lineage_events, published_pipeline_names
-    )
-
-    assert len(result) == 2
-    tran_pipeline = next(
-        p for p in result if p["job_name"] == "transformation-pipeline.tran.yaml"
-    )
-    orch_pipeline = next(
-        p for p in result if p["job_name"] == "orchestration-pipeline.orch.yaml"
-    )
-
-    assert tran_pipeline["pipeline_type"] == "TRANSFORMATION"
-    assert orch_pipeline["pipeline_type"] == "ORCHESTRATION"
-
-
-def test_generate_unpublished_pipeline_workunits(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    source = MatillionSource(config, pipeline_context)
-
-    job_metadata = {
-        "job_name": "unpublished-pipeline.tran.yaml",
-        "base_pipeline_name": "unpublished-pipeline.tran.yaml",
-        "folder_path": None,
-        "project_id": "project-456",
-        "account_id": "account-123",
-        "pipeline_type": "TRANSFORMATION",
-        "namespace": "matillion://account-123.project-456",
-    }
-
-    lineage_events: List[Dict[str, Any]] = []
-
-    workunits = list(
-        source._generate_unpublished_pipeline_workunits(job_metadata, lineage_events)
-    )
-
-    assert len(workunits) > 0
-    assert source.report.unpublished_pipelines_emitted == 1
-
-
-def test_unpublished_pipelines_feature_flag_disabled(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    config.include_unpublished_pipelines = False
-    source = MatillionSource(config, pipeline_context)
-
-    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
-
-    with (
-        patch.object(source.api_client, "get_projects", return_value=mock_projects),
-        patch.object(source.api_client, "get_environments", return_value=[]),
-        patch.object(source.api_client, "get_pipelines", return_value=[]),
-        patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
-        patch.object(source.api_client, "get_lineage_events", return_value=[]),
-    ):
-        list(source.get_workunits_internal())
-
-    assert source.report.unpublished_pipelines_discovered == 0
-    assert source.report.unpublished_pipelines_emitted == 0
-
-
-def test_unpublished_pipelines_feature_flag_enabled(
-    config: MatillionSourceConfig, pipeline_context: PipelineContext
-) -> None:
-    config.include_unpublished_pipelines = True
-    source = MatillionSource(config, pipeline_context)
-
-    mock_projects = [MatillionProject(id="proj-1", name="Test Project")]
-    mock_lineage_events = [
-        {
-            "event": {
-                "job": {
-                    "namespace": "matillion://account-123.proj-1",
-                    "name": "unpublished-pipeline",
-                    "facets": {},
-                }
-            }
-        }
-    ]
-
-    with (
-        patch.object(source.api_client, "get_projects", return_value=mock_projects),
-        patch.object(source.api_client, "get_environments", return_value=[]),
-        patch.object(source.api_client, "get_pipelines", return_value=[]),
-        patch.object(source.api_client, "get_streaming_pipelines", return_value=[]),
-        patch.object(
-            source.api_client, "get_lineage_events", return_value=mock_lineage_events
-        ),
-    ):
-        list(source.get_workunits_internal())
-
-    assert source.report.unpublished_pipelines_discovered == 1
-    assert source.report.unpublished_pipelines_emitted == 1

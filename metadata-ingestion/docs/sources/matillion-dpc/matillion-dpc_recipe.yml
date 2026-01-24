@@ -8,9 +8,6 @@ source:
 
     env: "PROD"
 
-    include_lineage: true
-    include_column_lineage: true
-
     # Optional: Map OpenLineage namespaces to DataHub platform instances
     # Required if existing datasets use platform instances
     namespace_to_platform_instance:
@@ -30,9 +27,23 @@ source:
         env: PROD
 
     include_streaming_pipelines: true
-    include_pipeline_executions: true
+    include_unpublished_pipelines: true
     max_executions_per_pipeline: 10
     extract_projects_to_containers: true
+
+    # Optional: Filter projects, environments, pipelines using regex patterns
+    # project_patterns:
+    #   allow: ["^prod-.*", "^staging-.*"]
+    #   deny: [".*-deprecated$", ".*-archived$"]
+
+    # environment_patterns:
+    #   allow: ["^production$", "^staging$"]
+
+    # pipeline_patterns:
+    #   deny: ["^test_.*", ".*_backup$"]
+
+    # streaming_pipeline_patterns:
+    #   allow: ["^cdc_.*"]
 
     stateful_ingestion:
       enabled: true

@@ -6,6 +6,9 @@ import pytest
 
 from datahub.ingestion.source.matillion_dpc.config import NamespacePlatformMapping
 from datahub.ingestion.source.matillion_dpc.matillion_lineage import OpenLineageParser
+from datahub.ingestion.source.matillion_dpc.matillion_utils import (
+    make_dataset_urn_from_matillion_dataset,
+)
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionColumnLineageInfo,
     MatillionDatasetInfo,
@@ -344,7 +347,7 @@ def test_make_dataset_urn(parser):
         env="PROD",
     )
 
-    urn = parser._make_dataset_urn(dataset)
+    urn = make_dataset_urn_from_matillion_dataset(dataset)
 
     assert "urn:li:dataset:" in urn
     assert "snowflake" in urn
@@ -633,8 +636,8 @@ def test_unmapped_namespace_extracts_platform_with_defaults(parser):
     assert output_dataset.env == "PROD"
     assert output_dataset.platform_instance is None
 
-    input_urn = parser._make_dataset_urn(input_dataset)
-    output_urn = parser._make_dataset_urn(output_dataset)
+    input_urn = make_dataset_urn_from_matillion_dataset(input_dataset)
+    output_urn = make_dataset_urn_from_matillion_dataset(output_dataset)
 
     assert "urn:li:dataset:(urn:li:dataPlatform:postgres" in input_urn
     assert "my_schema.my_table" in input_urn

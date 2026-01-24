@@ -1,3 +1,9 @@
+"""Constants for Matillion DPC connector."""
+
+from typing import Dict
+
+from datahub.metadata.schema_classes import RunResultTypeClass
+
 MATILLION_PLATFORM = "matillion"
 MATILLION_NAMESPACE_PREFIX = "matillion://"
 
@@ -5,6 +11,9 @@ API_ENDPOINT_PROJECTS = "v1/projects"
 API_ENDPOINT_ENVIRONMENTS = "v1/projects/{projectId}/environments"
 API_ENDPOINT_PIPELINES = "v1/projects/{projectId}/published-pipelines"
 API_ENDPOINT_PIPELINE_EXECUTIONS = "v1/pipeline-executions"
+API_ENDPOINT_PIPELINE_EXECUTION_STEPS = (
+    "v1/projects/{projectId}/pipeline-executions/{pipelineExecutionId}/steps"
+)
 API_ENDPOINT_SCHEDULES = "v1/projects/{projectId}/schedules"
 API_ENDPOINT_STREAMING_PIPELINES = "v1/projects/{projectId}/streaming-pipelines"
 API_ENDPOINT_LINEAGE_EVENTS = "v1/lineage/events"
@@ -104,3 +113,27 @@ MATILLION_OBSERVABILITY_DASHBOARD_URL = (
 MATILLION_PROJECT_BRANCHES_URL = (
     "https://app.matillion.com/projects/{project_id}/branches"
 )
+
+# Matillion execution and step status values
+MATILLION_STATUS_SUCCESS = "SUCCESS"
+MATILLION_STATUS_FAILED = "FAILED"
+MATILLION_STATUS_FAILURE = "FAILURE"
+MATILLION_STATUS_RUNNING = "RUNNING"
+MATILLION_STATUS_SKIPPED = "SKIPPED"
+
+# Matillion execution trigger types
+MATILLION_TRIGGER_SCHEDULE = "SCHEDULE"
+MATILLION_TRIGGER_MANUAL = "MANUAL"
+
+# DataHub execution type mapping
+DPI_TYPE_BATCH_SCHEDULED = "BATCH_SCHEDULED"
+DPI_TYPE_BATCH_AD_HOC = "BATCH_AD_HOC"
+
+# Matillion to DataHub status mapping for RunResultType
+MATILLION_TO_DATAHUB_RESULT_TYPE: Dict[str, str] = {
+    MATILLION_STATUS_SUCCESS: RunResultTypeClass.SUCCESS,
+    MATILLION_STATUS_FAILED: RunResultTypeClass.FAILURE,
+    MATILLION_STATUS_FAILURE: RunResultTypeClass.FAILURE,
+    MATILLION_STATUS_RUNNING: RunResultTypeClass.SKIPPED,
+    MATILLION_STATUS_SKIPPED: RunResultTypeClass.SKIPPED,
+}

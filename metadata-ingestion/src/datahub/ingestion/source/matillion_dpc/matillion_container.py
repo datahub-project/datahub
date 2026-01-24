@@ -1,7 +1,6 @@
 import logging
 from typing import Dict, Iterable, Optional
 
-from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -13,11 +12,11 @@ from datahub.ingestion.source.matillion_dpc.config import (
 from datahub.ingestion.source.matillion_dpc.constants import (
     MATILLION_PLATFORM,
 )
+from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionProject,
 )
-from datahub.ingestion.source.matillion_dpc.urn_builder import MatillionUrnBuilder
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -103,6 +102,9 @@ class MatillionContainerHandler:
             },
         )
 
+        # Note: auto_browse_path_v2 processor automatically generates browse paths
+        # based on Container aspects created by gen_containers()
+
         self._containers_emitted.add(container_urn)
         self.report.report_containers_emitted()
         logger.debug(f"Emitted project container: {project.name}")
@@ -130,6 +132,9 @@ class MatillionContainerHandler:
             },
         )
 
+        # Note: auto_browse_path_v2 processor automatically generates browse paths
+        # based on Container aspects created by gen_containers()
+
         self._containers_emitted.add(environment_urn)
         self.report.report_containers_emitted()
         logger.debug(
@@ -142,6 +147,7 @@ class MatillionContainerHandler:
         project: MatillionProject,
         environment: Optional[MatillionEnvironment] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        # Unified path: Project → [Environment] → Pipeline
         if environment:
             container_urn = self.get_environment_container_urn(environment, project)
         else:
@@ -154,12 +160,11 @@ class MatillionContainerHandler:
             aspect=container,
         ).as_workunit()
 
-        platform_urn = make_data_platform_urn(MATILLION_PLATFORM)
+        # Note: auto_browse_path_v2 processor will prepend platform instance if configured
+        path_elements = []
+
         project_urn = self.get_project_container_urn(project)
-        path_elements = [
-            BrowsePathEntryClass(id=platform_urn, urn=platform_urn),
-            BrowsePathEntryClass(id=project_urn, urn=project_urn),
-        ]
+        path_elements.append(BrowsePathEntryClass(id=project_urn, urn=project_urn))
 
         if environment:
             env_urn = self.get_environment_container_urn(environment, project)

@@ -3,13 +3,15 @@ from typing import Dict, List, Mapping, Optional, Set, Union
 from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
 from datahub.ingestion.source.matillion_dpc.config import NamespacePlatformMapping
 from datahub.ingestion.source.matillion_dpc.constants import (
     LOWERCASE_FIELD_PLATFORMS,
     PLATFORM_MAPPING,
+)
+from datahub.ingestion.source.matillion_dpc.matillion_utils import (
+    make_dataset_urn_from_matillion_dataset,
 )
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionColumnLineageInfo,
@@ -135,14 +137,6 @@ class OpenLineageParser:
             )
             return None
 
-    def _make_dataset_urn(self, dataset: MatillionDatasetInfo) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=dataset.platform,
-            name=dataset.name,
-            env=dataset.env,
-            platform_instance=dataset.platform_instance,
-        )
-
     def extract_column_lineage(
         self,
         event: Dict,
@@ -243,7 +237,7 @@ class OpenLineageParser:
         upstreams = []
 
         for input_dataset in input_datasets:
-            upstream_urn = self._make_dataset_urn(input_dataset)
+            upstream_urn = make_dataset_urn_from_matillion_dataset(input_dataset)
             upstreams.append(
                 UpstreamClass(
                     dataset=upstream_urn, type=DatasetLineageTypeClass.TRANSFORMED
@@ -251,7 +245,7 @@ class OpenLineageParser:
             )
 
         fine_grained_lineages = []
-        output_urn = self._make_dataset_urn(output_dataset)
+        output_urn = make_dataset_urn_from_matillion_dataset(output_dataset)
 
         downstream_to_upstreams: Dict[str, Set[tuple[str, str]]] = {}
         for col_lineage in column_lineages:
@@ -259,7 +253,7 @@ class OpenLineageParser:
                 downstream_to_upstreams[col_lineage.downstream_field] = set()
 
             for i, upstream_dataset in enumerate(col_lineage.upstream_datasets):
-                upstream_urn = self._make_dataset_urn(upstream_dataset)
+                upstream_urn = make_dataset_urn_from_matillion_dataset(upstream_dataset)
                 if i < len(col_lineage.upstream_fields):
                     upstream_field = col_lineage.upstream_fields[i]
                     downstream_to_upstreams[col_lineage.downstream_field].add(
@@ -278,7 +272,10 @@ class OpenLineageParser:
             for upstream_urn, upstream_fields in upstream_by_urn.items():
                 upstream_platform = output_dataset.platform
                 for input_dataset in input_datasets:
-                    if self._make_dataset_urn(input_dataset) == upstream_urn:
+                    if (
+                        make_dataset_urn_from_matillion_dataset(input_dataset)
+                        == upstream_urn
+                    ):
                         upstream_platform = input_dataset.platform
                         break
 

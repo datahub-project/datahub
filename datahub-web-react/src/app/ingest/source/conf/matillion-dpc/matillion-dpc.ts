@@ -16,6 +16,15 @@ source:
         include_column_lineage: true
         parse_sql_for_lineage: false
         extract_projects_to_containers: true
+        
+        # Optional: Filter by projects, environments, pipelines
+        # project_patterns:
+        #   allow: ["^prod-.*"]
+        # environment_patterns:
+        #   allow: ["^production$", "^staging$"]
+        # pipeline_patterns:
+        #   deny: ["^test_.*"]
+        
         stateful_ingestion:
             enabled: true
 `;

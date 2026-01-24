@@ -121,8 +121,10 @@ import {
     MATILLION_CLIENT_ID,
     MATILLION_CLIENT_SECRET,
     MATILLION_ENV,
+    MATILLION_ENVIRONMENT_ALLOW,
+    MATILLION_ENVIRONMENT_DENY,
     MATILLION_INCLUDE_EXECUTIONS,
-    MATILLION_INCLUDE_LINEAGE,
+    MATILLION_INCLUDE_UNPUBLISHED,
     MATILLION_PIPELINE_ALLOW,
     MATILLION_PIPELINE_DENY,
     MATILLION_PLATFORM_INSTANCE,
@@ -130,6 +132,8 @@ import {
     MATILLION_PROJECT_DENY,
     MATILLION_REGION,
     MATILLION_STATEFUL_INGESTION,
+    MATILLION_STREAMING_ALLOW,
+    MATILLION_STREAMING_DENY,
 } from '@app/ingest/source/builder/RecipeForm/matillion-dpc';
 import {
     MSSQL,
@@ -525,11 +529,20 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterFields: [
             MATILLION_PROJECT_ALLOW,
             MATILLION_PROJECT_DENY,
+            MATILLION_ENVIRONMENT_ALLOW,
+            MATILLION_ENVIRONMENT_DENY,
             MATILLION_PIPELINE_ALLOW,
             MATILLION_PIPELINE_DENY,
+            MATILLION_STREAMING_ALLOW,
+            MATILLION_STREAMING_DENY,
         ],
-        advancedFields: [MATILLION_INCLUDE_EXECUTIONS, MATILLION_INCLUDE_LINEAGE, MATILLION_STATEFUL_INGESTION],
-        filterSectionTooltip: 'Include or exclude specific Projects and Pipelines from ingestion.',
+        advancedFields: [
+            MATILLION_INCLUDE_EXECUTIONS,
+            MATILLION_INCLUDE_UNPUBLISHED,
+            MATILLION_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
     },
     [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],

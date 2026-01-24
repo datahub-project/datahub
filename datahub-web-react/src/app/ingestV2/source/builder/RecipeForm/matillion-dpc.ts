@@ -96,32 +96,11 @@ export const MATILLION_EXTRACT_CONTAINERS: RecipeField = {
     rules: null,
 };
 
-export const MATILLION_INCLUDE_LINEAGE: RecipeField = {
-    name: 'include_lineage',
-    label: 'Include Lineage',
-    tooltip:
-        'Extract dataset lineage from OpenLineage events. Connects Matillion pipelines to upstream and downstream datasets.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_lineage',
-    rules: null,
-    section: 'Lineage',
-};
-
-export const MATILLION_INCLUDE_COLUMN_LINEAGE: RecipeField = {
-    name: 'include_column_lineage',
-    label: 'Include Column-Level Lineage',
-    tooltip: 'Extract column-level lineage from OpenLineage events. Requires include_lineage to be enabled.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_column_lineage',
-    rules: null,
-    section: 'Lineage',
-};
-
 export const MATILLION_PARSE_SQL: RecipeField = {
     name: 'parse_sql_for_lineage',
     label: 'Parse SQL for Lineage',
     tooltip:
-        'Parse SQL queries to infer additional column-level lineage. Requires a DataHub graph connection and include_lineage enabled.',
+        'Parse SQL queries to infer additional column-level lineage. Requires a DataHub graph connection.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.parse_sql_for_lineage',
     rules: null,
@@ -145,6 +124,17 @@ export const MATILLION_INCLUDE_STREAMING: RecipeField = {
     tooltip: 'Include streaming pipeline metadata (experimental feature).',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_streaming_pipelines',
+    rules: null,
+    section: 'Advanced',
+};
+
+export const MATILLION_INCLUDE_UNPUBLISHED: RecipeField = {
+    name: 'include_unpublished_pipelines',
+    label: 'Include Unpublished Pipelines',
+    tooltip:
+        'Discover and ingest unpublished pipelines from recent execution history. Disable to only ingest published pipelines.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_unpublished_pipelines',
     rules: null,
     section: 'Advanced',
 };
@@ -208,6 +198,54 @@ export const MATILLION_PROJECT_DENY: RecipeField = {
     placeholder: 'archive-.*',
 };
 
+export const MATILLION_ENVIRONMENT_ALLOW: RecipeField = {
+    name: 'environment_patterns.allow',
+    label: 'Environment Allow Patterns',
+    tooltip: 'Only include environments that match these regex patterns.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: 'source.config.environment_patterns.allow',
+    rules: null,
+    section: 'Environments',
+    placeholder: '.*',
+};
+
+export const MATILLION_ENVIRONMENT_DENY: RecipeField = {
+    name: 'environment_patterns.deny',
+    label: 'Environment Deny Patterns',
+    tooltip: 'Exclude environments that match these regex patterns.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: 'source.config.environment_patterns.deny',
+    rules: null,
+    section: 'Environments',
+    placeholder: 'sandbox-.*',
+};
+
+export const MATILLION_STREAMING_ALLOW: RecipeField = {
+    name: 'streaming_pipeline_patterns.allow',
+    label: 'Streaming Pipeline Allow Patterns',
+    tooltip: 'Only include streaming pipelines that match these regex patterns.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: 'source.config.streaming_pipeline_patterns.allow',
+    rules: null,
+    section: 'Streaming Pipelines',
+    placeholder: '.*',
+};
+
+export const MATILLION_STREAMING_DENY: RecipeField = {
+    name: 'streaming_pipeline_patterns.deny',
+    label: 'Streaming Pipeline Deny Patterns',
+    tooltip: 'Exclude streaming pipelines that match these regex patterns.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: 'source.config.streaming_pipeline_patterns.deny',
+    rules: null,
+    section: 'Streaming Pipelines',
+    placeholder: 'test-.*',
+};
+
 export const MATILLION_REQUEST_TIMEOUT: RecipeField = {
     name: 'request_timeout_sec',
     label: 'Request Timeout (seconds)',
@@ -236,11 +274,14 @@ const allFields: RecipeField[] = [
     MATILLION_ENV,
     MATILLION_PLATFORM_INSTANCE,
     MATILLION_INCLUDE_EXECUTIONS,
-    MATILLION_INCLUDE_LINEAGE,
-    MATILLION_PIPELINE_ALLOW,
-    MATILLION_PIPELINE_DENY,
     MATILLION_PROJECT_ALLOW,
     MATILLION_PROJECT_DENY,
+    MATILLION_ENVIRONMENT_ALLOW,
+    MATILLION_ENVIRONMENT_DENY,
+    MATILLION_PIPELINE_ALLOW,
+    MATILLION_PIPELINE_DENY,
+    MATILLION_STREAMING_ALLOW,
+    MATILLION_STREAMING_DENY,
     MATILLION_STATEFUL_INGESTION,
 ];
 

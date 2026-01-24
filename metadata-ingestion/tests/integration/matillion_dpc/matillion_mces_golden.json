@@ -17,7 +17,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201068,
+        "lastObserved": 1704067200651,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -33,7 +33,41 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201069,
+        "lastObserved": 1704067200651,
+        "runId": "matillion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:matillion"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200652,
+        "runId": "matillion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200652,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -49,7 +83,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201070,
+        "lastObserved": 1704067200653,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -65,7 +99,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201071,
+        "lastObserved": 1704067200654,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -88,7 +122,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201071,
+        "lastObserved": 1704067200654,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -104,62 +138,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201072,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:matillion"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201069,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Project"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201070,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:709029303555c6af1711e8a33aeaad86",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
-                    "urn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201073,
+        "lastObserved": 1704067200654,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -175,7 +154,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201072,
+        "lastObserved": 1704067200655,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -193,208 +172,28 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201072,
+        "lastObserved": 1704067200655,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:matillion"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201077,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD),proj-1.Production.Daily ETL)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201080,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "pipeline_name": "Daily ETL",
-                "project_id": "proj-1",
-                "project_name": "Analytics Project",
-                "environment_name": "Production"
-            },
-            "externalUrl": "http://localhost:8080/api/pipelines/Daily ETL",
-            "name": "Daily ETL",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201077,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD),proj-1.Production.Daily ETL)",
+    "entityType": "container",
+    "entityUrn": "urn:li:container:709029303555c6af1711e8a33aeaad86",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
-                {
-                    "id": "proj-1.Production.Daily ETL",
-                    "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201080,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:709029303555c6af1711e8a33aeaad86"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201077,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD),proj-1.Production.Daily ETL)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Matillion Pipeline"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201079,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatform:matillion",
-                    "urn": "urn:li:dataPlatform:matillion"
-                },
                 {
                     "id": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f",
                     "urn": "urn:li:container:42a1101ab138ceec4ffbd0cc32c7872f"
-                },
-                {
-                    "id": "urn:li:container:709029303555c6af1711e8a33aeaad86",
-                    "urn": "urn:li:container:709029303555c6af1711e8a33aeaad86"
-                },
-                {
-                    "id": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)",
-                    "urn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067201078,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD),proj-1.Production.Daily ETL)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "project_id": "proj-1",
-                "published_time": "2024-01-01T00:00:00+00:00"
-            },
-            "name": "Daily ETL",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201079,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD),proj-1.Production.Daily ETL)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:matillion"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201078,
-        "runId": "matillion-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(matillion,proj-1.Production.Daily ETL,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067201080,
+        "lastObserved": 1704067200655,
         "runId": "matillion-test",
         "lastRunId": "no-run-id-provided"
     }

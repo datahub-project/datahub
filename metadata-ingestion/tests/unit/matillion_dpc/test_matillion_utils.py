@@ -5,12 +5,12 @@ from datahub.ingestion.source.matillion_dpc.config import (
     MatillionAPIConfig,
     MatillionSourceConfig,
 )
+from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionPipeline,
     MatillionProject,
 )
-from datahub.ingestion.source.matillion_dpc.urn_builder import MatillionUrnBuilder
 
 
 @pytest.fixture

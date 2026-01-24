@@ -48,7 +48,7 @@ def test_matillion_source_basic(pytestconfig: pytest.Config, tmp_path: Any) -> N
             return mock_environments_response
         elif "published-pipelines" in endpoint:
             return mock_pipelines_response
-        elif "executions" in endpoint:
+        elif "/steps" in endpoint or "executions" in endpoint:
             return {"results": []}
         return mock_empty_response
 
@@ -85,66 +85,6 @@ def test_matillion_source_basic(pytestconfig: pytest.Config, tmp_path: Any) -> N
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_matillion_source_with_lineage(
-    pytestconfig: pytest.Config, tmp_path: Any
-) -> None:
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/matillion_dpc"
-    output_path = tmp_path / "matillion_lineage_mces.json"
-
-    # Load fixtures
-    mock_projects_response = load_fixture(test_resources_dir, "projects_lineage.json")
-    mock_environments_response = load_fixture(
-        test_resources_dir, "environments_basic.json"
-    )
-    mock_pipelines_response = load_fixture(test_resources_dir, "pipelines_lineage.json")
-    mock_empty_response = load_fixture(test_resources_dir, "empty_results.json")
-
-    def mock_make_request(
-        self: Any, method: str, endpoint: str, **kwargs: Any
-    ) -> Dict[str, Any]:
-        if endpoint == "v1/projects":
-            return mock_projects_response
-        elif "/environments" in endpoint:
-            return mock_environments_response
-        elif "published-pipelines" in endpoint:
-            return mock_pipelines_response
-        elif "executions" in endpoint:
-            return {"results": []}
-        return mock_empty_response
-
-    with (
-        patch.object(
-            MatillionAPIClient, "_generate_oauth_token", mock_oauth_generation
-        ),
-        patch.object(MatillionAPIClient, "_make_request", mock_make_request),
-    ):
-        pipeline_config = load_config_file(
-            test_resources_dir / "matillion_lineage_to_file.yml"
-        )
-        pipeline = Pipeline.create(
-            {
-                "run_id": "matillion-lineage-test",
-                **pipeline_config,
-                "sink": {
-                    "type": "file",
-                    "config": {"filename": str(output_path)},
-                },
-            }
-        )
-
-        pipeline.run()
-        pipeline.raise_from_status()
-
-    assert output_path.exists()
-
-    mce_helpers.check_golden_file(
-        pytestconfig=pytestconfig,
-        output_path=output_path,
-        golden_path=test_resources_dir / "matillion_lineage_mces_golden.json",
-    )
-
-
-@time_machine.travel(FROZEN_TIME)
 def test_matillion_source_with_streaming_pipelines(
     pytestconfig: pytest.Config, tmp_path: Any
 ) -> None:
@@ -170,6 +110,8 @@ def test_matillion_source_with_streaming_pipelines(
             return mock_environments_response
         elif "streaming-pipelines" in endpoint:
             return mock_streaming_pipelines_response
+        elif "/steps" in endpoint:
+            return {"results": []}
         elif "pipelines" in endpoint:
             return mock_empty_response
         elif "executions" in endpoint:
@@ -230,6 +172,12 @@ def test_matillion_source_comprehensive(
         test_resources_dir, "streaming_pipelines_comprehensive.json"
     )
     mock_executions_response = load_fixture(test_resources_dir, "executions.json")
+    mock_execution_steps_response = load_fixture(
+        test_resources_dir, "execution_steps.json"
+    )
+    mock_child_execution_steps_response = load_fixture(
+        test_resources_dir, "child_execution_steps.json"
+    )
     mock_empty_response = load_fixture(test_resources_dir, "empty_results.json")
 
     def mock_make_request(
@@ -243,7 +191,11 @@ def test_matillion_source_comprehensive(
             return mock_streaming_pipelines_response
         elif "pipelines" in endpoint and "/lineage" in endpoint:
             return mock_lineage_response
-        elif "pipelines" in endpoint and "/executions" in endpoint:
+        elif "pipeline-executions" in endpoint and "/steps" in endpoint:
+            if "child-exec-1" in endpoint:
+                return mock_child_execution_steps_response
+            return mock_execution_steps_response
+        elif endpoint == "v1/pipeline-executions":
             return mock_executions_response
         elif "pipelines" in endpoint:
             return mock_pipelines_response
@@ -318,7 +270,7 @@ def test_matillion_postgres_to_snowflake_with_sql_parsing(
             return mock_pipelines_response
         elif "lineage/events" in endpoint:
             return mock_lineage_events_response
-        elif "executions" in endpoint:
+        elif "/steps" in endpoint or "executions" in endpoint:
             return {"results": []}
         return mock_empty_response
 

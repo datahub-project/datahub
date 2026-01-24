@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Dict, Optional
 
 from pydantic import ConfigDict, Field, SecretStr, ValidationInfo, field_validator
@@ -6,6 +7,7 @@ from pydantic import ConfigDict, Field, SecretStr, ValidationInfo, field_validat
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.matillion_dpc.constants import (
     MATILLION_EU1_URL,
@@ -163,6 +165,7 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     repositories_scanned: int = 0
     filtered_pipelines: list[str] = Field(default_factory=list)
     filtered_projects: list[str] = Field(default_factory=list)
+    filtered_environments: list[str] = Field(default_factory=list)
     filtered_streaming_pipelines: list[str] = Field(default_factory=list)
     api_calls_count: int = 0
     containers_emitted: int = 0
@@ -173,8 +176,10 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     sql_parsing_successes: int = 0
     sql_parsing_failures: int = 0
     schemas_preloaded: int = 0
-    unpublished_pipelines_discovered: int = 0
-    unpublished_pipelines_emitted: int = 0
+    pipeline_executions_emitted: int = 0
+
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
 
     def report_projects_scanned(self, count: int = 1) -> None:
         self.projects_scanned += count
@@ -197,11 +202,19 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     def report_streaming_pipeline_scanned(self, count: int = 1) -> None:
         self.streaming_pipelines_scanned += count
 
+    def report_streaming_pipelines_scanned(self, count: int = 1) -> None:
+        self.streaming_pipelines_scanned += count
+
     def report_streaming_pipeline_emitted(self, count: int = 1) -> None:
         self.streaming_pipelines_emitted += count
 
+    def report_pipeline_executions_emitted(self, count: int = 1) -> None:
+        self.pipeline_executions_emitted += count
 
-class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+
+class MatillionSourceConfig(
+    BaseTimeWindowConfig, StatefulIngestionConfigBase, DatasetSourceConfigMixin
+):
     api_config: MatillionAPIConfig = Field(description="Matillion API configuration")
 
     env: str = Field(
@@ -214,27 +227,9 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         description="The instance of the platform that all assets produced by this recipe belong to",
     )
 
-    include_pipeline_executions: bool = Field(
-        default=True,
-        description="Whether to ingest Matillion Pipeline Execution history as DataProcessInstances. "
-        "This provides operational metadata about each pipeline execution, including status, duration, and row counts.",
-    )
-
     max_executions_per_pipeline: int = Field(
         default=10,
         description="Maximum number of recent pipeline executions to ingest per pipeline. Set to 0 to disable execution ingestion.",
-    )
-
-    include_lineage: bool = Field(
-        default=True,
-        description="Whether to extract lineage from Matillion pipelines. "
-        "When enabled, extracts upstream and downstream dataset dependencies from pipeline lineage graphs.",
-    )
-
-    include_column_lineage: bool = Field(
-        default=True,
-        description="Whether to extract column-level lineage from Matillion pipelines. "
-        "Requires include_lineage to be True. Provides fine-grained lineage between specific columns.",
     )
 
     parse_sql_for_lineage: bool = Field(
@@ -242,14 +237,6 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         description="Whether to parse SQL from OpenLineage events to extract additional column-level lineage. "
         "Requires DataHub graph access. When enabled, SQL queries are parsed to infer lineage beyond what's "
         "explicitly provided in OpenLineage column mappings.",
-    )
-
-    lineage_start_days_ago: int = Field(
-        default=7,
-        description=(
-            "Number of days in the past to start fetching OpenLineage events. "
-            "Events from this many days ago until now will be fetched."
-        ),
     )
 
     namespace_to_platform_instance: Optional[Dict[str, NamespacePlatformMapping]] = (
@@ -283,12 +270,6 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         description="Regex patterns for filtering Matillion streaming pipelines to ingest.",
     )
 
-    include_unpublished_pipelines: bool = Field(
-        default=False,
-        description="Ingest pipelines from lineage events even if not in published-pipelines list. "
-        "Captures unpublished pipelines and ad-hoc runs.",
-    )
-
     pipeline_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for filtering Matillion pipelines to ingest.",
@@ -299,10 +280,22 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         description="Regex patterns for filtering Matillion projects to ingest.",
     )
 
+    environment_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for filtering Matillion environments to ingest.",
+    )
+
     extract_projects_to_containers: bool = Field(
         default=True,
         description="Whether to extract Matillion projects as DataHub containers. "
         "When enabled, pipelines are organized under project containers, providing hierarchical navigation.",
+    )
+
+    include_unpublished_pipelines: bool = Field(
+        default=True,
+        description="Whether to discover and ingest unpublished pipelines from recent execution history. "
+        "When enabled, the connector will discover pipelines that have been executed but not yet published. "
+        "Disable this to only ingest published pipelines from the published-pipelines API.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -324,15 +317,5 @@ class MatillionSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
                 f"max_executions_per_pipeline is set to {v}, which is quite high. "
                 f"This may result in many API calls and slower ingestion. "
                 f"Consider using a value below {MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD}."
-            )
-        return v
-
-    @field_validator("include_unpublished_pipelines")
-    @classmethod
-    def validate_include_unpublished_pipelines(cls, v: bool) -> bool:
-        if v:
-            logger.warning(
-                "include_unpublished_pipelines may ingest test/dev pipelines. "
-                "Consider using pipeline_patterns to filter unwanted pipelines."
             )
         return v

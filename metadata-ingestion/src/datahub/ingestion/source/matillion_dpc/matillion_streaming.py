@@ -16,11 +16,11 @@ from datahub.ingestion.source.matillion_dpc.constants import (
 from datahub.ingestion.source.matillion_dpc.matillion_container import (
     MatillionContainerHandler,
 )
+from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionProject,
     MatillionStreamingPipeline,
 )
-from datahub.ingestion.source.matillion_dpc.urn_builder import MatillionUrnBuilder
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     StatusClass,
@@ -68,6 +68,10 @@ class MatillionStreamingHandler:
         streaming_pipeline: MatillionStreamingPipeline,
         project: MatillionProject,
     ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.streaming_pipeline_patterns.allowed(streaming_pipeline.name):
+            self.report.filtered_streaming_pipelines.append(streaming_pipeline.name)
+            return
+
         pipeline_urn = self._make_streaming_pipeline_urn(streaming_pipeline, project)
         pipeline_id = (
             streaming_pipeline.streaming_pipeline_id or streaming_pipeline.name

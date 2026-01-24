@@ -30,12 +30,13 @@ If using an account role other than **Super Admin**, grant project and environme
 
 See [Matillion RBAC documentation](https://docs.matillion.com/data-productivity-cloud/hub/docs/role-based-access-control-overview/) for details.
 
-#### Lineage Data Sources
+#### Lineage and Dependencies
 
-Lineage is extracted from:
+The connector automatically extracts:
 
-1. **OpenLineage Events API** (`/v1/lineage/events`) - Primary source for table and column-level lineage ([docs](https://docs.matillion.com/data-productivity-cloud/api/docs/endpoint-reference/?fullpage=true#/Data%20Lineage/get-lineage-events))
-2. **Pipeline Executions API** (`/v1/pipeline-executions`) - Operational metadata emitted as DataProcessInstance entities ([docs](https://docs.matillion.com/data-productivity-cloud/api/docs/endpoint-reference/?fullpage=true#/Pipeline%20Execution/getPipelineExecutions))
+1. **Table and Column-Level Lineage** - From OpenLineage Events API (`/v1/lineage/events`) ([docs](https://docs.matillion.com/data-productivity-cloud/api/docs/endpoint-reference/?fullpage=true#/Data%20Lineage/get-lineage-events))
+2. **Operational Metadata** - Pipeline execution history from Pipeline Executions API (`/v1/pipeline-executions`) emitted as DataProcessInstance entities ([docs](https://docs.matillion.com/data-productivity-cloud/api/docs/endpoint-reference/?fullpage=true#/Pipeline%20Execution/getPipelineExecutions))
+3. **Child Pipeline Dependencies** - Automatically tracks when pipelines call other pipelines, creating step-to-step dependency relationships for comprehensive pipeline orchestration visibility
 
 #### OpenLineage Namespace Mapping (Optional)
 

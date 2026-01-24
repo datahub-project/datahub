@@ -57,6 +57,15 @@ class MatillionPipelineExecution(BaseModel):
     message: Optional[str] = None
 
 
+class MatillionPipelineExecutionStepResult(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    name: str
+    result: Optional[dict] = None  # Contains status, startedAt, finishedAt, message
+    child_pipeline: Optional[dict] = Field(default=None, alias="childPipeline")
+
+
 class MatillionSchedule(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -167,3 +176,43 @@ class ArtifactDetailsWithAssets(BaseModel):
 
     assets: Optional[List[str]] = None
     details: Optional[ArtifactDetails] = None
+
+
+class PipelineGroupKey(BaseModel):
+    model_config = ConfigDict(frozen=True)  # Make it hashable for use as dict key
+
+    project_id: str
+    environment_name: Optional[str]
+    pipeline_name: str
+
+    def __hash__(self) -> int:
+        return hash((self.project_id, self.environment_name, self.pipeline_name))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PipelineGroupKey):
+            return False
+        return (
+            self.project_id == other.project_id
+            and self.environment_name == other.environment_name
+            and self.pipeline_name == other.pipeline_name
+        )
+
+
+class TimeWindow(BaseModel):
+    start_time: datetime
+    end_time: datetime
+
+
+class StepLineage(BaseModel):
+    input_urns: List[str] = Field(default_factory=list)
+    output_urns: List[str] = Field(default_factory=list)
+
+
+class ExecutionWithSteps(BaseModel):
+    execution: MatillionPipelineExecution
+    steps: List[MatillionPipelineExecutionStepResult]
+
+
+class StepTiming(BaseModel):
+    step_name: str
+    timestamp: datetime

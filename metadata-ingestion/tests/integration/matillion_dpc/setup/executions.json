@@ -1,14 +1,24 @@
 {
   "results": [
     {
-      "id": "exec-1",
-      "pipelineId": "pipe-1",
-      "status": "success",
+      "pipelineExecutionId": "exec-1",
+      "pipelineName": "Data Integration Pipeline",
+      "projectId": "proj-1",
+      "environmentName": "Production",
+      "status": "SUCCESS",
+      "trigger": "schedule",
       "startedAt": "2024-01-01T00:00:00Z",
-      "completedAt": "2024-01-01T00:05:00Z",
-      "durationMs": 300000,
-      "rowsProcessed": 10000,
-      "triggerType": "schedule"
+      "completedAt": "2024-01-01T00:05:00Z"
+    },
+    {
+      "pipelineExecutionId": "child-exec-1",
+      "pipelineName": "Child ETL Pipeline",
+      "projectId": "proj-1",
+      "environmentName": "Production",
+      "status": "SUCCESS",
+      "trigger": "manual",
+      "startedAt": "2024-01-01T00:02:30Z",
+      "completedAt": "2024-01-01T00:03:30Z"
     }
   ]
 }

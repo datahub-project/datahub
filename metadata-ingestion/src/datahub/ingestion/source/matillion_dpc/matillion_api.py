@@ -14,6 +14,7 @@ from datahub.ingestion.source.matillion_dpc.constants import (
     API_ENDPOINT_ARTIFACT_DETAILS,
     API_ENDPOINT_ENVIRONMENTS,
     API_ENDPOINT_LINEAGE_EVENTS,
+    API_ENDPOINT_PIPELINE_EXECUTION_STEPS,
     API_ENDPOINT_PIPELINE_EXECUTIONS,
     API_ENDPOINT_PIPELINES,
     API_ENDPOINT_PROJECTS,
@@ -42,6 +43,7 @@ from datahub.ingestion.source.matillion_dpc.models import (
     MatillionEnvironment,
     MatillionPipeline,
     MatillionPipelineExecution,
+    MatillionPipelineExecutionStepResult,
     MatillionProject,
     MatillionSchedule,
     MatillionStreamingPipeline,
@@ -342,14 +344,18 @@ class MatillionAPIClient:
         )
 
     def get_pipeline_executions(
-        self, pipeline_name: str, limit: int = 10
+        self, pipeline_name: Optional[str] = None, limit: int = 10
     ) -> List[MatillionPipelineExecution]:
+        additional_params = {}
+        if pipeline_name:
+            additional_params["pipelineName"] = pipeline_name
+
         return self._fetch_token_paginated_entities(
             API_ENDPOINT_PIPELINE_EXECUTIONS,
             MatillionPipelineExecution,
             "pipeline execution",
             pagination_params=TokenPaginationParams(limit=limit),
-            additional_params={"pipelineName": pipeline_name},
+            additional_params=additional_params,
         )
 
     def get_schedules(self, project_id: str) -> List[MatillionSchedule]:
@@ -362,6 +368,16 @@ class MatillionAPIClient:
         endpoint = API_ENDPOINT_STREAMING_PIPELINES.format(projectId=project_id)
         return self._fetch_entities(
             endpoint, MatillionStreamingPipeline, "streaming pipeline"
+        )
+
+    def get_pipeline_execution_steps(
+        self, project_id: str, pipeline_execution_id: str
+    ) -> List[MatillionPipelineExecutionStepResult]:
+        endpoint = API_ENDPOINT_PIPELINE_EXECUTION_STEPS.format(
+            projectId=project_id, pipelineExecutionId=pipeline_execution_id
+        )
+        return self._fetch_entities(
+            endpoint, MatillionPipelineExecutionStepResult, "pipeline execution step"
         )
 
     def get_artifact_details(

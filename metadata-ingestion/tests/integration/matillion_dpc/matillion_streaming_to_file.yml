@@ -6,8 +6,6 @@ source:
       client_secret: "test_client_secret"
       custom_base_url: "http://localhost:8080/api"
     env: "PROD"
-    include_pipeline_executions: false
-    include_lineage: false
     include_streaming_pipelines: true
     extract_projects_to_containers: true
     stateful_ingestion:

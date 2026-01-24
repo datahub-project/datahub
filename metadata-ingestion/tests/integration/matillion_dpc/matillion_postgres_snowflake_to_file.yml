@@ -5,8 +5,6 @@ source:
       client_id: test_client_id
       client_secret: test_client_secret
       custom_base_url: http://localhost:8080/api
-    include_pipeline_executions: false
-    include_lineage: true
     parse_sql_for_lineage: true
     include_streaming_pipelines: false
     extract_projects_to_containers: true

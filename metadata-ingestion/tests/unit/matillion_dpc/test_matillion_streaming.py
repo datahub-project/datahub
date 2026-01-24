@@ -14,11 +14,11 @@ from datahub.ingestion.source.matillion_dpc.matillion_container import (
 from datahub.ingestion.source.matillion_dpc.matillion_streaming import (
     MatillionStreamingHandler,
 )
+from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionProject,
     MatillionStreamingPipeline,
 )
-from datahub.ingestion.source.matillion_dpc.urn_builder import MatillionUrnBuilder
 
 
 @pytest.fixture
