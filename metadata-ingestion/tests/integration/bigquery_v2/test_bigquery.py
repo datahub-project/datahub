@@ -1,6 +1,7 @@
 import random
 import string
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
@@ -503,62 +504,62 @@ def test_bigquery_queries_v2_lineage_usage_ingest(
     # mocking the query results for fetching audit log
     # note that this is called twice, once for each region
     client.query.return_value = [
-        {
-            "job_id": "1",
-            "project_id": "project-id-1",
-            "creation_time": datetime.now(timezone.utc),
-            "user_email": "foo@xyz.com",
-            "query": "select * from `bigquery-dataset-1`.`table-1`",
-            "session_id": None,
-            "query_hash": None,
-            "statement_type": "SELECT",
-            "destination_table": None,
-            "referenced_tables": None,
-        },
-        {
-            "job_id": "2",
-            "project_id": "project-id-1",
-            "creation_time": datetime.now(timezone.utc),
-            "user_email": "foo@xyz.com",
-            "query": "create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`",
-            "session_id": None,
-            "query_hash": None,
-            "statement_type": "CREATE",
-            "destination_table": None,
-            "referenced_tables": None,
-        },
-        {
-            "job_id": "3",
-            "project_id": "project-id-1",
-            "creation_time": datetime.now(timezone.utc),
-            "user_email": "service_account@xyz.com",
-            "query": """\
+        SimpleNamespace(
+            job_id="1",
+            project_id="project-id-1",
+            creation_time=datetime.now(timezone.utc),
+            user_email="foo@xyz.com",
+            query="select * from `bigquery-dataset-1`.`table-1`",
+            session_id=None,
+            query_hash=None,
+            statement_type="SELECT",
+            destination_table=None,
+            referenced_tables=None,
+        ),
+        SimpleNamespace(
+            job_id="2",
+            project_id="project-id-1",
+            creation_time=datetime.now(timezone.utc),
+            user_email="foo@xyz.com",
+            query="create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`",
+            session_id=None,
+            query_hash=None,
+            statement_type="CREATE",
+            destination_table=None,
+            referenced_tables=None,
+        ),
+        SimpleNamespace(
+            job_id="3",
+            project_id="project-id-1",
+            creation_time=datetime.now(timezone.utc),
+            user_email="service_account@xyz.com",
+            query="""\
 select * from `bigquery-dataset-1`.`view-1`
 LIMIT 100
 -- {"user":"@bar","email":"bar@xyz.com","url":"https://modeanalytics.com/acryltest/reports/6234ff78bc7d/runs/662b21949629/queries/f0aad24d5b37","scheduled":false}
 """,
-            "session_id": None,
-            "query_hash": None,
-            "statement_type": "SELECT",
-            "destination_table": None,
-            "referenced_tables": None,
-        },
-        {
-            "job_id": "4",
-            "project_id": "project-id-1",
-            "creation_time": datetime.now(timezone.utc),
-            "user_email": "service_account@xyz.com",
-            "query": """\
+            session_id=None,
+            query_hash=None,
+            statement_type="SELECT",
+            destination_table=None,
+            referenced_tables=None,
+        ),
+        SimpleNamespace(
+            job_id="4",
+            project_id="project-id-1",
+            creation_time=datetime.now(timezone.utc),
+            user_email="service_account@xyz.com",
+            query="""\
 select * from `bigquery-dataset-1`.`view-1`
 LIMIT 100
 -- {"user":"@foo","email":"foo@xyz.com","url":"https://modeanalytics.com/acryltest/reports/6234ff78bc7d/runs/662b21949629/queries/f0aad24d5b37","scheduled":false}
 """,
-            "session_id": None,
-            "query_hash": None,
-            "statement_type": "SELECT",
-            "destination_table": None,
-            "referenced_tables": None,
-        },
+            session_id=None,
+            query_hash=None,
+            statement_type="SELECT",
+            destination_table=None,
+            referenced_tables=None,
+        ),
     ]
 
     pipeline_config_dict: Dict[str, Any] = recipe(

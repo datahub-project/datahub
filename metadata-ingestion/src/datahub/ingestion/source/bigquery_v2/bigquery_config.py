@@ -28,6 +28,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -48,6 +49,49 @@ DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
     "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
+
+
+class BigQueryProfilingConfig(GEProfilingConfig):
+    fallback_partition_values: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Fallback values for partition columns when timeout occurs. Keys are column names, "
+        "values are the fallback values to use. For non-date columns, the values are used directly. "
+        "Example: {'batch': 'default', 'region': 'us-east-1'}",
+    )
+
+    partition_fetch_timeout: int = Field(
+        default=30,
+        description="Timeout in seconds for partition value fetch operations. If exceeded, fallback "
+        "partition values will be used.",
+    )
+
+    profiling_row_limit: int = Field(
+        default=1000000,
+        description="The number of rows to sample for profiling. This is a low level config property which "
+        "should be touched with care. This restriction is needed because excessively wide tables can "
+        "result in failure to ingest the schema.",
+    )
+
+    skip_stale_tables: bool = Field(
+        default=True,
+        description="Skip profiling for tables that haven't been modified in over a year. "
+        "Uses last_altered timestamp (which contains BigQuery's last_modified_time) for both regular and external tables. "
+        "This helps avoid profiling abandoned or archived tables.",
+    )
+
+    staleness_threshold_days: int = Field(
+        default=365,
+        description="Number of days after which a table is considered stale and profiling will be skipped "
+        "if skip_stale_tables is enabled.",
+    )
+
+    partition_datetime_window_days: Optional[int] = Field(
+        default=30,
+        description="Limit profiling to partitions within this many days from the selected partition date. "
+        "For example, if set to 30 and the selected partition is '2025-08-15', only partitions from "
+        "'2025-07-16' to '2025-08-15' will be included in profiling. Set to None to disable date windowing. "
+        "This helps focus profiling on recent data patterns and improves performance.",
+    )
 
 
 class BigQueryBaseConfig(ConfigModel):
@@ -480,6 +524,11 @@ class BigQueryV2Config(
         default=["region-us", "region-eu"],
         description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
+    )
+
+    profiling: BigQueryProfilingConfig = Field(
+        default=BigQueryProfilingConfig(),
+        description="Profiling related configs",
     )
 
     pushdown_deny_usernames: List[str] = Field(
