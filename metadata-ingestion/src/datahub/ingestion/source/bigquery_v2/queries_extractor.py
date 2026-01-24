@@ -2,13 +2,17 @@ import functools
 import logging
 import pathlib
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Collection, Dict, Iterable, List, Optional, TypedDict
 
 from google.cloud.bigquery import Client
 from pydantic import Field, PositiveInt
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.env_vars import (
+    get_bigquery_observe_queries_batch_size,
+    get_sql_aggregator_parsing_workers,
+)
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
@@ -52,7 +56,6 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
-from datahub.utilities.progress_timer import ProgressTimer
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -179,13 +182,19 @@ class BigQueryQueriesExtractor(Closeable):
 
         self.start_time, self.end_time = self._get_time_window()
 
+        # When using parallel parsing (workers > 1), set eager_graph_load=True to avoid
+        # duplicate schema fetches and improve performance.
+        # TODO: review if it should be true in all cases (check other sources)
+        parsing_workers = get_sql_aggregator_parsing_workers()
+        eager_graph_load = parsing_workers > 1
+
         self.aggregator = SqlParsingAggregator(
             platform=self.identifiers.platform,
             platform_instance=self.identifiers.identifier_config.platform_instance,
             env=self.identifiers.identifier_config.env,
             schema_resolver=schema_resolver,
             graph=graph,
-            eager_graph_load=False,
+            eager_graph_load=eager_graph_load,
             generate_lineage=self.config.include_lineage,
             generate_queries=self.config.include_queries,
             generate_usage_statistics=self.config.include_usage_statistics,
@@ -334,20 +343,31 @@ class BigQueryQueriesExtractor(Closeable):
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
         with self.report.audit_log_load_timer, queries_deduped:
-            log_timer = ProgressTimer(timedelta(minutes=1))
-            report_timer = ProgressTimer(timedelta(minutes=5))
+            # TODO: move this batching complexity to the aggregator itself
 
-            for i, (_, query_instances) in enumerate(queries_deduped.items()):
-                for query in query_instances.values():
-                    if log_timer.should_report():
-                        logger.info(
-                            f"Added {i} deduplicated query log entries to SQL aggregator"
-                        )
+            # Flatten queries from deduplicated structure
+            # Note: queries_deduped is keyed by query_hash, so we need to sort by timestamp
+            # to maintain correct incremental ordering for temp table resolution
+            all_queries: List[ObservedQuery] = []
+            for query_instances in queries_deduped.values():
+                all_queries.extend(query_instances.values())
 
-                    if report_timer.should_report() and self.report.sql_aggregator:
-                        logger.info(self.report.sql_aggregator.as_string())
+            # Sort by timestamp to ensure correct incremental ordering
+            # (deduplication groups by query hash, which breaks timestamp ordering)
+            all_queries.sort(key=lambda q: q.timestamp or datetime.min)
 
-                    self.aggregator.add(query)
+            batch_size = get_bigquery_observe_queries_batch_size()
+            logger.info(
+                f"Processing {len(all_queries)} queries with "
+                f"{get_sql_aggregator_parsing_workers()} workers "
+                f"in batches of {batch_size}"
+            )
+
+            # Process queries in batches (parallel parsing happens internally)
+            # The slice operation automatically handles the last batch even if it's smaller
+            for i in range(0, len(all_queries), batch_size):
+                batch = all_queries[i : i + batch_size]
+                self.aggregator.add_batch(batch)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
 
