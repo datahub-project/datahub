@@ -139,17 +139,6 @@ export const MATILLION_INCLUDE_UNPUBLISHED: RecipeField = {
     section: 'Advanced',
 };
 
-export const MATILLION_INCLUDE_UNPUBLISHED: RecipeField = {
-    name: 'include_unpublished_pipelines',
-    label: 'Include Unpublished Pipelines',
-    tooltip:
-        'Ingest pipelines discovered from lineage events even if not in published-pipelines list. May include test/dev pipelines.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_unpublished_pipelines',
-    rules: null,
-    section: 'Pipelines',
-};
-
 export const MATILLION_PIPELINE_ALLOW: RecipeField = {
     name: 'pipeline_patterns.allow',
     label: 'Pipeline Allow Patterns',
