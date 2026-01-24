@@ -43,7 +43,7 @@ const TableWrapper = styled.div`
     overflow-y: auto;
 
     .selected-row {
-        background-color: ${colors.violet[100]} !important;
+        background-color: ${colors.violet[0]} !important;
     }
 
     tr {

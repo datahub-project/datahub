@@ -59,6 +59,11 @@ const CopyButton = styled(Button)`
     position: absolute;
     top: 8px;
     right: 8px;
+    background: ${colors.white};
+
+    &:hover {
+        background: ${colors.gray[50]};
+    }
 `;
 
 const Kbd = styled.code`

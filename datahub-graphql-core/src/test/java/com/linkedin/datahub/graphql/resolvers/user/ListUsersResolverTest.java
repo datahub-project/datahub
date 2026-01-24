@@ -56,11 +56,12 @@ public class ListUsersResolverTest {
     Mockito.when(
             mockClient.search(
                 any(),
-                Mockito.eq(CORP_USER_ENTITY_NAME),
-                Mockito.eq(""),
-                Mockito.eq(Collections.emptyMap()),
-                Mockito.eq(0),
-                Mockito.eq(20)))
+                eq(CORP_USER_ENTITY_NAME),
+                anyString(),
+                any(), // Filter object
+                any(), // Sort criteria list
+                anyInt(),
+                anyInt()))
         .thenReturn(searchResult);
 
     // Mock batchGetV2 result
@@ -113,20 +114,12 @@ public class ListUsersResolverTest {
     Mockito.when(
             mockClient.search(
                 any(),
-<<<<<<< HEAD
-                Mockito.eq(CORP_USER_ENTITY_NAME),
-                Mockito.eq("test query"),
-                Mockito.eq(Collections.emptyMap()),
-                Mockito.eq(10),
-                Mockito.eq(5)))
-=======
                 eq(CORP_USER_ENTITY_NAME),
                 anyString(),
                 any(), // Filter object
                 any(), // Sort criteria list
                 anyInt(),
                 anyInt()))
->>>>>>> cc176977892 (Add support for Service Accounts)
         .thenReturn(searchResult);
 
     // Mock batchGetV2 result (empty)

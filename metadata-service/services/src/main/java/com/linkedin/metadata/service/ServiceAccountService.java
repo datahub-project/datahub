@@ -2,7 +2,6 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,7 +13,6 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,11 +40,8 @@ public class ServiceAccountService extends BaseService {
   public static final String SERVICE_ACCOUNT_SUB_TYPE = "SERVICE_ACCOUNT";
   public static final String SERVICE_ACCOUNT_PREFIX = "service:";
 
-  public ServiceAccountService(
-      @Nonnull final SystemEntityClient entityClient,
-      @Nonnull final OpenApiClient openApiClient,
-      @Nonnull final ObjectMapper objectMapper) {
-    super(entityClient, openApiClient, objectMapper);
+  public ServiceAccountService(@Nonnull final SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -119,7 +114,7 @@ public class ServiceAccountService extends BaseService {
         subTypes.getTypeNames());
 
     // Ingest all proposals synchronously
-    ingestChangeProposals(opContext, proposals, false);
+    ingestChangeProposals(opContext, proposals);
 
     log.info(
         "Successfully created service account {} for user {}",

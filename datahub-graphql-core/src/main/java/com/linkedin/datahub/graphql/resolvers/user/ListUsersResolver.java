@@ -73,7 +73,8 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     CORP_USER_ENTITY_NAME,
                     query,
-                    Collections.emptyMap(),
+                    buildFilter(filters, Collections.emptyList()),
+                    Collections.emptyList(), // No sort criteria
                     start,
                     count);
 
