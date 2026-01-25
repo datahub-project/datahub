@@ -107,12 +107,11 @@ TWO_TIER_PLATFORMS = {
 LOWERCASE_FIELD_PLATFORMS = {"snowflake"}
 
 # Matillion UI URL patterns
-MATILLION_OBSERVABILITY_DASHBOARD_URL = (
+MATILLION_PIPELINE_OBSERVABILITY_URL = "https://app.matillion.com/observability-dashboard?timeFrame=*&search={pipeline_name}"
+MATILLION_DPI_OBSERVABILITY_URL = (
     "https://app.matillion.com/observability-dashboard/pipeline/{execution_id}"
 )
-MATILLION_PROJECT_BRANCHES_URL = (
-    "https://app.matillion.com/projects/{project_id}/branches"
-)
+MATILLION_PROJECT_URL = "https://app.matillion.com/projects/{project_id}/branches"
 
 # Matillion execution and step status values
 MATILLION_STATUS_SUCCESS = "SUCCESS"

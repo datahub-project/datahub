@@ -11,13 +11,14 @@
                 "env": "PROD",
                 "project_id": "proj-1"
             },
+            "externalUrl": "https://app.matillion.com/projects/proj-1/branches",
             "name": "Full Feature Project",
             "description": "Project with all features",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200091,
+        "lastObserved": 1704067200059,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -340,13 +341,13 @@
                 "environment_name": "Production",
                 "is_published": "false"
             },
-            "externalUrl": "https://app.matillion.com/projects/proj-1/branches",
+            "externalUrl": "https://app.matillion.com/observability-dashboard?timeFrame=*&search=Data Integration Pipeline",
             "name": "Data Integration Pipeline",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200099,
+        "lastObserved": 1704067200116,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -588,13 +589,13 @@
                 "environment_name": "Production",
                 "is_published": "false"
             },
-            "externalUrl": "https://app.matillion.com/projects/proj-1/branches",
+            "externalUrl": "https://app.matillion.com/observability-dashboard?timeFrame=*&search=Child ETL Pipeline",
             "name": "Child ETL Pipeline",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200105,
+        "lastObserved": 1704067200118,
         "runId": "matillion-comprehensive-test",
         "lastRunId": "no-run-id-provided"
     }

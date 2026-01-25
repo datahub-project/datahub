@@ -11,13 +11,14 @@
                 "env": "PROD",
                 "project_id": "proj-1"
             },
+            "externalUrl": "https://app.matillion.com/projects/proj-1/branches",
             "name": "CDC Project",
             "description": "CDC streaming project",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200107,
+        "lastObserved": 1704067200058,
         "runId": "matillion-streaming-test",
         "lastRunId": "no-run-id-provided"
     }

@@ -33,13 +33,12 @@ from datahub.ingestion.source.matillion_dpc.config import (
     MatillionSourceReport,
 )
 from datahub.ingestion.source.matillion_dpc.constants import (
-    API_PATH_SUFFIX,
     DPI_TYPE_BATCH_AD_HOC,
     DPI_TYPE_BATCH_SCHEDULED,
+    MATILLION_DPI_OBSERVABILITY_URL,
     MATILLION_NAMESPACE_PREFIX,
-    MATILLION_OBSERVABILITY_DASHBOARD_URL,
+    MATILLION_PIPELINE_OBSERVABILITY_URL,
     MATILLION_PLATFORM,
-    MATILLION_PROJECT_BRANCHES_URL,
     MATILLION_TO_DATAHUB_RESULT_TYPE,
     MATILLION_TRIGGER_SCHEDULE,
 )
@@ -409,10 +408,9 @@ class MatillionSource(StatefulIngestionSourceBase):
         else:
             custom_properties["is_published"] = "false"
 
-        base_url = self.config.api_config.get_base_url()
-        if base_url.endswith(API_PATH_SUFFIX):
-            base_url = base_url[: -len(API_PATH_SUFFIX)]
-        external_url = MATILLION_PROJECT_BRANCHES_URL.format(project_id=project.id)
+        external_url = MATILLION_PIPELINE_OBSERVABILITY_URL.format(
+            pipeline_name=pipeline_name
+        )
 
         dataflow = DataFlow(
             name=flow_name,
@@ -813,15 +811,6 @@ class MatillionSource(StatefulIngestionSourceBase):
                 f"Registered SQL for DataJob {pipeline.name} on platform {output.platform}"
             )
         except Exception as e:
-            log_level = (
-                logging.ERROR
-                if isinstance(e, (AttributeError, TypeError))
-                else logging.DEBUG
-            )
-            logger.log(
-                log_level,
-                f"Failed to parse SQL for {pipeline.name}: {type(e).__name__}: {e}",
-            )
             self.report.sql_parsing_failures += 1
             self.report.warning(
                 title="SQL parsing error",
@@ -930,7 +919,8 @@ class MatillionSource(StatefulIngestionSourceBase):
             datajob = DataJob(
                 name=job_id,
                 flow_urn=pipeline_urn,
-                display_name=step_name,  # Use step name as display name
+                display_name=step_name,
+                external_url=None,
                 custom_properties=custom_properties,
                 subtype=JobContainerSubTypes.MATILLION_COMPONENT,
             )
@@ -1209,9 +1199,7 @@ class MatillionSource(StatefulIngestionSourceBase):
             except (ValueError, AttributeError):
                 pass
 
-        execution_url = MATILLION_OBSERVABILITY_DASHBOARD_URL.format(
-            execution_id=exec_id
-        )
+        execution_url = MATILLION_DPI_OBSERVABILITY_URL.format(execution_id=exec_id)
 
         properties = DataProcessInstancePropertiesClass(
             name=f"{pipeline.name}-{step.name}-{exec_id[:8]}",

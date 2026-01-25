@@ -11,13 +11,14 @@
                 "env": "PROD",
                 "project_id": "analytics-proj"
             },
+            "externalUrl": "https://app.matillion.com/projects/analytics-proj/branches",
             "name": "Analytics Pipeline",
             "description": "Postgres to Snowflake analytics pipelines",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704067200070,
+        "lastObserved": 1704067200062,
         "runId": "matillion-postgres-snowflake-test",
         "lastRunId": "no-run-id-provided"
     }

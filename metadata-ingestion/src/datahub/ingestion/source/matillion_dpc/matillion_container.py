@@ -11,6 +11,7 @@ from datahub.ingestion.source.matillion_dpc.config import (
 )
 from datahub.ingestion.source.matillion_dpc.constants import (
     MATILLION_PLATFORM,
+    MATILLION_PROJECT_URL,
 )
 from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
@@ -92,11 +93,14 @@ class MatillionContainerHandler:
         if container_urn in self._containers_emitted:
             return
 
+        external_url = MATILLION_PROJECT_URL.format(project_id=project.id)
+
         yield from gen_containers(
             container_key=self._get_project_key(project),
             name=project.name,
             description=project.description,
             sub_types=[DatasetContainerSubTypes.MATILLION_PROJECT],
+            external_url=external_url,
             extra_properties={
                 "project_id": project.id,
             },
