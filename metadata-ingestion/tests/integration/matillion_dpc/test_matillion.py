@@ -8,6 +8,16 @@ import time_machine
 
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.matillion_dpc.constants import (
+    API_ENDPOINT_ENVIRONMENTS,
+    API_ENDPOINT_LINEAGE_EVENTS,
+    API_ENDPOINT_PIPELINE_EXECUTION_STEPS,
+    API_ENDPOINT_PIPELINE_EXECUTIONS,
+    API_ENDPOINT_PIPELINES,
+    API_ENDPOINT_PROJECTS,
+    API_ENDPOINT_STREAMING_PIPELINES,
+)
+from datahub.ingestion.source.matillion_dpc.matillion import MatillionSource
 from datahub.ingestion.source.matillion_dpc.matillion_api import MatillionAPIClient
 from datahub.testing import mce_helpers
 
@@ -26,6 +36,24 @@ def load_fixture(test_resources_dir: Path, fixture_name: str) -> Dict[str, Any]:
         return json.load(f)
 
 
+def _endpoint_matches_template(endpoint: str, template: str) -> bool:
+    """
+    Check if an endpoint matches a template with placeholders like {projectId}.
+    Extracts the unique identifying suffix after the last placeholder.
+    """
+    if "{" not in template:
+        return endpoint == template
+
+    # Get the part after the last placeholder
+    suffix = template.split("}")[-1]
+    if suffix:
+        return suffix in endpoint
+
+    # If no suffix, check the prefix before the first placeholder
+    prefix = template.split("{")[0]
+    return endpoint.startswith(prefix)
+
+
 @time_machine.travel(FROZEN_TIME)
 def test_matillion_source_basic(pytestconfig: pytest.Config, tmp_path: Any) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/matillion_dpc"
@@ -42,13 +70,16 @@ def test_matillion_source_basic(pytestconfig: pytest.Config, tmp_path: Any) -> N
     def mock_make_request(
         self: Any, method: str, endpoint: str, **kwargs: Any
     ) -> Dict[str, Any]:
-        if endpoint == "v1/projects":
+        if endpoint == API_ENDPOINT_PROJECTS:
             return mock_projects_response
-        elif "/environments" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_ENVIRONMENTS):
             return mock_environments_response
-        elif "published-pipelines" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINES):
             return mock_pipelines_response
-        elif "/steps" in endpoint or "executions" in endpoint:
+        elif (
+            _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINE_EXECUTION_STEPS)
+            or endpoint == API_ENDPOINT_PIPELINE_EXECUTIONS
+        ):
             return {"results": []}
         return mock_empty_response
 
@@ -104,17 +135,19 @@ def test_matillion_source_with_streaming_pipelines(
     def mock_make_request(
         self: Any, method: str, endpoint: str, **kwargs: Any
     ) -> Dict[str, Any]:
-        if "projects" in endpoint:
+        if endpoint == API_ENDPOINT_PROJECTS:
             return mock_projects_response
-        elif "environments" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_ENVIRONMENTS):
             return mock_environments_response
-        elif "streaming-pipelines" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_STREAMING_PIPELINES):
             return mock_streaming_pipelines_response
-        elif "/steps" in endpoint:
+        elif _endpoint_matches_template(
+            endpoint, API_ENDPOINT_PIPELINE_EXECUTION_STEPS
+        ):
             return {"results": []}
-        elif "pipelines" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINES):
             return mock_empty_response
-        elif "executions" in endpoint:
+        elif endpoint == API_ENDPOINT_PIPELINE_EXECUTIONS:
             return {"results": []}
         return mock_empty_response
 
@@ -183,21 +216,26 @@ def test_matillion_source_comprehensive(
     def mock_make_request(
         self: Any, method: str, endpoint: str, **kwargs: Any
     ) -> Dict[str, Any]:
-        if "projects" in endpoint:
+        if endpoint == API_ENDPOINT_PROJECTS:
             return mock_projects_response
-        elif "environments" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_ENVIRONMENTS):
             return mock_environments_response
-        elif "streaming-pipelines" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_STREAMING_PIPELINES):
             return mock_streaming_pipelines_response
-        elif "pipelines" in endpoint and "/lineage" in endpoint:
+        elif (
+            _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINES)
+            and "/lineage" in endpoint
+        ):
             return mock_lineage_response
-        elif "pipeline-executions" in endpoint and "/steps" in endpoint:
+        elif _endpoint_matches_template(
+            endpoint, API_ENDPOINT_PIPELINE_EXECUTION_STEPS
+        ):
             if "child-exec-1" in endpoint:
                 return mock_child_execution_steps_response
             return mock_execution_steps_response
-        elif endpoint == "v1/pipeline-executions":
+        elif endpoint == API_ENDPOINT_PIPELINE_EXECUTIONS:
             return mock_executions_response
-        elif "pipelines" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINES):
             return mock_pipelines_response
         return mock_empty_response
 
@@ -262,15 +300,18 @@ def test_matillion_postgres_to_snowflake_with_sql_parsing(
     def mock_make_request(
         self: Any, method: str, endpoint: str, **kwargs: Any
     ) -> Dict[str, Any]:
-        if endpoint == "v1/projects":
+        if endpoint == API_ENDPOINT_PROJECTS:
             return mock_projects_response
-        elif "/environments" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_ENVIRONMENTS):
             return mock_environments_response
-        elif "published-pipelines" in endpoint:
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINES):
             return mock_pipelines_response
-        elif "lineage/events" in endpoint:
+        elif endpoint == API_ENDPOINT_LINEAGE_EVENTS:
             return mock_lineage_events_response
-        elif "/steps" in endpoint or "executions" in endpoint:
+        elif (
+            _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINE_EXECUTION_STEPS)
+            or endpoint == API_ENDPOINT_PIPELINE_EXECUTIONS
+        ):
             return {"results": []}
         return mock_empty_response
 
@@ -307,5 +348,80 @@ def test_matillion_postgres_to_snowflake_with_sql_parsing(
     )
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-vv"])
+@time_machine.travel(FROZEN_TIME)
+def test_matillion_source_with_filtering(
+    pytestconfig: pytest.Config, tmp_path: Any
+) -> None:
+    """Test filtering of projects, environments, and pipelines."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/matillion_dpc"
+    output_path = tmp_path / "matillion_filtering_mces.json"
+
+    # Load fixtures
+    mock_projects_response = load_fixture(test_resources_dir, "projects_filtering.json")
+    mock_environments_response = load_fixture(
+        test_resources_dir, "environments_filtering.json"
+    )
+    mock_pipelines_project1_response = load_fixture(
+        test_resources_dir, "pipelines_filtering_project1.json"
+    )
+    mock_pipelines_project2_response = load_fixture(
+        test_resources_dir, "pipelines_filtering_project2.json"
+    )
+    mock_empty_response = load_fixture(test_resources_dir, "empty_results.json")
+
+    def mock_make_request(
+        self: Any, method: str, endpoint: str, **kwargs: Any
+    ) -> Dict[str, Any]:
+        if endpoint == API_ENDPOINT_PROJECTS:
+            return mock_projects_response
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_ENVIRONMENTS):
+            return mock_environments_response
+        elif _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINES):
+            if "allowed-project-1" in endpoint:
+                return mock_pipelines_project1_response
+            elif "allowed-project-2" in endpoint:
+                return mock_pipelines_project2_response
+            return mock_empty_response
+        elif (
+            _endpoint_matches_template(endpoint, API_ENDPOINT_PIPELINE_EXECUTION_STEPS)
+            or endpoint == API_ENDPOINT_PIPELINE_EXECUTIONS
+        ):
+            return mock_empty_response
+        return mock_empty_response
+
+    with (
+        patch.object(
+            MatillionAPIClient, "_generate_oauth_token", mock_oauth_generation
+        ),
+        patch.object(MatillionAPIClient, "_make_request", mock_make_request),
+    ):
+        pipeline_config = load_config_file(
+            test_resources_dir / "matillion_filtering_to_file.yml"
+        )
+        pipeline = Pipeline.create(
+            {
+                "run_id": "matillion-filtering-test",
+                **pipeline_config,
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": str(output_path)},
+                },
+            }
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    assert output_path.exists()
+
+    # Verify filtering worked by checking the report
+    assert isinstance(pipeline.source, MatillionSource)
+    source_report = pipeline.source.report
+
+    # Verify filtered items were recorded
+    assert "Filtered Project" in source_report.filtered_projects
+    assert "development" in source_report.filtered_environments
+
+    # Verify only allowed projects were scanned
+    assert source_report.projects_scanned == 2  # Only 2 allowed projects
+    assert source_report.environments_scanned > 0

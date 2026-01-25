@@ -1,6 +1,7 @@
 import logging
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import ConfigDict, Field, SecretStr, ValidationInfo, field_validator
 
@@ -154,6 +155,7 @@ class MatillionAPIConfig(ConfigModel):
         return v
 
 
+@dataclass
 class MatillionSourceReport(StaleEntityRemovalSourceReport):
     projects_scanned: int = 0
     environments_scanned: int = 0
@@ -163,10 +165,10 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     executions_scanned: int = 0
     schedules_scanned: int = 0
     repositories_scanned: int = 0
-    filtered_pipelines: list[str] = Field(default_factory=list)
-    filtered_projects: list[str] = Field(default_factory=list)
-    filtered_environments: list[str] = Field(default_factory=list)
-    filtered_streaming_pipelines: list[str] = Field(default_factory=list)
+    filtered_pipelines: List[str] = dataclass_field(default_factory=list)
+    filtered_projects: List[str] = dataclass_field(default_factory=list)
+    filtered_environments: List[str] = dataclass_field(default_factory=list)
+    filtered_streaming_pipelines: List[str] = dataclass_field(default_factory=list)
     api_calls_count: int = 0
     containers_emitted: int = 0
     lineage_emitted: int = 0
