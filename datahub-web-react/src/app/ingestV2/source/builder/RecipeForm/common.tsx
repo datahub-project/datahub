@@ -25,7 +25,7 @@ export interface RecipeField {
     label: string;
     dynamicLabel?: (values: FieldsValues) => string;
     tooltip: string | React.ReactNode;
-    helper?: string;
+    helper?: string | React.ReactNode;
     type: FieldType;
     fieldPath: string | string[];
     rules: any[] | null;
