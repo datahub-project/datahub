@@ -15,7 +15,8 @@ import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/co
 export const MATILLION_CLIENT_ID: RecipeField = {
     name: 'client_id',
     label: 'Client ID',
-    tooltip: 'Matillion API Client ID from Settings → API credentials in your Matillion Data Productivity Cloud account.',
+    tooltip:
+        'Matillion API Client ID from Settings → API credentials in your Matillion Data Productivity Cloud account.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.api_config.client_id',
     placeholder: 'your-client-id',
@@ -26,8 +27,7 @@ export const MATILLION_CLIENT_ID: RecipeField = {
 export const MATILLION_CLIENT_SECRET: RecipeField = {
     name: 'client_secret',
     label: 'Client Secret',
-    tooltip:
-        'Matillion API Client Secret (copy immediately after generation as it will only be shown once).',
+    tooltip: 'Matillion API Client Secret (copy immediately after generation as it will only be shown once).',
     type: FieldType.SECRET,
     fieldPath: 'source.config.api_config.client_secret',
     placeholder: 'your-client-secret',
@@ -99,8 +99,7 @@ export const MATILLION_EXTRACT_CONTAINERS: RecipeField = {
 export const MATILLION_PARSE_SQL: RecipeField = {
     name: 'parse_sql_for_lineage',
     label: 'Parse SQL for Lineage',
-    tooltip:
-        'Parse SQL queries to infer additional column-level lineage. Requires a DataHub graph connection.',
+    tooltip: 'Parse SQL queries to infer additional column-level lineage. Requires a DataHub graph connection.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.parse_sql_for_lineage',
     rules: null,

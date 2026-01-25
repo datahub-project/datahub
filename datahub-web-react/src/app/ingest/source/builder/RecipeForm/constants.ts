@@ -536,11 +536,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             MATILLION_STREAMING_ALLOW,
             MATILLION_STREAMING_DENY,
         ],
-        advancedFields: [
-            MATILLION_INCLUDE_EXECUTIONS,
-            MATILLION_INCLUDE_UNPUBLISHED,
-            MATILLION_STATEFUL_INGESTION,
-        ],
+        advancedFields: [MATILLION_INCLUDE_EXECUTIONS, MATILLION_INCLUDE_UNPUBLISHED, MATILLION_STATEFUL_INGESTION],
         filterSectionTooltip:
             'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
     },
