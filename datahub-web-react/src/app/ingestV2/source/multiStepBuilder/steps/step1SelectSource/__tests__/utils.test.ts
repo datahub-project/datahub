@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import {
+    MISCELLANEOUS_CATEGORY_NAME,
     computeRows,
+    getOrderedByCategoryEntriesOfGroups,
     getPillLabel,
     groupByCategory,
     sortByPopularFirst,
@@ -54,6 +56,50 @@ describe('utils', () => {
 
         it('should return empty object when no sources provided', () => {
             expect(groupByCategory([])).toEqual({});
+        });
+    });
+
+    describe('getOrderedByCategoryEntriesOfGroups', () => {
+        it('should add presorted start categories when they are defined', () => {
+            const groups: Record<string, SourceConfig[]> = {
+                Test: [make({ name: 'A', category: 'Test' })],
+                'Data Lake': [make({ name: 'B', category: 'Data Lake' })],
+            };
+
+            const result = getOrderedByCategoryEntriesOfGroups(groups);
+
+            expect(result[0][0]).toBe('Data Lake');
+            expect(result[1][0]).toBe('Test');
+        });
+
+        it('should add presorted end categories when they are defined', () => {
+            const groups: Record<string, SourceConfig[]> = {
+                [MISCELLANEOUS_CATEGORY_NAME]: [make({ name: 'A', category: MISCELLANEOUS_CATEGORY_NAME })],
+                Test: [make({ name: 'B', category: 'Test' })],
+            };
+
+            const result = getOrderedByCategoryEntriesOfGroups(groups);
+
+            expect(result[0][0]).toBe('Test');
+            expect(result[1][0]).toBe(MISCELLANEOUS_CATEGORY_NAME);
+        });
+
+        it('should order alphabetical categories in between', () => {
+            const groups: Record<string, SourceConfig[]> = {
+                [MISCELLANEOUS_CATEGORY_NAME]: [make({ name: 'Name', category: MISCELLANEOUS_CATEGORY_NAME })],
+                C: [make({ name: 'Name', category: 'C' })],
+                B: [make({ name: 'Name', category: 'B' })],
+                A: [make({ name: 'Name', category: 'A' })],
+                'Data Lake': [make({ name: 'Name', category: 'Data Lake' })],
+            };
+
+            const result = getOrderedByCategoryEntriesOfGroups(groups);
+
+            expect(result[0][0]).toBe('Data Lake');
+            expect(result[1][0]).toBe('A');
+            expect(result[2][0]).toBe('B');
+            expect(result[3][0]).toBe('C');
+            expect(result[4][0]).toBe(MISCELLANEOUS_CATEGORY_NAME);
         });
     });
 
