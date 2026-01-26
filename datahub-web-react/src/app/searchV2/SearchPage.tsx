@@ -19,6 +19,7 @@ import {
 } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
+import FreeTrialSearchPopover from '@app/searchV2/FreeTrialSearchPopover';
 import { SearchResults } from '@app/searchV2/SearchResults';
 import SearchFiltersSection from '@app/searchV2/filters/SearchFiltersSection';
 import useFilterMode from '@app/searchV2/filters/useFilterMode';
@@ -240,6 +241,7 @@ export const SearchPage = () => {
                     ]}
                 />
             )}
+            <FreeTrialSearchPopover />
             <SearchFiltersSection
                 loading={loading}
                 availableFilters={data?.searchAcrossEntities?.facets || []}

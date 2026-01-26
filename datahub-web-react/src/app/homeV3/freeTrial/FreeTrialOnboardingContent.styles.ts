@@ -127,10 +127,36 @@ export const TaskTitle = styled(Text)`
     margin-bottom: 2px;
 `;
 
+export const TaskTitleClickable = styled(Text)<{ $isComplete: boolean }>`
+    font-weight: ${typography.fontWeights.semiBold};
+    color: ${({ $isComplete }) => ($isComplete ? colors.gray[1700] : colors.gray[600])};
+    margin-bottom: 2px;
+    cursor: pointer;
+    text-decoration: ${({ $isComplete }) => ($isComplete ? 'line-through' : 'none')};
+
+    &:hover {
+        color: ${colors.violet[500]};
+    }
+`;
+
 export const TaskDescription = styled(Text)`
     color: ${colors.gray[1700]};
     font-size: ${typography.fontSizes.sm};
     line-height: 1.4;
+`;
+
+export const TaskCheckbox = styled.div<{ $isComplete: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid ${({ $isComplete }) => ($isComplete ? colors.violet[500] : colors.gray[200])};
+    background: ${({ $isComplete }) => ($isComplete ? colors.violet[500] : 'transparent')};
+    margin-left: 16px;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
 `;
 
 export const TaskActions = styled.div`

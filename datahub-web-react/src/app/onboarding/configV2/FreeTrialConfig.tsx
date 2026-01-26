@@ -7,9 +7,12 @@ export const STEP_STATE_DISMISSED = 'DISMISSED';
 
 export const FREE_TRIAL = {
     ONBOARDING_ID: 'free-trial-onboarding',
+    DISCOVER_ASSETS_ID: 'free-trial-onboarding-discover-assets',
     DATA_LINEAGE_ID: 'free-trial-onboarding-data-lineage',
     ASK_DATAHUB_ID: 'free-trial-onboarding-ask-datahub',
     CONNECT_SOURCE_ID: 'free-trial-onboarding-connect-source',
+    // Search Page Popover
+    SEARCH_POPOVER_ID: 'free-trial-search-popover',
     // Lineage Tour step IDs
     LINEAGE_TOUR_STEP_1_ID: 'free-trial-lineage-tour-step-1',
     LINEAGE_TOUR_STEP_2_ID: 'free-trial-lineage-tour-step-2',
@@ -41,6 +44,12 @@ export const FreeTrialOnboardingConfig: OnboardingTasks = {
             title: 'Ask DataHub',
             content:
                 'Use our AI assistant to find, govern, observe, and build data with simple prompts and interactive questions.',
+        },
+        {
+            id: FREE_TRIAL.DISCOVER_ASSETS_ID,
+            icon: 'MagnifyingGlass',
+            title: 'Discover Data Assets',
+            content: 'Discover datasets, dashboards and other assets ingested into DataHub.',
         },
         {
             id: FREE_TRIAL.CONNECT_SOURCE_ID,
