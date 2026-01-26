@@ -197,16 +197,8 @@ describe('ServiceAccountList', () => {
         );
     };
 
-    it('should render the Create Service Account button', async () => {
-        renderComponent();
-
-        await waitFor(
-            () => {
-                expect(screen.getByTestId('create-service-account-button')).toBeInTheDocument();
-            },
-            { timeout: 2000 },
-        );
-    });
+    // Note: The Create Service Account button is now in the page header (ManageUsersAndGroupsHeader)
+    // and is tested separately. The inline button was removed as dead code.
 
     it('should render the search bar', async () => {
         renderComponent();

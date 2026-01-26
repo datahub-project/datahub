@@ -55,9 +55,7 @@ export const ServiceAccountList = ({
         setOptimisticRoles,
     } = useServiceAccountListState();
 
-    // If external state is provided, parent controls the create button (new UI pattern)
-    // Otherwise, show the button inside this component (old UI pattern)
-    const isExternallyControlled = externalSetIsCreating !== undefined;
+    // If external state is provided, parent controls the modal state
     const isCreatingServiceAccount = externalIsCreating ?? internalIsCreating;
     const setIsCreatingServiceAccount = externalSetIsCreating ?? internalSetIsCreating;
 
@@ -138,7 +136,6 @@ export const ServiceAccountList = ({
                 onDelete={handleDelete}
                 onRoleChange={handleRoleChange}
                 refetch={refetch}
-                onCreateServiceAccount={!isExternallyControlled ? () => setIsCreatingServiceAccount(true) : undefined}
             />
 
             {isCreatingServiceAccount && (

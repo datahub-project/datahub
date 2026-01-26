@@ -295,8 +295,6 @@ type ServiceAccountTableProps = {
     onDelete: (urn: string) => void;
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
     refetch?: () => void;
-    /** Optional: Show create button inside the table header (for legacy UI) */
-    onCreateServiceAccount?: () => void;
 };
 
 export const ServiceAccountTable = ({
@@ -314,7 +312,6 @@ export const ServiceAccountTable = ({
     onDelete,
     onRoleChange,
     refetch,
-    onCreateServiceAccount,
 }: ServiceAccountTableProps) => {
     const columns = [
         {
@@ -379,15 +376,6 @@ export const ServiceAccountTable = ({
                             </Text>
                         )}
                     </SearchContainer>
-                    {onCreateServiceAccount && (
-                        <Button
-                            variant="filled"
-                            onClick={onCreateServiceAccount}
-                            data-testid="create-service-account-button"
-                        >
-                            Create Service Account
-                        </Button>
-                    )}
                 </FiltersHeader>
             </ServiceAccountContainer>
 
