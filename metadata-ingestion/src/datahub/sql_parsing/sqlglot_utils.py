@@ -325,6 +325,7 @@ def try_format_query(
     """Format a SQL query.
 
     If the query cannot be formatted, the original query is returned unchanged.
+    Handles both single and multi-statement SQL.
 
     Args:
         expression: The SQL query to format.
@@ -337,8 +338,17 @@ def try_format_query(
 
     try:
         dialect = get_dialect(platform)
-        parsed_expression = parse_statement(expression, dialect=dialect)
-        return parsed_expression.sql(dialect=dialect, pretty=True)
+        sql_string = _expression_to_string(expression, platform=platform)
+        parsed_statements = [
+            stmt for stmt in sqlglot.parse(sql_string, dialect=dialect) if stmt
+        ]
+        if not parsed_statements:
+            return sql_string
+
+        formatted_statements = [
+            stmt.sql(dialect=dialect, pretty=True) for stmt in parsed_statements
+        ]
+        return ";\n\n".join(formatted_statements)
     except Exception as e:
         if raises:
             raise
