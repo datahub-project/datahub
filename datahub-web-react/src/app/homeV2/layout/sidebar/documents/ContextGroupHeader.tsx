@@ -138,7 +138,7 @@ export const ContextGroupHeader: React.FC<Props> = ({
                         </Tooltip>
                     </Popover>
                 )}
-                <Tooltip title="New context document" placement="bottom">
+                <Tooltip title="New document" placement="bottom">
                     <IconButton
                         data-testid="create-document-button"
                         $show={isHovered && !isLoading}
