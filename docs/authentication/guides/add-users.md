@@ -1,6 +1,3 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Onboarding Users to DataHub
 
 New user accounts can be provisioned on DataHub in 3 ways:
@@ -117,10 +114,7 @@ johndoe:johnspassword
 
 In order to enable the user access with the credential defined in `user.props`, set the `status` aspect on the user with an Admin user. This can be done using an API call or via the [OpenAPI UI interface](/docs/api/openapi/openapi-usage-guide.md).
 
-<Tabs>
-<TabItem value="openapi" label="OpenAPI" default>
-
-Example enabling login for the `janesmith` user from the example above. Make sure to update the example with your access token.
+OpenAPI example enabling login for the `janesmith` user from the example above. Make sure to update the example with your access token.
 
 ```shell
 curl -X 'POST' \
@@ -134,9 +128,6 @@ curl -X 'POST' \
   }
 }'
 ```
-
-</TabItem>
-</Tabs>
 
 Once you've saved the file, simply start the DataHub containers & navigate to `http://localhost:9002/login`
 to verify that your new credentials work.
