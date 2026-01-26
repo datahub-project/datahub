@@ -494,6 +494,33 @@ class BigQuerySchemaGenerator:
         ):
             yield wu
 
+    def _add_table_to_refs(
+        self, table_item: TableListItem, project_id: str, dataset_name: str
+    ) -> None:
+        """Add a table to table_refs if it passes pattern filtering."""
+        table_id = table_item.table_id
+        table_type = getattr(table_item, "table_type", "UNKNOWN")
+
+        identifier = BigqueryTableIdentifier(
+            project_id=project_id,
+            dataset=dataset_name,
+            table=table_id,
+        )
+
+        logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
+
+        if not self.config.table_pattern.allowed(identifier.raw_table_name()):
+            logger.debug(f"Dropped by table_pattern: {identifier.raw_table_name()}")
+            self.report.report_dropped(identifier.raw_table_name())
+            return
+
+        try:
+            table_ref = str(BigQueryTableRef(identifier).get_sanitized_table_ref())
+            self.table_refs.add(table_ref)
+            logger.debug(f"Added to table_refs: {table_ref}")
+        except Exception as e:
+            logger.warning(f"Could not create table ref for {table_item.path}: {e}")
+
     def _process_schema(
         self,
         project_id: str,
@@ -556,57 +583,57 @@ class BigQuerySchemaGenerator:
             )
 
             shard_pattern = BigqueryTableIdentifier.get_shard_pattern()
-            seen_base_tables: Set[str] = set()
+            sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
+            non_sharded_tables: List[TableListItem] = []
 
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
                 table_id = table_item.table_id
-                table_type = getattr(table_item, "table_type", "UNKNOWN")
 
                 match = shard_pattern.match(table_id)
                 if match:
                     base_name = BigqueryTableIdentifier.extract_base_table_name(
                         table_id, dataset_name, match
                     )
+                    shard = match[3]
 
-                    if base_name in seen_base_tables:
-                        logger.info(
-                            f"Skipping duplicate sharded table {project_id}.{dataset_name}.{table_id} "
-                            f"(base table {base_name} already processed)"
-                        )
-                        self.report.num_sharded_tables_deduped += 1
-                        continue
-
-                    seen_base_tables.add(base_name)
                     self.report.num_sharded_tables_scanned += 1
-                    logger.debug(
-                        f"Processing sharded table base {project_id}.{dataset_name}.{base_name} "
-                        f"(using shard {table_id} as representative)"
-                    )
 
-                identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=table_id,
-                )
+                    if base_name not in sharded_tables:
+                        sharded_tables[base_name] = (table_item, shard)
+                        logger.debug(
+                            f"Found sharded table base {project_id}.{dataset_name}.{base_name} "
+                            f"(initial shard: {table_id})"
+                        )
+                    else:
+                        stored_shard = sharded_tables[base_name][1]
+                        if shard.isdigit() and stored_shard.isdigit():
+                            is_newer = int(shard) > int(stored_shard)
+                        else:
+                            is_newer = shard > stored_shard
 
-                logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
-
-                if not self.config.table_pattern.allowed(identifier.raw_table_name()):
-                    logger.debug(
-                        f"Dropped by table_pattern: {identifier.raw_table_name()}"
-                    )
-                    self.report.report_dropped(identifier.raw_table_name())
+                        if is_newer:
+                            logger.debug(
+                                f"Updating sharded table {project_id}.{dataset_name}.{base_name} "
+                                f"to use newer shard {table_id} (was {sharded_tables[base_name][0].table_id})"
+                            )
+                            sharded_tables[base_name] = (table_item, shard)
+                        else:
+                            logger.debug(
+                                f"Skipping older shard {project_id}.{dataset_name}.{table_id} "
+                                f"(keeping {sharded_tables[base_name][0].table_id})"
+                            )
+                        self.report.num_sharded_tables_deduped += 1
                     continue
-                try:
-                    table_ref = str(
-                        BigQueryTableRef(identifier).get_sanitized_table_ref()
-                    )
-                    self.table_refs.add(table_ref)
-                    logger.debug(f"Added to table_refs: {table_ref}")
-                except Exception as e:
-                    logger.warning(
-                        f"Could not create table ref for {table_item.path}: {e}"
-                    )
+
+                non_sharded_tables.append(table_item)
+
+            # Process latest shard from each sharded table
+            for _base_name, (table_item, _shard) in sharded_tables.items():
+                self._add_table_to_refs(table_item, project_id, dataset_name)
+
+            # Process non-sharded tables
+            for table_item in non_sharded_tables:
+                self._add_table_to_refs(table_item, project_id, dataset_name)
             return
 
         if self.config.include_tables:
