@@ -288,6 +288,7 @@ class TestSemanticViewUsageExtractor:
                 "AVG_EXECUTION_TIME_MS": 200.0,
                 "TOTAL_ROWS_PRODUCED": 1000,
                 "USER_COUNTS": '[{"user_name": "analyst", "query_count": 30}]',
+                "TOP_SQL_QUERIES": '["SELECT * FROM SEMANTIC_VIEW(db.schema.sales_view)", "SELECT region FROM SEMANTIC_VIEW(db.schema.sales_view)"]',
             }
         ]
 
@@ -299,6 +300,11 @@ class TestSemanticViewUsageExtractor:
         assert records[0].direct_sql_queries == 40
         assert records[0].cortex_analyst_queries == 10
         assert len(records[0].user_counts) == 1
+        assert len(records[0].top_sql_queries) == 2
+        assert (
+            "SELECT * FROM SEMANTIC_VIEW(db.schema.sales_view)"
+            in records[0].top_sql_queries
+        )
 
     def test_map_user_counts(self, extractor: SemanticViewUsageExtractor):
         """Test mapping user counts to DatasetUserUsageCounts."""
@@ -429,6 +435,9 @@ class TestSemanticViewUsageIntegration:
                     "AVG_EXECUTION_TIME_MS": 150.0,
                     "TOTAL_ROWS_PRODUCED": 500,
                     "USER_COUNTS": "[]",
+                    "TOP_SQL_QUERIES": [
+                        "SELECT * FROM SEMANTIC_VIEW(test_db.public.sales_view)"
+                    ],
                 }
             ]
         )
@@ -456,3 +465,11 @@ class TestSemanticViewUsageIntegration:
         assert len(workunits) == 1
         assert workunits[0].metadata is not None
         assert "DatasetUsageStatistics" in str(type(workunits[0].metadata.aspect))
+        # Verify topSqlQueries is emitted
+        usage_stats = workunits[0].metadata.aspect
+        assert usage_stats.topSqlQueries is not None
+        assert len(usage_stats.topSqlQueries) == 1
+        assert (
+            "SELECT * FROM SEMANTIC_VIEW(test_db.public.sales_view)"
+            in usage_stats.topSqlQueries
+        )

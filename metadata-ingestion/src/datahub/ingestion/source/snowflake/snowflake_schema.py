@@ -251,6 +251,7 @@ class SemanticViewUsageRecord:
     avg_execution_time_ms: float
     total_rows_produced: int
     user_counts: List[Dict[str, Any]] = field(default_factory=list)
+    top_sql_queries: List[str] = field(default_factory=list)
 
 
 @dataclass

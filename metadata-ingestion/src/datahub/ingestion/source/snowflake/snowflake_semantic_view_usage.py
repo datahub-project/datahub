@@ -150,6 +150,18 @@ class SemanticViewUsageExtractor:
                 except (json.JSONDecodeError, TypeError) as e:
                     logger.debug(f"Failed to parse user_counts: {e}")
 
+            # Parse top SQL queries
+            top_sql_queries_raw = row.get("TOP_SQL_QUERIES")
+            top_sql_queries: List[str] = []
+            if top_sql_queries_raw:
+                try:
+                    if isinstance(top_sql_queries_raw, str):
+                        top_sql_queries = json.loads(top_sql_queries_raw)
+                    else:
+                        top_sql_queries = list(top_sql_queries_raw)
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.debug(f"Failed to parse top_sql_queries: {e}")
+
             record = SemanticViewUsageRecord(
                 semantic_view_name=semantic_view_name,
                 bucket_start_time=row["BUCKET_START_TIME"].astimezone(tz=timezone.utc),
@@ -160,6 +172,7 @@ class SemanticViewUsageExtractor:
                 avg_execution_time_ms=row["AVG_EXECUTION_TIME_MS"] or 0.0,
                 total_rows_produced=row["TOTAL_ROWS_PRODUCED"] or 0,
                 user_counts=user_counts,
+                top_sql_queries=top_sql_queries,
             )
             records.append(record)
         return records
@@ -183,8 +196,9 @@ class SemanticViewUsageExtractor:
                 totalSqlQueries=record.total_queries,
                 uniqueUserCount=record.unique_users,
                 userCounts=user_counts,
-                # Store query source breakdown in custom properties via fieldCounts
-                # (we don't have actual field counts for semantic views)
+                topSqlQueries=record.top_sql_queries
+                if record.top_sql_queries
+                else None,
             )
 
             dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)

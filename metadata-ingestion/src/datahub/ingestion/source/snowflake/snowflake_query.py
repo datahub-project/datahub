@@ -1206,6 +1206,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         time_bucket_size: BucketDuration,
+        top_n_queries: int = 10,
     ) -> str:
         """Query QUERY_HISTORY for semantic view usage statistics.
 
@@ -1262,6 +1263,20 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             FROM semantic_view_queries
             WHERE semantic_view_name IS NOT NULL
             GROUP BY semantic_view_name, bucket_start_time, user_name
+        ),
+        top_queries AS (
+            SELECT
+                semantic_view_name,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                query_text,
+                COUNT(DISTINCT query_id) AS query_count
+            FROM semantic_view_queries
+            WHERE semantic_view_name IS NOT NULL
+            GROUP BY semantic_view_name, bucket_start_time, query_text
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY semantic_view_name, bucket_start_time
+                ORDER BY query_count DESC, query_text ASC
+            ) <= {top_n_queries}
         )
         SELECT
             ua.semantic_view_name AS "SEMANTIC_VIEW_NAME",
@@ -1272,14 +1287,18 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             ua.cortex_analyst_queries AS "CORTEX_ANALYST_QUERIES",
             ua.avg_execution_time_ms AS "AVG_EXECUTION_TIME_MS",
             ua.total_rows_produced AS "TOTAL_ROWS_PRODUCED",
-            ARRAY_AGG(OBJECT_CONSTRUCT(
+            ARRAY_AGG(DISTINCT OBJECT_CONSTRUCT(
                 'user_name', uc.user_name,
                 'query_count', uc.query_count
-            )) AS "USER_COUNTS"
+            )) AS "USER_COUNTS",
+            ARRAY_AGG(DISTINCT tq.query_text) AS "TOP_SQL_QUERIES"
         FROM usage_aggregated ua
         LEFT JOIN user_counts uc
             ON ua.semantic_view_name = uc.semantic_view_name
             AND ua.bucket_start_time = uc.bucket_start_time
+        LEFT JOIN top_queries tq
+            ON ua.semantic_view_name = tq.semantic_view_name
+            AND ua.bucket_start_time = tq.bucket_start_time
         GROUP BY
             ua.semantic_view_name,
             ua.bucket_start_time,
