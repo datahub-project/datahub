@@ -130,17 +130,25 @@ def compare_dependencies(
     Returns list of violation dictionaries.
     Uses (name, source) as key to prevent false positives from dependencies
     appearing in multiple extras (e.g., install_requires vs extras_require[dev]).
+    
+    For dependencies in new sources (like new plugins), falls back to matching
+    by name only. This handles cases where new plugins include dependencies from
+    common sets (e.g., framework_common) that already exist in master in other sources.
+    The fallback ensures that dependencies from common sets are grandfathered if
+    they were already unpinned/lower_bound in master.
     """
     violations = []
 
     for key, pr_info in pr_map.items():
         name, source = key
         baseline_info = baseline_map.get(key)
-        # Also check if dependency exists with same name but different source (for backward compatibility)
-        # This handles cases where dependencies move between sources (e.g., install_requires -> extras_require)
+        
+        # If not found by exact match, try fallback by name only
+        # This handles cases where new plugins include dependencies from common sets
+        # (e.g., framework_common) that already exist in master in other sources
         if baseline_info is None:
-            # Try to find by name only (for dependencies that moved between sources)
-            for (baseline_name, baseline_source), baseline_data in baseline_map.items():
+            # Find first match by name (handles common dependencies that appear in multiple places)
+            for (baseline_name, _), baseline_data in baseline_map.items():
                 if baseline_name == name:
                     baseline_info = baseline_data
                     break
