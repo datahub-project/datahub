@@ -129,6 +129,34 @@ DYNAMIC_BATCH_MAX_SIZE_HIGH = 500  # Max batch size for high table count
 DYNAMIC_BATCH_MAX_SIZE_LOW = 300  # Max batch size for low table count
 
 
+def calculate_dynamic_batch_size(base_batch_size: int, table_count: int) -> int:
+    """
+    Calculate dynamic batch size based on table count.
+
+    For datasets with many tables (typically sharded tables), we increase the batch
+    size to process more efficiently. This reduces API calls and improves performance.
+
+    Args:
+        base_batch_size: The baseline batch size from config
+        table_count: Number of tables in the dataset
+
+    Returns:
+        Calculated batch size with appropriate multiplier and cap applied
+    """
+    if table_count > DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD:
+        return min(
+            base_batch_size * DYNAMIC_BATCH_HIGH_MULTIPLIER,
+            DYNAMIC_BATCH_MAX_SIZE_HIGH,
+        )
+    elif table_count > DYNAMIC_BATCH_LOW_TABLE_THRESHOLD:
+        return min(
+            base_batch_size * DYNAMIC_BATCH_LOW_MULTIPLIER,
+            DYNAMIC_BATCH_MAX_SIZE_LOW,
+        )
+    else:
+        return base_batch_size
+
+
 class BigQuerySchemaGenerator:
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
     # Note: We use the hive schema parser to parse nested BigQuery types. We also have
@@ -1282,18 +1310,9 @@ class BigQuerySchemaGenerator:
                 base_batch_size = self.config.number_of_datasets_process_in_batch
 
             # If we have many tables (likely sharded), increase batch size
-            if len(table_items) > DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD:
-                max_batch_size = min(
-                    base_batch_size * DYNAMIC_BATCH_HIGH_MULTIPLIER,
-                    DYNAMIC_BATCH_MAX_SIZE_HIGH,
-                )
-            elif len(table_items) > DYNAMIC_BATCH_LOW_TABLE_THRESHOLD:
-                max_batch_size = min(
-                    base_batch_size * DYNAMIC_BATCH_LOW_MULTIPLIER,
-                    DYNAMIC_BATCH_MAX_SIZE_LOW,
-                )
-            else:
-                max_batch_size = base_batch_size
+            max_batch_size = calculate_dynamic_batch_size(
+                base_batch_size, len(table_items)
+            )
 
             items_to_get: Dict[str, TableListItem] = {}
             for table_item in table_items:

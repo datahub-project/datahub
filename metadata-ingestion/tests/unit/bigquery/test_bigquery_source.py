@@ -1582,43 +1582,27 @@ def test_get_table_and_shard_extracts_base_name_correctly():
 
 
 @pytest.mark.parametrize(
-    "table_count,expected_batch_size,description",
+    "base_batch_size,table_count,expected_batch_size,description",
     [
-        (50, 100, "small dataset - no scaling"),
-        (150, 200, "medium dataset - 2x scaling"),
-        (500, 300, "large dataset - 3x scaling"),
-        (300, 500, "high base - respects cap"),
+        (100, 50, 100, "small dataset - no scaling"),
+        (100, 150, 200, "medium dataset - 2x scaling"),
+        (100, 500, 300, "large dataset - 3x scaling"),
+        (200, 300, 500, "high base - respects cap"),
     ],
 )
-def test_adaptive_batch_sizing(
-    table_count: int, expected_batch_size: int, description: str
+def test_calculate_dynamic_batch_size(
+    base_batch_size: int,
+    table_count: int,
+    expected_batch_size: int,
+    description: str,
 ) -> None:
-    """Test adaptive batch sizing for different dataset sizes using actual constants."""
+    """Test calculate_dynamic_batch_size function with various scenarios."""
     from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
-        DYNAMIC_BATCH_HIGH_MULTIPLIER,
-        DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD,
-        DYNAMIC_BATCH_LOW_MULTIPLIER,
-        DYNAMIC_BATCH_LOW_TABLE_THRESHOLD,
-        DYNAMIC_BATCH_MAX_SIZE_HIGH,
-        DYNAMIC_BATCH_MAX_SIZE_LOW,
+        calculate_dynamic_batch_size,
     )
 
-    base_batch_size = 200 if table_count == 300 else 100
-
-    if table_count > DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD:
-        max_batch_size = min(
-            base_batch_size * DYNAMIC_BATCH_HIGH_MULTIPLIER,
-            DYNAMIC_BATCH_MAX_SIZE_HIGH,
-        )
-    elif table_count > DYNAMIC_BATCH_LOW_TABLE_THRESHOLD:
-        max_batch_size = min(
-            base_batch_size * DYNAMIC_BATCH_LOW_MULTIPLIER,
-            DYNAMIC_BATCH_MAX_SIZE_LOW,
-        )
-    else:
-        max_batch_size = base_batch_size
-
-    assert max_batch_size == expected_batch_size, f"Failed for: {description}"
+    result = calculate_dynamic_batch_size(base_batch_size, table_count)
+    assert result == expected_batch_size, f"Failed for: {description}"
 
 
 @pytest.mark.parametrize(
