@@ -79,27 +79,16 @@ class TestURNGenerator:
                 },
                 "workspace-123-guid.warehouse-789-guid.sales.orders",
             ),
-            # Table name - schemas-disabled (None schema)
+            # Table name - schemas-disabled (defaults to "dbo")
             (
                 make_table_name,
                 {
                     "workspace_id": "workspace-123-guid",
                     "item_id": "lakehouse-456-guid",
-                    "schema_name": None,
+                    "schema_name": "dbo",
                     "table_name": "customers",
                 },
-                "workspace-123-guid.lakehouse-456-guid.customers",
-            ),
-            # Table name - schemas-disabled (empty string schema)
-            (
-                make_table_name,
-                {
-                    "workspace_id": "workspace-123-guid",
-                    "item_id": "lakehouse-456-guid",
-                    "schema_name": "",
-                    "table_name": "customers",
-                },
-                "workspace-123-guid.lakehouse-456-guid.customers",
+                "workspace-123-guid.lakehouse-456-guid.dbo.customers",
             ),
         ],
     )

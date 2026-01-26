@@ -36,7 +36,11 @@ def _parse_table_name(full_name: str) -> tuple[str, str]:
     if "." in full_name:
         schema_name, table_name = full_name.rsplit(".", 1)
     else:
-        schema_name = "dbo"  # Default schema
+        from datahub.ingestion.source.fabric.onelake.constants import (
+            DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE,
+        )
+
+        schema_name = DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
         table_name = full_name
     return schema_name, table_name
 

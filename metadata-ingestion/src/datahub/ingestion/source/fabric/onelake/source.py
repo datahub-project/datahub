@@ -41,6 +41,9 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 )
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
+from datahub.ingestion.source.fabric.onelake.constants import (
+    DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE,
+)
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricLakehouse,
@@ -381,27 +384,25 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
 
             for table in tables:
-                # Filter tables
-                # For schemas-disabled lakehouses, schema_name is empty, so use just table name
-                table_full_name = (
-                    f"{table.schema_name}.{table.name}"
+                normalized_schema = (
+                    table.schema_name
                     if table.schema_name
-                    else table.name
+                    else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
                 )
+
+                # Filter tables
+                table_full_name = f"{normalized_schema}.{table.name}"
 
                 if not self.config.table_pattern.allowed(table_full_name):
                     self.report.report_table_filtered(table_full_name)
                     continue
 
                 self.report.report_table_scanned()
-                # Use empty string as key for schemas-disabled tables (schema_name is empty)
-                schema_dict_key = table.schema_name if table.schema_name else ""
-                tables_by_schema[schema_dict_key].append(table)
+                tables_by_schema[normalized_schema].append(table)
 
             # Process each schema
             for schema_name, schema_tables in tables_by_schema.items():
-                # For schemas-disabled lakehouses, schema_name is empty string - skip schema container
-                if self.config.extract_schemas and schema_name:
+                if self.config.extract_schemas:
                     # Create schema container key with proper inheritance
                     if item_type == "Lakehouse":
                         schema_key: Union[LakehouseSchemaKey, WarehouseSchemaKey] = (
@@ -442,7 +443,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     # Pass ContainerKey object, not URN string
                     parent_container_key: ContainerKey = schema_key
                 else:
-                    # Tables directly under item container (schemas-disabled or extract_schemas=false)
+                    # Tables directly under item container (extract_schemas=false)
                     parent_container_key = item_container_key
 
                 # Create table datasets
@@ -471,11 +472,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         schema_name: str,
         table_name: str,
     ) -> list[FabricColumn]:
-        """Get columns for a table from schema_map, with fallback to 'dbo' schema if schema_name is empty.
+        """Get columns for a table from schema_map.
 
         Args:
             schema_map: Dictionary mapping (schema_name, table_name) to list of columns
-            schema_name: Schema name (empty string for schemas-disabled lakehouses)
+            schema_name: Schema name (always non-empty, defaults to DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE for schemas-disabled lakehouses)
             table_name: Table name
 
         Returns:
@@ -484,33 +485,17 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         if not schema_map:
             return []
 
-        # Try with provided schema name (or empty string)
-        schema_key = schema_name if schema_name else ""
-        columns = schema_map.get((schema_key, table_name), [])
+        columns = schema_map.get((schema_name, table_name), [])
 
-        # Trace logging
-        available_schemas = {schema for schema, _ in schema_map}
-        logger.debug(
-            f"Schema matching for table '{table_name}': "
-            f"expected_schema='{schema_name or '(empty)'}', "
-            f"available_schemas_in_map={sorted(available_schemas)}, "
-            f"tried_key=('{schema_key}', '{table_name}'), "
-            f"found_columns={len(columns) if columns else 0}"
-        )
-
-        # Fallback: if not found and schema_name is empty, try "dbo"
-        if not columns and not schema_name:
-            columns = schema_map.get(("dbo", table_name), [])
-            if columns:
-                logger.debug(
-                    f"Schema fallback successful for table '{table_name}': "
-                    f"found columns using schema 'dbo'"
-                )
-            else:
-                logger.debug(
-                    f"Schema fallback failed for table '{table_name}': "
-                    f"no columns found even with 'dbo' schema"
-                )
+        if logger.isEnabledFor(logging.DEBUG):
+            available_schemas = {schema for schema, _ in schema_map}
+            logger.debug(
+                f"Schema matching for table '{table_name}': "
+                f"expected_schema='{schema_name}', "
+                f"available_schemas_in_map={sorted(available_schemas)}, "
+                f"tried_key=('{schema_name}', '{table_name}'), "
+                f"found_columns={len(columns) if columns else 0}"
+            )
 
         return columns
 
