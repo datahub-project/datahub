@@ -129,19 +129,7 @@ DYNAMIC_BATCH_MAX_SIZE_LOW = 300
 
 
 def calculate_dynamic_batch_size(base_batch_size: int, table_count: int) -> int:
-    """
-    Calculate dynamic batch size based on table count.
-
-    For datasets with many tables (typically sharded tables), we increase the batch
-    size to process more efficiently. This reduces API calls and improves performance.
-
-    Args:
-        base_batch_size: The baseline batch size from config
-        table_count: Number of tables in the dataset
-
-    Returns:
-        Calculated batch size with appropriate multiplier and cap applied
-    """
+    """Scale batch size for datasets with many tables (typically sharded tables)."""
     if table_count > DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD:
         return min(
             base_batch_size * DYNAMIC_BATCH_HIGH_MULTIPLIER,

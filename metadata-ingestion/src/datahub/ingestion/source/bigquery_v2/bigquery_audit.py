@@ -47,12 +47,7 @@ class BigqueryTableIdentifier:
 
     @classmethod
     def get_shard_pattern(cls) -> "re.Pattern[str]":
-        """
-        Get the compiled regex pattern for shard detection.
-
-        Pattern is compiled once and cached. Uses the configured sharded_table_pattern
-        (set via BigQueryConfig) or the default pattern.
-        """
+        """Get compiled regex pattern for shard detection (cached)."""
         if cls._compiled_shard_pattern is None:
             cls._compiled_shard_pattern = re.compile(
                 cls._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
@@ -62,12 +57,7 @@ class BigqueryTableIdentifier:
 
     @classmethod
     def recompile_shard_pattern(cls) -> None:
-        """
-        Force recompilation of the shard pattern.
-
-        Called when sharded_table_pattern config is updated to ensure
-        the cached pattern uses the new regex string.
-        """
+        """Force recompilation when sharded_table_pattern config changes."""
         cls._compiled_shard_pattern = re.compile(
             cls._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             re.IGNORECASE,
@@ -77,20 +67,7 @@ class BigqueryTableIdentifier:
     def extract_base_table_name(
         table_id: str, dataset_name: str, match: "re.Match[str]"
     ) -> str:
-        """
-        Extract the base table name from a sharded table match.
-
-        This handles the common logic for extracting base table names from sharded
-        tables, including cleanup and fallback to dataset_name when needed.
-
-        Args:
-            table_id: The full table ID (e.g., "events_20240101")
-            dataset_name: The dataset name to use as fallback
-            match: The regex match object from get_shard_pattern().match(table_id)
-
-        Returns:
-            The base table name (e.g., "events" from "events_20240101")
-        """
+        """Extract base table name from sharded table, fallback to dataset_name if empty."""
         base_name = match[1] or ""
         shard = match[3]
 

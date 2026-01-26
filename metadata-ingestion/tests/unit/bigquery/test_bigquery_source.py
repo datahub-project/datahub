@@ -1467,7 +1467,6 @@ def test_get_projects_with_project_labels(
 def test_numeric_shard_comparison(
     shard1: str, shard2: str, expected_is_newer: bool, description: str
 ) -> None:
-    """Test shard comparison logic for various shard formats."""
     if shard1.isdigit() and shard2.isdigit():
         is_newer = int(shard1) > int(shard2)
     else:
@@ -1477,7 +1476,6 @@ def test_numeric_shard_comparison(
 
 
 def test_shard_pattern_is_compiled_once_and_cached():
-    """Test that the shard pattern is compiled once and cached (not recompiled on every call)."""
     # Get pattern twice - should return the same cached instance
     pattern1 = BigqueryTableIdentifier.get_shard_pattern()
     pattern2 = BigqueryTableIdentifier.get_shard_pattern()
@@ -1504,7 +1502,6 @@ def test_shard_pattern_is_compiled_once_and_cached():
 
 
 def test_extract_base_table_name():
-    """Test that extract_base_table_name correctly handles various sharded table scenarios."""
     pattern = BigqueryTableIdentifier.get_shard_pattern()
 
     # Test case 1: Standard sharded table with underscore separator
@@ -1549,7 +1546,6 @@ def test_extract_base_table_name():
 
 
 def test_get_table_and_shard_extracts_base_name_correctly():
-    """Test that get_table_and_shard correctly extracts base name and shard from table IDs."""
     # Test sharded tables - should extract base and shard
     test_cases = [
         ("events_20240101", "events", "20240101"),
@@ -1596,7 +1592,6 @@ def test_calculate_dynamic_batch_size(
     expected_batch_size: int,
     description: str,
 ) -> None:
-    """Test calculate_dynamic_batch_size function with various scenarios."""
     from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
         calculate_dynamic_batch_size,
     )
@@ -1614,7 +1609,6 @@ def test_calculate_dynamic_batch_size(
     ],
 )
 def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
-    """Test that pattern matching is case-insensitive."""
     pattern = BigqueryTableIdentifier.get_shard_pattern()
 
     match = pattern.match(table_id)
