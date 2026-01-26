@@ -234,22 +234,47 @@ class SchemaFieldSpecification(StrictModel):
             "bytes",
             "fixed",
         ]
-        type = self.type.lower() if self.type else self.type
-        if type not in set(get_args(PrimitiveType)):
-            raise ValueError(f"Type {self.type} is not a valid primitive type")
 
-        if type == "string":
-            return models.SchemaFieldDataTypeClass(type=models.StringTypeClass())
-        elif type in ["number", "long", "float", "double", "int"]:
-            return models.SchemaFieldDataTypeClass(type=models.NumberTypeClass())
-        elif type == "fixed":
-            return models.SchemaFieldDataTypeClass(type=models.FixedTypeClass())
-        elif type == "bytes":
-            return models.SchemaFieldDataTypeClass(type=models.BytesTypeClass())
-        elif type == "boolean":
-            return models.SchemaFieldDataTypeClass(type=models.BooleanTypeClass())
+        ComplexType = Literal["array", "map", "union", "record"]
 
-        raise ValueError(f"Type {self.type} is not a valid primitive type")
+        TemporalType = Literal["date", "time", "timestamp"]
+
+        type_mapping = {
+            "string": models.StringTypeClass,
+            "number": models.NumberTypeClass,
+            "int": models.NumberTypeClass,
+            "long": models.NumberTypeClass,
+            "float": models.NumberTypeClass,
+            "double": models.NumberTypeClass,
+            "boolean": models.BooleanTypeClass,
+            "bytes": models.BytesTypeClass,
+            "fixed": models.FixedTypeClass,
+            "array": models.ArrayTypeClass,
+            "map": models.MapTypeClass,
+            "union": models.UnionTypeClass,
+            "record": models.RecordTypeClass,
+            "date": models.DateTypeClass,
+            "time": models.TimeTypeClass,
+            "timestamp": models.TimeTypeClass,
+        }
+
+        if not self.type:
+            raise ValueError("Type cannot be None or empty")
+
+        type_lower = self.type.lower()
+
+        if (
+            type_lower not in set(get_args(PrimitiveType))
+            and type_lower not in set(get_args(ComplexType))
+            and type_lower not in set(get_args(TemporalType))
+        ):
+            raise ValueError(f"Type {self.type} is not a valid type")
+
+        type_class = type_mapping.get(type_lower)
+        if type_class is None:
+            raise ValueError(f"Type {self.type} is not a valid type")
+
+        return models.SchemaFieldDataTypeClass(type=type_class())
 
     @staticmethod
     def _from_datahub_type(
