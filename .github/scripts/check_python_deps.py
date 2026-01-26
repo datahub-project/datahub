@@ -46,13 +46,11 @@ def load_json_results(file_path: Path) -> dict[str, Any] | None:
         raise ValueError(f"Malformed JSON in {file_path}: {e}")
 
 
-def build_dependency_map(data: dict[str, Any] | None) -> dict[tuple[str, str], dict[str, Any]]:
+def build_dependency_map(data: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     """
-    Build a mapping from (dependency name, source) to its analysis.
+    Build a mapping from dependency name to its analysis.
 
     Returns empty dict if data is None.
-    Uses (name, source) as key to handle dependencies that appear in multiple places.
-    Excludes aggregated extras that are prone to non-deterministic resolution.
     """
     if data is None:
         return {}
@@ -60,14 +58,10 @@ def build_dependency_map(data: dict[str, Any] | None) -> dict[tuple[str, str], d
     dep_map = {}
     for level, deps in data.get("by_level", {}).items():
         for dep in deps:
-            source = dep.get("source", "unknown")
-            # Use (name, source) as key to handle dependencies in multiple locations
-            # This prevents false positives when the same dependency appears in different extras
-            key = (dep["name"], source)
-            dep_map[key] = {
+            dep_map[dep["name"]] = {
                 "level": level,
                 "specifier": dep.get("specifier", ""),
-                "source": source
+                "source": dep.get("source", "unknown")
             }
 
     return dep_map
@@ -121,38 +115,18 @@ def classify_violation(
 
 
 def compare_dependencies(
-    baseline_map: dict[tuple[str, str], dict[str, Any]],
-    pr_map: dict[tuple[str, str], dict[str, Any]]
+    baseline_map: dict[str, dict[str, Any]],
+    pr_map: dict[str, dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """
     Compare baseline and PR dependency maps to find violations.
 
     Returns list of violation dictionaries.
-    Uses (name, source) as key to prevent false positives from dependencies
-    appearing in multiple extras (e.g., install_requires vs extras_require[dev]).
-    
-    For dependencies in new sources (like new plugins), falls back to matching
-    by name only. This handles cases where new plugins include dependencies from
-    common sets (e.g., framework_common) that already exist in master in other sources.
-    The fallback ensures that dependencies from common sets are grandfathered if
-    they were already unpinned/lower_bound in master.
     """
     violations = []
 
-    for key, pr_info in pr_map.items():
-        name, source = key
-        baseline_info = baseline_map.get(key)
-        
-        # If not found by exact match, try fallback by name only
-        # This handles cases where new plugins include dependencies from common sets
-        # (e.g., framework_common) that already exist in master in other sources
-        if baseline_info is None:
-            # Find first match by name (handles common dependencies that appear in multiple places)
-            for (baseline_name, _), baseline_data in baseline_map.items():
-                if baseline_name == name:
-                    baseline_info = baseline_data
-                    break
-        
+    for name, pr_info in pr_map.items():
+        baseline_info = baseline_map.get(name)
         violation = classify_violation(name, baseline_info, pr_info)
         if violation:
             violations.append(violation)
