@@ -124,6 +124,8 @@ class SemanticViewsConfig(ConfigModel):
 
     max_queries_per_view: int = Field(
         default=100,
+        ge=1,
+        le=10000,
         description="Maximum number of Query entities to emit per semantic view. "
         "Only applicable when emit_query_entities is True.",
     )

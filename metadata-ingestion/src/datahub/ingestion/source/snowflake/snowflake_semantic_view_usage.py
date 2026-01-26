@@ -354,13 +354,25 @@ class SemanticViewUsageExtractor:
                 )
             )
 
-            # Group queries by semantic view to respect max_queries_per_view
+            # Group queries by semantic view, limiting during collection to avoid memory issues
             queries_by_view: Dict[str, List[SemanticViewQuery]] = {}
+            max_per_view = self.config.semantic_views.max_queries_per_view
 
             for row in results:
                 # Skip rows where REGEXP_SUBSTR failed to extract a name
                 semantic_view_name = row["SEMANTIC_VIEW_NAME"]
                 if not semantic_view_name:
+                    continue
+
+                normalized_name = self._normalize_semantic_view_name(semantic_view_name)
+                if normalized_name not in discovered_semantic_views:
+                    continue
+
+                # Skip if we've already collected enough queries for this view
+                if (
+                    normalized_name in queries_by_view
+                    and len(queries_by_view[normalized_name]) >= max_per_view
+                ):
                     continue
 
                 query = SemanticViewQuery(
@@ -376,26 +388,15 @@ class SemanticViewUsageExtractor:
                     query_source=row["QUERY_SOURCE"] or "DIRECT_SQL",
                 )
 
-                normalized_name = self._normalize_semantic_view_name(
-                    query.semantic_view_name
-                )
-                if normalized_name not in discovered_semantic_views:
-                    continue
-
                 if normalized_name not in queries_by_view:
                     queries_by_view[normalized_name] = []
                 queries_by_view[normalized_name].append(query)
 
-            # Emit query entities, respecting max_queries_per_view
+            # Emit query entities
             for view_name, queries in queries_by_view.items():
-                limited_queries = queries[
-                    : self.config.semantic_views.max_queries_per_view
-                ]
-                logger.debug(
-                    f"Emitting {len(limited_queries)} query entities for {view_name}"
-                )
+                logger.debug(f"Emitting {len(queries)} query entities for {view_name}")
 
-                for query in limited_queries:
+                for query in queries:
                     yield from self._build_query_workunits(query, view_name)
 
         except Exception as e:

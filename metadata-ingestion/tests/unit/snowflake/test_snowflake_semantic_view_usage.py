@@ -65,6 +65,29 @@ class TestSemanticViewsConfig:
             assert config.include_usage is True
             mock_logger.warning.assert_called()
 
+    def test_max_queries_per_view_validation(self):
+        """Test that max_queries_per_view validation rejects invalid values."""
+        from pydantic import ValidationError
+
+        # Valid values should work
+        config = SemanticViewsConfig(max_queries_per_view=1)
+        assert config.max_queries_per_view == 1
+
+        config = SemanticViewsConfig(max_queries_per_view=10000)
+        assert config.max_queries_per_view == 10000
+
+        # Zero should fail (ge=1)
+        with pytest.raises(ValidationError):
+            SemanticViewsConfig(max_queries_per_view=0)
+
+        # Negative should fail
+        with pytest.raises(ValidationError):
+            SemanticViewsConfig(max_queries_per_view=-1)
+
+        # Too large should fail (le=10000)
+        with pytest.raises(ValidationError):
+            SemanticViewsConfig(max_queries_per_view=10001)
+
 
 class TestSnowflakeQuerySemanticViewUsage:
     """Tests for SQL query generation."""
@@ -395,6 +418,50 @@ class TestSemanticViewUsageExtractor:
         # Check QuerySubjects
         query_subjects_wu = workunits[1]
         assert query_subjects_wu.metadata is not None
+
+    def test_query_extraction_respects_max_queries_per_view_efficiently(
+        self,
+        mock_config: SnowflakeV2Config,
+        mock_connection: MagicMock,
+        mock_identifiers: MagicMock,
+    ):
+        """Test that query extraction limits during iteration to avoid memory issues."""
+        # Set a low limit
+        mock_config.semantic_views.emit_query_entities = True
+        mock_config.semantic_views.max_queries_per_view = 2
+
+        # Create many queries for the same view (simulating high volume)
+        base_time = datetime.datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc)
+        mock_query_results = [
+            {
+                "QUERY_ID": f"query-{i}",
+                "QUERY_TEXT": f"SELECT {i} FROM SEMANTIC_VIEW(db.schema.view)",
+                "SEMANTIC_VIEW_NAME": "db.schema.view",
+                "USER_NAME": "analyst",
+                "ROLE_NAME": "ROLE",
+                "WAREHOUSE_NAME": "WH",
+                "START_TIME": base_time + datetime.timedelta(seconds=i),
+                "TOTAL_ELAPSED_TIME": 100,
+                "ROWS_PRODUCED": 10,
+                "QUERY_SOURCE": "DIRECT_SQL",
+            }
+            for i in range(100)  # 100 queries, but limit is 2
+        ]
+        mock_connection.query.return_value = mock_query_results
+
+        report = SnowflakeV2Report()
+        extractor = SemanticViewUsageExtractor(
+            config=mock_config,
+            report=report,
+            connection=mock_connection,
+            identifiers=mock_identifiers,
+        )
+
+        discovered = {"db.schema.view"}
+        workunits = list(extractor.get_semantic_view_query_workunits(discovered))
+
+        # Should emit exactly 2 queries * 2 aspects (QueryProperties + QuerySubjects)
+        assert len(workunits) == 4
 
 
 class TestSemanticViewUsageIntegration:
