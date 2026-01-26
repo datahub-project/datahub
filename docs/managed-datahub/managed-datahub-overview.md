@@ -1,177 +1,73 @@
 ---
-title: "DataHub Cloud vs. DataHub OSS"
+title: "OSS vs Cloud: Comparison Guide"
 ---
 
-# DataHub Cloud vs. DataHub OSS
+# OSS vs Cloud: Comparison Guide
 
-## DataHub Cloud: AI & Data Context Platform
+This guide compares DataHub Open Source (OSS) and DataHub Cloud features and platform differences. DataHub Cloud builds on the OSS foundation with enterprise-grade capabilities including AI automation, advanced governance, operational reliability, and production support for mid-to-large organizations. Cloud also offers a fully managed service with 99.5%+ SLA-backed availability, dedicated support, enhanced security, training services, and flexible deployment options.
 
-DataHub Cloud delivers a fully-managed version of DataHub's powerful metadata platform, offering enhanced capabilities for data discovery, observability, and governance that accelerate the production-readiness of your data and AI assets.
+## Discovery & Search
 
-### Enterprise-Grade Service
-
-- **Proven Implementation Service** tailored to your organization's specific needs
-- **SLA-Backed Reliability** ensuring 99.5% uptime for critical operations
-- **Optimized Performance** with infrastructure fine-tuned and managed by experts
-- **Flexible Deployment Options** for the most sensitive data scenarios
-- **Enhanced Security Controls** meeting enterprise compliance requirements
-
-### Accelerated Adoption
-
-- **Comprehensive Team Training** to maximize platform utilization
-- **Expert Support** providing guidance through your data journey
-
-### Add-on Capabilities
-
-- **Enhanced Discovery & Understanding** with personalized user experiences, AI-generated documentation and propagation, and collaboration features
-- **Improved Data Quality Monitoring** with ability to run quality checks, use AI anomaly detection, and comprehensively monitor data assets
-- **Robust Governance Mechanisms** with dynamic compliance forms, certification & approval workflows, and enforced governance standards
-
-DataHub Cloud empowers organizations to unlock the full potential of their data assets through superior discovery capabilities, comprehensive observability, and robust governance—all within a managed, secure environment.
-
-## Enterprise-Grade Managed Service
-
-Features needed to roll out at scale to large enterprises.
-
-| Feature                                                                                                 | DataHub | DataHub Cloud |
-| ------------------------------------------------------------------------------------------------------- | ------- | ------------- |
-| Battle-tested open source metadata platform                                                             | ✅      | ✅            |
-| Metadata change events as a real-time consumable stream                                                 | ✅      | ✅            |
-| Pre-defined roles for permissions                                                                       | ✅      | ✅            |
-| 99.5% Uptime SLA                                                                                        | ❌      | ✅            |
-| In-VPC Remote Execution Agent to run tasks that communicate with sensitive data sources                 | ❌      | ✅            |
-| Data off-ramp for metadata analytics                                                                    | ❌      | ✅            |
-| Enterprise RBAC support with additional permissions for declaring domain- or attribute-scoped personas. | ❌      | ✅            |
-| Shared audit logs                                                                                       | ❌      | ✅            |
-| SOC-2 Compliant                                                                                         | ❌      | ✅            |
-
-## Implementation and Support
-
-Features related to ease of deployment and maintenance.
-
-| Feature                                                    | DataHub | DataHub Cloud                                                                                                                                           |
-| ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Community support                                          | ✅      | ✅                                                                                                                                                      |
-| Your own engineering team                                  | ✅      | ❌ (They can instead focus on high-value work like contributing features to the open source product, or build amazing data applications with the APIs!) |
-| Your private fork of DataHub                               | ✅      | ❌ (You won't need to manage and maintain your own fork, upgrade to latest releases etc.)                                                               |
-| Cloud-hosted instance (AWS, GCP, BYOC)                     | ❌      | ✅                                                                                                                                                      |
-| Monitored and managed by DataHub engineers                 | ❌      | ✅                                                                                                                                                      |
-| Dedicated customer success team                            | ❌      | ✅                                                                                                                                                      |
-| Implementation Advisory and Support                        | ❌      | ✅                                                                                                                                                      |
-| Ingestion Support                                          | ❌      | ✅                                                                                                                                                      |
-| Accelerators for your code contributions to DataHub        | ❌      | ✅                                                                                                                                                      |
-| Support for AWS PrivateLink, IP address restrictions, etc. | ❌      | ✅                                                                                                                                                      |
-| Dedicated Zendesk Support                                  | ❌      | ✅                                                                                                                                                      |
-
-## Data Discovery
-
-Features aimed at making it easy to discover data assets at your organization and understand relationships between them.
-
-| Feature                                                                                              | DataHub | DataHub Cloud |
-| ---------------------------------------------------------------------------------------------------- | ------- | ------------- |
-| Integrations for 70+ data sources                                                                    | ✅      | ✅            |
-| Metadata transformers to enrich metadata at ingestion time                                           | ✅      | ✅            |
-| Table level, Column-level, Job-level lineage                                                         | ✅      | ✅            |
-| Search across all metadata (technical, operational, business)                                        | ✅      | ✅            |
-| Table and column-level lineage and impact analysis                                                   | ✅      | ✅            |
-| Support for domains, data products, data contracts                                                   | ✅      | ✅            |
-| Developer friendly experiences (for data engineers, AI engineers, etc.)                              | ✅      | ✅            |
-| Business User friendly experiences (for data analysts, BI analysts, data governance leads, PMs etc.) | ✅      | ✅            |
-| Personalization across the product                                                                   | ✅      | ✅            |
-| Browser extension for BI Tools                                                                       | ✅      | ✅            |
-| Lineage-based propagation of documentation, glossary terms, & more                                   | ❌      | ✅            |
-| Usage and graph-based search ranking                                                                 | ❌      | ✅            |
-| AI Data Documentation Generation                                                                     | ❌      | ✅            |
-| AI Data Classification                                                                               | ❌      | ✅            |
-| Subscribe to assets, activity, and notifications                                                     | ❌      | ✅            |
-| Email, Slack, & Microsoft Teams notifications                                                        | ❌      | ✅            |
-| Customizable Home Page and Asset Summaries                                                           | ❌      | ✅ **(beta)** |
-| **Ask DataHub** - AI assistant                                                                       | ❌      | ✅ **(beta)** |
-| Invite Users via Email & User Invite Recommendations                                                 | ❌      | ✅            |
+| Feature Name                                  | OSS | Cloud | Business Value                                                                                                                                            |                                                    Link                                                    |
+| :-------------------------------------------- | :-: | :---: | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------: |
+| **70+ Source Connectors with Unified Search** | ✔  |  ✔   | Connect entire data ecosystem                                                                                                                             |                               [Docs](https://docs.datahub.com/integrations)                                |
+| **Ask DataHub AI Agent**                      | ❌  |  ✔   | <ul><li>Find trustworthy data metrics</li><li>Generate Accurate SQL</li><li>Debug data quality issues</li><li>Understand impact of data changes</li></ul> |                 [Docs](https://docs.datahub.com/docs/features/feature-guides/ask-datahub)                  |
+| **DataHub Hosted MCP Server**                 | ❌  |  ✔   | Connect AI tools directly to your data catalog                                                                                                            |                     [Docs](https://docs.datahub.com/docs/features/feature-guides/mcp)                      |
+| **Enhanced Usage-Aware Search Ranking**       | ❌  |  ✔   | Surface most relevant data first                                                                                                                          |              [Docs](https://docs.datahub.com/docs/how/search#example-1-ranking-by-tagsterms)               |
+| **Column-Level Lineage & Impact Analysis**    | ✔  |  ✔   | Understand data dependencies                                                                                                                              |                   [Docs](https://docs.datahub.com/docs/features/feature-guides/lineage)                    |
+| **Lineage-Based Propagation**                 | ❌  |  ✔   | Auto-enrich downstream datasets                                                                                                                           |              [Docs](https://docs.datahub.com/docs/automations/docs-propagation#introduction)               |
+| **Context Documents**                         | ✔  |  ✔   | Create & semantically search across unstructured docs                                                                                                     |          [Docs](https://docs.datahub.com/docs/features/feature-guides/context/context-documents)           |
+| **AI Documentation Generation**               | ❌  |  ✔   | Auto-document tables & columns                                                                                                                            |                         [Docs](https://docs.datahub.com/docs/automations/ai-docs)                          |
+| **Personalized Home and Asset Views**         | ❌  |  ✔   | Customize home page and asset summaries for a personalized data experience                                                                                |    [Docs](https://docs.datahub.com/docs/features/feature-guides/custom-asset-summaries#custom-modules)     |
+| **Multi-Channel Notifications**               | ❌  |  ✔   | Stay informed where you work (Email, Slack, & Teams)                                                                                                      | [Docs](https://docs.datahub.com/docs/incidents/incidents/#enabling-slack-notifications-datahub-cloud-only) |
 
 ## Data Observability
 
-Features that help you ensure your data pipelines are producing high quality
-assets, and if they're not, making sure you and impacted users are the first to
-know.
-
-| Feature                                                      | DataHub | DataHub Cloud |
-| ------------------------------------------------------------ | ------- | ------------- |
-| Surface data quality results across the catalog              | ✅      | ✅            |
-| Data Quality Impact Analysis in Lineage                      | ✅      | ✅            |
-| Create Data Contracts                                        | ✅      | ✅            |
-| Manage Data Incidents                                        | ✅      | ✅            |
-| Manage Incidents in-Slack                                    | ❌      | ✅            |
-| Run Data Quality checks in-VPC                               | ❌      | ✅            |
-| AI Anomaly Detection for Freshness, Volume, and Column stats | ❌      | ✅            |
-| Bulk Configure AI Anomaly Detection                          | ❌      | ✅            |
-| Monitor Freshness SLAs                                       | ❌      | ✅            |
-| Monitor Table Schemas                                        | ❌      | ✅            |
-| Monitor Table Volume                                         | ❌      | ✅            |
-| Monitor Column Quality                                       | ❌      | ✅            |
-| Monitor with Custom SQL                                      | ❌      | ✅            |
-| Get Notified where you work (Slack, Email, Teams)            | ❌      | ✅            |
-| Data Health Dashboard                                        | ❌      | ✅            |
-| Evaluate data contracts on-demand (API)                      | ❌      | ✅            |
-| Pipeline Circuit-Breaking with Data Quality checks           | ❌      | ✅            |
-| Write-audit-publish with Data Quality checks                 | ❌      | ✅            |
+| Feature Name                                                         | OSS | Cloud | Business Value                                                |                                                Link                                                 |
+| :------------------------------------------------------------------- | :-: | :---: | :------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------: |
+| **Quality & Health Status on Asset Profiles**                        | ✔  |  ✔   | See quality at a glance                                       |                                                                                                     |
+| **AI Anomaly Detection (Smart Assertions)**                          | ❌  |  ✔   | Catch issues automatically                                    |           [Docs](https://docs.datahub.com/docs/managed-datahub/observe/smart-assertions)            |
+| **Freshness, Volume, Schema & Column Monitoring, Custom SQL Checks** | ❌  |  ✔   | Ensure timely data                                            |         [Docs](https://docs.datahub.com/docs/managed-datahub/observe/freshness-assertions)          |
+| **Data Contracts**                                                   | ✔  |  ✔   | Define quality expectations                                   | [Docs](https://docs.datahub.com/docs/managed-datahub/observe/data-contract#what-is-a-data-contract) |
+| **Data Health Dashboard**                                            | ❌  |  ✔   | Quality overview at scale                                     |         [Docs](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard)         |
+| **Notifications for Data Assertions**                                | ❌  |  ✔   | Real-time quality alerts                                      |         [Docs](https://docs.datahub.com/docs/managed-datahub/subscription-and-notification)         |
+| **Secure In-VPC Quality Validation**                                 | ❌  |  ✔   | Metadata never leaves your network                            |                                                                                                     |
+| **Pipeline Circuit Breakers (API)**                                  | ❌  |  ✔   | Validate data quality programmatically before reads or writes |           [Docs](https://docs.datahub.com/docs/managed-datahub/observe/data-contract#api)           |
 
 ## Data Governance
 
-Features that help you govern the crown jewels of your organization, and trim
-out the datasets that seem to grow like weeds when no one's looking.
+| Feature Name                                                                     | OSS | Cloud | Business Value                |                                                   Link                                                   |
+| :------------------------------------------------------------------------------- | :-: | :---: | :---------------------------- | :------------------------------------------------------------------------------------------------------: |
+| **Data Ownership Management**                                                    | ✔  |  ✔   | Clear accountability          |    [Docs](https://docs.datahub.com/docs/metadata-integration/java/docs/sdk-v2/dataset-entity#owners)     |
+| **Business Glossary**                                                            | ✔  |  ✔   | Common data language          |                         [Docs](https://docs.datahub.com/learn/business-glossary)                         |
+| **AI Data Classification**                                                       | ❌  |  ✔   | Auto-tag sensitive data       |                   [Docs](https://docs.datahub.com/docs/automations/ai-term-suggestion)                   |
+| **Bi-Directional Metadata Sync**                                                 | ❌  |  ✔   | Keep metadata current         |                 [Docs](https://docs.datahub.com/docs/automations/bigquery-metadata-sync)                 |
+| **Compliance Forms and Workflow Engine**                                         | ❌  |  ✔   | Track regulatory compliance   |         [Docs](https://docs.datahub.com/docs/features/feature-guides/compliance-forms/analytics)         |
+| **Metadata Tests**                                                               | ❌  |  ✔   | Validate governance rules     |                        [Docs](https://docs.datahub.com/docs/tests/metadata-tests)                        |
+| **Approval Workflows: Documentation, Glossary, Tags, Terms, and Data Ownership** | ❌  |  ✔   | Controlled vocabulary changes | [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals#proposing-tags-and-glossary-terms) |
+| **Access Request Workflows**                                                     | ❌  |  ✔   | Self-service data access      | [Docs](https://docs.datahub.com/docs/managed-datahub/workflows/access-workflows#faq-and-troubleshooting) |
 
-| Feature                                                                                       | DataHub | DataHub Cloud |
-| --------------------------------------------------------------------------------------------- | ------- | ------------- |
-| Shift-Left governance                                                                         | ✅      | ✅            |
-| Dataset ownership management                                                                  | ✅      | ✅            |
-| Business glossary basics                                                                      | ✅      | ✅            |
-| Customizable data access request and approval workflows                                       | ❌      | ✅ **(beta)** |
-| Shift-Left automations (i.e., source system sync back of metadata)                            | ❌      | ✅            |
-| Human-assisted Asset Certification Workflows (data owners, stewards)                          | ❌      | ✅            |
-| Dynamic Compliance Forms, with rich analytics                                                 | ❌      | ✅            |
-| Computational Governance standards as continuous tests                                        | ❌      | ✅            |
-| Approval Workflows - Business glossary modifications                                          | ❌      | ✅            |
-| Approval Workflows - Adding documentation, glossary terms, tags, owners, and more with assets | ❌      | ✅            |
-| AI Data Documentation Generation                                                              | ❌      | ✅            |
-| AI Data Classification                                                                        | ❌      | ✅            |
-| Access Approval Workflows                                                                     | ❌      | ✅ **(beta)** |
+## Enterprise & Security
 
-## More Questions?
+| Feature Name                      | OSS Available | Cloud Available | Business Value          |
+| :-------------------------------- | :-----------: | :-------------: | :---------------------- |
+| **99.5% Uptime SLA**              |      ❌       |       ✔        | Guaranteed availability |
+| **Fine-grained Access Control**   |      ❌       |       ✔        | Secure by default       |
+| **AWS PrivateLink Support**       |      ❌       |       ✔        | Network isolation       |
+| **IP Address Restrictions**       |      ❌       |       ✔        | Access control          |
+| **In-VPC Remote Ingestion Agent** |      ❌       |       ✔        | Data security control   |
 
-Have more questions and want to talk to someone? Fill out
-the form using the link below, and someone from the DataHub team will reach
-out to set up a chat.
+## Implementation & Support
 
-<a href="https://www.datahub.com/demo?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_vs_datahub" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
-Learn about DataHub Cloud
+| Feature Name                           | OSS Available | Cloud Available | Business Value                                               |
+| :------------------------------------- | :-----------: | :-------------: | :----------------------------------------------------------- |
+| **Fully Managed Cloud Deployment**     |      ❌       |       ✔        | Zero maintenance cloud-hosted instance                       |
+| **Dedicated Customer Success**         |      ❌       |       ✔        | Expert guidance                                              |
+| **Guided Implementation & Onboarding** |      ❌       |       ✔        | Smooth rollout                                               |
+| **Private Slack Support Channel**      |      ❌       |       ✔        | Direct access to experts                                     |
+| **Community Support**                  |      ✔       |       ✔        | Peer assistance                                              |
+| **OSS Contribution Fast-Track**        |      ❌       |       ✔        | Community Contribution Support to DataHub Apache 2.0 Project |
+
+<a href="https://datahub.com/get-datahub-cloud/" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
+See DataHub Cloud In Action
 </a>
-
-<!--
-Fill out
-[this form](https://www.datahub.com/demo?utm_source=datahubproject&utm_content=acryl_vs_datahub), and someone from the DataHub team will reach out to set up a chat.
-
-
- ## Chrome Extension
-
-- [Early Access to the DataHub Chrome Extension](docs/managed-datahub/chrome-extension.md)
-
-## Additional Integrations
-
-- [Slack Integration](docs/managed-datahub/slack/saas-slack-setup.md)
-- [Remote Ingestion Executor](docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md)
-- [AWS Privatelink](docs/managed-datahub/integrations/aws-privatelink.md)
-- [AWS Eventbridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
-
-## Additional SSO/Login Support
-
-- [OIDC SSO Integration in the UI](docs/managed-datahub/integrations/oidc-sso-integration.md)
-
-## Expanded API Features
-
-- [Entity Events API](docs/managed-datahub/datahub-api/entity-events-api.md)
-
-## More Ways to Act on Metadata
-
-- [Approval Workflows](docs/managed-datahub/change-proposals.md)
-- [Metadata Tests](docs/tests/metadata-tests.md) -->
