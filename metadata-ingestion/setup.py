@@ -474,8 +474,10 @@ plugins: Dict[str, Set[str]] = {
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
         "pyodbc>=4.0,<5.0",
-        "azure-identity>=1.21.0",
-        "requests",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "azure-identity>=1.21.0,<2.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "requests>=2.28.0,<3.0",
     },
     "bigquery": sql_common
     | bigquery_common
