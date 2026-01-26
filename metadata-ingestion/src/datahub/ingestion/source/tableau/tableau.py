@@ -2284,12 +2284,10 @@ class TableauSiteSource:
                         csql_urn, tableau_table_list, datasource
                     )
 
-            #  Schema Metadata
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
 
-            # Browse path
             if not (project and browse_path_name and datasource_name):
                 logger.debug(
                     f"Skipping Custom SQL table {csql_id}: "
