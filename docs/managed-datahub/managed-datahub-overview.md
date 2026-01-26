@@ -67,3 +67,7 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 | **Private Slack Support Channel**      |      ❌       |       ✔        | Direct access to experts                                     |
 | **Community Support**                  |      ✔       |       ✔        | Peer assistance                                              |
 | **OSS Contribution Fast-Track**        |      ❌       |       ✔        | Community Contribution Support to DataHub Apache 2.0 Project |
+
+<a href="https://datahub.com/get-datahub-cloud/" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
+See DataHub Cloud In Action
+</a>
