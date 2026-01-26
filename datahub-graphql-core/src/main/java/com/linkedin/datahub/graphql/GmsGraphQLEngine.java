@@ -857,6 +857,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(GMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(SEARCH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(APP_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(APP_SEMANTIC_SCHEMA_FILE))
         .addSchema(fileBasedSchema(AUTH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(ANALYTICS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RECOMMENDATIONS_SCHEMA_FILE))
