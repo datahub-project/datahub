@@ -230,6 +230,7 @@ def load_config_file(
             # If the URL is remote, we need to fetch it.
             try:
                 response = requests.get(str(config_file))
+                response.raise_for_status()
                 raw_config_file = response.text
             except Exception as e:
                 raise ConfigurationError(
