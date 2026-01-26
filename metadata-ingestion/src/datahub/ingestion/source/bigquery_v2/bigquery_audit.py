@@ -43,11 +43,34 @@ class BigqueryTableIdentifier:
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
-    @staticmethod
-    def _get_shard_pattern() -> "re.Pattern[str]":
-        """Get the compiled regex pattern for shard detection."""
-        return re.compile(
-            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+    # Cached compiled pattern - compiled once after config is set
+    _compiled_shard_pattern: ClassVar[Optional["re.Pattern[str]"]] = None
+
+    @classmethod
+    def get_shard_pattern(cls) -> "re.Pattern[str]":
+        """
+        Get the compiled regex pattern for shard detection.
+
+        Pattern is compiled once and cached. Uses the configured sharded_table_pattern
+        (set via BigQueryConfig) or the default pattern.
+        """
+        if cls._compiled_shard_pattern is None:
+            cls._compiled_shard_pattern = re.compile(
+                cls._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+                re.IGNORECASE,
+            )
+        return cls._compiled_shard_pattern
+
+    @classmethod
+    def recompile_shard_pattern(cls) -> None:
+        """
+        Force recompilation of the shard pattern.
+
+        Called when sharded_table_pattern config is updated to ensure
+        the cached pattern uses the new regex string.
+        """
+        cls._compiled_shard_pattern = re.compile(
+            cls._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             re.IGNORECASE,
         )
 
@@ -67,7 +90,7 @@ class BigqueryTableIdentifier:
         """
         new_table_name = table_name
         # Use cached compiled pattern
-        pattern = BigqueryTableIdentifier._get_shard_pattern()
+        pattern = BigqueryTableIdentifier.get_shard_pattern()
         match = pattern.match(table_name)
         if match:
             shard: str = match[3]

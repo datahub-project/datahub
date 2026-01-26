@@ -1471,7 +1471,7 @@ def test_numeric_shard_comparison(
 
 def test_direct_pattern_matching_performance():
     """Test that direct pattern matching avoids unnecessary object creation."""
-    pattern = BigqueryTableIdentifier._get_shard_pattern()
+    pattern = BigqueryTableIdentifier.get_shard_pattern()
 
     table_ids = [
         "events_20240101",
@@ -1493,7 +1493,7 @@ def test_direct_pattern_matching_performance():
 
 def test_shard_deduplication_in_lightweight_discovery():
     """Test that lightweight discovery deduplicates sharded tables."""
-    pattern = BigqueryTableIdentifier._get_shard_pattern()
+    pattern = BigqueryTableIdentifier.get_shard_pattern()
 
     table_ids = [
         "events_20240101",
@@ -1579,7 +1579,7 @@ def test_adaptive_batch_sizing(
 )
 def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
     """Test that pattern matching is case-insensitive."""
-    pattern = BigqueryTableIdentifier._get_shard_pattern()
+    pattern = BigqueryTableIdentifier.get_shard_pattern()
 
     match = pattern.match(table_id)
     assert match is not None

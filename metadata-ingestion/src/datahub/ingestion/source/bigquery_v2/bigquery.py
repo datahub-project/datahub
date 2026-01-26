@@ -126,6 +126,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
+        # Recompile the pattern after config is set
+        BigqueryTableIdentifier.recompile_shard_pattern()
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
             report=self.report.schema_api_perf,

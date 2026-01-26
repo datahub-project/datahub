@@ -540,7 +540,7 @@ class BigQuerySchemaGenerator:
                 f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
             )
 
-            shard_pattern = BigqueryTableIdentifier._get_shard_pattern()
+            shard_pattern = BigqueryTableIdentifier.get_shard_pattern()
             seen_base_tables: Set[str] = set()
 
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
@@ -1320,7 +1320,7 @@ class BigQuerySchemaGenerator:
         table_items: Dict[str, TableListItem] = {}
         sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
 
-        shard_pattern = BigqueryTableIdentifier._get_shard_pattern()
+        shard_pattern = BigqueryTableIdentifier.get_shard_pattern()
 
         for table in self.schema_api.list_tables(dataset_name, project_id):
             table_id = table.table_id
