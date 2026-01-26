@@ -558,8 +558,20 @@ class BigQuerySchemaGenerator:
 
                     # Skip if we've already processed this base table
                     if base_name in seen_base_tables:
+                        logger.info(
+                            f"Skipping duplicate sharded table {project_id}.{dataset_name}.{table_id} "
+                            f"(base table {base_name} already processed)"
+                        )
+                        self.report.num_sharded_tables_deduped += 1
                         continue
+
+                    # First occurrence of this base table
                     seen_base_tables.add(base_name)
+                    self.report.num_sharded_tables_scanned += 1
+                    logger.debug(
+                        f"Processing sharded table base {project_id}.{dataset_name}.{base_name} "
+                        f"(from shard {table_id})"
+                    )
 
                     # Use base name for identifier
                     table_id = (

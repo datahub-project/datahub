@@ -158,6 +158,8 @@ class BigQueryV2Report(
     num_lineage_dropped_gcs_path: int = 0
 
     snapshots_scanned: int = 0
+    num_sharded_tables_scanned: int = 0
+    num_sharded_tables_deduped: int = 0
 
     # view lineage
     sql_aggregator: Optional[SqlAggregatorReport] = None
