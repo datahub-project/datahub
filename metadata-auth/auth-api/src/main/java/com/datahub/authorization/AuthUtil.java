@@ -131,9 +131,12 @@ public class AuthUtil {
         mcps.stream()
             .map(
                 mcp -> {
-                  com.linkedin.metadata.models.EntitySpec entitySpec =
-                      entityRegistry.getEntitySpec(mcp.getEntityType());
-                  Urn urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+                  Urn urn = mcp.getEntityUrn();
+                  if (urn == null) {
+                    com.linkedin.metadata.models.EntitySpec entitySpec =
+                        entityRegistry.getEntitySpec(mcp.getEntityType());
+                    urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+                  }
                   return Pair.of(Pair.of(mcp.getChangeType(), urn), mcp);
                 })
             .collect(Collectors.toList());
@@ -710,9 +713,12 @@ public class AuthUtil {
     Map<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> mcpsByOperation = new HashMap<>();
 
     for (MetadataChangeProposal mcp : mcps) {
-      com.linkedin.metadata.models.EntitySpec entitySpec =
-          entityRegistry.getEntitySpec(mcp.getEntityType());
-      Urn urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+      Urn urn = mcp.getEntityUrn();
+      if (urn == null) {
+        com.linkedin.metadata.models.EntitySpec entitySpec =
+            entityRegistry.getEntitySpec(mcp.getEntityType());
+        urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+      }
 
       // Determine operation type based on change type
       ApiOperation operation;
