@@ -1,4 +1,5 @@
 from datahub_executor.common.metric.types import (
+    InvalidMetricResolverSourceTypeException,
     MetricResolverStrategy,
     MetricSourceType,
 )
@@ -20,6 +21,10 @@ def convert_field_parameters_to_metric_resolver_strategy(
             source_type=MetricSourceType.DATAHUB_DATASET_PROFILE
         )
     else:
-        raise Exception(
-            f"Unsupported field source type {parameters.source_type} found - No matching Metric Resolver Strategy!"
+        raise InvalidMetricResolverSourceTypeException(
+            message=(
+                "Unsupported field source type "
+                f"{parameters.source_type} found - No matching Metric Resolver Strategy!"
+            ),
+            source_type=str(parameters.source_type),
         )

@@ -8,6 +8,7 @@ from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     default_volume_monitor_urn,
     make_monitor_metric_cube_urn,
 )
+from datahub_executor.common.exceptions import InvalidParametersException
 
 
 class TestDefaultVolumeUrns:
@@ -55,10 +56,10 @@ class TestDefaultVolumeUrns:
 
     def test_invalid_dataset_urn_raises_error(self):
         """Passing an invalid URN should raise an error."""
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidParametersException):
             default_volume_monitor_urn("not-a-valid-urn")
 
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidParametersException):
             default_volume_assertion_urn("not-a-valid-urn")
 
     def test_monitor_urn_contains_dataset_reference(self):

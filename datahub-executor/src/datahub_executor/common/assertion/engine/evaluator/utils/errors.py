@@ -1,13 +1,22 @@
 from datahub_executor.common.exceptions import (
     AssertionResultException,
     CustomSQLErrorException,
+    EvaluatorNotFoundException,
     FieldAssertionErrorException,
     InsufficientDataException,
     InvalidParametersException,
     InvalidSourceTypeException,
+    MetricPersistenceException,
+    MissingEvaluationParametersException,
+    ResultEmissionException,
     SourceConnectionErrorException,
     SourceQueryFailedException,
+    StatePersistenceException,
     UnsupportedPlatformException,
+)
+from datahub_executor.common.metric.types import (
+    InvalidMetricResolverSourceTypeException,
+    UnsupportedMetricException,
 )
 from datahub_executor.common.types import (
     AssertionEvaluationResultError,
@@ -71,5 +80,46 @@ def extract_assertion_evaluation_result_error(
                 "message": error.message,
                 "query": error.query if error.query else "",
             },
+        )
+    elif isinstance(error, MissingEvaluationParametersException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.MISSING_EVALUATION_PARAMETERS,
+            properties={"message": error.message},
+        )
+    elif isinstance(error, EvaluatorNotFoundException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.EVALUATOR_NOT_FOUND,
+            properties={"message": error.message},
+        )
+    elif isinstance(error, UnsupportedMetricException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.METRIC_RESOLVER_UNSUPPORTED_METRIC,
+            properties={
+                "message": error.message,
+                "metric_name": error.metric_name,
+            },
+        )
+    elif isinstance(error, InvalidMetricResolverSourceTypeException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.METRIC_RESOLVER_INVALID_SOURCE_TYPE,
+            properties={
+                "message": error.message,
+                "source_type": error.source_type,
+            },
+        )
+    elif isinstance(error, StatePersistenceException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.STATE_PERSISTENCE_FAILED,
+            properties={"message": error.message},
+        )
+    elif isinstance(error, MetricPersistenceException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.METRIC_PERSISTENCE_FAILED,
+            properties={"message": error.message},
+        )
+    elif isinstance(error, ResultEmissionException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.RESULT_EMISSION_FAILED,
+            properties={"message": error.message},
         )
     raise Exception(f"Unknown error type {error}")

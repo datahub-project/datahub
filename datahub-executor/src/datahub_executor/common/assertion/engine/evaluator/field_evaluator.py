@@ -31,7 +31,9 @@ from datahub_executor.common.connection.datahub_ingestion_source_connection_prov
 from datahub_executor.common.exceptions import (
     InsufficientDataException,
     InvalidParametersException,
+    MetricPersistenceException,
     SourceConnectionErrorException,
+    StatePersistenceException,
 )
 from datahub_executor.common.metric.client.client import (
     MetricClient,
@@ -120,9 +122,11 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             == DatasetFieldSourceType.CHANGED_ROWS_QUERY
             and context.monitor_urn
         ):
-            assert dataset_field_parameters.changed_rows_field, (
-                "Missing required changed rows field for change rows assertion!"
-            )
+            if not dataset_field_parameters.changed_rows_field:
+                raise InvalidParametersException(
+                    message="Missing required changed rows field for change rows assertion!",
+                    parameters={"detail": "missing_changed_rows_field"},
+                )
 
             # we get the prev state, if available
             previous_state = self.state_provider.get_state(
@@ -152,14 +156,22 @@ class FieldAssertionEvaluator(AssertionEvaluator):
 
             # save state for this assertion/monitor, including the current high watermark value
             # for the next assertion run.
-            self.state_provider.save_state(
-                context.monitor_urn,
-                AssertionState(
-                    type=AssertionStateType.MONITOR_TIMESERIES_STATE,
-                    timestamp=int(time.time() * 1000),
-                    properties={"high_watermark_value": str(high_watermark_value)},
-                ),
-            )
+            try:
+                self.state_provider.save_state(
+                    context.monitor_urn,
+                    AssertionState(
+                        type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+                        timestamp=int(time.time() * 1000),
+                        properties={"high_watermark_value": str(high_watermark_value)},
+                    ),
+                )
+            except Exception as e:
+                raise StatePersistenceException(
+                    message=(
+                        "Failed to persist monitor state for "
+                        f"{context.monitor_urn}: {e}"
+                    )
+                ) from e
 
         return previous_state, prev_high_watermark_value
 
@@ -172,14 +184,25 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         database_params: AssertionDatabaseParams,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        assert field_assertion.field_values_assertion is not None, (
-            "Missing required field values assertion!"
-        )
+        if field_assertion.field_values_assertion is None:
+            raise InvalidParametersException(
+                message="Missing required field values assertion!",
+                parameters={"detail": "missing_field_values_assertion"},
+            )
         # TODO - remove this later when we support PERCENTAGE
-        assert (
+        if (
             field_assertion.field_values_assertion.fail_threshold.type
-            == FieldValuesFailThresholdType.COUNT
-        )
+            != FieldValuesFailThresholdType.COUNT
+        ):
+            raise InvalidParametersException(
+                message="Unsupported field values fail threshold type",
+                parameters={
+                    "detail": "unsupported_fail_threshold_type",
+                    "fail_threshold_type": str(
+                        field_assertion.field_values_assertion.fail_threshold.type
+                    ),
+                },
+            )
 
         (
             previous_state,
@@ -285,10 +308,21 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         entity_urn: str,
         field_assertion: FieldAssertion,
     ) -> AssertionEvaluationResult:
-        assert field_assertion.field_metric_assertion is not None
-        assert isinstance(
+        if field_assertion.field_metric_assertion is None:
+            raise InvalidParametersException(
+                message="Missing required field metric assertion!",
+                parameters={"detail": "missing_field_metric_assertion"},
+            )
+        if not isinstance(
             self.connection_provider, DataHubIngestionSourceConnectionProvider
-        )
+        ):
+            raise InvalidParametersException(
+                message="Unsupported connection provider for dataset profile lookup",
+                parameters={
+                    "detail": "unsupported_connection_provider",
+                    "provider": type(self.connection_provider).__name__,
+                },
+            )
         if field_assertion.field_metric_assertion.metric not in [
             FieldMetricType.UNIQUE_COUNT,
             FieldMetricType.UNIQUE_PERCENTAGE,
@@ -302,7 +336,10 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         ]:
             raise InvalidParametersException(
                 message=f"Metric {field_assertion.field_metric_assertion.metric.name} is not supported when using DataHub Dataset Profile as the data source.",
-                parameters={},
+                parameters={
+                    "detail": "unsupported_field_metric",
+                    "metric": field_assertion.field_metric_assertion.metric.name,
+                },
             )
 
         assertion_params = field_assertion.field_metric_assertion.parameters
@@ -381,7 +418,11 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         """Evaluate a FIELD assertion by delegating to sub-methods based on assertion type."""
 
         # Basic sanity checks.
-        assert assertion.field_assertion, "Missing required field assertion!"
+        if not assertion.field_assertion:
+            raise InvalidParametersException(
+                message="Missing required field assertion!",
+                parameters={"detail": "missing_field_assertion"},
+            )
         field_assertion = assertion.field_assertion
 
         if field_assertion.type == FieldAssertionType.FIELD_METRIC:
@@ -395,7 +436,15 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                     f"Failed to evaluate FIELD Assertion. "
                     f"Unsupported FIELD Assertion Type {field_assertion.type} provided."
                 ),
-                parameters=parameters.dataset_field_parameters.model_dump(),
+                parameters={
+                    "detail": "unsupported_field_assertion_type",
+                    "field_assertion_type": str(field_assertion.type),
+                    "dataset_field_parameters": (
+                        parameters.dataset_field_parameters.model_dump()
+                        if parameters.dataset_field_parameters
+                        else None
+                    ),
+                },
             )
 
     def _evaluate_internal_field_metric(
@@ -444,13 +493,21 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             "Starting Metric Collection Step for field metric assertion %s",
             assertion.urn or "unknown",
         )
-        assert assertion.field_assertion, "Missing required field assertion!"
-        assert assertion.field_assertion.field_metric_assertion, (
-            "Missing required field metric assertion!"
-        )
-        assert parameters.dataset_field_parameters, (
-            "Missig required dataset field assertion parameters!"
-        )
+        if not assertion.field_assertion:
+            raise InvalidParametersException(
+                message="Missing required field assertion!",
+                parameters={"detail": "missing_field_assertion"},
+            )
+        if not assertion.field_assertion.field_metric_assertion:
+            raise InvalidParametersException(
+                message="Missing required field metric assertion!",
+                parameters={"detail": "missing_field_metric_assertion"},
+            )
+        if not parameters.dataset_field_parameters:
+            raise InvalidParametersException(
+                message="Missing required dataset field assertion parameters!",
+                parameters={"detail": "missing_dataset_field_parameters"},
+            )
 
         entity_urn = assertion.entity.urn
         database_params = get_database_parameters(assertion)
@@ -466,9 +523,11 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             == DatasetFieldSourceType.CHANGED_ROWS_QUERY
         ):
             # If its a changed row query, we must be hitting a database directly.
-            assert assertion.connection_urn, (
-                "Missing required connection urn for changed rows field assertion"
-            )
+            if not assertion.connection_urn:
+                raise InvalidParametersException(
+                    message="Missing required connection urn for changed rows field assertion",
+                    parameters={"detail": "missing_connection_urn"},
+                )
 
             connection = self.connection_provider.get_connection(entity_urn)
             if connection is None:
@@ -515,7 +574,12 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         # Step 3: Optionally save the fetched metric to the metric cube.
         if save and context.monitor_urn:
             metric_cube_urn = make_monitor_metric_cube_urn(context.monitor_urn)
-            self.metric_client.save_metric_value(metric_cube_urn, metric)
+            try:
+                self.metric_client.save_metric_value(metric_cube_urn, metric)
+            except Exception as e:
+                raise MetricPersistenceException(
+                    message=(f"Failed to persist metric for {context.monitor_urn}: {e}")
+                ) from e
 
         # Step 4: Return the metric
         logger.debug("Completed metric collection step with metric=%s", metric)
@@ -527,10 +591,16 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         assertion: Assertion,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        assert assertion.field_assertion, "Missing required field assertion!"
-        assert assertion.field_assertion.field_metric_assertion, (
-            "Missing required field metric assertion!"
-        )
+        if not assertion.field_assertion:
+            raise InvalidParametersException(
+                message="Missing required field assertion!",
+                parameters={"detail": "missing_field_assertion"},
+            )
+        if not assertion.field_assertion.field_metric_assertion:
+            raise InvalidParametersException(
+                message="Missing required field metric assertion!",
+                parameters={"detail": "missing_field_metric_assertion"},
+            )
 
         if context.online_smart_assertions and is_smart_assertion(assertion):
             # If we have smart assertions v2, there might not be an assertion present yet.
@@ -591,13 +661,21 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         """
         Evaluate a FIELD_VALUES assertion, which always requires the query-based approach.
         """
-        assert assertion.connection_urn, (
-            "Missing required connection urn for field values assertion!"
-        )
-        assert assertion.field_assertion, "Missing required field assertion!"
-        assert parameters.dataset_field_parameters, (
-            "Missing required dataset field assertion parameters!"
-        )
+        if not assertion.connection_urn:
+            raise InvalidParametersException(
+                message="Missing required connection urn for field values assertion!",
+                parameters={"detail": "missing_connection_urn"},
+            )
+        if not assertion.field_assertion:
+            raise InvalidParametersException(
+                message="Missing required field assertion!",
+                parameters={"detail": "missing_field_assertion"},
+            )
+        if not parameters.dataset_field_parameters:
+            raise InvalidParametersException(
+                message="Missing required dataset field assertion parameters!",
+                parameters={"detail": "missing_dataset_field_parameters"},
+            )
 
         entity_urn = assertion.entity.urn
         field_assertion = assertion.field_assertion

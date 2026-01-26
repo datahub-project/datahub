@@ -29,6 +29,7 @@ from datahub_executor.common.connection.datahub_ingestion_source_connection_prov
 from datahub_executor.common.exceptions import (
     InvalidParametersException,
     SourceConnectionErrorException,
+    StatePersistenceException,
 )
 from datahub_executor.common.source.source import Source, get_assertion_query_tags
 from datahub_executor.common.types import (
@@ -114,7 +115,14 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         context: AssertionEvaluationContext,
         maybe_previous_state: Optional[AssertionState] = None,
     ) -> InternalAssertionEvaluationResult:
-        assert assertion.connection_urn
+        if not assertion.connection_urn:
+            raise InvalidParametersException(
+                message="Missing connection URN for freshness assertion evaluation",
+                parameters={
+                    "detail": "missing_connection_urn",
+                    "assertion_urn": assertion.urn,
+                },
+            )
         entity_urn = assertion.entity.urn
 
         # Check whether any matching events have fallen into the bucket
@@ -409,10 +417,24 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         window: List[int],
         source_params: dict,
     ) -> InternalAssertionEvaluationResult:
-        assert isinstance(
+        if not isinstance(
             self.connection_provider, DataHubIngestionSourceConnectionProvider
-        )
-        assert isinstance(self.connection_provider.graph, DataHubGraph)
+        ):
+            raise InvalidParametersException(
+                message="Unsupported connection provider for DataHub operation lookup",
+                parameters={
+                    "detail": "unsupported_connection_provider",
+                    "provider": type(self.connection_provider).__name__,
+                },
+            )
+        if not isinstance(self.connection_provider.graph, DataHubGraph):
+            raise InvalidParametersException(
+                message="Unsupported graph provider for DataHub operation lookup",
+                parameters={
+                    "detail": "unsupported_graph_provider",
+                    "provider": type(self.connection_provider.graph).__name__,
+                },
+            )
 
         [start_timestamp, end_timestamp] = window
         operation_aspects = self.connection_provider.graph.get_timeseries_values(
@@ -464,9 +486,30 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> InternalAssertionEvaluationResult:
-        assert assertion.freshness_assertion is not None
-        assert assertion.freshness_assertion.schedule is not None
-        assert assertion.freshness_assertion.schedule.cron is not None
+        if assertion.freshness_assertion is None:
+            raise InvalidParametersException(
+                message="Missing required freshness assertion!",
+                parameters={
+                    "detail": "missing_freshness_assertion",
+                    "assertion_urn": assertion.urn,
+                },
+            )
+        if assertion.freshness_assertion.schedule is None:
+            raise InvalidParametersException(
+                message="Missing required freshness schedule!",
+                parameters={
+                    "detail": "missing_freshness_schedule",
+                    "assertion_urn": assertion.urn,
+                },
+            )
+        if assertion.freshness_assertion.schedule.cron is None:
+            raise InvalidParametersException(
+                message="Missing required freshness cron schedule!",
+                parameters={
+                    "detail": "missing_freshness_cron",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         # These fields are required for
         cast(FreshnessAssertion, assertion.freshness_assertion)
@@ -507,12 +550,33 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> InternalAssertionEvaluationResult:
-        assert assertion.freshness_assertion is not None
+        if assertion.freshness_assertion is None:
+            raise InvalidParametersException(
+                message="Missing required freshness assertion!",
+                parameters={
+                    "detail": "missing_freshness_assertion",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         freshness_assertion = assertion.freshness_assertion
 
-        assert freshness_assertion.schedule is not None
-        assert freshness_assertion.schedule.fixed_interval is not None
+        if freshness_assertion.schedule is None:
+            raise InvalidParametersException(
+                message="Missing required freshness schedule!",
+                parameters={
+                    "detail": "missing_freshness_schedule",
+                    "assertion_urn": assertion.urn,
+                },
+            )
+        if freshness_assertion.schedule.fixed_interval is None:
+            raise InvalidParametersException(
+                message="Missing required freshness fixed interval schedule!",
+                parameters={
+                    "detail": "missing_freshness_fixed_interval",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         fixed_interval_schedule = cast(
             FixedIntervalSchedule, freshness_assertion.schedule.fixed_interval
@@ -539,7 +603,14 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> InternalAssertionEvaluationResult:
-        assert assertion.freshness_assertion is not None
+        if assertion.freshness_assertion is None:
+            raise InvalidParametersException(
+                message="Missing required freshness assertion!",
+                parameters={
+                    "detail": "missing_freshness_assertion",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         # 1. Get previous monitor state
         previous_state = (
@@ -590,8 +661,22 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
     ) -> AssertionEvaluationResult:
         freshness_assertion = assertion.freshness_assertion
 
-        assert freshness_assertion is not None
-        assert freshness_assertion.schedule is not None
+        if freshness_assertion is None:
+            raise InvalidParametersException(
+                message="Missing required freshness assertion!",
+                parameters={
+                    "detail": "missing_freshness_assertion",
+                    "assertion_urn": assertion.urn,
+                },
+            )
+        if freshness_assertion.schedule is None:
+            raise InvalidParametersException(
+                message="Missing required freshness schedule!",
+                parameters={
+                    "detail": "missing_freshness_schedule",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         if freshness_assertion.schedule.type == FreshnessAssertionScheduleType.CRON:
             internal_result = self._evaluate_internal_cron(
@@ -614,12 +699,24 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         else:
             raise InvalidParametersException(
                 message=f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {freshness_assertion.schedule.type} provided.",
-                parameters=parameters.model_dump(),
+                parameters={
+                    "detail": "unsupported_freshness_schedule_type",
+                    "schedule_type": str(freshness_assertion.schedule.type),
+                    "parameters": parameters.model_dump(),
+                },
             )
         if internal_result.next_assertion_state and context.monitor_urn:
-            self.state_provider.save_state(
-                context.monitor_urn, internal_result.next_assertion_state
-            )
+            try:
+                self.state_provider.save_state(
+                    context.monitor_urn, internal_result.next_assertion_state
+                )
+            except Exception as e:
+                raise StatePersistenceException(
+                    message=(
+                        "Failed to persist assertion state for "
+                        f"{context.monitor_urn}: {e}"
+                    )
+                ) from e
         return internal_result.result
 
     def _evaluate_internal(

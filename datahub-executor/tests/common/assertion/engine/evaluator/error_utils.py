@@ -25,7 +25,7 @@ def test_extract_assertion_evaluation_result_error_with_insufficient_data_except
     error = InsufficientDataException(message="Error")
     result = extract_assertion_evaluation_result_error(error)
     assert result.type == AssertionResultErrorType.INSUFFICIENT_DATA
-    assert result.properties == {}
+    assert result.properties == {"message": "Error"}
 
 
 def test_extract_assertion_evaluation_result_error_with_invalid_parameters_exception() -> (
@@ -34,7 +34,7 @@ def test_extract_assertion_evaluation_result_error_with_invalid_parameters_excep
     error = InvalidParametersException(message="Error", parameters={"foo": "bar"})
     result = extract_assertion_evaluation_result_error(error)
     assert result.type == AssertionResultErrorType.INVALID_PARAMETERS
-    assert result.properties == {"parameters": {"foo": "bar"}}
+    assert result.properties == {"message": "Error", "parameters": "{'foo': 'bar'}"}
 
 
 def test_extract_assertion_evaluation_result_error_with_invalid_source_type_exception() -> (
@@ -45,7 +45,7 @@ def test_extract_assertion_evaluation_result_error_with_invalid_source_type_exce
     )
     result = extract_assertion_evaluation_result_error(error)
     assert result.type == AssertionResultErrorType.INVALID_SOURCE_TYPE
-    assert result.properties == {"source_type": "AUDIT_LOG"}
+    assert result.properties == {"message": "Error", "source_type": "AUDIT_LOG"}
 
 
 def test_extra_assertion_evaluation_result_error_with_source_connection_error_exception() -> (
@@ -56,7 +56,10 @@ def test_extra_assertion_evaluation_result_error_with_source_connection_error_ex
     )
     result = extract_assertion_evaluation_result_error(error)
     assert result.type == AssertionResultErrorType.SOURCE_CONNECTION_ERROR
-    assert result.properties == {"connection_urn": SNOWFLAKE_PLATFORM_URN}
+    assert result.properties == {
+        "message": "Error",
+        "connection_urn": SNOWFLAKE_PLATFORM_URN,
+    }
 
 
 def test_extra_assertion_evaluation_result_error_with_source_query_failed_exception() -> (
@@ -70,6 +73,7 @@ def test_extra_assertion_evaluation_result_error_with_source_query_failed_except
     result = extract_assertion_evaluation_result_error(error)
     assert result.type == AssertionResultErrorType.SOURCE_QUERY_FAILED
     assert result.properties == {
+        "message": "Error",
         "query": "SELECT * FROM table_name WHERE foo = 'bar'",
         "filter": "foo = 'bar'",
     }
@@ -82,8 +86,11 @@ def test_extract_assertion_evaluation_result_error_with_unsupported_platform_exc
         message="Error", platform_urn=SNOWFLAKE_PLATFORM_URN
     )
     result = extract_assertion_evaluation_result_error(error)
-    assert result.type == AssertionResultErrorType.SOURCE_QUERY_FAILED
-    assert result.properties == {"platform_urn": SNOWFLAKE_PLATFORM_URN}
+    assert result.type == AssertionResultErrorType.UNSUPPORTED_PLATFORM
+    assert result.properties == {
+        "message": "Error",
+        "platform_urn": SNOWFLAKE_PLATFORM_URN,
+    }
 
 
 def test_extract_assertion_evaluation_result_error_with_unknown_exception() -> None:

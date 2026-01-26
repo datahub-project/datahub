@@ -20,6 +20,8 @@ from datahub_executor.common.connection.datahub_ingestion_source_connection_prov
 )
 from datahub_executor.common.exceptions import (
     InvalidParametersException,
+    MetricPersistenceException,
+    StatePersistenceException,
 )
 from datahub_executor.common.metric.client.client import (
     MetricClient,
@@ -98,7 +100,11 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         row_count: int,
         assertion: Assertion,
     ) -> AssertionEvaluationResult:
-        assert volume_assertion.row_count_total is not None
+        if volume_assertion.row_count_total is None:
+            raise InvalidParametersException(
+                message="Missing row_count_total parameters for volume assertion",
+                parameters={"detail": "missing_row_count_total"},
+            )
         logger.debug("Evaluating ROW_COUNT_TOTAL assertion on row_count=%d", row_count)
         row_count_evaluation = self._evaluate_value(
             row_count,
@@ -124,7 +130,11 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         context: AssertionEvaluationContext,
         assertion: Assertion,
     ) -> AssertionEvaluationResult:
-        assert volume_assertion.row_count_change is not None
+        if volume_assertion.row_count_change is None:
+            raise InvalidParametersException(
+                message="Missing row_count_change parameters for volume assertion",
+                parameters={"detail": "missing_row_count_change"},
+            )
         logger.debug("Evaluating ROW_COUNT_CHANGE assertion on row_count=%d", row_count)
 
         previous_state = (
@@ -182,16 +192,24 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
 
         if context.monitor_urn:
             logger.debug("Saving new assertion state with row_count=%d", row_count)
-            self.state_provider.save_state(
-                context.monitor_urn,
-                AssertionState(
-                    type=AssertionStateType.MONITOR_TIMESERIES_STATE,
-                    timestamp=int(time.time() * 1000),
-                    properties={
-                        "row_count": str(row_count),
-                    },
-                ),
-            )
+            try:
+                self.state_provider.save_state(
+                    context.monitor_urn,
+                    AssertionState(
+                        type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+                        timestamp=int(time.time() * 1000),
+                        properties={
+                            "row_count": str(row_count),
+                        },
+                    ),
+                )
+            except Exception as e:
+                raise StatePersistenceException(
+                    message=(
+                        "Failed to persist assertion state for "
+                        f"{context.monitor_urn}: {e}"
+                    )
+                ) from e
 
         return assertion_evaluation_result
 
@@ -232,7 +250,12 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         # Step 2: Optionally save the fetched metric to the metric cube.
         if save and context.monitor_urn:
             metric_cube_urn = make_monitor_metric_cube_urn(context.monitor_urn)
-            self.metric_client.save_metric_value(metric_cube_urn, metric)
+            try:
+                self.metric_client.save_metric_value(metric_cube_urn, metric)
+            except Exception as e:
+                raise MetricPersistenceException(
+                    message=(f"Failed to persist metric for {context.monitor_urn}: {e}")
+                ) from e
 
         # Step 3: Return the metric
         logger.debug("Completed metric collection step with metric=%s", metric)
@@ -270,8 +293,11 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
                     )
 
         if not volume_assertion:
-            raise Exception(
-                "Volume assertion is required to evaluate! Missing volume assertion info."
+            raise InvalidParametersException(
+                message=(
+                    "Volume assertion is required to evaluate! Missing volume assertion info."
+                ),
+                parameters={"detail": "missing_volume_assertion"},
             )
 
         if volume_assertion.type == VolumeAssertionType.ROW_COUNT_TOTAL:
@@ -290,12 +316,16 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
                 assertion,
             )
         else:
-            logger.error(
-                "Unsupported VOLUME Assertion Type %s provided.", volume_assertion.type
-            )
             raise InvalidParametersException(
-                message=f"Failed to evaluate VOLUME Assertion. Unsupported VOLUME Assertion Type {volume_assertion.type} provided.",
-                parameters=volume_assertion.model_dump(),
+                message=(
+                    "Failed to evaluate VOLUME Assertion. "
+                    f"Unsupported VOLUME Assertion Type {volume_assertion.type} provided."
+                ),
+                parameters={
+                    "detail": "unsupported_volume_assertion_type",
+                    "volume_assertion_type": str(volume_assertion.type),
+                    "volume_assertion": volume_assertion.model_dump(),
+                },
             )
 
     def _evaluate_internal(

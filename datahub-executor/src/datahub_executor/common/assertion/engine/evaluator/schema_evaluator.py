@@ -223,9 +223,16 @@ class SchemaAssertionEvaluator(AssertionEvaluator):
         schema_assertion: SchemaAssertion,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        assert isinstance(
+        if not isinstance(
             self.connection_provider, DataHubIngestionSourceConnectionProvider
-        )
+        ):
+            raise InvalidParametersException(
+                message="Unsupported connection provider for schema evaluation",
+                parameters={
+                    "detail": "unsupported_connection_provider",
+                    "provider": type(self.connection_provider).__name__,
+                },
+            )
         maybe_schema_metadata_aspect = self.connection_provider.graph.get_aspect(
             entity_urn=entity_urn,
             aspect_type=SchemaMetadataClass,
@@ -254,7 +261,11 @@ class SchemaAssertionEvaluator(AssertionEvaluator):
             return self._evaluate_subset_match_assertion(expected_fields, actual_fields)
 
         raise InvalidParametersException(
-            message=f"Unsupported compatibility type provided!: {compatibility}"
+            message=f"Unsupported compatibility type provided!: {compatibility}",
+            parameters={
+                "detail": "unsupported_schema_compatibility",
+                "compatibility": str(compatibility),
+            },
         )
 
     def _evaluate_internal(
@@ -263,8 +274,22 @@ class SchemaAssertionEvaluator(AssertionEvaluator):
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        assert assertion.schema_assertion is not None
-        assert parameters.dataset_schema_parameters is not None
+        if assertion.schema_assertion is None:
+            raise InvalidParametersException(
+                message="Missing required schema assertion!",
+                parameters={
+                    "detail": "missing_schema_assertion",
+                    "assertion_urn": assertion.urn,
+                },
+            )
+        if parameters.dataset_schema_parameters is None:
+            raise InvalidParametersException(
+                message="Missing required dataset schema assertion parameters!",
+                parameters={
+                    "detail": "missing_dataset_schema_parameters",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         entity_urn = assertion.entity.urn
         schema_assertion = assertion.schema_assertion
@@ -281,5 +306,8 @@ class SchemaAssertionEvaluator(AssertionEvaluator):
         # We only support DATAHUB_SCHEMA for now
         raise InvalidParametersException(
             message=f"Unsupported source type provided!: {dataset_schema_parameters.source_type}",
-            parameters={},
+            parameters={
+                "detail": "unsupported_schema_source_type",
+                "source_type": str(dataset_schema_parameters.source_type),
+            },
         )

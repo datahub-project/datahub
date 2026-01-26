@@ -7,6 +7,7 @@ from datahub_executor.common.assertion.engine.evaluator.evaluator import (
     AssertionEvaluator,
 )
 from datahub_executor.common.assertion.result.handler import AssertionResultHandler
+from datahub_executor.common.exceptions import EvaluatorNotFoundException
 from datahub_executor.common.types import (
     Assertion,
     AssertionEntity,
@@ -120,8 +121,8 @@ def test_evaluate_assertion_no_evaluator() -> None:
     # Create AssertionEngine instance without any evaluators
     engine = AssertionEngine([])
 
-    # Attempting to evaluate the Assertion should raise a ValueError
-    with pytest.raises(ValueError) as e:
+    # Attempting to evaluate the Assertion should raise an EvaluatorNotFoundException
+    with pytest.raises(EvaluatorNotFoundException) as e:
         engine.evaluate(assertion, parameters, context)
 
     # Check the exception message

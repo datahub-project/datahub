@@ -1,8 +1,12 @@
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from datahub.metadata.schema_classes import MonitorErrorTypeClass
 
-from datahub_executor.common.types import DatasetFreshnessSourceType, EntityEventType
+if TYPE_CHECKING:
+    from datahub_executor.common.types import (
+        DatasetFreshnessSourceType,
+        EntityEventType,
+    )
 
 
 class AssertionResultException(Exception):
@@ -34,7 +38,7 @@ class InvalidSourceTypeException(AssertionResultException):
     def __init__(
         self,
         message: str,
-        source_type: Union[DatasetFreshnessSourceType, EntityEventType],
+        source_type: Union["DatasetFreshnessSourceType", "EntityEventType"],
     ):
         super().__init__(message)
         self.source_type = str(source_type)
@@ -78,6 +82,45 @@ class FieldAssertionErrorException(AssertionResultException):
     def __init__(self, message: str, query: Optional[str] = None):
         super().__init__(message)
         self.query = query
+
+
+class MissingEvaluationParametersException(AssertionResultException):
+    """Raised when evaluation parameters are missing."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class EvaluatorNotFoundException(AssertionResultException):
+    """Raised when no evaluator exists for a given assertion type."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+# NOTE: Metric resolver-specific exceptions now live in
+# datahub_executor.common.metric.types to keep metric-layer failures centralized.
+
+
+class StatePersistenceException(AssertionResultException):
+    """Raised when assertion state persistence fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class MetricPersistenceException(AssertionResultException):
+    """Raised when saving a collected metric fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class ResultEmissionException(AssertionResultException):
+    """Raised when emitting assertion results fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 class TrainingErrorException(Exception):

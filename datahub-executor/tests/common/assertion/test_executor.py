@@ -12,7 +12,10 @@ from datahub_executor.common.types import (
     AssertionEntity,
     AssertionEvaluationParameters,
     AssertionEvaluationParametersType,
+    AssertionEvaluationResult,
     AssertionEvaluationSpec,
+    AssertionResultErrorType,
+    AssertionResultType,
     AssertionType,
     CronSchedule,
 )
@@ -161,7 +164,7 @@ class TestAssertionExecutor:
     @patch("datahub_executor.common.assertion.executor.create_datahub_graph")
     @patch("datahub_executor.common.assertion.executor.create_assertion_engine")
     @patch("datahub_executor.common.assertion.executor.METRIC")
-    def test_evaluate_assertion_raises_when_parameters_none(
+    def test_evaluate_assertion_emits_error_when_parameters_none(
         self,
         mock_metric: MagicMock,
         mock_create_engine: MagicMock,
@@ -170,28 +173,33 @@ class TestAssertionExecutor:
         mock_engine: MagicMock,
         test_execution_request_no_parameters: ExecutionRequest,
     ) -> None:
-        """Test that evaluate_assertion raises ValueError when parameters is None."""
+        """Test that evaluate_assertion emits error when parameters is None."""
         # Setup mocks
         mock_create_graph.return_value = mock_graph
         mock_create_engine.return_value = mock_engine
         mock_metric.return_value.time.return_value = MagicMock(
             __enter__=MagicMock(), __exit__=MagicMock()
         )
+        mock_handler = MagicMock()
+        mock_engine.result_handlers = [mock_handler]
 
         # Create executor
         executor = AssertionExecutor()
         executor.engine = mock_engine
 
-        # Call evaluate_assertion and verify it raises ValueError
-        with pytest.raises(ValueError) as excinfo:
-            executor.evaluate_assertion(test_execution_request_no_parameters)
-
-        # Verify error message contains the assertion URN
-        assert "urn:li:assertion:test-assertion-123" in str(excinfo.value)
-        assert "has no evaluation parameters" in str(excinfo.value)
+        executor.evaluate_assertion(test_execution_request_no_parameters)
 
         # Verify engine.evaluate was not called
         mock_engine.evaluate.assert_not_called()
+        mock_handler.handle.assert_called_once()
+        result_arg = mock_handler.handle.call_args[0][2]
+        assert isinstance(result_arg, AssertionEvaluationResult)
+        assert result_arg.type == AssertionResultType.ERROR
+        assert result_arg.error is not None
+        assert (
+            result_arg.error.type
+            == AssertionResultErrorType.MISSING_EVALUATION_PARAMETERS
+        )
 
     @patch("datahub_executor.common.assertion.executor.create_datahub_graph")
     @patch("datahub_executor.common.assertion.executor.create_assertion_engine")
@@ -230,7 +238,7 @@ class TestAssertionExecutor:
 
     @patch("datahub_executor.common.assertion.executor.create_datahub_graph")
     @patch("datahub_executor.common.assertion.executor.create_assertion_engine")
-    def test_worker_handles_value_error(
+    def test_worker_handles_missing_parameters(
         self,
         mock_create_engine: MagicMock,
         mock_create_graph: MagicMock,
@@ -238,18 +246,20 @@ class TestAssertionExecutor:
         mock_engine: MagicMock,
         test_execution_request_no_parameters: ExecutionRequest,
     ) -> None:
-        """Test that worker handles ValueError from evaluate_assertion without propagating."""
+        """Test that worker handles missing parameters without propagating."""
         # Setup mocks
         mock_create_graph.return_value = mock_graph
         mock_create_engine.return_value = mock_engine
+        mock_handler = MagicMock()
+        mock_engine.result_handlers = [mock_handler]
 
         # Create executor
         executor = AssertionExecutor()
         executor.engine = mock_engine
 
         # Call worker - should not raise an exception (it catches and logs)
-        # The ValueError from missing parameters should be caught
         executor.worker(test_execution_request_no_parameters)
 
         # Verify engine.evaluate was not called (error happened before)
         mock_engine.evaluate.assert_not_called()
+        mock_handler.handle.assert_called_once()

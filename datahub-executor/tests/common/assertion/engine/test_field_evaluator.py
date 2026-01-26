@@ -139,7 +139,9 @@ class TestFieldEvaluator:
 
     def test_evaluate_internal_no_field_assertion(self) -> None:
         """Test _evaluate_internal with no field assertion."""
-        with pytest.raises(AssertionError, match="Missing required field assertion!"):
+        with pytest.raises(
+            InvalidParametersException, match="Missing required field assertion!"
+        ):
             self.evaluator._evaluate_internal(
                 self.assertion,
                 self.params,
@@ -174,7 +176,7 @@ class TestFieldEvaluator:
         self.params.dataset_field_parameters = None
         self.assertion.field_assertion = field_assertion
 
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidParametersException):
             self.evaluator._evaluate_internal(
                 self.assertion,
                 self.params,

@@ -41,6 +41,34 @@ record AssertionResultError {
     */
     FIELD_ASSERTION_ERROR
     /**
+    *  Missing evaluation parameters for assertion execution
+    */
+    MISSING_EVALUATION_PARAMETERS
+    /**
+    *  No evaluator registered for the assertion type
+    */
+    EVALUATOR_NOT_FOUND
+    /**
+    *  Metric resolver does not support the requested metric
+    */
+    METRIC_RESOLVER_UNSUPPORTED_METRIC
+    /**
+    *  Metric resolver received an invalid source type
+    */
+    METRIC_RESOLVER_INVALID_SOURCE_TYPE
+    /**
+    *  Failed to persist assertion state
+    */
+    STATE_PERSISTENCE_FAILED
+    /**
+    *  Failed to persist collected metric values
+    */
+    METRIC_PERSISTENCE_FAILED
+    /**
+    *  Failed to emit assertion run event
+    */
+    RESULT_EMISSION_FAILED
+    /**
     *  Unknown error
     */
     UNKNOWN_ERROR

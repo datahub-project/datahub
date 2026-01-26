@@ -3,6 +3,7 @@ from datetime import datetime
 from croniter import croniter
 from pytz import timezone
 
+from datahub_executor.common.exceptions import InvalidParametersException
 from datahub_executor.common.types import (
     CalendarInterval,
     CronSchedule,
@@ -57,8 +58,12 @@ def get_milliseconds_for_unit(unit: CalendarInterval) -> int:
     elif unit == CalendarInterval.DAY:
         return DAY_TO_MILLISECONDS
     else:
-        raise Exception(
-            f"Failed to retrieve milliseconds for unit {unit}. Unrecognized unit received!"
+        raise InvalidParametersException(
+            message=(
+                f"Failed to retrieve milliseconds for unit {unit}. "
+                "Unrecognized unit received!"
+            ),
+            parameters={"detail": "unsupported_calendar_interval", "unit": str(unit)},
         )
 
 

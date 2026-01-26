@@ -3,6 +3,8 @@ from enum import Enum
 
 from pydantic import BaseModel
 
+from datahub_executor.common.exceptions import AssertionResultException
+
 
 class MetricSourceType(str, Enum):
     """
@@ -60,17 +62,17 @@ class Operation(BaseModel):
         return f"Operation(timestamp_ms={self.timestamp_ms}, type={self.type})"
 
 
-class InvalidMetricResolverSourceTypeException(Exception):
-    """Base class for invalid metric resolver exceptions."""
+class InvalidMetricResolverSourceTypeException(AssertionResultException):
+    """Invalid metric resolver source type for assertion evaluation."""
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, source_type: str) -> None:
         super().__init__(message)
-        self.message = message
+        self.source_type = source_type
 
 
-class UnsupportedMetricException(Exception):
-    """Base class for unsupported metric types exceptions."""
+class UnsupportedMetricException(AssertionResultException):
+    """Unsupported metric name for assertion evaluation."""
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, metric_name: str) -> None:
         super().__init__(message)
-        self.message = message
+        self.metric_name = metric_name

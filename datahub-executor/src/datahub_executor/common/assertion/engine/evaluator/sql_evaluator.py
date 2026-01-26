@@ -19,7 +19,9 @@ from datahub_executor.common.connection.datahub_ingestion_source_connection_prov
 )
 from datahub_executor.common.exceptions import (
     InvalidParametersException,
+    MetricPersistenceException,
     SourceConnectionErrorException,
+    StatePersistenceException,
 )
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
@@ -129,7 +131,14 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         previous_state: AssertionState,
         metric_value: float,
     ) -> AssertionEvaluationResult:
-        assert sql_assertion.change_type is not None
+        if sql_assertion.change_type is None:
+            raise InvalidParametersException(
+                message="Missing change type for SQL metric change assertion",
+                parameters={
+                    "detail": "missing_sql_change_type",
+                    "change_type": None,
+                },
+            )
 
         prev_metric_value = previous_state.properties.get("metric_value", None)
         if prev_metric_value is None:
@@ -208,16 +217,24 @@ class SQLAssertionEvaluator(AssertionEvaluator):
             )
 
         if context.monitor_urn:
-            self.state_provider.save_state(
-                context.monitor_urn,
-                AssertionState(
-                    type=AssertionStateType.MONITOR_TIMESERIES_STATE,
-                    timestamp=int(time.time() * 1000),
-                    properties={
-                        "metric_value": str(metric_value),
-                    },
-                ),
-            )
+            try:
+                self.state_provider.save_state(
+                    context.monitor_urn,
+                    AssertionState(
+                        type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+                        timestamp=int(time.time() * 1000),
+                        properties={
+                            "metric_value": str(metric_value),
+                        },
+                    ),
+                )
+            except Exception as e:
+                raise StatePersistenceException(
+                    message=(
+                        "Failed to persist assertion state for "
+                        f"{context.monitor_urn}: {e}"
+                    )
+                ) from e
 
         return assertion_evaluation_result
 
@@ -231,8 +248,22 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         Collects the metric value by executing the custom SQL and optionally saves it to the
         metric cube. Returns a Metric object with timestamp and value.
         """
-        assert assertion.sql_assertion is not None
-        assert assertion.connection_urn
+        if assertion.sql_assertion is None:
+            raise InvalidParametersException(
+                message="Missing SQL assertion info for evaluation",
+                parameters={
+                    "detail": "missing_sql_assertion",
+                    "assertion_urn": assertion.urn,
+                },
+            )
+        if not assertion.connection_urn:
+            raise InvalidParametersException(
+                message="Missing connection URN for SQL assertion evaluation",
+                parameters={
+                    "detail": "missing_connection_urn",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         connection = self.connection_provider.get_connection(
             cast(str, assertion.entity.urn)
@@ -269,7 +300,12 @@ class SQLAssertionEvaluator(AssertionEvaluator):
 
         if save and context.monitor_urn:
             metric_cube_urn = make_monitor_metric_cube_urn(context.monitor_urn)
-            self.metric_client.save_metric_value(metric_cube_urn, metric)
+            try:
+                self.metric_client.save_metric_value(metric_cube_urn, metric)
+            except Exception as e:
+                raise MetricPersistenceException(
+                    message=(f"Failed to persist metric for {context.monitor_urn}: {e}")
+                ) from e
 
         return metric
 
@@ -279,8 +315,22 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
-        assert assertion.sql_assertion is not None
-        assert assertion.connection_urn
+        if assertion.sql_assertion is None:
+            raise InvalidParametersException(
+                message="Missing SQL assertion info for evaluation",
+                parameters={
+                    "detail": "missing_sql_assertion",
+                    "assertion_urn": assertion.urn,
+                },
+            )
+        if not assertion.connection_urn:
+            raise InvalidParametersException(
+                message="Missing connection URN for SQL assertion evaluation",
+                parameters={
+                    "detail": "missing_connection_urn",
+                    "assertion_urn": assertion.urn,
+                },
+            )
 
         sql_assertion = assertion.sql_assertion
         entity_urn = assertion.entity.urn
@@ -313,7 +363,11 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         else:
             raise InvalidParametersException(
                 message=f"Failed to evaluate SQL Assertion. Unsupported SQL Assertion Type {assertion.sql_assertion.type} provided.",
-                parameters=sql_assertion.model_dump(),
+                parameters={
+                    "detail": "unsupported_sql_assertion_type",
+                    "sql_assertion_type": str(sql_assertion.type),
+                    "sql_assertion": sql_assertion.model_dump(),
+                },
             )
 
         # Only populate the metric on the result for smart assertions.

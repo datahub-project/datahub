@@ -6,10 +6,13 @@ import pytest
 
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     ASSERTION_TYPES_REQUIRING_TRAINING,
+    default_volume_assertion_urn,
+    default_volume_monitor_urn,
     encode_monitor_urn,
     is_field_metric_assertion,
     is_smart_assertion,
 )
+from datahub_executor.common.exceptions import InvalidParametersException
 from datahub_executor.common.types import (
     Assertion,
     AssertionType,
@@ -18,6 +21,22 @@ from datahub_executor.common.types import (
 
 class TestSharedUtils:
     """Test suite for shared utility functions."""
+
+    def test_default_volume_monitor_urn_invalid_dataset(self) -> None:
+        with pytest.raises(InvalidParametersException) as excinfo:
+            default_volume_monitor_urn("not-a-valid-urn")
+
+        assert "Invalid dataset URN provided" in str(excinfo.value)
+        assert "invalid_dataset_urn" in excinfo.value.parameters
+        assert "not-a-valid-urn" in excinfo.value.parameters
+
+    def test_default_volume_assertion_urn_invalid_dataset(self) -> None:
+        with pytest.raises(InvalidParametersException) as excinfo:
+            default_volume_assertion_urn("not-a-valid-urn")
+
+        assert "Invalid dataset URN provided" in str(excinfo.value)
+        assert "invalid_dataset_urn" in excinfo.value.parameters
+        assert "not-a-valid-urn" in excinfo.value.parameters
 
     @pytest.fixture
     def volume_assertion(self) -> MagicMock:

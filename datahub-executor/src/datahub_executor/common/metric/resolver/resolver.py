@@ -97,7 +97,8 @@ class MetricResolver:
             )
 
         raise UnsupportedMetricException(
-            f"Unsupported metric_name={metric_name} provided"
+            message=f"Unsupported metric_name={metric_name} provided",
+            metric_name=metric_name,
         )
 
     def get_field_metric(
@@ -153,7 +154,9 @@ class MetricResolver:
                 f"provided when fetching row count for entity {entity_urn}"
             )
             logger.error(msg)
-            raise InvalidMetricResolverSourceTypeException(msg)
+            raise InvalidMetricResolverSourceTypeException(
+                message=msg, source_type=str(source_type)
+            )
 
     def _fetch_field_aggregation_metric_from_datahub_profile(
         self, entity_urn: str, field: SchemaFieldSpec, metric: FieldMetricType
@@ -170,7 +173,11 @@ class MetricResolver:
             FieldMetricType.STDDEV,
         ]:
             raise UnsupportedMetricException(
-                f"Unsupported metric_name={metric.name} provided when fetching from DataHub dataset profiles"
+                message=(
+                    f"Unsupported metric_name={metric.name} provided when fetching "
+                    "from DataHub dataset profiles"
+                ),
+                metric_name=metric.name,
             )
 
         dataset_profile: Optional[DatasetProfileClass] = (
@@ -318,7 +325,9 @@ class MetricResolver:
                 f"provided when fetching row count for entity {entity_urn}"
             )
             logger.error(msg)
-            raise InvalidMetricResolverSourceTypeException(msg)
+            raise InvalidMetricResolverSourceTypeException(
+                message=msg, source_type=str(source_type)
+            )
 
     def _fetch_row_count_from_source(
         self,

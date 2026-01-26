@@ -4,6 +4,14 @@ from acryl.executor.request.execution_request import ExecutionRequest
 from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_executor.common.assertion.engine.engine import AssertionEngine
+from datahub_executor.common.assertion.engine.evaluator.utils.errors import (
+    extract_assertion_evaluation_result_error,
+)
+from datahub_executor.common.exceptions import (
+    AssertionResultException,
+    MissingEvaluationParametersException,
+    ResultEmissionException,
+)
 from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
@@ -12,7 +20,12 @@ from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.common.types import (
     AssertionEvaluationContext,
+    AssertionEvaluationParameters,
+    AssertionEvaluationParametersType,
+    AssertionEvaluationResult,
     AssertionEvaluationSpec,
+    AssertionResultType,
+    AssertionType,
 )
 from datahub_executor.config import DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS
 
@@ -71,11 +84,59 @@ class AssertionExecutor:
             runtime_parameters=ctx_args.get("runtime_parameters"),
         )
 
-        if assertion_spec.parameters is None:
-            raise ValueError(
-                f"Assertion {assertion_spec.assertion.urn} has no evaluation parameters"
-            )
+        try:
+            if assertion_spec.parameters is None:
+                raise MissingEvaluationParametersException(
+                    message=(
+                        f"Assertion {assertion_spec.assertion.urn} has no evaluation parameters"
+                    )
+                )
 
-        self.engine.evaluate(
-            assertion_spec.assertion, assertion_spec.parameters, context
-        )
+            self.engine.evaluate(
+                assertion_spec.assertion, assertion_spec.parameters, context
+            )
+        except AssertionResultException as e:
+            # Convert known assertion errors into an AssertionEvaluationResult and emit via handlers.
+            if isinstance(e, ResultEmissionException):
+                logger.exception(
+                    "AssertionExecutor: error emitting assertion result for %s: %s",
+                    assertion_spec.assertion.urn,
+                    e,
+                )
+                return
+
+            logger.exception(
+                "AssertionExecutor: assertion evaluation error for %s: %s",
+                assertion_spec.assertion.urn,
+                e,
+            )
+            error = extract_assertion_evaluation_result_error(e)
+            result = AssertionEvaluationResult(
+                AssertionResultType.ERROR,
+                error=error,
+            )
+            parameters = assertion_spec.parameters
+            if parameters is None:
+                type_mapping = {
+                    AssertionType.FRESHNESS: AssertionEvaluationParametersType.DATASET_FRESHNESS,
+                    AssertionType.VOLUME: AssertionEvaluationParametersType.DATASET_VOLUME,
+                    AssertionType.SQL: AssertionEvaluationParametersType.DATASET_SQL,
+                    AssertionType.FIELD: AssertionEvaluationParametersType.DATASET_FIELD,
+                    AssertionType.DATA_SCHEMA: AssertionEvaluationParametersType.DATASET_SCHEMA,
+                }
+                inferred_type = type_mapping.get(assertion_spec.assertion.type)
+                if inferred_type is None:
+                    logger.warning(
+                        "AssertionExecutor: unable to infer parameters type for %s",
+                        assertion_spec.assertion.urn,
+                    )
+                    return
+                parameters = AssertionEvaluationParameters(type=inferred_type)
+
+            for result_handler in self.engine.result_handlers:
+                result_handler.handle(
+                    assertion_spec.assertion,
+                    parameters,
+                    result,
+                    context,
+                )

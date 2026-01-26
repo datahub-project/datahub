@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import AssertionRunEventClass
@@ -7,6 +8,7 @@ from datahub.metadata.schema_classes import AssertionRunEventClass
 from datahub_executor.common.assertion.result.assertion_run_event_handler import (
     AssertionRunEventResultHandler,
 )
+from datahub_executor.common.exceptions import ResultEmissionException
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.types import (
     Assertion,
@@ -141,3 +143,13 @@ def test_handle_assertion_run_event_parse_failure() -> None:
     assert not mcpw.aspect.result.assertion
     assert not mcpw.aspect.result.parameters
     assert not mcpw.aspect.result.baseAssertion
+
+
+def test_handle_assertion_run_event_emission_failure() -> None:
+    graph = Mock(spec=DataHubGraph)
+    graph.emit_mcp.side_effect = RuntimeError("emit failed")
+
+    handler = AssertionRunEventResultHandler(graph)
+
+    with pytest.raises(ResultEmissionException):
+        handler.handle(assertion, parameters, result, context)

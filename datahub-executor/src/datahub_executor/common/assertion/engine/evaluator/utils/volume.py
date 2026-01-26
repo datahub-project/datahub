@@ -46,5 +46,13 @@ def convert_volume_parameters_to_metric_resolver_strategy(
             )
 
     raise InvalidMetricResolverSourceTypeException(
-        f"Failed to bind from DatasetVolumeMetricParameters. Invalid parameters {dataset_volume_parameters} provided"
+        message=(
+            "Failed to bind from DatasetVolumeMetricParameters. Invalid parameters "
+            f"{dataset_volume_parameters} provided"
+        ),
+        source_type=(
+            str(dataset_volume_parameters.source_type)
+            if dataset_volume_parameters
+            else "None"
+        ),
     )

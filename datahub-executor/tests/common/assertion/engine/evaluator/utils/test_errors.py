@@ -8,13 +8,22 @@ from datahub_executor.common.assertion.engine.evaluator.utils.errors import (
 from datahub_executor.common.exceptions import (
     AssertionResultException,
     CustomSQLErrorException,
+    EvaluatorNotFoundException,
     FieldAssertionErrorException,
     InsufficientDataException,
     InvalidParametersException,
     InvalidSourceTypeException,
+    MetricPersistenceException,
+    MissingEvaluationParametersException,
+    ResultEmissionException,
     SourceConnectionErrorException,
     SourceQueryFailedException,
+    StatePersistenceException,
     UnsupportedPlatformException,
+)
+from datahub_executor.common.metric.types import (
+    InvalidMetricResolverSourceTypeException,
+    UnsupportedMetricException,
 )
 from datahub_executor.common.types import (
     AssertionEvaluationResultError,
@@ -169,6 +178,86 @@ class TestErrorUtils:
         assert result.properties is not None
         assert result.properties["message"] == "Field assertion failed"
         assert result.properties["query"] == ""
+
+    def test_extract_missing_evaluation_parameters_exception(self) -> None:
+        """Test extraction of MissingEvaluationParametersException."""
+        exception = MissingEvaluationParametersException(
+            message="Missing evaluation parameters"
+        )
+
+        result = extract_assertion_evaluation_result_error(exception)
+
+        assert result.type == AssertionResultErrorType.MISSING_EVALUATION_PARAMETERS
+        assert result.properties is not None
+        assert result.properties["message"] == "Missing evaluation parameters"
+
+    def test_extract_evaluator_not_found_exception(self) -> None:
+        """Test extraction of EvaluatorNotFoundException."""
+        exception = EvaluatorNotFoundException(message="No evaluator")
+
+        result = extract_assertion_evaluation_result_error(exception)
+
+        assert result.type == AssertionResultErrorType.EVALUATOR_NOT_FOUND
+        assert result.properties is not None
+        assert result.properties["message"] == "No evaluator"
+
+    def test_extract_metric_resolver_unsupported_metric_exception(self) -> None:
+        """Test extraction of UnsupportedMetricException."""
+        exception = UnsupportedMetricException(
+            message="Unsupported metric", metric_name="row_count"
+        )
+
+        result = extract_assertion_evaluation_result_error(exception)
+
+        assert (
+            result.type == AssertionResultErrorType.METRIC_RESOLVER_UNSUPPORTED_METRIC
+        )
+        assert result.properties is not None
+        assert result.properties["metric_name"] == "row_count"
+
+    def test_extract_metric_resolver_invalid_source_type_exception(self) -> None:
+        """Test extraction of InvalidMetricResolverSourceTypeException."""
+        exception = InvalidMetricResolverSourceTypeException(
+            message="Invalid source type", source_type="UNKNOWN"
+        )
+
+        result = extract_assertion_evaluation_result_error(exception)
+
+        assert (
+            result.type == AssertionResultErrorType.METRIC_RESOLVER_INVALID_SOURCE_TYPE
+        )
+        assert result.properties is not None
+        assert result.properties["source_type"] == "UNKNOWN"
+
+    def test_extract_state_persistence_exception(self) -> None:
+        """Test extraction of StatePersistenceException."""
+        exception = StatePersistenceException(message="State save failed")
+
+        result = extract_assertion_evaluation_result_error(exception)
+
+        assert result.type == AssertionResultErrorType.STATE_PERSISTENCE_FAILED
+        assert result.properties is not None
+        assert result.properties["message"] == "State save failed"
+
+    def test_extract_metric_persistence_exception(self) -> None:
+        """Test extraction of MetricPersistenceException."""
+        exception = MetricPersistenceException(message="Metric save failed")
+
+        result = extract_assertion_evaluation_result_error(exception)
+
+        assert result.type == AssertionResultErrorType.METRIC_PERSISTENCE_FAILED
+        assert result.properties is not None
+        assert result.properties["message"] == "Metric save failed"
+
+    def test_extract_result_emission_exception(self) -> None:
+        """Test extraction of ResultEmissionException."""
+        exception = ResultEmissionException(message="Emit failed")
+
+        result = extract_assertion_evaluation_result_error(exception)
+
+        assert result.type == AssertionResultErrorType.RESULT_EMISSION_FAILED
+        assert result.properties is not None
+        assert result.properties["message"] == "Emit failed"
 
     def test_extract_unknown_assertion_result_exception(self) -> None:
         """Test extraction of an unknown AssertionResultException type."""

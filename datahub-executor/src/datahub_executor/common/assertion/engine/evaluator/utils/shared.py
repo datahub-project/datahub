@@ -77,12 +77,24 @@ def decode_monitor_urn(encoded: str) -> str:
 
 
 def default_volume_assertion_urn(dataset_urn: str) -> str:
-    assert DatasetUrn.from_string(dataset_urn)
+    try:
+        DatasetUrn.from_string(dataset_urn)
+    except Exception as e:
+        raise InvalidParametersException(
+            message=f"Invalid dataset URN provided: {dataset_urn}",
+            parameters={"detail": "invalid_dataset_urn", "dataset_urn": dataset_urn},
+        ) from e
     return AssertionUrn(f"{encode_monitor_urn(dataset_urn)}-__system__volume").urn()
 
 
 def default_volume_monitor_urn(dataset_urn: str) -> str:
-    assert DatasetUrn.from_string(dataset_urn)
+    try:
+        DatasetUrn.from_string(dataset_urn)
+    except Exception as e:
+        raise InvalidParametersException(
+            message=f"Invalid dataset URN provided: {dataset_urn}",
+            parameters={"detail": "invalid_dataset_urn", "dataset_urn": dataset_urn},
+        ) from e
     return MonitorUrn(dataset_urn, "__system__volume").urn()
 
 

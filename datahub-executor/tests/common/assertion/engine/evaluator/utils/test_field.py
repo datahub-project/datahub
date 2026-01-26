@@ -6,6 +6,7 @@ from datahub_executor.common.assertion.engine.evaluator.utils.field import (
     convert_field_parameters_to_metric_resolver_strategy,
 )
 from datahub_executor.common.metric.types import (
+    InvalidMetricResolverSourceTypeException,
     MetricResolverStrategy,
     MetricSourceType,
 )
@@ -66,10 +67,11 @@ class TestFieldUtils:
         parameters.source_type = "UNSUPPORTED_TYPE"
 
         # Attempt to convert parameters with an unsupported source type
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(InvalidMetricResolverSourceTypeException) as excinfo:
             convert_field_parameters_to_metric_resolver_strategy(parameters)
 
         # Verify the exception message
         assert "Unsupported field source type" in str(excinfo.value)
         assert "UNSUPPORTED_TYPE" in str(excinfo.value)
         assert "No matching Metric Resolver Strategy" in str(excinfo.value)
+        assert excinfo.value.source_type == "UNSUPPORTED_TYPE"

@@ -7,6 +7,7 @@ from datahub_executor.common.assertion.engine.transformer.transformer import (
     AssertionTransformer,
 )
 from datahub_executor.common.assertion.result.handler import AssertionResultHandler
+from datahub_executor.common.exceptions import EvaluatorNotFoundException
 from datahub_executor.common.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -50,7 +51,9 @@ class AssertionEngine:
         """
         evaluator = self.evaluators.get(assertion.type.name)
         if evaluator is None:
-            raise ValueError(f"No evaluator found for assertion type {assertion.type}")
+            raise EvaluatorNotFoundException(
+                message=f"No evaluator found for assertion type {assertion.type}"
+            )
 
         for transformer in self.transformers:
             assertion, parameters, context = transformer.transform(

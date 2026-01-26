@@ -8,6 +8,7 @@ from datahub.metadata.schema_classes import SystemMetadataClass
 
 from datahub_executor.common.aspect_builder import build_assertion_run_event
 from datahub_executor.common.assertion.result.handler import AssertionResultHandler
+from datahub_executor.common.exceptions import ResultEmissionException
 from datahub_executor.common.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -51,7 +52,10 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
             logger.info(
                 f"Successfully produced AssertionRunEvent MCP for assertion with urn {assertion.urn} for entity {assertion.entity.urn}, result type {result.type}."
             )
-        except Exception:
+        except Exception as e:
             logger.exception(
                 f"Failed to produce AssertionRunEvent MCP for assertion with urn {assertion.urn} for entity {assertion.entity.urn}, result type {result.type}. This means that assertion results will NOT be viewable!"
             )
+            raise ResultEmissionException(
+                message=(f"Failed to emit AssertionRunEvent for {assertion.urn}: {e}")
+            ) from e
