@@ -1,0 +1,22 @@
+source:
+  type: matillion-dpc
+  config:
+    api_config:
+      client_id: "test_client_id"
+      client_secret: "test_client_secret"
+      custom_base_url: "http://localhost:8080/api"
+    env: "PROD"
+    
+    # Filter configuration
+    project_patterns:
+      deny:
+        - ".*Filtered.*"
+    environment_patterns:
+      deny:
+        - "development"
+    pipeline_patterns:
+      deny:
+        - ".*filtered.*"
+    
+    stateful_ingestion:
+      enabled: false

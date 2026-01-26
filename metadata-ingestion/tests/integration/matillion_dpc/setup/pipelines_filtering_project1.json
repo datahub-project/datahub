@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "id": "pipeline-1",
+      "name": "main-pipeline.orch.yaml",
+      "projectId": "allowed-project-1",
+      "environmentId": "prod-env-1",
+      "type": "orchestration",
+      "version": "1.0.0",
+      "createdAt": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "pipeline-2",
+      "name": "filtered-pipeline.orch.yaml",
+      "projectId": "allowed-project-1",
+      "environmentId": "prod-env-1",
+      "type": "orchestration",
+      "version": "1.0.0",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 2,
+  "page": 0,
+  "size": 100
+}

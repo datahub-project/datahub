@@ -1,0 +1,18 @@
+{
+  "results": [
+    {
+      "id": "pipe-1",
+      "name": "Data Integration Pipeline",
+      "projectId": "proj-1",
+      "environmentId": "env-1",
+      "type": "orchestration",
+      "description": "Main data integration pipeline",
+      "version": "2.0.0",
+      "branch": "main",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "size": 25
+}

@@ -249,6 +249,16 @@
     displayName: MariaDB
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/mariadblogo.svg"
+- entityUrn: urn:li:dataPlatform:matillion
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: matillion
+    displayName: Matillion
+    type: OTHERS
+    logoUrl: "assets/platforms/matillionlogo.png"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo

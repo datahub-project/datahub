@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "id": "allowed-project-1",
+      "name": "Analytics Project"
+    },
+    {
+      "id": "filtered-project-1",
+      "name": "Filtered Project"
+    },
+    {
+      "id": "allowed-project-2",
+      "name": "Data Warehouse"
+    }
+  ],
+  "total": 3,
+  "page": 0,
+  "size": 100
+}

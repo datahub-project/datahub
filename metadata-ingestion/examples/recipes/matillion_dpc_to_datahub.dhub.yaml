@@ -1,0 +1,46 @@
+# see https://datahubproject.io/docs/generated/ingestion/sources/matillion-dpc/ for complete documentation
+source:
+  type: matillion-dpc
+  config:
+    api_config:
+      client_id: "${MATILLION_CLIENT_ID}"
+      client_secret: "${MATILLION_CLIENT_SECRET}"
+      region: US1 # EU1 or US1
+
+    env: PROD
+    include_lineage: true
+    include_column_lineage: true
+    extract_projects_to_containers: true
+
+    # Optional: Map OpenLineage namespaces to DataHub platform instances
+    # Required if existing datasets use platform instances
+    namespace_to_platform_instance:
+      "postgresql://prod-db.us-east-1.rds.amazonaws.com:5432":
+        platform_instance: postgres_prod
+        env: PROD
+        database: analytics
+        schema: public
+
+      "snowflake://prod-account.snowflakecomputing.com":
+        platform_instance: snowflake_prod
+        env: PROD
+        convert_urns_to_lowercase: true
+
+    # Optional configurations
+    # parse_sql_for_lineage: true
+    # start_time: "-7 days"  # Time window for lineage and execution history
+    # include_streaming_pipelines: false
+    # project_pattern:
+    #   allow:
+    #     - "my_project"
+    # pipeline_pattern:
+    #   allow:
+    #     - "prod_.*"
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
