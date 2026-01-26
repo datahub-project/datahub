@@ -1,8 +1,8 @@
 import React from 'react';
 
-import { getSourceConfigs } from '@app/ingest/source/utils';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { CUSTOM_SOURCE_DISPLAY_NAME, getSourceConfigs } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 export function ScheduleStepSubtitle() {
@@ -12,5 +12,7 @@ export function ScheduleStepSubtitle() {
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const sourceDisplayName = sourceConfigs?.displayName;
 
-    return <>Configure how often DataHub syncs metadata from {sourceDisplayName}.</>;
+    const displayName = sourceDisplayName === CUSTOM_SOURCE_DISPLAY_NAME ? 'this source' : sourceDisplayName;
+
+    return <>Configure how often DataHub syncs metadata from {displayName}.</>;
 }
