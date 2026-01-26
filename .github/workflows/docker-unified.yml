@@ -637,6 +637,60 @@ jobs:
             ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
 
+  copy_re_to_cloudsmith:
+    name: Copy Remote Executor images to Cloudsmith RE
+    runs-on: depot-ubuntu-24.04-small
+    needs: [setup, base_build]
+    if: ${{ needs.setup.outputs.cloudsmith_publish == 'true' }}
+    env:
+      SRC_REGISTRY: "docker.cloudsmith.io/datahub/enterprise"
+      DST_REGISTRY: "docker.cloudsmith.io/datahub/re"
+    steps:
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Copy executor images to RE repo
+        env:
+          TAG: ${{ needs.setup.outputs.tag }}
+          CLOUDSMITH_USERNAME: ${{ secrets.CLOUDSMITH_USERNAME }}
+          CLOUDSMITH_PASSWORD: ${{ secrets.CLOUDSMITH_PASSWORD }}
+        run: |
+          # All variants to copy to RE repo (customer-facing Remote Executor images)
+          # Base (Ubuntu): full, slim, locked, unbundled, slim-unbundled
+          # Wolfi: wolfi, locked-wolfi
+          VARIANTS=("" "-slim" "-locked" "-unbundled" "-slim-unbundled" "-wolfi" "-locked-wolfi")
+
+          # skopeo credentials for both source and destination (same Cloudsmith account)
+          CREDS="${CLOUDSMITH_USERNAME}:${CLOUDSMITH_PASSWORD}"
+
+          echo "Copying datahub-executor images from enterprise → re repo"
+          echo "Tag: ${TAG}"
+
+          for SUFFIX in "${VARIANTS[@]}"; do
+            SRC="docker://${SRC_REGISTRY}/datahub-executor:${TAG}${SUFFIX}"
+            DST="docker://${DST_REGISTRY}/datahub-executor:${TAG}${SUFFIX}"
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Copying: datahub-executor:${TAG}${SUFFIX}"
+            echo "  Source: ${SRC_REGISTRY}"
+            echo "  Dest:   ${DST_REGISTRY}"
+
+            if skopeo copy --all \
+              --src-creds "${CREDS}" \
+              --dest-creds "${CREDS}" \
+              "${SRC}" "${DST}"; then
+              echo "  ✓ Success"
+            else
+              echo "  ✗ Failed to copy datahub-executor:${TAG}${SUFFIX}"
+              exit 1
+            fi
+          done
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✓ All executor images copied to RE repo"
+
   scan_images:
     permissions:
       contents: read # for actions/checkout to fetch code
