@@ -1,0 +1,211 @@
+# Snowplow Comprehensive Recipe
+# This recipe demonstrates ALL available configuration options with detailed comments
+
+source:
+  type: snowplow
+  config:
+    # ============================================
+    # Connection Configuration
+    # ============================================
+
+    # BDP Console API Connection (for managed Snowplow)
+    # Required for: Event specifications, tracking scenarios, data products
+    # Optional: Can be omitted if using Iglu-only mode
+    bdp_connection:
+      # Organization UUID - found in BDP Console URL
+      # Example: https://console.snowplowanalytics.com/{org_id}/data-structures
+      organization_id: "<YOUR_ORG_UUID>"
+
+      # API credentials from BDP Console → Settings → API Credentials
+      # Use environment variables for security
+      api_key_id: "${SNOWPLOW_API_KEY_ID}"
+      api_key: "${SNOWPLOW_API_KEY}"
+
+      # Optional: BDP Console API base URL (default shown)
+      # Only change if using a custom/regional Snowplow deployment
+      console_api_url: "https://console.snowplowanalytics.com/api/msc/v1"
+
+      # Optional: Request timeout in seconds (default: 60)
+      timeout_seconds: 60
+
+      # Optional: Maximum retry attempts for failed requests (default: 3)
+      max_retries: 3
+
+    # Iglu Schema Registry Connection (for open-source Snowplow)
+    # Required for: Open-source Snowplow deployments without BDP Console API
+    # Note: Either bdp_connection OR iglu_connection is required (not both)
+    iglu_connection:
+      # Iglu server base URL
+      # Examples:
+      #   - Public: http://iglucentral.com
+      #   - Private: https://iglu.example.com
+      iglu_server_url: "https://iglu.example.com"
+
+      # Optional: API key for private Iglu registries (UUID format)
+      # Not required for public registries like Iglu Central
+      api_key: "${IGLU_API_KEY}"
+
+      # Optional: Request timeout in seconds (default: 30)
+      timeout_seconds: 30
+
+    # ============================================
+    # Filtering Configuration
+    # ============================================
+
+    # Filter schemas by vendor/name pattern
+    # Pattern format: "vendor/name" (e.g., "com.example/page_view")
+    # Requires permission: read:data-structures
+    schema_pattern:
+      allow:
+        - ".*"  # Allow all schemas (default)
+        # Examples of allow patterns:
+        # - "com\\.example\\..*"              # Allow all com.example schemas
+        # - "com\\.acme\\.events\\..*"        # Allow com.acme.events schemas
+        # - "com\\.snowplowanalytics\\..*"    # Allow Snowplow standard schemas
+      deny:
+        # - ".*\\.test$"      # Deny schemas ending with .test
+        # - ".*_sandbox.*"    # Deny sandbox schemas
+        # - "com\\.example\\.deprecated\\..*"  # Deny deprecated schemas
+
+    # Filter event specifications by name
+    # Only applies when extract_event_specifications is enabled
+    # Requires permission: read:event-specs
+    event_spec_pattern:
+      allow:
+        - ".*"  # Allow all event specifications (default)
+      deny: []
+
+    # Filter tracking scenarios by name
+    # Only applies when extract_tracking_scenarios is enabled
+    # Requires permission: read:tracking-scenarios
+    tracking_scenario_pattern:
+      allow:
+        - ".*"  # Allow all tracking scenarios (default)
+      deny: []
+
+    # ============================================
+    # Feature Flags
+    # ============================================
+
+    # Extract event specifications (BDP only)
+    # Requires permission: read:event-specs
+    # Default: true
+    extract_event_specifications: true
+
+    # Extract tracking scenarios (BDP only)
+    # Requires permission: read:tracking-scenarios
+    # Default: true
+    extract_tracking_scenarios: true
+
+    # Extract data products (BDP only, experimental)
+    # Requires permission: read:data-products
+    # Default: false
+    extract_data_products: false
+
+    # Include full JSON Schema definition in dataset properties
+    # Useful for downstream schema analysis
+    # Default: true
+    include_schema_definitions: true
+
+    # Include schemas marked as hidden in BDP Console
+    # Default: false
+    include_hidden_schemas: false
+
+    # ============================================
+    # Warehouse Lineage (BDP only - Advanced)
+    # ============================================
+    # Extract TABLE-LEVEL lineage from atomic.events to derived tables via Data Models API
+    # Creates lineage: atomic.events → derived tables (e.g., derived.sessions)
+    #
+    # ⚠️ IMPORTANT: Disabled by default
+    # Warehouse connectors (Snowflake, BigQuery, etc.) provide BETTER lineage:
+    # - Column-level lineage (not just table-level)
+    # - Transformation logic from actual SQL queries
+    # - Complete dependency graphs
+    #
+    # Only enable this if:
+    # - You want quick table-level lineage without setting up warehouse connector
+    # - You don't have access to warehouse query logs
+    # - You want to document Data Models API metadata specifically
+    warehouse_lineage:
+      # Enable warehouse lineage extraction (default: false)
+      # Disabled by default - prefer using warehouse connector for detailed lineage
+      enabled: false
+
+      # Optional: Default platform instance for warehouse URNs
+      # Example: "prod_snowflake", "prod_bigquery"
+      # Can be overridden per destination using destination_mappings
+      platform_instance: "prod_snowflake"
+
+      # Optional: Default environment for warehouse datasets (default: PROD)
+      env: "PROD"
+
+      # Optional: Per-destination mappings (overrides defaults for specific destinations)
+      destination_mappings:
+        # Example: Override platform instance for specific destination
+        # - destination_id: "12345678-1234-1234-1234-123456789012"
+        #   platform_instance: "staging_snowflake"
+        #   env: "DEV"
+
+      # Optional: Validate warehouse URNs exist in DataHub before creating lineage
+      # Requires DataHub Graph API access (default: true)
+      validate_urns: true
+
+    # ============================================
+    # Schema Extraction Options
+    # ============================================
+
+    # Schema types to extract
+    # Options: "event" and/or "entity"
+    # Default: ["event", "entity"]
+    schema_types_to_extract:
+      - "event"   # Event schemas (self-describing events)
+      - "entity"  # Entity schemas (contexts and entities)
+
+    # ============================================
+    # Platform Instance (Optional)
+    # ============================================
+
+    # Platform instance identifier for multi-environment deployments
+    # Groups schemas by environment (e.g., production, staging, dev)
+    # Uncomment to enable:
+    # platform_instance: "production"
+
+    # ============================================
+    # Environment (Optional)
+    # ============================================
+
+    # Environment tag (PROD, DEV, QA, etc.)
+    # Uncomment to enable:
+    # env: "PROD"
+
+    # ============================================
+    # Stateful Ingestion (Optional)
+    # ============================================
+
+    # Enable stateful ingestion for deletion detection
+    # Tracks which schemas have been seen and removes stale ones
+    # Requires permission: read:data-structures (to track existence)
+    stateful_ingestion:
+      enabled: false
+      remove_stale_metadata: true  # Remove schemas that no longer exist
+
+# ============================================
+# Sink Configuration
+# ============================================
+
+sink:
+  type: datahub-rest
+  config:
+    # DataHub GMS server URL
+    server: "http://localhost:8080"
+
+    # Optional: Authentication token
+    # token: "${DATAHUB_TOKEN}"
+
+    # Optional: Timeout for REST requests (default: 30s)
+    # timeout_sec: 30
+
+    # Optional: Extra headers
+    # extra_headers:
+    #   X-Custom-Header: "value"

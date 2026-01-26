@@ -1,0 +1,76 @@
+# Iglu Server configuration for testing
+# Reference: https://docs.snowplow.io/docs/pipeline-components-and-applications/iglu/iglu-repositories/iglu-server/reference/
+
+repoServer {
+  # Interface and port to bind to
+  interface = "0.0.0.0"
+  port = 8080
+  port = ${?IGLU_SERVER_PORT}
+
+  # Thread pool for blocking operations
+  threadPool {
+    type = "fixed"
+    size = 10
+  }
+
+  # Maximum content size for requests (in bytes)
+  maxConnections = 10
+
+  # Idle timeout for connections
+  idleTimeout = 60 seconds
+
+  # Optional: Enable debug mode
+  debug = false
+}
+
+database {
+  # Database type: "postgres" or "dummy" for in-memory testing
+  type = "postgres"
+
+  host = "postgres"
+  host = ${?IGLU_DB_HOST}
+
+  port = 5432
+  port = ${?IGLU_DB_PORT}
+
+  dbname = "iglu"
+  dbname = ${?IGLU_DB_DBNAME}
+
+  username = "iglu"
+  username = ${?IGLU_DB_USERNAME}
+
+  password = "iglu_password"
+  password = ${?IGLU_DB_PASSWORD}
+
+  # Connection pool settings
+  driver = "org.postgresql.Driver"
+  pool {
+    # JDBC url will be constructed from above parameters
+    # Default thread pool size is 10
+    # Default timeout is 30 seconds
+    connectionTimeout = 5000
+    maximumPoolSize = 10
+    maxLifetime = 600000
+  }
+}
+
+# Super API key for administrative operations (schema creation, deletion)
+# Must be a valid UUID
+superApiKey = "12345678-1234-1234-1234-123456789012"
+superApiKey = ${?IGLU_SUPER_API_KEY}
+
+# Webhook configuration (optional)
+# webhooks {
+#   schemaPublished = []
+# }
+
+# Preload schemas on startup (optional)
+# preload = []
+
+# Allow schemas to be read without authentication (for testing)
+# In production, you'd configure per-schema permissions
+patchesAllowed = false
+
+# Validation levels
+# "SKIP", "LAX", "FIRST", or "STRICT"
+validationLevel = "FIRST"

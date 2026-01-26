@@ -1,0 +1,30 @@
+# Test recipe for Snowplow ownership extraction
+# This uses the mock BDP API setup from integration tests
+
+source:
+  type: snowplow
+  config:
+    bdp_connection:
+      organization_id: "test-org-uuid"
+      api_key_id: "test-key-id"
+      api_key: "test-secret"
+
+    # Extract only data structures for ownership testing
+    extract_event_specifications: false
+    extract_tracking_scenarios: false
+
+    # Optional: Add specific platform instance if needed
+    # platform_instance: "production"
+
+sink:
+  type: file
+  config:
+    filename: "/tmp/snowplow_ownership_test.json"
+
+# Optional: Add datahub_api sink when testing with running DataHub
+# Uncomment and configure when ready:
+# sink:
+#   type: datahub-rest
+#   config:
+#     server: "http://localhost:8080"
+#     token: "<your-token-here>"

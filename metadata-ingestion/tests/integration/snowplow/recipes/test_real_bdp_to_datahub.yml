@@ -1,0 +1,38 @@
+# Recipe for testing Snowplow with REAL BDP credentials - outputs to DataHub
+# This connects to actual Snowplow BDP Console API and ingests to local DataHub
+
+source:
+  type: snowplow
+  config:
+    bdp_connection:
+      # BDP credentials - use environment variables for security
+      organization_id: "${SNOWPLOW_ORG_ID}"
+      api_key_id: "${SNOWPLOW_API_KEY_ID}"
+      api_key: "${SNOWPLOW_API_KEY}"
+
+    # Extract schemas with ownership
+    extract_tracking_scenarios: true
+    extract_data_products: true
+    extract_event_specifications: true
+    extract_standard_schemas: true
+
+    # Extract pipelines and enrichments (for lineage)
+    extract_pipelines: true
+    extract_enrichments: true
+
+    # Enable field tagging with version tracking
+    field_tagging:
+      enabled: true
+      track_field_versions: true  # Track when each field was added
+      tag_schema_version: true    # Add version info (in structured properties)
+      tag_authorship: true        # Add authorship info (in structured properties)
+      tag_event_type: false       # Disable dataset-level event type tags
+      tag_data_class: true        # Tag data classification (PII, Sensitive, etc.)
+      use_structured_properties: true  # Emit structured properties
+      emit_tags_and_structured_properties: true  # Emit both tags and structured properties
+      pii_tags_only: true         # Only emit tags for PII fields (version/authorship only in structured properties)
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
