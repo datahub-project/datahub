@@ -456,6 +456,9 @@ class SnowflakeConnection(Closeable):
         Snowflake's ACCOUNT_USAGE system views can be temporarily unavailable during refresh.
         We retry up to 3 times with exponential backoff (2, 4, 8 seconds). All other queries
         execute normally without retry.
+
+        This retry is specific because write-based retries could lead to side effects. ACCOUNT_USAGE has read-only views,
+        so it is safe to retry them.
         """
 
         @retry(
