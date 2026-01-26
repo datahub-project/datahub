@@ -75,6 +75,35 @@ class BigqueryTableIdentifier:
         )
 
     @staticmethod
+    def extract_base_table_name(
+        table_id: str, dataset_name: str, match: "re.Match[str]"
+    ) -> str:
+        """
+        Extract the base table name from a sharded table match.
+
+        This handles the common logic for extracting base table names from sharded
+        tables, including cleanup and fallback to dataset_name when needed.
+
+        Args:
+            table_id: The full table ID (e.g., "events_20240101")
+            dataset_name: The dataset name to use as fallback
+            match: The regex match object from get_shard_pattern().match(table_id)
+
+        Returns:
+            The base table name (e.g., "events" from "events_20240101")
+        """
+        base_name = match[1] or ""
+        shard = match[3]
+
+        if base_name and table_id.endswith(shard):
+            base_name = table_id[: -len(shard)].rstrip("_")
+
+        if not base_name or base_name.endswith("."):
+            base_name = dataset_name
+
+        return base_name
+
+    @staticmethod
     def get_table_and_shard(table_name: str) -> Tuple[Optional[str], Optional[str]]:
         """
         Args:

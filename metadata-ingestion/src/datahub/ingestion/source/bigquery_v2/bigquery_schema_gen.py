@@ -550,11 +550,9 @@ class BigQuerySchemaGenerator:
                 # Fast shard detection without object creation
                 match = shard_pattern.match(table_id)
                 if match:
-                    base_name = match[1] or ""
-                    if base_name and table_id.endswith(match[3]):
-                        base_name = table_id[: -len(match[3])].rstrip("_")
-                    if not base_name or base_name.endswith("."):
-                        base_name = dataset_name
+                    base_name = BigqueryTableIdentifier.extract_base_table_name(
+                        table_id, dataset_name, match
+                    )
 
                     # Skip if we've already processed this base table
                     if base_name in seen_base_tables:
@@ -1337,13 +1335,11 @@ class BigQuerySchemaGenerator:
             match = shard_pattern.match(table_id)
 
             if match:
-                base_name = match[1] or ""
+                base_name = BigqueryTableIdentifier.extract_base_table_name(
+                    table_id, dataset_name, match
+                )
                 shard = match[3]
 
-                if base_name and table_id.endswith(shard):
-                    base_name = table_id[: -len(shard)].rstrip("_")
-                if not base_name or base_name.endswith("."):
-                    base_name = dataset_name
                 if table.table_type == "VIEW":
                     table_identifier = BigqueryTableIdentifier(
                         project_id=project_id, dataset=dataset_name, table=table_id

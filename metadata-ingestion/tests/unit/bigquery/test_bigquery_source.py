@@ -1503,6 +1503,51 @@ def test_shard_pattern_is_compiled_once_and_cached():
     assert shard is None
 
 
+def test_extract_base_table_name():
+    """Test that extract_base_table_name correctly handles various sharded table scenarios."""
+    pattern = BigqueryTableIdentifier.get_shard_pattern()
+
+    # Test case 1: Standard sharded table with underscore separator
+    match = pattern.match("events_20240101")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "events_20240101", "my_dataset", match
+    )
+    assert base_name == "events"
+
+    # Test case 2: Table with multiple underscores in base name
+    match = pattern.match("user_activity_logs_20231225")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "user_activity_logs_20231225", "my_dataset", match
+    )
+    assert base_name == "user_activity_logs"
+
+    # Test case 3: Empty base name (just a date) - should fallback to dataset_name
+    match = pattern.match("20240101")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "20240101", "fallback_dataset", match
+    )
+    assert base_name == "fallback_dataset"
+
+    # Test case 4: Sharded table with $ separator ($ is preserved, only _ is stripped)
+    match = pattern.match("table$20231215")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "table$20231215", "my_dataset", match
+    )
+    assert base_name == "table$"
+
+    # Test case 5: Leap year date
+    match = pattern.match("logs_20200229")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "logs_20200229", "my_dataset", match
+    )
+    assert base_name == "logs"
+
+
 def test_get_table_and_shard_extracts_base_name_correctly():
     """Test that get_table_and_shard correctly extracts base name and shard from table IDs."""
     # Test sharded tables - should extract base and shard
