@@ -2199,9 +2199,9 @@ class TableauSiteSource:
             )
             logger.debug(f"Processing custom sql = {csql}")
 
-            datasource_name = None
-            original_datasource_name = None
-            project = None
+            datasource_name: Optional[str] = None
+            browse_path_name: Optional[str] = None
+            project: Optional[str] = None
             columns: List[Dict[Any, Any]] = []
             if len(csql[c.DATA_SOURCES]) > 0:
                 # CustomSQLTable id owned by exactly one tableau data source
@@ -2211,18 +2211,18 @@ class TableauSiteSource:
 
                 datasource = csql[c.DATA_SOURCES][0]
                 datasource_name = datasource.get(c.NAME)
-                original_datasource_name = datasource_name
+                browse_path_name = datasource_name
                 if datasource.get(
                     c.TYPE_NAME
                 ) == c.EMBEDDED_DATA_SOURCE and datasource.get(c.WORKBOOK):
                     workbook = datasource.get(c.WORKBOOK)
-                    datasource_name = (
+                    browse_path_name = (
                         f"{workbook.get(c.NAME)}/{datasource_name}"
                         if datasource_name and workbook.get(c.NAME)
                         else None
                     )
                     logger.debug(
-                        f"Adding datasource {datasource_name}({datasource.get('id')}) to workbook container"
+                        f"Adding datasource {browse_path_name}({datasource.get('id')}) to workbook container"
                     )
                     yield from add_entity_to_container(
                         self.gen_workbook_key(workbook[c.ID]),
@@ -2290,25 +2290,23 @@ class TableauSiteSource:
                 dataset_snapshot.aspects.append(schema_metadata)
 
             # Browse path
-            if project and datasource_name:
-                browse_paths = BrowsePathsClass(
-                    paths=[f"{self.dataset_browse_prefix}/{project}/{datasource_name}"]
+            if not (project and browse_path_name and datasource_name):
+                logger.debug(
+                    f"Skipping Custom SQL table {csql_id}: "
+                    f"project={project}, browse_path={browse_path_name}, datasource_name={datasource_name}"
                 )
-                dataset_snapshot.aspects.append(browse_paths)
-            else:
-                logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
                 logger.warning(
-                    f"Skipping Custom SQL table {csql_id} due to filtered downstream"
+                    f"Skipping Custom SQL table {csql_id} due to missing project, browse path, or datasource name"
                 )
                 continue
 
-            custom_sql_name = (
-                original_datasource_name
-                if original_datasource_name
-                else csql.get(c.NAME)
+            browse_paths = BrowsePathsClass(
+                paths=[f"{self.dataset_browse_prefix}/{project}/{browse_path_name}"]
             )
+            dataset_snapshot.aspects.append(browse_paths)
+
             dataset_properties = DatasetPropertiesClass(
-                name=custom_sql_name,
+                name=datasource_name,
                 description=csql.get(c.DESCRIPTION),
             )
 
