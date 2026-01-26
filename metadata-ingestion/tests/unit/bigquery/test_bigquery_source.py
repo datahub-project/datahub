@@ -1299,10 +1299,17 @@ def test_get_table_and_shard_custom_shard_pattern(
         "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
         "((.+)[_$])?(\\d{4,10})$",
     ):
-        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-            expected_table_prefix,
-            expected_shard,
-        )
+        # Recompile pattern after patching the regex string
+        BigqueryTableIdentifier.recompile_shard_pattern()
+
+        try:
+            assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+                expected_table_prefix,
+                expected_shard,
+            )
+        finally:
+            # Restore original pattern after test
+            BigqueryTableIdentifier.recompile_shard_pattern()
 
 
 @pytest.mark.parametrize(
@@ -1469,64 +1476,64 @@ def test_numeric_shard_comparison(
     assert is_newer == expected_is_newer, f"Failed for: {description}"
 
 
-def test_direct_pattern_matching_performance():
-    """Test that direct pattern matching avoids unnecessary object creation."""
-    pattern = BigqueryTableIdentifier.get_shard_pattern()
+def test_shard_pattern_is_compiled_once_and_cached():
+    """Test that the shard pattern is compiled once and cached (not recompiled on every call)."""
+    # Get pattern twice - should return the same cached instance
+    pattern1 = BigqueryTableIdentifier.get_shard_pattern()
+    pattern2 = BigqueryTableIdentifier.get_shard_pattern()
 
-    table_ids = [
-        "events_20240101",
-        "events_20240102",
-        "events_20240103",
-        "regular_table",
+    # Should be the exact same object (not recompiled)
+    assert pattern1 is pattern2
+
+    # Verify the cached pattern works correctly
+    table_names_with_shards = [
+        ("events_20240101", "events", "20240101"),
+        ("events_20240102", "events", "20240102"),
+        ("logs_20231225", "logs", "20231225"),
     ]
 
-    sharded_count = 0
-    for table_id in table_ids:
-        match = pattern.match(table_id)
-        if match:
-            shard = match[3]
-            if shard:
-                sharded_count += 1
+    for table_id, expected_base, expected_shard in table_names_with_shards:
+        base, shard = BigqueryTableIdentifier.get_table_and_shard(table_id)
+        assert base == expected_base
+        assert shard == expected_shard
 
-    assert sharded_count == 3
+    # Non-sharded table
+    base, shard = BigqueryTableIdentifier.get_table_and_shard("regular_table")
+    assert base == "regular_table"
+    assert shard is None
 
 
-def test_shard_deduplication_in_lightweight_discovery():
-    """Test that lightweight discovery deduplicates sharded tables."""
-    pattern = BigqueryTableIdentifier.get_shard_pattern()
-
-    table_ids = [
-        "events_20240101",
-        "events_20240102",
-        "events_20240103",
-        "users_20240101",
-        "users_20240102",
-        "orders",
+def test_get_table_and_shard_extracts_base_name_correctly():
+    """Test that get_table_and_shard correctly extracts base name and shard from table IDs."""
+    # Test sharded tables - should extract base and shard
+    test_cases = [
+        ("events_20240101", "events", "20240101"),
+        ("events_20240102", "events", "20240102"),
+        ("users_20231225", "users", "20231225"),
+        ("logs_20200229", "logs", "20200229"),  # Leap year
     ]
 
-    seen_base_tables = set()
-    unique_tables = []
+    for table_id, expected_base, expected_shard in test_cases:
+        base, shard = BigqueryTableIdentifier.get_table_and_shard(table_id)
+        assert base == expected_base, (
+            f"Failed for {table_id}: expected base {expected_base}, got {base}"
+        )
+        assert shard == expected_shard, (
+            f"Failed for {table_id}: expected shard {expected_shard}, got {shard}"
+        )
 
-    for table_id in table_ids:
-        match = pattern.match(table_id)
-        if match:
-            base_name = match[1] or ""
-            shard = match[3]
+    # Test non-sharded table - should return full name and None
+    base, shard = BigqueryTableIdentifier.get_table_and_shard("orders")
+    assert base == "orders"
+    assert shard is None
 
-            if base_name and table_id.endswith(shard):
-                base_name = table_id[: -len(shard)].rstrip("_")
+    # Test that sharded tables from same base are detected with same base name
+    base1, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240101")
+    base2, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240102")
+    base3, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240103")
 
-            if base_name in seen_base_tables:
-                continue
-            seen_base_tables.add(base_name)
-            unique_tables.append(base_name + "_yyyymmdd")
-        else:
-            unique_tables.append(table_id)
-
-    assert len(unique_tables) == 3
-    assert "events_yyyymmdd" in unique_tables
-    assert "users_yyyymmdd" in unique_tables
-    assert "orders" in unique_tables
+    # All three shards should have the same base name
+    assert base1 == base2 == base3 == "events"
 
 
 @pytest.mark.parametrize(
