@@ -1752,7 +1752,6 @@ def test_make_assertion_from_freshness() -> None:
     assert isinstance(mcp.aspect.customAssertion, CustomAssertionInfoClass)
     assert mcp.aspect.customAssertion.type == "Freshness"
     assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
-    # Verify custom properties contain schedule info
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
