@@ -803,6 +803,7 @@ base_dev_requirements = {
             "lookml",
             "glue",
             "mariadb",
+            "matillion-dpc",
             "okta",
             "oracle",
             "postgres",
