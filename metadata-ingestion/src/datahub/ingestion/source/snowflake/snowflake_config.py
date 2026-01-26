@@ -106,28 +106,21 @@ class SemanticViewsConfig(ConfigModel):
     # Phase 1: Usage Statistics
     include_usage: bool = Field(
         default=False,
-        description="If enabled, usage statistics will be extracted for semantic views from QUERY_HISTORY. "
+        description="If enabled, usage statistics will be extracted for semantic views. "
         "This tracks queries against semantic views using the SEMANTIC_VIEW() function.",
     )
 
-    emit_query_entities: bool = Field(
+    include_queries: bool = Field(
         default=False,
-        description="If enabled, Query entities will be emitted for direct SQL queries against semantic views. "
-        "These appear in the Queries tab of the semantic view in the DataHub UI.",
-    )
-
-    emit_profile: bool = Field(
-        default=False,
-        description="If enabled, DatasetProfile will be emitted with column/dimension/fact/metric counts. "
-        "This populates the Stats tab in the DataHub UI.",
+        description="If enabled, generate query entities for queries against semantic views.",
     )
 
     max_queries_per_view: int = Field(
         default=100,
         ge=1,
         le=10000,
-        description="Maximum number of Query entities to emit per semantic view. "
-        "Only applicable when emit_query_entities is True.",
+        description="Maximum number of query entities to emit per semantic view. "
+        "Only applicable when include_queries is True.",
     )
 
     @model_validator(mode="after")
@@ -146,15 +139,10 @@ class SemanticViewsConfig(ConfigModel):
                 "semantic_views.include_usage is set to True but semantic_views.enabled is False. "
                 "Usage statistics will not be extracted. Set semantic_views.enabled to True to enable usage tracking."
             )
-        if self.emit_query_entities and not self.enabled:
+        if self.include_queries and not self.enabled:
             logger.warning(
-                "semantic_views.emit_query_entities is set to True but semantic_views.enabled is False. "
-                "Query entities will not be emitted. Set semantic_views.enabled to True to enable query tracking."
-            )
-        if self.emit_profile and not self.enabled:
-            logger.warning(
-                "semantic_views.emit_profile is set to True but semantic_views.enabled is False. "
-                "DatasetProfile will not be emitted. Set semantic_views.enabled to True to enable profile emission."
+                "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
+                "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
             )
         return self
 

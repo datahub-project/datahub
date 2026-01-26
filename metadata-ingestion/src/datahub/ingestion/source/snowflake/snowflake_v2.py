@@ -269,9 +269,6 @@ class SnowflakeV2Source(
                 identifiers=self.identifiers,
             )
 
-        # Will be populated during schema extraction
-        self.discovered_semantic_views: List[str] = []
-
         self.profiling_state_handler: Optional[ProfilingHandler] = None
         if self.config.enable_stateful_profiling:
             self.profiling_state_handler = ProfilingHandler(
@@ -612,8 +609,6 @@ class SnowflakeV2Source(
             + discovered_semantic_views
             + discovered_streams
         )
-        # Store semantic views separately for usage extraction
-        self.discovered_semantic_views = discovered_semantic_views
 
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):
@@ -695,20 +690,14 @@ class SnowflakeV2Source(
                     self.discovered_datasets
                 )
 
-        # Semantic view usage extraction (uses QUERY_HISTORY, not ACCESS_HISTORY)
-        if self.semantic_view_usage_extractor and self.discovered_semantic_views:
-            discovered_semantic_views_set = set(self.discovered_semantic_views)
+        if self.semantic_view_usage_extractor and discovered_semantic_views:
+            discovered_semantic_views_set = set(discovered_semantic_views)
             yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
                 discovered_semantic_views_set
             )
             yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
                 discovered_semantic_views_set
             )
-            # Profile extraction per database
-            for db in databases:
-                yield from self.semantic_view_usage_extractor.get_semantic_view_profile_workunits(
-                    db.name, discovered_semantic_views_set
-                )
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(

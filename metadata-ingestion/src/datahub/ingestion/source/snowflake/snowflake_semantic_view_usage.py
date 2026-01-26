@@ -1,19 +1,16 @@
 """Semantic View Usage Extraction for Snowflake.
 
 This module extracts usage statistics and query entities for Snowflake Semantic Views.
-It queries QUERY_HISTORY (not ACCESS_HISTORY) because semantic views do NOT appear
-in ACCESS_HISTORY's DIRECT_OBJECTS_ACCESSED. Pattern matching on SEMANTIC_VIEW()
-function calls in query_text is used to detect semantic view usage.
+It queries QUERY_HISTORY using pattern matching on SEMANTIC_VIEW() function calls.
 
 Emits:
 - DatasetUsageStatistics: Usage metrics per time bucket
-- DatasetProfile: Column/dimension/fact/metric counts for Stats tab
 - Query entities: Individual queries for Queries tab
 """
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_user_urn
@@ -24,7 +21,6 @@ from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeCon
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SemanticViewProfileCounts,
     SemanticViewQuery,
     SemanticViewUsageRecord,
 )
@@ -32,7 +28,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetProfile,
     DatasetUsageStatistics,
     DatasetUserUsageCounts,
 )
@@ -239,85 +234,6 @@ class SemanticViewUsageExtractor:
             )
         return sorted(result, key=lambda v: v.user)
 
-    def get_semantic_view_profile_workunits(
-        self,
-        db_name: str,
-        discovered_semantic_views: Set[str],
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Extract profile (stats) for semantic views.
-
-        This populates the Stats tab with dimension/fact/metric counts.
-
-        Args:
-            db_name: Database name to query
-            discovered_semantic_views: Set of discovered semantic view identifiers
-
-        Yields:
-            MetadataWorkUnit for DatasetProfile
-        """
-        if not self.config.semantic_views.emit_profile:
-            return
-
-        if not discovered_semantic_views:
-            return
-
-        logger.info(f"Extracting profile counts for semantic views in {db_name}")
-
-        try:
-            results = self.connection.query(
-                SnowflakeQuery.semantic_view_profile_counts(db_name)
-            )
-
-            for row in results:
-                profile_counts = SemanticViewProfileCounts(
-                    semantic_view_catalog=row["SEMANTIC_VIEW_CATALOG"],
-                    semantic_view_schema=row["SEMANTIC_VIEW_SCHEMA"],
-                    semantic_view_name=row["SEMANTIC_VIEW_NAME"],
-                    dimension_count=row["DIMENSION_COUNT"],
-                    fact_count=row["FACT_COUNT"],
-                    metric_count=row["METRIC_COUNT"],
-                    table_count=row["TABLE_COUNT"],
-                    total_column_count=row["TOTAL_COLUMN_COUNT"],
-                )
-
-                dataset_identifier = f"{profile_counts.semantic_view_catalog}.{profile_counts.semantic_view_schema}.{profile_counts.semantic_view_name}".lower()
-
-                if dataset_identifier not in discovered_semantic_views:
-                    continue
-
-                wu = self._build_profile_workunit(profile_counts, dataset_identifier)
-                if wu:
-                    yield wu
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to extract semantic view profiles for {db_name}: {e}",
-                exc_info=True,
-            )
-
-    def _build_profile_workunit(
-        self, counts: SemanticViewProfileCounts, dataset_identifier: str
-    ) -> Optional[MetadataWorkUnit]:
-        """Build a DatasetProfile workunit for a semantic view."""
-        try:
-            profile = DatasetProfile(
-                timestampMillis=int(datetime.now(timezone.utc).timestamp() * 1000),
-                columnCount=counts.total_column_count,
-                # Use custom properties to store semantic view specific counts
-                # since DatasetProfile doesn't have fields for dimension/fact/metric
-            )
-
-            dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
-            return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=profile,
-            ).as_workunit()
-
-        except Exception as e:
-            logger.debug(f"Failed to build profile for {dataset_identifier}: {e}")
-            return None
-
     def get_semantic_view_query_workunits(
         self,
         discovered_semantic_views: Set[str],
@@ -333,7 +249,7 @@ class SemanticViewUsageExtractor:
         Yields:
             MetadataWorkUnit for Query entities
         """
-        if not self.config.semantic_views.emit_query_entities:
+        if not self.config.semantic_views.include_queries:
             return
 
         if not discovered_semantic_views:
@@ -422,7 +338,6 @@ class SemanticViewUsageExtractor:
 
         timestamp_millis = int(query.start_time.timestamp() * 1000)
 
-        # 1. QueryProperties
         description = (
             "Cortex Analyst generated query"
             if query.query_source == "CORTEX_ANALYST"
@@ -453,7 +368,6 @@ class SemanticViewUsageExtractor:
             aspect=query_properties,
         ).as_workunit()
 
-        # 2. QuerySubjects - link query to semantic view
         query_subjects = QuerySubjects(subjects=[QuerySubject(entity=dataset_urn)])
 
         yield MetadataChangeProposalWrapper(
