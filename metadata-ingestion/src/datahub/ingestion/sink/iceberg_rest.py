@@ -8,7 +8,11 @@ import pydantic
 from pydantic import Field
 from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.catalog.rest import RestCatalog
-from pyiceberg.exceptions import NamespaceAlreadyExistsError
+from pyiceberg.exceptions import (
+    NamespaceAlreadyExistsError,
+    NoSuchTableError,
+    TableAlreadyExistsError,
+)
 from pyiceberg.partitioning import PartitionField, PartitionSpec
 from pyiceberg.schema import Schema
 from pyiceberg.transforms import IdentityTransform
@@ -377,82 +381,46 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
 
     def _ensure_table_exists(self) -> None:
         """Create namespace and table if they don't exist"""
+        # Create namespace if it doesn't exist
         try:
-            existing_namespaces = self.catalog.list_namespaces()
-            namespace_tuple = (self.config.namespace,)
-
-            if namespace_tuple not in existing_namespaces:
-                try:
-                    self.catalog.create_namespace(self.config.namespace)
-                    self.report.namespace_created = True
-                    logger.info(f"Created namespace: {self.config.namespace}")
-                except NamespaceAlreadyExistsError:
-                    # Race condition: namespace was created between check and create
-                    logger.debug(f"Namespace already exists: {self.config.namespace}")
-                    self.report.namespace_created = False
-                except Exception as e:
-                    error_msg = str(e).lower()
-                    if "already exists" in error_msg or "already exist" in error_msg:
-                        logger.info(
-                            f"Namespace {self.config.namespace} already exists (detected from error message)"
-                        )
-                        self.report.namespace_created = False
-                    else:
-                        logger.error(
-                            f"Failed to create namespace {self.config.namespace}: {e}"
-                        )
-                        raise
-            else:
-                logger.info(f"Namespace {self.config.namespace} already exists")
-                self.report.namespace_created = False
+            self.catalog.create_namespace(self.config.namespace)
+            self.report.namespace_created = True
+            logger.info(f"Created namespace: {self.config.namespace}")
+        except NamespaceAlreadyExistsError:
+            logger.debug(f"Namespace {self.config.namespace} already exists")
+            self.report.namespace_created = False
         except Exception as e:
-            logger.error(
-                f"Failed to check/create namespace {self.config.namespace}: {e}"
-            )
+            logger.error(f"Failed to create namespace {self.config.namespace}: {e}")
             raise
 
+        # Create table if it doesn't exist
+        table_identifier = f"{self.config.namespace}.{self.config.table_name}"
+        
+        schema = Schema(
+            NestedField(1, "urn", StringType(), required=True),
+            NestedField(2, "entity_type", StringType(), required=True),
+            NestedField(3, "aspect", StringType(), required=True),
+            NestedField(4, "metadata", StringType(), required=True),
+            NestedField(5, "systemmetadata", StringType(), required=False),
+            NestedField(6, "version", LongType(), required=True),
+            NestedField(7, "createdon", TimestampType(), required=True),
+        )
+
+        partition_spec = PartitionSpec(
+            PartitionField(
+                source_id=2,
+                field_id=1000,
+                transform=IdentityTransform(),
+                name="entity_type",
+            )
+        )
+
+        # identifier-field-ids specifies which fields are used for upsert matching
+        table_properties = {
+            "identifier-field-ids": "1,3,6",  # urn (1), aspect (3), version (6)
+        }
+
         try:
-            table_identifier = f"{self.config.namespace}.{self.config.table_name}"
-
-            try:
-                existing_table = self.catalog.load_table(table_identifier)
-                logger.info(f"Table {table_identifier} already exists")
-                if self.config.upsert:
-                    props = existing_table.properties()
-                    if "identifier-field-ids" not in props:
-                        logger.warning(
-                            f"Table {table_identifier} exists but doesn't have identifier-field-ids property. "
-                            f"Upsert operations may fail. Consider recreating the table or updating properties."
-                        )
-                self.report.table_created = False
-                return
-            except Exception:
-                pass
-
-            schema = Schema(
-                NestedField(1, "urn", StringType(), required=True),
-                NestedField(2, "entity_type", StringType(), required=True),
-                NestedField(3, "aspect", StringType(), required=True),
-                NestedField(4, "metadata", StringType(), required=True),
-                NestedField(5, "systemmetadata", StringType(), required=False),
-                NestedField(6, "version", LongType(), required=True),
-                NestedField(7, "createdon", TimestampType(), required=True),
-            )
-
-            partition_spec = PartitionSpec(
-                PartitionField(
-                    source_id=2,
-                    field_id=1000,
-                    transform=IdentityTransform(),
-                    name="entity_type",
-                )
-            )
-
-            # identifier-field-ids specifies which fields are used for upsert matching
-            table_properties = {
-                "identifier-field-ids": "1,3,6",  # urn (1), aspect (3), version (6)
-            }
-
             self.catalog.create_table(
                 table_identifier,
                 schema,
@@ -461,15 +429,30 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
             )
             self.report.table_created = True
             logger.info(f"Created table: {table_identifier}")
-        except Exception as e:
-            if "already exists" in str(e).lower():
-                logger.info(
-                    f"Table already exists: {self.config.namespace}.{self.config.table_name}"
-                )
+        except TableAlreadyExistsError:
+            logger.info(f"Table {table_identifier} already exists")
+            # Load table to verify it's accessible and check upsert properties
+            try:
+                existing_table = self.catalog.load_table(table_identifier)
+                if self.config.upsert:
+                    props = existing_table.properties()
+                    if "identifier-field-ids" not in props:
+                        logger.warning(
+                            f"Table {table_identifier} exists but doesn't have identifier-field-ids property. "
+                            f"Upsert operations may fail. Consider recreating the table or updating properties."
+                        )
                 self.report.table_created = False
-            else:
-                logger.error(f"Failed to create table {table_identifier}: {e}")
-                raise
+            except Exception as load_error:
+                logger.error(
+                    f"Table {table_identifier} reported as existing but cannot be loaded: {load_error}"
+                )
+                raise ValueError(
+                    f"Table {table_identifier} reported as existing but cannot be accessed. "
+                    f"Please verify the table exists and you have the necessary permissions."
+                ) from load_error
+        except Exception as e:
+            logger.error(f"Failed to create table {table_identifier}: {e}")
+            raise
 
     def _process_record(
         self, record_envelope: RecordEnvelope
