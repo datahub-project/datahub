@@ -10,6 +10,7 @@ from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.exceptions import (
     NamespaceAlreadyExistsError,
+    ServerError,
     TableAlreadyExistsError,
 )
 from pyiceberg.partitioning import PartitionField, PartitionSpec
@@ -388,6 +389,22 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
         except NamespaceAlreadyExistsError:
             logger.debug(f"Namespace {self.config.namespace} already exists")
             self.report.namespace_created = False
+        except ServerError as e:
+            # DataHub backend may return 500 with ValidationException when namespace already exists
+            error_msg = str(e).lower()
+            if (
+                "already exists" in error_msg
+                or "entity key already exists" in error_msg
+            ):
+                logger.debug(
+                    f"Namespace {self.config.namespace} already exists (detected from ServerError)"
+                )
+                self.report.namespace_created = False
+            else:
+                logger.error(
+                    f"Server error while creating namespace {self.config.namespace}: {e}"
+                )
+                raise
         except Exception as e:
             logger.error(f"Failed to create namespace {self.config.namespace}: {e}")
             raise
