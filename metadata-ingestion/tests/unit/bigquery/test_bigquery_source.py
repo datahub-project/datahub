@@ -1338,14 +1338,20 @@ def test_get_table_and_shard_custom_shard_pattern(
     ],
 )
 def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> None:
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX",
-        "",
-    ):
-        assert (
-            BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
-            == datahub_full_table_name
-        )
+    BigqueryTableIdentifier.recompile_shard_pattern()
+    try:
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX",
+            "",
+        ):
+            assert (
+                BigqueryTableIdentifier.from_string_name(
+                    full_table_name
+                ).get_table_name()
+                == datahub_full_table_name
+            )
+    finally:
+        BigqueryTableIdentifier.recompile_shard_pattern()
 
 
 def test_default_config_for_excluding_projects_and_datasets():
