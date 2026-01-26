@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 
 import { Announcements } from '@app/homeV3/announcements/Announcements';
-import FreeTrialContent from '@app/homeV3/freeTrial/FreeTrialContent';
+import FreeTrialOnboardingContent from '@app/homeV3/freeTrial/FreeTrialOnboardingContent';
 import EditDefaultTemplateBar from '@app/homeV3/settings/EditDefaultTemplateBar';
 import HomePageSettingsButtonWrapper from '@app/homeV3/settings/HomePageSettingsButtonWrapper';
 import { CenteredContainer, ContentContainer, ContentDiv } from '@app/homeV3/styledComponents';
@@ -28,7 +28,7 @@ const HomePageContent = () => {
                 <ContentDiv>
                     <HomePageSettingsButtonWrapper />
                     <Announcements />
-                    {showFreeTrialOnboardingContent ? <FreeTrialContent /> : <Template />}
+                    {showFreeTrialOnboardingContent ? <FreeTrialOnboardingContent /> : <Template />}
                     <EditDefaultTemplateBar />
                 </ContentDiv>
             </CenteredContainer>

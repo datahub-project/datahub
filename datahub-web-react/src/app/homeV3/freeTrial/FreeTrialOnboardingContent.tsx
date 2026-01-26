@@ -28,7 +28,7 @@ import {
     ProgressLabel,
     ProgressSection,
     TaskList,
-} from '@app/homeV3/freeTrial/FreeTrialContent.styles';
+} from '@app/homeV3/freeTrial/FreeTrialOnboardingContent.styles';
 import { TaskItemComponent } from '@app/homeV3/freeTrial/TaskItemComponent';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import {
@@ -50,7 +50,7 @@ import { StepStateResult } from '@types';
 /**
  * Component to render the Self serve free trial content
  */
-const FreeTrialContent = () => {
+const FreeTrialOnboardingContent = () => {
     const history = useHistory();
 
     const { educationSteps, setEducationSteps } = useContext(EducationStepsContext);
@@ -152,8 +152,6 @@ const FreeTrialContent = () => {
     ];
 
     const config = FreeTrialOnboardingConfig;
-    // Filter out done (completed or dismissed) steps for display, but keep total count based on all steps
-    const visibleSteps = config.steps.filter((step) => !isStepDone(step.id || ''));
     const totalCount = config.steps.length;
     const doneCount = config.steps.filter((step) => isStepDone(step.id || '')).length;
     const progressPercent = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
@@ -167,28 +165,11 @@ const FreeTrialContent = () => {
         history.push(ingestionLink);
     };
 
-    const handleDismiss = (stepId: string) => {
-        const stepState = {
-            id: stepId,
-            properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_DISMISSED }],
-        };
-        batchUpdateStepStates({ variables: { input: { states: [stepState] } } }).then(() => {
-            // Update local state to reflect the change
-            const result: StepStateResult = {
-                id: stepId,
-                properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_DISMISSED }],
-            };
-            setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, result] : [result]));
-        });
-        analytics.event({
-            type: EventType.OnboardingChecklistActionEvent,
-            step: stepId,
-            action: 'dismiss',
-        });
-    };
-
     const handleStart = (stepId: string) => {
         switch (stepId) {
+            case FREE_TRIAL.DISCOVER_ASSETS_ID:
+                history.push('/search');
+                break;
             case FREE_TRIAL.ASK_DATAHUB_ID:
                 history.push('/ai-chat');
                 break;
@@ -362,11 +343,11 @@ const FreeTrialContent = () => {
                             </CompletionContainer>
                         ) : (
                             <TaskList>
-                                {visibleSteps.map((step) => (
+                                {config.steps.map((step) => (
                                     <TaskItemComponent
                                         key={step.id}
                                         step={step}
-                                        onDismiss={handleDismiss}
+                                        isComplete={isStepCompleted(step.id || '')}
                                         onStart={handleStart}
                                     />
                                 ))}
@@ -379,4 +360,4 @@ const FreeTrialContent = () => {
     );
 };
 
-export default FreeTrialContent;
+export default FreeTrialOnboardingContent;
