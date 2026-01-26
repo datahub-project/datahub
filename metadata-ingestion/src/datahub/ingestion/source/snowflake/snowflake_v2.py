@@ -59,6 +59,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDic
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
+    SemanticViewUsageExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
@@ -252,6 +255,22 @@ class SnowflakeV2Source(
                     redundant_run_skip_handler=redundant_usage_run_skip_handler,
                 )
             )
+
+        # Semantic view usage extractor (separate from main usage due to different data source)
+        self.semantic_view_usage_extractor: Optional[SemanticViewUsageExtractor] = None
+        if (
+            self.config.semantic_views.enabled
+            and self.config.semantic_views.include_usage
+        ):
+            self.semantic_view_usage_extractor = SemanticViewUsageExtractor(
+                config=config,
+                report=self.report,
+                connection=self.connection,
+                identifiers=self.identifiers,
+            )
+
+        # Will be populated during schema extraction
+        self.discovered_semantic_views: List[str] = []
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
         if self.config.enable_stateful_profiling:
@@ -593,6 +612,8 @@ class SnowflakeV2Source(
             + discovered_semantic_views
             + discovered_streams
         )
+        # Store semantic views separately for usage extraction
+        self.discovered_semantic_views = discovered_semantic_views
 
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):
@@ -672,6 +693,21 @@ class SnowflakeV2Source(
             ) and self.usage_extractor:
                 yield from self.usage_extractor.get_usage_workunits(
                     self.discovered_datasets
+                )
+
+        # Semantic view usage extraction (uses QUERY_HISTORY, not ACCESS_HISTORY)
+        if self.semantic_view_usage_extractor and self.discovered_semantic_views:
+            discovered_semantic_views_set = set(self.discovered_semantic_views)
+            yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                discovered_semantic_views_set
+            )
+            yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
+                discovered_semantic_views_set
+            )
+            # Profile extraction per database
+            for db in databases:
+                yield from self.semantic_view_usage_extractor.get_semantic_view_profile_workunits(
+                    db.name, discovered_semantic_views_set
                 )
 
         if self.config.include_assertion_results:
