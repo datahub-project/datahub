@@ -1260,14 +1260,19 @@ def test_gen_snapshot_dataset_workunits(
 def test_get_table_and_shard_default(
     table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
 ) -> None:
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
-        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-    ):
-        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-            expected_table_prefix,
-            expected_shard,
-        )
+    BigqueryTableIdentifier.recompile_shard_pattern()
+    try:
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
+            _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+        ):
+            BigqueryTableIdentifier.recompile_shard_pattern()
+            assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
+                expected_table_prefix,
+                expected_shard,
+            )
+    finally:
+        BigqueryTableIdentifier.recompile_shard_pattern()
 
 
 @pytest.mark.parametrize(
