@@ -142,11 +142,8 @@ Download the [CloudFormation Template](https://raw.githubusercontent.com/acrylda
 
 :::warning
 The following parameters should only be changed after consulting with your DataHub representative:
-
-- `DataHubIngestionsMaxWorkers`
-- `DataHubMonitorsMaxWorkers`
-- `DataHubIngestionsSignalPollInterval`
-  :::
+`DataHubIngestionsMaxWorkers`, `DataHubMonitorsMaxWorkers`, `DataHubIngestionsSignalPollInterval`
+:::
 
 **Deploy using AWS CLI:**
 
@@ -301,10 +298,8 @@ source:
 ```
 
 :::note
-
-- Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`)
-- Reference secrets using `${SECRET_NAME}` syntax
-  :::
+Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`). Reference secrets using `${SECRET_NAME}` syntax.
+:::
 
 For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file.
 
