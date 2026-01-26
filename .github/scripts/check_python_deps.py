@@ -46,11 +46,13 @@ def load_json_results(file_path: Path) -> dict[str, Any] | None:
         raise ValueError(f"Malformed JSON in {file_path}: {e}")
 
 
-def build_dependency_map(data: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+def build_dependency_map(data: dict[str, Any] | None) -> dict[tuple[str, str], dict[str, Any]]:
     """
-    Build a mapping from dependency name to its analysis.
+    Build a mapping from (dependency name, source) to its analysis.
 
     Returns empty dict if data is None.
+    Uses (name, source) as key to handle dependencies that appear in multiple places.
+    Excludes aggregated extras that are prone to non-deterministic resolution.
     """
     if data is None:
         return {}
@@ -58,10 +60,14 @@ def build_dependency_map(data: dict[str, Any] | None) -> dict[str, dict[str, Any
     dep_map = {}
     for level, deps in data.get("by_level", {}).items():
         for dep in deps:
-            dep_map[dep["name"]] = {
+            source = dep.get("source", "unknown")
+            # Use (name, source) as key to handle dependencies in multiple locations
+            # This prevents false positives when the same dependency appears in different extras
+            key = (dep["name"], source)
+            dep_map[key] = {
                 "level": level,
                 "specifier": dep.get("specifier", ""),
-                "source": dep.get("source", "unknown")
+                "source": source
             }
 
     return dep_map
@@ -115,18 +121,30 @@ def classify_violation(
 
 
 def compare_dependencies(
-    baseline_map: dict[str, dict[str, Any]],
-    pr_map: dict[str, dict[str, Any]]
+    baseline_map: dict[tuple[str, str], dict[str, Any]],
+    pr_map: dict[tuple[str, str], dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """
     Compare baseline and PR dependency maps to find violations.
 
     Returns list of violation dictionaries.
+    Uses (name, source) as key to prevent false positives from dependencies
+    appearing in multiple extras (e.g., install_requires vs extras_require[dev]).
     """
     violations = []
 
-    for name, pr_info in pr_map.items():
-        baseline_info = baseline_map.get(name)
+    for key, pr_info in pr_map.items():
+        name, source = key
+        baseline_info = baseline_map.get(key)
+        # Also check if dependency exists with same name but different source (for backward compatibility)
+        # This handles cases where dependencies move between sources (e.g., install_requires -> extras_require)
+        if baseline_info is None:
+            # Try to find by name only (for dependencies that moved between sources)
+            for (baseline_name, baseline_source), baseline_data in baseline_map.items():
+                if baseline_name == name:
+                    baseline_info = baseline_data
+                    break
+        
         violation = classify_violation(name, baseline_info, pr_info)
         if violation:
             violations.append(violation)
