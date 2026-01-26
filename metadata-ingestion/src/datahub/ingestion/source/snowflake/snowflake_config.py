@@ -106,7 +106,7 @@ class SemanticViewsConfig(ConfigModel):
     include_usage: bool = Field(
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
-        "This tracks queries against semantic views using the SEMANTIC_VIEW() function.",
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
     )
 
     include_queries: bool = Field(

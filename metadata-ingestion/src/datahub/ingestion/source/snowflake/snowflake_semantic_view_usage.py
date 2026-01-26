@@ -11,7 +11,7 @@ Emits:
 import json
 import logging
 from datetime import timezone
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -208,6 +208,17 @@ class SemanticViewUsageExtractor:
             )
             return None
 
+    def _get_user_urn_and_email(self, user_name: str) -> Tuple[str, Optional[str]]:
+        """Generate user URN and email for a given user name."""
+        user_email = None
+        if self.config.email_domain and user_name:
+            user_email = f"{user_name}@{self.config.email_domain}".lower()
+
+        user_urn = make_user_urn(
+            self.identifiers.get_user_identifier(user_name, user_email)
+        )
+        return user_urn, user_email
+
     def _map_user_counts(
         self, user_counts: List[Dict[str, Any]]
     ) -> List[DatasetUserUsageCounts]:
@@ -218,16 +229,10 @@ class SemanticViewUsageExtractor:
             if not user_name:
                 continue
 
-            # Generate email if email_domain is configured
-            user_email = None
-            if self.config.email_domain:
-                user_email = f"{user_name}@{self.config.email_domain}".lower()
-
+            user_urn, user_email = self._get_user_urn_and_email(user_name)
             result.append(
                 DatasetUserUsageCounts(
-                    user=make_user_urn(
-                        self.identifiers.get_user_identifier(user_name, user_email)
-                    ),
+                    user=user_urn,
                     count=user_count.get("query_count", 0),
                     userEmail=user_email,
                 )
@@ -326,16 +331,7 @@ class SemanticViewUsageExtractor:
         """Build Query entity workunits for a query."""
         query_urn = QueryUrn(query.query_id).urn()
         dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
-
-        # Generate user email if email_domain is configured
-        user_email = None
-        if self.config.email_domain and query.user_name:
-            user_email = f"{query.user_name}@{self.config.email_domain}".lower()
-
-        user_urn = make_user_urn(
-            self.identifiers.get_user_identifier(query.user_name, user_email)
-        )
-
+        user_urn, _ = self._get_user_urn_and_email(query.user_name)
         timestamp_millis = int(query.start_time.timestamp() * 1000)
 
         description = (
