@@ -165,6 +165,11 @@ type Query {
   listGroups(input: ListGroupsInput!): ListGroupsResult
 
   """
+  Search DataHub Users
+  """
+  searchUsers(input: SearchAcrossEntitiesInput!): SearchResults
+
+  """
   Fetches the number of entities ingested by type
   """
   getEntityCounts(input: EntityCountInput): EntityCountResults
@@ -7153,11 +7158,6 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   globalTags: GlobalTags @deprecated
 
   """
-  History of runs of this task
-  """
-  runs(start: Int, count: Int): DataProcessInstanceResult
-
-  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
@@ -7907,7 +7907,7 @@ A frequency distribution of a specific value within a dataset
 """
 type ValueFrequency {
   """
-  Specific value. For numeric colums, the value will contain a strigified value
+  Specific value. For numeric columns, the value will contain a stringified value
   """
   value: String!
   """

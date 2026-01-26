@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -361,6 +362,10 @@ public class MultiEntityMappingsBuilderTest {
 
     // Mock the qualifiedName
     when(property.getQualifiedName()).thenReturn("test.property");
+
+    // Mock entity types - use production format with datahub. prefix
+    UrnArray entityTypes = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.testEntity"));
+    when(property.getEntityTypes()).thenReturn(entityTypes);
 
     return property;
   }

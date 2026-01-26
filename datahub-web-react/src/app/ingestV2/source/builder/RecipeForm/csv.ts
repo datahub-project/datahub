@@ -1,5 +1,4 @@
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { validateURL } from '@app/ingestV2/source/utils';
 
 export const CSV_FILE_URL: RecipeField = {
     name: 'filename',
@@ -10,7 +9,7 @@ export const CSV_FILE_URL: RecipeField = {
     fieldPath: 'source.config.filename',
     placeholder: 'File URL',
     required: true,
-    rules: [() => validateURL('File URL')],
+    rules: null,
 };
 
 export const CSV_ARRAY_DELIMITER: RecipeField = {

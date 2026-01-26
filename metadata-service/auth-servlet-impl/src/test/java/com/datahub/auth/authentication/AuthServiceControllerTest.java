@@ -314,6 +314,55 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @Test
+  public void testSignUpWithoutTitle() throws Exception {
+    // Setup - no title provided
+    String userUrn = "urn:li:corpuser:testUser";
+    String fullName = "Test User";
+    String email = "test@example.com";
+    String password = "securePassword123";
+    String inviteToken = "valid-invite-token";
+    Urn inviteTokenUrn = mock(Urn.class);
+
+    // Mock invite token service
+    when(mockInviteTokenService.getInviteTokenUrn(inviteToken)).thenReturn(inviteTokenUrn);
+    when(mockInviteTokenService.isInviteTokenValid(eq(systemOperationContext), eq(inviteTokenUrn)))
+        .thenReturn(true);
+
+    // Create request body without title field
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", userUrn);
+    requestBody.put("fullName", fullName);
+    requestBody.put("email", email);
+    // Note: title is intentionally omitted
+    requestBody.put("password", password);
+    requestBody.put("inviteToken", inviteToken);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    AuthenticationConfiguration authenticationConfiguration = new AuthenticationConfiguration();
+    authenticationConfiguration.setSystemClientId(SYSTEM_CLIENT_ID);
+    when(mockConfigProvider.getAuthentication()).thenReturn(authenticationConfiguration);
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.signUp(httpEntity).join();
+
+    // Verify
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    JsonNode responseJson = objectMapper.readTree(response.getBody());
+    assertTrue(responseJson.has("isNativeUserCreated"));
+    assertTrue(responseJson.get("isNativeUserCreated").asBoolean());
+
+    // Verify native user service was called with null title
+    verify(mockNativeUserService)
+        .createNativeUser(
+            eq(systemOperationContext),
+            eq(userUrn),
+            eq(fullName),
+            eq(email),
+            isNull(),
+            eq(password));
+  }
+
+  @Test
   public void testVerifyNativeUserCredentialsSuccess() throws Exception {
     // Setup
     String userUrn = "urn:li:corpuser:testUser";

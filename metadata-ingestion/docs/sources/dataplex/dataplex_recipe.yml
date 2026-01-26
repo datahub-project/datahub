@@ -25,11 +25,15 @@ source:
     #   client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
     #   client_id: "123456678890"
 
-    # Optional: API Selection
+    # Optional: Metadata extraction
     # include_entries: true   # Extract from Universal Catalog (default: true, recommended)
     # include_entities: false # Extract from Lakes/Zones (default: false)
     # include_lineage: true   # Extract lineage (default: true)
     # include_schema: true    # Extract schema metadata (default: true)
+
+    # Optional: Lineage retry settings
+    # lineage_max_retries: 3                    # Max retry attempts (range: 1-10, default: 3)
+    # lineage_retry_backoff_multiplier: 1.0     # Backoff delay multiplier (range: 0.1-10.0, default: 1.0)
 
     # Optional: Filtering patterns
     # filter_config:
@@ -64,7 +68,8 @@ source:
     #         - ".*_backup"  # Exclude backups
 
     # Optional: Performance tuning
-    # max_workers: 10
+    # max_workers: 10  # Parallel workers for entity extraction (default: 10)
+    # batch_size: 1000 # Entities per batch for memory optimization (default: 1000)
 
 sink:
   type: datahub-rest

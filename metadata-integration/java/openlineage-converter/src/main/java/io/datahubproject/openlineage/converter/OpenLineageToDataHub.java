@@ -420,6 +420,18 @@ public class OpenLineageToDataHub {
     }
 
     OpenLineage.ColumnLineageDatasetFacet columnLineage = dataset.getFacets().getColumnLineage();
+    // Per OpenLineage spec
+    // (https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json),
+    // "fields" is a required property. However, the OpenLineage Java client may return null
+    // when the fields object is empty {} or when producers (like Trino) omit it.
+    // We handle this gracefully to avoid NPE.
+    if (columnLineage.getFields() == null) {
+      log.warn(
+          "ColumnLineageDatasetFacet has null fields for dataset '{}' - skipping fine-grained lineage extraction. "
+              + "This may occur when the producer sends an empty fields object or omits it entirely.",
+          dataset.getName());
+      return null;
+    }
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
         columnLineage.getFields().getAdditionalProperties().entrySet();
     for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
@@ -1278,6 +1290,8 @@ public class OpenLineageToDataHub {
         orchestrator = matcher.group(1);
       } else if (producer.startsWith("https://github.com/apache/airflow/")) {
         orchestrator = "airflow";
+      } else if (producer.startsWith("https://github.com/trinodb/trino/")) {
+        orchestrator = "trino";
       }
     }
     if (orchestrator == null) {
@@ -1306,7 +1320,16 @@ public class OpenLineageToDataHub {
   public static SchemaMetadata getSchemaMetadata(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
     SchemaFieldArray schemaFieldArray = new SchemaFieldArray();
-    if ((dataset.getFacets() == null) || (dataset.getFacets().getSchema() == null)) {
+    // Per OpenLineage spec (https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json),
+    // "fields" is NOT a required property - it can be omitted entirely.
+    // Producers like Trino may send SchemaDatasetFacet without fields.
+    // We handle this gracefully to avoid NPE.
+    if ((dataset.getFacets() == null)
+        || (dataset.getFacets().getSchema() == null)
+        || (dataset.getFacets().getSchema().getFields() == null)) {
+      log.warn(
+          "SchemaDatasetFacet has null or missing fields for dataset '{}' - skipping schema metadata extraction",
+          dataset.getName());
       return null;
     }
     dataset

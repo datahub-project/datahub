@@ -1479,6 +1479,16 @@ class TableauSiteSource:
                 # will be thrown, and we need to re-authenticate and retry.
                 self._re_authenticate()
 
+            # Add exponential backoff to avoid hammering the server
+            backoff_time = min(
+                (self.config.max_retries - retries_remaining + 1) ** 2, 60
+            )
+            logger.info(
+                f"Retrying query due to {e.__class__.__name__} with {retries_remaining} retries remaining, "
+                f"will retry in {backoff_time} seconds"
+            )
+            time.sleep(backoff_time)
+
             return self.get_connection_object_page(
                 query=query,
                 connection_type=connection_type,
@@ -1496,7 +1506,17 @@ class TableauSiteSource:
             if ise.code in RETRIABLE_ERROR_CODES:
                 if retries_remaining <= 0:
                     raise ise
-                logger.info(f"Retrying query due to error {ise.code}")
+
+                # Add exponential backoff to avoid hammering the server
+                backoff_time = min(
+                    (self.config.max_retries - retries_remaining + 1) ** 2, 60
+                )
+                logger.info(
+                    f"Retrying query due to error {ise.code} with {retries_remaining} retries remaining, "
+                    f"will retry in {backoff_time} seconds"
+                )
+                time.sleep(backoff_time)
+
                 return self.get_connection_object_page(
                     query=query,
                     connection_type=connection_type,
@@ -1519,6 +1539,17 @@ class TableauSiteSource:
             # retry logic is basically a bandaid for that.
             if retries_remaining <= 0:
                 raise
+
+            # Add exponential backoff to avoid hammering the server
+            backoff_time = min(
+                (self.config.max_retries - retries_remaining + 1) ** 2, 60
+            )
+            logger.info(
+                f"Retrying query due to OSError with {retries_remaining} retries remaining, "
+                f"will retry in {backoff_time} seconds"
+            )
+            time.sleep(backoff_time)
+
             return self.get_connection_object_page(
                 query=query,
                 connection_type=connection_type,

@@ -4,8 +4,10 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Documentation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
@@ -13,7 +15,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentContent;
-import com.linkedin.datahub.graphql.generated.DocumentDraftOf;
 import com.linkedin.datahub.graphql.generated.DocumentInfo;
 import com.linkedin.datahub.graphql.generated.DocumentParentDocument;
 import com.linkedin.datahub.graphql.generated.DocumentRelatedAsset;
@@ -22,6 +23,8 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -126,6 +129,17 @@ public class DocumentMapper {
               entityUrn));
     }
 
+    // Map Institutional Memory aspect (links)
+    final EnvelopedAspect envelopedInstitutionalMemory =
+        aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
+    if (envelopedInstitutionalMemory != null) {
+      result.setInstitutionalMemory(
+          InstitutionalMemoryMapper.map(
+              context,
+              new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()),
+              entityUrn));
+    }
+
     // Map Global Tags aspect
     final EnvelopedAspect envelopedGlobalTags = aspects.get(Constants.GLOBAL_TAGS_ASPECT_NAME);
     if (envelopedGlobalTags != null) {
@@ -157,6 +171,14 @@ public class DocumentMapper {
     final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
     if (envelopedStatus != null) {
       result.setExists(!new Status(envelopedStatus.getValue().data()).isRemoved());
+    }
+
+    // Map Documentation aspect
+    final EnvelopedAspect envelopedDocumentation = aspects.get(Constants.DOCUMENTATION_ASPECT_NAME);
+    if (envelopedDocumentation != null) {
+      result.setDocumentation(
+          DocumentationMapper.map(
+              context, new Documentation(envelopedDocumentation.getValue().data())));
     }
 
     // Note: Relationships are handled separately via batch resolvers in GraphQL
@@ -239,16 +261,6 @@ public class DocumentMapper {
       stubParent.setType(EntityType.DOCUMENT);
       parentInfo.setDocument(stubParent);
       result.setParentDocument(parentInfo);
-    }
-
-    // Map draftOf - create stub that will be resolved by GraphQL batch loaders
-    if (info.hasDraftOf()) {
-      final DocumentDraftOf draftOfInfo = new DocumentDraftOf();
-      final Document stubDraftOf = new Document();
-      stubDraftOf.setUrn(info.getDraftOf().getDocument().toString());
-      stubDraftOf.setType(EntityType.DOCUMENT);
-      draftOfInfo.setDocument(stubDraftOf);
-      result.setDraftOf(draftOfInfo);
     }
 
     // Map custom properties (included via CustomProperties mixin in PDL)

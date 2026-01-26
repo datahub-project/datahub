@@ -103,7 +103,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
             endDate,
             (date) -> date.minusMonths(1)));
 
-    // Entity metdata statistics
+    // Entity metadata statistics
     getEntityMetadataStats("Datasets", EntityType.DATASET).ifPresent(highlights::add);
     getEntityMetadataStats("Dashboards", EntityType.DASHBOARD).ifPresent(highlights::add);
     getEntityMetadataStats("Charts", EntityType.CHART).ifPresent(highlights::add);
