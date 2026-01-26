@@ -43,7 +43,6 @@ class BigqueryTableIdentifier:
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
-    # Cached compiled pattern - compiled once after config is set
     _compiled_shard_pattern: ClassVar[Optional["re.Pattern[str]"]] = None
 
     @classmethod
@@ -118,7 +117,6 @@ class BigqueryTableIdentifier:
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
         new_table_name = table_name
-        # Use cached compiled pattern
         pattern = BigqueryTableIdentifier.get_shard_pattern()
         match = pattern.match(table_name)
         if match:

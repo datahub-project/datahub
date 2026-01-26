@@ -120,13 +120,12 @@ SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
 
 # Dynamic batch sizing constants for sharded table optimization
-# These control when and how much to increase batch sizes for datasets with many tables
-DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD = 200  # Tables count to trigger 3x multiplier
-DYNAMIC_BATCH_LOW_TABLE_THRESHOLD = 100  # Tables count to trigger 2x multiplier
-DYNAMIC_BATCH_HIGH_MULTIPLIER = 3  # Multiplier for high table count
-DYNAMIC_BATCH_LOW_MULTIPLIER = 2  # Multiplier for low table count
-DYNAMIC_BATCH_MAX_SIZE_HIGH = 500  # Max batch size for high table count
-DYNAMIC_BATCH_MAX_SIZE_LOW = 300  # Max batch size for low table count
+DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD = 200
+DYNAMIC_BATCH_LOW_TABLE_THRESHOLD = 100
+DYNAMIC_BATCH_HIGH_MULTIPLIER = 3
+DYNAMIC_BATCH_LOW_MULTIPLIER = 2
+DYNAMIC_BATCH_MAX_SIZE_HIGH = 500
+DYNAMIC_BATCH_MAX_SIZE_LOW = 300
 
 
 def calculate_dynamic_batch_size(base_batch_size: int, table_count: int) -> int:
@@ -575,14 +574,12 @@ class BigQuerySchemaGenerator:
                 table_id = table_item.table_id
                 table_type = getattr(table_item, "table_type", "UNKNOWN")
 
-                # Fast shard detection without object creation
                 match = shard_pattern.match(table_id)
                 if match:
                     base_name = BigqueryTableIdentifier.extract_base_table_name(
                         table_id, dataset_name, match
                     )
 
-                    # Skip if we've already processed this base table
                     if base_name in seen_base_tables:
                         logger.info(
                             f"Skipping duplicate sharded table {project_id}.{dataset_name}.{table_id} "
@@ -591,20 +588,17 @@ class BigQuerySchemaGenerator:
                         self.report.num_sharded_tables_deduped += 1
                         continue
 
-                    # First occurrence of this base table - record it and continue with this shard
                     seen_base_tables.add(base_name)
                     self.report.num_sharded_tables_scanned += 1
                     logger.debug(
                         f"Processing sharded table base {project_id}.{dataset_name}.{base_name} "
                         f"(using shard {table_id} as representative)"
                     )
-                    # Use the actual shard's table_id (not a synthetic suffix)
-                    # This matches the behavior of get_core_table_details()
 
                 identifier = BigqueryTableIdentifier(
                     project_id=project_id,
                     dataset=dataset_name,
-                    table=table_id,  # Use actual shard ID, respects configured pattern
+                    table=table_id,
                 )
 
                 logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
@@ -1300,8 +1294,6 @@ class BigQuerySchemaGenerator:
                 dataset.name, project_id, self.config.temp_table_dataset_prefix
             )
 
-            # Adaptive batch sizing: increase batch size for datasets with many sharded tables
-            # since sharded tables share schemas
             if with_partitions:
                 base_batch_size = (
                     self.config.number_of_datasets_process_in_batch_if_profiling_enabled
@@ -1309,7 +1301,6 @@ class BigQuerySchemaGenerator:
             else:
                 base_batch_size = self.config.number_of_datasets_process_in_batch
 
-            # If we have many tables (likely sharded), increase batch size
             max_batch_size = calculate_dynamic_batch_size(
                 base_batch_size, len(table_items)
             )
