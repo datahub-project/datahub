@@ -134,6 +134,11 @@ class SemanticViewUsageExtractor:
         """Parse query results into SemanticViewUsageRecord objects."""
         records = []
         for row in results:
+            # Skip rows with no semantic view name
+            semantic_view_name = row.get("SEMANTIC_VIEW_NAME")
+            if not semantic_view_name:
+                continue
+
             user_counts_raw = row.get("USER_COUNTS")
             user_counts = []
             if user_counts_raw:
@@ -146,7 +151,7 @@ class SemanticViewUsageExtractor:
                     logger.debug(f"Failed to parse user_counts: {e}")
 
             record = SemanticViewUsageRecord(
-                semantic_view_name=row["SEMANTIC_VIEW_NAME"],
+                semantic_view_name=semantic_view_name,
                 bucket_start_time=row["BUCKET_START_TIME"].astimezone(tz=timezone.utc),
                 total_queries=row["TOTAL_QUERIES"],
                 unique_users=row["UNIQUE_USERS"],
@@ -339,17 +344,22 @@ class SemanticViewUsageExtractor:
             queries_by_view: Dict[str, List[SemanticViewQuery]] = {}
 
             for row in results:
+                # Skip rows where REGEXP_SUBSTR failed to extract a name
+                semantic_view_name = row["SEMANTIC_VIEW_NAME"]
+                if not semantic_view_name:
+                    continue
+
                 query = SemanticViewQuery(
                     query_id=row["QUERY_ID"],
                     query_text=row["QUERY_TEXT"],
-                    semantic_view_name=row["SEMANTIC_VIEW_NAME"],
-                    user_name=row["USER_NAME"],
-                    role_name=row["ROLE_NAME"],
-                    warehouse_name=row["WAREHOUSE_NAME"],
+                    semantic_view_name=semantic_view_name,
+                    user_name=row["USER_NAME"] or "",
+                    role_name=row["ROLE_NAME"] or "",
+                    warehouse_name=row["WAREHOUSE_NAME"] or "",
                     start_time=row["START_TIME"].astimezone(tz=timezone.utc),
-                    total_elapsed_time=row["TOTAL_ELAPSED_TIME"],
+                    total_elapsed_time=row["TOTAL_ELAPSED_TIME"] or 0,
                     rows_produced=row["ROWS_PRODUCED"] or 0,
-                    query_source=row["QUERY_SOURCE"],
+                    query_source=row["QUERY_SOURCE"] or "DIRECT_SQL",
                 )
 
                 normalized_name = self._normalize_semantic_view_name(
