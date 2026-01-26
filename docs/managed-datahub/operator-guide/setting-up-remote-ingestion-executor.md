@@ -22,10 +22,10 @@ For architecture details and security model, see [About Remote Executor](../remo
 | Step | Who     | Action                                               |
 | ---- | ------- | ---------------------------------------------------- |
 | 1    | You     | Prepare prerequisites (Admin access, generate token) |
-| 2    | You     | Share your AWS Account ID with DataHub               |
-| 3    | DataHub | Grants ECR registry access to your AWS account       |
+| 2    | You     | Request container registry access from DataHub       |
+| 3    | DataHub | Grants registry access to your environment           |
 | 4    | You     | Create an Executor Pool in DataHub UI                |
-| 5    | You     | Deploy the CloudFormation stack or Helm chart        |
+| 5    | You     | Deploy the executor (ECS, Kubernetes, etc.)          |
 | 6    | You     | Verify the executor is running                       |
 | 7    | You     | Assign ingestion sources to your Pool                |
 
@@ -50,20 +50,21 @@ Before deploying a Remote Executor, ensure you have the following:
 | **Admin** role               | Contact your DataHub admin to assign this role                      |
 | Remote Executor Access Token | **Settings > Access Tokens > Generate new token > Remote Executor** |
 | Your DataHub Cloud URL       | Format: `https://<your-company>.acryl.io/gms` (must include `/gms`) |
-| ECR Registry Access          | Share your AWS Account ID with DataHub (see deployment steps)       |
+| Container Registry Access    | Contact DataHub to set up access (see deployment steps for details) |
 
 ### What You Need in Your Environment
 
-| Item               | Details                                                                           |
-| ------------------ | --------------------------------------------------------------------------------- |
-| AWS VPC and Subnet | A subnet with outbound internet access                                            |
-| Permissions        | Ability to create CloudFormation stacks, ECS resources, or Kubernetes deployments |
+| Item                | Details                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| Network             | A subnet/network with outbound internet access                         |
+| Deployment Platform | AWS ECS, Kubernetes (EKS, GKE, AKS, etc.), or other container platform |
+| Permissions         | Ability to create required resources on your chosen platform           |
 
 ## Creating an Executor Pool
 
 Before deploying, create a Pool in DataHub Cloud:
 
-1. Navigate to **Ingestion** in the left sidebar
+1. Navigate to **Data Sources** in the left sidebar
 2. Click the **Executors** tab
 3. Click **Create**
 
@@ -74,7 +75,7 @@ Before deploying, create a Pool in DataHub Cloud:
 4. Configure Pool settings:
    - **Pool Identifier**: A unique identifier for this Pool (you'll use this in deployment)
    - **Description**: Purpose or details about the Pool
-   - **Default Pool**: Optionally set as the Default Pool for new Ingestion Sources
+   - **Set as Default**: Enable this toggle to make this Pool the default for new Ingestion Sources
 
 <p align="center">
   <img width="85%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/configure-pool-modal.png?raw=true"/>
@@ -345,7 +346,7 @@ Once deployed, DataHub will show the executor status:
 
 After verifying your deployment:
 
-1. Navigate to **Ingestion** in DataHub Cloud
+1. Navigate to **Data Sources** in DataHub Cloud
 2. Edit an existing source or click **Create new source**
 3. In the **Finish Up** step, expand **Advanced**
 4. Select your **Executor Pool** from the dropdown
@@ -414,7 +415,7 @@ No. Secrets are injected at container startup. Restart the ECS task to pick up s
 
 **How do I upgrade the executor version?**
 
-Update the `ImageTag` parameter in CloudFormation or the Helm chart values, then redeploy.
+Update the `ImageTag` parameter (for ECS) or `image.tag` value (for Kubernetes), then redeploy. See [Update ECS Deployment](#update-ecs-deployment) for detailed steps.
 
 **Can I run multiple executors in the same Pool?**
 
