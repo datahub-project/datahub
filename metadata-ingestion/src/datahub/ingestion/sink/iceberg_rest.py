@@ -10,7 +10,6 @@ from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.exceptions import (
     NamespaceAlreadyExistsError,
-    NoSuchTableError,
     TableAlreadyExistsError,
 )
 from pyiceberg.partitioning import PartitionField, PartitionSpec
@@ -395,7 +394,7 @@ class IcebergRestSink(Sink[IcebergRestSinkConfig, IcebergRestSinkReport]):
 
         # Create table if it doesn't exist
         table_identifier = f"{self.config.namespace}.{self.config.table_name}"
-        
+
         schema = Schema(
             NestedField(1, "urn", StringType(), required=True),
             NestedField(2, "entity_type", StringType(), required=True),
