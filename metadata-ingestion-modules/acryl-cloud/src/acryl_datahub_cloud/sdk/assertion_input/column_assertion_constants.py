@@ -94,6 +94,7 @@ class ValueType(str, Enum):
 
     STRING = models.AssertionStdParameterTypeClass.STRING
     NUMBER = models.AssertionStdParameterTypeClass.NUMBER
+    SQL = models.AssertionStdParameterTypeClass.SQL
     UNKNOWN = models.AssertionStdParameterTypeClass.UNKNOWN
     # Note: LIST and SET are intentionally excluded as they are not yet supported
     # LIST = models.AssertionStdParameterTypeClass.LIST

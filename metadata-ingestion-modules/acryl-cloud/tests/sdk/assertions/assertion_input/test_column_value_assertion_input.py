@@ -7,6 +7,7 @@ import pytest
 from acryl_datahub_cloud.sdk.assertion_input.column_value_assertion_input import (
     FailThresholdType,
     FieldTransformType,
+    SqlExpression,
     _ColumnValueAssertionInput,
     _try_parse_fail_threshold_type,
     _try_parse_field_transform_type,
@@ -25,17 +26,13 @@ def stub_entity_client() -> StubEntityClient:
 class TestFailThresholdTypeParsing:
     """Tests for fail threshold type parsing."""
 
-    def test_parse_count_string(self) -> None:
-        result = _try_parse_fail_threshold_type("COUNT")
-        assert result == FailThresholdType.COUNT
+    def test_parse_count_case_insensitive(self) -> None:
+        assert _try_parse_fail_threshold_type("COUNT") == FailThresholdType.COUNT
+        assert _try_parse_fail_threshold_type("count") == FailThresholdType.COUNT
 
     def test_parse_percentage_string(self) -> None:
         result = _try_parse_fail_threshold_type("PERCENTAGE")
         assert result == FailThresholdType.PERCENTAGE
-
-    def test_parse_count_lowercase(self) -> None:
-        result = _try_parse_fail_threshold_type("count")
-        assert result == FailThresholdType.COUNT
 
     def test_parse_enum_value(self) -> None:
         result = _try_parse_fail_threshold_type(FailThresholdType.PERCENTAGE)
@@ -54,13 +51,15 @@ class TestFailThresholdTypeParsing:
 class TestFieldTransformTypeParsing:
     """Tests for field transform type parsing."""
 
-    def test_parse_length_string(self) -> None:
-        result = _try_parse_field_transform_type("LENGTH")
-        assert result == models.FieldTransformTypeClass.LENGTH
-
-    def test_parse_length_lowercase(self) -> None:
-        result = _try_parse_field_transform_type("length")
-        assert result == models.FieldTransformTypeClass.LENGTH
+    def test_parse_length_case_insensitive(self) -> None:
+        assert (
+            _try_parse_field_transform_type("LENGTH")
+            == models.FieldTransformTypeClass.LENGTH
+        )
+        assert (
+            _try_parse_field_transform_type("length")
+            == models.FieldTransformTypeClass.LENGTH
+        )
 
     def test_parse_enum_value(self) -> None:
         result = _try_parse_field_transform_type(FieldTransformType.LENGTH)
@@ -308,3 +307,93 @@ class TestColumnValueAssertionInput:
         assert isinstance(assertion_info, models.FieldAssertionInfoClass)
         assert assertion_info.fieldValuesAssertion is not None
         assert assertion_info.fieldValuesAssertion.excludeNulls is False
+
+
+class TestSqlExpression:
+    """Tests for SqlExpression class."""
+
+    def test_sql_expression_basic_creation(self) -> None:
+        sql = "SELECT id FROM valid_customers WHERE active = true"
+        expr = SqlExpression(sql)
+        assert expr.sql == sql
+
+    def test_sql_expression_empty_raises_error(self) -> None:
+        with pytest.raises(SDKUsageError) as exc_info:
+            SqlExpression("")
+        assert "cannot be empty" in str(exc_info.value)
+
+    def test_sql_expression_whitespace_only_raises_error(self) -> None:
+        with pytest.raises(SDKUsageError) as exc_info:
+            SqlExpression("   ")
+        assert "cannot be empty" in str(exc_info.value)
+
+
+class TestColumnValueAssertionInputWithSql:
+    """Tests for _ColumnValueAssertionInput with SQL expressions."""
+
+    @pytest.fixture
+    def base_params(self, stub_entity_client: StubEntityClient) -> dict:
+        """Base parameters for creating a column value assertion input."""
+        return {
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+            "entity_client": stub_entity_client,
+            "column_name": "string_column",
+            "operator": models.AssertionStdOperatorClass.IN,
+            "created_by": "urn:li:corpuser:test",
+            "created_at": datetime.now(timezone.utc),
+            "updated_by": "urn:li:corpuser:test",
+            "updated_at": datetime.now(timezone.utc),
+        }
+
+    def test_create_with_sql_expression(self, base_params: dict) -> None:
+        sql_expr = SqlExpression("SELECT id FROM valid_customers WHERE active = true")
+        base_params["criteria_parameters"] = sql_expr
+        input_obj = _ColumnValueAssertionInput(**base_params)
+
+        assert input_obj.criteria_parameters == sql_expr.sql
+        assert input_obj.criteria_type == models.AssertionStdParameterTypeClass.SQL
+
+    def test_sql_expression_with_no_parameter_operator_raises_error(
+        self, base_params: dict
+    ) -> None:
+        base_params.update(
+            {
+                "operator": models.AssertionStdOperatorClass.NULL,
+                "criteria_parameters": SqlExpression("SELECT id FROM customers"),
+            }
+        )
+        with pytest.raises(SDKUsageError) as exc_info:
+            _ColumnValueAssertionInput(**base_params)
+        assert "SQL expressions cannot be used with operator" in str(exc_info.value)
+
+    def test_sql_expression_with_range_operator_raises_error(
+        self, base_params: dict
+    ) -> None:
+        base_params.update(
+            {
+                "column_name": "number_column",
+                "operator": models.AssertionStdOperatorClass.BETWEEN,
+                "criteria_parameters": SqlExpression(
+                    "SELECT min_val, max_val FROM ranges"
+                ),
+            }
+        )
+        with pytest.raises(SDKUsageError) as exc_info:
+            _ColumnValueAssertionInput(**base_params)
+        assert "SQL expressions cannot be used with range operator" in str(
+            exc_info.value
+        )
+
+    def test_create_assertion_info_with_sql_expression(self, base_params: dict) -> None:
+        sql_expr = SqlExpression("SELECT id FROM valid_customers")
+        base_params["criteria_parameters"] = sql_expr
+        input_obj = _ColumnValueAssertionInput(**base_params)
+        assertion_info = input_obj._create_assertion_info(filter=None)
+
+        assert isinstance(assertion_info, models.FieldAssertionInfoClass)
+        assert assertion_info.fieldValuesAssertion is not None
+        params = assertion_info.fieldValuesAssertion.parameters
+        assert params is not None
+        assert params.value is not None
+        assert params.value.value == sql_expr.sql
+        assert params.value.type == models.AssertionStdParameterTypeClass.SQL

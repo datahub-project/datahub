@@ -10,6 +10,7 @@ Key differences from column_metric_assertion (FIELD_METRIC):
 - FIELD_VALUES: Validates each individual row value against an operator/predicate
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Union
@@ -72,10 +73,34 @@ class FieldTransformType(str, Enum):
 
 FailThresholdInputType = Union[FailThresholdType, str]
 FieldTransformInputType = Union[FieldTransformType, str, None]
+
+
+@dataclass(frozen=True)
+class SqlExpression:
+    """Wrapper class to mark a criteria parameter as a SQL expression.
+
+    Use this when you want to validate column values against a SQL query
+    that returns a list of valid values from a reference table.
+
+    Example:
+        criteria_parameters=SqlExpression("SELECT id FROM valid_customers WHERE active = true")
+    """
+
+    sql: str
+
+    def __post_init__(self) -> None:
+        if not self.sql or not self.sql.strip():
+            raise SDKUsageError("SQL expression cannot be empty")
+
+    def __str__(self) -> str:
+        return self.sql
+
+
 ColumnValueAssertionParameters = Union[
     None,  # For operators that don't require parameters (NULL, NOT_NULL)
     ValueInputType,  # Single value
     RangeInputType,  # Range as tuple
+    SqlExpression,  # SQL expression for reference table lookup
 ]
 
 # This represents the type information from existing GMS assertions:
@@ -386,6 +411,10 @@ class _ColumnValueAssertionInput(_AssertionInput):
         if criteria_parameters is None:
             return None
 
+        # SqlExpression has its own type handling, return None to defer to explicit handling
+        if isinstance(criteria_parameters, SqlExpression):
+            return None
+
         if isinstance(criteria_parameters, tuple):
             if len(criteria_parameters) != 2:
                 raise SDKUsageError(
@@ -414,6 +443,9 @@ class _ColumnValueAssertionInput(_AssertionInput):
         """Process criteria_parameters using explicit type information from GMS."""
         if criteria_parameters is None:
             self._process_none_parameters()
+        elif isinstance(criteria_parameters, SqlExpression):
+            # SQL expressions have their own type handling
+            self._process_sql_parameters(criteria_parameters)
         elif isinstance(criteria_parameters, tuple):
             # For range parameters, pass explicit types if available
             # gms_type_info format: ((min_val, max_val), (min_type, max_type))
@@ -449,6 +481,8 @@ class _ColumnValueAssertionInput(_AssertionInput):
         """Process the criteria_parameters with automatic type inference."""
         if criteria_parameters is None:
             self._process_none_parameters()
+        elif isinstance(criteria_parameters, SqlExpression):
+            self._process_sql_parameters(criteria_parameters)
         elif isinstance(criteria_parameters, tuple):
             self._process_range_parameters(criteria_parameters)
         else:
@@ -472,6 +506,36 @@ class _ColumnValueAssertionInput(_AssertionInput):
             )
         self.criteria_parameters = None
         self.criteria_type = None
+
+    def _validate_operator_for_sql(self) -> None:
+        """Validate that operator is compatible with SQL expressions.
+
+        Raises:
+            SDKUsageError: If the operator is incompatible with SQL expressions.
+        """
+        if self.operator in NO_PARAMETER_OPERATORS:
+            raise SDKUsageError(
+                f"SQL expressions cannot be used with operator {self.operator}. "
+                "SQL is only valid for operators that accept value parameters."
+            )
+        if self.operator in RANGE_OPERATORS:
+            raise SDKUsageError(
+                f"SQL expressions cannot be used with range operator {self.operator}. "
+                "Use a single value or list-based operator like IN instead."
+            )
+
+    def _process_sql_parameters(self, sql_expr: SqlExpression) -> None:
+        """Process SQL expression criteria parameter.
+
+        Args:
+            sql_expr: The SQL expression to use for validation.
+
+        Raises:
+            SDKUsageError: If the operator is incompatible with SQL expressions.
+        """
+        self._validate_operator_for_sql()
+        self.criteria_parameters = sql_expr.sql
+        self.criteria_type = models.AssertionStdParameterTypeClass.SQL
 
     def _process_range_parameters(
         self,

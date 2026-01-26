@@ -30,6 +30,7 @@ from acryl_datahub_cloud.sdk.assertion_input.column_value_assertion_input import
     ColumnValueAssertionParameters,
     FailThresholdType,
     FieldTransformInputType,
+    SqlExpression,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import (
@@ -163,6 +164,11 @@ class ColumnValueAssertion(
     def exclude_nulls(self) -> bool:
         return self._exclude_nulls
 
+    @property
+    def is_sql_criteria(self) -> bool:
+        """Returns True if criteria_parameters is an SQL expression."""
+        return isinstance(self._criteria_parameters, SqlExpression)
+
     @classmethod
     def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
         """
@@ -259,8 +265,21 @@ class ColumnValueAssertion(
             default=None,
         )
         if value_param is not None:
+            param_type = getattr(value_param, "type", None)
+            if param_type is None:
+                logger.warning(
+                    f"Parameter type is missing for assertion {assertion.urn}. "
+                    "Backend data may be incomplete. Treating as string parameter."
+                )
+            if param_type == models.AssertionStdParameterTypeClass.SQL:
+                sql_value = value_param.value
+                if not sql_value or not sql_value.strip():
+                    raise SDKUsageError(
+                        "SQL expression parameter is empty. Backend data may be corrupted."
+                    )
+                return SqlExpression(sql_value)
             return ColumnValueAssertion._convert_param_value(
-                value_param.value, getattr(value_param, "type", None)
+                value_param.value, param_type
             )
 
         # Then check for range parameters

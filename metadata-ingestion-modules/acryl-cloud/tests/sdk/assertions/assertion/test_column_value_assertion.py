@@ -12,6 +12,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_value_assertion_input import (
     FailThresholdType,
+    SqlExpression,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
@@ -172,3 +173,91 @@ class TestColumnValueAssertionWithRangeParameters:
         assert assertion.operator == models.AssertionStdOperatorClass.BETWEEN
         # Values are converted from strings to integers based on NUMBER type
         assert assertion.criteria_parameters == (0, 100)
+
+
+class TestColumnValueAssertionWithSqlParameters:
+    """Tests for ColumnValueAssertion with SQL expression parameters."""
+
+    @pytest.fixture
+    def sql_assertion_entity(self, any_assertion_urn: AssertionUrn) -> Assertion:
+        """Create an assertion entity with SQL expression parameters."""
+        return Assertion(
+            id=any_assertion_urn,
+            info=models.FieldAssertionInfoClass(
+                type=models.FieldAssertionTypeClass.FIELD_VALUES,
+                entity="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+                fieldValuesAssertion=models.FieldValuesAssertionClass(
+                    field=models.SchemaFieldSpecClass(
+                        path="string_column", type="STRING", nativeType="VARCHAR"
+                    ),
+                    operator=models.AssertionStdOperatorClass.IN,
+                    parameters=models.AssertionStdParametersClass(
+                        value=models.AssertionStdParameterClass(
+                            value="SELECT id FROM valid_customers WHERE active = true",
+                            type=models.AssertionStdParameterTypeClass.SQL,
+                        ),
+                    ),
+                    failThreshold=models.FieldValuesFailThresholdClass(
+                        type=models.FieldValuesFailThresholdTypeClass.COUNT,
+                        value=0,
+                    ),
+                    excludeNulls=True,
+                ),
+            ),
+            description="SQL Column Value Assertion",
+            source=models.AssertionSourceClass(
+                type=models.AssertionSourceTypeClass.NATIVE,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test",
+                    time=1609459200000,
+                ),
+            ),
+            last_updated=models.AuditStampClass(
+                actor="urn:li:corpuser:test",
+                time=1609545600000,
+            ),
+        )
+
+    def test_get_criteria_parameters_with_sql_type(
+        self, sql_assertion_entity: Assertion
+    ) -> None:
+        result = ColumnValueAssertion._get_criteria_parameters_with_type(
+            sql_assertion_entity
+        )
+        assert result is not None
+        assert result[0] == "SELECT id FROM valid_customers WHERE active = true"
+        assert result[1] == models.AssertionStdParameterTypeClass.SQL
+
+    def test_get_criteria_parameters_returns_sql_expression(
+        self, sql_assertion_entity: Assertion
+    ) -> None:
+        result = ColumnValueAssertion._get_criteria_parameters(sql_assertion_entity)
+        assert isinstance(result, SqlExpression)
+        assert result.sql == "SELECT id FROM valid_customers WHERE active = true"
+
+    def test_from_entities_with_sql_parameters(
+        self,
+        sql_assertion_entity: Assertion,
+        column_value_monitor_with_all_fields: Monitor,
+    ) -> None:
+        assertion = ColumnValueAssertion._from_entities(
+            sql_assertion_entity,
+            column_value_monitor_with_all_fields,
+        )
+
+        assert assertion.operator == models.AssertionStdOperatorClass.IN
+        assert isinstance(assertion.criteria_parameters, SqlExpression)
+        assert "SELECT id FROM valid_customers" in assertion.criteria_parameters.sql
+        assert assertion.is_sql_criteria is True
+
+    def test_is_sql_criteria_property_false_for_non_sql(
+        self,
+        column_value_assertion_entity_with_all_fields: Assertion,
+        column_value_monitor_with_all_fields: Monitor,
+    ) -> None:
+        assertion = ColumnValueAssertion._from_entities(
+            column_value_assertion_entity_with_all_fields,
+            column_value_monitor_with_all_fields,
+        )
+        # This assertion has a number parameter, not SQL
+        assert assertion.is_sql_criteria is False

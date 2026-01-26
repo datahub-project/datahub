@@ -32,6 +32,7 @@ from acryl_datahub_cloud.sdk.assertion_input.column_value_assertion_input import
     ColumnValueAssertionParameters,
     FailThresholdInputType,
     FieldTransformInputType,
+    SqlExpression,
     _ColumnValueAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion, TagsInputType
@@ -44,6 +45,26 @@ if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 logger = logging.getLogger(__name__)
+
+
+def _is_sql_type_from_backend(
+    gms_type_info: Optional[Union[models.AssertionStdParameterTypeClass, tuple]],
+    criteria_parameters: Optional[ColumnValueAssertionParameters],
+) -> bool:
+    """Check if backend type indicates SQL that needs wrapping in SqlExpression.
+
+    Backend stores SQL as (value: str, type: SQL) but SDK returns SqlExpression objects.
+    This helper determines when to wrap the raw string in SqlExpression.
+    """
+    if gms_type_info is None or criteria_parameters is None:
+        return False
+    if not isinstance(gms_type_info, tuple) or len(gms_type_info) < 2:
+        return False
+    if isinstance(gms_type_info[0], tuple):  # Range type, not single value
+        return False
+    if not isinstance(criteria_parameters, str):
+        return False
+    return gms_type_info[1] == models.AssertionStdParameterTypeClass.SQL
 
 
 class ColumnValueAssertionClient:
@@ -200,6 +221,14 @@ class ColumnValueAssertionClient:
                 criteria_parameters = self._extract_criteria_parameters(
                     field_values_assertion
                 )
+                # Check if it's an SQL type and wrap accordingly
+                gms_type_info = ColumnValueAssertion._get_criteria_parameters_with_type(
+                    maybe_assertion_entity
+                )
+                if _is_sql_type_from_backend(gms_type_info, criteria_parameters):
+                    # Type narrowing: _is_sql_type_from_backend validates it's a string
+                    assert isinstance(criteria_parameters, str)
+                    criteria_parameters = SqlExpression(criteria_parameters)
 
         gms_criteria_type_info = (
             ColumnValueAssertion._get_criteria_parameters_with_type(

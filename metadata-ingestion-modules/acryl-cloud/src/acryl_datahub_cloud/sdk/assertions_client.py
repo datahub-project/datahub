@@ -464,7 +464,7 @@ class AssertionsClient:
                 dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
                 column_name="email",
                 operator="regex_match",
-                criteria_parameters=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                criteria_parameters=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
             )
 
             # Validate quantity is positive with 5% failure tolerance
@@ -488,6 +488,15 @@ class AssertionsClient:
                 schedule="0 */6 * * *"
             )
 
+            # SQL expression for validating against a reference table
+            from acryl_datahub_cloud.sdk import SqlExpression
+            client.assertions.sync_column_value_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="customer_id",
+                operator="IN",
+                criteria_parameters=SqlExpression("SELECT id FROM valid_customers WHERE active = true"),
+            )
+
         Args:
             dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
             column_name (Optional[str]): The name of the column to validate. Required for creation, optional for updates.
@@ -502,6 +511,7 @@ class AssertionsClient:
                 - Range operators (BETWEEN): pass a tuple of two values (min_value, max_value)
                 - List operators (IN, NOT_IN): pass a list of values
                 - No parameter operators (NOT_NULL, NULL): pass None or omit this parameter
+                - SQL expression: pass SqlExpression("SELECT ...") to validate against a SQL query result
             transform (Optional[FieldTransformInputType]): Optional transform to apply to field values before evaluation.
                 Currently only "length" or "LENGTH" is supported, and only for STRING columns.
             fail_threshold_type (Optional[FailThresholdInputType]): The type of failure threshold. Valid values are:

@@ -7,9 +7,11 @@ from acryl_datahub_cloud.sdk.assertion.column_value_assertion import (
 )
 from acryl_datahub_cloud.sdk.assertion_client.column_value import (
     ColumnValueAssertionClient,
+    _is_sql_type_from_backend,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_value_assertion_input import (
     FailThresholdType,
+    SqlExpression,
 )
 from acryl_datahub_cloud.sdk.errors import SDKUsageError
 from datahub.metadata import schema_classes as models
@@ -366,3 +368,102 @@ class TestColumnValueAssertionClientValidation:
                 updated_by="urn:li:corpuser:test",
             )
         assert "must be non-negative" in str(exc_info.value)
+
+
+class TestIsSqlTypeFromBackend:
+    """Tests for _is_sql_type_from_backend helper function."""
+
+    def test_returns_true_for_sql_type(self) -> None:
+        gms_type_info = (
+            "SELECT id FROM customers",
+            models.AssertionStdParameterTypeClass.SQL,
+        )
+        criteria_parameters = "SELECT id FROM customers"
+        assert _is_sql_type_from_backend(gms_type_info, criteria_parameters) is True
+
+    def test_returns_false_for_none_gms_type(self) -> None:
+        assert _is_sql_type_from_backend(None, "some value") is False
+
+    def test_returns_false_for_none_criteria_parameters(self) -> None:
+        gms_type_info = ("value", models.AssertionStdParameterTypeClass.STRING)
+        assert _is_sql_type_from_backend(gms_type_info, None) is False
+
+    def test_returns_false_for_range_type(self) -> None:
+        # Range type has nested tuples: ((min, max), (min_type, max_type))
+        gms_type_info = (
+            ("0", "100"),
+            (
+                models.AssertionStdParameterTypeClass.NUMBER,
+                models.AssertionStdParameterTypeClass.NUMBER,
+            ),
+        )
+        assert _is_sql_type_from_backend(gms_type_info, (0, 100)) is False
+
+    def test_returns_false_for_non_sql_type(self) -> None:
+        gms_type_info = (
+            "just a string",
+            models.AssertionStdParameterTypeClass.STRING,
+        )
+        assert _is_sql_type_from_backend(gms_type_info, "just a string") is False
+
+
+class TestColumnValueAssertionClientWithSql:
+    """Tests for creating column value assertions with SQL expressions."""
+
+    @pytest.fixture
+    def stub_datahub_client(self) -> StubDataHubClient:
+        return StubDataHubClient(entity_client=StubEntityClient())
+
+    @pytest.fixture
+    def client(
+        self, stub_datahub_client: StubDataHubClient
+    ) -> ColumnValueAssertionClient:
+        return ColumnValueAssertionClient(stub_datahub_client)  # type: ignore[arg-type]
+
+    def test_create_assertion_with_sql_expression(
+        self, client: ColumnValueAssertionClient
+    ) -> None:
+        sql_expr = SqlExpression("SELECT id FROM valid_customers WHERE active = true")
+        result = client.sync_column_value_assertion(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+            column_name="string_column",
+            operator=models.AssertionStdOperatorClass.IN,
+            criteria_parameters=sql_expr,
+            updated_by="urn:li:corpuser:test",
+        )
+
+        assert isinstance(result, ColumnValueAssertion)
+        assert result.column_name == "string_column"
+        assert result.operator == models.AssertionStdOperatorClass.IN
+        # When reading back from entities, SQL parameters are wrapped in SqlExpression
+        assert isinstance(result.criteria_parameters, SqlExpression)
+        assert result.criteria_parameters.sql == sql_expr.sql
+        assert result.is_sql_criteria is True
+
+    def test_sql_expression_invalid_with_null_operator(
+        self, client: ColumnValueAssertionClient
+    ) -> None:
+        with pytest.raises(SDKUsageError) as exc_info:
+            client.sync_column_value_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+                column_name="string_column",
+                operator=models.AssertionStdOperatorClass.NULL,
+                criteria_parameters=SqlExpression("SELECT id FROM customers"),
+                updated_by="urn:li:corpuser:test",
+            )
+        assert "SQL expressions cannot be used" in str(exc_info.value)
+
+    def test_sql_expression_invalid_with_between_operator(
+        self, client: ColumnValueAssertionClient
+    ) -> None:
+        with pytest.raises(SDKUsageError) as exc_info:
+            client.sync_column_value_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+                column_name="number_column",
+                operator=models.AssertionStdOperatorClass.BETWEEN,
+                criteria_parameters=SqlExpression("SELECT val FROM range_table"),
+                updated_by="urn:li:corpuser:test",
+            )
+        assert "SQL expressions cannot be used with range operator" in str(
+            exc_info.value
+        )

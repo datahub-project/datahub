@@ -8,6 +8,10 @@ Column value assertions validate individual row values in a column.
 import logging
 from typing import Any
 
+import pytest
+from acryl_datahub_cloud.sdk import SqlExpression
+from acryl_datahub_cloud.sdk.errors import SDKUsageError
+
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from tests.assertions.sdk.helpers import (
@@ -489,3 +493,94 @@ def test_column_value_assertion_update_preserves_fields(
     finally:
         if assertion_urn:
             cleanup_assertion(graph_client, assertion_urn)
+
+
+def test_column_value_assertion_sql_expression(
+    test_data: Any, graph_client: DataHubGraph, datahub_client: DataHubClient
+) -> None:
+    """Test column value assertion with SQL expression criteria.
+
+    Real-world use case: validate customer_id exists in a reference table of valid customers.
+    """
+    test_id = generate_unique_test_id()
+    assertion_urn = None
+
+    try:
+        assertion = datahub_client.assertions.sync_column_value_assertion(
+            dataset_urn=test_data,
+            display_name=f"Valid Customer Check {test_id}",
+            column_name="user_id",
+            operator="IN",
+            criteria_parameters=SqlExpression(
+                "SELECT id FROM valid_customers WHERE active = true"
+            ),
+            fail_threshold_type="COUNT",
+            fail_threshold_value=0,
+            schedule="0 * * * *",
+        )
+
+        assertion_urn = str(assertion.urn)
+        assert assertion_urn
+        logger.info(f"Created SQL expression assertion: {assertion_urn}")
+
+        wait_for_assertion_sync()
+
+        # Verify creation via GraphQL
+        fetched = get_assertion_by_urn(graph_client, test_data, assertion_urn)
+        assert fetched is not None
+        assert fetched["info"]["type"] == "FIELD"
+        assert (
+            fetched["info"]["fieldAssertion"]["fieldValuesAssertion"]["operator"]
+            == "IN"
+        )
+
+        # Verify parameter type is SQL
+        params = get_nested_value(
+            fetched, "info.fieldAssertion.fieldValuesAssertion.parameters"
+        )
+        assert params is not None
+        param_type = get_nested_value(params, "value.type")
+        assert param_type == "SQL", f"Expected parameter type SQL, got {param_type}"
+
+        # Verify SQL value is preserved
+        param_value = get_nested_value(params, "value.value")
+        assert "SELECT" in param_value
+        assert "valid_customers" in param_value
+
+        # Verify SDK return object has SqlExpression
+        assert isinstance(assertion.criteria_parameters, SqlExpression)
+        assert "SELECT" in assertion.criteria_parameters.sql
+        assert assertion.is_sql_criteria is True
+
+    finally:
+        if assertion_urn:
+            cleanup_assertion(graph_client, assertion_urn)
+
+
+def test_column_value_assertion_sql_expression_invalid_operator(
+    test_data: Any, graph_client: DataHubGraph, datahub_client: DataHubClient
+) -> None:
+    """Test that SQL expression cannot be used with NULL operator.
+
+    SQL expressions are only valid for operators that accept value parameters,
+    not for no-parameter operators like NULL, NOT_NULL, IS_TRUE, IS_FALSE.
+    """
+    test_id = generate_unique_test_id()
+
+    # Should raise SDKUsageError when using SQL with NULL operator
+    with pytest.raises(SDKUsageError) as exc_info:
+        datahub_client.assertions.sync_column_value_assertion(
+            dataset_urn=test_data,
+            display_name=f"Invalid SQL Test {test_id}",
+            column_name="user_id",
+            operator="NULL",  # NULL doesn't accept parameters
+            criteria_parameters=SqlExpression("SELECT id FROM valid_customers"),
+            schedule="0 * * * *",
+        )
+
+    # Verify error message mentions SQL and operator incompatibility
+    error_message = str(exc_info.value).lower()
+    assert "sql" in error_message or "operator" in error_message
+    logger.info(
+        f"Correctly rejected SQL expression with NULL operator: {exc_info.value}"
+    )
