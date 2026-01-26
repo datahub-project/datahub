@@ -103,7 +103,6 @@ class SemanticViewsConfig(ConfigModel):
         description="If enabled, column-level lineage will be generated for semantic views, mapping dimensions, facts, and metrics to their source columns in base tables. Only applicable when enabled is True.",
     )
 
-    # Phase 1: Usage Statistics
     include_usage: bool = Field(
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
