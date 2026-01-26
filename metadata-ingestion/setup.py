@@ -457,6 +457,11 @@ unstructured_lib = {
     *embedding_common,
 }
 
+notion_common = {
+    # Notion-specific connector adds notion-client and related dependencies
+    "unstructured-ingest[notion]==0.7.2",
+} | unstructured_lib
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -683,6 +688,8 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
+    "notion": notion_common,
+    "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
     | databricks_common
@@ -872,6 +879,8 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+    # Include unstructured for testing datahub-documents source
+    *unstructured_lib,
 }
 
 # Documentation generation requirements
@@ -1000,6 +1009,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",

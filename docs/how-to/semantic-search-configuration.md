@@ -294,11 +294,31 @@ For detailed configuration options and advanced features (event-driven mode, pla
 
 For documents from external systems like Notion or Confluence, use the respective ingestion sources that support semantic search:
 
-- **Notion**: Coming soon
+- **Notion**: [Notion Source](../generated/ingestion/sources/notion.md) - Ingest pages, databases, and hierarchical content with embeddings
 - **Confluence**: Coming soon
 - **SharePoint**: Coming soon
 
-Each external source will handle fetching, chunking, and embedding generation specific to that platform's document format.
+Each external source handles fetching, chunking, and embedding generation specific to that platform's document format.
+
+#### Notion Example
+
+The Notion source automatically fetches embedding configuration from your DataHub server, so you only need to specify your Notion credentials:
+
+```yaml
+source:
+  type: notion
+  config:
+    api_key: "${NOTION_API_KEY}"
+    page_ids:
+      - "your-page-id-here"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+```
+
+For complete configuration options including custom embedding providers and chunking strategies, see the [Notion Source documentation](../generated/ingestion/sources/notion.md).
 
 ## Usage
 

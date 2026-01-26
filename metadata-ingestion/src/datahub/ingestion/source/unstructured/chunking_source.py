@@ -17,8 +17,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-import litellm
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -279,12 +277,22 @@ class DocumentChunkingSource(Source):
                 "No embedding provider configured - skipping embedding generation"
             )
         else:
+            try:
+                import litellm  # Lazy import to avoid ModuleNotFoundError during tests
+            except ModuleNotFoundError:
+                # litellm not installed - will fail later if embeddings are actually generated
+                logger.debug(
+                    "litellm not installed - embedding generation will fail if attempted"
+                )
+                litellm = None  # type: ignore
+
             # Initialize embedding model name for litellm
             if self.config.embedding.provider == "bedrock":
                 # Prefix with bedrock/ for litellm
                 assert self.config.embedding.model is not None
                 self.embedding_model = f"bedrock/{self.config.embedding.model}"
-                litellm.set_verbose = False  # Reduce litellm logging
+                if litellm is not None:
+                    litellm.set_verbose = False  # Reduce litellm logging
             elif self.config.embedding.provider == "cohere":
                 # Prefix with cohere/ for litellm
                 model_name = self.config.embedding.model
@@ -792,6 +800,14 @@ class DocumentChunkingSource(Source):
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
         """Generate embeddings using litellm (supports Bedrock and Cohere)."""
+        try:
+            import litellm
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(
+                "litellm is required for embedding generation. "
+                "Install with: pip install 'acryl-datahub[unstructured-embedding]'"
+            ) from e
+
         # Extract text from chunks
         texts = [chunk.get("text", "") for chunk in chunks]
 
