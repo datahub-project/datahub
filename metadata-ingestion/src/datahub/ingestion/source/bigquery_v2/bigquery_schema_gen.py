@@ -565,23 +565,20 @@ class BigQuerySchemaGenerator:
                         self.report.num_sharded_tables_deduped += 1
                         continue
 
-                    # First occurrence of this base table
+                    # First occurrence of this base table - record it and continue with this shard
                     seen_base_tables.add(base_name)
                     self.report.num_sharded_tables_scanned += 1
                     logger.debug(
                         f"Processing sharded table base {project_id}.{dataset_name}.{base_name} "
-                        f"(from shard {table_id})"
+                        f"(using shard {table_id} as representative)"
                     )
-
-                    # Use base name for identifier
-                    table_id = (
-                        base_name + BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX
-                    )
+                    # Use the actual shard's table_id (not a synthetic suffix)
+                    # This matches the behavior of get_core_table_details()
 
                 identifier = BigqueryTableIdentifier(
                     project_id=project_id,
                     dataset=dataset_name,
-                    table=table_id,
+                    table=table_id,  # Use actual shard ID, respects configured pattern
                 )
 
                 logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
