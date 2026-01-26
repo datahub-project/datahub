@@ -971,17 +971,14 @@ def _column_level_lineage(
     )
 
     joins: Optional[List[_JoinInfo]] = None
-    if get_sql_agg_skip_joins():
-        logger.info("Skipping join processing in column-level lineage")
-    else:
-        logger.info("Processing join clauses in column-level lineage")
+    if not get_sql_agg_skip_joins():
         try:
             joins = _list_joins(dialect=dialect, root_scope=root_scope)
             if logger.getEffectiveLevel() <= logging.DEBUG:
                 logger.debug("Joins: %s", joins)
         except Exception as e:
             # This is a non-fatal error, so we can continue.
-            logger.error("Failed to list joins: %s", e)
+            logger.debug("Failed to list joins: %s", e)
 
     return _ColumnLineageWithDebugInfo(
         column_lineage=column_lineage,

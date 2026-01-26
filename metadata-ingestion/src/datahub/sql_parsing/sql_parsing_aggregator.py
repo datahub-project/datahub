@@ -13,7 +13,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.env_vars import get_sql_agg_query_log
+from datahub.configuration.env_vars import get_sql_agg_query_log, get_sql_agg_skip_joins
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -478,6 +478,12 @@ class SqlParsingAggregator(Closeable):
         self._missing_session_schema_resolver = _SchemaResolverWithExtras(
             base_resolver=self._schema_resolver, extra_schemas={}
         )
+
+        # Log join processing configuration
+        if get_sql_agg_skip_joins():
+            logger.info("Skipping join processing in column-level lineage")
+        else:
+            logger.info("Processing join clauses in column-level lineage")
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
