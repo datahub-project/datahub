@@ -45,8 +45,15 @@ def test_invalid_status_code():
 def test_missing_trace_header():
     """Test that missing trace header returns None"""
     response = create_response(status_code=200, headers={}, json_data=[])
+    result = extract_trace_data(response)
+    assert result is None
+
+
+def test_missing_trace_header_warns_when_requested():
+    """Test that missing trace header warns when warn_on_missing=True"""
+    response = create_response(status_code=200, headers={}, json_data=[])
     with pytest.warns(APITracingWarning):
-        result = extract_trace_data(response)
+        result = extract_trace_data(response, warn_on_missing=True)
     assert result is None
 
 
@@ -165,8 +172,16 @@ def test_mcps_missing_trace_header():
     """Test that missing trace header returns None for MCPs"""
     response = create_response(status_code=200, headers={}, json_data=[])
     mcps = [create_mcp("urn:test:1", "testAspect")]
+    result = extract_trace_data_from_mcps(response, mcps)
+    assert result is None
+
+
+def test_mcps_missing_trace_header_warns_when_requested():
+    """Test that missing trace header warns when warn_on_missing=True for MCPs"""
+    response = create_response(status_code=200, headers={}, json_data=[])
+    mcps = [create_mcp("urn:test:1", "testAspect")]
     with pytest.warns(APITracingWarning):
-        result = extract_trace_data_from_mcps(response, mcps)
+        result = extract_trace_data_from_mcps(response, mcps, warn_on_missing=True)
     assert result is None
 
 
