@@ -392,7 +392,7 @@ The following can be configured per Ingestion Source under **Extra Environment V
 
 1. **Connection Failed**
 
-   Example logs: `Received error while fetching executor_configs from GMS!`, `Failed to find credentials for queue_id`
+   Example logs: `Received error while fetching executor_configs from GMS!`, `Failed to find credentials for queue_id = [QUEUE_ID]`
 
    - Verify network connectivity (outbound HTTPS to `*.acryl.io`)
    - Check DataHub URL includes `/gms` suffix
