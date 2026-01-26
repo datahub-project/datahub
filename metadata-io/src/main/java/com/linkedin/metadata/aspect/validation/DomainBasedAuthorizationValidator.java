@@ -62,12 +62,11 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
 
     AuthorizationSession session = retrieverContext.getAuthorizationSession();
 
+    // Skip domain-based authorization if no session (e.g., system/ingestion operations)
     if (session == null) {
-      log.warn("DomainBasedAuthorizationValidator: No authentication session provided");
-      return Stream.of(
-          AspectValidationException.forAuth(
-              changeMCPs.stream().findFirst().orElse(null),
-              "No authentication details found, cannot authorize change."));
+      log.debug(
+          "DomainBasedAuthorizationValidator: No authentication session provided, skipping domain-based authorization");
+      return Stream.empty();
     }
 
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
