@@ -5,7 +5,6 @@ from json import JSONDecodeError
 from typing import Dict, List, Literal, Optional, Tuple
 from urllib.parse import urlparse
 
-import dateutil.parser
 import requests
 from pydantic import Field, model_validator
 
@@ -34,12 +33,13 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
-    DBTFreshnessCriteria,
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    _parse_freshness_criteria,
 )
 
 logger = logging.getLogger(__name__)
@@ -799,34 +799,21 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         if resource_type == "source":
             max_loaded_at_str = node["maxLoadedAt"]
             if max_loaded_at_str:
-                max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
+                max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
             freshness_state = node.get("state")
             if freshness_state and node.get("freshnessChecked"):
                 snapshotted_at_str = node.get("snapshottedAt")
+                snapshotted_at = (
+                    parse_dbt_timestamp(snapshotted_at_str)
+                    if snapshotted_at_str
+                    else None
+                )
                 criteria = node.get("criteria", {})
-
-                snapshotted_at = None
-                if snapshotted_at_str:
-                    snapshotted_at = dateutil.parser.parse(snapshotted_at_str)
-
-                warn_after = None
-                warn_after_data = criteria.get("warnAfter") if criteria else None
-                if warn_after_data:
-                    warn_after = DBTFreshnessCriteria(
-                        count=warn_after_data.get("count", 0),
-                        period=warn_after_data.get("period", "hour"),
-                    )
-
-                error_after = None
-                error_after_data = criteria.get("errorAfter") if criteria else None
-                if error_after_data:
-                    error_after = DBTFreshnessCriteria(
-                        count=error_after_data.get("count", 0),
-                        period=error_after_data.get("period", "hour"),
-                    )
+                warn_after = _parse_freshness_criteria(criteria.get("warnAfter"))
+                error_after = _parse_freshness_criteria(criteria.get("errorAfter"))
 
                 if max_loaded_at and snapshotted_at:
                     freshness_info = DBTFreshnessInfo(

@@ -3990,24 +3990,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.actor",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "12",
+                "warn_after_period": "hour",
+                "error_after_count": "24",
+                "error_after_period": "hour"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
             }
         }
     },
@@ -4075,24 +4072,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.address",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "12",
+                "warn_after_period": "hour",
+                "error_after_count": "24",
+                "error_after_period": "hour"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)"
             }
         }
     },
@@ -4160,24 +4154,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.category",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "12",
+                "warn_after_period": "hour",
+                "error_after_count": "24",
+                "error_after_period": "hour"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)"
             }
         }
     },
@@ -4245,24 +4236,19 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.city",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "error_after_count": "1",
+                "error_after_period": "day"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "DAY",
-                        "multiple": 1
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)"
             }
         }
     },
@@ -4330,24 +4316,19 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.country",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "30",
+                "warn_after_period": "minute"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "MINUTE",
-                        "multiple": 30
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)"
             }
         }
     },
@@ -4415,24 +4396,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.customer",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "1",
+                "warn_after_period": "day",
+                "error_after_count": "2",
+                "error_after_period": "day"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "DAY",
-                        "multiple": 2
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)"
             }
         }
     },
@@ -4500,24 +4478,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_01",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "3",
+                "warn_after_period": "day",
+                "error_after_count": "7",
+                "error_after_period": "day"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "DAY",
-                        "multiple": 7
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)"
             }
         }
     },
@@ -4585,24 +4560,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_02",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "12",
+                "warn_after_period": "hour",
+                "error_after_count": "24",
+                "error_after_period": "hour"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)"
             }
         }
     },
@@ -4670,24 +4642,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_03",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "12",
+                "warn_after_period": "hour",
+                "error_after_count": "24",
+                "error_after_period": "hour"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)"
             }
         }
     },
@@ -4755,24 +4724,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_04",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "12",
+                "warn_after_period": "hour",
+                "error_after_count": "24",
+                "error_after_period": "hour"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)"
             }
         }
     },
@@ -4840,24 +4806,21 @@
         "json": {
             "customProperties": {
                 "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_05",
-                "dbt_freshness_test": "true",
                 "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                 "manifest_version": "0.19.1",
                 "manifest_adapter": "postgres",
                 "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                "catalog_version": "0.19.1"
+                "catalog_version": "0.19.1",
+                "dbt_freshness_test": "true",
+                "warn_after_count": "12",
+                "warn_after_period": "hour",
+                "error_after_count": "24",
+                "error_after_period": "hour"
             },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Freshness",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)"
             }
         }
     },

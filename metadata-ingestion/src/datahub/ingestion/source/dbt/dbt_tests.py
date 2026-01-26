@@ -1,5 +1,4 @@
 import json
-import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -19,20 +18,13 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
-    CalendarIntervalClass,
+    CustomAssertionInfoClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
-    FixedIntervalScheduleClass,
-    FreshnessAssertionInfoClass,
-    FreshnessAssertionScheduleClass,
-    FreshnessAssertionScheduleTypeClass,
-    FreshnessAssertionTypeClass,
 )
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.dbt.dbt_common import DBTNode
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -62,15 +54,6 @@ class DBTFreshnessCriteria:
     count: int
     period: str  # minute, hour, day
 
-    def to_calendar_interval(self) -> str:
-        """Convert dbt period to CalendarIntervalClass string"""
-        period_map = {
-            "minute": CalendarIntervalClass.MINUTE,
-            "hour": CalendarIntervalClass.HOUR,
-            "day": CalendarIntervalClass.DAY,
-        }
-        return period_map.get(self.period, CalendarIntervalClass.HOUR)
-
 
 @dataclass
 class DBTFreshnessInfo:
@@ -83,6 +66,16 @@ class DBTFreshnessInfo:
     max_loaded_at_time_ago_in_s: float
     warn_after: Optional[DBTFreshnessCriteria]
     error_after: Optional[DBTFreshnessCriteria]
+
+
+def _parse_freshness_criteria(data: Optional[Dict]) -> Optional[DBTFreshnessCriteria]:
+    """Parse warn_after or error_after criteria dict into DBTFreshnessCriteria."""
+    if not data:
+        return None
+    return DBTFreshnessCriteria(
+        count=data.get("count", 0),
+        period=data.get("period", "hour"),
+    )
 
 
 def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
@@ -315,29 +308,22 @@ def make_assertion_from_freshness(
     assert node.freshness_info
     freshness_info = node.freshness_info
 
-    # Prefer error_after, fall back to warn_after
-    criteria = freshness_info.error_after or freshness_info.warn_after
-    assert criteria  # At least one of error_after/warn_after must be set
+    assert (
+        freshness_info.error_after or freshness_info.warn_after
+    )  # At least one of error_after/warn_after must be set
 
-    schedule = FreshnessAssertionScheduleClass(
-        type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
-        fixedInterval=FixedIntervalScheduleClass(
-            unit=criteria.to_calendar_interval(),
-            multiple=criteria.count,
-        ),
-    )
+    custom_props = {**extra_custom_props, "dbt_freshness_test": "true"}
+    if freshness_info.warn_after:
+        custom_props["warn_after_count"] = str(freshness_info.warn_after.count)
+        custom_props["warn_after_period"] = freshness_info.warn_after.period
+    if freshness_info.error_after:
+        custom_props["error_after_count"] = str(freshness_info.error_after.count)
+        custom_props["error_after_period"] = freshness_info.error_after.period
 
     assertion_info = AssertionInfoClass(
-        type=AssertionTypeClass.FRESHNESS,
-        customProperties={
-            **extra_custom_props,
-            "dbt_freshness_test": "true",
-        },
-        freshnessAssertion=FreshnessAssertionInfoClass(
-            type=FreshnessAssertionTypeClass.DATASET_CHANGE,
-            entity=upstream_urn,
-            schedule=schedule,
-        ),
+        type=AssertionTypeClass.CUSTOM,
+        customProperties=custom_props,
+        customAssertion=CustomAssertionInfoClass(type="Freshness", entity=upstream_urn),
     )
 
     return MetadataChangeProposalWrapper(

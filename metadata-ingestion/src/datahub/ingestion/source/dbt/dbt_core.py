@@ -2,11 +2,9 @@ import dataclasses
 import json
 import logging
 import re
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-import dateutil.parser
 import requests
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -36,12 +34,13 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
-    DBTFreshnessCriteria,
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    _parse_freshness_criteria,
 )
 
 logger = logging.getLogger(__name__)
@@ -268,22 +267,8 @@ def extract_dbt_entities(
                 parse_dbt_timestamp(snapshotted_at_str) if snapshotted_at_str else None
             )
             criteria = source_result.get("criteria", {})
-
-            warn_after_data = criteria.get("warn_after")
-            warn_after = None
-            if warn_after_data:
-                warn_after = DBTFreshnessCriteria(
-                    count=warn_after_data.get("count", 0),
-                    period=warn_after_data.get("period", "hour"),
-                )
-
-            error_after_data = criteria.get("error_after")
-            error_after = None
-            if error_after_data:
-                error_after = DBTFreshnessCriteria(
-                    count=error_after_data.get("count", 0),
-                    period=error_after_data.get("period", "hour"),
-                )
+            warn_after = _parse_freshness_criteria(criteria.get("warn_after"))
+            error_after = _parse_freshness_criteria(criteria.get("error_after"))
 
             if max_loaded_at and snapshotted_at:
                 freshness_info = DBTFreshnessInfo(
@@ -372,10 +357,6 @@ def extract_dbt_entities(
         dbt_entities.append(dbtNode)
 
     return dbt_entities
-
-
-def parse_dbt_timestamp(timestamp: str) -> datetime:
-    return dateutil.parser.parse(timestamp)
 
 
 class DBTRunTiming(BaseModel):

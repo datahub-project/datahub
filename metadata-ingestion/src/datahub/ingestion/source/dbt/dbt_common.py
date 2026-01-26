@@ -16,6 +16,7 @@ from typing import (
     Union,
 )
 
+import dateutil.parser
 import more_itertools
 import pydantic
 from pydantic import field_validator, model_validator
@@ -179,6 +180,10 @@ _SV_DERIVED_METRIC_RE = re.compile(
 _SV_TABLE_METRIC_REF_RE = re.compile(
     rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}", re.IGNORECASE
 )
+
+
+def parse_dbt_timestamp(timestamp: str) -> datetime:
+    return dateutil.parser.parse(timestamp)
 
 
 def _add_cll_entry(
@@ -1230,7 +1235,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             custom_props = {
                 "dbt_unique_id": node.dbt_name,
-                "dbt_freshness_test": "true",
                 **extra_custom_props,
             }
 
@@ -1241,9 +1245,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     assertion_urn,
                     upstream_urn,
                 )
-                if assertion_mcp is None:
-                    # No criteria found, skip this source's freshness assertion
-                    continue
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=assertion_urn,

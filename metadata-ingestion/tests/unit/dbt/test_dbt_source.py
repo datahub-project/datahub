@@ -34,8 +34,7 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionTypeClass,
-    CalendarIntervalClass,
-    FreshnessAssertionTypeClass,
+    CustomAssertionInfoClass,
     OwnerClass,
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
@@ -1711,21 +1710,6 @@ def test_semantic_view_cll_empty_results() -> None:
     assert len(cll_info) == 0
 
 
-def test_freshness_criteria_to_calendar_interval() -> None:
-    assert (
-        DBTFreshnessCriteria(count=30, period="minute").to_calendar_interval()
-        == CalendarIntervalClass.MINUTE
-    )
-    assert (
-        DBTFreshnessCriteria(count=12, period="hour").to_calendar_interval()
-        == CalendarIntervalClass.HOUR
-    )
-    assert (
-        DBTFreshnessCriteria(count=2, period="day").to_calendar_interval()
-        == CalendarIntervalClass.DAY
-    )
-
-
 def test_make_assertion_from_freshness() -> None:
     node = DBTNode(
         database="raw_db",
@@ -1763,17 +1747,15 @@ def test_make_assertion_from_freshness() -> None:
 
     assert mcp.aspect is not None
     assert isinstance(mcp.aspect, AssertionInfoClass)
-    assert mcp.aspect.type == AssertionTypeClass.FRESHNESS
-    assert mcp.aspect.freshnessAssertion is not None
-    assert (
-        mcp.aspect.freshnessAssertion.type == FreshnessAssertionTypeClass.DATASET_CHANGE
-    )
-    assert mcp.aspect.freshnessAssertion.schedule.fixedInterval is not None
-    assert mcp.aspect.freshnessAssertion.schedule.fixedInterval.multiple == 24
-    assert (
-        mcp.aspect.freshnessAssertion.schedule.fixedInterval.unit
-        == CalendarIntervalClass.HOUR
-    )
+    assert mcp.aspect.type == AssertionTypeClass.CUSTOM
+    assert mcp.aspect.customAssertion is not None
+    assert isinstance(mcp.aspect.customAssertion, CustomAssertionInfoClass)
+    assert mcp.aspect.customAssertion.type == "Freshness"
+    assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
+    # Verify custom properties contain schedule info
+    assert mcp.aspect.customProperties is not None
+    assert mcp.aspect.customProperties.get("error_after_count") == "24"
+    assert mcp.aspect.customProperties.get("warn_after_count") == "12"
 
 
 @pytest.mark.parametrize(
