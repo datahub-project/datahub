@@ -644,10 +644,11 @@ plugins: Dict[str, Set[str]] = {
     },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
+    "starrocks": sql_common | {"starrocks>=1.3.3,<2.0"},
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"lark[regex]==1.1.4", "sqlparse<1.0.0", "more-itertools<11.0.0"}
+        | {"lark[regex]>=1.1.4,<2.0", "sqlparse<1.0.0", "more-itertools<11.0.0"}
         | sqlglot_lib
         | threading_timeout_common
     ),
@@ -874,6 +875,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
+            "starrocks",
             "vertica",
             "vertexai",
         ]
@@ -949,6 +951,7 @@ entry_points = {
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
+        "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",

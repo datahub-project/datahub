@@ -32,6 +32,14 @@
         "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:starrocks",
+        "name": "starrocks",
+        "displayName": "StarRocks",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from StarRocks.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/starrocks/",
+        "recipe": "source: \n    type: starrocks\n    config: \n        # Coordinates\n        host_port: # Your StarRocks host and port, e.g. starrocks:9030\n        database: # Your StarRocks database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your StarRocks username, e.g. root\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:databricks",
         "name": "databricks",
         "displayName": "Databricks",
