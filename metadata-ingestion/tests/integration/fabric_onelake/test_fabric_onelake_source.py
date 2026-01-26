@@ -19,6 +19,7 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricWorkspace,
 )
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2024-01-15 12:00:00"
 
@@ -83,7 +84,7 @@ def test_fabric_onelake_workspace_ingestion() -> None:
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_fabric_onelake_lakehouse_with_tables() -> None:
+def test_fabric_onelake_lakehouse_with_tables(pytestconfig: pytest.Config) -> None:
     """Test ingestion of a lakehouse with tables."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
         output_file = tmp.name
@@ -151,12 +152,17 @@ def test_fabric_onelake_lakehouse_with_tables() -> None:
             pipeline.run()
             pipeline.raise_from_status()
 
-            # Verify output file was created
-            assert Path(output_file).exists()
-            with open(output_file) as f:
-                data = json.load(f)
-                # Should contain workspace, lakehouse, schema, and table entities
-                assert len(data) > 0
+            # Validate against golden file
+            golden_path = (
+                Path(__file__).parent
+                / "golden"
+                / "test_fabric_onelake_lakehouse_with_tables_golden.json"
+            )
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=output_file,
+                golden_path=str(golden_path),
+            )
 
     finally:
         Path(output_file).unlink(missing_ok=True)
