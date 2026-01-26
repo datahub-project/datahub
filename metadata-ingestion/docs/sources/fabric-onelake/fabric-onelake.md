@@ -427,7 +427,9 @@ source:
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
 
 - **Schemas-Enabled Lakehouses**: The connector uses OneLake Delta Table APIs to list schemas first, then tables within each schema. This requires Storage audience tokens (`https://storage.azure.com/.default`).
-- **Schemas-Disabled Lakehouses**: The connector uses the standard Fabric REST API `/tables` endpoint, which lists all tables under the default `dbo` schema. This uses Power BI API scope tokens.
+- **Schemas-Disabled Lakehouses**: The connector uses the standard Fabric REST API `/tables` endpoint, which lists all tables. Tables without an explicit schema are automatically assigned to the `dbo` schema in DataHub. This uses Power BI API scope tokens.
+
+**Important**: All tables in DataHub will have a schema in their URN, even for schemas-disabled lakehouses. Tables without an explicit schema are normalized to use the `dbo` schema by default. This ensures consistent URN structure across all Fabric entities.
 
 The connector automatically detects the lakehouse type and uses the appropriate API endpoint. No configuration changes are needed.
 

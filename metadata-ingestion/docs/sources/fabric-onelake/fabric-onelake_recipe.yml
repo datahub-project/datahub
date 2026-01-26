@@ -67,7 +67,6 @@ source:
     #   encrypt: "yes"  # Enable encryption (default: "yes")
     #   trust_server_certificate: "no"  # Trust server certificate (default: "no")
     #   query_timeout: 30  # Timeout for SQL queries in seconds (default: 30)
-    #   batch_size: 100  # Number of tables to query in a single batch (default: 100)
 
 sink:
   type: datahub-rest
