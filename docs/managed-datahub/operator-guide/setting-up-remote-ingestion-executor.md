@@ -202,6 +202,9 @@ To update your deployment (e.g., new version or configuration change):
 5. Update parameters as needed (e.g., `ImageTag` for version upgrade)
 6. Click **Next**, review, and **Update stack**
 
+</TabItem>
+<TabItem value="k8s" label="Kubernetes">
+
 ### Deploy on Kubernetes
 
 The [datahub-executor-worker](https://executor-helm.acryl.io/index.yaml) Helm chart deploys Remote Executors on any Kubernetes cluster (EKS, GKE, AKS, etc.).
@@ -302,6 +305,9 @@ Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_
 :::
 
 For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file.
+
+</TabItem>
+</Tabs>
 
 ## Checking Remote Executor status
 
