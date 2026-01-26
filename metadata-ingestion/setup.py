@@ -667,6 +667,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    "hightouch": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
@@ -792,6 +793,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast",
+            "hightouch",
             "iceberg",
             "iceberg-catalog",
             "mlflow",
@@ -974,6 +976,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "hightouch = datahub.ingestion.source.hightouch.hightouch:HightouchSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
