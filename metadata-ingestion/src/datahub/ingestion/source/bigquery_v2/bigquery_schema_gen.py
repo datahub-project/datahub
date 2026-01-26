@@ -24,6 +24,7 @@ from datahub.ingestion.glossary.classification_mixin import (
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    BigQueryShardPatternMatcher,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -207,6 +208,7 @@ class BigQuerySchemaGenerator:
         sql_parser_schema_resolver: SchemaResolver,
         profiler: BigqueryProfiler,
         identifiers: BigQueryIdentifierBuilder,
+        shard_matcher: BigQueryShardPatternMatcher,
         graph: Optional[DataHubGraph] = None,
     ):
         self.config = config
@@ -216,6 +218,7 @@ class BigQuerySchemaGenerator:
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
         self.identifiers = identifiers
+        self.shard_matcher = shard_matcher
         self.graph = graph
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
@@ -474,7 +477,6 @@ class BigQuerySchemaGenerator:
                 self.report.report_dropped(f"{bigquery_dataset.name}.*")
                 return
             try:
-                # db_tables, db_views, and db_snapshots are populated in the this method
                 for wu in self._process_schema(
                     project_id, bigquery_dataset, db_tables, db_views, db_snapshots
                 ):
@@ -589,14 +591,13 @@ class BigQuerySchemaGenerator:
                 f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
             )
 
-            shard_pattern = BigqueryTableIdentifier.get_shard_pattern()
             sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
             non_sharded_tables: List[TableListItem] = []
 
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
                 table_id = table_item.table_id
 
-                match = shard_pattern.match(table_id)
+                match = self.shard_matcher.match(table_id)
                 if match:
                     base_name = BigqueryTableIdentifier.extract_base_table_name(
                         table_id, dataset_name, match
@@ -629,11 +630,9 @@ class BigQuerySchemaGenerator:
 
                 non_sharded_tables.append(table_item)
 
-            # Process latest shard from each sharded table
             for _base_name, (table_item, _shard) in sharded_tables.items():
                 self._add_table_to_refs(table_item, project_id, dataset_name)
 
-            # Process non-sharded tables
             for table_item in non_sharded_tables:
                 self._add_table_to_refs(table_item, project_id, dataset_name)
             return
@@ -849,7 +848,6 @@ class BigQuerySchemaGenerator:
         else:
             return make_tag_urn(key)
 
-    # New method to generate ForeignKeyConstraint aspects
     def gen_foreign_keys(
         self,
         table: BigqueryTable,
@@ -1354,12 +1352,10 @@ class BigQuerySchemaGenerator:
         table_items: Dict[str, TableListItem] = {}
         sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
 
-        shard_pattern = BigqueryTableIdentifier.get_shard_pattern()
-
         for table in self.schema_api.list_tables(dataset_name, project_id):
             table_id = table.table_id
 
-            match = shard_pattern.match(table_id)
+            match = self.shard_matcher.match(table_id)
 
             if match:
                 base_name = BigqueryTableIdentifier.extract_base_table_name(

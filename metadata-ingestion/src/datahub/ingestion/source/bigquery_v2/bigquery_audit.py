@@ -29,45 +29,28 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
 )
 
 
+class BigQueryShardPatternMatcher:
+    def __init__(self, pattern: str = _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX):
+        self.pattern_string = pattern
+        self.compiled_pattern = re.compile(pattern, re.IGNORECASE)
+
+    def match(self, table_name: str) -> Optional["re.Match[str]"]:
+        return self.compiled_pattern.match(table_name)
+
+
 @dataclass(frozen=True, order=True)
 class BigqueryTableIdentifier:
     project_id: str
     dataset: str
     table: str
 
-    # Note: this regex may get overwritten by the sharded_table_pattern config.
-    # The class-level constant, however, will not be overwritten.
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = (
-        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
-    )
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
-
-    _compiled_shard_pattern: ClassVar[Optional["re.Pattern[str]"]] = None
-
-    @classmethod
-    def get_shard_pattern(cls) -> "re.Pattern[str]":
-        """Get compiled regex pattern for shard detection (cached)."""
-        if cls._compiled_shard_pattern is None:
-            cls._compiled_shard_pattern = re.compile(
-                cls._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-                re.IGNORECASE,
-            )
-        return cls._compiled_shard_pattern
-
-    @classmethod
-    def recompile_shard_pattern(cls) -> None:
-        """Force recompilation when sharded_table_pattern config changes."""
-        cls._compiled_shard_pattern = re.compile(
-            cls._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-            re.IGNORECASE,
-        )
 
     @staticmethod
     def extract_base_table_name(
         table_id: str, dataset_name: str, match: "re.Match[str]"
     ) -> str:
-        """Extract base table name from sharded table, fallback to dataset_name if empty."""
         base_name = match[1] or ""
         shard = match[3]
 
@@ -80,7 +63,9 @@ class BigqueryTableIdentifier:
         return base_name
 
     @staticmethod
-    def get_table_and_shard(table_name: str) -> Tuple[Optional[str], Optional[str]]:
+    def get_table_and_shard(
+        table_name: str, shard_matcher: Optional[BigQueryShardPatternMatcher] = None
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Args:
             table_name:
@@ -93,9 +78,11 @@ class BigqueryTableIdentifier:
                 In case of non-sharded tables, returns (<table-id>, None)
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
+        if shard_matcher is None:
+            shard_matcher = BigQueryShardPatternMatcher()
+
         new_table_name = table_name
-        pattern = BigqueryTableIdentifier.get_shard_pattern()
-        match = pattern.match(table_name)
+        match = shard_matcher.match(table_name)
         if match:
             shard: str = match[3]
             if shard:
