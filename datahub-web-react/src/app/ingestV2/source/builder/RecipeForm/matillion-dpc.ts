@@ -11,6 +11,7 @@
  * to existing datasets in DataHub. See the example recipes for configuration details.
  */
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { FilterRecipeField, FilterRule, setListValuesOnRecipe } from './common';
 
 export const MATILLION_CLIENT_ID: RecipeField = {
     name: 'client_id',
@@ -138,100 +139,132 @@ export const MATILLION_INCLUDE_UNPUBLISHED: RecipeField = {
     section: 'Advanced',
 };
 
-export const MATILLION_PIPELINE_ALLOW: RecipeField = {
+const matillionPipelineAllowFieldPath = 'source.config.pipeline_patterns.allow';
+export const MATILLION_PIPELINE_ALLOW: FilterRecipeField = {
     name: 'pipeline_patterns.allow',
     label: 'Pipeline Allow Patterns',
     tooltip: 'Only include pipelines that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.pipeline_patterns.allow',
+    fieldPath: matillionPipelineAllowFieldPath,
     rules: null,
     section: 'Pipelines',
+    rule: FilterRule.INCLUDE,
     placeholder: '.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionPipelineAllowFieldPath),
 };
 
-export const MATILLION_PIPELINE_DENY: RecipeField = {
+const matillionPipelineDenyFieldPath = 'source.config.pipeline_patterns.deny';
+export const MATILLION_PIPELINE_DENY: FilterRecipeField = {
     name: 'pipeline_patterns.deny',
     label: 'Pipeline Deny Patterns',
     tooltip: 'Exclude pipelines that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.pipeline_patterns.deny',
+    fieldPath: matillionPipelineDenyFieldPath,
     rules: null,
     section: 'Pipelines',
+    rule: FilterRule.EXCLUDE,
     placeholder: 'test-.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionPipelineDenyFieldPath),
 };
 
-export const MATILLION_PROJECT_ALLOW: RecipeField = {
+const matillionProjectAllowFieldPath = 'source.config.project_patterns.allow';
+export const MATILLION_PROJECT_ALLOW: FilterRecipeField = {
     name: 'project_patterns.allow',
     label: 'Project Allow Patterns',
     tooltip: 'Only include projects that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.project_patterns.allow',
+    fieldPath: matillionProjectAllowFieldPath,
     rules: null,
     section: 'Projects',
+    rule: FilterRule.INCLUDE,
     placeholder: '.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionProjectAllowFieldPath),
 };
 
-export const MATILLION_PROJECT_DENY: RecipeField = {
+const matillionProjectDenyFieldPath = 'source.config.project_patterns.deny';
+export const MATILLION_PROJECT_DENY: FilterRecipeField = {
     name: 'project_patterns.deny',
     label: 'Project Deny Patterns',
     tooltip: 'Exclude projects that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.project_patterns.deny',
+    fieldPath: matillionProjectDenyFieldPath,
     rules: null,
     section: 'Projects',
+    rule: FilterRule.EXCLUDE,
     placeholder: 'archive-.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionProjectDenyFieldPath),
 };
 
-export const MATILLION_ENVIRONMENT_ALLOW: RecipeField = {
+const matillionEnvironmentAllowFieldPath = 'source.config.environment_patterns.allow';
+export const MATILLION_ENVIRONMENT_ALLOW: FilterRecipeField = {
     name: 'environment_patterns.allow',
     label: 'Environment Allow Patterns',
     tooltip: 'Only include environments that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.environment_patterns.allow',
+    fieldPath: matillionEnvironmentAllowFieldPath,
     rules: null,
     section: 'Environments',
+    rule: FilterRule.INCLUDE,
     placeholder: '.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionEnvironmentAllowFieldPath),
 };
 
-export const MATILLION_ENVIRONMENT_DENY: RecipeField = {
+const matillionEnvironmentDenyFieldPath = 'source.config.environment_patterns.deny';
+export const MATILLION_ENVIRONMENT_DENY: FilterRecipeField = {
     name: 'environment_patterns.deny',
     label: 'Environment Deny Patterns',
     tooltip: 'Exclude environments that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.environment_patterns.deny',
+    fieldPath: matillionEnvironmentDenyFieldPath,
     rules: null,
     section: 'Environments',
+    rule: FilterRule.EXCLUDE,
     placeholder: 'sandbox-.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionEnvironmentDenyFieldPath),
 };
 
-export const MATILLION_STREAMING_ALLOW: RecipeField = {
+const matillionStreamingAllowFieldPath = 'source.config.streaming_pipeline_patterns.allow';
+export const MATILLION_STREAMING_ALLOW: FilterRecipeField = {
     name: 'streaming_pipeline_patterns.allow',
     label: 'Streaming Pipeline Allow Patterns',
     tooltip: 'Only include streaming pipelines that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.streaming_pipeline_patterns.allow',
+    fieldPath: matillionStreamingAllowFieldPath,
     rules: null,
     section: 'Streaming Pipelines',
+    rule: FilterRule.INCLUDE,
     placeholder: '.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionStreamingAllowFieldPath),
 };
 
-export const MATILLION_STREAMING_DENY: RecipeField = {
+const matillionStreamingDenyFieldPath = 'source.config.streaming_pipeline_patterns.deny';
+export const MATILLION_STREAMING_DENY: FilterRecipeField = {
     name: 'streaming_pipeline_patterns.deny',
     label: 'Streaming Pipeline Deny Patterns',
     tooltip: 'Exclude streaming pipelines that match these regex patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: 'source.config.streaming_pipeline_patterns.deny',
+    fieldPath: matillionStreamingDenyFieldPath,
     rules: null,
     section: 'Streaming Pipelines',
+    rule: FilterRule.EXCLUDE,
     placeholder: 'test-.*',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, matillionStreamingDenyFieldPath),
 };
 
 export const MATILLION_REQUEST_TIMEOUT: RecipeField = {
