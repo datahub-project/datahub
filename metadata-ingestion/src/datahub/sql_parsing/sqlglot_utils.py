@@ -9,15 +9,15 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
 
+from datahub.configuration.env_vars import get_sql_parse_cache_size
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 
 assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-SQL_PARSE_CACHE_SIZE = 1000
-
-FORMAT_QUERY_CACHE_SIZE = 1000
+SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
+FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
 
 
 def _get_dialect_str(platform: str) -> str:
@@ -325,6 +325,7 @@ def try_format_query(
     """Format a SQL query.
 
     If the query cannot be formatted, the original query is returned unchanged.
+    Handles both single and multi-statement SQL.
 
     Args:
         expression: The SQL query to format.
@@ -337,8 +338,17 @@ def try_format_query(
 
     try:
         dialect = get_dialect(platform)
-        parsed_expression = parse_statement(expression, dialect=dialect)
-        return parsed_expression.sql(dialect=dialect, pretty=True)
+        sql_string = _expression_to_string(expression, platform=platform)
+        parsed_statements = [
+            stmt for stmt in sqlglot.parse(sql_string, dialect=dialect) if stmt
+        ]
+        if not parsed_statements:
+            return sql_string
+
+        formatted_statements = [
+            stmt.sql(dialect=dialect, pretty=True) for stmt in parsed_statements
+        ]
+        return ";\n\n".join(formatted_statements)
     except Exception as e:
         if raises:
             raise

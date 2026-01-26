@@ -56,6 +56,128 @@ class SchemaResolverInterface(Protocol):
         return id(self)
 
 
+class BatchSchemaFetcher:
+    """Batches schema fetch requests to minimize API calls."""
+
+    def __init__(
+        self,
+        graph: DataHubGraph,
+        schema_resolver: "SchemaResolver",
+        batch_size: int = 50,
+        auto_flush_threshold: Optional[int] = None,
+    ):
+        self.graph = graph
+        self.schema_resolver = schema_resolver
+        self.batch_size = batch_size
+        self.auto_flush_threshold = auto_flush_threshold or batch_size
+
+        self._pending_urns: Set[str] = set()
+        self._stats_requested = 0
+        self._stats_fetched = 0
+        self._stats_api_calls = 0
+
+    def request_schema(self, urn: str) -> None:
+        """Queue a schema for batch fetching."""
+        self._pending_urns.add(urn)
+        self._stats_requested += 1
+
+        if len(self._pending_urns) >= self.auto_flush_threshold:
+            self.flush()
+
+    def flush(self) -> int:
+        """Fetch all pending schemas in batches."""
+        if not self._pending_urns:
+            return 0
+
+        urns_to_fetch = list(self._pending_urns)
+        self._pending_urns.clear()
+
+        fetched_count = 0
+
+        for i in range(0, len(urns_to_fetch), self.batch_size):
+            batch = urns_to_fetch[i : i + self.batch_size]
+
+            try:
+                fetched_count += self._fetch_batch(batch)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to batch fetch {len(batch)} schemas: {e}. "
+                    f"Falling back to individual fetches.",
+                    exc_info=True,
+                )
+                for urn in batch:
+                    try:
+                        self._fetch_single(urn)
+                        fetched_count += 1
+                    except Exception as e2:
+                        logger.debug(f"Failed to fetch schema for {urn}: {e2}")
+
+        return fetched_count
+
+    def _fetch_batch(self, urns: List[str]) -> int:
+        """Fetch a batch of schemas using OpenAPI v3 batch endpoint."""
+        self._stats_api_calls += 1
+
+        logger.debug(f"Batch fetching {len(urns)} schemas...")
+
+        try:
+            results = self.graph.get_entities(
+                entity_name="dataset",
+                urns=urns,
+                aspects=[SchemaMetadataClass.ASPECT_NAME],
+                with_system_metadata=False,
+            )
+
+            fetched = 0
+            for urn in urns:
+                schema_metadata: Optional[SchemaMetadataClass] = None
+
+                if urn in results:
+                    entity_aspects = results[urn]
+                    if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
+                        aspect_value, _ = entity_aspects[
+                            SchemaMetadataClass.ASPECT_NAME
+                        ]
+                        if isinstance(aspect_value, SchemaMetadataClass):
+                            schema_metadata = aspect_value
+
+                accepted = self.schema_resolver.add_schema_metadata_from_fetch(
+                    urn, schema_metadata
+                )
+                if accepted and schema_metadata:
+                    fetched += 1
+                    self._stats_fetched += 1
+
+            logger.debug(f"Successfully fetched {fetched}/{len(urns)} schemas in batch")
+            return fetched
+
+        except Exception as e:
+            logger.warning(f"Batch fetch failed: {e}", exc_info=True)
+            raise
+
+    def _fetch_single(self, urn: str) -> None:
+        """Fetch a single schema (fallback)."""
+        self._stats_api_calls += 1
+
+        try:
+            aspect = self.graph.get_aspect(urn, SchemaMetadataClass)
+            accepted = self.schema_resolver.add_schema_metadata_from_fetch(urn, aspect)
+            if accepted and aspect:
+                self._stats_fetched += 1
+        except Exception as e:
+            logger.debug(f"Failed to fetch schema for {urn}: {e}")
+            self.schema_resolver.add_schema_metadata_from_fetch(urn, None)
+
+    def get_stats(self) -> Dict[str, int]:
+        """Get fetch statistics."""
+        return {
+            "requested": self._stats_requested,
+            "fetched": self._stats_fetched,
+            "api_calls": self._stats_api_calls,
+            "pending": len(self._pending_urns),
+        }
+
+
 class SchemaResolver(Closeable, SchemaResolverInterface):
     def __init__(
         self,
@@ -66,6 +188,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         graph: Optional[DataHubGraph] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
+        batch_fetcher: Optional[BatchSchemaFetcher] = None,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
@@ -74,6 +197,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         self.graph = graph
         self.report = report
+        self.batch_fetcher = batch_fetcher
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
@@ -186,6 +310,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
     def has_urn(self, urn: str) -> bool:
+        """
+        Check if URN has a non-None schema in cache.
+
+        Returns True only if the schema is cached AND not None (negative result).
+        This is used to determine if a fetch is needed.
+        """
         return self._schema_cache.get(urn) is not None
 
     def _track_cache_hit(self) -> None:
@@ -199,6 +329,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             self.report.num_schema_cache_misses += 1
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
+        """
+        Resolve schema info for a URN, fetching from DataHub if needed.
+
+        Cache precedence policy:
+        1. If in cache (from ingestion or previous fetch), return immediately
+        2. If batch fetcher available, queue for batch fetch
+        3. Otherwise, fetch immediately from DataHub
+        4. If no DataHub graph, cache as None
+        """
         if urn in self._schema_cache:
             return self._schema_cache[urn]
 
@@ -206,10 +345,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # or _PARTITIONDATE where appropriate.
 
         if self.graph:
-            schema_info = self._fetch_schema_info(self.graph, urn)
-            if schema_info:
-                self._save_to_cache(urn, schema_info)
-                return schema_info
+            if self.batch_fetcher:
+                self.batch_fetcher.request_schema(urn)
+                return None
+            else:
+                schema_info = self._fetch_schema_info(self.graph, urn)
+                if schema_info:
+                    self._save_to_cache(urn, schema_info)
+                    return schema_info
 
         self._save_to_cache(urn, None)
         return None
@@ -217,8 +360,47 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
+        """
+        Add schema metadata from ingestion source.
+
+        Ingestion-provided schemas ALWAYS take precedence and overwrite any cached
+        schemas (from DataHub or previous runs) because they are fresh from the source.
+        """
         schema_info = _convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
+
+    def add_schema_metadata_from_fetch(
+        self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
+    ) -> bool:
+        """
+        Add schema metadata fetched from DataHub API.
+
+        Unlike add_schema_metadata(), this respects cache precedence:
+        - If a schema is already cached (e.g., from ingestion), it's NOT overwritten
+        - Fresh schemas from ingestion take precedence over stale DataHub schemas
+
+        Args:
+            urn: Dataset URN
+            schema_metadata: Schema fetched from DataHub (or None if not found)
+
+        Returns:
+            True if schema was accepted and cached, False if rejected (already cached)
+        """
+        if urn in self._schema_cache:
+            existing = self._schema_cache[urn]
+            if existing is not None:
+                logger.debug(
+                    f"Skipping DataHub schema for {urn} - already in cache from ingestion"
+                )
+                return False
+
+        if schema_metadata is not None:
+            schema_info = _convert_schema_aspect_to_info(schema_metadata)
+            self._save_to_cache(urn, schema_info)
+        else:
+            self._save_to_cache(urn, None)
+
+        return True
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)

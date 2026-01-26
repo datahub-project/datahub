@@ -31,6 +31,7 @@ import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
 
 from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.env_vars import get_sql_parse_cache_size
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -176,7 +177,7 @@ def _table_name_from_sqlglot_table(
 
 Urn = str
 
-SQL_PARSE_RESULT_CACHE_SIZE = 1000
+SQL_PARSE_RESULT_CACHE_SIZE = get_sql_parse_cache_size()
 SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
