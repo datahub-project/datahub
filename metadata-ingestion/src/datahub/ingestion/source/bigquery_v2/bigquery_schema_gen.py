@@ -119,6 +119,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
 
+# Dynamic batch sizing constants for sharded table optimization
+# These control when and how much to increase batch sizes for datasets with many tables
+DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD = 200  # Tables count to trigger 3x multiplier
+DYNAMIC_BATCH_LOW_TABLE_THRESHOLD = 100  # Tables count to trigger 2x multiplier
+DYNAMIC_BATCH_HIGH_MULTIPLIER = 3  # Multiplier for high table count
+DYNAMIC_BATCH_LOW_MULTIPLIER = 2  # Multiplier for low table count
+DYNAMIC_BATCH_MAX_SIZE_HIGH = 500  # Max batch size for high table count
+DYNAMIC_BATCH_MAX_SIZE_LOW = 300  # Max batch size for low table count
+
 
 class BigQuerySchemaGenerator:
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
@@ -1266,10 +1275,16 @@ class BigQuerySchemaGenerator:
                 base_batch_size = self.config.number_of_datasets_process_in_batch
 
             # If we have many tables (likely sharded), increase batch size
-            if len(table_items) > 200:
-                max_batch_size = min(base_batch_size * 3, 500)
-            elif len(table_items) > 100:
-                max_batch_size = min(base_batch_size * 2, 300)
+            if len(table_items) > DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD:
+                max_batch_size = min(
+                    base_batch_size * DYNAMIC_BATCH_HIGH_MULTIPLIER,
+                    DYNAMIC_BATCH_MAX_SIZE_HIGH,
+                )
+            elif len(table_items) > DYNAMIC_BATCH_LOW_TABLE_THRESHOLD:
+                max_batch_size = min(
+                    base_batch_size * DYNAMIC_BATCH_LOW_MULTIPLIER,
+                    DYNAMIC_BATCH_MAX_SIZE_LOW,
+                )
             else:
                 max_batch_size = base_batch_size
 
