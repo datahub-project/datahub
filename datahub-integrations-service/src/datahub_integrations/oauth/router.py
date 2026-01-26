@@ -85,10 +85,14 @@ SECURITY MODEL:
          subsequent GraphQL calls to update user settings
 """
 
+import base64
+import json
+import time
 from typing import Annotated, Any, Dict, Optional
 from urllib.parse import urlencode
 
 import fastapi
+import httpx
 import jwt
 from fastapi import Depends, Header, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
@@ -185,6 +189,13 @@ class DisconnectResponse(BaseModel):
     """Response after disconnecting credentials."""
 
     success: bool
+
+
+class CorruptCredentialsResponse(BaseModel):
+    """Response after corrupting credentials (for testing auth error flows)."""
+
+    success: bool
+    message: str
 
 
 class CallbackSuccessResponse(BaseModel):
@@ -331,8 +342,6 @@ def validate_token_and_get_user(token: str) -> str:
     Raises:
         HTTPException: 401 if the token is invalid or GMS rejects it.
     """
-    import httpx
-
     # Get the GMS URL from the existing graph client
     gms_url = f"{graph._gms_server}/api/graphql"
 
@@ -698,10 +707,6 @@ async def exchange_code_for_tokens(
     Raises:
         HTTPException: If the token exchange fails.
     """
-    import base64
-
-    import httpx
-
     token_url = server_config["tokenUrl"]
     client_id = server_config["clientId"]
     client_secret = server_config.get("clientSecret")
@@ -813,8 +818,6 @@ async def exchange_code_for_tokens(
                 )
 
             # Calculate expires_at from expires_in if provided
-            import time
-
             expires_at = None
             if "expires_in" in token_data:
                 expires_at = time.time() + token_data["expires_in"]
@@ -1020,6 +1023,12 @@ async def handle_oauth_callback_unified(
 
         # Update user's CorpUserSettings (via GraphQL mutation)
         # Use the user's auth token from state for proper authorization
+        if not oauth_state.auth_token:
+            raise HTTPException(
+                status_code=500,
+                detail="Missing auth token in OAuth state. Please try connecting again.",
+            )
+
         await _update_user_plugin_settings(
             user_urn=oauth_state.user_urn,
             plugin_id=plugin_id,
@@ -1159,6 +1168,12 @@ async def handle_oauth_callback_legacy(
 
         # Update user's CorpUserSettings (via GraphQL mutation)
         # Use the user's auth token from state for proper authorization
+        if not oauth_state.auth_token:
+            raise HTTPException(
+                status_code=500,
+                detail="Missing auth token in OAuth state. Please try connecting again.",
+            )
+
         await _update_user_plugin_settings(
             user_urn=oauth_state.user_urn,
             plugin_id=plugin_id,
@@ -1310,6 +1325,89 @@ async def disconnect_plugin(
     return DisconnectResponse(success=True)
 
 
+@authenticated_router.post(
+    "/{plugin_id}/corrupt-credentials", response_model=CorruptCredentialsResponse
+)
+async def corrupt_credentials(
+    plugin_id: str,
+    user_urn: Annotated[str, Depends(get_authenticated_user)],
+    credential_store: Annotated[
+        DataHubConnectionCredentialStore, Depends(get_credential_store)
+    ],
+) -> CorruptCredentialsResponse:
+    """
+    Corrupt OAuth credentials for testing authentication error flows.
+
+    THIS IS A TESTING/DEBUGGING ENDPOINT.
+
+    This endpoint is only accessible by the "admin" user and is used to test
+    the authentication error handling flow. It corrupts the OAuth tokens for
+    a plugin connection, which will cause subsequent API calls to fail with
+    a 401 error and trigger the auto-disconnect flow.
+
+    Use case:
+    - Testing that the UI correctly handles authentication errors
+    - Testing that plugins are properly disabled and disconnected on auth failure
+    - Debugging production auth issues
+
+    Authentication:
+        Requires Authorization: Bearer <token> header.
+        ONLY the "admin" user can access this endpoint.
+
+    Args:
+        plugin_id: The ID of the AI plugin.
+        user_urn: The authenticated user's URN (injected from token).
+        credential_store: The credential store (injected).
+
+    Returns:
+        CorruptCredentialsResponse with success status and message.
+
+    Raises:
+        HTTPException: 403 if user is not "admin".
+        HTTPException: 404 if no credentials found.
+    """
+    # Only allow "admin" user
+    # Extract username from URN (format: urn:li:corpuser:username)
+    username = user_urn.split(":")[-1] if ":" in user_urn else user_urn
+    if username != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the admin user can corrupt credentials for testing",
+        )
+
+    # Check if credentials exist
+    existing_creds = credential_store.get_credentials(user_urn, plugin_id)
+    if not existing_creds or not existing_creds.oauth_tokens:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No OAuth credentials found for plugin {plugin_id}",
+        )
+
+    # Save corrupted tokens
+    corrupted_tokens = OAuthTokens(
+        access_token="CORRUPTED_FOR_TESTING_INVALID_TOKEN",
+        refresh_token="CORRUPTED_FOR_TESTING_INVALID_REFRESH",
+        expires_at=None,  # No expiry so it doesn't trigger refresh
+        token_type="Bearer",
+    )
+
+    credential_store.save_oauth_tokens(
+        user_urn=user_urn,
+        plugin_id=plugin_id,
+        tokens=corrupted_tokens,
+    )
+
+    logger.warning(
+        f"Corrupted OAuth credentials for testing: user={user_urn}, plugin={plugin_id}"
+    )
+
+    return CorruptCredentialsResponse(
+        success=True,
+        message=f"OAuth credentials for plugin {plugin_id} have been corrupted and marked as expired. "
+        "The next API call will trigger a token refresh, which will fail and disconnect the plugin.",
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Helper Functions for User Settings Updates
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1337,8 +1435,6 @@ def _execute_graphql_as_user(
     Raises:
         Exception: If the query fails or returns errors.
     """
-    import httpx
-
     # Get the GMS URL from the existing graph client
     gms_url = f"{graph._gms_server}/api/graphql"
 
@@ -1369,30 +1465,40 @@ async def _update_user_plugin_settings(
     plugin_id: str,
     connection_urn: str,
     is_oauth: bool,
-    auth_token: Optional[str] = None,
+    auth_token: str,
 ) -> None:
     """
     Update the user's CorpUserSettings to reference the new connection.
 
-    This uses the updateUserAiPluginSettings GraphQL mutation.
-    If auth_token is provided, the mutation is executed as the user (more secure).
-    Otherwise, falls back to the system user (less secure, not recommended).
+    This uses the updateUserAiPluginSettings GraphQL mutation, executed as the
+    authenticated user for proper authorization.
 
     Args:
         user_urn: The user's URN.
         plugin_id: The plugin ID.
         connection_urn: The connection URN storing the credentials.
         is_oauth: Whether this is an OAuth connection (vs API key).
-        auth_token: The user's auth token (from OAuth state). If provided,
-                    the mutation runs as this user for proper authorization.
+        auth_token: The user's auth token (required). The mutation runs as
+                    this user for proper authorization.
+
+    Raises:
+        ValueError: If auth_token is not provided.
+        Exception: If the GraphQL mutation fails.
     """
+    if not auth_token:
+        raise ValueError(
+            f"auth_token is required for updating user settings: {user_urn}/{plugin_id}"
+        )
+
     # Build the mutation input based on connection type
+    # Always set enabled=true when connecting - the user explicitly initiated the connection
     if is_oauth:
         # For OAuth, we pass the connection URN directly
         # The Java resolver will set oauthConfig.connectionUrn
         mutation_input = {
             "pluginId": plugin_id,
             "oauthConnectionUrn": connection_urn,
+            "enabled": True,  # Enable the plugin when connected
         }
     else:
         # For API keys, pass a non-empty apiKey to trigger the Java resolver
@@ -1402,49 +1508,31 @@ async def _update_user_plugin_settings(
         mutation_input = {
             "pluginId": plugin_id,
             "apiKey": "connected",  # Non-empty value triggers connection setup
+            "enabled": True,  # Enable the plugin when connected
         }
 
-    try:
-        query = """
+    query = """
 mutation UpdateUserAiPluginSettings($input: UpdateUserAiPluginSettingsInput!) {
   updateUserAiPluginSettings(input: $input)
 }
 """.strip()
 
-        if auth_token:
-            # Execute as the user (recommended for security)
-            result = _execute_graphql_as_user(
-                auth_token=auth_token,
-                query=query,
-                variables={"input": mutation_input},
-            )
-        else:
-            # Fallback to system user (not recommended)
-            logger.warning(
-                f"No auth token provided for user settings update. "
-                f"Falling back to system user for {user_urn}/{plugin_id}."
-            )
-            result = graph.execute_graphql(
-                query=query,
-                variables={"input": mutation_input},
-            )
+    # Execute as the user (required for security)
+    result = _execute_graphql_as_user(
+        auth_token=auth_token,
+        query=query,
+        variables={"input": mutation_input},
+    )
 
-        success = result.get("updateUserAiPluginSettings", False)
-        if success:
-            logger.info(
-                f"Updated user plugin settings: {user_urn}, {plugin_id}, "
-                f"connection={connection_urn}, oauth={is_oauth}"
-            )
-        else:
-            logger.warning(
-                f"updateUserAiPluginSettings returned False for {user_urn}/{plugin_id}"
-            )
-
-    except Exception as e:
-        # Log error but don't fail the OAuth flow
-        # The credentials are already saved, user can retry the settings update
-        logger.error(
-            f"Failed to update user plugin settings for {user_urn}/{plugin_id}: {e}"
+    success = result.get("updateUserAiPluginSettings", False)
+    if success:
+        logger.info(
+            f"Updated user plugin settings: {user_urn}, {plugin_id}, "
+            f"connection={connection_urn}, oauth={is_oauth}"
+        )
+    else:
+        raise Exception(
+            f"updateUserAiPluginSettings returned False for {user_urn}/{plugin_id}"
         )
 
 
@@ -1452,7 +1540,7 @@ async def _remove_user_plugin_connection(
     user_urn: str,
     plugin_id: str,
     is_oauth: bool = True,
-    auth_token: Optional[str] = None,
+    auth_token: str = "",
 ) -> None:
     """
     Remove the connection reference from the user's CorpUserSettings.
@@ -1464,8 +1552,18 @@ async def _remove_user_plugin_connection(
         user_urn: The user's URN.
         plugin_id: The plugin ID.
         is_oauth: Whether this is an OAuth connection (vs API key).
-        auth_token: The user's auth token. If provided, mutation runs as the user.
+        auth_token: The user's auth token (required). The mutation runs as
+                    this user for proper authorization.
+
+    Raises:
+        ValueError: If auth_token is not provided.
+        Exception: If the GraphQL mutation fails.
     """
+    if not auth_token:
+        raise ValueError(
+            f"auth_token is required for removing user plugin connection: {user_urn}/{plugin_id}"
+        )
+
     # Build the mutation input based on connection type
     if is_oauth:
         mutation_input = {
@@ -1485,32 +1583,20 @@ mutation UpdateUserAiPluginSettings($input: UpdateUserAiPluginSettingsInput!) {
 }
 """.strip()
 
-    try:
-        if auth_token:
-            result = _execute_graphql_as_user(
-                auth_token=auth_token,
-                query=query,
-                variables={"input": mutation_input},
-            )
-        else:
-            result = graph.execute_graphql(
-                query=query,
-                variables={"input": mutation_input},
-            )
+    result = _execute_graphql_as_user(
+        auth_token=auth_token,
+        query=query,
+        variables={"input": mutation_input},
+    )
 
-        success = result.get("updateUserAiPluginSettings", False)
-        if success:
-            logger.info(
-                f"Removed user plugin connection: {user_urn}, {plugin_id}, oauth={is_oauth}"
-            )
-        else:
-            logger.warning(
-                f"updateUserAiPluginSettings returned False when removing {user_urn}/{plugin_id}"
-            )
-
-    except Exception as e:
-        logger.error(
-            f"Failed to remove user plugin connection for {user_urn}/{plugin_id}: {e}"
+    success = result.get("updateUserAiPluginSettings", False)
+    if success:
+        logger.info(
+            f"Removed user plugin connection: {user_urn}, {plugin_id}, oauth={is_oauth}"
+        )
+    else:
+        raise Exception(
+            f"updateUserAiPluginSettings returned False when removing {user_urn}/{plugin_id}"
         )
 
 
@@ -1535,8 +1621,6 @@ def _create_popup_response(
     Returns:
         HTMLResponse with JavaScript for popup communication.
     """
-    import json
-
     result = {
         "type": "oauth_callback",
         "success": success,

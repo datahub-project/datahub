@@ -262,7 +262,9 @@ def test_send_message_loads_existing_session(
             )
 
             # Should load the existing session
-            mock_load.assert_called_once_with(urn, "DataCatalogExplorer", None)
+            mock_load.assert_called_once_with(
+                urn, "DataCatalogExplorer", None, "urn:li:corpuser:test", []
+            )
 
             # Check conversation_urn is set correctly in events
             assert all(e.conversation_urn == urn for e in events)
@@ -1374,7 +1376,7 @@ def test_send_message_with_message_context(mock_datahub_client: Mock) -> None:
 
             # Verify load_session was called with message_context
             mock_load.assert_called_once_with(
-                urn, "DataCatalogExplorer", message_context
+                urn, "DataCatalogExplorer", message_context, "urn:li:corpuser:test", []
             )
 
 
@@ -1582,7 +1584,9 @@ def test_send_message_with_custom_agent_name(mock_datahub_client: Mock) -> None:
             )
 
             # Verify load_session was called with custom agent_name
-            mock_load.assert_called_once_with(urn, "IngestionTroubleshooter", None)
+            mock_load.assert_called_once_with(
+                urn, "IngestionTroubleshooter", None, "urn:li:corpuser:test", []
+            )
 
 
 def test_send_message_yields_user_message_first(mock_datahub_client: Mock) -> None:
@@ -1904,7 +1908,9 @@ def test_send_message_default_agent_name(mock_datahub_client: Mock) -> None:
             )
 
             # Verify load_session was called with default agent type
-            mock_load.assert_called_once_with(urn, "DataCatalogExplorer", None)
+            mock_load.assert_called_once_with(
+                urn, "DataCatalogExplorer", None, "urn:li:corpuser:test", []
+            )
 
 
 def test_create_session_with_chat_type(mock_datahub_client: Mock) -> None:

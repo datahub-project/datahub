@@ -37,7 +37,11 @@ dev_mode = is_dev_mode()
 logger.add(
     sink=sys.stderr,
     serialize=False if dev_mode else True,
-    format="{time} {level} {name}:{function}:{line} - {message}",
+    # In dev mode: include {extra} for bound parameters and {exception} for tracebacks
+    # In prod mode (serialize=True): exception is automatically included in JSON
+    format="{time} {level} {name}:{function}:{line} - {message} | {extra}\n{exception}"
+    if dev_mode
+    else "{time} {level} {name}:{function}:{line} - {message}",
     backtrace=True,
     diagnose=True,
     level="DEBUG",

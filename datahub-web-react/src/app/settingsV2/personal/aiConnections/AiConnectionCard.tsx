@@ -12,10 +12,19 @@ const Card = styled.div`
     border-radius: 8px;
     padding: 16px;
     background: white;
-    transition: box-shadow 0.2s;
+    transition:
+        box-shadow 0.2s,
+        border-color 0.3s,
+        background-color 0.3s;
 
     &:hover {
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    &.highlighted {
+        border-color: ${colors.blue[500]};
+        background-color: ${colors.blue[50]};
+        box-shadow: 0 0 12px ${colors.blue[200]};
     }
 `;
 
@@ -122,6 +131,20 @@ const DisconnectLink = styled.button`
     }
 `;
 
+const CorruptLink = styled.button`
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11px;
+    color: ${colors.yellow[600]};
+    cursor: pointer;
+    text-decoration: underline;
+
+    &:hover {
+        color: ${colors.red[500]};
+    }
+`;
+
 interface AiConnectionCardProps {
     /** The AI plugin configuration from global settings */
     plugin: AiPluginConfig & { isConnected: boolean; isEnabled: boolean };
@@ -135,10 +158,14 @@ interface AiConnectionCardProps {
     onToggleEnabled: (enabled: boolean) => void;
     /** Callback when user clicks Disconnect (optional, for testing/advanced users) */
     onDisconnect?: () => void;
+    /** Callback when user clicks Corrupt Credentials (for admin testing) */
+    onCorruptCredentials?: () => void;
     /** Whether a connection is in progress */
     isConnecting: boolean;
     /** Whether an enable/disable toggle is in progress */
     isToggling: boolean;
+    /** Whether the current user is the admin user (for showing debug features) */
+    isAdminUser?: boolean;
 }
 
 /**
@@ -160,8 +187,10 @@ const AiConnectionCard: React.FC<AiConnectionCardProps> = ({
     onConnect,
     onToggleEnabled,
     onDisconnect,
+    onCorruptCredentials,
     isConnecting,
     isToggling,
+    isAdminUser = false,
 }) => {
     const displayName = plugin.service?.properties?.displayName || 'Unknown Plugin';
     const description = plugin.service?.properties?.description;
@@ -217,7 +246,7 @@ const AiConnectionCard: React.FC<AiConnectionCardProps> = ({
     const showConnectButton = requiresUserConnection && !isConnected;
 
     return (
-        <Card>
+        <Card id={`plugin-${plugin.id}`}>
             <CardHeader>
                 <PluginInfo>
                     <PluginName>{displayName}</PluginName>
@@ -253,6 +282,15 @@ const AiConnectionCard: React.FC<AiConnectionCardProps> = ({
                         {isConnecting ? 'Connecting...' : 'Connect'}
                     </Button>
                 )}
+                {/* Admin-only debug button to corrupt OAuth credentials for testing auth error flows */}
+                {isAdminUser &&
+                    plugin.authType === AiPluginAuthType.UserOauth &&
+                    isConnected &&
+                    onCorruptCredentials && (
+                        <Tooltip title="Corrupt OAuth tokens to test auth error handling (admin only)">
+                            <CorruptLink onClick={onCorruptCredentials}>Corrupt</CorruptLink>
+                        </Tooltip>
+                    )}
                 {requiresUserConnection && isConnected && onDisconnect && (
                     <DisconnectLink onClick={onDisconnect}>Disconnect</DisconnectLink>
                 )}

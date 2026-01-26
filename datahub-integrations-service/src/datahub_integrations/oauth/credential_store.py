@@ -17,16 +17,21 @@ Design Notes:
 Security:
 - DataHubConnection provides encryption at rest
 - Access is controlled via DataHub's authorization system
-- Token refresh should be done with distributed locking (Phase 3 with Redis)
+- Token refresh uses in-memory locking to prevent race conditions
 """
 
+import base64
 import json
+import threading
 import time
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Dict, Optional, Protocol
 
+import httpx
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
+
+from datahub_integrations.utils.striped_lock import StripedLock
 
 
 @dataclass
@@ -250,6 +255,27 @@ class CredentialStore(Protocol):
         """
         ...
 
+    def get_access_token(
+        self, user_urn: str, plugin_id: str, oauth_server_urn: str
+    ) -> str:
+        """
+        Get a valid access token, refreshing if needed.
+
+        Uses on-demand refresh with a 5-minute buffer.
+
+        Args:
+            user_urn: The URN of the user.
+            plugin_id: The ID of the AI plugin.
+            oauth_server_urn: The URN of the OAuth server for refresh.
+
+        Returns:
+            A valid access token.
+
+        Raises:
+            TokenRefreshError: If no credentials exist or refresh fails.
+        """
+        ...
+
 
 # Platform URN for AI plugin credentials
 AI_PLUGIN_PLATFORM_URN = "urn:li:dataPlatform:datahub"
@@ -304,6 +330,16 @@ def get_connection_id(user_urn: str, plugin_id: str) -> str:
     return f"{sanitized_user}__{sanitized_plugin}"
 
 
+class TokenRefreshError(Exception):
+    """Raised when OAuth token refresh fails."""
+
+    pass
+
+
+# Default buffer for proactive token refresh (5 minutes)
+TOKEN_REFRESH_BUFFER_SECONDS = 300
+
+
 class DataHubConnectionCredentialStore:
     """
     Credential store implementation using DataHubConnection entities.
@@ -313,10 +349,15 @@ class DataHubConnectionCredentialStore:
     by DataHub's connection storage system.
 
     Thread Safety:
-        This implementation relies on DataHub's API for atomicity.
-        For token refresh with distributed systems, additional locking
-        is needed (planned for Phase 3 with Redis).
+        Uses per-connection locks for token refresh to prevent race conditions.
+        Multiple threads refreshing the same token will serialize through the lock.
     """
+
+    # Striped lock pool for per-connection locking during token refresh.
+    # Uses 64 stripes to balance memory usage vs. concurrency.
+    # Keys are hashed to select a stripe, so different connections may share
+    # a lock (harmless - just serializes those specific refreshes).
+    _refresh_locks = StripedLock(num_stripes=64)
 
     def __init__(self, graph: DataHubGraph) -> None:
         """
@@ -326,6 +367,10 @@ class DataHubConnectionCredentialStore:
             graph: DataHubGraph client for API access.
         """
         self._graph = graph
+
+    def _get_refresh_lock(self, connection_key: str) -> "threading.Lock":
+        """Get a lock for a specific connection from the striped lock pool."""
+        return self._refresh_locks.get_lock(connection_key)
 
     def get_credentials(
         self, user_urn: str, plugin_id: str
@@ -490,3 +535,279 @@ mutation UpsertConnection($id: String!, $platformUrn: String!, $blob: String!, $
         )
 
         return result["upsertConnection"]["urn"]
+
+    def get_access_token(
+        self,
+        user_urn: str,
+        plugin_id: str,
+        oauth_server_urn: str,
+    ) -> str:
+        """
+        Get a valid access token, refreshing if needed.
+
+        Uses on-demand refresh with a 5-minute buffer: if the token expires
+        within 5 minutes, it's refreshed proactively.
+
+        Args:
+            user_urn: The URN of the user.
+            plugin_id: The ID of the AI plugin.
+            oauth_server_urn: The URN of the OAuth server for refresh.
+
+        Returns:
+            A valid access token.
+
+        Raises:
+            TokenRefreshError: If no credentials exist or refresh fails.
+        """
+        connection_key = get_connection_id(user_urn, plugin_id)
+
+        # Load current tokens
+        credentials = self.get_credentials(user_urn, plugin_id)
+        if not credentials or not credentials.oauth_tokens:
+            raise TokenRefreshError(
+                f"No OAuth credentials found for {user_urn}/{plugin_id}"
+            )
+
+        tokens = credentials.oauth_tokens
+
+        # Check if refresh is needed
+        if not tokens.is_expired(buffer_seconds=TOKEN_REFRESH_BUFFER_SECONDS):
+            return tokens.access_token
+
+        # Need to refresh - acquire lock to prevent concurrent refreshes
+        with self._get_refresh_lock(connection_key):
+            # Re-check after acquiring lock (another thread may have refreshed)
+            credentials = self.get_credentials(user_urn, plugin_id)
+            if not credentials or not credentials.oauth_tokens:
+                raise TokenRefreshError(
+                    f"Credentials disappeared during refresh for {user_urn}/{plugin_id}"
+                )
+
+            tokens = credentials.oauth_tokens
+            if not tokens.is_expired(buffer_seconds=TOKEN_REFRESH_BUFFER_SECONDS):
+                return tokens.access_token
+
+            # Still need refresh - do it now
+            if not tokens.refresh_token:
+                raise TokenRefreshError(
+                    f"Token expired but no refresh token available for {user_urn}/{plugin_id}"
+                )
+
+            new_tokens = self._refresh_oauth_token(
+                tokens.refresh_token, oauth_server_urn
+            )
+
+            # Save the new tokens
+            self.save_oauth_tokens(user_urn, plugin_id, new_tokens)
+
+            return new_tokens.access_token
+
+    def _refresh_oauth_token(
+        self, refresh_token: str, oauth_server_urn: str
+    ) -> OAuthTokens:
+        """
+        Refresh an OAuth access token using the refresh token.
+
+        Args:
+            refresh_token: The refresh token to use.
+            oauth_server_urn: The URN of the OAuth authorization server.
+
+        Returns:
+            New OAuth tokens with updated access token.
+
+        Raises:
+            TokenRefreshError: If the refresh fails.
+        """
+        # Load OAuth server config (raises TokenRefreshError if not found)
+        server_config = self._get_oauth_server_config(oauth_server_urn)
+
+        token_url = server_config.get("tokenUrl")
+        client_id = server_config.get("clientId")
+        client_secret = server_config.get("clientSecret")
+        token_auth_method = server_config.get("tokenAuthMethod", "POST_BODY")
+        auth_scheme = server_config.get("authScheme")
+        auth_header_name = server_config.get("authHeaderName", "Authorization")
+
+        if not token_url or not client_id:
+            raise TokenRefreshError(
+                f"Invalid OAuth server config (missing tokenUrl or clientId): {oauth_server_urn}"
+            )
+
+        # Build request
+        data: Dict[str, str] = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }
+
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        }
+
+        # Handle authentication method (same logic as router.py token exchange)
+        if token_auth_method == "BASIC" and client_secret:
+            # HTTP Basic Auth: credentials in Authorization header
+            credentials = base64.b64encode(
+                f"{client_id}:{client_secret}".encode()
+            ).decode()
+            headers[auth_header_name] = f"Basic {credentials}"
+            data["client_id"] = client_id
+        elif token_auth_method == "CUSTOM" and auth_scheme and client_secret:
+            # Custom auth scheme (e.g., "Token" for dbt Cloud)
+            headers[auth_header_name] = f"{auth_scheme} {client_secret}"
+            data["client_id"] = client_id
+        elif token_auth_method == "NONE":
+            # No client authentication (public clients)
+            data["client_id"] = client_id
+        else:
+            # POST_BODY (default): credentials in request body
+            data["client_id"] = client_id
+            if client_secret:
+                data["client_secret"] = client_secret
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(token_url, data=data, headers=headers)
+
+                if response.status_code != 200:
+                    logger.error(
+                        f"Token refresh failed: {response.status_code} - {response.text}"
+                    )
+                    raise TokenRefreshError(
+                        f"Token refresh failed with status {response.status_code}"
+                    )
+
+                token_data = response.json()
+
+                # Calculate expires_at from expires_in if provided
+                expires_at = None
+                if "expires_in" in token_data:
+                    expires_at = time.time() + token_data["expires_in"]
+
+                return OAuthTokens(
+                    access_token=token_data["access_token"],
+                    refresh_token=token_data.get("refresh_token", refresh_token),
+                    expires_at=expires_at,
+                    token_type=token_data.get("token_type", "Bearer"),
+                    scope=token_data.get("scope"),
+                )
+
+        except TokenRefreshError:
+            raise
+        except Exception as e:
+            logger.bind(
+                oauth_server_urn=oauth_server_urn,
+                token_url=token_url,
+                error_type=type(e).__name__,
+            ).opt(exception=True).error("Token refresh error")
+            raise TokenRefreshError(f"Token refresh failed: {e}") from e
+
+    def _get_oauth_server_config(self, server_urn: str) -> Dict:
+        """
+        Get OAuth server configuration including resolved client secret.
+
+        Args:
+            server_urn: The URN of the OAuth authorization server.
+
+        Returns:
+            Server configuration dict with properties.
+
+        Raises:
+            TokenRefreshError: If the server config cannot be retrieved.
+        """
+        try:
+            result = self._graph.execute_graphql(
+                query="""
+query GetOAuthServer($urn: String!) {
+  oauthAuthorizationServer(urn: $urn) {
+    urn
+    properties {
+      tokenUrl
+      clientId
+      clientSecretUrn
+      tokenAuthMethod
+      authHeaderName
+      authScheme
+    }
+  }
+}
+""".strip(),
+                variables={"urn": server_urn},
+            )
+
+            server = result.get("oauthAuthorizationServer")
+            if not server:
+                raise TokenRefreshError(f"OAuth server not found: {server_urn}")
+
+            properties = server["properties"]
+
+            # Resolve client secret if URN is provided
+            client_secret_urn = properties.get("clientSecretUrn")
+            if client_secret_urn:
+                client_secret = self._resolve_secret_value(client_secret_urn)
+                properties["clientSecret"] = client_secret
+
+            return properties
+
+        except TokenRefreshError:
+            raise
+        except Exception as e:
+            logger.bind(
+                oauth_server_urn=server_urn,
+                error_type=type(e).__name__,
+            ).opt(exception=True).error("Failed to get OAuth server config")
+            raise TokenRefreshError(
+                f"Failed to get OAuth server config for {server_urn}: {e}"
+            ) from e
+
+    def _resolve_secret_value(self, secret_urn: str) -> str:
+        """
+        Resolve a secret value from its URN.
+
+        Args:
+            secret_urn: The URN of the DataHubSecret entity.
+
+        Returns:
+            The secret value.
+
+        Raises:
+            TokenRefreshError: If the secret cannot be resolved.
+        """
+        prefix = "urn:li:dataHubSecret:"
+        if not secret_urn.startswith(prefix):
+            raise TokenRefreshError(f"Invalid secret URN format: {secret_urn}")
+
+        secret_name = secret_urn[len(prefix) :]
+
+        try:
+            result = self._graph.execute_graphql(
+                query="""
+query GetSecretValues($input: GetSecretValuesInput!) {
+    getSecretValues(input: $input) {
+        name
+        value
+    }
+}
+""".strip(),
+                variables={"input": {"secrets": [secret_name]}},
+            )
+
+            secret_values = result.get("getSecretValues", [])
+            if secret_values:
+                value = secret_values[0].get("value")
+                if value is not None:
+                    return value
+
+            raise TokenRefreshError(f"Secret not found: {secret_name}")
+
+        except TokenRefreshError:
+            raise
+        except Exception as e:
+            logger.bind(
+                secret_urn=secret_urn,
+                secret_name=secret_name,
+                error_type=type(e).__name__,
+            ).opt(exception=True).error("Failed to resolve secret")
+            raise TokenRefreshError(
+                f"Failed to resolve secret {secret_name}: {e}"
+            ) from e

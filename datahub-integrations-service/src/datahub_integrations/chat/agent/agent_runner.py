@@ -59,6 +59,9 @@ from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
 from datahub_integrations.mcp.mcp_server import with_datahub_client
+from datahub_integrations.mcp_integration.external_mcp_manager import (
+    PluginConnectionError,
+)
 from datahub_integrations.mcp_integration.tool import ToolWrapper
 from datahub_integrations.observability import (
     detect_provider_and_normalize_model,
@@ -861,6 +864,10 @@ class AgentRunner:
             with timer, with_datahub_client(self.client):
                 result = tool.run(arguments=tool_request.tool_input)
 
+        except PluginConnectionError:
+            # Re-raise auth errors (401/403) for ChatSessionManager to handle
+            # These trigger auto-disable and user-facing error messages with deep-link
+            raise
         except Exception as e:
             logger.exception(
                 f"Tool execution failed for {tool_name} in session {self.session_id}"

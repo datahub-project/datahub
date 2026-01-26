@@ -1,11 +1,12 @@
 import { LinkOutlined, SettingOutlined } from '@ant-design/icons';
 import { Empty, Spin, message } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import AiConnectionCard from '@app/settingsV2/personal/aiConnections/AiConnectionCard';
 import ApiKeyModal from '@app/settingsV2/personal/aiConnections/ApiKeyModal';
 import { useOAuthConnect } from '@app/settingsV2/personal/aiConnections/useOAuthConnect';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { colors } from '@src/alchemy-components';
 
 import {
@@ -85,6 +86,10 @@ export const ManageAiConnections: React.FC = () => {
     const { initiateOAuthConnect, isConnecting } = useOAuthConnect(refetch);
     const [togglingPluginId, setTogglingPluginId] = useState<string | null>(null);
     const [apiKeyModal, setApiKeyModal] = useState<ApiKeyModalState | null>(null);
+    const authenticatedUser = useGetAuthenticatedUser();
+
+    // Check if the current user is the "admin" user (for showing debug features)
+    const isAdminUser = authenticatedUser?.corpUser?.username === 'admin';
 
     // Get all enabled plugins with user status
     const availablePlugins = useMemo(() => {
@@ -110,20 +115,10 @@ export const ManageAiConnections: React.FC = () => {
                     isConnected = userConfig?.apiKeyConfig?.isConnected || false;
                 }
 
-                // Determine enabled state based on auth type
-                // - USER_OAUTH/USER_API_KEY: enabled by default after connection
-                // - SHARED_API_KEY/NONE: disabled by default until explicitly enabled
-                let isEnabled: boolean;
-                if (userConfig?.enabled !== undefined && userConfig.enabled !== null) {
-                    // User has explicitly set enabled state
-                    isEnabled = userConfig.enabled;
-                } else if (needsConnection) {
-                    // USER_OAUTH/USER_API_KEY: enabled by default when connected
-                    isEnabled = isConnected;
-                } else {
-                    // SHARED_API_KEY/NONE: disabled by default
-                    isEnabled = false;
-                }
+                // Determine enabled state - require explicit enabled=true
+                // The backend sets enabled=true when OAuth connection completes,
+                // so we don't need to infer enabled from connected status.
+                const isEnabled = userConfig?.enabled === true;
 
                 return {
                     ...plugin,
@@ -133,6 +128,29 @@ export const ManageAiConnections: React.FC = () => {
                 };
             });
     }, [data]);
+
+    // Handle URL fragment to highlight a specific plugin card (e.g., #plugin-id)
+    useEffect(() => {
+        if (!loading && availablePlugins.length > 0) {
+            const hash = window.location.hash.slice(1); // Remove #
+            if (hash) {
+                // Delay slightly to ensure DOM is rendered
+                const timeoutId = setTimeout(() => {
+                    const element = document.getElementById(`plugin-${hash}`);
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        element.classList.add('highlighted');
+                        // Remove highlight after 3 seconds
+                        setTimeout(() => {
+                            element.classList.remove('highlighted');
+                        }, 3000);
+                    }
+                }, 100);
+                return () => clearTimeout(timeoutId);
+            }
+        }
+        return undefined;
+    }, [loading, availablePlugins]);
 
     const handleConnect = useCallback(
         async (pluginId: string, pluginName: string, authType: AiPluginAuthType) => {
@@ -228,6 +246,36 @@ export const ManageAiConnections: React.FC = () => {
         [refetch],
     );
 
+    /**
+     * Admin-only handler to corrupt OAuth credentials for testing auth error flows.
+     * This will cause the next API call to fail with a 401, triggering the auto-disconnect flow.
+     */
+    const handleCorruptCredentials = useCallback(async (pluginId: string, pluginName: string) => {
+        try {
+            const response = await fetch(
+                `/integrations/oauth/plugins/${encodeURIComponent(pluginId)}/corrupt-credentials`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                },
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Failed to corrupt credentials: ${response.status}`);
+            }
+
+            message.warning(
+                `Corrupted credentials for ${pluginName}. The next chat request using this plugin will trigger an auth error.`,
+            );
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : 'Failed to corrupt credentials. Please try again.');
+        }
+    }, []);
+
     if (loading) {
         return (
             <Container>
@@ -287,8 +335,15 @@ export const ManageAiConnections: React.FC = () => {
                                         plugin.service?.properties?.displayName || 'Unknown Plugin',
                                     )
                                 }
+                                onCorruptCredentials={() =>
+                                    handleCorruptCredentials(
+                                        plugin.id,
+                                        plugin.service?.properties?.displayName || 'Unknown Plugin',
+                                    )
+                                }
                                 isConnecting={isConnecting}
                                 isToggling={togglingPluginId === plugin.id}
+                                isAdminUser={isAdminUser}
                             />
                         ))}
                     </CardGrid>

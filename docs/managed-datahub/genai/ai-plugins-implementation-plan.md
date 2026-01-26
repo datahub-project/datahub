@@ -1594,6 +1594,7 @@ _None currently._
 | 2026-01-21 | **Tool filtering design note**: The `allowedTools` field should be renamed to `disabledTools` when implemented. By default all tools from a plugin should be available; users can opt-out of specific tools. This is a future feature - not implemented in current UI.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 2026-01-21 | **Plugin state model**: Three states: Disconnected → Connected+Enabled → Connected+Disabled. Connect always results in Enabled state. No disconnect option in UI - credentials persist once connected. Users can only toggle enable/disable. This simplifies UX and prevents accidental credential deletion.                                                                                                                                                                                                                                                                                                                                                                              |
 | 2026-01-21 | **All auth types in user settings**: Extended UI to show ALL enabled plugins (not just USER*OAUTH/USER_API_KEY). SHARED_API_KEY and NONE plugins show "Ready to use" status with enable/disable toggle. Default enabled state differs: USER*\_ types default to enabled after connection, SHARED\_\_/NONE default to disabled until user explicitly enables. This allows users to opt-in to shared plugins.                                                                                                                                                                                                                                                                               |
+| 2026-01-23 | **External tool naming strategy**: Tool names use sanitized plugin display names as prefixes (e.g., `github__create_pull_request`). Sanitization: lowercase, non-alphanumeric → `_`, collapse multiple `_`, strip leading/trailing `_`. Collision handling: if two plugins have the same name, suffix with `_2`, `_3`, etc. (e.g., `github`, `github_2`). Max 64 chars (Bedrock limit) - tool name truncated if needed. This provides readable tool names for the LLM while ensuring uniqueness.                                                                                                                                                                                          |
 
 #### Files Created
 
@@ -1646,7 +1647,83 @@ _None currently._
 
 ### Phase 3 Log
 
-_Not started._
+**Started:** 2026-01-22
+
+#### Planning Decisions
+
+| Date       | Decision                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-01-22 | **Remove JSON config**: Completely remove `external_mcp_config.py` and JSON-based configuration. All plugin configuration now comes from GlobalSettings entities.                                                                                                                                                                                                                                          |
+| 2026-01-22 | **Enabled but not connected behavior**: Include tools from enabled-but-not-connected plugins in agent's toolset. If agent tries to use one: (1) raise `ToolNotConnectedException`, (2) auto-disable plugin in user's settings, (3) stop agent loop, (4) send user message with deep link `/settings/ai-connections#plugin-id`. Auto-disable prevents repeated interruptions for same plugin.               |
+| 2026-01-22 | **URL fragment for UI highlighting**: When agent auto-disables a plugin, message includes URL fragment (e.g., `#urn:li:service:glean`). Frontend `ManageAiConnections.tsx` reads fragment and highlights/scrolls to the specific plugin card.                                                                                                                                                              |
+| 2026-01-22 | **Channel-specific plugin access**: External plugins ONLY available for UI chat (Ask DataHub). Slack/Teams bots do NOT have access to external plugins because they don't have user-specific JWT tokens for OAuth/API key credentials.                                                                                                                                                                     |
+| 2026-01-22 | **User settings access rule**: NEVER use system credentials for CorpUserSettings operations (read/write). Always use user's JWT from API request. This applies to: reading user's aiPluginSettings, updating aiPluginSettings (including auto-disable), looking up credentials from DataHubConnection. Slack/Teams naturally can't access user settings since they have no JWT token.                      |
+| 2026-01-22 | **Two-level enabled logic**: A plugin is enabled for a user ONLY if BOTH: (1) admin enabled it globally (`GlobalSettings.aiPluginSettings.plugins[id].enabled=true`), AND (2) user enabled it (`CorpUserSettings.aiPluginSettings.plugins[id].enabled=true`). Default is DISABLED - if plugin has no entry in user's settings, it's not enabled. User must explicitly enable each plugin they want to use. |
+| 2026-01-22 | **AiPluginLoader combines settings**: New `load_enabled_plugins_for_user()` method queries both GlobalSettings and CorpUserSettings (via `me` query scoped to JWT), returns only plugins where both global and user enabled flags are true.                                                                                                                                                                |
+| 2026-01-22 | **Frontend enabled default is complementary**: Frontend auto-enables plugins when user connects (UX convenience). Backend enforces "explicit enabled required". These are complementary: frontend sets `enabled=true` when creating user setting entry during connect flow. No contradiction.                                                                                                              |
+| 2026-01-22 | **Unified error handling for discovery AND execution**: Both tool discovery failure (can't connect to MCP server) and tool execution failure (tool not connected) result in SAME outcome: (1) auto-disable plugin in user settings, (2) stop agent loop entirely, (3) send user message with deep-link. No "continue with other tools" - always stop and report immediately.                               |
+| 2026-01-22 | **Token refresh strategy**: On-demand with 5-minute buffer. When `get_access_token()` called and token expires within 5 minutes, refresh proactively. Use in-memory `threading.Lock` to prevent race conditions during refresh.                                                                                                                                                                            |
+| 2026-01-22 | **AiConnectionCard ID attribute**: Add `id={plugin-${plugin.id}}` to Card component for URL fragment targeting. ManageAiConnections reads `window.location.hash`, scrolls to element, and adds temporary highlight CSS class.                                                                                                                                                                              |
+| 2026-01-22 | **Single exception type**: Use `PluginConnectionError(plugin_id, plugin_name, message)` for both discovery and execution failures. Raised from `ExternalMCPManager.discover_all_tools()` and `ExternalToolWrapper.run()`. Caught in `ChatSessionManager.send_message()` for unified handling.                                                                                                              |
+
+#### Implementation Notes
+
+| Date       | Note                                                                                                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-01-22 | Initial planning session. Reviewed Phase 1 & 2 work, identified scope for Phase 3.                                                                                                                                                                                |
+| 2026-01-23 | Extended planning session. Clarified error handling, frontend/backend enabled logic relationship, token refresh strategy. All key decisions documented above. Plan created at `.cursor/plans/phase_3_ai_plugins_0824c9e8.plan.md`. Ready to begin implementation. |
+| 2026-01-23 | **Implementation started**. Deleted JSON config files (`external_mcp_config.py` and its tests). Updated `__init__.py` to export `PluginConnectionError`.                                                                                                          |
+| 2026-01-23 | Created `AiPluginLoader` with `load_enabled_plugins()` method. Implements two-level enablement logic combining GlobalSettings and CorpUserSettings.                                                                                                               |
+| 2026-01-23 | Added token refresh to `CredentialStore`: `get_access_token()` with 5-minute buffer, `_refresh_oauth_token()`, `TokenRefreshError`. Uses `threading.Lock` per connection.                                                                                         |
+| 2026-01-23 | Refactored `ExternalMCPManager`: Added `PluginConnectionError`, `from_user_settings()` factory, auth header injection (OAuth, API key, shared key).                                                                                                               |
+| 2026-01-23 | Updated `ChatSessionManager`: Added `_get_external_tools()` (UI-only), `_disable_user_plugin()` mutation, error handling with auto-disable and deep-link.                                                                                                         |
+| 2026-01-23 | Updated `agent_runner.py`: Added import and re-raise for `PluginConnectionError` in `_execute_tool()` to propagate to ChatSessionManager.                                                                                                                         |
+| 2026-01-23 | Updated frontend: Added `.highlighted` CSS class and `id={plugin-${plugin.id}}` to `AiConnectionCard`. Added `useEffect` for URL fragment handling in `ManageAiConnections`.                                                                                      |
+| 2026-01-23 | Created tests: `test_ai_plugin_loader.py`, added token refresh tests to `test_credential_store.py`, rewrote `test_external_mcp_manager.py`.                                                                                                                       |
+
+#### Files Created
+
+| File                                             | Status   | Notes                                                      |
+| ------------------------------------------------ | -------- | ---------------------------------------------------------- |
+| `mcp_integration/ai_plugin_loader.py`            | complete | Loads plugin config from GlobalSettings + CorpUserSettings |
+| `tests/mcp_integration/test_ai_plugin_loader.py` | complete | Tests for GraphQL loading and two-level enabled logic      |
+
+#### Files Modified
+
+| File                                                 | Status   | Notes                                                           |
+| ---------------------------------------------------- | -------- | --------------------------------------------------------------- |
+| `mcp_integration/external_mcp_manager.py`            | complete | Refactored: AiPluginLoader, PluginConnectionError, auth headers |
+| `mcp_integration/__init__.py`                        | complete | Removed JSON config exports, added PluginConnectionError        |
+| `oauth/credential_store.py`                          | complete | Added get_access_token(), token refresh, TokenRefreshError      |
+| `chat/chat_session_manager.py`                       | complete | External tools, PluginConnectionError handling, auto-disable    |
+| `chat/agent/agent_runner.py`                         | complete | Re-raise PluginConnectionError from \_execute_tool              |
+| `datahub-web-react/.../ManageAiConnections.tsx`      | complete | URL fragment handling with useEffect for plugin highlighting    |
+| `datahub-web-react/.../AiConnectionCard.tsx`         | complete | Added id attribute and .highlighted CSS class                   |
+| `tests/mcp_integration/test_external_mcp_manager.py` | complete | Rewrote for new PluginConnectionError architecture              |
+| `tests/unit/oauth/test_credential_store.py`          | complete | Added tests for get_access_token and token refresh              |
+
+#### Files Deleted
+
+| File                                                | Status   | Notes                      |
+| --------------------------------------------------- | -------- | -------------------------- |
+| `mcp_integration/external_mcp_config.py`            | complete | Replaced by AiPluginLoader |
+| `tests/mcp_integration/test_external_mcp_config.py` | complete | Tests for deleted file     |
+
+#### Remaining Work
+
+| Task                | Status  | Notes                                       |
+| ------------------- | ------- | ------------------------------------------- |
+| Build verification  | pending | Run ./gradlew build to verify compilation   |
+| Linting             | pending | Run lintFix to verify code style            |
+| Integration testing | pending | Test end-to-end flow with a real MCP server |
+
+#### Open Questions
+
+_None currently._
+
+#### Blockers
+
+_None currently._
 
 ---
 

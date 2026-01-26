@@ -376,9 +376,28 @@ describe('ManageAiConnections', () => {
             });
         });
 
-        it('should be enabled by default for USER_OAUTH when connected (no explicit setting)', async () => {
+        it('should be disabled for USER_OAUTH when connected but no explicit enabled setting', async () => {
+            // With stricter logic, connected alone is not enough - need explicit enabled=true
             const plugins = [createMockPlugin('oauth-plugin', AiPluginAuthType.UserOauth)];
             const userPlugins = [createMockUserPlugin('oauth-plugin', { oauthConnected: true })];
+            const mock = createQueryMock(plugins, userPlugins);
+
+            render(
+                <MockedProvider mocks={[mock]} addTypename={false}>
+                    <ManageAiConnections />
+                </MockedProvider>,
+            );
+
+            await waitFor(() => {
+                const card = screen.getByTestId('plugin-card-oauth-plugin');
+                expect(card.querySelector('[data-testid="is-enabled"]')?.textContent).toBe('disabled');
+            });
+        });
+
+        it('should be enabled for USER_OAUTH when connected AND explicitly enabled', async () => {
+            // The backend sets enabled=true on OAuth connection, so this is the expected state
+            const plugins = [createMockPlugin('oauth-plugin', AiPluginAuthType.UserOauth)];
+            const userPlugins = [createMockUserPlugin('oauth-plugin', { enabled: true, oauthConnected: true })];
             const mock = createQueryMock(plugins, userPlugins);
 
             render(

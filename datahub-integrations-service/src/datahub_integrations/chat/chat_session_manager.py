@@ -35,6 +35,7 @@ from datahub.utilities.perf_timer import PerfTimer
 from fastmcp import FastMCP
 from loguru import logger
 
+from datahub_integrations.app import DATAHUB_FRONTEND_URL
 from datahub_integrations.chat.agent import AgentRunner
 from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
 from datahub_integrations.chat.agents import (
@@ -51,7 +52,13 @@ from datahub_integrations.chat.datahub_ai_conversation_client import (
 from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.chat.utils import combine_contexts
 from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.mcp_integration.external_mcp_manager import (
+    ExternalMCPManager,
+    ExternalToolWrapper,
+    PluginConnectionError,
+)
 from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.oauth.credential_store import DataHubConnectionCredentialStore
 from datahub_integrations.telemetry.chat_events import (
     ChatbotInteractionEvent,
     ui_chat_id,
@@ -152,7 +159,109 @@ class ChatSessionManager:
         self.tools_client = tools_client
         # Conversation management uses system credentials
         self.conversation_manager = DataHubAiConversationClient(system_client)
+        # Credential store for external plugin authentication
+        # Note: Uses tools_client (user's JWT) because credentials are user-specific
+        self._credential_store = DataHubConnectionCredentialStore(
+            graph=tools_client._graph
+        )
         logger.info("Initialized ChatSessionManager with system and tools clients")
+
+    def _get_external_tools(
+        self, chat_type: ChatType, user_urn: str
+    ) -> List[ExternalToolWrapper]:
+        """
+        Get external MCP tools for the user.
+
+        External plugins are ONLY available for UI chat (Ask DataHub).
+        Slack/Teams do not have user JWT tokens for authentication.
+
+        Args:
+            chat_type: The type of chat context.
+            user_urn: URN of the authenticated user.
+
+        Returns:
+            List of ExternalToolWrapper objects.
+
+        Raises:
+            PluginConnectionError: If any external plugin fails to connect.
+        """
+        # External plugins only for UI chat - Slack/Teams have no JWT
+        if chat_type not in (ChatType.DATAHUB_UI, ChatType.DEFAULT):
+            logger.debug(
+                f"Skipping external tools for chat_type={chat_type} "
+                "(only available for UI chat)"
+            )
+            return []
+
+        try:
+            logger.info(f"Loading external tools for user {user_urn}...")
+            # Note: Accessing _graph directly because DataHubClient doesn't expose it publicly
+            # TODO: Consider adding a public property to DataHubClient in the SDK
+            manager = ExternalMCPManager.from_user_settings(
+                graph=self.tools_client._graph,  # User's JWT-authenticated client
+                credential_store=self._credential_store,
+                user_urn=user_urn,
+            )
+            tools = manager.get_tools()
+            logger.info(
+                f"Loaded {len(tools)} external tools for user {user_urn}: "
+                f"{[t.name for t in tools]}"
+            )
+            return tools
+        except PluginConnectionError:
+            # Re-raise to be handled by caller
+            raise
+        except Exception as e:
+            # Safety net for unexpected errors - continue chat without external plugins
+            logger.bind(
+                user_urn=user_urn,
+                error_type=type(e).__name__,
+            ).opt(exception=True).warning(
+                "Unexpected error loading external tools - continuing without external plugins"
+            )
+            return []
+
+    def _disable_user_plugin(self, user_urn: str, plugin_id: str) -> None:
+        """
+        Disable and disconnect a plugin in user's settings via GraphQL.
+
+        When a plugin fails due to auth errors, we both disable AND disconnect it.
+        This forces the user to re-authenticate when they want to use it again.
+
+        IMPORTANT: Uses tools_client (user's JWT), NOT system_client.
+        User settings must only be modified with user's own credentials.
+
+        Args:
+            user_urn: URN of the user (used for logging, not auth).
+            plugin_id: ID of the plugin to disable.
+        """
+        try:
+            self.tools_client._graph.execute_graphql(
+                query="""
+mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
+    updateUserAiPluginSettings(input: $input)
+}
+""".strip(),
+                variables={
+                    "input": {
+                        "pluginId": plugin_id,
+                        "enabled": False,
+                        # Disconnect both OAuth and API key connections
+                        # (only the relevant one will have effect based on auth type)
+                        "disconnectOAuth": True,
+                        "apiKey": "",
+                    }
+                },
+            )
+            logger.info(
+                f"Auto-disabled and disconnected plugin {plugin_id} for user {user_urn}"
+            )
+        except Exception as e:
+            logger.bind(
+                user_urn=user_urn,
+                plugin_id=plugin_id,
+                error_type=type(e).__name__,
+            ).opt(exception=True).error("Failed to disable plugin in user settings")
 
     def create_session(
         self,
@@ -191,6 +300,8 @@ class ChatSessionManager:
         conversation_urn: str,
         agent_type: str = "DataCatalogExplorer",
         message_context: Optional["ChatContext"] = None,
+        user_urn: Optional[str] = None,
+        external_tools: Optional[List[ExternalToolWrapper]] = None,
     ) -> AgentRunner:
         """Load an agent session from GraphQL using conversation history.
 
@@ -201,12 +312,15 @@ class ChatSessionManager:
             conversation_urn: URN of the conversation to load
             agent_type: Type of agent to create (e.g., "DataCatalogExplorer")
             message_context: Optional message-level context to combine with conversation context
+            user_urn: Optional user URN for external tool loading
+            external_tools: Optional pre-loaded external tools (to avoid duplicate loading)
 
         Returns:
             Configured AgentRunner instance with loaded history
 
         Raises:
             ValueError: If agent_type is not recognized
+            PluginConnectionError: If external plugin connection fails
         """
         if agent_type not in AGENT_FACTORIES:
             raise ValueError(
@@ -223,12 +337,17 @@ class ChatSessionManager:
         # Combine conversation context with message context
         combined_context = combine_contexts(conversation_context, message_context)
 
+        # Build tools list: always include mcp, optionally add external tools
+        tools: List[ToolWrapper | FastMCP | ExternalToolWrapper] = [mcp]
+        if external_tools:
+            tools.extend(external_tools)
+
         factory = AGENT_FACTORIES[agent_type]
         return factory(
             client=self.tools_client,
             chat_type=chat_type,
             history=history,
-            tools=[mcp],
+            tools=tools,  # type: ignore[arg-type]
             context=combined_context,
         )
 
@@ -278,15 +397,18 @@ class ChatSessionManager:
         agent = None
         message_text = text
 
-        # Load existing session
         # Use agent_name as agent_type if provided, otherwise default to DataCatalogExplorer
         agent_type = agent_name if agent_name else "DataCatalogExplorer"
-        agent = self.load_session(conversation_urn, agent_type, message_context)
 
-        # Queue for progress updates (None signals completion)
-        progress_q: queue.Queue[Optional[ChatMessageEvent]] = queue.Queue()
+        # Load chat metadata to get chat_type
+        (
+            _,
+            chat_type,
+            _,
+        ) = self.conversation_manager.load_conversation_with_metadata(conversation_urn)
 
-        # Yield initial user message immediately for minimal latency
+        # Yield and save user message FIRST (before external tools loading)
+        # This ensures the user's question is always recorded, even if plugin loading fails
         user_message_timestamp = int(time.time() * 1000)
 
         yield ChatMessageEvent(
@@ -297,7 +419,6 @@ class ChatSessionManager:
             user_urn=user_urn,
         )
 
-        # Save user message to backend
         self.conversation_manager.save_message_to_conversation(
             conversation_urn=conversation_urn,
             actor_urn=user_urn,
@@ -307,6 +428,49 @@ class ChatSessionManager:
             timestamp=user_message_timestamp,
             agent_name=agent_type,
         )
+
+        # Load external tools (may raise PluginConnectionError)
+        try:
+            external_tools = self._get_external_tools(chat_type, user_urn)
+        except PluginConnectionError as e:
+            # Auto-disable the failing plugin
+            self._disable_user_plugin(user_urn, e.plugin_id)
+
+            # Yield error message with deep link to settings
+            error_timestamp = int(time.time() * 1000)
+            error_message = (
+                f"We couldn't connect to AI plugin **{e.plugin_name}** and have disabled it. "
+                f"You can reconnect it in [AI Connections Settings]"
+                f"(/settings/ai-connections#{e.plugin_id})."
+            )
+
+            # Save the error message to conversation
+            self.conversation_manager.save_message_to_conversation(
+                conversation_urn=conversation_urn,
+                actor_urn="urn:li:corpuser:datahub-ai",
+                actor_type=DataHubAiConversationActorTypeClass.AGENT,  # type: ignore[arg-type]
+                message_type=DataHubAiConversationMessageTypeClass.TEXT,  # type: ignore[arg-type]
+                text=error_message,
+                timestamp=error_timestamp,
+                agent_name=agent_type,
+            )
+
+            yield ChatMessageEvent(
+                message_type="TEXT",
+                text=error_message,
+                conversation_urn=conversation_urn,
+                timestamp=error_timestamp,
+                # Note: Don't set error field - we have a user-friendly message in text
+            )
+            return
+
+        # Load existing session with external tools
+        agent = self.load_session(
+            conversation_urn, agent_type, message_context, user_urn, external_tools
+        )
+
+        # Queue for progress updates (None signals completion)
+        progress_q: queue.Queue[Optional[ChatMessageEvent]] = queue.Queue()
 
         # Track how many updates we've already sent to avoid duplicates
         sent_update_count = 0
@@ -352,6 +516,19 @@ class ChatSessionManager:
             try:
                 result = self._generate_with_progress(agent, progress_callback)
                 next_message_container[0] = result
+            except PluginConnectionError as e:
+                # Handle plugin auth errors gracefully - disconnect and create friendly response
+                logger.warning(f"Plugin connection error during generation: {e}")
+                self._disable_user_plugin(user_urn, e.plugin_id)
+                settings_url = (
+                    f"{DATAHUB_FRONTEND_URL}/settings/ai-connections#{e.plugin_id}"
+                )
+                next_message_container[0] = NextMessage(
+                    text=(
+                        f"We couldn't connect to AI plugin **{e.plugin_name}** and have disconnected it. "
+                        f"You can reconnect it in [AI Connections Settings]({settings_url})."
+                    )
+                )
             except Exception as e:
                 logger.exception("Error during message generation")
                 error_container[0] = e
@@ -380,6 +557,8 @@ class ChatSessionManager:
         error = error_container[0]
         next_message = next_message_container[0]
 
+        # Note: PluginConnectionError is handled in run_generation() - it creates a
+        # NextMessage with friendly text and doesn't set error_container
         if error:
             # Use the same error message that the frontend displays for consistency
             # TODO: Ideally the frontend should read the error message from SSE payload

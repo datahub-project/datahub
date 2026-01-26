@@ -4,13 +4,10 @@ This package provides utilities for integrating with MCP (Model Context Protocol
 including both local FastMCP servers and external remote MCP servers.
 """
 
-from datahub_integrations.mcp_integration.external_mcp_config import (
-    ExternalMCPConfig,
-    MCPServerConfig,
-)
 from datahub_integrations.mcp_integration.external_mcp_manager import (
     ExternalMCPManager,
     ExternalToolWrapper,
+    PluginConnectionError,
 )
 from datahub_integrations.mcp_integration.tool import (
     ToolRunError,
@@ -20,12 +17,10 @@ from datahub_integrations.mcp_integration.tool import (
 )
 
 __all__ = [
-    # Config models
-    "ExternalMCPConfig",
-    "MCPServerConfig",
     # External MCP management
     "ExternalMCPManager",
     "ExternalToolWrapper",
+    "PluginConnectionError",
     # Tool utilities
     "ToolWrapper",
     "ToolRunError",

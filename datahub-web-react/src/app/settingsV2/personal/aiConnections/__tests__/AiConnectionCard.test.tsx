@@ -624,4 +624,151 @@ describe('AiConnectionCard', () => {
             expect(mockOnDisconnect).toHaveBeenCalledTimes(1);
         });
     });
+
+    describe('Corrupt Credentials Link (Admin Only)', () => {
+        const mockOnCorruptCredentials = vi.fn();
+
+        beforeEach(() => {
+            mockOnCorruptCredentials.mockClear();
+        });
+
+        it('should show Corrupt link for admin user with OAuth plugin when connected', () => {
+            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
+
+            render(
+                <AiConnectionCard
+                    plugin={plugin}
+                    isConnected
+                    isEnabled
+                    onConnect={mockOnConnect}
+                    onToggleEnabled={mockOnToggleEnabled}
+                    onCorruptCredentials={mockOnCorruptCredentials}
+                    isConnecting={false}
+                    isToggling={false}
+                    isAdminUser
+                />,
+            );
+
+            expect(screen.getByText('Corrupt')).toBeInTheDocument();
+        });
+
+        it('should NOT show Corrupt link for non-admin users', () => {
+            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
+
+            render(
+                <AiConnectionCard
+                    plugin={plugin}
+                    isConnected
+                    isEnabled
+                    onConnect={mockOnConnect}
+                    onToggleEnabled={mockOnToggleEnabled}
+                    onCorruptCredentials={mockOnCorruptCredentials}
+                    isConnecting={false}
+                    isToggling={false}
+                    isAdminUser={false}
+                />,
+            );
+
+            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
+        });
+
+        it('should NOT show Corrupt link when isAdminUser is not set', () => {
+            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
+
+            render(
+                <AiConnectionCard
+                    plugin={plugin}
+                    isConnected
+                    isEnabled
+                    onConnect={mockOnConnect}
+                    onToggleEnabled={mockOnToggleEnabled}
+                    onCorruptCredentials={mockOnCorruptCredentials}
+                    isConnecting={false}
+                    isToggling={false}
+                />,
+            );
+
+            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
+        });
+
+        it('should NOT show Corrupt link for API_KEY auth type (even for admin)', () => {
+            const plugin = createPlugin({ authType: AiPluginAuthType.UserApiKey });
+
+            render(
+                <AiConnectionCard
+                    plugin={plugin}
+                    isConnected
+                    isEnabled
+                    onConnect={mockOnConnect}
+                    onToggleEnabled={mockOnToggleEnabled}
+                    onCorruptCredentials={mockOnCorruptCredentials}
+                    isConnecting={false}
+                    isToggling={false}
+                    isAdminUser
+                />,
+            );
+
+            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
+        });
+
+        it('should NOT show Corrupt link when not connected', () => {
+            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
+
+            render(
+                <AiConnectionCard
+                    plugin={plugin}
+                    isConnected={false}
+                    isEnabled={false}
+                    onConnect={mockOnConnect}
+                    onToggleEnabled={mockOnToggleEnabled}
+                    onCorruptCredentials={mockOnCorruptCredentials}
+                    isConnecting={false}
+                    isToggling={false}
+                    isAdminUser
+                />,
+            );
+
+            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
+        });
+
+        it('should NOT show Corrupt link when no handler provided', () => {
+            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
+
+            render(
+                <AiConnectionCard
+                    plugin={plugin}
+                    isConnected
+                    isEnabled
+                    onConnect={mockOnConnect}
+                    onToggleEnabled={mockOnToggleEnabled}
+                    isConnecting={false}
+                    isToggling={false}
+                    isAdminUser
+                />,
+            );
+
+            expect(screen.queryByText('Corrupt')).not.toBeInTheDocument();
+        });
+
+        it('should call onCorruptCredentials when clicked', () => {
+            const plugin = createPlugin({ authType: AiPluginAuthType.UserOauth });
+
+            render(
+                <AiConnectionCard
+                    plugin={plugin}
+                    isConnected
+                    isEnabled
+                    onConnect={mockOnConnect}
+                    onToggleEnabled={mockOnToggleEnabled}
+                    onCorruptCredentials={mockOnCorruptCredentials}
+                    isConnecting={false}
+                    isToggling={false}
+                    isAdminUser
+                />,
+            );
+
+            fireEvent.click(screen.getByText('Corrupt'));
+            expect(mockOnCorruptCredentials).toHaveBeenCalledTimes(1);
+        });
+    });
 });
