@@ -11,7 +11,7 @@
  * to existing datasets in DataHub. See the example recipes for configuration details.
  */
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
-import { FilterRecipeField, FilterRule, setListValuesOnRecipe } from './common';
+import { FilterRecipeField, FilterRule, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const MATILLION_CLIENT_ID: RecipeField = {
     name: 'client_id',
