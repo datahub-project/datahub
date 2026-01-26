@@ -229,7 +229,12 @@ def load_config_file(
         ):  # URLs will return http/https
             # If the URL is remote, we need to fetch it.
             try:
-                response = requests.get(str(config_file))
+                response = requests.get(
+                    str(config_file),
+                    auth=(url_parsed.username or "", url_parsed.password or "")
+                    if url_parsed.username or url_parsed.password
+                    else None,
+                )
                 raw_config_file = response.text
             except Exception as e:
                 raise ConfigurationError(
