@@ -144,6 +144,13 @@ def calculate_dynamic_batch_size(base_batch_size: int, table_count: int) -> int:
         return base_batch_size
 
 
+def is_shard_newer(shard: str, stored_shard: str) -> bool:
+    if shard.isdigit() and stored_shard.isdigit():
+        return int(shard) > int(stored_shard)
+    else:
+        return shard > stored_shard
+
+
 class BigQuerySchemaGenerator:
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
     # Note: We use the hive schema parser to parse nested BigQuery types. We also have
@@ -606,12 +613,7 @@ class BigQuerySchemaGenerator:
                         )
                     else:
                         stored_shard = sharded_tables[base_name][1]
-                        if shard.isdigit() and stored_shard.isdigit():
-                            is_newer = int(shard) > int(stored_shard)
-                        else:
-                            is_newer = shard > stored_shard
-
-                        if is_newer:
+                        if is_shard_newer(shard, stored_shard):
                             logger.debug(
                                 f"Updating sharded table {project_id}.{dataset_name}.{base_name} "
                                 f"to use newer shard {table_id} (was {sharded_tables[base_name][0].table_id})"
@@ -1387,12 +1389,7 @@ class BigQuerySchemaGenerator:
                     sharded_tables[base_name] = (table, shard)
                 else:
                     stored_shard = sharded_tables[base_name][1]
-                    if shard.isdigit() and stored_shard.isdigit():
-                        is_newer = int(shard) > int(stored_shard)
-                    else:
-                        is_newer = shard > stored_shard
-
-                    if is_newer:
+                    if is_shard_newer(shard, stored_shard):
                         sharded_tables[base_name] = (table, shard)
                 continue
 

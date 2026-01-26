@@ -1607,6 +1607,28 @@ def test_calculate_dynamic_batch_size(
 
 
 @pytest.mark.parametrize(
+    "shard,stored_shard,expected",
+    [
+        ("20240102", "20240101", True),
+        ("20240101", "20240102", False),
+        ("20240101", "20240101", False),
+        ("20231231", "20240101", False),
+        ("abc", "aaa", True),
+        ("aaa", "abc", False),
+        ("123", "99", True),
+        ("99", "123", False),
+    ],
+)
+def test_is_shard_newer(shard: str, stored_shard: str, expected: bool) -> None:
+    from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
+        is_shard_newer,
+    )
+
+    result = is_shard_newer(shard, stored_shard)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
     "table_id",
     [
         "TABLE_20240101",
