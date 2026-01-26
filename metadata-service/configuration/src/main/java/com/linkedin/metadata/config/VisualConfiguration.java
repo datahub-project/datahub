@@ -34,4 +34,7 @@ public class VisualConfiguration {
 
   /** DEPRECATED: This is now controlled via the UI settings. */
   public ApplicationConfig application;
+
+  /** Boolean flag enables accessibility mode for better screen reader support */
+  public boolean accessibilityMode;
 }

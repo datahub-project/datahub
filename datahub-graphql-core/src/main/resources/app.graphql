@@ -428,6 +428,11 @@ type VisualConfig {
   Configuration for the application sidebar section
   """
   application: ApplicationConfig
+
+  """
+  Boolean flag for enabling accessibility mode
+  """
+  accessibilityMode: Boolean
 }
 
 """
