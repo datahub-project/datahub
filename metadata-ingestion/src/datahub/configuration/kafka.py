@@ -1,4 +1,8 @@
+import json
 import os
+import ssl
+import urllib.parse
+import urllib.request
 
 from pydantic import Field, validator
 
@@ -18,6 +22,42 @@ def _get_schema_registry_url() -> str:
         base_path = ""
 
     return f"http://localhost:8080{base_path}/schema-registry/api/"
+
+
+def _fetch_wilyns_json(url: str, timeout: int) -> dict:
+    ctx = ssl._create_unverified_context()  # noqa: S503 - matches existing Wily usage
+    with urllib.request.urlopen(url, timeout=timeout, context=ctx) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _resolve_wilyns_bootstrap(bootstrap: str) -> str:
+    wily_dc = os.getenv("KAFKA_WILY_DC", "atla")
+    wily_context = os.getenv("KAFKA_WILY_CONTEXT", "/p/aurora/atla/a/prod/0/0")
+    wily_limit = int(os.getenv("KAFKA_WILY_LIMIT", "3"))
+    wily_timeout = int(os.getenv("KAFKA_WILY_TIMEOUT", "20"))
+
+    if bootstrap.startswith("http://") or bootstrap.startswith("https://"):
+        url = bootstrap
+    else:
+        wily_path = bootstrap.lstrip("/")
+        url = f"https://wilyns-{wily_dc}.twitter.biz/lookups/{wily_path}"
+        url = f"{url}?context={urllib.parse.quote(wily_context, safe='/')}"
+
+    data = _fetch_wilyns_json(url, timeout=wily_timeout)
+    entries = data.get("entries", [])
+    hosts = []
+    for entry in entries:
+        if entry.get("weight") != 1.0:
+            continue
+        hostname = entry.get("hostname")
+        port = entry.get("port")
+        if hostname and port:
+            hosts.append(f"{hostname}:{port}")
+
+    if not hosts:
+        raise ConfigurationError("No Kafka bootstrap servers resolved from Wilyns")
+
+    return ",".join(hosts[:wily_limit])
 
 
 class _KafkaConnectionConfig(ConfigModel):
@@ -42,6 +82,8 @@ class _KafkaConnectionConfig(ConfigModel):
 
     @validator("bootstrap")
     def bootstrap_host_colon_port_comma(cls, val: str) -> str:
+        if val.startswith("/") or val.startswith("http://") or val.startswith("https://"):
+            val = _resolve_wilyns_bootstrap(val)
         for entry in val.split(","):
             validate_host_port(entry)
         return val
