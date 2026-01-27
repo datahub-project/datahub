@@ -1,11 +1,4 @@
-# Note: The following entity types are not currently included:
-# - DataJob
-# - DataFlow
-# - ML entities (MLModel, MLModelGroup, MLFeature, MLFeatureTable, MLPrimaryKey)
-# - Tag
-# - StructuredProperty
-# - CorpUser
-# - CorpGroup
+# All major entity types are now included in SearchEntityInfo and FacetEntityInfo
 
 fragment SearchEntityInfo on Entity {
   urn
@@ -13,8 +6,12 @@ fragment SearchEntityInfo on Entity {
   # For some entity types, the urns are not human-readable. For those,
   # we pull the name as well.
   ... on Dataset {
+    platform {
+      name
+    }
     properties {
       name
+      description
     }
   }
   ... on Chart {
@@ -23,33 +20,126 @@ fragment SearchEntityInfo on Entity {
     }
   }
   ... on Dashboard {
+    platform {
+      name
+    }
     properties {
       name
+      description
     }
   }
   ... on Container {
+    platform {
+      name
+    }
     properties {
       name
+      description
     }
   }
   ... on GlossaryTerm {
     properties {
       name
+      description
     }
   }
   ... on GlossaryNode {
     properties {
       name
+      description
     }
   }
   ... on Domain {
     properties {
       name
+      description
     }
   }
   ... on DataProduct {
     properties {
       name
+      description
+    }
+  }
+  ... on DataJob {
+    platform {
+      name
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on DataFlow {
+    platform {
+      name
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on Tag {
+    properties {
+      name
+      description
+    }
+  }
+  ... on CorpUser {
+    properties {
+      displayName
+      fullName
+    }
+  }
+  ... on CorpGroup {
+    properties {
+      displayName
+      description
+    }
+  }
+  ... on MLModel {
+    platform {
+      name
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on MLModelGroup {
+    platform {
+      name
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on MLFeature {
+    platform {
+      name
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on MLFeatureTable {
+    platform {
+      name
+    }
+    properties {
+      name
+      description
+    }
+  }
+  ... on MLPrimaryKey {
+    platform {
+      name
+    }
+    properties {
+      name
+      description
     }
   }
 }
@@ -72,6 +162,21 @@ fragment FacetEntityInfo on Entity {
   ... on GlossaryTerm {
     properties {
       name
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+    }
+  }
+  ... on Tag {
+    properties {
+      name
+    }
+  }
+  ... on StructuredProperty {
+    properties {
+      displayName
     }
   }
 }
