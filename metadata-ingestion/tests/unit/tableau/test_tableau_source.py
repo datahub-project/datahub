@@ -866,7 +866,7 @@ def _extract_dataset_properties(work_units):
         ),
     ],
 )
-def test_custom_sql_datasource_scenarios(
+def test_custom_sql_datasource_naming_scenarios(
     datasource_type,
     datasource_name,
     csql_id,
