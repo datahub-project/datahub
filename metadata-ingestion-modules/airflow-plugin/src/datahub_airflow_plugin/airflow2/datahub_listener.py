@@ -22,7 +22,9 @@ import airflow
 # Import Airflow 2.x specific shims (clean, no cross-version complexity)
 import airflow.version
 import packaging.version
-from airflow.models import Variable
+
+# Note: We intentionally don't import Variable here to avoid DB access in listeners.
+# See check_kill_switch() for details on why we use os.getenv() instead.
 from airflow.models.serialized_dag import SerializedDagModel
 
 # Import Airflow 2.x compatibility and patches before any Airflow imports
@@ -568,13 +570,29 @@ class DataHubListener:
                 )
 
     def check_kill_switch(self) -> bool:
-        # For Airflow 2.x, use Variable.get()
-        try:
-            if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
-                logger.debug("DataHub listener disabled by kill switch")
-                return True
-        except Exception as e:
-            logger.debug(f"Error checking kill switch variable: {e}")
+        """
+        Check kill switch using environment variable.
+
+        We use os.getenv() instead of Variable.get() because Variable.get()
+        creates a new database session and commits it. When called from listener
+        hooks (which execute during SQLAlchemy's after_flush event, before the
+        main transaction commits), this nested commit can corrupt the outer
+        transaction state and cause data loss.
+
+        Specifically, this was causing TaskInstanceHistory records to not be
+        persisted for retried tasks. See: https://github.com/apache/airflow/pull/48780
+
+        Users can set the kill switch via environment variable:
+            export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
+        """
+        if (
+            os.getenv(
+                f"AIRFLOW_VAR_{KILL_SWITCH_VARIABLE_NAME}".upper(), "false"
+            ).lower()
+            == "true"
+        ):
+            logger.debug("DataHub listener disabled by kill switch (env var)")
+            return True
         return False
 
     def _prepare_task_context(

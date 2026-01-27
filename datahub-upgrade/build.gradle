@@ -105,6 +105,12 @@ dependencies {
   testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
 
+  // testcontainers for integration tests
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+
   testImplementation externalDependency.h2
   testImplementation testFixtures(project(':metadata-io'))
 

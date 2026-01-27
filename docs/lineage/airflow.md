@@ -13,7 +13,7 @@ The DataHub Airflow plugin supports:
 - Task run information, including task successes and failures.
 - Manual lineage annotations using `inlets` and `outlets` on Airflow operators.
 
-The plugin requires Airflow 2.7+ and Python 3.9+. If you're using Airflow older than 2.7, it's possible to use the plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
+The plugin requires Airflow 2.7+ and Python 3.10+. If you're using Airflow older than 2.7, it's possible to use the plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
 
 <!-- TODO: Update the local Airflow guide and link to it here. -->
 <!-- If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../../docker/airflow/local_airflow.md). -->
@@ -22,7 +22,7 @@ The plugin requires Airflow 2.7+ and Python 3.9+. If you're using Airflow older 
 
 ### Installation
 
-The plugin requires Airflow 2.7+ and Python 3.9+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
+The plugin requires Airflow 2.7+ and Python 3.10+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
 
 ```shell
 pip install 'acryl-datahub-airflow-plugin>=1.1.0.4'
@@ -413,23 +413,19 @@ Set the `datahub.enabled` configuration property to `False` in the `airflow.cfg`
 enabled = False
 ```
 
-#### 2. Disable via Airflow Variable (Kill-Switch)
+#### 2. Disable via Environment Variable (Kill-Switch)
 
-If a restart is not possible and you need a faster way to disable the plugin, you can use the kill-switch. Create and set the `datahub_airflow_plugin_disable_listener` Airflow variable to `true`. This ensures that the listener won't process anything.
-
-#### Command Line
+If a restart is not possible and you need a faster way to disable the plugin, you can use the kill-switch. Set the `AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER` environment variable to `true`. This ensures that the listener won't process anything.
 
 ```shell
-airflow variables set datahub_airflow_plugin_disable_listener true
+export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
 ```
 
-#### Airflow UI
-
-1. Go to Admin -> Variables.
-2. Click the "+" symbol to create a new variable.
-3. Set the key to `datahub_airflow_plugin_disable_listener` and the value to `true`.
-
 This will immediately disable the plugin without requiring a restart.
+
+:::note Why Environment Variable Instead of Airflow Variable?
+The plugin uses environment variables instead of Airflow's `Variable.get()` because listener hooks are called during SQLAlchemy's `after_flush` event (before the main transaction commits). Calling `Variable.get()` in this context creates a nested database session that can interfere with the outer transaction and cause data loss, such as missing TaskInstanceHistory records for retried tasks.
+:::
 
 ## Compatibility
 
@@ -438,7 +434,7 @@ We try to support Airflow releases for ~2 years after their release. This is a b
 We no longer officially support Airflow <2.7. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
 We previously had two implementations of the plugin - v1 and v2. The v2 plugin is now the default, and the v1 plugin has since been removed. The v1 plugin had many limitations, chiefly that it does not support automatic lineage extraction. Docs for the v1 plugin can be accessed in our [docs archive](https://docs-website-r5eolot5n-acryldata.vercel.app/docs/lineage/airflow#datahub-plugin-v1).
 
-The first two options support Python 3.7+, and latter three require Python 3.8+.
+All recent versions require Python 3.10+.
 
 - Airflow 1.10.x, use acryl-datahub-airflow-plugin <= 0.9.1.0 (v1 plugin).
 - Airflow 2.0.x, use acryl-datahub-airflow-plugin <= 0.11.0.1 (v1 plugin).
