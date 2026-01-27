@@ -77,11 +77,7 @@ base.ischema_names["QUANTILE_STATE"] = QUANTILE_STATE
 
 
 def _patch_doris_dialect(dialect: mysqldb.MySQLDialect_mysqldb) -> None:
-    """
-    Patch a specific dialect instance to preserve Doris type names.
-
-    Patches per-engine rather than globally, ensuring MySQL sources remain unaffected.
-    """
+    """Patches per-engine rather than globally, ensuring MySQL sources remain unaffected."""
     if not isinstance(dialect, mysqldb.MySQLDialect_mysqldb):
         raise TypeError(
             f"Cannot patch dialect of type {type(dialect)} which does not descend from "
@@ -91,7 +87,6 @@ def _patch_doris_dialect(dialect: mysqldb.MySQLDialect_mysqldb) -> None:
     _original_get_columns = dialect.get_columns
 
     def get_columns_with_full_type(connection, table_name, schema=None, **kw):
-        """Use DESCRIBE to get original Doris type names (HLL, BITMAP, etc.) instead of MySQL equivalents (BLOB)."""
         columns = _original_get_columns(connection, table_name, schema, **kw)
 
         current_schema = schema or connection.engine.url.database
@@ -112,7 +107,6 @@ def _patch_doris_dialect(dialect: mysqldb.MySQLDialect_mysqldb) -> None:
                 if col["name"] in type_map:
                     doris_type = type_map[col["name"]]
                     col["full_type"] = doris_type
-                    # Track Doris-specific types for observability
                     if any(
                         dt in doris_type.upper()
                         for dt in ["HLL", "BITMAP", "QUANTILE_STATE", "ARRAY", "JSONB"]
@@ -152,7 +146,7 @@ def _get_column_types_to_ignore_with_doris(dialect_name: str) -> list:
 
 
 def _patch_profiler() -> None:
-    """Patch profiler to exclude Doris types (global, applied once on first DorisSource creation)."""
+    """Global patch, applied once on first DorisSource creation."""
     global _profiler_patched
 
     if _profiler_patched:
@@ -205,15 +199,6 @@ class DorisConfig(MySQLConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class DorisSource(MySQLSource):
-    """
-    Extracts metadata from Apache Doris, a MySQL-compatible MPP analytical database.
-
-    Key differences from MySQL:
-    - Unique data types: HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB
-    - Default port: {DORIS_DEFAULT_PORT} instead of 3306
-    - Stored procedures not supported (disabled by default)
-    """
-
     config: DorisConfig
 
     def __init__(self, config: DorisConfig, ctx: Any):
@@ -221,13 +206,11 @@ class DorisSource(MySQLSource):
         _patch_profiler()
 
     def _get_database_list(self, inspector: Inspector) -> List[str]:
-        """Get list of databases to process (either configured or discovered)."""
         if self.config.database and self.config.database != "":
             return [self.config.database]
         return inspector.get_schema_names()
 
     def _create_patched_engine(self, database: str) -> Engine:
-        """Create engine for specific database and patch its dialect for Doris type preservation."""
         url = self.config.get_sql_alchemy_url(current_db=database)
         engine = create_engine(url, **self.config.options)
 
@@ -248,17 +231,14 @@ class DorisSource(MySQLSource):
         return engine
 
     def get_inspectors(self):
-        """Yield inspectors for each database, with patched dialects for Doris type preservation."""
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
 
-        # Discover available databases
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
             inspector = inspect(conn)
             databases = self._get_database_list(inspector)
 
-            # Create patched engine for each allowed database
             for db in databases:
                 if self.config.database_pattern.allowed(db):
                     db_engine = self._create_patched_engine(db)
@@ -271,7 +251,7 @@ class DorisSource(MySQLSource):
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
-        """Return empty list - Doris information_schema.ROUTINES is always empty."""
+        """Doris information_schema.ROUTINES is always empty."""
         if not self.config.include_stored_procedures:
             return []
 

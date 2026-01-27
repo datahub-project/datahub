@@ -1,96 +1,28 @@
 source:
   type: doris
   config:
-    # Connection Details
-    # Note: Doris uses port 9030 (FE query port), not MySQL's 3306
+    # Connection (Doris FE query port is 9030)
     host_port: localhost:9030
-    database: dbname
-    
-    # Credentials
+    database: your_database
     username: root
-    password: example
+    password: ""
     
-    # Schema and Table Filtering
-    # Use these patterns to control which schemas and tables to ingest
+    # Optional: Schema/Table Filtering
     # schema_pattern:
-    #   allow:
-    #     - "^production_.*"      # All schemas starting with 'production_'
-    #     - "analytics"           # Exact schema name 'analytics'
-    #   deny:
-    #     - ".*_temp$"            # Exclude temporary schemas ending in '_temp'
-    #     - "test_.*"             # Exclude test schemas
-    
+    #   allow: ["^production_.*"]
+    #   deny: [".*_temp$"]
     # table_pattern:
-    #   allow:
-    #     - "^dim_.*"             # All dimension tables
-    #     - "^fact_.*"            # All fact tables
-    #     - "users"               # Specific table 'users'
-    #   deny:
-    #     - ".*_backup$"          # Exclude backup tables
-    #     - "tmp_.*"              # Exclude temporary tables
+    #   allow: ["^fact_.*", "^dim_.*"]
+    #   deny: [".*_backup$"]
     
-    # Data Profiling Configuration
-    # Note: Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB)
-    # are automatically excluded from field-level profiling as they don't
-    # support COUNT DISTINCT operations. Table-level metrics are still collected.
+    # Optional: Data Profiling
+    # Note: Doris types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are
+    # automatically excluded from field-level profiling
     # profiling:
     #   enabled: true
-    #   
-    #   # Profile only specific tables to reduce load
-    #   profile_table_level_only: false  # Set to true to skip column-level profiling
-    #   
-    #   # Limit profiling to specific tables
-    #   profile_pattern:
-    #     allow:
-    #       - "^production\\.fact_.*"   # Only fact tables in production schema
-    #       - "^analytics\\..*"         # All tables in analytics schema
-    #     deny:
-    #       - ".*_archive$"             # Skip archived tables
-    #   
-    #   # Control profiling sample size (important for large Doris tables)
-    #   max_number_of_fields_to_profile: 50  # Profile up to 50 columns per table
-    #   profile_table_row_limit: 10000       # Sample first 10k rows
-    #   profile_table_size_limit: 5          # Skip tables larger than 5 GB
-    #   
-    #   # Turn off specific profilers to improve performance
-    #   turn_off_expensive_profiling_metrics: true  # Disable percentile calculations
-    #   include_field_null_count: true
-    #   include_field_min_value: true
-    #   include_field_max_value: true
-    #   include_field_mean_value: true
-    #   include_field_median_value: false    # Expensive, disable for large tables
-    #   include_field_stddev_value: true
-    #   include_field_quantiles: false       # Very expensive, usually disabled
-    #   include_field_distinct_value_frequencies: false  # Expensive for high cardinality
-    #   include_field_histogram: false       # Expensive, usually disabled
-    #   include_field_sample_values: true
+    #   profile_table_level_only: false
     
-    # SSL/TLS Configuration (if using secure connections)
-    # options:
-    #   connect_args:
-    #     ssl_ca: "/path/to/server-ca.pem"
-    #     ssl_cert: "/path/to/client-cert.pem"
-    #     ssl_key: "/path/to/client-key.pem"
-    
-    # Platform Instance (for multi-cluster deployments)
-    # platform_instance: production-doris-cluster
-    
-    # Domain Assignment (for data governance)
-    # domain:
-    #   production: "urn:li:domain:production"
-    #   analytics: "urn:li:domain:analytics"
-    
-    # Include/Exclude Views
-    # include_views: true  # Set to false to exclude views
-    # include_tables: true # Set to false to exclude tables
-    
-    # Stateful Ingestion (for incremental updates)
+    # Optional: Stateful Ingestion (tracks previously ingested entities)
     # stateful_ingestion:
     #   enabled: true
     #   remove_stale_metadata: true
-
-# Sink Configuration
-# sink:
-#   type: datahub-rest
-#   config:
-#     server: http://localhost:8080

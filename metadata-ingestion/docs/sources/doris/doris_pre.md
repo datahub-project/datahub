@@ -1,78 +1,60 @@
 ### Prerequisites
 
-Apache Doris connector requires:
+#### Doris Version
 
-- **Doris version**: 2.0.x or higher recommended (see [version compatibility](#version-compatibility) below)
-- **Python driver**: `pymysql` (automatically installed with `acryl-datahub[doris]`)
-- **SQLAlchemy**: >= 1.4.39 (enforced by DataHub)
+Doris 3.0.x is supported. Doris 2.0+ may work but is untested.
 
-### Connection Details
-
-Doris uses MySQL's wire protocol but requires the **FE (Frontend) query port**:
-
-- **Default Doris port**: `9030` (not MySQL's `3306`)
-- **Protocol**: MySQL-compatible via `pymysql`
-- **Authentication**: Standard username/password
-
-### Doris-Specific Features
-
-This connector preserves Doris-specific data types that would otherwise be lost when using the MySQL connector:
-
-| Doris Type         | MySQL Fallback | Description                                |
-| ------------------ | -------------- | ------------------------------------------ |
-| **HLL**            | BLOB           | HyperLogLog for approximate COUNT DISTINCT |
-| **BITMAP**         | BLOB           | Bitmap for efficient set operations        |
-| **QUANTILE_STATE** | BLOB           | For percentile calculations (Doris 2.0+)   |
-| **ARRAY**          | TEXT           | Array data types                           |
-| **JSONB**          | JSON           | Binary JSON storage                        |
-
-### Version Compatibility
-
-#### Supported Doris Versions
-
-| Doris Version | Status          | Notes                        |
-| ------------- | --------------- | ---------------------------- |
-| 3.0.x         | Fully Supported | Tested with 3.0.8            |
-| 2.1.x         | Fully Supported | All Doris-specific types     |
-| 2.0.x         | Fully Supported | All Doris-specific types     |
-| 1.2.x         | Partial Support | QUANTILE_STATE not available |
-| < 1.2         | Not Recommended | Limited type support         |
-
-To check your Doris version:
+Check your version:
 
 ```sql
 SELECT version();
 ```
 
+#### Network Access
+
+- **Doris FE port**: `9030`
+- Ensure network connectivity from DataHub to Doris FE
+
+#### User Permissions
+
+Minimal required permissions for the DataHub user:
+
+```sql
+-- Create user
+CREATE USER 'datahub'@'%' IDENTIFIED BY 'your_password';
+
+-- Grant minimal permissions
+GRANT SELECT_PRIV ON *.* TO 'datahub'@'%';
+GRANT SHOW_VIEW_PRIV ON *.* TO 'datahub'@'%';
+```
+
+### Doris-Specific Features
+
+This connector preserves Doris-specific data types:
+
+| Doris Type         | MySQL Fallback | Description                                |
+| ------------------ | -------------- | ------------------------------------------ |
+| **HLL**            | BLOB           | HyperLogLog for approximate COUNT DISTINCT |
+| **BITMAP**         | BLOB           | Bitmap for efficient set operations        |
+| **QUANTILE_STATE** | BLOB           | For percentile calculations                |
+| **ARRAY**          | TEXT           | Array data types                           |
+| **JSONB**          | JSON           | Binary JSON storage                        |
+
 ### Known Limitations
 
 #### Stored Procedures
 
-Doris's `information_schema.ROUTINES` is always empty, so stored procedure ingestion is disabled by default. This is a Doris limitation with no workaround.
+Doris's `information_schema.ROUTINES` is always empty. Stored procedure ingestion is disabled by default.
 
-#### Profiling Limitations
+#### Profiling
 
-Doris-specific types are automatically excluded from field-level profiling because they don't support `COUNT DISTINCT` operations:
-
-- HLL, BITMAP, QUANTILE_STATE: Approximate/aggregate types
-- ARRAY, JSONB: Complex types
-
-Table-level statistics (row count, size) are still collected for all tables.
+Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling because they don't support `COUNT DISTINCT` operations. Table-level statistics are still collected.
 
 ### Migration from MySQL Connector
 
-If you were previously ingesting Doris using the MySQL connector:
+If previously using the MySQL connector:
 
-**What changes:**
-
-- `type: mysql` → `type: doris`
-- `host_port: localhost:3306` → `host_port: localhost:9030`
-- Types preserved: MySQL types (INT, BLOB) → Doris types (INTEGER, HLL)
-
-**What stays the same:**
-
-- Connection config (username, password, SSL)
-- Schema/table filtering patterns
-- Profiling configuration
-
-**Important:** Dataset URNs will change from `platform:mysql` to `platform:doris`, creating new entities in DataHub. Plan for cleanup of old MySQL entities if needed.
+- Change `type: mysql` → `type: doris`
+- Change port: `3306` → `9030`
+- Dataset URNs will change from `platform:mysql` to `platform:doris`, creating new entities in DataHub
+- Enable stateful ingestion to automatically clean up old MySQL entities (see configuration for threshold settings)
