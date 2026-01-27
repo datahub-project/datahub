@@ -208,6 +208,11 @@ type PlatformPrivileges {
   Whether the user can manage default home page template.
   """
   manageHomePageTemplates: Boolean!
+
+  """
+  Whether the user can create, update, and delete service accounts.
+  """
+  manageServiceAccounts: Boolean!
 }
 
 """

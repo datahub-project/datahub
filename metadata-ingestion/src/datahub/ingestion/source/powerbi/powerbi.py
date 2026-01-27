@@ -76,6 +76,7 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
@@ -175,6 +176,21 @@ class Mapper:
                 ASPECT_NAME=mcp.aspectName,
             ),
             mcp=mcp,
+        )
+
+    def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
+        """
+        Generate DataPlatformInstanceClass aspect for PowerBI entities.
+        """
+        return DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(self.__config.platform_name),
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.__config.platform_name, self.__config.platform_instance
+                )
+                if self.__config.platform_instance
+                else None
+            ),
         )
 
     def extract_dataset_schema(
@@ -563,7 +579,15 @@ class Mapper:
                 )
                 dataset_mcps.extend([owner_mcp])
 
-            dataset_mcps.extend([info_mcp, status_mcp, subtype_mcp])
+            # DataPlatformInstance
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=ds_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            dataset_mcps.extend(
+                [info_mcp, status_mcp, subtype_mcp, data_platform_instance_mcp]
+            )
 
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn, workspace))
@@ -732,12 +756,20 @@ class Mapper:
             entity_urn=chart_urn,
             aspect=browse_path,
         )
+
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=chart_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         result_mcps = [
             info_mcp,
             status_mcp,
             subtype_mcp,
             chart_key_mcp,
             browse_path_mcp,
+            data_platform_instance_mcp,
         ]
 
         self.append_container_mcp(
@@ -844,11 +876,18 @@ class Mapper:
             aspect=browse_path,
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:
@@ -1149,7 +1188,20 @@ class Mapper:
                 entity_urn=chart_urn,
                 aspect=browse_path,
             )
-            list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
+
+            # DataPlatformInstance aspect
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=chart_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            list_of_mcps = [
+                info_mcp,
+                status_mcp,
+                subtype_mcp,
+                browse_path_mcp,
+                data_platform_instance_mcp,
+            ]
 
             self.append_container_mcp(
                 list_of_mcps,
@@ -1250,12 +1302,19 @@ class Mapper:
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
             sub_type_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:

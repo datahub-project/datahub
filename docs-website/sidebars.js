@@ -1,9 +1,6 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 // smoke-test/tests/library_examples/README.md
-// docs/dev-guides/semantic-search/README.md
-// docs/dev-guides/semantic-search/ARCHITECTURE.md
-// docs/dev-guides/semantic-search/CONFIGURATION.md
 module.exports = {
   overviewSidebar: [
     // Getting Started.
@@ -1094,6 +1091,7 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
+        "docs/how-to/semantic-search-configuration",
         {
           "SCIM Provisioning": [
             "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
@@ -1188,6 +1186,13 @@ module.exports = {
       "Advanced Guides": [
         "docs/advanced/mcp-mcl",
         "docs/advanced/writing-mcps",
+        {
+          "Semantic Search": [
+            "docs/dev-guides/semantic-search/README",
+            "docs/dev-guides/semantic-search/ARCHITECTURE",
+            "docs/dev-guides/semantic-search/CONFIGURATION",
+          ],
+        },
         "docs/modeling/extending-the-metadata-model",
         "docs/advanced/api-tracing",
         "docs/advanced/micrometer-best-practices",
