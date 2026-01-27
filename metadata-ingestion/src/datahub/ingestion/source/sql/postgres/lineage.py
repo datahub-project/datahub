@@ -181,10 +181,7 @@ class PostgresLineageExtractor:
                 )
                 return []
 
-    def populate_lineage_from_queries(
-        self,
-        discovered_tables: set[str],
-    ) -> None:
+    def populate_lineage_from_queries(self) -> None:
         """Extract lineage from query history and add to SQL aggregator."""
         if not self.config.include_query_lineage:
             logger.info("Query-based lineage extraction disabled in config")

@@ -221,7 +221,7 @@ class TestPostgresLineageExtractor:
 
         lineage_extractor.extract_query_history = MagicMock(return_value=test_queries)
 
-        lineage_extractor.populate_lineage_from_queries(discovered_tables=set())
+        lineage_extractor.populate_lineage_from_queries()
 
         assert mock_sql_aggregator.add_observed_query.called
         call_args = mock_sql_aggregator.add_observed_query.call_args
@@ -231,7 +231,7 @@ class TestPostgresLineageExtractor:
     def test_populate_lineage_disabled(self, lineage_extractor, mock_sql_aggregator):
         lineage_extractor.config.include_query_lineage = False
 
-        lineage_extractor.populate_lineage_from_queries(discovered_tables=set())
+        lineage_extractor.populate_lineage_from_queries()
 
         assert not mock_sql_aggregator.add_observed_query.called
 

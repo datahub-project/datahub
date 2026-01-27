@@ -564,7 +564,7 @@ class TestPostgresLineageIntegration:
         queries = extractor.extract_query_history()
         assert len(queries) > 0, "Should extract queries"
 
-        extractor.populate_lineage_from_queries(discovered_tables=set())
+        extractor.populate_lineage_from_queries()
 
         mcps = list(aggregator.gen_metadata())
 
@@ -630,7 +630,7 @@ class TestPostgresLineageIntegration:
         queries = extractor.extract_query_history()
         assert len(queries) > 0, "Should extract queries"
 
-        extractor.populate_lineage_from_queries(discovered_tables=set())
+        extractor.populate_lineage_from_queries()
 
         mcps = list(aggregator.gen_metadata())
 

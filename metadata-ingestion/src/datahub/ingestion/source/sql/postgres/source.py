@@ -502,8 +502,6 @@ class PostgresSource(SQLAlchemySource):
         """
         logger.info("Starting query-based lineage extraction from pg_stat_statements")
 
-        discovered_tables: set[str] = set()
-
         for inspector in self.get_inspectors():
             if self.sql_aggregator is None:
                 logger.warning(
@@ -529,7 +527,7 @@ class PostgresSource(SQLAlchemySource):
                 )
 
                 try:
-                    lineage_extractor.populate_lineage_from_queries(discovered_tables)
+                    lineage_extractor.populate_lineage_from_queries()
                 except Exception as e:
                     logger.error(
                         "Failed to populate lineage from queries: %s. "
