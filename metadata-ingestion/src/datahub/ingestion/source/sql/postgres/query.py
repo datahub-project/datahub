@@ -1,6 +1,9 @@
 import re
 from typing import Dict, Optional, Union
 
+from sqlalchemy import text
+from sqlalchemy.sql.elements import TextClause
+
 
 class PostgresQuery:
     """Utility class for Postgres-specific SQL queries."""
@@ -33,35 +36,41 @@ class PostgresQuery:
         return " AND ".join(filters)
 
     @staticmethod
-    def check_pg_stat_statements_enabled() -> str:
+    def check_pg_stat_statements_enabled() -> TextClause:
         """Check if pg_stat_statements extension is installed."""
-        return """
+        return text(
+            """
         SELECT EXISTS (
             SELECT 1
             FROM pg_extension
             WHERE extname = 'pg_stat_statements'
         ) as enabled
         """
+        )
 
     @staticmethod
-    def check_pg_stat_statements_permissions() -> str:
+    def check_pg_stat_statements_permissions() -> TextClause:
         """Check if user has pg_read_all_stats role or superuser privileges."""
-        return """
+        return text(
+            """
         SELECT
             pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER') as has_stats_role,
             usesuper as is_superuser
         FROM pg_user
         WHERE usename = current_user
         """
+        )
 
     @staticmethod
-    def get_pg_stat_statements_version() -> str:
+    def get_pg_stat_statements_version() -> TextClause:
         """Get installed pg_stat_statements extension version."""
-        return """
+        return text(
+            """
         SELECT extversion
         FROM pg_extension
         WHERE extname = 'pg_stat_statements'
         """
+        )
 
     @staticmethod
     def get_query_history(
@@ -69,12 +78,12 @@ class PostgresQuery:
         limit: int = 1000,
         min_calls: int = 1,
         exclude_patterns: Optional[list[str]] = None,
-    ) -> tuple[str, Dict[str, Union[str, int]]]:
+    ) -> tuple[TextClause, Dict[str, Union[str, int]]]:
         """
         Extract query history from pg_stat_statements.
 
         Returns parameterized query with bind parameters for SQL injection prevention.
-        Use with: connection.execute(text(query), params)
+        Use with: connection.execute(query, params)
         """
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
@@ -115,7 +124,8 @@ class PostgresQuery:
 
         where_clause = PostgresQuery._build_pg_stat_filter(database, params, filters)
 
-        query = f"""
+        query = text(
+            f"""
         SELECT
             s.queryid::text as query_id,
             s.query as query_text,
@@ -136,6 +146,7 @@ class PostgresQuery:
         ORDER BY s.total_exec_time DESC, s.calls DESC
         LIMIT :limit
         """
+        )
 
         return query, params
 
@@ -144,12 +155,12 @@ class PostgresQuery:
         query_type: str = "INSERT",
         database: Optional[str] = None,
         limit: int = 500,
-    ) -> tuple[str, Dict[str, Union[str, int]]]:
+    ) -> tuple[TextClause, Dict[str, Union[str, int]]]:
         """
         Extract queries of specific type (INSERT, UPDATE, DELETE, etc.).
 
         Returns parameterized query with bind parameters for SQL injection prevention.
-        Use with: connection.execute(text(query), params)
+        Use with: connection.execute(query, params)
         """
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
@@ -173,7 +184,8 @@ class PostgresQuery:
 
         where_clause = PostgresQuery._build_pg_stat_filter(database, params, filters)
 
-        query = f"""
+        query = text(
+            f"""
         SELECT
             s.queryid::text as query_id,
             s.query as query_text,
@@ -188,18 +200,22 @@ class PostgresQuery:
         ORDER BY s.calls DESC
         LIMIT :limit
         """
+        )
 
         return query, params
 
     @staticmethod
-    def get_top_tables_by_query_count(limit: int = 100) -> tuple[str, Dict[str, int]]:
+    def get_top_tables_by_query_count(
+        limit: int = 100,
+    ) -> tuple[TextClause, Dict[str, int]]:
         """Get most frequently queried tables using heuristic pattern matching."""
         if limit <= 0 or not isinstance(limit, int):
             raise ValueError(f"limit must be a positive integer, got: {limit}")
 
         params: Dict[str, int] = {"limit": limit}
 
-        query = """
+        query = text(
+            """
         WITH table_refs AS (
             SELECT
                 query,
@@ -222,5 +238,6 @@ class PostgresQuery:
         ORDER BY total_calls DESC
         LIMIT :limit
         """
+        )
 
         return query, params
