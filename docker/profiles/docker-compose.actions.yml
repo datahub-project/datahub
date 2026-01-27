@@ -25,9 +25,14 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-actions/src:/datahub-actions/src
 
+x-datahub-actions-quickstart-service: &datahub-actions-quickstart-service
+  <<: *datahub-actions-service
+  volumes:
+    - ${HOME}/.aws:/home/datahub/.aws:ro
+
 services:
   datahub-actions-quickstart:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart
       - quickstart-backend
@@ -35,35 +40,35 @@ services:
       datahub-gms-quickstart:
         condition: service_healthy
   datahub-actions-quickstart-cassandra:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-cassandra
     depends_on:
       datahub-gms-quickstart-cassandra:
         condition: service_healthy
   datahub-actions-quickstart-postgres:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-postgres
     depends_on:
       datahub-gms-quickstart-postgres:
         condition: service_healthy
   datahub-actions-quickstart-consumers:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-consumers
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
   datahub-actions-quickstart-consumers-cdc:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-consumers-cdc
     depends_on:
       datahub-gms-quickstart-consumers-cdc:
         condition: service_healthy
   datahub-actions-quickstart-postgres-cdc:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-postgres-cdc
     depends_on:
