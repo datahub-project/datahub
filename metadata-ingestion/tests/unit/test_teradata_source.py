@@ -1,13 +1,15 @@
 from collections import defaultdict
 from datetime import datetime
-from threading import Lock
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit import (
+    MetadataChangeProposalWrapper,
+    MetadataWorkUnit,
+)
 from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
     TeradataSource,
@@ -1814,32 +1816,12 @@ class TestOwnershipExtraction:
                 )
             )
 
-            assert len(work_units) >= 1
+            assert len(work_units) == 1
 
-    def test_creator_cache_with_whitespace_trimming(self):
-        """Test that creator names are trimmed of whitespace when cached."""
-        source = _create_source()
-        mock_entry = _create_mock_table_entry(
-            "test_db", "test_table", creator_name="creator_user"
-        )
-
-        with patch.object(source, "get_metadata_engine") as mock_get_engine:
-            mock_engine = MagicMock()
-            mock_engine.execute.return_value = [mock_entry]
-            mock_get_engine.return_value = mock_engine
-
-            source.cache_tables_and_views()
-
-            assert (
-                source._table_creator_cache[("test_db", "test_table")] == "creator_user"
-            )
-
-    def test_creator_cache_thread_safety(self):
-        """Test that creator cache is protected by _tables_cache_lock."""
-        source = _create_source()
-
-        assert hasattr(source, "_tables_cache_lock")
-        assert isinstance(source._tables_cache_lock, type(Lock()))
+            wu = work_units[0]
+            assert isinstance(wu, MetadataWorkUnit)
+            assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            assert wu.metadata.aspectName == "ownership"
 
     def test_emit_ownership_early_return(self):
         """Test that _emit_ownership_if_available returns early when extract_ownership is False."""
