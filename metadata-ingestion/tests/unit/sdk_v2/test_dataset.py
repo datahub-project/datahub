@@ -468,10 +468,9 @@ def test_structured_properties() -> None:
     )
 
 
-def test_view_definition_auto_populates_lineage() -> None:
+def test_view_definition_auto_parses_lineage() -> None:
     """
-    When a Dataset is created with a view_definition, the SDK should
-    automatically parse the SQL and populate upstream lineage.
+    When view_definition is set, lineage should be auto-parsed by default.
     """
     view = Dataset(
         platform="snowflake",
@@ -483,6 +482,7 @@ def test_view_definition_auto_populates_lineage() -> None:
         ],
     )
 
+    # Auto-parsing should happen by default
     assert view.view_definition is not None
     assert "source_table" in view.view_definition.viewLogic
     assert view.upstreams is not None
@@ -510,7 +510,7 @@ def test_view_definition_with_multiple_sources() -> None:
 
 
 def test_view_definition_explicit_upstreams_not_overwritten() -> None:
-    """Explicitly specified upstreams should not be overwritten by auto-parsing."""
+    """Auto-parsing should NOT overwrite explicitly set upstreams."""
     view = Dataset(
         platform="snowflake",
         name="db.schema.my_view",
@@ -522,28 +522,14 @@ def test_view_definition_explicit_upstreams_not_overwritten() -> None:
     # Now set view_definition - auto-parsing should be skipped since upstreams already set
     view.set_view_definition("SELECT id, name FROM db.schema.source_table")
 
+    # Explicit upstreams should be preserved (not overwritten by auto-parsing)
     assert view.upstreams is not None
     assert len(view.upstreams.upstreams) == 1
     assert "custom.upstream" in view.upstreams.upstreams[0].dataset
 
 
-def test_view_definition_parse_lineage_disabled() -> None:
-    """parse_view_lineage=False should skip automatic lineage extraction."""
-    view = Dataset(
-        platform="snowflake",
-        name="db.schema.my_view",
-    )
-    view.set_view_definition(
-        "SELECT id FROM db.schema.source_table",
-        parse_view_lineage=False,
-    )
-
-    assert view.view_definition is not None
-    assert view.upstreams is None
-
-
-def test_view_definition_constructor_parse_lineage_disabled() -> None:
-    """parse_view_lineage=False in constructor should skip automatic lineage extraction."""
+def test_view_definition_parse_false_skips_parsing() -> None:
+    """parse=False should skip automatic lineage extraction."""
     view = Dataset(
         platform="snowflake",
         name="db.schema.my_view",
@@ -552,7 +538,7 @@ def test_view_definition_constructor_parse_lineage_disabled() -> None:
     )
 
     assert view.view_definition is not None
-    assert view.upstreams is None
+    assert view.upstreams is None  # Parsing explicitly disabled
 
 
 def test_view_definition_different_platforms() -> None:
@@ -577,7 +563,7 @@ def test_view_definition_different_platforms() -> None:
 
 
 def test_view_definition_view_properties_class_input() -> None:
-    """ViewPropertiesClass input should be handled correctly."""
+    """ViewPropertiesClass input should also trigger auto-parsing."""
     view = Dataset(
         platform="snowflake",
         name="db.schema.my_view",
@@ -592,7 +578,7 @@ def test_view_definition_view_properties_class_input() -> None:
 
 
 def test_view_definition_non_sql_language_skipped() -> None:
-    """Non-SQL view definitions should not be parsed."""
+    """Non-SQL view definitions should not be auto-parsed."""
     view = Dataset(
         platform="snowflake",
         name="db.schema.my_view",
@@ -602,7 +588,7 @@ def test_view_definition_non_sql_language_skipped() -> None:
             viewLanguage="Python",
         ),
     )
-    assert view.upstreams is None
+    assert view.upstreams is None  # Non-SQL, skipped
 
 
 def test_view_definition_invalid_sql_graceful() -> None:
@@ -683,17 +669,16 @@ def test_view_definition_sqlglot_not_installed(monkeypatch: pytest.MonkeyPatch) 
             raise ImportError("No module named 'sqlglot'")
         return original_import(name, *args, **kwargs)
 
-    # Create dataset first (before mocking import)
+    # Mock the import BEFORE creating the dataset
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+
     view = Dataset(
         platform="snowflake",
         name="db.schema.my_view",
+        view_definition="SELECT * FROM source_table",
     )
 
-    # Now mock the import and call set_view_definition
-    monkeypatch.setattr(builtins, "__import__", mock_import)
-    view.set_view_definition("SELECT * FROM source_table")
-
-    # Should gracefully handle missing sqlglot
+    # Should gracefully handle missing sqlglot during auto-parsing
     assert view.view_definition is not None
     assert view.upstreams is None
 
@@ -703,19 +688,19 @@ def test_view_definition_sqlglot_error(monkeypatch: pytest.MonkeyPatch) -> None:
     import sqlglot
     import sqlglot.errors
 
-    view = Dataset(
-        platform="snowflake",
-        name="db.schema.my_view",
-    )
-
-    # Mock Dialect.get_or_raise to raise SqlglotError
+    # Mock Dialect.get_or_raise BEFORE creating dataset
     def mock_get_or_raise(dialect_str: str) -> None:
         raise sqlglot.errors.SqlglotError("Mock sqlglot error")
 
     monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
-    view.set_view_definition("SELECT * FROM source_table")
 
-    # Should gracefully handle SqlglotError
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT * FROM source_table",
+    )
+
+    # Should gracefully handle SqlglotError during auto-parsing
     assert view.view_definition is not None
     assert view.upstreams is None
 
@@ -724,18 +709,61 @@ def test_view_definition_unexpected_error(monkeypatch: pytest.MonkeyPatch) -> No
     """Unexpected exceptions should be logged at error level."""
     import sqlglot
 
-    view = Dataset(
-        platform="snowflake",
-        name="db.schema.my_view",
-    )
-
-    # Mock Dialect.get_or_raise to raise unexpected exception
+    # Mock Dialect.get_or_raise BEFORE creating dataset
     def mock_get_or_raise(dialect_str: str) -> None:
         raise RuntimeError("Unexpected error")
 
     monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
-    view.set_view_definition("SELECT * FROM source_table")
 
-    # Should gracefully handle unexpected error
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT * FROM source_table",
+    )
+
+    # Should gracefully handle unexpected error during auto-parsing
     assert view.view_definition is not None
     assert view.upstreams is None
+
+
+def test_view_definition_skipped_in_ingestion_mode() -> None:
+    """Auto-parsing (parse=None) should be disabled in ingestion framework."""
+    from datahub.sdk._attribution import (
+        KnownAttribution,
+        change_default_attribution,
+    )
+
+    # Simulate ingestion framework context
+    with change_default_attribution(KnownAttribution.INGESTION):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM db.schema.source_table",
+            # parse_view_lineage=None (default) - auto-skips in ingestion mode
+        )
+
+        # View definition should be set, but lineage should NOT be auto-parsed
+        assert view.view_definition is not None
+        assert view.view_definition.viewLogic == "SELECT * FROM db.schema.source_table"
+        assert view.upstreams is None  # Not auto-parsed in ingestion mode
+
+
+def test_view_definition_force_parse_in_ingestion_mode() -> None:
+    """parse=True should force parsing even in ingestion framework."""
+    from datahub.sdk._attribution import (
+        KnownAttribution,
+        change_default_attribution,
+    )
+
+    # Simulate ingestion framework context
+    with change_default_attribution(KnownAttribution.INGESTION):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM db.schema.source_table",
+            parse_view_lineage=True,  # Force parsing even in ingestion mode
+        )
+
+        # Lineage should be parsed because we explicitly forced it
+        assert view.upstreams is not None
+        assert "source_table" in view.upstreams.upstreams[0].dataset

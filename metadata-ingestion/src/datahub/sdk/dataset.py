@@ -494,7 +494,7 @@ class Dataset(
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
         # View lineage parsing option.
-        parse_view_lineage: bool = True,
+        parse_view_lineage: Optional[bool] = None,
     ):
         """Initialize a new Dataset instance.
 
@@ -522,7 +522,9 @@ class Dataset(
             schema: Optional schema definition for the dataset.
             upstreams: Optional upstream lineage information.
             parse_view_lineage: Whether to auto-parse lineage from view_definition SQL.
-                Defaults to True. Set to False to disable auto-parsing.
+                None (default): auto-parse in SDK mode, skip in ingestion framework.
+                True: force parsing (even in ingestion framework).
+                False: never parse.
         """
         urn = DatasetUrn.create_from_ids(
             platform_id=platform,
@@ -555,9 +557,7 @@ class Dataset(
         if last_modified is not None:
             self.set_last_modified(last_modified)
         if view_definition is not None:
-            self.set_view_definition(
-                view_definition, parse_view_lineage=parse_view_lineage
-            )
+            self.set_view_definition(view_definition, parse=parse_view_lineage)
 
         if parent_container is not unset:
             self._set_container(parent_container)
@@ -753,7 +753,7 @@ class Dataset(
     def set_view_definition(
         self,
         view_definition: ViewDefinitionInputType,
-        parse_view_lineage: bool = True,
+        parse: Optional[bool] = None,
     ) -> None:
         """Set the view definition of the dataset.
 
@@ -762,14 +762,15 @@ class Dataset(
         If a string is provided, it will be treated as a SQL view definition. To set
         a custom language or other properties, provide a ViewPropertiesClass object.
 
-        When parse_view_lineage is True (default), the SQL will be parsed to automatically
-        extract upstream table lineage. This only applies when upstreams have not already
-        been set on this dataset.
+        By default (parse=None), the SQL will be automatically parsed to extract upstream
+        lineage, unless running inside the ingestion framework (which uses SqlParsingAggregator).
 
         Args:
             view_definition: The view definition to set.
-            parse_view_lineage: If True, automatically parse the SQL to extract upstream
-                lineage. Defaults to True.
+            parse: Whether to parse the SQL and extract upstream lineage.
+                None (default): auto-parse in SDK mode, skip in ingestion framework.
+                True: force parsing (even in ingestion framework).
+                False: never parse.
         """
         sql_to_parse: Optional[str] = None
 
@@ -790,21 +791,31 @@ class Dataset(
         else:
             assert_never(view_definition)
 
-        # Auto-parse lineage from SQL if enabled and upstreams not already set
-        if parse_view_lineage and sql_to_parse and self.upstreams is None:
+        should_parse = not is_ingestion_attribution() if parse is None else parse
+
+        # Parse lineage if enabled and upstreams not already set
+        if should_parse and sql_to_parse and self.upstreams is None:
             self._parse_and_set_view_lineage(sql_to_parse)
 
     def _parse_and_set_view_lineage(self, sql: str) -> None:
         """Parse SQL view definition and extract upstream table-level lineage.
 
         Uses sqlglot to parse SQL and identify referenced tables, creating upstream
-        lineage relationships automatically. This enables users to simply provide
-        a view_definition and have lineage populated without manual specification.
+        lineage relationships automatically.
+
+        Why schema resolution is safe to skip for views:
+        - View definitions typically contain fully-qualified table names because views
+          are persistent database objects (references must be unambiguous)
+        - Views cannot reference session-scoped temporary tables (they're persistent)
 
         Features:
         - Supports all major SQL dialects (Snowflake, BigQuery, Postgres, etc.)
         - Filters out CTEs (Common Table Expressions) from upstream tables
         - Gracefully handles parse errors without raising exceptions
+
+        Limitations:
+        - Table-level lineage only (no column-level lineage)
+        - Best-effort extraction; for production-grade lineage use SqlParsingAggregator
 
         Args:
             sql: The SQL view definition to parse.
