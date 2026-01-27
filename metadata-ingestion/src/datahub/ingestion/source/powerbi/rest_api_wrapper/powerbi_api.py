@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Literal, Optional, cast
 
 import requests
 
@@ -363,43 +363,35 @@ class PowerBiAPI:
         artifacts: Dict[str, FabricArtifact] = {}
         workspace_id = workspace_metadata.get(Constant.ID, "")
 
-        # Parse Lakehouses (note: key is "Lakehouse" in the API response)
-        for lakehouse in workspace_metadata.get(Constant.LAKEHOUSE, []):
-            artifact_id = lakehouse.get(Constant.ID)
-            if artifact_id:
-                artifacts[artifact_id] = FabricArtifact(
-                    id=artifact_id,
-                    name=lakehouse.get(Constant.NAME, ""),
-                    artifact_type="Lakehouse",
-                    workspace_id=workspace_id,
-                )
-                logger.debug(f"Parsed {Constant.LAKEHOUSE} artifact: {artifact_id}")
+        # Mapping of API response key to artifact type and description
+        # Note: API key casing varies ("Lakehouse" vs "warehouses" vs "SQLAnalyticsEndpoint")
+        artifact_configs: List[
+            tuple[
+                str,
+                Literal["Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"],
+                str,
+            ]
+        ] = [
+            (Constant.PARSING_KEY_LAKEHOUSE, "Lakehouse", "Lakehouse"),
+            (Constant.PARSING_KEY_WAREHOUSES, "Warehouse", "Warehouse"),
+            (
+                Constant.PARSING_KEY_SQL_ANALYTICS_ENDPOINT,
+                "SQLAnalyticsEndpoint",
+                "SQLAnalyticsEndpoint",
+            ),
+        ]
 
-        # Parse Warehouses (note: key is "warehouses" in the API response - lowercase)
-        for warehouse in workspace_metadata.get(Constant.WAREHOUSES, []):
-            artifact_id = warehouse.get(Constant.ID)
-            if artifact_id:
-                artifacts[artifact_id] = FabricArtifact(
-                    id=artifact_id,
-                    name=warehouse.get(Constant.NAME, ""),
-                    artifact_type="Warehouse",  # Type is capitalized
-                    workspace_id=workspace_id,
-                )
-                logger.debug(f"Parsed Warehouse artifact: {artifact_id}")
-
-        # Parse SQLAnalyticsEndpoints (note: key is "SQLAnalyticsEndpoint" in the API response)
-        for endpoint in workspace_metadata.get(Constant.SQL_ANALYTICS_ENDPOINT, []):
-            artifact_id = endpoint.get(Constant.ID)
-            if artifact_id:
-                artifacts[artifact_id] = FabricArtifact(
-                    id=artifact_id,
-                    name=endpoint.get(Constant.NAME, ""),
-                    artifact_type="SQLAnalyticsEndpoint",
-                    workspace_id=workspace_id,
-                )
-                logger.debug(
-                    f"Parsed {Constant.SQL_ANALYTICS_ENDPOINT} artifact: {artifact_id}"
-                )
+        for api_key, artifact_type, log_name in artifact_configs:
+            for artifact_data in workspace_metadata.get(api_key, []):
+                artifact_id = artifact_data.get(Constant.ID)
+                if artifact_id:
+                    artifacts[artifact_id] = FabricArtifact(
+                        id=artifact_id,
+                        name=artifact_data.get(Constant.NAME, ""),
+                        artifact_type=artifact_type,
+                        workspace_id=workspace_id,
+                    )
+                    logger.debug(f"Parsed {log_name} artifact: {artifact_id}")
 
         if artifacts:
             logger.info(

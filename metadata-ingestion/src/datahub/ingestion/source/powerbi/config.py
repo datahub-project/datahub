@@ -144,9 +144,9 @@ class Constant:
     STORAGE_MODE = "storageMode"
 
     # Fabric artifact API keys (for parsing workspace metadata)
-    LAKEHOUSE = "Lakehouse"
-    WAREHOUSES = "warehouses"  # Note: lowercase in API response
-    SQL_ANALYTICS_ENDPOINT = "SQLAnalyticsEndpoint"
+    PARSING_KEY_LAKEHOUSE = "Lakehouse"
+    PARSING_KEY_WAREHOUSES = "warehouses"  # API key is lowercase
+    PARSING_KEY_SQL_ANALYTICS_ENDPOINT = "SQLAnalyticsEndpoint"
 
     # Storage mode values
     DIRECT_LAKE = "DirectLake"
