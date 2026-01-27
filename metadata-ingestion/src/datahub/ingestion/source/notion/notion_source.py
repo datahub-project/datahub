@@ -505,7 +505,7 @@ class NotionSource(StatefulIngestionSourceBase):
             def make_patched_from_dict(original_method: Any) -> Any:
                 """Factory to create patched from_dict method with proper closure."""
 
-                def patched_from_dict(data: dict) -> Any:
+                def patched_from_dict(cls, data: dict) -> Any:
                     # Remove description field if present
                     data_copy = data.copy()
                     data_copy.pop("description", None)
