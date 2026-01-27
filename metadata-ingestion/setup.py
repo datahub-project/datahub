@@ -503,6 +503,14 @@ plugins: Dict[str, Set[str]] = {
     },
     "azure-ad": set(),
     "azure-data-factory": azure_data_factory,
+    "fabric-onelake": {
+        "sqlalchemy>=1.4,<3.0",
+        "pyodbc>=4.0,<5.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "azure-identity>=1.21.0,<2.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "requests>=2.28.0,<3.0",
+    },
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -878,6 +886,7 @@ full_test_dev_requirements = {
         for plugin in [
             "athena",
             "azure-data-factory",
+            "fabric-onelake",
             "circuit-breaker",
             "clickhouse",
             "db2",
@@ -918,6 +927,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
+        "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
