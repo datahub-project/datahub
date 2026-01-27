@@ -32,8 +32,8 @@ from pydantic import field_serializer, field_validator
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
-  get_sql_agg_skip_joins,
-  get_sql_parse_cache_size,
+    get_sql_agg_skip_joins,
+    get_sql_parse_cache_size,
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
