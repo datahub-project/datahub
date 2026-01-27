@@ -13,6 +13,25 @@ The query-based lineage feature:
 
 ## Prerequisites
 
+### 0. PostgreSQL Version Requirement
+
+**PostgreSQL 13 or later is required** for query-based lineage extraction.
+
+**Why:** PostgreSQL 13 changed column names in the `pg_stat_statements` view:
+
+- PostgreSQL 12 and earlier: `total_time`, `min_time`, `max_time`, `mean_time`
+- PostgreSQL 13+: `total_exec_time`, `min_exec_time`, `max_exec_time`, `mean_exec_time`
+
+The DataHub connector uses the PostgreSQL 13+ column names. If you attempt to use this feature with PostgreSQL 12 or earlier, you'll receive a clear error message:
+
+```
+PostgreSQL version 12.0 detected. Query-based lineage requires PostgreSQL 13+
+due to column name changes in pg_stat_statements (total_time -> total_exec_time).
+Please upgrade to PostgreSQL 13 or later.
+```
+
+**Solution:** Upgrade to PostgreSQL 13 or later to use query-based lineage extraction.
+
 ### 1. Enable pg_stat_statements Extension
 
 The `pg_stat_statements` extension must be installed and loaded. This extension tracks query execution statistics.
@@ -228,6 +247,34 @@ LIMIT 10;
 Navigate to a dataset in DataHub and check the "Lineage" tab. You should see upstream and downstream dependencies derived from query history.
 
 ## Troubleshooting
+
+### PostgreSQL Version Too Old
+
+**Error message:**
+
+```
+ERROR - PostgreSQL version 12.0 detected. Query-based lineage requires PostgreSQL 13+
+due to column name changes in pg_stat_statements (total_time -> total_exec_time).
+Please upgrade to PostgreSQL 13 or later.
+```
+
+**Solution:**
+
+Upgrade your PostgreSQL installation to version 13 or later. PostgreSQL 13 was released in September 2020 and introduced breaking changes to the `pg_stat_statements` view column names.
+
+**Check your current version:**
+
+```sql
+SELECT version();
+-- Or
+SHOW server_version;
+```
+
+**Upgrade path:**
+
+- [PostgreSQL Upgrade Documentation](https://www.postgresql.org/docs/current/upgrading.html)
+- Use `pg_upgrade` for in-place upgrades
+- Consider managed services (AWS RDS, Google Cloud SQL, Azure Database) which support easy version upgrades
 
 ### Extension Not Installed
 

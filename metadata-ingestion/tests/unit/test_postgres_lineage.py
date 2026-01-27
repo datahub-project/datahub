@@ -12,18 +12,20 @@ from datahub.ingestion.source.sql.postgres.query import PostgresQuery
 class TestPostgresQuery:
     def test_check_pg_stat_statements_enabled(self):
         query = PostgresQuery.check_pg_stat_statements_enabled()
+        query_str = str(query)
 
-        assert "pg_extension" in query
-        assert "pg_stat_statements" in query
-        assert "enabled" in query.lower()
+        assert "pg_extension" in query_str
+        assert "pg_stat_statements" in query_str
+        assert "enabled" in query_str.lower()
 
     def test_get_query_history_basic(self):
         query, params = PostgresQuery.get_query_history(limit=100)
+        query_str = str(query)
 
-        assert "pg_stat_statements" in query
-        assert "LIMIT :limit" in query
-        assert "query" in query.lower()
-        assert "calls" in query.lower()
+        assert "pg_stat_statements" in query_str
+        assert "LIMIT :limit" in query_str
+        assert "query" in query_str.lower()
+        assert "calls" in query_str.lower()
         assert params["limit"] == 100
         assert params["min_calls"] == 1
 
@@ -33,10 +35,11 @@ class TestPostgresQuery:
             limit=500,
             min_calls=10,
         )
+        query_str = str(query)
 
-        assert "datname = :database" in query
-        assert "calls >= :min_calls" in query
-        assert "LIMIT :limit" in query
+        assert "datname = :database" in query_str
+        assert "calls >= :min_calls" in query_str
+        assert "LIMIT :limit" in query_str
         assert params["database"] == "production"
         assert params["min_calls"] == 10
         assert params["limit"] == 500
@@ -46,10 +49,10 @@ class TestPostgresQuery:
             limit=100,
             exclude_patterns=["%temp_%", "%staging%"],
         )
+        query_str = str(query)
 
-        # Default exclusions (0-4) and user patterns (5-6) are all parameterized
-        assert "NOT ILIKE :exclude_pattern_5" in query
-        assert "NOT ILIKE :exclude_pattern_6" in query
+        assert "NOT ILIKE :exclude_pattern_5" in query_str
+        assert "NOT ILIKE :exclude_pattern_6" in query_str
         assert params["exclude_pattern_5"] == "%%temp_%%"
         assert params["exclude_pattern_6"] == "%%staging%%"
 
@@ -59,9 +62,10 @@ class TestPostgresQuery:
             database="testdb",
             limit=100,
         )
+        query_str = str(query)
 
-        assert "ILIKE :query_type_pattern" in query
-        assert "datname = :database" in query
+        assert "ILIKE :query_type_pattern" in query_str
+        assert "datname = :database" in query_str
         assert params["query_type_pattern"] == "INSERT%"
         assert params["database"] == "testdb"
         assert params["limit"] == 100
@@ -100,7 +104,9 @@ class TestPostgresLineageExtractor:
         )
 
     def test_check_prerequisites_success(self, lineage_extractor, mock_connection):
-        # First call checks extension is installed, second call checks permissions
+        mock_result_version = MagicMock()
+        mock_result_version.fetchone.return_value = [130000]
+
         mock_result_extension = MagicMock()
         mock_result_extension.fetchone.return_value = [True]
 
@@ -108,9 +114,10 @@ class TestPostgresLineageExtractor:
         mock_result_permissions.fetchone.return_value = [
             True,
             True,
-        ]  # has_stats_role, is_superuser
+        ]
 
         mock_connection.execute.side_effect = [
+            mock_result_version,
             mock_result_extension,
             mock_result_permissions,
         ]
@@ -120,12 +127,34 @@ class TestPostgresLineageExtractor:
         assert is_ready is True
         assert "Prerequisites met" in message
 
+    def test_check_prerequisites_version_too_old(
+        self, lineage_extractor, mock_connection
+    ):
+        mock_result_version = MagicMock()
+        mock_result_version.fetchone.return_value = [120000]
+
+        mock_connection.execute.return_value = mock_result_version
+
+        is_ready, message = lineage_extractor.check_prerequisites()
+
+        assert is_ready is False
+        assert "PostgreSQL version 12.0 detected" in message
+        assert "requires PostgreSQL 13+" in message
+        assert "total_exec_time" in message
+
     def test_check_prerequisites_extension_not_installed(
         self, lineage_extractor, mock_connection
     ):
-        mock_result = MagicMock()
-        mock_result.fetchone.return_value = [False]
-        mock_connection.execute.return_value = mock_result
+        mock_result_version = MagicMock()
+        mock_result_version.fetchone.return_value = [130000]
+
+        mock_result_extension = MagicMock()
+        mock_result_extension.fetchone.return_value = [False]
+
+        mock_connection.execute.side_effect = [
+            mock_result_version,
+            mock_result_extension,
+        ]
 
         is_ready, message = lineage_extractor.check_prerequisites()
 
@@ -135,6 +164,9 @@ class TestPostgresLineageExtractor:
     def test_check_prerequisites_permission_check_no_row(
         self, lineage_extractor, mock_connection
     ):
+        mock_result_version = MagicMock()
+        mock_result_version.fetchone.return_value = [130000]
+
         mock_result_extension = MagicMock()
         mock_result_extension.fetchone.return_value = [True]
 
@@ -142,6 +174,7 @@ class TestPostgresLineageExtractor:
         mock_result_permissions.fetchone.return_value = None
 
         mock_connection.execute.side_effect = [
+            mock_result_version,
             mock_result_extension,
             mock_result_permissions,
         ]
@@ -156,10 +189,14 @@ class TestPostgresLineageExtractor:
     ):
         from sqlalchemy.exc import DatabaseError
 
+        mock_result_version = MagicMock()
+        mock_result_version.fetchone.return_value = [130000]
+
         mock_result_extension = MagicMock()
         mock_result_extension.fetchone.return_value = [True]
 
         mock_connection.execute.side_effect = [
+            mock_result_version,
             mock_result_extension,
             DatabaseError("connection failed", None, None),
         ]
