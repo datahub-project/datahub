@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 # Use smaller values in CI to keep test times reasonable, larger values for local testing
 QUERY_COUNT_OPTIONS = [100, 1000] if get_ci() else [100, 1000, 10000]
 
-# Throughput should be < 120 queries/sec (threshold to detect heavy performance regressions)
-MAX_THROUGHPUT_THRESHOLD = 120.0 if get_ci() else 90.0
+# Throughput should be >= 90 queries/sec (minimum threshold to detect performance regressions)
+MIN_THROUGHPUT_THRESHOLD = 90.0 if get_ci() else 60.0
 
 
 def generate_queries_at_scale(
@@ -53,18 +53,21 @@ def generate_queries_at_scale(
     base_timestamp = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
     # Query templates with varying complexity
+    # SELECT should be the most frequent case, so it appears in all categories
     simple_queries = [
         "SELECT * FROM table_{i}",
         "SELECT col1, col2 FROM table_{i} WHERE col1 > {val}",
-        "INSERT INTO target_{i} SELECT * FROM source_{i}",
         "SELECT COUNT(*) FROM table_{i} WHERE col1 = {val}",
+        "INSERT INTO target_{i} SELECT * FROM source_{i}",
+        "UPDATE table_{i} SET col1 = {val} WHERE col2 > {val2}",
     ]
 
     medium_queries = [
         "SELECT t1.col1, t2.col2 FROM table_{i} t1 JOIN table_{i}_2 t2 ON t1.id = t2.id WHERE t1.col1 > {val}",
+        "SELECT t1.*, t2.col3 FROM table_{i} t1 LEFT JOIN table_{i}_2 t2 ON t1.id = t2.id WHERE t1.col1 BETWEEN {val} AND {val2}",
         "CREATE TABLE result_{i} AS SELECT col1, col2, col3 FROM table_{i} WHERE col1 > {val}",
         "INSERT INTO target_{i} (col1, col2) SELECT col1, col2 FROM source_{i} WHERE col1 IS NOT NULL AND col2 < {val}",
-        "SELECT t1.*, t2.col3 FROM table_{i} t1 LEFT JOIN table_{i}_2 t2 ON t1.id = t2.id WHERE t1.col1 BETWEEN {val} AND {val2}",
+        "UPDATE table_{i} SET col1 = {val}, col2 = {val2} FROM table_{i}_2 t2 WHERE table_{i}.id = t2.id AND t2.col3 > {val3}",
     ]
 
     complex_queries = [
@@ -80,6 +83,9 @@ def generate_queries_at_scale(
         "HAVING total > {val2}",
         "WITH cte_{i} AS (SELECT col1, col2 FROM table_{i} WHERE col1 > {val}) "
         "SELECT c.col1, c.col2, t.col3 FROM cte_{i} c JOIN table_{i}_2 t ON c.col1 = t.col1 WHERE t.col3 < {val2}",
+        "MERGE INTO target_{i} t USING source_{i} s ON t.id = s.id "
+        "WHEN MATCHED THEN UPDATE SET t.col1 = s.col1, t.col2 = s.col2 "
+        "WHEN NOT MATCHED THEN INSERT (id, col1, col2) VALUES (s.id, s.col1, s.col2)",
     ]
 
     all_templates = simple_queries + medium_queries + complex_queries
@@ -252,6 +258,9 @@ def test_benchmark(pytestconfig: pytest.Config) -> None:
     assert all(r["elapsed_time"] > 0 for r in results), (
         "All configurations should have positive elapsed time"
     )
-    assert all(r["throughput"] < MAX_THROUGHPUT_THRESHOLD for r in results), (
-        "All configurations should have throughput below the threshold"
+    failing_results = [r for r in results if r["throughput"] < MIN_THROUGHPUT_THRESHOLD]
+    assert len(failing_results) == 0, (
+        f"Performance regression detected: {len(failing_results)} configuration(s) "
+        f"have throughput below minimum threshold of {MIN_THROUGHPUT_THRESHOLD} queries/sec. "
+        f"Failing results: {failing_results}"
     )
