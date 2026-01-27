@@ -152,16 +152,10 @@ def calculate_dynamic_batch_size(base_batch_size: int, table_count: int) -> int:
 
 def is_shard_newer(shard: str, stored_shard: str) -> bool:
     """
-    Compare two shard IDs to determine which is newer.
+    Compare shard IDs: numeric comparison for all-digit shards, lexicographic otherwise.
 
-    Uses numeric comparison for pure digit shards (e.g., "20240102" > "20240101"),
-    and lexicographic comparison otherwise (e.g., "abc_v2" > "abc_v1").
-
-    Warning: Comparing numeric shards of different lengths as integers may give
-    semantically incorrect results if they represent different time granularities
-    (e.g., "2024" as year vs "20230101" as date gives 2024 > 20230101, which is
-    numerically true but may not reflect the actual time ordering). However, in
-    practice, BigQuery sharded tables use consistent formats within a table.
+    Note: Numeric comparison on mixed-length shards may be semantically incorrect
+    (e.g., "2024" > "20230101"), but BigQuery uses consistent shard formats per table.
     """
     if shard.isdigit() and stored_shard.isdigit():
         return int(shard) > int(stored_shard)
