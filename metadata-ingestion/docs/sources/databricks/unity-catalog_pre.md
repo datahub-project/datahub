@@ -7,13 +7,12 @@
 
 #### Authentication Options
 
-You can authenticate with Databricks using either a Personal Access Token or Azure authentication:
+You can authenticate with Databricks using OAuth, Azure authentication, a Personal Access Token (legacy), or Databricks unified authentication:
 
-**Option 1: Personal Access Token (PAT)**
+**Option 1: OAuth**
 
-- Generate a Databricks Personal Access token following the following guides:
-  - [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
-  - [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
+- Generate a Databricks OAuth secret using the following guide:
+  - [Authorize service principal access to Databricks with OAuth](https://docs.databricks.com/aws/en/dev-tools/auth/oauth-m2m#oauth-m2m-manual)
 
 **Option 2: Azure Authentication (for Azure Databricks)**
 
@@ -22,6 +21,16 @@ You can authenticate with Databricks using either a Personal Access Token or Azu
   - Note down the `client_id` (Application ID), `tenant_id` (Directory ID), and create a `client_secret`
 - Grant the Azure AD application access to your Databricks workspace:
   - Add the service principal to your Databricks workspace following [this guide](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#add-a-service-principal-to-your-azure-databricks-account-using-the-account-console)
+
+**Option 3: Personal Access Token (PAT) (legacy)**
+
+- Generate a Databricks Personal Access token following the following guides:
+  - [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
+  - [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
+
+**Option 4: Unified authentication**
+
+- Set authentication configuration via environment variables or Databricks configuration profiles, as specified in the [Databricks unified authentication guide](https://docs.databricks.com/aws/en/dev-tools/auth/unified-auth).
 
 #### Provision your service account:
 
