@@ -308,20 +308,26 @@ This is a mandatory security guardrail - never disable or skip this test.
 
 ### Pull Requests
 
-See `docs/CONTRIBUTING.md` for full guidelines. Key points:
+When creating PRs, follow the template in `.github/pull_request_template.md`:
 
-- **PR Title Format**: `<type>[optional scope]: <description>` (e.g., `feat(parser): add ability to parse arrays`)
-- **Types**: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
-- PRs are squashed and merged, so the PR title becomes the commit message
-- Breaking changes, downtime, or deprecations require an entry in `docs/how/updating-datahub.md`
-- SaaS-specific changes require an entry in `docs/how/updating-datahub-saas.md`
+**PR Title Format** (from [Contributing Guide](docs/CONTRIBUTING.md#pr-title-format)):
 
-**PR Checklist** (from `.github/pull_request_template.md`):
+```
+<type>[optional scope]: <description>
+```
 
-- [ ] PR title follows the format above
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
+
+Example: `feat(parser): add ability to parse arrays`
+
+**Checklist** (verify before submitting):
+
+- [ ] PR conforms to the Contributing Guideline (especially PR Title Format)
 - [ ] Links to related issues (if applicable)
 - [ ] Tests added/updated (if applicable)
 - [ ] Docs added/updated (if applicable)
+- [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+- [ ] SaaS-specific changes documented in `docs/how/updating-datahub-saas.md`
 
 ## Key Documentation
 
