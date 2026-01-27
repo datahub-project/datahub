@@ -112,6 +112,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Assertion Query Attribution",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-query-attribution",
+              className: "saasOnly",
+            },
+            {
               label: "Open Assertions Specification",
               type: "category",
               link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
