@@ -413,23 +413,19 @@ Set the `datahub.enabled` configuration property to `False` in the `airflow.cfg`
 enabled = False
 ```
 
-#### 2. Disable via Airflow Variable (Kill-Switch)
+#### 2. Disable via Environment Variable (Kill-Switch)
 
-If a restart is not possible and you need a faster way to disable the plugin, you can use the kill-switch. Create and set the `datahub_airflow_plugin_disable_listener` Airflow variable to `true`. This ensures that the listener won't process anything.
-
-#### Command Line
+If a restart is not possible and you need a faster way to disable the plugin, you can use the kill-switch. Set the `AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER` environment variable to `true`. This ensures that the listener won't process anything.
 
 ```shell
-airflow variables set datahub_airflow_plugin_disable_listener true
+export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
 ```
 
-#### Airflow UI
-
-1. Go to Admin -> Variables.
-2. Click the "+" symbol to create a new variable.
-3. Set the key to `datahub_airflow_plugin_disable_listener` and the value to `true`.
-
 This will immediately disable the plugin without requiring a restart.
+
+:::note Why Environment Variable Instead of Airflow Variable?
+The plugin uses environment variables instead of Airflow's `Variable.get()` because listener hooks are called during SQLAlchemy's `after_flush` event (before the main transaction commits). Calling `Variable.get()` in this context creates a nested database session that can interfere with the outer transaction and cause data loss, such as missing TaskInstanceHistory records for retried tasks.
+:::
 
 ## Compatibility
 
