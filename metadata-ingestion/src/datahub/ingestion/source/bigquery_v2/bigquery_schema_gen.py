@@ -121,6 +121,11 @@ SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
 
 # Dynamic batch sizing constants for sharded table optimization
+# For datasets with many tables, we increase batch size to reduce API calls
+# Thresholds chosen based on typical BigQuery dataset sizes:
+# - Small datasets (<100 tables): use base batch size
+# - Medium datasets (100-200 tables): 2x batch size (max 300)
+# - Large datasets (>200 tables): 3x batch size (max 500)
 DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD = 200
 DYNAMIC_BATCH_LOW_TABLE_THRESHOLD = 100
 DYNAMIC_BATCH_HIGH_MULTIPLIER = 3
@@ -146,6 +151,18 @@ def calculate_dynamic_batch_size(base_batch_size: int, table_count: int) -> int:
 
 
 def is_shard_newer(shard: str, stored_shard: str) -> bool:
+    """
+    Compare two shard IDs to determine which is newer.
+
+    Uses numeric comparison for pure digit shards (e.g., "20240102" > "20240101"),
+    and lexicographic comparison otherwise (e.g., "abc_v2" > "abc_v1").
+
+    Warning: Comparing numeric shards of different lengths as integers may give
+    semantically incorrect results if they represent different time granularities
+    (e.g., "2024" as year vs "20230101" as date gives 2024 > 20230101, which is
+    numerically true but may not reflect the actual time ordering). However, in
+    practice, BigQuery sharded tables use consistent formats within a table.
+    """
     if shard.isdigit() and stored_shard.isdigit():
         return int(shard) > int(stored_shard)
     else:

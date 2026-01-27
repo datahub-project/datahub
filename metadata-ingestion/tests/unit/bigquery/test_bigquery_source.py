@@ -1449,24 +1449,31 @@ def test_get_projects_with_project_labels(
 @pytest.mark.parametrize(
     "shard1,shard2,expected_is_newer,description",
     [
-        ("20230102", "20230101", True, "same length YYYYMMDD"),
-        ("20240101", "20231231", True, "year boundary"),
-        ("2024", "20230101", False, "mixed length - numeric correct"),
-        ("abc_v2", "abc_v1", True, "non-numeric fallback to string"),
+        ("20230102", "20230101", True, "same length YYYYMMDD - numeric comparison"),
+        ("20240101", "20231231", True, "year boundary - numeric comparison"),
+        (
+            "2024",
+            "20230101",
+            False,
+            "mixed length numeric - 2024 < 20230101 numerically",
+        ),
+        (
+            "20230101",
+            "2024",
+            True,
+            "mixed length numeric - 20230101 > 2024 numerically",
+        ),
+        ("abc_v2", "abc_v1", True, "non-numeric - lexicographic comparison"),
     ],
 )
 def test_numeric_shard_comparison(
     shard1: str, shard2: str, expected_is_newer: bool, description: str
 ) -> None:
-    if shard1.isdigit() and shard2.isdigit():
-        is_newer = int(shard1) > int(shard2)
-    else:
-        is_newer = shard1 > shard2
-
+    is_newer = is_shard_newer(shard1, shard2)
     assert is_newer == expected_is_newer, f"Failed for: {description}"
 
 
-def test_shard_pattern_is_compiled_once_and_cached():
+def test_shard_pattern_matching_with_dependency_injection():
     shard_matcher = BigQueryShardPatternMatcher()
 
     # Verify the pattern works correctly for sharded tables

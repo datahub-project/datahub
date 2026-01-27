@@ -51,6 +51,17 @@ class BigqueryTableIdentifier:
     def extract_base_table_name(
         table_id: str, dataset_name: str, match: "re.Match[str]"
     ) -> str:
+        """
+        Extract base table name from a sharded table regex match.
+
+        The regex pattern _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX captures:
+        - Group 1: Optional full prefix including separator (e.g., "table_" or "table$")
+        - Group 2: Base name without separator (e.g., "table")
+        - Group 3: Date shard (e.g., "20240101")
+
+        This method extracts group[1] for the prefix, then strips the shard
+        from the table_id to get the clean base name.
+        """
         base_name = match[1] or ""
         shard = match[3]
 
