@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import click.testing
+import pytest
 import requests
 import tenacity
 from joblib import Parallel, delayed
@@ -591,3 +592,39 @@ def execute_gql_with_retry(
                 f"retrying in {delay:.1f}s: {type(e).__name__}: {e}"
             )
             time.sleep(delay)
+
+
+def get_nested_value(data: dict, path: str, default: Any = None) -> Any:
+    """Get a value from a nested dictionary using dot notation.
+
+    Args:
+        data: The dictionary to search
+        path: Dot-separated path (e.g., "info.source.type")
+        default: Default value if path not found
+
+    Returns:
+        The value at the path, or default if not found
+    """
+    keys = path.split(".")
+    current = data
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return default
+        current = current[key]
+    return current
+
+
+def assert_error_contains_keywords(
+    exc_info: pytest.ExceptionInfo[Exception], *keywords: str
+) -> None:
+    """Assert that an exception message contains all specified keywords (case-insensitive).
+
+    Args:
+        exc_info: The pytest ExceptionInfo from pytest.raises()
+        keywords: Keywords that must be present in the error message
+    """
+    error_msg = str(exc_info.value).lower()
+    for keyword in keywords:
+        assert keyword.lower() in error_msg, (
+            f"Expected keyword '{keyword}' in error message: {exc_info.value}"
+        )

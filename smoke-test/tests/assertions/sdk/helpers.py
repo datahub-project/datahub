@@ -88,7 +88,7 @@ def cleanup_assertion(graph_client: DataHubGraph, assertion_urn: str) -> None:
             graph_client.delete_entity(monitor_urn, hard=True)
             logger.debug(f"Deleted monitor: {monitor_urn}")
     except Exception as e:
-        logger.debug(
+        logger.warning(
             f"Could not find/delete monitor for assertion {assertion_urn}: {e}"
         )
 
