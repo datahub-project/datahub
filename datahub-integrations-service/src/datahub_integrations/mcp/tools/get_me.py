@@ -68,6 +68,7 @@ def get_me() -> dict[str, Any]:
                                 }
                             }
                         }
+                    }
                 }
             }
         }
