@@ -983,7 +983,8 @@ ORDER by DataBaseName, TableName;
 
     def _get_creator_for_entity(self, schema: str, entity_name: str) -> Optional[str]:
         """Get creator name for a table or view."""
-        return self._table_creator_cache.get((schema, entity_name))
+        with self._tables_cache_lock:
+            return self._table_creator_cache.get((schema, entity_name))
 
     def _emit_ownership_if_available(
         self,
@@ -1401,12 +1402,11 @@ ORDER by DataBaseName, TableName;
                         database_counts[table.database]["tables"] += 1
 
                     with self._tables_cache_lock:
-                        if table.database not in self._tables_cache:
-                            self._tables_cache[table.database] = []
                         self._tables_cache[table.database].append(table)
-                        if entry.CreatorName is not None:
+                        creator_name = (entry.CreatorName or "").strip()
+                        if creator_name:
                             self._table_creator_cache[(table.database, table.name)] = (
-                                entry.CreatorName.strip()
+                                creator_name
                             )
 
                 for database, counts in database_counts.items():
