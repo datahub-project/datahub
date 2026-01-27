@@ -552,6 +552,13 @@
       "platform_name": "DataHubDebug",
       "support_status": "TESTING"
     },
+    "datahub-documents": {
+      "capabilities": [],
+      "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
+      "platform_id": "datahub-documents",
+      "platform_name": "DataHubDocuments",
+      "support_status": "INCUBATING"
+    },
     "datahub-gc": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
