@@ -173,6 +173,7 @@ import {
     MSSQL_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/mssql';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
+import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
@@ -301,6 +302,7 @@ import {
     DATABRICKS,
     DBT_CLOUD,
     MYSQL,
+    NOTION,
     OKTA,
     POWER_BI,
     SAC,
@@ -657,6 +659,11 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
             SKIP_USERS_WITHOUT_GROUP,
         ],
+    },
+    [NOTION]: {
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        filterFields: [],
+        advancedFields: [],
     },
     [AZURE]: {
         fields: [
