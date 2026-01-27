@@ -179,6 +179,11 @@ def get_sql_agg_query_log() -> str:
     return os.getenv("DATAHUB_SQL_AGG_QUERY_LOG", "DISABLED")
 
 
+def get_sql_agg_skip_joins() -> bool:
+    """Skip join processing in SQL aggregator (default: False)."""
+    return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
+
+
 def get_sql_parse_cache_size() -> int:
     """SQL parse result cache size (number of entries)."""
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
