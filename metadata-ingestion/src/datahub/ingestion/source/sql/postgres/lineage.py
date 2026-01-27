@@ -2,7 +2,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import text
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from datahub.ingestion.source.sql.postgres.query import PostgresQuery
@@ -146,7 +145,7 @@ class PostgresLineageExtractor:
 
         with PerfTimer() as timer:
             try:
-                result = self.connection.execute(text(query), params)
+                result = self.connection.execute(query, params)
 
                 queries = []
                 for row in result:
