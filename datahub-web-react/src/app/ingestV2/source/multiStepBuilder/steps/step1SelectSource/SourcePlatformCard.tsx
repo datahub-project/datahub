@@ -6,6 +6,7 @@ import SourceLogo from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectS
 import {
     CARD_HEIGHT,
     CARD_WIDTH,
+    PillLabel,
     getPillLabel,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
 
@@ -35,9 +36,9 @@ export default function SourcePlatformCard({ source, onSelect }: Props) {
                     <Pill
                         label={pillLabel}
                         size="sm"
-                        color={pillLabel === 'New' ? 'blue' : 'primary'}
+                        color={pillLabel === PillLabel.New ? 'blue' : 'primary'}
                         clickable={false}
-                        variant={pillLabel === 'External' ? 'outline' : 'filled'}
+                        variant={pillLabel === PillLabel.External ? 'outline' : 'filled'}
                     />
                 )
             }
