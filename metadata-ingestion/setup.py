@@ -188,7 +188,8 @@ sql_common = (
 
 aws_common = {
     # AWS Python SDK
-    "boto3<2.0.0",
+    # Minimum 1.35.0 required for S3 ListBuckets Prefix parameter support (added October 2024)
+    "boto3>=1.35.0,<2.0.0",
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
@@ -442,7 +443,7 @@ embedding_common = {
     # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
     "litellm==1.80.5",
     # AWS SDK for Bedrock embedding support
-    "boto3==1.34.0",
+    *aws_common,
 }
 
 unstructured_lib = {
