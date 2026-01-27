@@ -24,7 +24,7 @@ source venv/bin/activate         # activate the environment
 Once inside the virtual environment, install `datahub` using the following commands
 
 ```shell
-# Requires Python 3.9+
+# Requires Python 3.10+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
@@ -1084,7 +1084,7 @@ Please see our [Integrations page](https://docs.datahub.com/integrations) if you
 | [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                                | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                    |
 | [ldap](./generated/ingestion/sources/ldap.md)                                                  | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                             |
 | [looker](./generated/ingestion/sources/looker.md)                                              | `pip install 'acryl-datahub[looker]'`                      | Looker source                           |
-| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+     |
+| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source                           |
 | [metabase](./generated/ingestion/sources/metabase.md)                                          | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                         |
 | [mode](./generated/ingestion/sources/mode.md)                                                  | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source                   |
 | [mongodb](./generated/ingestion/sources/mongodb.md)                                            | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                          |
