@@ -75,6 +75,23 @@ class PostgresLineageExtractor:
     def check_prerequisites(self) -> tuple[bool, str]:
         """Verify pg_stat_statements is properly configured."""
         try:
+            result = self.connection.execute(PostgresQuery.get_postgres_version())
+            row = result.fetchone()
+
+            if row:
+                version_num = row[0]
+                if version_num < 130000:
+                    return (
+                        False,
+                        f"PostgreSQL version {version_num // 10000}.{(version_num // 100) % 100} detected. "
+                        "Query-based lineage requires PostgreSQL 13+ due to column name changes in pg_stat_statements "
+                        "(total_time -> total_exec_time). Please upgrade to PostgreSQL 13 or later.",
+                    )
+
+        except (DatabaseError, OperationalError) as e:
+            logger.warning("Failed to check PostgreSQL version: %s", e)
+
+        try:
             result = self.connection.execute(
                 PostgresQuery.check_pg_stat_statements_enabled()
             )

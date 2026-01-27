@@ -37,8 +37,13 @@ source:
     # Query-based Lineage (optional)
     # Extract lineage from executed queries using pg_stat_statements extension
     # Prerequisites:
-    #   1. CREATE EXTENSION pg_stat_statements;
-    #   2. GRANT pg_read_all_stats TO datahub_user;
+    #   1. PostgreSQL 13 or later (required for pg_stat_statements column names)
+    #      Note: PostgreSQL 12 and earlier use different column names (total_time
+    #      instead of total_exec_time). The connector will detect older versions
+    #      and fail with a clear error message. Upgrade to PostgreSQL 13+ to use
+    #      this feature.
+    #   2. CREATE EXTENSION pg_stat_statements;
+    #   3. GRANT pg_read_all_stats TO datahub_user;
     # include_query_lineage: true
     # max_queries_to_extract: 1000  # Default: 1000, valid range: 1-10000
     # min_query_calls: 10  # Default: 1, minimum: 0

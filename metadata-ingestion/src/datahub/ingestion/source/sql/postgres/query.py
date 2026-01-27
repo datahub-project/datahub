@@ -73,6 +73,12 @@ class PostgresQuery:
         )
 
     @staticmethod
+    def get_postgres_version() -> TextClause:
+        return text(
+            "SELECT current_setting('server_version_num')::integer as version_num"
+        )
+
+    @staticmethod
     def get_query_history(
         database: Optional[str] = None,
         limit: int = 1000,
