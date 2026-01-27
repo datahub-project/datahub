@@ -162,10 +162,9 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "['process_mixed']",
-                "inlets": "[Dataset(uri='s3://my-bucket/input/data.parquet', extra=None), Dataset(uri='gs://analytics-bucket/raw/events.json', extra=None), Dataset(uri='postgresql://myhost/mydb/schema/source_table', extra=None), Dataset(uri='my_plain_asset', extra=None)]",
-                "outlets": "[Dataset(uri='s3://my-bucket/output/processed.parquet', extra=None), Dataset(uri='bigquery://my-project/dataset/result_table', extra=None)]",
-                "openlineage_job_facet_sourceCode": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/facets/1-0-1/SourceCodeJobFacet.json#/$defs/SourceCodeJobFacet\", \"language\": \"bash\", \"sourceCode\": \"echo 'Processing with native Airflow assets'\"}",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"['process_mixed']\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": \"[{'uri': 's3://my-bucket/input/data.parquet', 'extra': None}, {'uri': 'gs://analytics-bucket/raw/events.json', 'extra': None}, {'uri': 'postgresql://myhost/mydb/schema/source_table', 'extra': None}, {'uri': 'my_plain_asset', 'extra': None}]\", \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"BashOperator\", \"operator_class_path\": \"airflow.operators.bash.BashOperator\", \"outlets\": \"[{'uri': 's3://my-bucket/output/processed.parquet', 'extra': None}, {'uri': 'bigquery://my-project/dataset/result_table', 'extra': None}]\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_with_native_assets\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false}, \"type\": \"operator\"}]}"
+                "inlets": "['s3://my-bucket/input/data.parquet', 'gs://analytics-bucket/raw/events.json', 'postgresql://myhost/mydb/schema/source_table', 'my_plain_asset']",
+                "outlets": "['s3://my-bucket/output/processed.parquet', 'bigquery://my-project/dataset/result_table']",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"['process_mixed']\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_with_native_assets\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=airflow_asset_iolets&_flt_3_task_id=process_with_native_assets",
             "name": "process_with_native_assets",
@@ -333,14 +332,14 @@
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "priority_weight": "2",
-                "log_url": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_with_native_assets&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+                "log_url": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_with_native_assets&map_index=-1&tab=logs",
                 "orchestrator": "airflow"
             },
-            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_with_native_assets&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_with_native_assets&map_index=-1&tab=logs",
             "name": "airflow_asset_iolets_process_with_native_assets_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1768998333588,
+                "time": 1769524787991,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -485,7 +484,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998333588,
+            "timestampMillis": 1769524787991,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -502,14 +501,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998333731,
+            "timestampMillis": 1769524788115,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998333731
+            "lastUpdatedTimestamp": 1769524788115
         }
     }
 },
@@ -520,14 +519,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998333735,
+            "timestampMillis": 1769524788118,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998333735
+            "lastUpdatedTimestamp": 1769524788118
         }
     }
 },
@@ -548,10 +547,9 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "['process_mixed']",
-                "inlets": "[Dataset(uri='s3://my-bucket/input/data.parquet', extra=None), Dataset(uri='gs://analytics-bucket/raw/events.json', extra=None), Dataset(uri='postgresql://myhost/mydb/schema/source_table', extra=None), Dataset(uri='my_plain_asset', extra=None)]",
-                "outlets": "[Dataset(uri='s3://my-bucket/output/processed.parquet', extra=None), Dataset(uri='bigquery://my-project/dataset/result_table', extra=None)]",
-                "openlineage_job_facet_sourceCode": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/facets/1-0-1/SourceCodeJobFacet.json#/$defs/SourceCodeJobFacet\", \"language\": \"bash\", \"sourceCode\": \"echo 'Processing with native Airflow assets'\"}",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"['process_mixed']\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": \"[{'uri': 's3://my-bucket/input/data.parquet', 'extra': None}, {'uri': 'gs://analytics-bucket/raw/events.json', 'extra': None}, {'uri': 'postgresql://myhost/mydb/schema/source_table', 'extra': None}, {'uri': 'my_plain_asset', 'extra': None}]\", \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"BashOperator\", \"operator_class_path\": \"airflow.operators.bash.BashOperator\", \"outlets\": \"[{'uri': 's3://my-bucket/output/processed.parquet', 'extra': None}, {'uri': 'bigquery://my-project/dataset/result_table', 'extra': None}]\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_with_native_assets\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false}, \"type\": \"operator\"}]}"
+                "inlets": "['s3://my-bucket/input/data.parquet', 'gs://analytics-bucket/raw/events.json', 'postgresql://myhost/mydb/schema/source_table', 'my_plain_asset']",
+                "outlets": "['s3://my-bucket/output/processed.parquet', 'bigquery://my-project/dataset/result_table']",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"['process_mixed']\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_with_native_assets\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"[]\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=airflow_asset_iolets&_flt_3_task_id=process_with_native_assets",
             "name": "process_with_native_assets",
@@ -727,7 +725,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998333803,
+            "timestampMillis": 1769524788146,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -777,14 +775,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998333906,
+            "timestampMillis": 1769524788229,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998333906
+            "lastUpdatedTimestamp": 1769524788229
         }
     }
 },
@@ -795,14 +793,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998333913,
+            "timestampMillis": 1769524788234,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998333913
+            "lastUpdatedTimestamp": 1769524788234
         }
     }
 },
@@ -823,10 +821,9 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "[]",
-                "inlets": "[Dataset(platform='snowflake', name='mydb.schema.source', env='PROD', platform_instance=None), Dataset(uri='s3://my-bucket/input/data.parquet', extra=None)]",
-                "outlets": "[Dataset(platform='snowflake', name='mydb.schema.target', env='PROD', platform_instance=None), Dataset(uri='s3://my-bucket/output/processed.parquet', extra=None)]",
-                "openlineage_job_facet_sourceCode": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/facets/1-0-1/SourceCodeJobFacet.json#/$defs/SourceCodeJobFacet\", \"language\": \"bash\", \"sourceCode\": \"echo 'Processing with mixed entities'\"}",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": \"[{'uri': 's3://my-bucket/input/data.parquet', 'extra': None}]\", \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"BashOperator\", \"operator_class_path\": \"airflow.operators.bash.BashOperator\", \"outlets\": \"[{'uri': 's3://my-bucket/output/processed.parquet', 'extra': None}]\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_mixed\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"['process_with_native_assets']\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false}, \"type\": \"operator\"}]}"
+                "inlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.source,PROD)', 's3://my-bucket/input/data.parquet']",
+                "outlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.target,PROD)', 's3://my-bucket/output/processed.parquet']",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_mixed\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"['process_with_native_assets']\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=airflow_asset_iolets&_flt_3_task_id=process_mixed",
             "name": "process_mixed",
@@ -968,14 +965,14 @@
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_mixed&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+                "log_url": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_mixed&map_index=-1&tab=logs",
                 "orchestrator": "airflow"
             },
-            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_mixed&base_date=2023-09-27T21%3A34%3A38%2B0000&tab=logs",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets/grid?dag_run_id=manual_run_test&task_id=process_mixed&map_index=-1&tab=logs",
             "name": "airflow_asset_iolets_process_mixed_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1768998336651,
+                "time": 1769524790374,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1092,7 +1089,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998336651,
+            "timestampMillis": 1769524790374,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1109,14 +1106,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998336851,
+            "timestampMillis": 1769524790584,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998336851
+            "lastUpdatedTimestamp": 1769524790584
         }
     }
 },
@@ -1127,14 +1124,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998336859,
+            "timestampMillis": 1769524790592,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998336859
+            "lastUpdatedTimestamp": 1769524790592
         }
     }
 },
@@ -1155,10 +1152,9 @@
                 "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "[]",
-                "inlets": "[Dataset(platform='snowflake', name='mydb.schema.source', env='PROD', platform_instance=None), Dataset(uri='s3://my-bucket/input/data.parquet', extra=None)]",
-                "outlets": "[Dataset(platform='snowflake', name='mydb.schema.target', env='PROD', platform_instance=None), Dataset(uri='s3://my-bucket/output/processed.parquet', extra=None)]",
-                "openlineage_job_facet_sourceCode": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/facets/1-0-1/SourceCodeJobFacet.json#/$defs/SourceCodeJobFacet\", \"language\": \"bash\", \"sourceCode\": \"echo 'Processing with mixed entities'\"}",
-                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"inlets\": \"[{'uri': 's3://my-bucket/input/data.parquet', 'extra': None}]\", \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"BashOperator\", \"operator_class_path\": \"airflow.operators.bash.BashOperator\", \"outlets\": \"[{'uri': 's3://my-bucket/output/processed.parquet', 'extra': None}]\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_mixed\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"['process_with_native_assets']\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false}, \"type\": \"operator\"}]}"
+                "inlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.source,PROD)', 's3://my-bucket/input/data.parquet']",
+                "outlets": "['urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.target,PROD)', 's3://my-bucket/output/processed.parquet']",
+                "openlineage_run_facet_unknownSourceAttribute": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.18.0/integration/airflow\", \"_schemaURL\": \"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet\", \"unknownItems\": [{\"name\": \"BashOperator\", \"properties\": {\"depends_on_past\": false, \"downstream_task_ids\": \"[]\", \"executor_config\": {}, \"ignore_first_depends_on_past\": true, \"is_setup\": false, \"is_teardown\": false, \"mapped\": false, \"multiple_outputs\": false, \"operator_class\": \"airflow.operators.bash.BashOperator\", \"owner\": \"airflow\", \"priority_weight\": 1, \"queue\": \"default\", \"retries\": 0, \"retry_exponential_backoff\": false, \"task_id\": \"process_mixed\", \"trigger_rule\": \"all_success\", \"upstream_task_ids\": \"['process_with_native_assets']\", \"wait_for_downstream\": false, \"wait_for_past_depends_before_skipping\": false, \"weight_rule\": \"<<non-serializable: _DownstreamPriorityWeightStrategy>>\"}, \"type\": \"operator\"}]}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=airflow_asset_iolets&_flt_3_task_id=process_mixed",
             "name": "process_mixed",
@@ -1308,7 +1304,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998336892,
+            "timestampMillis": 1769524790621,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1356,14 +1352,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998337025,
+            "timestampMillis": 1769524790750,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998337025
+            "lastUpdatedTimestamp": 1769524790750
         }
     }
 },
@@ -1374,14 +1370,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1768998337034,
+            "timestampMillis": 1769524790760,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1768998337034
+            "lastUpdatedTimestamp": 1769524790760
         }
     }
 }
