@@ -3219,3 +3219,76 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **17a25e2bc5** - feat(product-update) backport ProductUpdate to OSS and update product jsons (#15846)
   *by Ben Blazke <benjiaming@users.noreply.github.com> on 2026-01-15*
+
+## Upstream Merge Session - 2026-01-23 12:51:59
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 20
+- **Strategy**: stacked
+- **Started**: 2026-01-23 12:51:59
+
+### Commits Included in This Merge
+
+- **5c65c5d23a** - fix(context): Add some context documents improvements and fixes (#15868)
+  *by John Joyce <john@acryl.io> on 2026-01-15*
+
+- **7fe15dd45b** - Update release notes for version 0.3.16 (#15894)
+  *by Gabe Lyons <gabe.lyons@acryl.io> on 2026-01-15*
+
+- **049bd4e81c** - docs(release): Update v0.3.16 recommended versions (#15897)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-01-15*
+
+- **0e19147e06** - feat(docs): Adding Context Documents + Ask DataHub User Docs Updates (#15695)
+  *by John Joyce <john@acryl.io> on 2026-01-15*
+
+- **8f4bc58bc9** - docs(ingestion) Update ui-ingestion.md with new workflow and demo video (#15891)
+  *by Maggie Hays <maggiem.hays@gmail.com> on 2026-01-15*
+
+- **0acb5bb457** - docs(assertions): Add docs for query attribution (#15879)
+  *by Adrian Machado <adrian.machado@datahub.com> on 2026-01-16*
+
+- **c31a9dd513** - feat(smoke-test): add skip support for concurrent openapi tests (#15903)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-16*
+
+- **71bd8297b6** - feat(consistency): add issue consolidation and invalid enum checks (#15902)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-01-16*
+
+- **c55c950956** - fix(ui) Show loading for slow ingestion source executions (#15861)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
+
+- **4e62e4ff6a** - improvement(ui/ingestion): bring back ingestion flow changes to OSS (#15886)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-01-17*
+
+- **0bbf55303f** - fix(ingestion): fix filters section for small screens (#15865)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-16*
+
+- **85d6cb1624** - fix(ingestion): expand sources sections while searching (#7869) (#15871)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-16*
+
+- **14aa5baf2d** - feat(ui): add external links wrapper component (#15884)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-16*
+
+- **0f05a962e9** - fix(ingestion): restore state for query and filter after source updating (Fixes from SaaS) (#15872)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-01-16*
+
+- **2c4bee82fc** - (fix: datahub-web-react) fixed query for EntitySearchDropdown to remove unnecessary fields and improve performance (#15895)
+  *by ani-malgari <anirudh.malgari@datahub.com> on 2026-01-16*
+
+- **f093d7511b** - fix(ui) Fix ingestion cache bug when creating new source (#15905)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
+
+- **ad7975ece6** - fix(ui) Remove form validation except for name for ingestion sources (#15907)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
+
+- **b61661ea99** - fix(ui) Fix unsafe access of value in ingestion structured report (#15908)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
+
+- **f0ac3c0d8d** - fix(ui) Fix duplicate ingestion runs on browser back/forth (#15909)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
+
+- **1960378bb9** - fix(ui) Fix error page when switching to executors tab (#15910)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-01-16*
