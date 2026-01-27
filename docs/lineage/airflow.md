@@ -75,6 +75,7 @@ enabled = True  # default
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                        |
 | dag_filter_str             | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                  |
 | enable_datajob_lineage     | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                |
+| capture_airflow_assets     | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets). |
 
 ## Automatic lineage extraction
 
@@ -126,6 +127,77 @@ We have a few code samples that demonstrate how to use `inlets` and `outlets`:
 - [`lineage_backend_taskflow_demo.py`](../../metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/example_dags/lineage_backend_taskflow_demo.py) - uses the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html)
 
 For more information, take a look at the [Airflow lineage docs](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html).
+
+### Native Airflow Assets/Datasets
+
+Starting with Airflow 2.4+, you can use native Airflow [Datasets](https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/datasets.html) (renamed to [Assets](https://airflow.apache.org/docs/apache-airflow/3.0.0/authoring-and-scheduling/assets.html) in Airflow 3.x) for data-aware scheduling. The DataHub plugin automatically captures these as lineage when used in `inlets` and `outlets`.
+
+```python
+from airflow.sdk.definitions.asset import Asset  # Airflow 3.x
+# or: from airflow.datasets import Dataset as Asset  # Airflow 2.4+
+
+s3_input = Asset("s3://my-bucket/input/data.parquet")
+bigquery_output = Asset("bigquery://my-project/dataset/result_table")
+
+task = BashOperator(
+    task_id="process_data",
+    bash_command="echo 'Processing'",
+    inlets=[s3_input],
+    outlets=[bigquery_output],
+)
+```
+
+The plugin maps URI schemes to DataHub platforms:
+
+| URI Scheme        | DataHub Platform |
+| ----------------- | ---------------- |
+| `s3://`, `s3a://` | s3               |
+| `gs://`, `gcs://` | gcs              |
+| `postgresql://`   | postgres         |
+| `mysql://`        | mysql            |
+| `bigquery://`     | bigquery         |
+| `snowflake://`    | snowflake        |
+| `file://`         | file             |
+| `hdfs://`         | hdfs             |
+| `abfs://`, `abfss://` | adls         |
+
+Plain name assets (e.g., from the `@asset` decorator) default to the `airflow` platform.
+
+#### Configuration
+
+```ini title="airflow.cfg"
+[datahub]
+# Set to false to disable capturing Airflow Assets as lineage (default: true)
+capture_airflow_assets = true
+```
+
+#### Limitations
+
+Native Airflow Assets have the following limitations compared to using DataHub's `Dataset` or `Urn` entities directly:
+
+1. **No `platform_instance` support**: The URN generated from an Airflow Asset URI cannot include a platform instance. The plugin only extracts the platform, dataset name, and environment from the URI.
+
+2. **Environment uses global plugin config**: All native Airflow Assets use the `cluster` setting from the plugin configuration as their environment. You cannot specify a different environment per asset.
+
+If you need `platform_instance` or per-asset environment control, use the DataHub entity classes instead:
+
+```python
+from datahub_airflow_plugin.entities import Dataset
+
+# Full control over URN components
+s3_input = Dataset(
+    platform="s3",
+    name="my-bucket/input/data.parquet",
+    env="PROD",
+    platform_instance="us-west-2"  # Specify platform instance
+)
+
+task = BashOperator(
+    task_id="process_data",
+    bash_command="echo 'Processing'",
+    inlets=[s3_input],
+)
+```
 
 ### Custom Operators
 
