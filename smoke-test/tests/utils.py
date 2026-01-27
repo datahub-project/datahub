@@ -175,6 +175,7 @@ def with_test_retry(
     return tenacity.retry(
         stop=tenacity.stop_after_attempt(retry_count),
         wait=tenacity.wait_fixed(sleep_sec),
+        reraise=True,
     )
 
 
