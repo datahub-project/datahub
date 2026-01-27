@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Type
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -505,7 +505,7 @@ class NotionSource(StatefulIngestionSourceBase):
             def make_patched_from_dict(original_method: Any) -> Any:
                 """Factory to create patched from_dict method with proper closure."""
 
-                def patched_from_dict(cls, data: dict) -> Any:
+                def patched_from_dict(cls: Type[Any], data: dict) -> Any:
                     # Remove description field if present
                     data_copy = data.copy()
                     data_copy.pop("description", None)
