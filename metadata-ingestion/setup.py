@@ -406,6 +406,9 @@ slack = {
 }
 
 databricks_common = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    # 0.22.0 has support for `include_browse` in metadata list apis
+    "databricks-sdk>=0.30.0,<1.0.0",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
@@ -415,9 +418,6 @@ databricks_common = {
 }
 
 databricks = {
-    # 0.1.11 appears to have authentication issues with azure databricks
-    # 0.22.0 has support for `include_browse` in metadata list apis
-    "databricks-sdk>=0.30.0,<1.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
