@@ -136,6 +136,12 @@ dependencies {
   testImplementation externalDependency.h2
   testImplementation project(':metadata-test-util:java')
 
+  // testcontainers for integration tests
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+
   testImplementation externalDependency.h2
   testImplementation testFixtures(project(':metadata-io'))
 
