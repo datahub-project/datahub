@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.powerbi.config import Constant
@@ -133,7 +133,9 @@ class FabricArtifact:
 
     id: str
     name: str
-    artifact_type: str  # "Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"
+    artifact_type: Literal[
+        "Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"
+    ]  # casing really matters here
     workspace_id: str
 
 

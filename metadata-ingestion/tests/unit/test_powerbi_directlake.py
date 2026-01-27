@@ -1,6 +1,6 @@
 """Unit tests for PowerBI DirectLake lineage extraction."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 import pytest
 
@@ -101,7 +101,9 @@ class TestDirectLakeLineageExtraction:
     def create_workspace_with_artifact(
         self,
         artifact_id: str = "2afa2dbd-555b-48c8-b082-35d94f4b7836",
-        artifact_type: str = "Lakehouse",
+        artifact_type: Literal[
+            "Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"
+        ] = "Lakehouse",
     ) -> Workspace:
         """Create a test workspace with a Fabric artifact."""
         artifact = FabricArtifact(
@@ -308,7 +310,14 @@ class TestFabricArtifactDataClass:
 
     def test_fabric_artifact_types(self):
         """Test different artifact types."""
-        for artifact_type in ["Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"]:
+        artifact_types: list[
+            Literal["Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"]
+        ] = [
+            "Lakehouse",
+            "Warehouse",
+            "SQLAnalyticsEndpoint",
+        ]
+        for artifact_type in artifact_types:
             artifact = FabricArtifact(
                 id="test-id",
                 name="TestArtifact",

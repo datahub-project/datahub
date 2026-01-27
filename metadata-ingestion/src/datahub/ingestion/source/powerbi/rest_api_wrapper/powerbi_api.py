@@ -370,7 +370,7 @@ class PowerBiAPI:
                 artifacts[artifact_id] = FabricArtifact(
                     id=artifact_id,
                     name=lakehouse.get(Constant.NAME, ""),
-                    artifact_type=Constant.LAKEHOUSE,
+                    artifact_type="Lakehouse",
                     workspace_id=workspace_id,
                 )
                 logger.debug(f"Parsed {Constant.LAKEHOUSE} artifact: {artifact_id}")
@@ -394,7 +394,7 @@ class PowerBiAPI:
                 artifacts[artifact_id] = FabricArtifact(
                     id=artifact_id,
                     name=endpoint.get(Constant.NAME, ""),
-                    artifact_type=Constant.SQL_ANALYTICS_ENDPOINT,
+                    artifact_type="SQLAnalyticsEndpoint",
                     workspace_id=workspace_id,
                 )
                 logger.debug(
