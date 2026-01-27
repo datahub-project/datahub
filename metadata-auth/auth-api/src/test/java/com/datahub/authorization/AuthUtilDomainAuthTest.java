@@ -274,4 +274,132 @@ public class AuthUtilDomainAuthTest {
     assertNotNull(results);
     assertTrue(results.isEmpty());
   }
+
+  @Test
+  public void testIsAPIAuthorizedMCPsWithDomains_NullURN_ExtractedFromProposal() throws Exception {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(null); // Force URN extraction path
+    mcp.setEntityType("dataset");
+    mcp.setChangeType(ChangeType.UPSERT);
+
+    // Mock EntityKeyUtils to return a URN
+    Urn expectedUrn = Urn.createFromString(DATASET_URN_STRING);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+
+    Map<MetadataChangeProposal, Boolean> results =
+        AuthUtil.isAPIAuthorizedMCPsWithDomains(
+            mockSession,
+            com.linkedin.metadata.authorization.ApiGroup.ENTITY,
+            mockEntityRegistry,
+            List.of(mcp),
+            null);
+
+    assertNotNull(results);
+    assertEquals(results.size(), 1);
+  }
+
+  @Test
+  public void testIsAPIAuthorizedMCPsWithDomains_RestateChangeType() throws Exception {
+    Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(datasetUrn);
+    mcp.setEntityType("dataset");
+    mcp.setChangeType(ChangeType.RESTATE); // Test RESTATE path
+
+    Map<MetadataChangeProposal, Boolean> results =
+        AuthUtil.isAPIAuthorizedMCPsWithDomains(
+            mockSession,
+            com.linkedin.metadata.authorization.ApiGroup.ENTITY,
+            mockEntityRegistry,
+            List.of(mcp),
+            null);
+
+    assertNotNull(results);
+    assertEquals(results.size(), 1);
+    assertTrue(results.get(mcp), "RESTATE should map to UPDATE operation and be authorized");
+  }
+
+  @Test
+  public void testIsAPIAuthorizedMCPsWithDomains_PatchChangeType() throws Exception {
+    Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(datasetUrn);
+    mcp.setEntityType("dataset");
+    mcp.setChangeType(ChangeType.PATCH); // Test PATCH path
+
+    Map<MetadataChangeProposal, Boolean> results =
+        AuthUtil.isAPIAuthorizedMCPsWithDomains(
+            mockSession,
+            com.linkedin.metadata.authorization.ApiGroup.ENTITY,
+            mockEntityRegistry,
+            List.of(mcp),
+            null);
+
+    assertNotNull(results);
+    assertEquals(results.size(), 1);
+    assertTrue(results.get(mcp), "PATCH should map to UPDATE operation and be authorized");
+  }
+
+  @Test
+  public void testIsAPIAuthorizedMCPsWithDomains_CreateEntityChangeType() throws Exception {
+    Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(datasetUrn);
+    mcp.setEntityType("dataset");
+    mcp.setChangeType(ChangeType.CREATE_ENTITY); // Test CREATE_ENTITY path
+
+    Map<MetadataChangeProposal, Boolean> results =
+        AuthUtil.isAPIAuthorizedMCPsWithDomains(
+            mockSession,
+            com.linkedin.metadata.authorization.ApiGroup.ENTITY,
+            mockEntityRegistry,
+            List.of(mcp),
+            null);
+
+    assertNotNull(results);
+    assertEquals(results.size(), 1);
+    assertTrue(results.get(mcp), "CREATE_ENTITY should map to CREATE operation and be authorized");
+  }
+
+  @Test
+  public void testIsAPIAuthorizedMCPsWithDomains_MixedAuthorizationResults() throws Exception {
+    Urn dataset1Urn = Urn.createFromString(DATASET_URN_STRING);
+    Urn dataset2Urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test2,PROD)");
+    Urn domain1Urn = Urn.createFromString(DOMAIN_URN_STRING);
+
+    MetadataChangeProposal mcp1 = new MetadataChangeProposal();
+    mcp1.setEntityUrn(dataset1Urn);
+    mcp1.setEntityType("dataset");
+    mcp1.setChangeType(ChangeType.UPSERT);
+
+    MetadataChangeProposal mcp2 = new MetadataChangeProposal();
+    mcp2.setEntityUrn(dataset2Urn);
+    mcp2.setEntityType("dataset");
+    mcp2.setChangeType(ChangeType.UPSERT);
+
+    Map<Urn, Set<Urn>> domainsByEntity = new HashMap<>();
+    domainsByEntity.put(dataset1Urn, Set.of(domain1Urn));
+    domainsByEntity.put(dataset2Urn, Set.of(domain1Urn));
+
+    // Mock: First entity authorized, second denied
+    when(mockSession.authorize(anyString(), any(), anyCollection()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+
+    Map<MetadataChangeProposal, Boolean> results =
+        AuthUtil.isAPIAuthorizedMCPsWithDomains(
+            mockSession,
+            com.linkedin.metadata.authorization.ApiGroup.ENTITY,
+            mockEntityRegistry,
+            List.of(mcp1, mcp2),
+            domainsByEntity);
+
+    assertNotNull(results);
+    assertEquals(results.size(), 2);
+    assertTrue(results.get(mcp1), "First MCP should be authorized");
+    assertFalse(results.get(mcp2), "Second MCP should be denied");
+  }
 }

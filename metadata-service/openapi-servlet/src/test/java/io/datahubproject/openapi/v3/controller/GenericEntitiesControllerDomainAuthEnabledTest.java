@@ -60,7 +60,13 @@ import org.testng.annotations.Test;
  *   <li>Creating entities with domains (authorized scenarios)
  *   <li>Creating entities without domains (should still work)
  *   <li>Batch operations with multiple domains
+ *   <li>Standard privilege checks are DISABLED when domain-based auth is enabled
  * </ul>
+ *
+ * <p><b>Important:</b> When domain-based authorization is enabled via the feature flag, standard
+ * entity-type privilege checks are bypassed. Domain-based authorization becomes the primary
+ * authorization mechanism. This is by design to ensure that domain permissions take precedence over
+ * generic entity-type permissions.
  *
  * <p><b>Test Scope:</b> These tests focus on the CREATE operations (batch entity creation) which
  * are the primary use case for domain-based authorization. The tests verify that:
@@ -142,11 +148,13 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
     AuthenticationContext.setAuthentication(authentication);
 
     // Enable domain-based authorization feature flag
+    // IMPORTANT: When domain-based auth is enabled, standard privilege checks are bypassed
     featureFlags = new FeatureFlags();
     featureFlags.setDomainBasedAuthorizationEnabled(true);
     when(mockConfigurationProvider.getFeatureFlags()).thenReturn(featureFlags);
 
     // Default all authorization to ALLOW
+    // Domain-based authorization will be the primary authorization mechanism
     when(mockAuthorizerChain.authorize(any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
   }
@@ -338,6 +346,132 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
         .andExpect(status().is2xxSuccessful());
 
     // Verify ingestion was performed
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testCreateEntityWithDomain_Unauthorized() throws Exception {
+    // Setup mocks for unauthorized scenario
+    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
+        .thenReturn(true);
+
+    when(authorizerChain.authorize(any()))
+        .thenReturn(
+            new AuthorizationResult(
+                null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
+
+    String requestBody =
+        "[{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
+            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)\","
+            + "\"aspects\":[{\"com.linkedin.common.Domains\":{\"domains\":[\"urn:li:domain:finance\"]}}]}}}]";
+
+    // Should return 403 Unauthorized
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+
+    // Verify ingestion was NOT performed
+    verify(mockEntityService, never()).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testDeleteEntityWithDomain_Authorized() throws Exception {
+    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
+        .thenReturn(true);
+
+    when(authorizerChain.authorize(any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Mock entity exists with domain
+    when(mockEntityService.exists(any(), any(), eq(true))).thenReturn(true);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                "/openapi/v3/entity/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)"))
+        .andExpect(status().is2xxSuccessful());
+
+    verify(mockEntityService).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testDeleteEntityWithDomain_Unauthorized() throws Exception {
+    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
+        .thenReturn(true);
+
+    when(authorizerChain.authorize(any()))
+        .thenReturn(
+            new AuthorizationResult(
+                null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
+
+    when(mockEntityService.exists(any(), any(), eq(true))).thenReturn(true);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                "/openapi/v3/entity/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)"))
+        .andExpect(status().isForbidden());
+
+    // Verify deletion was NOT performed
+    verify(mockEntityService, never()).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testBatchCreateMixedAuthorization_PartialSuccess() throws Exception {
+    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
+        .thenReturn(true);
+
+    // Mock authorization: first entity authorized, second denied
+    when(authorizerChain.authorize(any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""))
+        .thenReturn(
+            new AuthorizationResult(
+                null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
+
+    String requestBody =
+        "[{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
+            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,dataset1,PROD)\","
+            + "\"aspects\":[{\"com.linkedin.common.Domains\":{\"domains\":[\"urn:li:domain:finance\"]}}]}}},"
+            + "{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
+            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,dataset2,PROD)\","
+            + "\"aspects\":[{\"com.linkedin.common.Domains\":{\"domains\":[\"urn:li:domain:marketing\"]}}]}}}]";
+
+    // Should fail because one entity is unauthorized
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+
+    // Verify ingestion was NOT performed (all-or-nothing)
+    verify(mockEntityService, never()).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testCreateEntityWithoutDomain_DomainAuthDisabled() throws Exception {
+    // Domain auth is DISABLED - should use standard entity-type authorization
+    when(configurationProvider.getAuthorization().isDomainBasedAuthorizationEnabled())
+        .thenReturn(false);
+
+    when(authorizerChain.authorize(any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    String requestBody =
+        "[{\"value\":{\"com.linkedin.metadata.snapshot.DatasetSnapshot\":{"
+            + "\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)\","
+            + "\"aspects\":[]}}}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/dataset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
     verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
   }
 
