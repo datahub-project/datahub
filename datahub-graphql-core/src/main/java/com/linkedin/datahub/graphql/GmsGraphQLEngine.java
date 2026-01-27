@@ -348,6 +348,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
@@ -477,8 +478,7 @@ public class GmsGraphQLEngine {
   private final SearchFlagsConfiguration searchFlagsConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
-  private final com.linkedin.metadata.config.search.SemanticSearchConfiguration
-      semanticSearchConfiguration;
+  private final SemanticSearchConfiguration semanticSearchConfiguration;
 
   private final DatasetType datasetType;
 
