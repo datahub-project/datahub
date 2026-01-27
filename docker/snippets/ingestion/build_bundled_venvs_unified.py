@@ -75,16 +75,27 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
         # Use local metadata-ingestion if available (for development), otherwise use PyPI
         # Note: Do NOT use -e (editable) install - the venv is copied to final image
         # where /metadata-ingestion won't exist, breaking editable symlinks
+        constraints_path = os.path.join(venv_base_path, "constraints.txt")
         if os.path.exists('/metadata-ingestion/setup.py'):
             print(f"  → Using local /metadata-ingestion source")
             datahub_package = f'/metadata-ingestion[datahub-rest,datahub-kafka,file,{plugin_extra}]'
-            constraints_path = os.path.join(venv_base_path, "constraints.txt")
             install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         else:
             datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin_extra}]=={bundled_cli_version}'
-            constraints_path = os.path.join(venv_base_path, "constraints.txt")
             install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         run_shell_command(install_cmd)
+
+        # Install acryl-datahub-cloud package (Acryl-specific ingestion sources)
+        # This provides sources like datahub-reporting-forms, datahub-usage-reporting, etc.
+        print(f"  → Installing acryl-datahub-cloud...")
+        if os.path.exists('/metadata-ingestion-modules/acryl-cloud/setup.py'):
+            print(f"  → Using local /metadata-ingestion-modules/acryl-cloud source")
+            cloud_package = '/metadata-ingestion-modules/acryl-cloud'
+            cloud_install_cmd = f'source {venv_path}/bin/activate && uv pip install "{cloud_package}" --constraints {constraints_path}'
+        else:
+            cloud_package = f'acryl-datahub-cloud=={bundled_cli_version}'
+            cloud_install_cmd = f'source {venv_path}/bin/activate && uv pip install "{cloud_package}" --constraints {constraints_path}'
+        run_shell_command(cloud_install_cmd)
 
         print(f"  ✅ Successfully created {venv_name}")
         return True

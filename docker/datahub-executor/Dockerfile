@@ -171,6 +171,8 @@ COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAH
 
 # Copy metadata-ingestion source (needed to build wheels)
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+# Copy acryl-cloud source (needed for acryl-datahub-cloud package in bundled venvs)
+COPY --chown=datahub:datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
@@ -210,6 +212,8 @@ COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAH
 
 # Copy metadata-ingestion source (needed to build wheels)
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+# Copy acryl-cloud source (needed for acryl-datahub-cloud package in bundled venvs)
+COPY --chown=datahub:datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
@@ -953,6 +957,8 @@ COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAH
 
 # Copy metadata-ingestion source (needed to build wheels)
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+# Copy acryl-cloud source (needed for acryl-datahub-cloud package in bundled venvs)
+COPY --chown=datahub:datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
