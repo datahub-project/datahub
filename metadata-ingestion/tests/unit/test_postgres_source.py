@@ -308,7 +308,7 @@ def test_query_lineage_prerequisites_failure(create_engine_mock):
             mock_extractor = mock_extractor_class.return_value
             mock_extractor.extract_query_history.return_value = []
 
-            def mock_populate_with_failure(discovered_tables: set[str]) -> None:
+            def mock_populate_with_failure() -> None:
                 source.report.report_failure(
                     message="pg_stat_statements extension is not installed",
                     context="pg_stat_statements_not_ready",
