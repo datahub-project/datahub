@@ -62,27 +62,46 @@ export const TabTitleWithCount = ({ name, count }: TabTitleWithCountProps) => (
 type ManageUsersAndGroupsHeaderProps = {
     version?: string;
     canManageUsers: boolean;
-    onInviteUsers?: () => void;
+    canManageServiceAccounts: boolean;
+    activeTab: string;
+    onInviteUsers: () => void;
+    onCreateServiceAccount: () => void;
 };
 
 export const ManageUsersAndGroupsHeader = ({
     version,
     canManageUsers,
+    canManageServiceAccounts,
+    activeTab,
     onInviteUsers,
-}: ManageUsersAndGroupsHeaderProps) => (
-    <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-        <HeaderLeft>
-            <PageTitle
-                title="Manage Users &amp; Groups"
-                subTitle="View your DataHub users &amp; groups. Take administrative actions."
-            />
-        </HeaderLeft>
-        {onInviteUsers && (
+    onCreateServiceAccount,
+}: ManageUsersAndGroupsHeaderProps) => {
+    const isServiceAccountsTab = activeTab === 'service-accounts';
+
+    return (
+        <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
+            <HeaderLeft>
+                <PageTitle
+                    title="Manage Users &amp; Groups"
+                    subTitle="View your DataHub users &amp; groups. Take administrative actions."
+                />
+            </HeaderLeft>
             <HeaderRight>
-                <Button variant="filled" size="md" onClick={onInviteUsers} disabled={!canManageUsers}>
-                    Invite Users
-                </Button>
+                {isServiceAccountsTab ? (
+                    <Button
+                        variant="filled"
+                        disabled={!canManageServiceAccounts}
+                        onClick={onCreateServiceAccount}
+                        data-testid="create-service-account-button"
+                    >
+                        Create Service Account
+                    </Button>
+                ) : (
+                    <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
+                        Invite Users
+                    </Button>
+                )}
             </HeaderRight>
-        )}
-    </PageHeaderContainer>
-);
+        </PageHeaderContainer>
+    );
+};

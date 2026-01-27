@@ -166,7 +166,9 @@ class TestPostgreSQLRecording:
             )
 
             # Compare entity URNs and aspect names (ignore timestamps)
-            for i, (rec_mcp, rep_mcp) in enumerate(zip(recording_mcps, replay_mcps)):
+            for i, (rec_mcp, rep_mcp) in enumerate(
+                zip(recording_mcps, replay_mcps, strict=False)
+            ):
                 assert rec_mcp.get("entityUrn") == rep_mcp.get("entityUrn"), (
                     f"MCP {i}: Entity URN mismatch"
                 )
