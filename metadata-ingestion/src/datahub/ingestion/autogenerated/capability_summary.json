@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-12T22:09:52.396845+00:00",
+  "generated_at": "2026-01-26T01:48:31.885212+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -135,6 +135,43 @@
       "platform_id": "azure-ad",
       "platform_name": "Azure AD",
       "support_status": "CERTIFIED"
+    },
+    "azure-data-factory": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Data Factory"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extracts lineage from Copy and Data Flow activities",
+          "subtype_modifier": [
+            "Copy Activity",
+            "Data Flow Activity"
+          ],
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactorySource",
+      "platform_id": "azure-data-factory",
+      "platform_name": "Azure Data Factory",
+      "support_status": "INCUBATING"
     },
     "bigquery": {
       "capabilities": [
@@ -515,6 +552,13 @@
       "platform_name": "DataHubDebug",
       "support_status": "TESTING"
     },
+    "datahub-documents": {
+      "capabilities": [],
+      "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
+      "platform_id": "datahub-documents",
+      "platform_name": "DataHubDocuments",
+      "support_status": "INCUBATING"
+    },
     "datahub-gc": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
@@ -546,31 +590,31 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Links BigQuery datasets to BigQuery dataset containers. Supports dual API extraction: Entries API (Universal Catalog) for system-managed resources, and Entities API (Lakes/Zones) for Dataplex-managed assets. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default when stateful ingestion is configured. Tracks entities from both Entries API (Universal Catalog) and Entities API (Lakes/Zones).",
+          "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). Schema extraction can be disabled via include_schema config for faster ingestion.",
+          "description": "Enabled by default, can be disabled via configuration `include_schema`",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Extract table-level lineage from Dataplex Lineage API. Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
+          "description": "Optionally enabled via configuration `include_lineage`",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
-          "description": "Verifies connectivity to Dataplex API, including both Entries API (Universal Catalog) and Entities API (Lakes/Zones) if enabled.",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }
@@ -579,6 +623,87 @@
       "platform_id": "dataplex",
       "platform_name": "Dataplex",
       "support_status": "INCUBATING"
+    },
+    "db2": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "CLASSIFICATION",
+          "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sql.db2.Db2Source",
+      "platform_id": "db2",
+      "platform_name": "IBM Db2",
+      "support_status": "TESTING"
     },
     "dbt": {
       "capabilities": [

@@ -35,6 +35,9 @@ jobs:
       contents: read
       pull-requests: read
       deployments: write
+    outputs:
+      pypi_index_url: ${{ steps.cloudflare.outputs.url }}
+      pypi_index_simple_url: ${{ steps.set-pypi-url.outputs.pypi_index_simple_url }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -58,6 +61,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
+        id: cloudflare
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -66,3 +70,23 @@ jobs:
           workingDirectory: python-build
           directory: site
           gitHubToken: ${{ github.token }}
+
+      - name: Set PyPI index URL output
+        id: set-pypi-url
+        run: |
+          PYPI_URL="${{ steps.cloudflare.outputs.url }}/simple"
+          echo "pypi_index_simple_url=$PYPI_URL" >> "$GITHUB_OUTPUT"
+          echo "PyPI index URL: $PYPI_URL"
+
+          # Save to artifact for consumption by docker-unified.yml
+          mkdir -p /tmp/pypi-config
+          echo "$PYPI_URL" > /tmp/pypi-config/pypi-index-url.txt
+          echo "Base URL: ${{ steps.cloudflare.outputs.url }}" > /tmp/pypi-config/deployment-info.txt
+          echo "Simple URL: $PYPI_URL" >> /tmp/pypi-config/deployment-info.txt
+
+      - name: Upload PyPI config artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypi-config
+          path: /tmp/pypi-config/
+          retention-days: 1

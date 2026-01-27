@@ -1,54 +1,14 @@
-Ingesting metadata from Google Dataplex requires using the **dataplex** module.
+:::caution
+The Dataplex connector will overwrite metadata from other Google Cloud source connectors (BigQuery, GCS, etc.) if they extract the same entities. If you're running multiple Google Cloud connectors, be aware that the last connector to run will determine the final metadata state for overlapping entities.
+:::
 
-#### Prerequisites
+### Prerequisites
 
 Please refer to the [Dataplex documentation](https://cloud.google.com/dataplex/docs) for basic information on Google Dataplex.
 
-#### Credentials to access GCP
+#### Authentication
 
-Please read the section to understand how to set up application default credentials in the [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
-
-##### Permissions
-
-Grant the following permissions to the Service Account on every project where you would like to extract metadata from.
-
-**For Universal Catalog Entries API** (default, `include_entries: true`):
-
-Default GCP Role: [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
-
-| Permission                  | Description                           |
-| --------------------------- | ------------------------------------- |
-| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
-| `dataplex.entryGroups.list` | View all entry groups in a location   |
-| `dataplex.entries.get`      | Access entry metadata and details     |
-| `dataplex.entries.getData`  | View data aspects within entries      |
-| `dataplex.entries.list`     | Enumerate entries within groups       |
-
-**For Lakes/Zones Entities API** (optional, `include_entities: true`):
-
-Default GCP Role: [roles/dataplex.viewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.viewer)
-
-| Permission               | Description                                           |
-| ------------------------ | ----------------------------------------------------- |
-| `dataplex.lakes.get`     | Allows a user to view details of a specific lake      |
-| `dataplex.lakes.list`    | Allows a user to view and list all lakes in a project |
-| `dataplex.zones.get`     | Allows a user to view details of a specific zone      |
-| `dataplex.zones.list`    | Allows a user to view and list all zones in a lake    |
-| `dataplex.assets.get`    | Allows a user to view details of a specific asset     |
-| `dataplex.assets.list`   | Allows a user to view and list all assets in a zone   |
-| `dataplex.entities.get`  | Allows a user to view details of a specific entity    |
-| `dataplex.entities.list` | Allows a user to view and list all entities in a zone |
-
-**For lineage extraction** (optional, `include_lineage: true`):
-
-Default GCP Role: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
-
-| Permission                 | Description                               |
-| -------------------------- | ----------------------------------------- |
-| `datalineage.links.get`    | Allows a user to view lineage links       |
-| `datalineage.links.search` | Allows a user to search for lineage links |
-
-**Note:** If using both APIs, grant both sets of permissions. Most users only need `roles/dataplex.catalogViewer` for Entries API access.
+Google Cloud uses Application Default Credentials (ADC) for authentication. Refer to the [GCP documentation](https://cloud.google.com/docs/authentication/provide-credentials-adc) to set up ADC based on your environment. If you prefer to use a service account then use the following instructions.
 
 #### Create a service account and assign roles
 
@@ -94,9 +54,51 @@ Default GCP Role: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/d
      client_id: "123456678890"
    ```
 
+#### Permissions
+
+Grant the following permissions to the Service Account on every project where you would like to extract metadata from.
+
+**For Universal Catalog Entries API** (default, `include_entries: true`):
+
+Default GCP Role: [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+
+| Permission                  | Description                           |
+| --------------------------- | ------------------------------------- |
+| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
+| `dataplex.entryGroups.list` | View all entry groups in a location   |
+| `dataplex.entries.get`      | Access entry metadata and details     |
+| `dataplex.entries.getData`  | View data aspects within entries      |
+| `dataplex.entries.list`     | Enumerate entries within groups       |
+
+**For Lakes/Zones Entities API** (optional, `include_entities: true`):
+
+Default GCP Role: [roles/dataplex.viewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.viewer)
+
+| Permission               | Description                                           |
+| ------------------------ | ----------------------------------------------------- |
+| `dataplex.lakes.get`     | Allows a user to view details of a specific lake      |
+| `dataplex.lakes.list`    | Allows a user to view and list all lakes in a project |
+| `dataplex.zones.get`     | Allows a user to view details of a specific zone      |
+| `dataplex.zones.list`    | Allows a user to view and list all zones in a lake    |
+| `dataplex.assets.get`    | Allows a user to view details of a specific asset     |
+| `dataplex.assets.list`   | Allows a user to view and list all assets in a zone   |
+| `dataplex.entities.get`  | Allows a user to view details of a specific entity    |
+| `dataplex.entities.list` | Allows a user to view and list all entities in a zone |
+
+**For lineage extraction** (optional, `include_lineage: true`):
+
+Default GCP Role: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
+
+| Permission                 | Description                               |
+| -------------------------- | ----------------------------------------- |
+| `datalineage.links.get`    | Allows a user to view lineage links       |
+| `datalineage.links.search` | Allows a user to search for lineage links |
+
+**Note:** If using both APIs, grant both sets of permissions. Most users only need `roles/dataplex.catalogViewer` for Entries API access.
+
 ### Integration Details
 
-The Dataplex connector extracts metadata from Google Dataplex using two complementary APIs:
+The Dataplex connector extracts metadata from Google Dataplex using two different APIs:
 
 1. **Universal Catalog Entries API** (Primary, default enabled): Extracts entries from system-managed entry groups for Google Cloud services. This is the recommended approach for discovering resources across your GCP organization. Supported services include:
 
@@ -111,96 +113,50 @@ The Dataplex connector extracts metadata from Google Dataplex using two compleme
    - **Dataform**: repositories and workflows
    - **Dataproc Metastore**: services and databases
 
-2. **Lakes/Zones Entities API** (Optional, default disabled): Extracts entities from Dataplex lakes and zones. Use this if you are using the legacy Data Catalog and need lake/zone information not available in the Entries API. See [API Selection Guide](#api-selection-guide) below for detailed guidance on when to use each API as using both APIs can cause loss of custom properties.
+2. **Lakes/Zones Entities API** (Optional, default disabled): Extracts entities from Dataplex lakes and zones. Use this if you are using the legacy Data Catalog and need lake/zone information not available in the Entries API. Generally, you should use one or the other unless you have non-overlapping objects across the two APIs. See [API Selection Guide](#api-selection-guide) below for detailed guidance on when to use each API as using both APIs can cause loss of custom properties.
 
-**Datasets are ingested using their source platform URNs** (BigQuery, GCS, etc.) to align with native source connectors.
+#### Platform Alignment
+
+Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `bigquery`, `gcs`). This means:
+
+- **No Duplication**: Dataplex and native BigQuery/GCS connectors can run together - entities discovered by both will merge
+- **Native Containers**: BigQuery tables appear in their native dataset containers
+- **Unified View**: Users see a single view of all datasets regardless of discovery method
 
 #### Concept Mapping
 
 This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 
-| Dataplex Concept          | DataHub Concept                                                                     | Notes                                                                                                                                                                                                                                                                                          |
-| :------------------------ | :---------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entry (Universal Catalog) | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | Metadata from Universal Catalog for Google Cloud services (BigQuery, Cloud SQL, AlloyDB, Spanner, Pub/Sub, GCS, Bigtable, Vertex AI, Dataform, Dataproc Metastore). Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`, `spanner`). Schema metadata is extracted when available. |
-| Entity (Lakes/Zones)      | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | Discovered table or fileset from lakes/zones. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.                                                                                                                                  |
-| BigQuery Project/Dataset  | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container) | BigQuery projects and datasets are created as containers to align with the native BigQuery connector. Dataplex-discovered BigQuery tables are linked to these containers.                                                                                                                      |
-| Lake/Zone/Asset           | Custom Properties                                                                   | Dataplex hierarchy information (lake, zone, asset, zone type) is preserved as **custom properties** on datasets for traceability without creating separate containers.                                                                                                                         |
+| Dataplex Concept          | DataHub Concept                                                                     | Notes                                                                        |
+| :------------------------ | :---------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
+| Entry (Universal Catalog) | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | From Universal Catalog. Uses source platform URNs (e.g., `bigquery`, `gcs`). |
+| Entity (Lakes/Zones)      | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | From lakes/zones. Uses source platform URNs (e.g., `bigquery`, `gcs`).       |
+| BigQuery Project/Dataset  | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container) | Created as containers to align with native BigQuery connector.               |
+| Lake/Zone/Asset           | Custom Properties                                                                   | Preserved as custom properties on datasets for traceability.                 |
 
-#### API Selection Guide
+### API Selection Guide
 
-**When to use Entries API** (default, `include_entries: true`):
+**Entries API** (default, `include_entries: true`): Discovers Google Cloud resources from Universal Catalog. **Recommended for most users.**
 
-- ✅ You want to discover all BigQuery tables, Pub/Sub topics, and other Google Cloud resources
-- ✅ You need comprehensive metadata from Dataplex's centralized catalog
-- ✅ You want system-managed discovery without manual lake/zone configuration
-- ✅ **Recommended for most users**
+Custom properties added: `dataplex_entry_id`, `dataplex_entry_group`, `dataplex_fully_qualified_name`
 
-**When to use Entities API** (`include_entities: true`):
+:::note
+To access system-managed entry groups like `@bigquery`, use multi-region locations (`us`, `eu`, `asia`) via the `entries_location` config parameter. Regional locations (`us-central1`, etc.) only contain placeholder entries.
+:::
 
-- Use this if you need lake/zone information that isn't available in the Entries API
-- Provides Dataplex organizational context (lake, zone, asset metadata)
-- Can be used alongside Entries API, but see warning below
+**Entities API** (`include_entities: true`): Extracts lake/zone organizational context. Use only if you need Dataplex hierarchy metadata.
 
-**Important**: To access system-managed entry groups like `@bigquery` that contain BigQuery tables, you must use **multi-region locations** (`us`, `eu`, `asia`) via the `entries_location` config parameter. Regional locations (`us-central1`, etc.) only contain placeholder entries.
+Custom properties added: `dataplex_lake`, `dataplex_zone`, `dataplex_zone_type`, `dataplex_entity_id`, `data_path`, `system`, `format`
 
-#### ⚠️ Using Both APIs Together - Important Behavior
+:::caution Using Both APIs
+When both APIs are enabled and discover the same table, the Entries API metadata will overwrite Entities API metadata, losing lake/zone custom properties. Only enable both if working with non-overlapping datasets.
+:::
 
-When both `include_entries` and `include_entities` are enabled and they discover the **same table** (same URN), the metadata behaves as follows:
+### Filtering Configuration
 
-**What gets preserved:**
+Filter which datasets to ingest using regex patterns with allow/deny lists:
 
-- ✅ Schema metadata (from Entries API - most authoritative)
-- ✅ Entry-specific custom properties (`dataplex_entry_id`, `dataplex_entry_group`, `dataplex_fully_qualified_name`, etc.)
-
-**What gets lost:**
-
-- ❌ Entity-specific custom properties (`dataplex_lake`, `dataplex_zone`, `dataplex_zone_type`, `data_path`, `system`, `format`, `asset`)
-
-**Why this happens:** DataHub replaces aspects at the aspect level. When the Entries API emits metadata for a dataset that was already processed by the Entities API, it completely replaces the `datasetProperties` aspect, which contains all custom properties.
-
-**Recommendation:**
-
-- **For most users**: Use Entries API only (default). It provides comprehensive metadata from Universal Catalog.
-- **For lake/zone context**: Use Entities API only with `include_entries: false` if you specifically need Dataplex organizational metadata.
-- **Using both**: Only enable both APIs if you need Entries API for some tables and Entities API for others (non-overlapping datasets). For overlapping tables, entry metadata will take precedence and entity context will be lost.
-
-**Example showing the data loss:**
-
-```yaml
-# Entity metadata (first):
-custom_properties:
-  dataplex_lake: "production-lake"
-  dataplex_zone: "raw-zone"
-  dataplex_zone_type: "RAW"
-  data_path: "gs://bucket/path"
-
-# After Entry metadata (second) - lake/zone info is lost:
-custom_properties:
-  dataplex_entry_id: "abc123"
-  dataplex_entry_group: "@bigquery"
-  dataplex_fully_qualified_name: "bigquery:project.dataset.table"
-```
-
-#### Filtering Configuration
-
-The connector supports filtering at multiple levels with clear separation between Entries API and Entities API filters:
-
-**Entries API Filtering** (only applies when `include_entries=true`):
-
-- `entries.dataset_pattern`: Filter which entry IDs to ingest from Universal Catalog
-  - Supports regex patterns with allow/deny lists
-  - Applies to entries discovered from system-managed entry groups like `@bigquery`
-
-**Entities API Filtering** (only applies when `include_entities=true`):
-
-- `entities.lake_pattern`: Filter which lakes to process
-- `entities.zone_pattern`: Filter which zones to process
-- `entities.dataset_pattern`: Filter which entity IDs (tables/filesets) to ingest from lakes/zones
-  - Supports regex patterns with allow/deny lists
-
-These filters are nested under `filter_config.entries` and `filter_config.entities` to make it clear which API each filter applies to. This allows you to have different filtering rules for each API when both are enabled.
-
-**Example with filtering:**
+**Example:**
 
 ```yaml
 source:
@@ -208,82 +164,28 @@ source:
   config:
     project_ids:
       - "my-gcp-project"
-    entries_location: "us"
-    include_entries: true
-    include_entities: true
 
     filter_config:
-      # Entries API filtering (Universal Catalog)
       entries:
         dataset_pattern:
           allow:
-            - "bq_.*" # Allow BigQuery entries starting with bq_
-            - "pubsub_.*" # Allow Pub/Sub entries
+            - "production_.*" # Only production datasets
           deny:
-            - ".*_test" # Deny test entries
-            - ".*_temp" # Deny temporary entries
-
-      # Entities API filtering (Lakes/Zones)
-      entities:
-        lake_pattern:
-          allow:
-            - "production-.*" # Only production lakes
-        zone_pattern:
-          deny:
-            - ".*-sandbox" # Exclude sandbox zones
-        dataset_pattern:
-          allow:
-            - "table_.*" # Allow entities starting with table_
-            - "fileset_.*" # Allow filesets
-          deny:
-            - ".*_backup" # Exclude backups
+            - ".*_test" # Exclude test datasets
+            - ".*_temp" # Exclude temporary datasets
 ```
 
-#### Platform Alignment
+**Advanced Filtering:**
 
-The connector generates datasets that align with native source connectors:
+When using the Entities API (`include_entities: true`), you can also filter by lakes and zones:
 
-**BigQuery Entities:**
+- `filter_config.entities.lake_pattern`: Filter which lakes to process
+- `filter_config.entities.zone_pattern`: Filter which zones to process
+- `filter_config.entities.dataset_pattern`: Filter entity IDs (tables/filesets)
 
-- **URN Format**: `urn:li:dataset:(urn:li:dataPlatform:bigquery,{project}.{dataset}.{table},PROD)`
-- **Container**: Linked to BigQuery dataset containers (same as BigQuery connector)
-- **Platform**: `bigquery`
+Filters are nested under `filter_config.entries` and `filter_config.entities` to separate Entries API and Entities API filtering.
 
-**GCS Entities:**
-
-- **URN Format**: `urn:li:dataset:(urn:li:dataPlatform:gcs,{bucket}/{path},PROD)`
-- **Container**: No container (same as GCS connector)
-- **Platform**: `gcs`
-
-This alignment ensures:
-
-- **Consistency**: Dataplex-discovered entities appear alongside native BigQuery/GCS entities in the same container hierarchy
-- **No Duplication**: If you run both Dataplex and BigQuery/GCS connectors, entities discovered by both will merge (same URN)
-- **Unified Navigation**: Users see a single view of BigQuery datasets or GCS buckets, regardless of discovery method
-
-#### Dataplex Context Preservation
-
-Dataplex-specific metadata is preserved as custom properties on each dataset:
-
-| Custom Property      | Description                                      | Example Value       |
-| :------------------- | :----------------------------------------------- | :------------------ |
-| `dataplex_ingested`  | Indicates this entity was discovered by Dataplex | `"true"`            |
-| `dataplex_lake`      | Dataplex lake ID                                 | `"my-data-lake"`    |
-| `dataplex_zone`      | Dataplex zone ID                                 | `"raw-zone"`        |
-| `dataplex_entity_id` | Dataplex entity ID                               | `"customer_table"`  |
-| `dataplex_zone_type` | Zone type (RAW or CURATED)                       | `"RAW"`             |
-| `data_path`          | GCS path for the entity                          | `"gs://bucket/..."` |
-| `system`             | Storage system (BIGQUERY, CLOUD_STORAGE)         | `"BIGQUERY"`        |
-| `format`             | Data format (PARQUET, AVRO, etc.)                | `"PARQUET"`         |
-
-These properties allow you to:
-
-- Identify which assets were discovered through Dataplex
-- Understand the Dataplex organizational structure (lakes, zones)
-- Filter or search for Dataplex-managed entities
-- Trace entities back to their Dataplex catalog origin
-
-#### Lineage
+### Lineage
 
 When `include_lineage` is enabled and proper permissions are granted, the connector extracts **table-level lineage** using the Dataplex Lineage API. Dataplex automatically tracks lineage from these Google Cloud systems:
 
@@ -293,8 +195,8 @@ When `include_lineage` is enabled and proper permissions are granted, the connec
 - **Cloud Data Fusion**: Pipeline executions
 - **Cloud Composer**: Workflow orchestration
 - **Dataflow**: Streaming and batch jobs
-- **Dataproc**: Spark and Hadoop jobs
-- **Vertex AI**: ML pipeline operations
+- **Dataproc**: Apache Spark and Apache Hive jobs (including Dataproc Serverless)
+- **Vertex AI**: Models, datasets, feature store views, and feature groups
 
 **Not Supported:**
 
@@ -306,46 +208,27 @@ When `include_lineage` is enabled and proper permissions are granted, the connec
 
 - Lineage data is retained for 30 days in Dataplex
 - Lineage may take up to 24 hours to appear after job completion
+- Cross-region lineage is not supported by Dataplex
+- Lineage is only available for entities with active lineage tracking enabled
 
 For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
-**Metadata Extraction and Performance Configuration Options:**
+### Configuration Options
 
-- **`include_schema`** (default: `true`): Enable schema metadata extraction (columns, types, descriptions). Set to `false` to skip schema extraction for faster ingestion when only basic dataset metadata is needed. Disabling schema extraction can improve performance for large deployments
-- **`include_lineage`** (default: `true`): Enable table-level lineage extraction. Lineage API calls automatically retry transient errors (timeouts, rate limits, service unavailable) with exponential backoff
-- **`batch_size`** (default: `1000`): Controls batching for metadata emission and lineage extraction. Lower values reduce memory usage but may increase processing time. Set to `null` to disable batching. Recommended: `1000` for large deployments (>10k entities), `null` for small deployments (<1k entities)
+**Metadata Extraction:**
 
-**Lineage Retry Configuration:**
+- **`include_schema`** (default: `true`): Extract column metadata and types
+- **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 
-You can customize how the connector handles transient errors when extracting lineage:
+**Performance Tuning:**
 
-- **`lineage_max_retries`** (default: `3`, range: `1-10`): Maximum number of retry attempts for lineage API calls when encountering transient errors (timeouts, rate limits, service unavailable). Each attempt uses exponential backoff. Higher values increase resilience but may slow down ingestion
-- **`lineage_retry_backoff_multiplier`** (default: `1.0`, range: `0.1-10.0`): Multiplier for exponential backoff between retry attempts (in seconds). Wait time formula: `multiplier * (2 ^ attempt_number)`, capped between 2-10 seconds. Higher values reduce API load but increase ingestion time
+- **`batch_size`** (default: `1000`): Entities per batch for memory optimization. Set to `None` to disable batching (small deployments only)
+- **`max_workers`** (default: `10`): Parallel workers for entity extraction
 
-**Automatic Retry Behavior:**
+**Lineage Retry Settings** (optional):
 
-The connector automatically handles transient errors when extracting lineage:
-
-**Retried Errors** (with exponential backoff):
-
-- **Timeouts**: DeadlineExceeded errors from slow API responses
-- **Rate Limiting**: HTTP 429 (TooManyRequests) errors
-- **Service Issues**: HTTP 503 (ServiceUnavailable), HTTP 500 (InternalServerError)
-
-**Non-Retried Errors** (logs warning and continues):
-
-- **Permission Denied**: HTTP 403 - missing `datalineage.viewer` role
-- **Not Found**: HTTP 404 - entity or lineage data doesn't exist
-- **Invalid Argument**: HTTP 400 - incorrect API parameters (e.g., wrong region format)
-
-**Common Configuration Issues:**
-
-1. **Regional restrictions**: Lineage API requires multi-region location (e.g., `us`, `eu`) rather than specific regions (e.g., `us-central1`). The connector automatically converts your `location` config
-2. **Missing permissions**: Ensure service account has `roles/datalineage.viewer` role on all projects
-3. **No lineage data**: Some entities may not have lineage if they weren't created through supported systems (BigQuery DDL/DML, Cloud Data Fusion, etc.)
-4. **Rate limiting**: If you encounter persistent rate limiting, increase `lineage_retry_backoff_multiplier` to add more delay between retries, or decrease `lineage_max_retries` if you prefer faster failure
-
-After exhausting retries, the connector logs a warning and continues processing other entities - you'll still get metadata (lakes, zones, assets, entities, schema) even if lineage extraction fails for some entities.
+- **`lineage_max_retries`** (default: `3`, range: `1-10`): Retry attempts for transient errors
+- **`lineage_retry_backoff_multiplier`** (default: `1.0`, range: `0.1-10.0`): Backoff delay multiplier
 
 **Example Configuration:**
 
@@ -378,7 +261,7 @@ source:
 
 **Advanced Configuration for Large Deployments:**
 
-For deployments with thousands of entities, memory optimization is critical. The connector uses batched emission to keep memory bounded:
+For deployments with thousands of entities, memory optimization and throughput are critical. The connector uses batched emission to keep memory bounded:
 
 ```yaml
 source:
@@ -393,33 +276,27 @@ source:
     include_entries: true
     include_entities: false
 
-    # Memory optimization for large deployments
-    batch_size:
-      1000 # Batch size for metadata emission and lineage extraction
-      # Entries/entities are emitted in batches of 1000 to prevent memory issues
-      # Set to null to disable batching (only for small deployments <1k entities)
+    # Performance tuning
     max_workers: 10 # Parallelize entity extraction across zones
+    batch_size: 1000 # Process and emit 1000 entities at a time to optimize memory usage
 ```
 
-**How Batching Works:**
+### Troubleshooting
 
-- Entries and entities are collected during API streaming
-- When a batch reaches `batch_size` entries, it's immediately emitted to DataHub
-- The batch cache is cleared to free memory
-- This keeps memory usage bounded regardless of dataset size
-- For deployments with 50k+ entities, batching prevents out-of-memory errors
+#### Lineage Extraction Issues
 
-**Lineage Limitations:**
+**Automatic Retry Behavior:**
 
-- Dataplex does not support column-level lineage extraction
-- Lineage retention period: 30 days (Dataplex limitation)
-- Cross-region lineage is not supported by Dataplex
-- Lineage is only available for entities with active lineage tracking enabled
-  For more details on lineage limitations, refer to [GCP docs](https://docs.cloud.google.com/dataplex/docs/about-data-lineage#current-feature-limitations).
+The connector automatically retries transient errors when extracting lineage:
 
-### Python Dependencies
+- **Retried errors** (with exponential backoff): Timeouts (DeadlineExceeded), rate limiting (HTTP 429), service issues (HTTP 503, 500)
+- **Non-retried errors** (logs warning and continues): Permission denied (HTTP 403), not found (HTTP 404), invalid argument (HTTP 400)
 
-The connector requires the following Python packages, which are automatically installed with `acryl-datahub[dataplex]`:
+After exhausting retries, the connector logs a warning and continues processing other entities. You'll still get metadata even if lineage extraction fails for some entities.
 
-- `google-cloud-dataplex>=1.0.0`
-- `google-cloud-datacatalog-lineage==0.2.2` (required for lineage extraction when `include_lineage: true`)
+**Common Issues:**
+
+1. **Regional restrictions**: Lineage API requires multi-region location (`us`, `eu`, `asia`) rather than specific regions (`us-central1`). The connector automatically converts your `location` config.
+2. **Missing permissions**: Ensure service account has `roles/datalineage.viewer` role on all projects.
+3. **No lineage data**: Some entities may not have lineage if they weren't created through supported systems (BigQuery DDL/DML, Cloud Data Fusion, etc.).
+4. **Rate limiting**: If you encounter persistent rate limiting, increase `lineage_retry_backoff_multiplier` to add more delay between retries, or decrease `lineage_max_retries` if you prefer faster failure.

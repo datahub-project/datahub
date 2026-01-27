@@ -246,6 +246,46 @@ def test_split_statement_with_end_keyword_in_bracketed_identifier_with_escapes()
     assert statements == expected
 
 
+def test_split_select_ending_with_parenthesis():
+    """
+    Regression test: SELECT statements ending with a closing parenthesis
+    (e.g., from function calls like GETDATE()) should be properly split
+    from subsequent CREATE INDEX statements.
+
+    Previously, the splitter mistook trailing ')' as a CTE indicator
+    and incorrectly kept both statements together.
+    """
+    select_stmt = (
+        "SELECT * INTO #temp FROM source WHERE date > DATEADD(YEAR, -1, GETDATE())"
+    )
+    create_stmt = "CREATE INDEX idx ON #temp (col1)"
+
+    test_sql = f"{select_stmt}\n\n{create_stmt}"
+
+    statements = [s.strip() for s in split_statements(test_sql)]
+
+    assert len(statements) == 2
+    assert statements[0] == select_stmt
+    assert statements[1] == create_stmt
+
+
+def test_cte_with_select_not_split():
+    """
+    Verify CTEs (WITH ... AS) followed by SELECT are kept together as one statement.
+    This ensures the fix for parenthesis splitting doesn't break CTE handling.
+    """
+    test_sql = """\
+    WITH temp_cte AS (
+        SELECT * FROM source WHERE date > GETDATE()
+    )
+    SELECT * FROM temp_cte"""
+
+    statements = [s.strip() for s in split_statements(test_sql)]
+
+    assert len(statements) == 1
+    assert statements[0] == test_sql.strip()
+
+
 def test_split_mssql_insert_with_closing_paren_in_where():
     """
     Test Fix #4: INSERT with closing paren in WHERE clause should split correctly.

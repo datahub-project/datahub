@@ -180,6 +180,7 @@ describe('getFieldDescriptionDetails', () => {
             });
 
             expect(result.isPropagated).toBe(false);
+            // propagatedDescription is undefined because there are no propagated docs
             expect(result.propagatedDescription).toBeUndefined();
         });
 
@@ -195,7 +196,30 @@ describe('getFieldDescriptionDetails', () => {
             });
 
             expect(result.isPropagated).toBe(false);
-            expect(result.propagatedDescription).toBeUndefined();
+            // propagatedDescription is still returned even when not using doc aspect for display
+            expect(result.propagatedDescription).toBe('Propagated doc');
+        });
+
+        it('handles both propagated and inferred flags', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Complex doc', 100, [
+                    { key: 'propagated', value: 'true' },
+                    { key: 'inferred', value: 'true' },
+                ]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+                enableInferredDescriptions: true,
+            });
+
+            // Document is classified as propagated (propagated check takes precedence in the current doc selection)
+            expect(result.isPropagated).toBe(true);
+            // The same doc has both flags, so when using the propagated doc, we also detect it as inferred
+            expect(result.isInferred).toBe(true);
+            expect(result.propagatedDescription).toBe('Complex doc');
+            // inferredDescription comes from the "other" bucket, which this doc is not in since it's propagated
+            expect(result.inferredDescription).toBeUndefined();
         });
     });
 
@@ -310,7 +334,10 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result).toHaveProperty('displayedDescription');
             expect(result).toHaveProperty('isPropagated');
+            expect(result).toHaveProperty('isInferred');
+            expect(result).toHaveProperty('isUiAuthored');
             expect(result).toHaveProperty('sourceDetail');
+            expect(result).toHaveProperty('uiAuthoredDescription');
             expect(result).toHaveProperty('propagatedDescription');
             expect(result).toHaveProperty('attribution');
         });
@@ -336,6 +363,102 @@ describe('getFieldDescriptionDetails', () => {
             });
 
             expect(result.attribution).toBe(schemaFieldEntity.documentation?.documentations?.[0]?.attribution);
+        });
+    });
+
+    describe('UI-authored documentation', () => {
+        it('detects UI-authored documentation correctly', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('UI doc', 100, [{ key: 'ui', value: 'true' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+            });
+
+            expect(result.displayedDescription).toBe('UI doc');
+            expect(result.isUiAuthored).toBe(true);
+            expect(result.uiAuthoredDescription).toBe('UI doc');
+        });
+
+        it('prioritizes UI-authored documentation over propagated documentation', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Propagated doc', 200, [{ key: 'propagated', value: 'true' }]),
+                createMockDocumentation('UI doc', 100, [{ key: 'ui', value: 'true' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+            });
+
+            expect(result.displayedDescription).toBe('UI doc');
+            expect(result.isUiAuthored).toBe(true);
+            expect(result.isPropagated).toBe(false);
+            expect(result.uiAuthoredDescription).toBe('UI doc');
+            expect(result.propagatedDescription).toBe('Propagated doc');
+        });
+
+        it('prioritizes UI-authored documentation over inferred documentation', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Inferred doc', 200, [{ key: 'inferred', value: 'true' }]),
+                createMockDocumentation('UI doc', 100, [{ key: 'ui', value: 'true' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+                enableInferredDescriptions: true,
+            });
+
+            expect(result.displayedDescription).toBe('UI doc');
+            expect(result.isUiAuthored).toBe(true);
+            expect(result.isInferred).toBe(false);
+            expect(result.uiAuthoredDescription).toBe('UI doc');
+            expect(result.inferredDescription).toBe('Inferred doc');
+        });
+
+        it('returns most recent UI-authored documentation when multiple exist', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Old UI doc', 100, [{ key: 'ui', value: 'true' }]),
+                createMockDocumentation('New UI doc', 200, [{ key: 'ui', value: 'true' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+            });
+
+            expect(result.displayedDescription).toBe('New UI doc');
+            expect(result.isUiAuthored).toBe(true);
+            expect(result.uiAuthoredDescription).toBe('New UI doc');
+        });
+
+        it('falls back to propagated documentation when no UI-authored doc exists', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Propagated doc', 100, [{ key: 'propagated', value: 'true' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+            });
+
+            expect(result.displayedDescription).toBe('Propagated doc');
+            expect(result.isUiAuthored).toBe(false);
+            expect(result.isPropagated).toBe(true);
+            expect(result.uiAuthoredDescription).toBeUndefined();
+        });
+
+        it('prioritizes editableFieldInfo over UI-authored documentation', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('UI doc', 100, [{ key: 'ui', value: 'true' }]),
+            ]);
+            const editableFieldInfo = createMockEditableFieldInfo('Editable description');
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+                editableFieldInfo,
+            });
+
+            expect(result.displayedDescription).toBe('Editable description');
+            expect(result.isUiAuthored).toBe(false);
         });
     });
 });

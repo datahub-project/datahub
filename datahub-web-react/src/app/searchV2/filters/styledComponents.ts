@@ -32,6 +32,7 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
     justify-content: space-between;
     cursor: pointer;
 
+    max-width: 100%;
     &:hover {
         background-color: ${ANTD_GRAY[3]};
     }

@@ -4,5 +4,5 @@ ext {
     //
     // To automatically update this to the latest CLI version prior to release, run the following command:
     // ./gradlew resolveDefaultCliVersion
-    cliVersion = "1.2.0.5"
+    cliVersion = "1.3.1.4"
 }

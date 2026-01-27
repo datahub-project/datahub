@@ -47,6 +47,7 @@ jobs:
             "testIntegrationBatch3",
             "testIntegrationBatch4",
             "testIntegrationBatch5",
+            "testIntegrationBatchRecording", # Recording tests - isolated execution to avoid module patching interference
           ]
         include:
           # Version compatibility tests.
@@ -145,3 +146,115 @@ jobs:
         with:
           name: Event File
           path: ${{ github.event_path }}
+
+  validate-plugin-deps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - name: Check if setup.py was modified
+        id: check-changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Running due to manual workflow dispatch"
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Check if setup.py is in the changed files
+            git fetch origin ${{ github.base_ref }}
+            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^metadata-ingestion/setup.py$'; then
+              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "setup.py was modified in this PR"
+            else
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "setup.py was not modified, skipping plugin validation"
+            fi
+          else
+            # For push events, check the commit
+            if git diff --name-only HEAD~1 HEAD | grep -q '^metadata-ingestion/setup.py$'; then
+              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "setup.py was modified in this commit"
+            else
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "setup.py was not modified, skipping plugin validation"
+            fi
+          fi
+      - name: Set up JDK 17
+        if: steps.check-changes.outputs.should_run == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.check-changes.outputs.should_run == 'true'
+      - uses: actions/setup-python@v6
+        if: steps.check-changes.outputs.should_run == 'true'
+        with:
+          python-version: "3.11"
+      - name: Install system dependencies
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Install package
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: ./gradlew :metadata-ingestion:installDev
+      - name: Install uv
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: pip install uv
+      - name: Validate all plugin dependencies
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: |
+          cd metadata-ingestion
+          # Get plugin list using venv's python
+          PLUGINS=$(venv/bin/python -m datahub check plugins 2>/dev/null | awk '/^Sinks:/ { exit } /^Sources:/ { next } /^[a-zA-Z0-9_-]+$/ { print $1 }' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          PLUGIN_COUNT=$(echo "$PLUGINS" | jq 'length')
+          echo "✅ Found $PLUGIN_COUNT plugins to validate:"
+          echo "$PLUGINS" | jq -r '.[]' | sed 's/^/  - /'
+          echo ""
+
+          FAILED_PLUGINS=()
+          SUCCESS_COUNT=0
+          TOTAL_COUNT=$PLUGIN_COUNT
+
+          echo "Validating $TOTAL_COUNT plugins..."
+          echo ""
+
+          for plugin in $(echo "$PLUGINS" | jq -r '.[]'); do
+            echo "::group::Validating plugin: $plugin"
+            PLUGIN_VENV="venv-${plugin}"
+            
+            # Create a fresh venv for this plugin
+            uv venv "$PLUGIN_VENV"
+            
+            # Install the plugin in its venv using system uv command
+            if uv pip install -e ".[${plugin}]" --python "$PLUGIN_VENV/bin/python"; then
+              echo "✅ Plugin '$plugin' installed successfully with all dependencies"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            else
+              echo "❌ Plugin '$plugin' failed to install"
+              FAILED_PLUGINS+=("$plugin")
+            fi
+            
+            # Clean up venv to save space
+            rm -rf "$PLUGIN_VENV"
+            echo "::endgroup::"
+          done
+
+          echo ""
+          echo "=========================================="
+          echo "Validation Summary:"
+          echo "  Total plugins: $TOTAL_COUNT"
+          echo "  ✅ Successful: $SUCCESS_COUNT"
+          echo "  ❌ Failed: ${#FAILED_PLUGINS[@]}"
+
+          if [ ${#FAILED_PLUGINS[@]} -gt 0 ]; then
+            echo ""
+            echo "Failed plugins:"
+            for plugin in "${FAILED_PLUGINS[@]}"; do
+              echo "  - $plugin"
+            done
+            exit 1
+          fi
+
+          echo "=========================================="
+          echo "✅ All plugins validated successfully!"

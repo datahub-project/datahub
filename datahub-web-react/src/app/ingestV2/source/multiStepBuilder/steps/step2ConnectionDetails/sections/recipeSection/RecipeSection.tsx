@@ -1,5 +1,5 @@
-import { message } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Form, message } from 'antd';
+import React, { useCallback, useMemo, useState } from 'react';
 import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
@@ -15,18 +15,17 @@ interface Props {
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
-    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe, setIsRecipeValid }: Props) {
+export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe }: Props) {
     const { type } = state;
-    const isEditing = !!state.isEditing;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
-    // FYI: We don't have form validation for sources without a form
-    useEffect(() => {
-        setIsRecipeValid?.(!hasForm || isEditing || !!state.isConnectionDetailsValid);
-    }, [hasForm, isEditing, setIsRecipeValid, state.isConnectionDetailsValid]);
+
+    const [form] = Form.useForm();
+    const runFormValidation = useCallback(() => {
+        form.validateFields();
+    }, [form]);
 
     const onTabClick = useCallback(
         (activeKey) => {
@@ -38,6 +37,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
             // Validate yaml content when switching from yaml tab to form
             try {
                 YAML.parse(displayRecipe);
+                setTimeout(runFormValidation, 0); // let form remount and then run validation
                 setSelectedTabKey(activeKey);
             } catch (e) {
                 message.destroy();
@@ -47,7 +47,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
             }
         },
-        [displayRecipe],
+        [displayRecipe, runFormValidation],
     );
 
     const tabs: Tab[] = useMemo(
@@ -58,10 +58,11 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 component: (
                     <RecipeForm
                         state={state}
+                        form={form}
+                        runFormValidation={runFormValidation}
                         displayRecipe={displayRecipe}
                         sourceConfigs={sourceConfigs}
                         setStagedRecipe={setStagedRecipe}
-                        setIsRecipeValid={setIsRecipeValid}
                     />
                 ),
             },
@@ -71,7 +72,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 component: <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />,
             },
         ],
-        [displayRecipe, state, sourceConfigs, setStagedRecipe, setIsRecipeValid],
+        [displayRecipe, state, sourceConfigs, setStagedRecipe, form, runFormValidation],
     );
 
     if (hasForm) {

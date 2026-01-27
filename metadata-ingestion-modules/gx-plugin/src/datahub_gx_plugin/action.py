@@ -25,7 +25,10 @@ from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
     ValidationResultIdentifier,
 )
-from great_expectations.execution_engine import PandasExecutionEngine
+from great_expectations.execution_engine import (
+    PandasExecutionEngine,
+    SparkDFExecutionEngine,
+)
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
     SqlAlchemyExecutionEngine,
 )
@@ -586,16 +589,67 @@ class DataHubValidationAction(ValidationAction):
         )
 
     def get_dataset_partitions(self, batch_identifier, data_asset):
-        dataset_partitions = []
+        dataset_partitions: List[
+            Dict[str, Union[PartitionSpecClass, BatchSpec, str, None]]
+        ] = []
 
         logger.debug("Finding datasets being validated")
 
-        # for now, we support only v3-api and sqlalchemy execution engine and Pandas engine
+        # for now, we support only v3-api and sqlalchemy execution engine,Pandas engine and Spark engine
         is_sql_alchemy = isinstance(data_asset, Validator) and (
             isinstance(data_asset.execution_engine, SqlAlchemyExecutionEngine)
         )
         is_pandas = isinstance(data_asset.execution_engine, PandasExecutionEngine)
-        if is_sql_alchemy or is_pandas:
+
+        is_spark = isinstance(data_asset.execution_engine, SparkDFExecutionEngine)
+
+        if is_spark:
+            ge_batch_spec = data_asset.active_batch_spec
+            partitionSpec = None
+            batchSpecProperties = {
+                "data_asset_name": str(
+                    data_asset.active_batch_definition.data_asset_name
+                ),
+                "datasource_name": str(
+                    data_asset.active_batch_definition.datasource_name
+                ),
+            }
+
+            if isinstance(ge_batch_spec, RuntimeDataBatchSpec):
+                data_platform = self.get_platform_instance_spark(
+                    data_asset.active_batch_definition.datasource_name
+                )
+
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=(
+                        data_platform
+                        if self.platform_alias is None
+                        else self.platform_alias
+                    ),
+                    name=data_asset.active_batch_definition.data_asset_name,
+                    platform_instance="",
+                    env=self.env,
+                )
+
+                batchSpec = BatchSpec(
+                    nativeBatchId=batch_identifier,
+                    query="",
+                    customProperties=batchSpecProperties,
+                )
+                dataset_partitions.append(
+                    {
+                        "dataset_urn": dataset_urn,
+                        "partitionSpec": partitionSpec,
+                        "batchSpec": batchSpec,
+                    }
+                )
+            else:
+                warn(
+                    "DataHubValidationAction does not recognize this GE batch spec type for SparkDFExecutionEngine- {batch_spec_type}. No action will be taken.".format(
+                        batch_spec_type=type(ge_batch_spec)
+                    )
+                )
+        elif is_sql_alchemy or is_pandas:
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
             batchSpecProperties = {
@@ -607,6 +661,7 @@ class DataHubValidationAction(ValidationAction):
                 ),
             }
             sqlalchemy_uri = None
+
             if is_sql_alchemy and isinstance(
                 data_asset.execution_engine.engine, Engine
             ):
@@ -627,7 +682,7 @@ class DataHubValidationAction(ValidationAction):
                     schema_name,
                     table_name,
                     self.env,
-                    self.get_platform_instance(
+                    self.get_platform_instance_sqlalchemy(
                         data_asset.active_batch_definition.datasource_name
                     ),
                     self.exclude_dbname,
@@ -709,7 +764,7 @@ class DataHubValidationAction(ValidationAction):
                         None,
                         table,
                         self.env,
-                        self.get_platform_instance(
+                        self.get_platform_instance_sqlalchemy(
                             data_asset.active_batch_definition.datasource_name
                         ),
                         self.exclude_dbname,
@@ -724,7 +779,7 @@ class DataHubValidationAction(ValidationAction):
                         }
                     )
             elif isinstance(ge_batch_spec, RuntimeDataBatchSpec):
-                data_platform = self.get_platform_instance(
+                data_platform = self.get_platform_instance_sqlalchemy(
                     data_asset.active_batch_definition.datasource_name
                 )
                 dataset_urn = builder.make_dataset_urn_with_platform_instance(
@@ -758,14 +813,14 @@ class DataHubValidationAction(ValidationAction):
         else:
             # TODO - v2-spec - SqlAlchemyDataset support
             warn(
-                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}. This is either using v2-api or execution engine other than sqlalchemy.".format(
+                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}.".format(
                     asset_type=type(data_asset)
                 )
             )
 
         return dataset_partitions
 
-    def get_platform_instance(self, datasource_name):
+    def get_platform_instance_sqlalchemy(self, datasource_name):
         if self.platform_instance_map and datasource_name in self.platform_instance_map:
             return self.platform_instance_map[datasource_name]
         else:
@@ -773,6 +828,16 @@ class DataHubValidationAction(ValidationAction):
                 f"Datasource {datasource_name} is not present in platform_instance_map"
             )
         return None
+
+    def get_platform_instance_spark(self, datasource_name):
+        if self.platform_instance_map and datasource_name in self.platform_instance_map:
+            return self.platform_instance_map[datasource_name]
+        else:
+            warn(
+                f"Datasource {datasource_name} is not present in platform_instance_map. \
+                        Data platform will be {datasource_name} by default "
+            )
+            return datasource_name
 
 
 def parse_int_or_default(value, default_value=None):

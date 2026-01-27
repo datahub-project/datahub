@@ -24,6 +24,18 @@ extend type Query {
   Do not build on top of this API.
   """
   debugAccess(userUrn: String!): DebugAccessResult!
+
+  """
+  List service accounts stored in DataHub.
+  """
+  listServiceAccounts(
+    input: ListServiceAccountsInput!
+  ): ListServiceAccountsResult!
+
+  """
+  Get a service account by URN.
+  """
+  getServiceAccount(urn: String!): ServiceAccount
 }
 
 extend type Mutation {
@@ -36,6 +48,16 @@ extend type Mutation {
   Revokes access tokens.
   """
   revokeAccessToken(tokenId: String!): Boolean!
+
+  """
+  Creates a new service account.
+  """
+  createServiceAccount(input: CreateServiceAccountInput!): ServiceAccount!
+
+  """
+  Deletes a service account by URN.
+  """
+  deleteServiceAccount(urn: String!): Boolean!
 }
 
 """
@@ -93,6 +115,11 @@ enum AccessTokenType {
   Generates a personal access token
   """
   PERSONAL
+
+  """
+  Generates a service account access token
+  """
+  SERVICE_ACCOUNT
 }
 
 """
@@ -232,6 +259,11 @@ type AccessTokenMetadata implements Entity {
   The actor who created the Access Token.
   """
   ownerUrn: String!
+
+  """
+  The owner (CorpUser) who created the Access Token.
+  """
+  owner: CorpUser
 
   """
   The time when token was generated at.
@@ -416,4 +448,115 @@ type DebugAccessResult {
   List of privileges that this user has directly or indirectly.
   """
   privileges: [String!]!
+}
+
+"""
+A service account represents a non-human identity for programmatic API access.
+"""
+type ServiceAccount implements Entity {
+  """
+  The primary key of the service account
+  """
+  urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The unique name/identifier of the service account.
+  """
+  name: String!
+
+  """
+  The display name of the service account.
+  """
+  displayName: String
+
+  """
+  An optional description of the service account.
+  """
+  description: String
+
+  """
+  The actor URN that created this service account.
+  """
+  createdBy: String
+
+  """
+  The time when the service account was created.
+  May be null in list operations where full entity details are not fetched.
+  """
+  createdAt: Long
+
+  """
+  The time when the service account was last updated.
+  """
+  updatedAt: Long
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Input arguments for creating a service account
+"""
+input CreateServiceAccountInput {
+  """
+  An optional display name for the service account.
+  """
+  displayName: String
+
+  """
+  An optional description for the service account.
+  """
+  description: String
+}
+
+"""
+Input arguments for listing service accounts
+"""
+input ListServiceAccountsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  Optional search query to filter service accounts
+  """
+  query: String
+}
+
+"""
+Results returned when listing service accounts
+"""
+type ListServiceAccountsResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results to be returned
+  """
+  count: Int!
+
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The service accounts
+  """
+  serviceAccounts: [ServiceAccount!]!
 }
