@@ -13,6 +13,7 @@ which generates a single embedding for the entire document.
 import hashlib
 import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -37,6 +38,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class DocumentChunkingReport(SourceReport):
     """Report for document chunking source."""
 
@@ -46,7 +48,13 @@ class DocumentChunkingReport(SourceReport):
     num_documents_skipped_unchanged: int = 0
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
-    processing_errors: list[str] = []
+    processing_errors: list[str] = field(default_factory=list)
+
+    # Embedding statistics
+    num_documents_with_embeddings: int = 0
+    num_documents_without_embeddings: int = 0
+    num_embedding_failures: int = 0
+    embedding_failures: list[str] = field(default_factory=list)
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -67,6 +75,15 @@ class DocumentChunkingReport(SourceReport):
 
     def report_error(self, error: str) -> None:
         self.processing_errors.append(error)
+
+    def report_embedding_success(self) -> None:
+        """Track successful embedding generation."""
+        self.num_documents_with_embeddings += 1
+
+    def report_embedding_failure(self, document_urn: str, error: str) -> None:
+        """Track embedding generation failure."""
+        self.num_embedding_failures += 1
+        self.embedding_failures.append(f"{document_urn}: {error}")
 
 
 @platform_name("DataHub")
@@ -336,38 +353,47 @@ class DocumentChunkingSource(Source):
         Yields:
             MetadataWorkUnits containing SemanticContent aspects
         """
-        try:
-            if not elements:
-                logger.warning(f"No elements provided for document {document_urn}")
-                return
+        if not elements:
+            logger.warning(f"No elements provided for document {document_urn}")
+            return
 
-            # Chunk the elements
-            chunks = self._chunk_elements(elements)
-            if not chunks:
-                logger.warning(f"No chunks created for document {document_urn}")
-                return
+        # Chunk the elements
+        chunks = self._chunk_elements(elements)
+        if not chunks:
+            logger.warning(f"No chunks created for document {document_urn}")
+            return
 
-            # Generate embeddings (only if configured)
-            embeddings = []
-            if self.embedding_model:
+        # Generate embeddings (only if configured)
+        embeddings = []
+        if self.embedding_model:
+            try:
                 embeddings = self._generate_embeddings(chunks)
-            else:
-                logger.debug(
-                    f"Skipping embedding generation for {document_urn} - no embedding provider configured"
+                self.report.report_embedding_success()
+            except Exception as e:
+                # Embedding generation failed - document still ingested but no search capability
+                short_error = str(e).split("\n")[0][:200]  # First line, max 200 chars
+
+                self.report.report_embedding_failure(document_urn, short_error)
+
+                # Report as warning so it appears in pipeline summary
+                self.report.report_warning(
+                    title="Embedding generation failed",
+                    message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
+                    context=f"{document_urn}: {short_error}",
+                    exc=e,
                 )
+                # Don't re-raise - allow document to be processed without embeddings
+        else:
+            logger.debug(
+                f"Skipping embedding generation for {document_urn} - no embedding provider configured"
+            )
 
-            # Emit SemanticContent aspect (only if embeddings were generated)
-            if embeddings:
-                yield from self._emit_semantic_content(document_urn, chunks, embeddings)
+        # Emit SemanticContent aspect (only if embeddings were generated)
+        if embeddings:
+            yield from self._emit_semantic_content(document_urn, chunks, embeddings)
 
-            self.report.report_document_processed(len(chunks))
-            self.report.report_embeddings_generated(len(embeddings))
-
-        except Exception as e:
-            error_msg = f"Failed to process elements inline for {document_urn}: {e}"
-            logger.error(error_msg, exc_info=True)
-            self.report.report_error(error_msg)
-            # Don't re-raise - allow document to be ingested even if embedding fails
+        self.report.report_document_processed(len(chunks))
+        self.report.report_embeddings_generated(len(embeddings))
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Fetch documents, chunk them, generate embeddings, and emit SemanticContent."""
@@ -637,14 +663,33 @@ class DocumentChunkingSource(Source):
             # Generate embeddings (only if configured)
             embeddings = []
             if self.embedding_model:
-                embeddings = self._generate_embeddings(chunks)
+                try:
+                    embeddings = self._generate_embeddings(chunks)
+                    self.report.report_embedding_success()
+                except Exception as e:
+                    # Embedding generation failed - document still processed but no search capability
+                    short_error = str(e).split("\n")[0][
+                        :200
+                    ]  # First line, max 200 chars
+
+                    self.report.report_embedding_failure(doc["urn"], short_error)
+
+                    # Report as warning so it appears in pipeline summary
+                    self.report.report_warning(
+                        title="Embedding generation failed",
+                        message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
+                        context=f"{doc['urn']}: {short_error}",
+                        exc=e,
+                    )
+                    # Don't re-raise - allow document to be processed without embeddings
             else:
                 logger.debug(
                     f"Skipping embedding generation for {doc['urn']} - no embedding provider configured"
                 )
 
-            # Emit SemanticContent aspect to DataHub
-            yield from self._emit_semantic_content(doc["urn"], chunks, embeddings)
+            # Emit SemanticContent aspect to DataHub (only if embeddings were generated)
+            if embeddings:
+                yield from self._emit_semantic_content(doc["urn"], chunks, embeddings)
 
             self.report.report_document_processed(len(chunks))
             self.report.report_embeddings_generated(len(embeddings))
