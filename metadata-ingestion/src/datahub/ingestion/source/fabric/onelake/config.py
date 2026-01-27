@@ -35,6 +35,7 @@ class SqlEndpointConfig(ConfigModel):
     - https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-connectivity
     - https://learn.microsoft.com/en-us/fabric/data-warehouse/connect-to-fabric-data-warehouse
     - https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse
+    - https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#encrypt
     """
 
     enabled: bool = Field(
@@ -44,29 +45,25 @@ class SqlEndpointConfig(ConfigModel):
         default="ODBC Driver 18 for SQL Server",
         description="ODBC driver name for SQL Server connections.",
     )
-    encrypt: str = Field(
+    encrypt: Literal["yes", "no", "mandatory", "optional", "strict"] = Field(
         default="yes",
-        description="Enable encryption for SQL Server connections. Valid values: 'yes' or 'no'.",
+        description=(
+            "Enable encryption for SQL Server connections. "
+            "Valid values: 'yes'/'mandatory' (enable encryption, default in ODBC Driver 18.0+), "
+            "'no'/'optional' (disable encryption), or 'strict' (ODBC Driver 18.0+, TDS 8.0 protocol only, "
+            "always verifies server certificate). "
+            "See: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#encrypt"
+        ),
     )
-    trust_server_certificate: str = Field(
+    trust_server_certificate: Literal["yes", "no"] = Field(
         default="no",
         description=(
             "Trust server certificate without validation. "
             "Set to 'yes' only if certificate validation fails. "
-            "Valid values: 'yes' or 'no'."
+            "When 'encrypt=strict', this setting is ignored and certificate validation is always performed. "
+            "See: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17"
         ),
     )
-
-    @model_validator(mode="after")
-    def validate_connection_options(self) -> "SqlEndpointConfig":
-        """Validate that encrypt and trust_server_certificate are valid values."""
-        if self.encrypt not in ("yes", "no"):
-            raise ValueError(f"encrypt must be 'yes' or 'no', got '{self.encrypt}'")
-        if self.trust_server_certificate not in ("yes", "no"):
-            raise ValueError(
-                f"trust_server_certificate must be 'yes' or 'no', got '{self.trust_server_certificate}'"
-            )
-        return self
 
     query_timeout: int = Field(
         default=30,
