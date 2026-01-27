@@ -12,10 +12,7 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
 )
-from datahub.ingestion.source.powerbi.fabric_urn_builder import (
-    make_onelake_urn,
-    make_table_name,
-)
+from datahub.ingestion.source.powerbi.fabric_urn_builder import make_onelake_urn
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FabricArtifact,
@@ -49,50 +46,6 @@ def mapper(config):
     )
 
 
-class TestMakeTableName:
-    """Tests for the make_table_name URN helper function."""
-
-    def test_make_table_name_with_schema(self):
-        """Test table name generation with schema included."""
-        result = make_table_name(
-            workspace_id="ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
-            item_id="2afa2dbd-555b-48c8-b082-35d94f4b7836",
-            schema_name="dbo",
-            table_name="green_tripdata_2017",
-        )
-        assert (
-            result
-            == "ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017"
-        )
-
-    def test_make_table_name_without_schema(self):
-        """Test table name generation without schema (schemas-disabled lakehouse)."""
-        result = make_table_name(
-            workspace_id="ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
-            item_id="2afa2dbd-555b-48c8-b082-35d94f4b7836",
-            schema_name=None,
-            table_name="green_tripdata_2017",
-        )
-        assert (
-            result
-            == "ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.green_tripdata_2017"
-        )
-
-    def test_make_table_name_empty_schema(self):
-        """Test table name generation with empty schema string."""
-        result = make_table_name(
-            workspace_id="ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
-            item_id="2afa2dbd-555b-48c8-b082-35d94f4b7836",
-            schema_name="",
-            table_name="green_tripdata_2017",
-        )
-        # Empty string is falsy, so schema is skipped
-        assert (
-            result
-            == "ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.green_tripdata_2017"
-        )
-
-
 class TestMakeOnelakeUrn:
     """Tests for the make_onelake_urn helper function."""
 
@@ -111,7 +64,7 @@ class TestMakeOnelakeUrn:
         )
 
     def test_make_onelake_urn_without_schema(self):
-        """Test URN generation without schema."""
+        """Test URN generation without schema (defaults to 'dbo' for schemas-disabled lakehouses)."""
         result = make_onelake_urn(
             workspace_id="ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
             item_id="2afa2dbd-555b-48c8-b082-35d94f4b7836",
@@ -119,9 +72,10 @@ class TestMakeOnelakeUrn:
             schema_name=None,
             env="PROD",
         )
+        # When schema_name is None, it defaults to "dbo"
         assert (
             result
-            == "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.green_tripdata_2017,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)"
         )
 
     def test_make_onelake_urn_with_platform_instance(self):
