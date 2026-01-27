@@ -184,6 +184,11 @@ def get_sql_agg_skip_joins() -> bool:
     return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
 
 
+def get_sql_parse_cache_size() -> int:
+    """SQL parse result cache size (number of entries)."""
+    return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
