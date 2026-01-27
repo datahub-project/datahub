@@ -23,7 +23,6 @@ base_requirements = {
     "pydantic_core!=2.41.3,<3.0.0",
     "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
-    "sentry-sdk>=1.33.1",
     # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
     # vulnerability), but Airflow 2.x constraints pin jaraco.context to older versions (e.g., 5.3.0).
     # This constraint is NOT included here to maintain Airflow compatibility.
@@ -439,6 +438,24 @@ superset_common = {
     *sqlglot_lib,
 }
 
+embedding_common = {
+    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
+    "litellm==1.80.5",
+    # AWS SDK for Bedrock embedding support
+    "boto3==1.34.0",
+}
+
+unstructured_lib = {
+    # Unstructured.io core library for document partitioning with markdown support
+    "unstructured[md]==0.18.24",
+    # Unstructured ingest framework for pipeline orchestration
+    "unstructured-ingest==0.7.2",
+    # JSONPath for custom property extraction
+    "jsonpath-ng==1.7.0",
+    # Embedding support for semantic search
+    *embedding_common,
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -590,6 +607,7 @@ plugins: Dict[str, Set[str]] = {
         "setuptools",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
+    "datahub-documents": unstructured_lib,
     "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"} | sqlglot_lib,
     "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
@@ -786,6 +804,8 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
+            # It's available as a separate extra and in the docs extra for doc generation
             "dataplex",
             "delta-lake",
             "dremio",
@@ -845,6 +865,13 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+}
+
+# Documentation generation requirements
+# Includes datahub-documents which requires Python 3.10+ (due to unstructured library)
+docs_requirements = {
+    *base_dev_requirements,
+    *plugins["datahub-documents"],
 }
 
 full_test_dev_requirements = {
@@ -923,6 +950,7 @@ entry_points = {
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
+        "datahub-documents = datahub.ingestion.source.datahub_documents.datahub_documents_source:DataHubDocumentsSource",
         "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
         "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
@@ -1100,6 +1128,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
+        "docs": list(docs_requirements),  # For documentation generation (requires Python 3.10+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
