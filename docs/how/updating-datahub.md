@@ -33,6 +33,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- Python 3.9 support has been dropped. All Python modules now require Python 3.10 or later. This affects `acryl-datahub`, `acryl-datahub-airflow-plugin`, `acryl-datahub-dagster-plugin`, `acryl-datahub-gx-plugin`, `prefect-datahub`, and `acryl-datahub-actions`. Upgrade to Python 3.10+ before upgrading these packages.
 - #15930: The Airflow plugin's kill switch for Airflow 2.x now uses environment variables instead of Airflow Variables. If you were using `airflow variables set datahub_airflow_plugin_disable_listener true` to disable the plugin, you must now use `export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true` instead.
 - #15877: The LDAP ingestion source now enforces TLS certificate verification by default (`tls_verify: true`). This prevents Man-in-the-Middle attacks (CWE-295) but may break existing configurations using self-signed certificates. To restore the previous behavior, explicitly set `tls_verify: false` in your recipe.
 - #15415: MLModel and MLModelGroup search field mapping has been updated to resolve duplicate field name conflicts. Existing entities will be automatically reindexed in the background after upgrade. New MLModel and MLModelGroup entities ingested after the upgrade will work immediately.
@@ -57,6 +58,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
+- #15824: The Databricks ingestion source now additionally supports authentication via M2M OAuth or Databricks unified authentication. The Azure authentication method now supports profiling as well as ingesting lineage from system tables.
 
 ## 1.3.0
 
