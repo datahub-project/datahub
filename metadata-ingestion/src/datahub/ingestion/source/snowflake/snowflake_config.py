@@ -87,6 +87,12 @@ class SnowflakeShareConfig(ConfigModel):
         description="List of databases created in consumer accounts."
     )
 
+    listing_global_name: Optional[str] = Field(
+        default=None,
+        description="Marketplace listing global name (e.g., GZSTZGQTPEW) to explicitly link this share to a marketplace listing. "
+        "This is useful when SHOW SHARES doesn't return listing_global_name or when automatic matching fails.",
+    )
+
     @property
     def source_database(self) -> DatabaseId:
         return DatabaseId(self.database, self.platform_instance)
@@ -234,6 +240,87 @@ class SnowflakeConfig(
     upstream_lineage_in_report: bool = False
 
 
+class SnowflakeMarketplaceConfig(BaseTimeWindowConfig):
+    """
+    Configuration for Snowflake Internal Marketplace (Private Data Sharing).
+
+    IMPORTANT: This is for the INTERNAL Snowflake Marketplace where organizations privately share
+    data within their account using Data Exchange. This is NOT for the public Snowflake Marketplace
+    (Snowflake Data Marketplace) where external providers publicly list datasets.
+
+    Use this when you want to track:
+    - Internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE)
+    - Databases purchased/imported from internal listings (IMPORTED DATABASE type - consumer mode)
+    - Databases you're sharing via OUTBOUND shares (provider mode)
+    - Usage of internal marketplace data products
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest Snowflake INTERNAL marketplace (private data exchange) listings as Data Products. "
+            "When enabled, also ingests databases and usage statistics based on the marketplace_mode setting. "
+            "NOTE: This is for INTERNAL marketplace only (IS_ORGANIZATION = TRUE), not the public Snowflake Data Marketplace."
+        ),
+    )
+
+    marketplace_mode: str = Field(
+        default="consumer",
+        description=(
+            "Mode for marketplace ingestion: "
+            "'consumer' (default) - Track purchased/imported databases (IMPORTED DATABASE type), "
+            "'provider' - Track databases you're sharing via OUTBOUND shares and marketplace listings, "
+            "'both' - Track both consumer and provider perspectives. "
+            "Consumer mode requires shares config to link imported databases to listings. "
+            "Provider mode works with OUTBOUND shares without requiring imported databases. "
+            "IMPORTANT: For 'provider' or 'both' modes, you MUST grant 'imported privileges on database snowflake' "
+            "to the USER (not just the role), as share access is granted at the user level in Snowflake."
+        ),
+    )
+
+    internal_marketplace_listing_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for INTERNAL marketplace listings to include in ingestion",
+    )
+
+    internal_marketplace_owner_patterns: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map regex patterns (matched against INTERNAL listing title or provider) to owner identifiers. "
+            "Owners can be usernames, group names, or full URNs. "
+            "Example: {'^Finance.*': ['finance-team'], '^.*Analytics.*': ['analytics-lead', 'urn:li:corpGroup:data']}"
+        ),
+    )
+
+    fetch_internal_marketplace_listing_details: bool = Field(
+        default=False,
+        description=(
+            "If enabled, fetches additional details for each INTERNAL marketplace listing via DESCRIBE AVAILABLE LISTING. "
+            "WARNING: This executes one additional query per listing and may impact performance for many listings."
+        ),
+    )
+
+    marketplace_properties_as_structured_properties: bool = Field(
+        default=False,
+        description=(
+            "If enabled, ingests INTERNAL marketplace custom properties (provider, category, listing_created_on, etc.) "
+            "as DataHub structured properties instead of simple custom properties. This makes marketplace metadata "
+            "searchable and filterable in the DataHub UI."
+        ),
+    )
+
+    @field_validator("marketplace_mode")
+    @classmethod
+    def validate_marketplace_mode(cls, v: str) -> str:
+        """Validate that marketplace_mode is one of the allowed values."""
+        allowed_modes = ["consumer", "provider", "both"]
+        if v not in allowed_modes:
+            raise ValueError(
+                f"marketplace_mode must be one of {allowed_modes}, got '{v}'"
+            )
+        return v
+
+
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
@@ -364,6 +451,11 @@ class SnowflakeV2Config(
     semantic_views: SemanticViewsConfig = Field(
         default_factory=SemanticViewsConfig,
         description="Configuration for semantic views ingestion.",
+    )
+
+    marketplace: SnowflakeMarketplaceConfig = Field(
+        default_factory=SnowflakeMarketplaceConfig,
+        description="Configuration for Snowflake Internal Marketplace (private data exchange) ingestion.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(

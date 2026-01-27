@@ -48,6 +48,37 @@ grant role datahub_role to user datahub_user;
 // Optional - required if extracting lineage, usage or tags (without lineage)
 grant imported privileges on database snowflake to role datahub_role;
 
+// Optional - required for INTERNAL marketplace ingestion (private data sharing)
+// This grants access to:
+// - SHOW AVAILABLE LISTINGS (IS_ORGANIZATION = TRUE) for internal marketplace listings
+// - SNOWFLAKE.ACCOUNT_USAGE.DATABASES for identifying imported databases
+// - SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY for usage statistics
+// - DESCRIBE AVAILABLE LISTING for enriched metadata (if fetch_internal_marketplace_listing_details=true)
+grant imported privileges on database snowflake to role datahub_role;
+
+// CRITICAL: For SHOW SHARES to work properly:
+// - IMPORT SHARE: Required to view INBOUND shares (shares you're consuming)
+// - For OUTBOUND shares (shares you're providing):
+//   * The role can see shares it OWNS (shares created by that role)
+//   * The role can see shares owned by roles it inherits from
+//   * If shares are owned by ACCOUNTADMIN/SYSADMIN, grant one of those roles
+
+// Grant IMPORT SHARE for consumer mode (INBOUND shares)
+// Note: ACCOUNTADMIN is required to grant account-level privileges
+use role accountadmin;
+grant import share on account to role datahub_role;
+
+// For provider mode, you have options depending on share ownership:
+// Option 1: If datahub_role creates/owns the shares - no additional grant needed
+
+// Option 2 (Most common): If shares are owned by ACCOUNTADMIN/SYSADMIN:
+// Grant SYSADMIN role (use SECURITYADMIN to grant roles)
+use role securityadmin;
+grant role sysadmin to role datahub_role;  // SYSADMIN can see all shares
+
+// Option 3: Use SYSADMIN directly for ingestion
+// Set role: SYSADMIN in your recipe instead of datahub_role
+
 // Optional - required if extracting Streamlit Apps
 grant usage on all streamlits in database "<your-database>" to role datahub_role;
 grant usage on future streamlits in database "<your-database>" to role datahub_role;
@@ -146,6 +177,8 @@ The steps slightly differ based on which you decide to use.
 
 If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/data-sharing-provider) to share data across different Snowflake accounts, and you have set up DataHub recipes for ingesting metadata from all these accounts, you may end up having multiple similar dataset entities corresponding to virtual versions of the same table in different Snowflake accounts. The DataHub Snowflake connector can automatically link such tables together through Siblings and Lineage relationships if the user provides information necessary to establish the relationship using the `shares` configuration in the recipe.
 
+**Note:** The `shares` configuration is also **REQUIRED** when using the `include_internal_marketplace` feature to ingest Snowflake internal marketplace listings as Data Products. Without this configuration, Data Products will be created but won't have any associated datasets (assets). See the [Internal Marketplace](#internal-marketplace) section below for details.
+
 #### Example
 
 - Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it.
@@ -161,6 +194,207 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
           platform_instance: instance2
   ```
 - If share `X` is shared with more Snowflake accounts and a database is created from share `X` in those accounts, then additional entries need to be added to the `consumers` list for share `X`, one per Snowflake account. The same `shares` config can then be copied across recipes for all accounts.
+
+### Internal Marketplace
+
+If you are using the Snowflake internal marketplace (private data sharing within your organization via Data Exchange) and want to ingest marketplace listings as DataHub Data Products, you can operate in two modes:
+
+#### Mode 1: Consumer Mode (Default) - Track Purchased Listings
+
+For organizations that **purchase/install** internal marketplace listings:
+
+1. **Grant the required privileges** (already covered in the Prerequisites section above):
+
+   ```sql
+   -- Basic marketplace access
+   grant imported privileges on database snowflake to role datahub_role;
+
+   -- For SHOW SHARES to discover INBOUND shares
+   use role accountadmin;
+   grant import share on account to role datahub_role;
+   ```
+
+2. **Enable marketplace ingestion** in your recipe:
+
+   ```yaml
+   marketplace:
+     enabled: true
+     marketplace_mode: "consumer" # Default
+     # Optional: Configure time window for usage statistics
+     start_time: "-7 days" # Default: -1 day
+     end_time: "now"
+     bucket_duration: "DAY" # Options: "DAY", "HOUR"
+   ```
+
+   The `marketplace` configuration inherits from `BaseTimeWindowConfig`, allowing you to control the time window for extracting marketplace usage statistics. This follows the same pattern as other DataHub connectors.
+
+3. **Configure the `shares` mapping** (REQUIRED in consumer mode for linking Data Products to their purchased databases):
+
+   Because Snowflake does not provide a direct system field linking imported databases to their source marketplace listings, you must manually configure the `shares` section. For each imported database created from a marketplace listing:
+
+   ```yaml
+   shares:
+     <SHARE_NAME>: # From: SHOW SHARES
+       database: "<SOURCE_DATABASE>" # Source database in the share
+       platform_instance: null
+       consumers:
+         - database: "<IMPORTED_DATABASE>" # Your purchased/imported database
+           platform_instance: null
+           # Optional but recommended: Explicit listing mapping
+           listing_global_name: "PROVIDER.REGION.LISTING_NAME" # From: SHOW AVAILABLE LISTINGS
+   ```
+
+   **Explicit Listing Mapping (Recommended)**: Add `listing_global_name` to explicitly link your purchased database to its marketplace listing. This ensures accurate Data Product associations, especially when you have multiple listings with similar names. Without it, the connector will attempt to match listings by finding the source database name within the listing's global name or title (case-insensitive substring match).
+
+   **To discover the correct values**, run these SQL commands in Snowflake:
+
+   ```sql
+   -- Find marketplace listings
+   SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE;
+
+   -- Find imported databases
+   SELECT DATABASE_NAME, TYPE FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+   WHERE TYPE = 'IMPORTED DATABASE' AND DELETED IS NULL;
+
+   -- Find shares and their mappings
+   SHOW SHARES;
+   ```
+
+   **Without the `shares` configuration:**
+
+   - Data Products will be created from marketplace listings
+   - Owners and custom properties will be populated
+   - Data Products will NOT have any associated datasets (assets)
+   - Warning messages will be logged
+
+   **With the `shares` configuration:**
+
+   - Data Products will be created with all metadata
+   - Purchased databases will be linked as Data Product assets
+   - Tables from imported databases will show as part of the Data Product
+
+#### Mode 2: Provider Mode - Track Published Listings
+
+For organizations that **publish/share** internal marketplace listings:
+
+1. **Grant the required privileges** (already covered in the Prerequisites section above):
+
+   ```sql
+   -- Basic marketplace access
+   grant imported privileges on database snowflake to role datahub_role;
+
+   -- For SHOW SHARES to discover OUTBOUND shares (provider mode)
+   -- The role can ONLY see shares it owns or inherits
+   use role securityadmin;
+   grant role sysadmin to role datahub_role;
+
+   -- OR use SYSADMIN/ACCOUNTADMIN directly in your recipe:
+   -- role: SYSADMIN
+   ```
+
+   **Important Note**: In Snowflake, `SHOW SHARES` returns OUTBOUND shares based on ownership. A role can see:
+
+   - Shares owned by the current role (e.g., if `datahub_role` created the share)
+   - Shares owned by roles it inherits from (e.g., `datahub_role` inherits from `SYSADMIN`)
+   - But NOT shares owned by other roles (e.g., shares owned by `ACCOUNTADMIN` that `datahub_role` doesn't inherit from)
+
+   **Solutions:**
+
+   - If your shares are owned by `ACCOUNTADMIN` or `SYSADMIN`: Grant `SYSADMIN` role to `datahub_role` (recommended)
+   - If `datahub_role` creates the shares: No additional grant needed
+   - Alternative: Use `SYSADMIN` or `ACCOUNTADMIN` directly in your ingestion recipe
+
+   Without proper role hierarchy, provider mode cannot discover outbound shares owned by other roles, and tables won't be added as assets to Data Products.
+
+2. **Enable marketplace ingestion in provider mode** in your recipe:
+
+   ```yaml
+   marketplace:
+     enabled: true
+     marketplace_mode: "provider" # NEW!
+     # Assign owners to your Data Products
+     internal_marketplace_owner_patterns:
+       "^Your Listing.*": ["data-team"]
+
+   # Include your source databases being shared
+   database_pattern:
+     allow:
+       - "YOUR_SOURCE_DATABASE"
+   ```
+
+3. **No `shares` configuration needed!**
+
+   Provider mode automatically:
+
+   - Discovers your OUTBOUND shares with marketplace listings
+   - Links them to your source databases
+   - Creates Data Products with your source databases as assets
+
+**What you'll get in provider mode:**
+
+- Data Products for your published marketplace listings
+- Source databases automatically linked as assets
+- Owner assignment from config patterns
+- Works without any imported databases
+
+**Example use case:**
+You publish a "Customer 360" listing from your `CUSTOMER_DATA` database. Provider mode will:
+
+1. Find the listing via `SHOW AVAILABLE LISTINGS`
+2. Find the OUTBOUND share via `SHOW SHARES`
+3. Link the `CUSTOMER_DATA` database to the Data Product
+4. No manual configuration needed!
+
+#### Mode 3: Both - Track Both Perspectives
+
+Set `marketplace_mode: "both"` to track both purchased listings (consumer) AND published listings (provider) in the same ingestion.
+
+For more details, see the marketplace configuration guide in the connector documentation.
+
+#### Troubleshooting Marketplace Ingestion
+
+**Common Permission Errors:**
+
+If marketplace ingestion fails or produces incomplete data, check for these common permission issues:
+
+1. **"Failed to get marketplace listings - insufficient permissions"**
+
+   - **Cause**: Role lacks access to run `SHOW AVAILABLE LISTINGS`
+   - **Solution**: Grant imported privileges:
+     ```sql
+     grant imported privileges on database snowflake to role datahub_role;
+     ```
+
+2. **"Failed to describe provider share - insufficient permissions"**
+
+   - **Cause**: Role cannot run `DESC SHARE` (provider mode only)
+   - **Solution**: Ensure the role owns the share or has been granted appropriate privileges
+
+3. **"Failed to query imported database tables - insufficient permissions"**
+
+   - **Cause**: Role lacks access to query `INFORMATION_SCHEMA` in imported databases
+   - **Solution**: Grant usage and references on the imported database:
+     ```sql
+     grant usage on database "<imported-database>" to role datahub_role;
+     grant usage on all schemas in database "<imported-database>" to role datahub_role;
+     grant references on all tables in database "<imported-database>" to role datahub_role;
+     ```
+
+4. **Data Products created but no assets appear**
+
+   - **Cause**: Missing `shares` configuration (consumer mode)
+   - **Solution**: Add explicit `listing_global_name` mapping in your `shares` config (see consumer mode documentation above)
+
+5. **Incomplete listing metadata**
+   - **Cause**: `fetch_internal_marketplace_listing_details: true` requires additional time per listing
+   - **Note**: This is expected behavior. The connector runs `DESCRIBE AVAILABLE LISTING` for each listing to fetch enriched metadata (descriptions, owners, documentation links). For large catalogs (100+ listings), consider setting this to `false` to improve performance.
+
+**Debugging Tips:**
+
+- Check the DataHub logs for structured warnings about marketplace ingestion failures
+- All marketplace errors are logged with clear titles and context (e.g., "Optional listing enrichment failed")
+- Verify your role has `imported privileges` on the `snowflake` database
+- Test your SQL grants manually using the DataHub role before running ingestion
 
 ### Lineage and Usage
 

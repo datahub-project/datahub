@@ -1198,3 +1198,63 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
             ORDER BY name
         """
+
+    @staticmethod
+    def marketplace_listings() -> str:
+        """Get internal marketplace listings (private data sharing) - Note: requires SHOW LISTINGS command"""
+        # This is a placeholder - actual implementation uses SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE
+        # which returns: name, created_on, listing_global_name, title, description, provider, category
+        return "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE"
+
+    @staticmethod
+    def marketplace_purchases() -> str:
+        """Get databases created from internal marketplace listings"""
+        return """
+            SELECT
+                DATABASE_NAME AS "DATABASE_NAME",
+                CREATED AS "PURCHASE_DATE",
+                DATABASE_OWNER AS "OWNER",
+                COMMENT AS "COMMENT"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+            WHERE TYPE = 'IMPORTED DATABASE'
+            AND DELETED IS NULL
+            ORDER BY CREATED DESC
+            """
+
+    @staticmethod
+    def marketplace_shares() -> str:
+        """Get information about available shares (to map imported databases to sources)"""
+        return "SHOW SHARES"
+
+    @staticmethod
+    def marketplace_listing_access_history(
+        start_time_millis: int, end_time_millis: int
+    ) -> str:
+        """Get internal marketplace listing access history (from data exchanges)"""
+        return f"""
+            SELECT
+                QUERY_DATE AS "EVENT_TIMESTAMP",
+                QUERY_TOKEN AS "QUERY_ID",
+                LISTING_GLOBAL_NAME AS "LISTING_GLOBAL_NAME",
+                CONSUMER_ACCOUNT_NAME AS "USER_NAME",
+                SHARE_NAME AS "SHARE_NAME",
+                SHARE_OBJECTS_ACCESSED AS "SHARE_OBJECTS_ACCESSED"
+            FROM SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY
+            WHERE QUERY_DATE >= to_timestamp_ltz({start_time_millis}, 3)
+            AND QUERY_DATE < to_timestamp_ltz({end_time_millis}, 3)
+            AND IS_SHARE = TRUE
+            ORDER BY QUERY_DATE DESC
+            """
+
+    @staticmethod
+    def marketplace_imported_database_tables(db_name: str) -> str:
+        """Get tables from an imported marketplace database"""
+        return f"""
+            SELECT 
+                TABLE_SCHEMA AS "SCHEMA_NAME",
+                TABLE_NAME AS "TABLE_NAME",
+                TABLE_TYPE AS "TABLE_TYPE"
+            FROM {db_name}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+            ORDER BY TABLE_SCHEMA, TABLE_NAME
+            """

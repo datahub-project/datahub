@@ -143,3 +143,62 @@ You will now find your new ingestion source running
 </p>
 
 **Congratulations!** You've successfully set up Snowflake as an ingestion source for DataHub!
+
+## Advanced Configuration
+
+### Snowflake Internal Marketplace (Optional)
+
+If you want to ingest Snowflake internal marketplace listings (private data sharing via Data Exchange) as Data Products, you'll need to enable additional configuration.
+
+#### For Consumer Organizations (Purchasing Listings)
+
+If you purchase/install internal marketplace listings, add these options to your recipe:
+
+```yaml
+marketplace:
+  enabled: true
+  marketplace_mode: "consumer" # This is the default
+  # Optional: Configure time window for usage statistics
+  start_time: "-7 days"  # Default: -1 day
+  end_time: "now"
+
+# Required: Map your imported databases to their source shares
+shares:
+  DEMO_DATABASE_SNOWFLAKE_SHARE_1754064671731: # From: SHOW SHARES
+    database: "SOURCE_DATABASE" # Source database in the share
+    consumers:
+      - database: "DEMO_DATABASE" # Your purchased/imported database
+        # Optional but recommended: Explicit listing mapping for precise linking
+        listing_global_name: "PROVIDER.REGION.LISTING_NAME" # From: SHOW AVAILABLE LISTINGS
+```
+
+**Tip**: Adding `listing_global_name` ensures your purchased databases are accurately linked to their marketplace listings, especially when you have multiple similar listing names.
+
+#### For Provider Organizations (Publishing Listings)
+
+If you publish/share data through the internal marketplace, add these options to your recipe:
+
+```yaml
+marketplace:
+  enabled: true
+  marketplace_mode: "provider"
+  # Optional: Assign owners to your Data Products
+  internal_marketplace_owner_patterns:
+    "^Customer.*": ["data-team"]
+  # Optional: Configure time window for usage statistics
+  start_time: "-30 days"
+  end_time: "now"
+
+# Include your source databases being shared
+database_pattern:
+  allow:
+    - "YOUR_SOURCE_DATABASE"
+```
+
+**Important**: For provider mode to work, you must have granted `imported privileges on database snowflake` to both the role AND the user (see [Setup](setup.md) for details). Share access in Snowflake is granted at the user level, not the role level.
+
+#### For Organizations Doing Both
+
+Use `marketplace_mode: "both"` to track both purchased and published listings in the same ingestion.
+
+For complete documentation on marketplace configuration, see the [Snowflake connector documentation](https://datahub.io/docs/generated/ingestion/sources/snowflake).

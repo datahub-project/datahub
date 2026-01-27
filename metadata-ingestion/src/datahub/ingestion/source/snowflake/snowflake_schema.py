@@ -288,6 +288,65 @@ class SnowflakeStream:
 
 
 @dataclass
+class SnowflakeMarketplaceListing:
+    """Represents an available internal marketplace listing from SHOW AVAILABLE LISTINGS"""
+
+    name: str  # listing name
+    listing_global_name: str
+    title: str  # display name
+    category: Optional[str]
+    description: Optional[str]
+    created_on: Optional[datetime]
+    organization_profile_name: str  # Organization providing the listing
+
+
+@dataclass
+class SnowflakeShare:
+    """Represents a Snowflake share"""
+
+    name: str
+    kind: str  # INBOUND or OUTBOUND
+    database_name: Optional[str]  # Database provided by the share
+    owner: Optional[str]
+    comment: Optional[str]
+    listing_global_name: Optional[str]  # For shares from marketplace listings
+
+
+@dataclass
+class SnowflakeMarketplacePurchase:
+    """Represents a database created from an internal marketplace listing"""
+
+    database_name: str
+    purchase_date: datetime
+    owner: str
+    comment: Optional[str]
+
+
+@dataclass
+class SnowflakeProviderShare:
+    """Represents an OUTBOUND share for provider mode marketplace tracking"""
+
+    share_name: str
+    source_database: str
+    listing_global_name: Optional[str]  # Links to marketplace listing
+    created_on: Optional[datetime]
+    owner: Optional[str]
+    comment: Optional[str]
+
+
+@dataclass
+class SnowflakeMarketplaceAccessEvent:
+    """Represents a marketplace listing access event"""
+
+    event_timestamp: datetime
+    listing_global_name: str
+    user_name: str
+    query_id: str
+    share_name: str
+    share_objects_accessed: List[Dict[str, Any]]
+
+
+@dataclass
 class SnowflakeStreamlitApp:
     """
     Represents a Snowflake Streamlit application.
