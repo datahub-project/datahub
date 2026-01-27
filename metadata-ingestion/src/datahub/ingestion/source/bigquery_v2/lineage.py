@@ -456,7 +456,7 @@ class BigqueryLineageExtractor:
             data_dictionary.get_datasets_for_project_id(
                 project_id,
                 dataset_filter=lambda dataset_name: self.filters.is_dataset_allowed(
-                    dataset_name, project_id
+                    dataset_name=dataset_name, project_id=project_id
                 ),
             )
         )

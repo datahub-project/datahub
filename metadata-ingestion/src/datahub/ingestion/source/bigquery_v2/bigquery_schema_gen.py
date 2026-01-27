@@ -369,7 +369,7 @@ class BigQuerySchemaGenerator:
             bigquery_project.datasets = self.schema_api.get_datasets_for_project_id(
                 project_id,
                 dataset_filter=lambda dataset_name: self.filters.is_dataset_allowed(
-                    dataset_name, project_id
+                    dataset_name=dataset_name, project_id=project_id
                 ),
             )
         except Exception as e:
@@ -380,8 +380,10 @@ class BigQuerySchemaGenerator:
                 )
             else:
                 action_mesage = (
-                    "Does your service account have `bigquery.datasets.get` permission ? "
-                    "Assign predefined role `roles/bigquery.metadataViewer` to your service account."
+                    "Does your service account have `bigquery.datasets.get` and "
+                    "INFORMATION_SCHEMA query permissions? "
+                    "Assign predefined role `roles/bigquery.metadataViewer` and ensure "
+                    "`bigquery.jobs.create` permission is granted."
                 )
 
             self.report.failure(
