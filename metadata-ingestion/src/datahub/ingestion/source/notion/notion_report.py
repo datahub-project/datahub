@@ -41,6 +41,11 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
         default_factory=dict
     )  # strategy -> count
 
+    # Embedding statistics (from chunking source)
+    num_documents_with_embeddings: int = 0
+    num_embedding_failures: int = 0
+    embedding_failures: LossyList[str] = field(default_factory=LossyList)
+
     def report_file_scanned(self) -> None:
         self.num_files_scanned += 1
 

@@ -1761,6 +1761,17 @@ class NotionSource(StatefulIngestionSourceBase):
             self._update_document_state(document_urn, text_content, page_id)
 
     def get_report(self) -> NotionSourceReport:
+        # Copy embedding statistics from chunking source report
+        if self.chunking_source:
+            chunking_report = self.chunking_source.report
+            self.report.num_documents_with_embeddings = (
+                chunking_report.num_documents_with_embeddings
+            )
+            self.report.num_embedding_failures = chunking_report.num_embedding_failures
+            # Extend LossyList with items from the regular list
+            for failure in chunking_report.embedding_failures:
+                self.report.embedding_failures.append(failure)
+
         return self.report
 
     def close(self) -> None:

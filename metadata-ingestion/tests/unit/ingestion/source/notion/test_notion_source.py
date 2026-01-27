@@ -742,3 +742,33 @@ def test_update_document_state():
     assert "last_processed" in state
     assert "page_id" in state
     assert state["page_id"] == page_id
+
+
+def test_embedding_stats_aggregation(notion_source):
+    """Test that embedding statistics from chunking source are aggregated into notion report."""
+    # Verify embedding fields exist on the report
+    assert hasattr(notion_source.report, "num_documents_with_embeddings")
+    assert hasattr(notion_source.report, "num_embedding_failures")
+    assert hasattr(notion_source.report, "embedding_failures")
+
+    # Simulate chunking source having some embedding stats
+    notion_source.chunking_source.report.num_documents_with_embeddings = 5
+    notion_source.chunking_source.report.num_embedding_failures = 2
+    notion_source.chunking_source.report.embedding_failures.append(
+        "urn:li:document:test1: Error 1"
+    )
+    notion_source.chunking_source.report.embedding_failures.append(
+        "urn:li:document:test2: Error 2"
+    )
+
+    # Get the report (should aggregate stats)
+    final_report = notion_source.get_report()
+
+    # Verify stats were copied
+    assert final_report.num_documents_with_embeddings == 5
+    assert final_report.num_embedding_failures == 2
+    assert len(final_report.embedding_failures) == 2
+    # Convert LossyList to list for comparison
+    failures_list = list(final_report.embedding_failures)
+    assert "urn:li:document:test1: Error 1" in failures_list
+    assert "urn:li:document:test2: Error 2" in failures_list
