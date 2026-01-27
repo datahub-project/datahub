@@ -24,6 +24,7 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
     - ./datahub-actions/start.sh:/start_datahub_actions.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-actions/src:/datahub-actions/src
+    - ${HOME}/.aws:/home/datahub/.aws:ro
 
 x-datahub-actions-quickstart-service: &datahub-actions-quickstart-service
   <<: *datahub-actions-service
