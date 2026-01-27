@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Type
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -17,6 +18,8 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
+    SourceCapability,
+    TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -38,7 +41,8 @@ logger = logging.getLogger(__name__)
 @platform_name("Notion")
 @config_class(NotionSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-class NotionSource(StatefulIngestionSourceBase):
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+class NotionSource(StatefulIngestionSourceBase, TestableSource):
     platform = "notion"  # Required for stateful ingestion checkpoint job_id
     """
     Extract documents, pages, and databases from Notion as DataHub Document entities.
@@ -923,26 +927,52 @@ class NotionSource(StatefulIngestionSourceBase):
                     )
 
                 # All pages/databases accessible
+                capability_report = {
+                    "Page/Database Access": CapabilityReport(capable=True)
+                }
+
+                # Test semantic search capability if embedding config provided
+                if config.embedding and config.embedding.provider:
+                    from datahub.ingestion.source.unstructured.chunking_source import (
+                        DocumentChunkingSource,
+                    )
+
+                    capability_report["Semantic Search"] = (
+                        DocumentChunkingSource.test_embedding_capability(
+                            config.embedding
+                        )
+                    )
+
                 return TestConnectionReport(
                     basic_connectivity=basic_connectivity,
-                    capability_report={
-                        "Page/Database Access": CapabilityReport(
-                            capable=True,
-                        )
-                    },
+                    capability_report=capability_report,
                 )
 
             # No specific pages provided - just basic connectivity succeeded
             total_accessible = len(response.get("results", []))
+
+            # Test embedding capability if configured
+            capability_report = {
+                "Auto-Discovery": CapabilityReport(
+                    capable=True,
+                    mitigation_message=f"Integration can access {total_accessible}+ pages/databases. "
+                    "Auto-discovery will find all accessible content.",
+                )
+            }
+
+            # Test semantic search capability if embedding config provided
+            if config.embedding and config.embedding.provider:
+                from datahub.ingestion.source.unstructured.chunking_source import (
+                    DocumentChunkingSource,
+                )
+
+                capability_report["Semantic Search"] = (
+                    DocumentChunkingSource.test_embedding_capability(config.embedding)
+                )
+
             return TestConnectionReport(
                 basic_connectivity=basic_connectivity,
-                capability_report={
-                    "Auto-Discovery": CapabilityReport(
-                        capable=True,
-                        mitigation_message=f"Integration can access {total_accessible}+ pages/databases. "
-                        "Auto-discovery will find all accessible content.",
-                    )
-                },
+                capability_report=capability_report,
             )
 
         except Exception as e:

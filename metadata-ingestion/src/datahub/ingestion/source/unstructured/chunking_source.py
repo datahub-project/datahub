@@ -16,7 +16,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import TYPE_CHECKING, Any, Iterable, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -26,7 +26,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import CapabilityReport, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -34,6 +34,9 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DocumentChunkingSourceConfig,
     get_semantic_search_config,
 )
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -963,6 +966,155 @@ class DocumentChunkingSource(Source):
         )
 
         yield workunit
+
+    @staticmethod
+    def test_embedding_capability(
+        embedding_config: "EmbeddingConfig",
+    ) -> CapabilityReport:
+        """Test if embedding generation will work with the provided configuration.
+
+        This tests the actual embedding API connection by generating a test embedding.
+        Used by sources (like Notion) to validate semantic search capability during test_connection.
+
+        Args:
+            embedding_config: The embedding configuration to test
+
+        Returns:
+            CapabilityReport indicating if embedding generation is capable
+        """
+        # Check if embedding config is provided and enabled
+        if not embedding_config or not embedding_config.provider:
+            return CapabilityReport(
+                capable=False,
+                failure_reason="Embedding configuration not provided",
+                mitigation_message="Configure embedding provider (bedrock or cohere) to enable semantic search. "
+                "See https://datahubproject.io/docs/semantic-search/",
+            )
+
+        try:
+            # Try to import litellm
+            try:
+                import litellm
+            except ModuleNotFoundError:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason="litellm package not installed",
+                    mitigation_message="Install litellm: pip install 'acryl-datahub[unstructured-embedding]'",
+                )
+
+            # Determine embedding model name for litellm
+            if embedding_config.provider == "bedrock":
+                if not embedding_config.model:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Bedrock model not specified in embedding config",
+                        mitigation_message="Set embedding.model to a valid Bedrock model (e.g., 'amazon.titan-embed-text-v1')",
+                    )
+                embedding_model = f"bedrock/{embedding_config.model}"
+                litellm.set_verbose = False
+
+            elif embedding_config.provider == "cohere":
+                if not embedding_config.model:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Cohere model not specified in embedding config",
+                        mitigation_message="Set embedding.model to a valid Cohere model (e.g., 'embed-english-v3.0')",
+                    )
+
+                model_name = embedding_config.model
+                if not model_name.startswith("cohere/"):
+                    model_name = f"cohere/{model_name}"
+                embedding_model = model_name
+
+                if not embedding_config.api_key:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Cohere API key not provided",
+                        mitigation_message="Set embedding.api_key to your Cohere API key. "
+                        "Get one at https://dashboard.cohere.com/api-keys",
+                    )
+            else:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Unsupported embedding provider: {embedding_config.provider}",
+                    mitigation_message="Supported providers: 'bedrock', 'cohere'",
+                )
+
+            # Test embedding generation with a simple text
+            test_text = "DataHub semantic search test"
+
+            try:
+                response = litellm.embedding(
+                    model=embedding_model,
+                    input=[test_text],
+                    api_key=embedding_config.api_key,
+                    aws_region_name=embedding_config.aws_region,
+                )
+
+                # Verify we got an embedding back
+                if not response or not response.data or len(response.data) == 0:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Embedding API returned empty response",
+                        mitigation_message="Check your embedding configuration and API credentials",
+                    )
+
+                embedding = response.data[0]["embedding"]
+                embedding_dim = len(embedding)
+
+                # Success! Embedding generation works
+                return CapabilityReport(
+                    capable=True,
+                    mitigation_message=f"Semantic search enabled: {embedding_config.provider}/{embedding_config.model} "
+                    f"(dimension: {embedding_dim}). Documents will be searchable in DataHub.",
+                )
+
+            except Exception as e:
+                # Parse error message for common issues
+                error_str = str(e)
+                error_class = e.__class__.__name__
+
+                # Provide specific guidance for common errors
+                if "AuthFailure" in error_str or "InvalidClientTokenId" in error_str:
+                    mitigation = (
+                        "AWS credentials not configured or invalid. "
+                        "Ensure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY are set, "
+                        "or IAM role is properly configured."
+                    )
+                elif "invalid_api_key" in error_str or "Unauthorized" in error_str:
+                    mitigation = (
+                        "Invalid API key. "
+                        "Check your Cohere API key at https://dashboard.cohere.com/api-keys"
+                    )
+                elif "ValidationException" in error_str:
+                    mitigation = (
+                        "Invalid model or parameters. "
+                        f"Check that model '{embedding_config.model}' is valid for {embedding_config.provider}."
+                    )
+                elif "AccessDeniedException" in error_str:
+                    mitigation = (
+                        "AWS IAM permissions missing. "
+                        "Ensure your AWS credentials have 'bedrock:InvokeModel' permission."
+                    )
+                elif (
+                    "rate_limit" in error_str.lower() or "throttl" in error_str.lower()
+                ):
+                    mitigation = "Rate limit exceeded. Try again in a few moments or increase your API quota."
+                else:
+                    mitigation = f"Check your {embedding_config.provider} configuration and credentials."
+
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Embedding generation failed: {error_class}: {error_str[:200]}",
+                    mitigation_message=mitigation,
+                )
+
+        except Exception as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Unexpected error testing embeddings: {e}",
+                mitigation_message="Check logs for more details",
+            )
 
     def get_report(self) -> SourceReport:
         return self.report
