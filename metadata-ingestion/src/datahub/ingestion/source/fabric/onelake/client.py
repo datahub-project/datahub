@@ -1,7 +1,7 @@
 """REST API client for Microsoft Fabric OneLake."""
 
 import logging
-from typing import Iterator, Optional
+from typing import Callable, Iterator, Optional, TypeVar
 
 import requests
 
@@ -86,6 +86,52 @@ class OneLakeClient(BaseFabricClient):
                 capacity_id=workspace_data.get("capacityId"),
             )
 
+    T = TypeVar("T", FabricLakehouse, FabricWarehouse)
+
+    def _list_items(
+        self,
+        workspace_id: str,
+        item_type: str,
+        endpoint_suffix: str,
+        factory: Callable[..., T],
+    ) -> Iterator[T]:
+        """List items (lakehouses or warehouses) in a workspace.
+
+        Args:
+            workspace_id: Workspace GUID
+            item_type: Item type name for logging (e.g., "lakehouse", "warehouse")
+            endpoint_suffix: API endpoint suffix (e.g., "lakehouses", "warehouses")
+            factory: Factory function to create the item object
+
+        Yields:
+            Item objects (FabricLakehouse or FabricWarehouse)
+        """
+        logger.info(f"Listing {item_type}s for workspace {workspace_id}")
+        try:
+            response = self.get(f"workspaces/{workspace_id}/{endpoint_suffix}")
+            data = response.json()
+            items = data.get("value", [])
+            logger.info(
+                f"Found {len(items)} {item_type}(s) in workspace {workspace_id}"
+            )
+
+            for item_data in items:
+                logger.debug(
+                    f"Processing {item_type}: {item_data.get('displayName', 'Unknown')}"
+                )
+                yield factory(
+                    id=item_data.get("id", ""),
+                    name=item_data.get("displayName", ""),
+                    type=item_type.capitalize(),
+                    workspace_id=workspace_id,
+                    description=item_data.get("description"),
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to list {item_type}s for workspace {workspace_id}: {e}"
+            )
+            raise
+
     def list_lakehouses(self, workspace_id: str) -> Iterator[FabricLakehouse]:
         """List lakehouses in a workspace.
 
@@ -97,29 +143,12 @@ class OneLakeClient(BaseFabricClient):
         Yields:
             FabricLakehouse objects
         """
-        logger.info(f"Listing lakehouses for workspace {workspace_id}")
-        try:
-            response = self.get(f"workspaces/{workspace_id}/lakehouses")
-            data = response.json()
-            lakehouses = data.get("value", [])
-            logger.info(
-                f"Found {len(lakehouses)} lakehouse(s) in workspace {workspace_id}"
-            )
-
-            for lakehouse_data in lakehouses:
-                logger.debug(
-                    f"Processing lakehouse: {lakehouse_data.get('displayName', 'Unknown')}"
-                )
-                yield FabricLakehouse(
-                    id=lakehouse_data.get("id", ""),
-                    name=lakehouse_data.get("displayName", ""),
-                    type="Lakehouse",
-                    workspace_id=workspace_id,
-                    description=lakehouse_data.get("description"),
-                )
-        except Exception as e:
-            logger.error(f"Failed to list lakehouses for workspace {workspace_id}: {e}")
-            raise
+        yield from self._list_items(
+            workspace_id=workspace_id,
+            item_type="lakehouse",
+            endpoint_suffix="lakehouses",
+            factory=FabricLakehouse,
+        )
 
     def list_warehouses(self, workspace_id: str) -> Iterator[FabricWarehouse]:
         """List warehouses in a workspace.
@@ -132,29 +161,12 @@ class OneLakeClient(BaseFabricClient):
         Yields:
             FabricWarehouse objects
         """
-        logger.info(f"Listing warehouses for workspace {workspace_id}")
-        try:
-            response = self.get(f"workspaces/{workspace_id}/warehouses")
-            data = response.json()
-            warehouses = data.get("value", [])
-            logger.info(
-                f"Found {len(warehouses)} warehouse(s) in workspace {workspace_id}"
-            )
-
-            for warehouse_data in warehouses:
-                logger.debug(
-                    f"Processing warehouse: {warehouse_data.get('displayName', 'Unknown')}"
-                )
-                yield FabricWarehouse(
-                    id=warehouse_data.get("id", ""),
-                    name=warehouse_data.get("displayName", ""),
-                    type="Warehouse",
-                    workspace_id=workspace_id,
-                    description=warehouse_data.get("description"),
-                )
-        except Exception as e:
-            logger.error(f"Failed to list warehouses for workspace {workspace_id}: {e}")
-            raise
+        yield from self._list_items(
+            workspace_id=workspace_id,
+            item_type="warehouse",
+            endpoint_suffix="warehouses",
+            factory=FabricWarehouse,
+        )
 
     def _is_lakehouse_schemas_enabled(
         self, workspace_id: str, lakehouse_id: str
