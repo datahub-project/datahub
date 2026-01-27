@@ -20,6 +20,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     Workspace,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 
 
 @pytest.fixture
@@ -236,6 +237,57 @@ class TestDirectLakeLineageExtraction:
         assert len(mcps) == 1
         upstream = mcps[0].aspect.upstreams[0]
         assert "fabric-onelake" in upstream.dataset
+
+    def test_extract_directlake_lineage_with_platform_instance(self):
+        """Test DirectLake lineage extraction with platform instance mapping."""
+        # Create config with server_to_platform_instance mapping
+        config = PowerBiDashboardSourceConfig(
+            tenant_id="test-tenant-id",
+            client_id="test-client-id",
+            client_secret="test-client-secret",
+            server_to_platform_instance={
+                "ff23fbe3-7418-42f8-a675-9f10eb2b78cb": {  # Workspace ID
+                    "platform_instance": "contoso-tenant",  # Fabric tenant/platform instance
+                    "env": "PROD",
+                }
+            },
+        )
+
+        ctx = PipelineContext(run_id="test-run-id")
+        reporter = PowerBiDashboardSourceReport()
+        from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+            ResolvePlatformInstanceFromServerToPlatformInstance,
+        )
+
+        platform_instance_resolver = (
+            ResolvePlatformInstanceFromServerToPlatformInstance(config)
+        )
+        mapper = Mapper(
+            ctx=ctx,
+            config=config,
+            reporter=reporter,
+            dataplatform_instance_resolver=platform_instance_resolver,
+        )
+
+        workspace = self.create_workspace_with_artifact()
+        table = self.create_directlake_table()
+
+        ds_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,TestWorkspace.TestDataset.green_tripdata_2017,PROD)"
+
+        mcps = mapper.extract_directlake_lineage(table, ds_urn, workspace)
+
+        assert len(mcps) == 1
+        assert mcps[0].entityUrn == ds_urn
+        assert mcps[0].aspect is not None
+        assert isinstance(mcps[0].aspect, UpstreamLineageClass)
+
+        upstream_lineage = mcps[0].aspect
+        assert len(upstream_lineage.upstreams) == 1
+
+        upstream = upstream_lineage.upstreams[0]
+        # URN should include platform instance (contoso-tenant)
+        expected_urn = "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,contoso-tenant.ff23fbe3-7418-42f8-a675-9f10eb2b78cb.2afa2dbd-555b-48c8-b082-35d94f4b7836.dbo.green_tripdata_2017,PROD)"
+        assert upstream.dataset == expected_urn
 
 
 class TestFabricArtifactDataClass:

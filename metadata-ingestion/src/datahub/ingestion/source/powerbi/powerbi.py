@@ -46,6 +46,7 @@ from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    PowerBIPlatformDetail,
     SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
@@ -293,14 +294,26 @@ class Mapper:
             logger.debug(f"No source expression for DirectLake table {table.full_name}")
             return mcps
 
+        # Resolve platform instance using server_to_platform_instance mapping
+        # Mapping: workspace_id -> (platform_instance, env)
+        # The platform_instance typically represents the Fabric tenant identifier,
+        # matching how the OneLake connector uses platform_instance to group workspaces by tenant.
+        # Falls back to None if no mapping is found.
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=SupportedDataPlatform.FABRIC_ONELAKE.value,
+                data_platform_server=workspace.id,  # Use workspace ID as the mapping key
+            )
+        )
+
         # Generate upstream URN for the OneLake table
         upstream_urn = make_onelake_urn(
             workspace_id=workspace.id,
             item_id=artifact.id,
             table_name=table.source_expression,
             schema_name=table.source_schema,  # Can be None for schemas-disabled lakehouses
-            env=self.__config.env,
-            platform_instance=None,  # Fabric OneLake uses workspace ID in URN, not platform instance
+            env=platform_detail.env or self.__config.env,
+            platform_instance=platform_detail.platform_instance,  # None if not mapped
         )
 
         # Apply lowercase transformation if configured
