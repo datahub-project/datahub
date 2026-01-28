@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
 
+# Default batch size for fetching schemas from DataHub API.
+# Matches the batch size used by _bulk_fetch_schema_info_by_filter for consistency.
+DEFAULT_SCHEMA_FETCH_BATCH_SIZE = 100
+
 
 @dataclass
 class SchemaResolverReport:
@@ -67,7 +71,7 @@ class BatchSchemaFetcher:
     def __init__(
         self,
         graph: DataHubGraph,
-        batch_size: int = 50,
+        batch_size: int = DEFAULT_SCHEMA_FETCH_BATCH_SIZE,
     ):
         self.graph = graph
         self.batch_size = batch_size

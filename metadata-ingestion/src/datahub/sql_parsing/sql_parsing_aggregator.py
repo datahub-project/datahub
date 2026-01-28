@@ -33,6 +33,7 @@ from datahub.metadata.urns import (
 )
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.schema_resolver import (
+    DEFAULT_SCHEMA_FETCH_BATCH_SIZE,
     BatchSchemaFetcher,
     SchemaResolver,
     SchemaResolverInterface,
@@ -490,7 +491,7 @@ class SqlParsingAggregator(Closeable):
         if graph is not None and self._need_schemas:
             batch_fetcher = BatchSchemaFetcher(
                 graph=graph,
-                batch_size=50,
+                batch_size=DEFAULT_SCHEMA_FETCH_BATCH_SIZE,
             )
             self._schema_resolver.batch_fetcher = batch_fetcher
 
