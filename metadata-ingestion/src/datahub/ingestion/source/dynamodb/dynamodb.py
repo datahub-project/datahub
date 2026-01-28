@@ -121,7 +121,7 @@ class DynamoDBConfig(
     extract_table_tags: bool = Field(
         default=False,
         description=(
-            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags, AWS table tags may reappear if they are deleted and manual tags will lost if datahub api not available"
+            "When enabled, extracts AWS resource tags for DynamoDB tables and applies them as DataHub tags, AWS table tags may reappear if they are deleted and manual tags will be lost if DataHub API not available"
         ),
     )
     # Custom Stateful Ingestion settings
