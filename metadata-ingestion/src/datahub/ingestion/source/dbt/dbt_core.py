@@ -40,7 +40,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
-    _parse_freshness_criteria,
+    parse_freshness_criteria,
 )
 
 logger = logging.getLogger(__name__)
@@ -267,8 +267,6 @@ def extract_dbt_entities(
                 parse_dbt_timestamp(snapshotted_at_str) if snapshotted_at_str else None
             )
             criteria = source_result.get("criteria", {})
-            warn_after = _parse_freshness_criteria(criteria.get("warn_after"))
-            error_after = _parse_freshness_criteria(criteria.get("error_after"))
 
             if max_loaded_at and snapshotted_at:
                 freshness_info = DBTFreshnessInfo(
@@ -279,8 +277,8 @@ def extract_dbt_entities(
                     max_loaded_at_time_ago_in_s=source_result.get(
                         "max_loaded_at_time_ago_in_s", 0.0
                     ),
-                    warn_after=warn_after,
-                    error_after=error_after,
+                    warn_after=parse_freshness_criteria(criteria.get("warn_after")),
+                    error_after=parse_freshness_criteria(criteria.get("error_after")),
                 )
 
         test_info = None

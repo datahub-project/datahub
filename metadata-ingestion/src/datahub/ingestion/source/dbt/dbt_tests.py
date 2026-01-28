@@ -68,7 +68,7 @@ class DBTFreshnessInfo:
     error_after: Optional[DBTFreshnessCriteria]
 
 
-def _parse_freshness_criteria(data: Optional[Dict]) -> Optional[DBTFreshnessCriteria]:
+def parse_freshness_criteria(data: Optional[Dict]) -> Optional[DBTFreshnessCriteria]:
     """Parse warn_after or error_after criteria dict into DBTFreshnessCriteria."""
     if not data:
         return None
