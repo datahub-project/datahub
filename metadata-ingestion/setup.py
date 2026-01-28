@@ -16,6 +16,8 @@ _self_pin = (
 base_requirements = {
     # Our min version of typing_extensions is somewhat constrained by Airflow.
     "typing_extensions>=4.8.0",
+    # Required for datahub.metadata.schema_classes
+    f"datahub-metadata-models{_self_pin}",
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=2.4.0",

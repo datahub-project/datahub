@@ -23,6 +23,12 @@ echo "Plugins: $BUNDLED_VENV_PLUGINS"
 echo "Venv Path: $DATAHUB_BUNDLED_VENV_PATH"
 echo ""
 
+# Allow skipping bundled venv creation when explicitly requested.
+if [ "$BUNDLED_VENV_PLUGINS" = "none" ]; then
+    echo "Skipping bundled venv build (BUNDLED_VENV_PLUGINS=none)"
+    exit 0
+fi
+
 # Ensure the venv directory exists
 mkdir -p "$DATAHUB_BUNDLED_VENV_PATH"
 
