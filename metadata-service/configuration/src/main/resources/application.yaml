@@ -75,6 +75,9 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+  # The max duration of a password reset token in milliseconds. Defaults to 1 day.
+  passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
+
 # Authorization-related configurations.
 authorization:
   # Configurations for the default DataHub policies-based authorizer.
