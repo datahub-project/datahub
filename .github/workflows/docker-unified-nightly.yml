@@ -45,7 +45,7 @@ jobs:
       datahub_images: ${{ steps.collect-images.outputs.datahub_images }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
       - name: Compute Tag
         id: tag
         env:
@@ -174,7 +174,7 @@ jobs:
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
         with:
           checkout-head-only: false
 
@@ -593,7 +593,7 @@ jobs:
     if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v5
 
       - name: Check if smoke tests passed
         run: |
