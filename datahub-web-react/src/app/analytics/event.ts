@@ -221,6 +221,7 @@ export enum EventType {
     TunePredictionsUpdateMonitorSettingsEvent,
     NotificationOpenEvent,
     NotificationSentEvent,
+    NotificationDeliveredEvent,
     CreateActionWorkflowFormRequest,
     ReviewActionWorkflowFormRequest,
     BatchReviewActionWorkflowFormRequest,
@@ -337,6 +338,14 @@ export interface NotificationOpenEvent extends BaseEvent {
 
 export interface NotificationSentEvent extends BaseEvent {
     type: EventType.NotificationSentEvent;
+    notificationType: NotificationType;
+    notificationId: string;
+    notificationChannel: NotificationChannel;
+    recipientCount?: number;
+}
+
+export interface NotificationDeliveredEvent extends BaseEvent {
+    type: EventType.NotificationDeliveredEvent;
     notificationType: NotificationType;
     notificationId: string;
     notificationChannel: NotificationChannel;
@@ -2272,6 +2281,7 @@ export type Event =
     | PageViewEvent
     | NotificationOpenEvent
     | NotificationSentEvent
+    | NotificationDeliveredEvent
     | HomePageViewEvent
     | IntroduceYourselfViewEvent
     | IntroduceYourselfSubmitEvent

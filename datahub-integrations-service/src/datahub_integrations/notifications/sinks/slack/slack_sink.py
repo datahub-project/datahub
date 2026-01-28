@@ -40,6 +40,10 @@ from datahub_integrations.notifications.sinks.slack.template_utils import (
 )
 from datahub_integrations.notifications.sinks.slack.types import SlackMessageDetails
 from datahub_integrations.notifications.sinks.utils import retry_with_backoff
+from datahub_integrations.notifications.utils import (
+    NotificationTrackingInfo,
+    get_notification_tracking_info,
+)
 from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
 
 
@@ -91,32 +95,33 @@ class SlackNotificationSink(NotificationSink):
             return
 
         template_type: str = str(request.message.template)
+        tracking_info = get_notification_tracking_info(request)
 
         # Mapping template types to functions
         action_map = {
             NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT: lambda: self._send_new_incident_notification(
-                request
+                request, tracking_info
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT_UPDATE: lambda: self._update_new_incident_notifications(
                 request
             ),
             NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_incident_status_change_notification(
-                request
+                request, tracking_info
             ),
             NotificationTemplateTypeClass.BROADCAST_ASSERTION_STATUS_CHANGE: lambda: self._send_assertion_status_change_notification(
-                request
+                request, tracking_info
             ),
             NotificationTemplateTypeClass.BROADCAST_COMPLIANCE_FORM_PUBLISH: lambda: self._send_compliance_form_publish_notification(
-                request
+                request, tracking_info
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST: lambda: self._send_workflow_request_assignment_notification(
-                request
+                request, tracking_info
             ),
             NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE: lambda: self._send_workflow_request_status_change_notification(
-                request
+                request, tracking_info
             ),
             NotificationTemplateTypeClass.RELEASE_NOTIFICATION: lambda: self._send_release_notification(
-                request
+                request, tracking_info
             ),
         }
 
@@ -132,7 +137,9 @@ class SlackNotificationSink(NotificationSink):
             )
 
     def _send_assertion_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_assertion_status_change_message(
             request, self.identity_provider, self.slack_client, self.base_url
@@ -145,10 +152,13 @@ class SlackNotificationSink(NotificationSink):
             blocks,
             attachments,
             RetryMode.ENABLED,
+            tracking_info,
         )
 
     def _send_new_incident_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_incident_message(
             request, self.identity_provider, self.slack_client, self.base_url
@@ -161,6 +171,7 @@ class SlackNotificationSink(NotificationSink):
             blocks,
             attachments,
             RetryMode.ENABLED,
+            tracking_info,
         )
 
     def _update_new_incident_notifications(
@@ -183,7 +194,9 @@ class SlackNotificationSink(NotificationSink):
         )
 
     def _send_incident_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_incident_status_change_message(
             request, self.identity_provider, self.slack_client, self.base_url
@@ -196,10 +209,13 @@ class SlackNotificationSink(NotificationSink):
             blocks,
             attachments,
             RetryMode.ENABLED,
+            tracking_info,
         )
 
     def _send_compliance_form_publish_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_compliance_form_publish_parameters(
             request, self.base_url
@@ -212,10 +228,13 @@ class SlackNotificationSink(NotificationSink):
             blocks,
             attachments,
             RetryMode.ENABLED,
+            tracking_info,
         )
 
     def _send_workflow_request_assignment_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_workflow_request_assignment_message(
             request, self.identity_provider, self.slack_client, self.base_url
@@ -228,10 +247,13 @@ class SlackNotificationSink(NotificationSink):
             blocks,
             attachments,
             RetryMode.ENABLED,
+            tracking_info,
         )
 
     def _send_workflow_request_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_workflow_request_status_change_message(
             request, self.identity_provider, self.slack_client, self.base_url
@@ -244,10 +266,13 @@ class SlackNotificationSink(NotificationSink):
             blocks,
             attachments,
             RetryMode.ENABLED,
+            tracking_info,
         )
 
     def _send_release_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_release_notification_message(request)
         slack_recipients = self._get_slack_recipients(request)
@@ -258,6 +283,7 @@ class SlackNotificationSink(NotificationSink):
             blocks,
             attachments,
             RetryMode.ENABLED,
+            tracking_info,
         )
 
     def _send_change_notification(
@@ -267,6 +293,7 @@ class SlackNotificationSink(NotificationSink):
         blocks: Optional[Any],
         attachments: Optional[Any],
         retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[SlackMessageDetails]:
         max_attempts = (
             MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
@@ -282,6 +309,7 @@ class SlackNotificationSink(NotificationSink):
                 text=text,
                 blocks=blocks,
                 attachments=attachments,
+                tracking_info=tracking_info,
             )
         except Exception as e:
             logger.exception(

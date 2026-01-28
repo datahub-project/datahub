@@ -7,6 +7,10 @@ from datahub.metadata.schema_classes import NotificationRecipientClass
 from slack_sdk import WebClient
 from slack_sdk.web.slack_response import SlackResponse
 
+from datahub_integrations.notifications.notification_tracking import (
+    NotificationChannel,
+    NotificationType,
+)
 from datahub_integrations.notifications.sinks.slack.send_slack_message import (
     send_notification_slack_message,
     send_notification_to_recipients,
@@ -15,6 +19,7 @@ from datahub_integrations.notifications.sinks.slack.send_slack_message import (
     update_slack_message,
 )
 from datahub_integrations.notifications.sinks.slack.types import SlackMessageDetails
+from datahub_integrations.notifications.utils import NotificationTrackingInfo
 
 
 @pytest.fixture
@@ -128,6 +133,79 @@ def test_send_slack_message_failure_exception(mock_client: WebClient) -> None:
     )
 
 
+@patch("datahub_integrations.notifications.utils.track_saas_event")
+def test_send_slack_message_emits_delivery_event(
+    mock_track: MagicMock, mock_client: WebClient
+) -> None:
+    chat_postMessage = cast(Any, mock_client.chat_postMessage)
+    chat_postMessage.return_value = SlackResponse(
+        client=mock_client,
+        http_verb="POST",
+        api_url="url",
+        req_args={},
+        data={"message": {"ts": "12345"}, "channel": "C123456"},
+        status_code=200,
+        headers={},
+    )
+    conversations_info = cast(Any, mock_client.conversations_info)
+    conversations_info.return_value = SlackResponse(
+        client=mock_client,
+        http_verb="POST",
+        api_url="url",
+        req_args={},
+        data={"channel": {"name": "channel display name"}},
+        status_code=200,
+        headers={},
+    )
+
+    tracking_info = NotificationTrackingInfo(
+        notification_type=NotificationType.ASSERTION,
+        notification_id="urn:li:assertion:test|1700000000000|run-1",
+    )
+
+    send_slack_message(
+        mock_client, "C123456", "Hello, world!", [], [], tracking_info=tracking_info
+    )
+
+    event = mock_track.call_args[0][0]
+    assert event.type == "NotificationDeliveredEvent"
+    assert event.notificationId == tracking_info.notification_id
+
+
+@patch("datahub_integrations.notifications.utils.report_notification_delivery_failure")
+def test_send_slack_message_reports_delivery_failure(
+    mock_report: MagicMock, mock_client: WebClient
+) -> None:
+    chat_postMessage = cast(Any, mock_client.chat_postMessage)
+    chat_postMessage.return_value = SlackResponse(
+        client=mock_client,
+        http_verb="POST",
+        api_url="url",
+        req_args={},
+        data={"error": "bad_auth"},
+        status_code=400,
+        headers={},
+    )
+
+    tracking_info = NotificationTrackingInfo(
+        notification_type=NotificationType.ASSERTION,
+        notification_id="urn:li:assertion:test|1700000000000|run-1",
+    )
+
+    send_slack_message(
+        mock_client, "C123456", "Hello, world!", [], [], tracking_info=tracking_info
+    )
+
+    mock_report.assert_called_once_with(
+        notification_type=tracking_info.notification_type.value,
+        notification_channel=NotificationChannel.SLACK.value,
+        notification_id=tracking_info.notification_id,
+        recipient_count=1,
+        error_type="SlackApiError",
+        error_message="bad_auth",
+    )
+
+
 @patch(
     "datahub_integrations.notifications.sinks.slack.send_slack_message.send_slack_message"
 )
@@ -146,7 +224,7 @@ def test_send_notification_slack_message(
     # Verify the result
     assert result == "12345"
     send_slack_message.assert_called_once_with(
-        mock_client, "user123", "Notification test", [], []
+        mock_client, "user123", "Notification test", [], [], tracking_info=None
     )
 
 

@@ -128,7 +128,9 @@ def test_send_broadcast_proposal_status_change_with_creator(
     sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
 
     # Call the new method directly.
-    sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
+    sink_with_base_url._send_broadcast_proposal_status_change_notification(
+        request, None
+    )
 
     # Two calls should be made:
     # 1. To send the personal (proposer) notification to the creator.
@@ -187,7 +189,9 @@ def test_send_broadcast_proposal_status_change_with_creator_no_match(
     # Spy on _send_change_notification.
     sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
 
-    sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
+    sink_with_base_url._send_broadcast_proposal_status_change_notification(
+        request, None
+    )
 
     # Only one call should be made: broadcast notification to all recipients.
     sink_with_base_url._send_change_notification.assert_called_once()
@@ -221,7 +225,9 @@ def test_send_broadcast_proposal_status_change_without_creator(
     # Spy on _send_change_notification.
     sink_with_base_url._send_change_notification = MagicMock()  # type: ignore
 
-    sink_with_base_url._send_broadcast_proposal_status_change_notification(request)
+    sink_with_base_url._send_broadcast_proposal_status_change_notification(
+        request, None
+    )
 
     # Only one call should be made, to send broadcast notifications to all recipients.
     sink_with_base_url._send_change_notification.assert_called_once()
@@ -239,7 +245,7 @@ def test_send_custom_notification(
     notification_sink: EmailNotificationSink,
     notification_request_custom: NotificationRequestClass,
 ) -> None:
-    notification_sink._send_custom_notification(notification_request_custom)
+    notification_sink._send_custom_notification(notification_request_custom, None)
     # Verify the function was called with the correct parameters including sg_client
     assert mock_send_custom_email.call_count == 1
     args, kwargs = mock_send_custom_email.call_args

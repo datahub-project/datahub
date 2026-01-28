@@ -12,6 +12,7 @@
    MLFLOW_TRACKING_AWS_SIGV4=true
    MLFLOW_S3_UPLOAD_EXTRA_ARGS={"ServerSideEncryption": "AES256"}
    DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
+   DATAHUB_INTEGRATIONS_NOTIFICATION_EVENT_SAMPLE_RATE=1.0
    ```
 
    > **Note:** If you would like to use a local MLFlow server:
@@ -23,6 +24,7 @@
    DATAHUB_TELEMETRY_ENABLED=false
    MLFLOW_TRACKING_URI="http://localhost:9090"
    DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
+   DATAHUB_INTEGRATIONS_NOTIFICATION_EVENT_SAMPLE_RATE=1.0
    ```
 
 1. Tip: Use `direnv` to automatically load the `.env` file when working in the `datahub-integrations-service` folder

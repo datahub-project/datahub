@@ -45,7 +45,8 @@
               runtime_limit_seconds: {{execution_request_cleanup.runtime_limit_seconds}}{{^execution_request_cleanup.runtime_limit_seconds}}3600{{/execution_request_cleanup.runtime_limit_seconds}}
               limit_entities_delete: {{execution_request_cleanup.limit_entities_delete}}{{^execution_request_cleanup.limit_entities_delete}}10000{{/execution_request_cleanup.limit_entities_delete}}
               max_read_errors: {{execution_request_cleanup.max_read_errors}}{{^execution_request_cleanup.max_read_errors}}10{{/execution_request_cleanup.max_read_errors}}
-      extraArgs: {}
+      extraArgs:
+        extra_env_vars: '{{&ingestion.extra_env_vars}}{{^ingestion.extra_env_vars}}{}{{/ingestion.extra_env_vars}}'
       debugMode: false
       executorId: default
     source:

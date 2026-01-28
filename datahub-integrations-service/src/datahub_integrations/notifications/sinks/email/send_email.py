@@ -22,15 +22,24 @@ from datahub_integrations.notifications.constants import (
     SUPPORT_LOGIN_EMAIL_TEMPLATE,
     USER_INVITATION_TEMPLATE,
 )
+from datahub_integrations.notifications.notification_tracking import NotificationChannel
+from datahub_integrations.notifications.utils import (
+    NotificationTrackingInfo,
+    track_notification_delivery_failure,
+    track_notification_delivery_success,
+)
 
 
 def send_change_notification_to_recipients(
     recipients: List[NotificationRecipientClass],
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     for recipient in recipients:
-        send_change_notification_email(recipient, parameters, sg_client)
+        send_change_notification_email(
+            recipient, parameters, sg_client, tracking_info=tracking_info
+        )
 
 
 def send_custom_email_to_recipients(
@@ -38,45 +47,60 @@ def send_custom_email_to_recipients(
     subject: str,
     message: str,
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     for recipient in recipients:
-        send_custom_email(recipient, subject, message, sg_client)
+        send_custom_email(
+            recipient, subject, message, sg_client, tracking_info=tracking_info
+        )
 
 
 def send_ingestion_run_notification_to_recipients(
     recipients: List[NotificationRecipientClass],
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     for recipient in recipients:
-        send_ingestion_notification_email(recipient, parameters, sg_client)
+        send_ingestion_notification_email(
+            recipient, parameters, sg_client, tracking_info=tracking_info
+        )
 
 
 def send_compliance_form_notification_to_recipients(
     recipients: List[NotificationRecipientClass],
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     for recipient in recipients:
-        send_compliance_form_email(recipient, parameters, sg_client)
+        send_compliance_form_email(
+            recipient, parameters, sg_client, tracking_info=tracking_info
+        )
 
 
 def send_workflow_request_assignment_notification_to_recipients(
     recipients: List[NotificationRecipientClass],
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     for recipient in recipients:
-        send_workflow_request_assignment_email(recipient, parameters, sg_client)
+        send_workflow_request_assignment_email(
+            recipient, parameters, sg_client, tracking_info=tracking_info
+        )
 
 
 def send_workflow_request_status_change_notification_to_recipients(
     recipients: List[NotificationRecipientClass],
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     for recipient in recipients:
-        send_workflow_request_status_change_email(recipient, parameters, sg_client)
+        send_workflow_request_status_change_email(
+            recipient, parameters, sg_client, tracking_info=tracking_info
+        )
 
 
 # TODO: handle non-subscription and subscription case in followup.
@@ -84,6 +108,7 @@ def send_change_notification_email(
     recipient: NotificationRecipientClass,
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     # Extract recipient address
     recipient_address = recipient.id
@@ -113,13 +138,14 @@ def send_change_notification_email(
     # Add dynamic data
     message.dynamic_template_data = parameters
 
-    send_email(message, recipient_address, sg_client)
+    send_email(message, recipient_address, sg_client, tracking_info=tracking_info)
 
 
 def send_ingestion_notification_email(
     recipient: NotificationRecipientClass,
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     # Extract recipient address
     recipient_address = recipient.id
@@ -145,7 +171,7 @@ def send_ingestion_notification_email(
     # Add dynamic data
     message.dynamic_template_data = parameters
 
-    send_email(message, recipient_address, sg_client)
+    send_email(message, recipient_address, sg_client, tracking_info=tracking_info)
 
 
 def send_custom_email(
@@ -153,6 +179,7 @@ def send_custom_email(
     subject: str,
     message: str,
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     # Extract recipient address
     recipient_address = recipient.id
@@ -180,13 +207,14 @@ def send_custom_email(
         "recipientName": recipient_name,
     }
 
-    send_email(email, recipient_address, sg_client)
+    send_email(email, recipient_address, sg_client, tracking_info=tracking_info)
 
 
 def send_compliance_form_email(
     recipient: NotificationRecipientClass,
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     # Extract recipient address
     recipient_address = recipient.id
@@ -212,13 +240,14 @@ def send_compliance_form_email(
     # Add dynamic data
     message.dynamic_template_data = parameters
 
-    send_email(message, recipient_address, sg_client)
+    send_email(message, recipient_address, sg_client, tracking_info=tracking_info)
 
 
 def send_workflow_request_assignment_email(
     recipient: NotificationRecipientClass,
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     # Extract recipient address
     recipient_address = recipient.id
@@ -244,13 +273,14 @@ def send_workflow_request_assignment_email(
     # Add dynamic data
     message.dynamic_template_data = parameters
 
-    send_email(message, recipient_address, sg_client)
+    send_email(message, recipient_address, sg_client, tracking_info=tracking_info)
 
 
 def send_workflow_request_status_change_email(
     recipient: NotificationRecipientClass,
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     # Extract recipient address
     recipient_address = recipient.id
@@ -276,22 +306,26 @@ def send_workflow_request_status_change_email(
     # Add dynamic data
     message.dynamic_template_data = parameters
 
-    send_email(message, recipient_address, sg_client)
+    send_email(message, recipient_address, sg_client, tracking_info=tracking_info)
 
 
 def send_user_invitation_to_recipients(
     recipients: List[NotificationRecipientClass],
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     for recipient in recipients:
-        send_user_invitation_email(recipient, parameters, sg_client)
+        send_user_invitation_email(
+            recipient, parameters, sg_client, tracking_info=tracking_info
+        )
 
 
 def send_user_invitation_email(
     recipient: NotificationRecipientClass,
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     # Extract recipient address
     recipient_address = recipient.id
@@ -336,12 +370,13 @@ def send_user_invitation_email(
     # Add dynamic data
     message.dynamic_template_data = template_data
 
-    send_email(message, recipient_address, sg_client)
+    send_email(message, recipient_address, sg_client, tracking_info=tracking_info)
 
 
 def send_support_login_email(
     parameters: Dict[str, str],
     sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> None:
     """
     Send support login notification email to configured recipients.
@@ -379,14 +414,19 @@ def send_support_login_email(
             # Add dynamic data
             message.dynamic_template_data = parameters
 
-            send_email(message, recipient_email, sg_client)
+            send_email(message, recipient_email, sg_client, tracking_info=tracking_info)
         except Exception as e:
             logger.error(
                 f"Failed to send support login email to {recipient_email}: {e}"
             )
 
 
-def send_email(message: Mail, context: str, sg_client: SendGridAPIClient) -> None:
+def send_email(
+    message: Mail,
+    context: str,
+    sg_client: SendGridAPIClient,
+    tracking_info: NotificationTrackingInfo | None = None,
+) -> None:
     try:
         # Add global unsubscribe group to the email
         # asm = Asm(group_id=GLOBAL_NOTIFICATIONS_UNSUBSCRIBE_GROUP_ID)
@@ -394,7 +434,26 @@ def send_email(message: Mail, context: str, sg_client: SendGridAPIClient) -> Non
         response = sg_client.send(message)
         if response.status_code != 202:
             logger.error(f"Failed to send email, context {context}: {response.body}")
+            track_notification_delivery_failure(
+                tracking_info,
+                notification_channel=NotificationChannel.EMAIL,
+                recipient_count=1,
+                error_type="SendGridApiError",
+                error_message=f"{response.status_code}: {response.body}",
+            )
         else:
             logger.info(f"Successfully sent email to {context}...")
+            track_notification_delivery_success(
+                tracking_info,
+                notification_channel=NotificationChannel.EMAIL,
+                recipient_count=1,
+            )
     except Exception as e:
         logger.error(f"Failed to send email, context: {context}: {e}")
+        track_notification_delivery_failure(
+            tracking_info,
+            notification_channel=NotificationChannel.EMAIL,
+            recipient_count=1,
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )

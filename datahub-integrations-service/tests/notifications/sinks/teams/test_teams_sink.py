@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from datahub.metadata.schema_classes import (
@@ -11,9 +11,18 @@ from datahub.metadata.schema_classes import (
     NotificationTemplateTypeClass,
 )
 
+from datahub_integrations.notifications.notification_tracking import (
+    NotificationChannel,
+    NotificationType,
+)
 from datahub_integrations.notifications.sinks.context import NotificationContext
 from datahub_integrations.notifications.sinks.teams.teams_sink import (
     TeamsNotificationSink,
+)
+from datahub_integrations.notifications.utils import (
+    NotificationTrackingInfo,
+    track_notification_delivery_failure,
+    track_notification_delivery_success,
 )
 from datahub_integrations.teams.config import TeamsAppDetails, TeamsConnection
 from datahub_integrations.teams.render.render_entity import EntityCardRenderField
@@ -1175,7 +1184,7 @@ def test_send_method_new_incident_success(
     # Verify
     mock_reload_config.assert_called_once()
     mock_check_config.assert_called_once()
-    mock_send_incident.assert_called_once_with(request)
+    mock_send_incident.assert_called_once_with(request, ANY)
 
 
 @patch.object(TeamsNotificationSink, "_maybe_reload_teams_config")
@@ -1253,7 +1262,7 @@ def test_send_method_incident_status_change_success(
     # Verify
     mock_reload_config.assert_called_once()
     mock_check_config.assert_called_once()
-    mock_send_status_change.assert_called_once_with(request)
+    mock_send_status_change.assert_called_once_with(request, ANY)
 
 
 @patch.object(TeamsNotificationSink, "_maybe_reload_teams_config")
@@ -1292,7 +1301,7 @@ def test_send_method_compliance_form_success(
     # Verify
     mock_reload_config.assert_called_once()
     mock_check_config.assert_called_once()
-    mock_send_compliance.assert_called_once_with(request)
+    mock_send_compliance.assert_called_once_with(request, ANY)
 
 
 @patch.object(TeamsNotificationSink, "_maybe_reload_teams_config")
@@ -1331,7 +1340,7 @@ def test_send_method_entity_change_success(
     # Verify
     mock_reload_config.assert_called_once()
     mock_check_config.assert_called_once()
-    mock_send_entity.assert_called_once_with(request)
+    mock_send_entity.assert_called_once_with(request, ANY)
 
 
 @patch.object(TeamsNotificationSink, "_maybe_reload_teams_config")
@@ -1415,7 +1424,7 @@ def test_send_method_exception_handling(
     mock_reload_config: MagicMock,
     teams_sink: TeamsNotificationSink,
 ) -> None:
-    """Test send() method properly propagates exceptions after retry attempts."""
+    """Test send() method properly propagates exceptions."""
     # Setup mocks
     mock_check_config.return_value = True
     mock_send_incident.side_effect = Exception("Teams API Error")
@@ -1443,7 +1452,7 @@ def test_send_method_exception_handling(
     # Verify
     mock_reload_config.assert_called_once()
     mock_check_config.assert_called_once()
-    assert mock_send_incident.call_count == 3  # Called 3 times due to retry logic
+    assert mock_send_incident.call_count == 1
 
 
 # Phase 1: _send_teams_message() and related async methods
@@ -1475,7 +1484,7 @@ async def test_send_teams_message_success(
     ]
 
     # Execute
-    await teams_sink._send_teams_message(recipients, "Test message")
+    await teams_sink._send_teams_message(recipients, "Test message", None)
 
     # Verify
     mock_get_recipients.assert_called_once_with(recipients)
@@ -1515,7 +1524,7 @@ async def test_send_teams_message_with_recipient_error(
     ]
 
     # Execute - should not raise exception
-    await teams_sink._send_teams_message(recipients, "Test message")
+    await teams_sink._send_teams_message(recipients, "Test message", None)
 
     # Verify
     mock_get_recipients.assert_called_once_with(recipients)
@@ -1552,7 +1561,7 @@ async def test_send_teams_adaptive_card_success(
     adaptive_card = {"type": "AdaptiveCard", "body": []}
 
     # Execute
-    await teams_sink._send_teams_adaptive_card(recipients, adaptive_card)
+    await teams_sink._send_teams_adaptive_card(recipients, adaptive_card, None)
 
     # Verify
     mock_get_recipients.assert_called_once_with(recipients)
@@ -1597,15 +1606,17 @@ async def test_send_teams_adaptive_card_with_request_success(
 
     # Execute
     await teams_sink._send_teams_adaptive_card_with_request(
-        recipients, adaptive_card, request
+        recipients, adaptive_card, request, None
     )
 
     # Verify
     mock_get_recipients.assert_called_once_with(recipients)
     assert mock_send_card_with_request.call_count == 2
-    mock_send_card_with_request.assert_any_call("channel1", adaptive_card, request)
     mock_send_card_with_request.assert_any_call(
-        "user1@example.com", adaptive_card, request
+        "channel1", adaptive_card, request, None
+    )
+    mock_send_card_with_request.assert_any_call(
+        "user1@example.com", adaptive_card, request, None
     )
 
 
@@ -1889,11 +1900,13 @@ async def test_send_new_incident_notification(
     )
 
     # Execute
-    await teams_sink._send_new_incident_notification(request)
+    await teams_sink._send_new_incident_notification(request, None)
 
     # Verify
     mock_build_message.assert_called_once_with(request)
-    mock_send_teams.assert_called_once_with(request.recipients, test_adaptive_card)
+    mock_send_teams.assert_called_once_with(
+        request.recipients, test_adaptive_card, None
+    )
 
 
 @patch.object(TeamsNotificationSink, "_get_saved_message_details")
@@ -1977,11 +1990,13 @@ async def test_send_incident_status_change_notification(
     )
 
     # Execute
-    await teams_sink._send_incident_status_change_notification(request)
+    await teams_sink._send_incident_status_change_notification(request, None)
 
     # Verify
     mock_build_message.assert_called_once_with(request)
-    mock_send_teams.assert_called_once_with(request.recipients, test_adaptive_card)
+    mock_send_teams.assert_called_once_with(
+        request.recipients, test_adaptive_card, None
+    )
 
 
 @patch.object(TeamsNotificationSink, "_build_compliance_form_message")
@@ -2012,12 +2027,12 @@ async def test_send_compliance_form_publish_notification(
     )
 
     # Execute
-    await teams_sink._send_compliance_form_publish_notification(request)
+    await teams_sink._send_compliance_form_publish_notification(request, None)
 
     # Verify
     mock_build_message.assert_called_once_with(request)
     mock_send_teams.assert_called_once_with(
-        request.recipients, "📋 New Compliance Form: Data Classification Form"
+        request.recipients, "📋 New Compliance Form: Data Classification Form", None
     )
 
 
@@ -2050,12 +2065,12 @@ async def test_send_entity_change_notification(
     )
 
     # Execute
-    await teams_sink._send_entity_change_notification(request)
+    await teams_sink._send_entity_change_notification(request, None)
 
     # Verify
     mock_build_entity_message.assert_called_once_with(request)
     mock_send_adaptive_card.assert_called_once_with(
-        request.recipients, mock_adaptive_card, request
+        request.recipients, mock_adaptive_card, request, None
     )
 
 
@@ -3291,7 +3306,7 @@ def test_send_custom_notification(
 
         # Verify the arguments
         args, kwargs = mock_send.call_args
-        recipients, message_text = args
+        recipients, message_text, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "test-channel"
         assert "Test Custom Title" in message_text
@@ -3338,7 +3353,7 @@ def test_send_new_proposal_notification(
 
         # Verify adaptive card structure
         args, kwargs = mock_send.call_args
-        recipients, adaptive_card = args
+        recipients, adaptive_card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "user123"
 
@@ -3392,7 +3407,7 @@ def test_send_proposal_status_change_notification(
 
         # Verify adaptive card structure
         args, kwargs = mock_send.call_args
-        recipients, adaptive_card = args
+        recipients, adaptive_card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "user456"
 
@@ -3444,7 +3459,7 @@ def test_send_ingestion_run_change_notification(
 
         # Verify adaptive card structure
         args, kwargs = mock_send.call_args
-        recipients, adaptive_card = args
+        recipients, adaptive_card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "data-engineering"
 
@@ -3501,7 +3516,7 @@ def test_send_assertion_status_change_notification(
 
         # Verify adaptive card structure
         args, kwargs = mock_send.call_args
-        recipients, adaptive_card = args
+        recipients, adaptive_card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "data-owner-123"
 
@@ -3561,7 +3576,7 @@ def test_send_workflow_form_request_notification(
 
         # Verify adaptive card structure
         args, kwargs = mock_send.call_args
-        recipients, adaptive_card = args
+        recipients, adaptive_card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "jane-analyst-456"
 
@@ -3615,7 +3630,7 @@ def test_send_workflow_form_status_change_notification(
 
         # Verify adaptive card structure
         args, kwargs = mock_send.call_args
-        recipients, adaptive_card = args
+        recipients, adaptive_card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "john-manager-789"
 
@@ -3783,12 +3798,12 @@ async def test_send_new_action_workflow_form_request_notification(
     with patch.object(
         teams_sink, "_send_teams_adaptive_card", new_callable=AsyncMock
     ) as mock_send:
-        await teams_sink._send_workflow_form_request_notification(request)
+        await teams_sink._send_workflow_form_request_notification(request, None)
 
         # Verify message was sent
         mock_send.assert_called_once()
         args = mock_send.call_args[0]
-        recipients, card = args
+        recipients, card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "test-channel"
         assert card["contentType"] == "application/vnd.microsoft.card.adaptive"
@@ -3832,12 +3847,12 @@ async def test_send_action_workflow_form_request_status_change_notification(
     with patch.object(
         teams_sink, "_send_teams_adaptive_card", new_callable=AsyncMock
     ) as mock_send:
-        await teams_sink._send_workflow_form_status_change_notification(request)
+        await teams_sink._send_workflow_form_status_change_notification(request, None)
 
         # Verify message was sent
         mock_send.assert_called_once()
         args = mock_send.call_args[0]
-        recipients, card = args
+        recipients, card, _tracking_info = args
         assert len(recipients) == 1
         assert recipients[0].id == "requester@company.com"
         assert card["contentType"] == "application/vnd.microsoft.card.adaptive"
@@ -4086,21 +4101,21 @@ def test_all_new_notification_types_supported(mock_get_config: MagicMock) -> Non
 
             # Verify the correct method was called based on template type
             if template_type == "CUSTOM":
-                mock_custom.assert_called_once()
+                mock_custom.assert_called_once_with(request, ANY)
             elif template_type == "BROADCAST_NEW_PROPOSAL":
-                mock_proposal.assert_called_once()
+                mock_proposal.assert_called_once_with(request, ANY)
             elif template_type == "BROADCAST_PROPOSAL_STATUS_CHANGE":
-                mock_proposal_status.assert_called_once()
+                mock_proposal_status.assert_called_once_with(request, ANY)
             elif template_type == "BROADCAST_INGESTION_RUN_CHANGE":
-                mock_ingestion.assert_called_once()
+                mock_ingestion.assert_called_once_with(request, ANY)
             elif template_type == "BROADCAST_ASSERTION_STATUS_CHANGE":
-                mock_assertion.assert_called_once()
+                mock_assertion.assert_called_once_with(request, ANY)
             elif template_type == "BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST":
-                mock_workflow_request.assert_called_once()
+                mock_workflow_request.assert_called_once_with(request, ANY)
             elif (
                 template_type == "BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE"
             ):
-                mock_workflow_status.assert_called_once()
+                mock_workflow_status.assert_called_once_with(request, ANY)
 
 
 #     teams_sink: TeamsNotificationSink,
@@ -4616,5 +4631,48 @@ async def test_send_adaptive_card_to_recipient_with_request_raises_when_no_confi
     # Execute - should raise exception with clear error message
     with pytest.raises(Exception, match="Teams configuration not available"):
         await teams_sink._send_adaptive_card_to_recipient_with_request(  # type: ignore
-            "user1@example.com", adaptive_card, request
+            "user1@example.com", adaptive_card, request, None
         )
+
+
+@patch("datahub_integrations.notifications.utils.track_saas_event")
+def test_teams_delivery_event_emitted(mock_track: MagicMock) -> None:
+    tracking_info = NotificationTrackingInfo(
+        notification_type=NotificationType.ASSERTION,
+        notification_id="urn:li:assertion:test|1700000000000|run-1",
+    )
+
+    track_notification_delivery_success(
+        tracking_info,
+        notification_channel=NotificationChannel.TEAMS,
+        recipient_count=1,
+    )
+
+    event = mock_track.call_args[0][0]
+    assert event.type == "NotificationDeliveredEvent"
+    assert event.notificationId == tracking_info.notification_id
+
+
+@patch("datahub_integrations.notifications.utils.report_notification_delivery_failure")
+def test_teams_delivery_failure_reported(mock_report: MagicMock) -> None:
+    tracking_info = NotificationTrackingInfo(
+        notification_type=NotificationType.ASSERTION,
+        notification_id="urn:li:assertion:test|1700000000000|run-1",
+    )
+
+    track_notification_delivery_failure(
+        tracking_info,
+        notification_channel=NotificationChannel.TEAMS,
+        recipient_count=1,
+        error_type="TeamsError",
+        error_message="failed",
+    )
+
+    mock_report.assert_called_once_with(
+        notification_type=tracking_info.notification_type.value,
+        notification_channel=NotificationChannel.TEAMS.value,
+        notification_id=tracking_info.notification_id,
+        recipient_count=1,
+        error_type="TeamsError",
+        error_message="failed",
+    )
