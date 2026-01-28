@@ -262,11 +262,6 @@ class SQLServerSource(SQLAlchemySource):
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
 
         self.report = SQLSourceReport()
-        if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
-            self.report.warning(
-                title="Potential issue with lineage",
-                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
-            )
 
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
@@ -276,6 +271,17 @@ class SQLServerSource(SQLAlchemySource):
                         self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)
+
+    def get_prefer_lowercase(self) -> Optional[bool]:
+        """
+        Override to respect the convert_urns_to_lowercase configuration.
+
+        When convert_urns_to_lowercase is True, prefer lowercase URNs.
+        When convert_urns_to_lowercase is False, prefer preserving original case.
+
+        This ensures view lineage URNs match table URNs consistently.
+        """
+        return self.config.convert_urns_to_lowercase
 
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:

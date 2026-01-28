@@ -49,3 +49,44 @@ If you encounter permission errors:
 3. **Mixed environments**: Grant all permissions listed above for maximum compatibility
 
 The DataHub source will automatically handle fallback between methods and provide detailed error messages with specific permission requirements if issues occur.
+
+---
+
+## URN Case Sensitivity and Lineage
+
+The `convert_urns_to_lowercase` option controls whether table/view names preserve their original case in DataHub URNs. The default is `false` (preserve case), which is recommended for most setups.
+
+**When to use each setting:**
+
+- `false` (default): Preserves original case. Use when you have mixed-case names like `MyTable` or case-sensitive collations.
+- `true`: Converts names to lowercase. Use for consistent lowercase naming or when migrating from older DataHub setups.
+
+**Example:**
+
+```yaml
+source:
+  type: mssql
+  config:
+    host_port: "localhost:1433"
+    database: "MyDatabase"
+    convert_urns_to_lowercase: false # preserve case (default)
+    include_view_lineage: true
+```
+
+**Warning:** Changing this setting after initial ingestion creates duplicate entities. If you must change it, soft-delete existing entities first or perform a full cleanup.
+
+**Lineage resolution:** DataHub matches lineage using exact URN strings. This fix ensures view lineage URNs match table URNs when `convert_urns_to_lowercase: false`, so lineage resolves correctly.
+
+**Troubleshooting lineage:** If lineage isn't showing, check that URNs match exactly:
+
+```
+# Working (URNs match)
+Table URN:   urn:li:dataset:(...,MyDB.dbo.CustomerTable,PROD)
+Lineage URN: urn:li:dataset:(...,MyDB.dbo.CustomerTable,PROD)  ✅
+
+# Broken (case mismatch)
+Table URN:   urn:li:dataset:(...,MyDB.dbo.CustomerTable,PROD)
+Lineage URN: urn:li:dataset:(...,mydb.dbo.customertable,PROD)  ❌
+```
+
+---
