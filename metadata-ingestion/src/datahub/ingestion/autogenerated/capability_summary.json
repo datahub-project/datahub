@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-01-27T15:15:52.172559+00:00",
+  "generated_at": "2026-01-27T23:33:49.965494+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2290,6 +2290,12 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }
