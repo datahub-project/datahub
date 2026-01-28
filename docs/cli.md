@@ -484,6 +484,7 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+- `DATAHUB_PROFILE` (default `None`) - Set to a profile name to use that profile for CLI commands. See [profile management](./how/manage-cli-profiles.md) for details.
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
@@ -501,6 +502,116 @@ DATAHUB_TELEMETRY_ENABLED=true
 DATAHUB_TELEMETRY_TIMEOUT=10
 DATAHUB_DEBUG=false
 ```
+
+### profile
+
+The `profile` command group helps you manage multiple DataHub connection profiles, making it easy to switch between different environments (dev, staging, production) or multiple DataHub instances.
+
+**Why use profiles?** Profiles eliminate the need to manually edit `~/.datahubenv` or juggle environment variables when working with multiple DataHub instances. Instead, you define named profiles once and switch between them instantly.
+
+#### Quick Start
+
+```shell
+# Add a profile for your local development environment
+datahub profile add dev \
+  --server http://localhost:8080 \
+  --token-env DATAHUB_DEV_TOKEN
+
+# Add a production profile with safety confirmation
+datahub profile add prod \
+  --server https://datahub.company.com \
+  --token-env DATAHUB_PROD_TOKEN \
+  --require-confirmation
+
+# Switch to the dev profile
+datahub profile use dev
+
+# Run commands with the active profile
+datahub get --urn "urn:li:dataset:..."
+
+# Or override with --profile flag
+datahub get --profile prod --urn "urn:li:dataset:..."
+```
+
+#### Available Commands
+
+```shell
+datahub profile list              # List all profiles
+datahub profile current           # Show active profile
+datahub profile show [name]       # Show profile details
+datahub profile use <name>        # Set active profile
+datahub profile add <name>        # Add new profile
+datahub profile remove <name>     # Remove profile
+datahub profile test [name]       # Test connection
+datahub profile validate          # Validate config file
+datahub profile export <name>     # Export profile (secrets redacted)
+```
+
+#### Profile Selection Priority
+
+When you run a command, DataHub selects the profile using this priority order (highest to lowest):
+
+1. **`--profile` flag**: `datahub get --profile prod ...`
+2. **`DATAHUB_PROFILE` env var**: `export DATAHUB_PROFILE=staging`
+3. **Current profile**: Set via `datahub profile use dev`
+4. **Profile named "default"**: If you have a profile literally named `default`
+5. **Legacy config**: Falls back to `~/.datahubenv`
+
+Environment variables like `DATAHUB_GMS_URL` and `DATAHUB_GMS_TOKEN` always override profile settings, maintaining backward compatibility.
+
+#### Configuration File
+
+Profiles are stored in `~/.datahub/config.yaml`:
+
+```yaml
+version: "1.0"
+current_profile: dev
+
+profiles:
+  dev:
+    server: http://localhost:8080
+    token: ${DATAHUB_DEV_TOKEN}
+    description: "Local development"
+
+  prod:
+    server: https://datahub.company.com
+    token: ${DATAHUB_PROD_TOKEN}
+    timeout_sec: 120
+    require_confirmation: true
+    description: "Production - USE WITH CAUTION"
+```
+
+#### Security Best Practice
+
+**Always use environment variable references for tokens**, not literal values:
+
+```shell
+# Set environment variables
+export DATAHUB_DEV_TOKEN="your-dev-token"
+export DATAHUB_PROD_TOKEN="your-prod-token"
+
+# Reference them in profiles
+datahub profile add dev \
+  --server http://localhost:8080 \
+  --token-env DATAHUB_DEV_TOKEN
+```
+
+Your config file will contain `${DATAHUB_DEV_TOKEN}` which gets interpolated at runtime, keeping secrets out of the config file.
+
+#### Production Safety
+
+Set `--require-confirmation` on production profiles to prevent accidental destructive operations:
+
+```shell
+datahub profile add prod \
+  --server https://datahub.company.com \
+  --token-env DATAHUB_PROD_TOKEN \
+  --require-confirmation
+```
+
+When you run destructive commands (like `datahub delete`), you'll be prompted to type the profile name in UPPERCASE to confirm.
+
+➡️ [Learn more about profile management](./how/manage-cli-profiles.md)
 
 ### container
 

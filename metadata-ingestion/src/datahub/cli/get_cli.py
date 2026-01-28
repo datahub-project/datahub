@@ -45,7 +45,9 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
 
-    client = get_default_graph(ClientMode.CLI)
+    # Get profile from context
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     if aspect:
         # If aspects are specified, we need to do the existence check first.

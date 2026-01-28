@@ -1354,8 +1354,10 @@ def _execute_query(client: Any, query: str, variables: Optional[str]) -> Dict[st
     default="human",
     help="Output format: human-readable or JSON for LLM consumption",
 )
+@click.pass_context
 @upgrade.check_upgrade
 def graphql(
+    ctx: click.Context,
     query: Optional[str],
     variables: Optional[str],
     operation: Optional[str],
@@ -1371,7 +1373,8 @@ def graphql(
     """Execute GraphQL queries and mutations against DataHub."""
 
     pretty = not no_pretty
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     # Schema introspection commands
     if list_operations or list_queries or list_mutations or describe:

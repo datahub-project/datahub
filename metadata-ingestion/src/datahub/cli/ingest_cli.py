@@ -323,8 +323,10 @@ def run(
     required=False,
     default=None,
 )
+@click.pass_context
 @upgrade.check_upgrade
 def deploy(
+    ctx: click.Context,
     name: Optional[str],
     config: str,
     urn: Optional[str],
@@ -343,7 +345,9 @@ def deploy(
     urn:li:dataHubIngestionSource:<name>
     """
 
-    datahub_graph = get_default_graph(ClientMode.CLI)
+    # Get profile from context
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    datahub_graph = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     variables = deploy_source_vars(
         name=name,
@@ -518,7 +522,8 @@ def parse_restli_response(response):
 @click.argument(
     "path", type=click.Path(exists=False)
 )  # exists=False since it only supports local filesystems
-def mcps(path: str) -> None:
+@click.pass_context
+def mcps(ctx: click.Context, path: str) -> None:
     """
     Ingest metadata from a mcp json file or directory of files.
 
@@ -526,7 +531,8 @@ def mcps(path: str) -> None:
     """
 
     click.echo("Starting ingestion...")
-    datahub_config = load_client_config()
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    datahub_config = load_client_config(profile=profile_name)
     recipe: dict = {
         "source": {
             "type": "file",
@@ -550,8 +556,11 @@ def mcps(path: str) -> None:
 @click.option(
     "--source", type=str, default=None, help="Filter by ingestion source name."
 )
+@click.pass_context
 @upgrade.check_upgrade
-def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
+def list_source_runs(
+    ctx: click.Context, page_offset: int, page_size: int, urn: str, source: str
+) -> None:
     """
     List ingestion source runs with their details, optionally filtered by URN or source.
     Required the Manage Metadata Ingestion permission.
@@ -592,7 +601,8 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
         }
     }
 
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
     session = client._session
     gms_host = client.config.server
 
@@ -678,11 +688,15 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
     default=False,
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
+@click.pass_context
 @upgrade.check_upgrade
-def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
+def list_runs(
+    ctx: click.Context, page_offset: int, page_size: int, include_soft_deletes: bool
+) -> None:
     """List recent ingestion runs to datahub"""
 
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
     session = client._session
     gms_host = client.config.server
 
@@ -727,12 +741,19 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
     help="If enabled, will include aspects that have been soft deleted",
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
+@click.pass_context
 @upgrade.check_upgrade
 def show(
-    run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
+    ctx: click.Context,
+    run_id: str,
+    start: int,
+    count: int,
+    include_soft_deletes: bool,
+    show_aspect: bool,
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
     session = client._session
     gms_host = client.config.server
 
@@ -776,12 +797,19 @@ def show(
     default="./rollback-reports",
     help="Path to directory where rollback reports will be saved to",
 )
+@click.pass_context
 @upgrade.check_upgrade
 def rollback(
-    run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
+    ctx: click.Context,
+    run_id: str,
+    force: bool,
+    dry_run: bool,
+    safe: bool,
+    report_dir: str,
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
-    client = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    client = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     if not force and not dry_run:
         click.confirm(

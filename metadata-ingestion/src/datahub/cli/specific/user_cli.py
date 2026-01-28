@@ -33,13 +33,15 @@ def user() -> None:
     is_flag=True,
     help="Use this flag to overwrite the information that is set via the UI",
 )
+@click.pass_context
 @upgrade.check_upgrade
-def upsert(file: Path, override_editable: bool) -> None:
+def upsert(ctx: click.Context, file: Path, override_editable: bool) -> None:
     """Create or Update a User in DataHub"""
 
     config_dict = load_file(pathlib.Path(file))
     user_configs = config_dict if isinstance(config_dict, list) else [config_dict]
-    with get_default_graph(ClientMode.CLI) as emitter:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as emitter:
         for user_config in user_configs:
             try:
                 datahub_user: CorpUser = CorpUser.model_validate(user_config)
@@ -157,8 +159,10 @@ def create_native_user_in_datahub(
     ),
     help="Optional role to assign (Admin, Editor, or Reader)",
 )
+@click.pass_context
 @upgrade.check_upgrade
 def add(
+    ctx: click.Context,
     user_id: str,
     email: str,
     email_as_id: bool,
@@ -185,7 +189,8 @@ def add(
         "Enter password", hide_input=True, confirmation_prompt=True
     )
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         try:
             created_user_urn = create_native_user_in_datahub(
                 graph, final_user_id, email, display_name, password_value, role

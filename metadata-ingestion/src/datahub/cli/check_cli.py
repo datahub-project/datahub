@@ -233,7 +233,9 @@ def sql_format(sql: str, platform: str) -> None:
     help="Run in offline mode and disable schema-aware parsing.",
 )
 @upgrade.check_upgrade
+@click.pass_context
 def sql_lineage(
+    ctx: click.Context,
     sql: Optional[str],
     sql_file: Optional[str],
     platform: str,
@@ -258,7 +260,8 @@ def sql_lineage(
 
     graph = None
     if online:
-        graph = get_default_graph(ClientMode.CLI)
+        profile_name = ctx.obj.get("profile") if ctx.obj else None
+        graph = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     lineage = create_lineage_sql_parsed_result(
         sql,
@@ -468,9 +471,11 @@ WHERE
 
 @check.command()
 @upgrade.check_upgrade
-def server_config() -> None:
+@click.pass_context
+def server_config(ctx: click.Context) -> None:
     """Print the server config."""
-    graph = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    graph = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     server_config = graph.get_server_config()
 
@@ -493,7 +498,9 @@ def server_config() -> None:
     help="File absolute path containing URNs (one per line) to restore indices",
 )
 @upgrade.check_upgrade
+@click.pass_context
 def restore_indices(
+    ctx: click.Context,
     urn: Optional[str],
     aspect: Optional[str],
     start: Optional[int],
@@ -503,7 +510,8 @@ def restore_indices(
     """Resync metadata changes into the search and graph indices."""
     if urn is None and file is None:
         raise click.UsageError("Either --urn or --file must be provided")
-    graph = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    graph = get_default_graph(ClientMode.CLI, profile=profile_name)
 
     graph.restore_indices(
         urn_pattern=urn,
@@ -516,9 +524,11 @@ def restore_indices(
 
 @check.command()
 @upgrade.check_upgrade
-def get_kafka_consumer_offsets() -> None:
+@click.pass_context
+def get_kafka_consumer_offsets(ctx: click.Context) -> None:
     """Get Kafka consumer offsets from the DataHub API."""
-    graph = get_default_graph(ClientMode.CLI)
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    graph = get_default_graph(ClientMode.CLI, profile=profile_name)
     result = graph.get_kafka_consumer_offsets()
 
     table_data = []

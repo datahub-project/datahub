@@ -46,8 +46,9 @@ def datacontract() -> None:
 
 @datacontract.command()
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@click.pass_context
 @upgrade.check_upgrade
-def upsert(file: str) -> None:
+def upsert(ctx: click.Context, file: str) -> None:
     """
     Upsert (create or update) a Data Contract in DataHub.
 
@@ -65,7 +66,8 @@ def upsert(file: str) -> None:
     data_contract: DataContract = DataContract.from_yaml(file)
     urn = data_contract.urn
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         if not graph.exists(data_contract.entity):
             raise ValueError(
                 f"Cannot define a data contract for non-existent entity {data_contract.entity}"
@@ -95,8 +97,11 @@ def upsert(file: str) -> None:
     help="The file containing the data contract definition",
 )
 @click.option("--hard/--soft", required=False, is_flag=True, default=False)
+@click.pass_context
 @upgrade.check_upgrade
-def delete(urn: Optional[str], file: Optional[str], hard: bool) -> None:
+def delete(
+    ctx: click.Context, urn: Optional[str], file: Optional[str], hard: bool
+) -> None:
     """
     Delete a Data Contract in DataHub. Defaults to a soft-delete. Use --hard to completely erase metadata.
 
@@ -120,7 +125,8 @@ def delete(urn: Optional[str], file: Optional[str], hard: bool) -> None:
         data_contract = DataContract.from_yaml(file)
         urn = data_contract.urn
 
-    with get_default_graph(ClientMode.CLI) as graph:
+    profile_name = ctx.obj.get("profile") if ctx.obj else None
+    with get_default_graph(ClientMode.CLI, profile=profile_name) as graph:
         if not graph.exists(urn):
             raise ValueError(f"Data Contract {urn} does not exist")
 
