@@ -34,5 +34,33 @@ source:
     # When auth_mode is "AWS_IAM", the password field is ignored
     # AWS credentials can be configured via AWS CLI, environment variables, or IAM role
 
+    # Query-based Lineage (optional)
+    # Extract lineage from executed queries using pg_stat_statements extension
+    # Prerequisites:
+    #   1. PostgreSQL 13 or later (required for pg_stat_statements column names)
+    #      Note: PostgreSQL 12 and earlier use different column names (total_time
+    #      instead of total_exec_time). The connector will detect older versions
+    #      and fail with a clear error message. Upgrade to PostgreSQL 13+ to use
+    #      this feature.
+    #   2. CREATE EXTENSION pg_stat_statements;
+    #   3. GRANT pg_read_all_stats TO datahub_user;
+    # include_query_lineage: true
+    # max_queries_to_extract: 1000  # Default: 1000, valid range: 1-10000
+    # min_query_calls: 10  # Default: 1, minimum: 0
+    # query_exclude_patterns:
+    #   - "%pg_catalog%"
+    #   - "%temp_%"
+
+    # Usage Statistics (optional, requires include_query_lineage: true)
+    # Generates dataset usage metrics from query history:
+    #   - Unique user counts per table
+    #   - Query frequencies and top N most common queries
+    #   - Column-level access patterns
+    # Results appear in DataHub UI: Dataset Profile > Usage tab
+    # include_usage_statistics: true
+    # top_n_queries: 20  # Number of top queries to save per table
+    # bucket_duration: DAY  # Time window for aggregating usage (HOUR, DAY, WEEK)
+    # format_sql_queries: false  # Whether to format SQL queries for readability
+
 sink:
   # sink configs
