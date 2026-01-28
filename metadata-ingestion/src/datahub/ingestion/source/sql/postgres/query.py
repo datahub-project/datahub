@@ -62,18 +62,8 @@ class PostgresQuery:
         )
 
     @staticmethod
-    def get_pg_stat_statements_version() -> TextClause:
-        """Get installed pg_stat_statements extension version."""
-        return text(
-            """
-        SELECT extversion
-        FROM pg_extension
-        WHERE extname = 'pg_stat_statements'
-        """
-        )
-
-    @staticmethod
     def get_postgres_version() -> TextClause:
+        """Get PostgreSQL server version number."""
         return text(
             "SELECT current_setting('server_version_num')::integer as version_num"
         )
@@ -150,98 +140,6 @@ class PostgresQuery:
         LEFT JOIN pg_database d ON s.dbid = d.oid
         WHERE {where_clause}
         ORDER BY s.total_exec_time DESC, s.calls DESC
-        LIMIT :limit
-        """
-        )
-
-        return query, params
-
-    @staticmethod
-    def get_queries_by_type(
-        query_type: str = "INSERT",
-        database: Optional[str] = None,
-        limit: int = 500,
-    ) -> tuple[TextClause, Dict[str, Union[str, int]]]:
-        """
-        Extract queries of specific type (INSERT, UPDATE, DELETE, etc.).
-
-        Returns parameterized query with bind parameters for SQL injection prevention.
-        Use with: connection.execute(query, params)
-        """
-        if limit <= 0 or not isinstance(limit, int):
-            raise ValueError(f"limit must be a positive integer, got: {limit}")
-
-        if not re.match(r"^[A-Z\s]+$", query_type.upper()):
-            raise ValueError(
-                f"Invalid query_type '{query_type}': must contain only uppercase letters and spaces"
-            )
-        safe_query_type = query_type.upper()
-
-        params: Dict[str, Union[str, int]] = {
-            "query_type_pattern": f"{safe_query_type}%",
-            "limit": limit,
-        }
-
-        filters = [
-            "s.query ILIKE :query_type_pattern",
-            "s.query != '<insufficient privilege>'",
-            "s.calls >= 1",
-        ]
-
-        where_clause = PostgresQuery._build_pg_stat_filter(database, params, filters)
-
-        query = text(
-            f"""
-        SELECT
-            s.queryid::text as query_id,
-            s.query as query_text,
-            s.calls as execution_count,
-            s.total_exec_time as total_exec_time_ms,
-            r.rolname as user_name,
-            d.datname as database_name
-        FROM pg_stat_statements s
-        LEFT JOIN pg_roles r ON s.userid = r.oid
-        LEFT JOIN pg_database d ON s.dbid = d.oid
-        WHERE {where_clause}
-        ORDER BY s.calls DESC
-        LIMIT :limit
-        """
-        )
-
-        return query, params
-
-    @staticmethod
-    def get_top_tables_by_query_count(
-        limit: int = 100,
-    ) -> tuple[TextClause, Dict[str, int]]:
-        """Get most frequently queried tables using heuristic pattern matching."""
-        if limit <= 0 or not isinstance(limit, int):
-            raise ValueError(f"limit must be a positive integer, got: {limit}")
-
-        params: Dict[str, int] = {"limit": limit}
-
-        query = text(
-            """
-        WITH table_refs AS (
-            SELECT
-                query,
-                calls,
-                regexp_matches(
-                    query,
-                    'FROM\\s+([a-zA-Z_][a-zA-Z0-9_]*\\.)?([a-zA-Z_][a-zA-Z0-9_]*)',
-                    'gi'
-                ) as table_match
-            FROM pg_stat_statements
-            WHERE query ILIKE '%FROM%'
-        )
-        SELECT
-            table_match[2] as table_name,
-            SUM(calls) as total_calls,
-            COUNT(DISTINCT query) as query_count
-        FROM table_refs
-        WHERE table_match[2] IS NOT NULL
-        GROUP BY table_match[2]
-        ORDER BY total_calls DESC
         LIMIT :limit
         """
         )
