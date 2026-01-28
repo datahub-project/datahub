@@ -400,6 +400,11 @@ type EntityPrivileges {
   Whether the user can manage asset summary
   """
   canManageAssetSummary: Boolean
+
+  """
+  Whether the user can view the entity page
+  """
+  canViewEntityPage: Boolean
 }
 
 """
