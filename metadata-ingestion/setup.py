@@ -434,6 +434,8 @@ sac = {
     "Authlib<2.0.0",
 }
 
+singlestore = {"sqlalchemy-singlestoredb==1.2.0"}
+
 superset_common = {
     "requests<3.0.0",
     *sqlglot_lib,
@@ -655,6 +657,7 @@ plugins: Dict[str, Set[str]] = {
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
+    "singlestore": sql_common | singlestore,
     "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
@@ -858,6 +861,7 @@ base_dev_requirements = {
             "powerbi",
             "powerbi-report-server",
             "salesforce",
+            "singlestore",
             "unity-catalog",
             "nifi",
             "vertica",
@@ -980,6 +984,7 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb.MariaDBSource",
+        "singlestore = datahub.ingestion.source.sql.singlestore.SingleStoreSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",

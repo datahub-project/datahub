@@ -24,6 +24,14 @@
         "recipe": "source:\n  type: snaplogic\n  config:\n    username: # username\n    password: # password\n    base_url: https://elastic.snaplogic.com\n    org_name: # Organization name from SnapLogic instance\n    stateful_ingestion:\n      enabled: True\n      remove_stale_metadata: False\n"
     },
     {
+        "urn": "urn:li:dataPlatform:singlestore",
+        "name": "singlestore",
+        "displayName": "SingleStore",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from SingleStore.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/singlestore/",
+        "recipe": "source: \n    type: singlestore\n    config: \n        # Coordinates\n        host_port: # Your SingleStore host and post, e.g. localhost:3306\n        database: # Your SingleStore database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your SingleStore username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:snowflake",
         "name": "snowflake",
         "displayName": "Snowflake",

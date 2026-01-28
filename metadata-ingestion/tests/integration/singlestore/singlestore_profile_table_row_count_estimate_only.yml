@@ -1,0 +1,15 @@
+source:
+  type: singlestore
+  config:
+    username: root
+    password: example
+    host_port: localhost:53308
+    database: northwind
+    profiling:
+      enabled: True
+      profile_table_row_count_estimate_only: true
+      include_field_stddev_value: false
+sink:
+  type: file
+  config:
+    filename: "./singlestore_mces.json"

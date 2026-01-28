@@ -32,6 +32,7 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         ),
         # Don't move this before redshift.
         _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
+        _platform_alchemy_uri_tester_gen("singlestore", "singlestoredb"),
         _platform_alchemy_uri_tester_gen("snowflake"),
         _platform_alchemy_uri_tester_gen("sqlite"),
         _platform_alchemy_uri_tester_gen("trino"),
