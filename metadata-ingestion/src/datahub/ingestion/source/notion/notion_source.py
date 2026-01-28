@@ -931,17 +931,22 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                     Union[SourceCapability, str], CapabilityReport
                 ] = {"Page/Database Access": CapabilityReport(capable=True)}
 
-                # Test semantic search capability if embedding config provided
-                if config.embedding and config.embedding.provider:
-                    from datahub.ingestion.source.unstructured.chunking_source import (
-                        DocumentChunkingSource,
-                    )
+                # Test semantic search capability
+                # If no embedding config provided, use defaults (same as actual ingestion)
+                from datahub.ingestion.source.unstructured.chunking_config import (
+                    EmbeddingConfig,
+                )
+                from datahub.ingestion.source.unstructured.chunking_source import (
+                    DocumentChunkingSource,
+                )
 
-                    capability_report["Semantic Search"] = (
-                        DocumentChunkingSource.test_embedding_capability(
-                            config.embedding
-                        )
-                    )
+                embedding_config = config.embedding
+                if not embedding_config or not embedding_config.provider:
+                    embedding_config = EmbeddingConfig.get_default_config()
+
+                capability_report["Semantic Search"] = (
+                    DocumentChunkingSource.test_embedding_capability(embedding_config)
+                )
 
                 return TestConnectionReport(
                     basic_connectivity=basic_connectivity,
@@ -960,15 +965,22 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 )
             }
 
-            # Test semantic search capability if embedding config provided
-            if config.embedding and config.embedding.provider:
-                from datahub.ingestion.source.unstructured.chunking_source import (
-                    DocumentChunkingSource,
-                )
+            # Test semantic search capability
+            # If no embedding config provided, use defaults (same as actual ingestion)
+            from datahub.ingestion.source.unstructured.chunking_config import (
+                EmbeddingConfig,
+            )
+            from datahub.ingestion.source.unstructured.chunking_source import (
+                DocumentChunkingSource,
+            )
 
-                capability_report["Semantic Search"] = (
-                    DocumentChunkingSource.test_embedding_capability(config.embedding)
-                )
+            embedding_config = config.embedding
+            if not embedding_config or not embedding_config.provider:
+                embedding_config = EmbeddingConfig.get_default_config()
+
+            capability_report["Semantic Search"] = (
+                DocumentChunkingSource.test_embedding_capability(embedding_config)
+            )
 
             return TestConnectionReport(
                 basic_connectivity=basic_connectivity,
