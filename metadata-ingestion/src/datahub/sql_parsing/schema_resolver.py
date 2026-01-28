@@ -81,19 +81,7 @@ class BatchSchemaFetcher:
     def fetch_schemas(
         self, urns: List[str], schema_resolver: "SchemaResolver"
     ) -> Dict[str, Optional[SchemaInfo]]:
-        """
-        Fetch schemas for multiple URNs in batches.
-
-        Only fetches URNs that are not already in the schema resolver's cache.
-        Returns a dict mapping URN -> SchemaInfo (or None if not found).
-
-        Args:
-            urns: List of URNs to fetch
-            schema_resolver: SchemaResolver to store fetched schemas
-
-        Returns:
-            Dict mapping URN to SchemaInfo (or None if not found in DataHub)
-        """
+        """Fetch schemas for multiple URNs in batches, skipping those already cached."""
         # Filter to only URNs not already in cache
         urns_to_fetch = [
             urn for urn in urns if urn not in schema_resolver._schema_cache
@@ -283,17 +271,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return urn, None
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        """
-        Resolve schema for a table, trying multiple URN casing strategies.
-
-        Improved implementation that:
-        1. Generates all URN variations upfront
-        2. Checks cache for all variations
-        3. Batch fetches all missing URNs in a single API call (if batch fetcher available)
-        4. Returns first matching schema
-
-        This reduces API calls from up to 3 per table to 1 per batch of tables.
-        """
+        """Resolve schema info, checking multiple URN casing variations."""
         # Generate all URN variations upfront
         urn = self.get_urn_for_table(table)
         urn_lower = self.get_urn_for_table(table, lower=True)
@@ -404,20 +382,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata_from_fetch(
         self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
     ) -> bool:
-        """
-        Add schema metadata fetched from DataHub API.
-
-        Unlike add_schema_metadata(), this respects cache precedence:
-        - If a schema is already cached (e.g., from ingestion), it's NOT overwritten
-        - Fresh schemas from ingestion take precedence over stale DataHub schemas
-
-        Args:
-            urn: Dataset URN
-            schema_metadata: Schema fetched from DataHub (or None if not found)
-
-        Returns:
-            True if schema was accepted and cached, False if rejected (already cached)
-        """
+        """Cache schema from DataHub API fetch if not already present (ingestion schemas take precedence)."""
         if urn in self._schema_cache:
             existing = self._schema_cache[urn]
             if existing is not None:
