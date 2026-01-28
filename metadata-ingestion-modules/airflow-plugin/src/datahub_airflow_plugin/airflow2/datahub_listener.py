@@ -76,6 +76,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
+from datahub_airflow_plugin._airflow_asset_adapter import extract_urns_from_iolets
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import (
     DATAHUB_SQL_PARSING_RESULT_KEY,
@@ -96,7 +97,6 @@ from datahub_airflow_plugin.client.airflow_generator import (  # type: ignore[at
     AirflowGenerator,
 )
 from datahub_airflow_plugin.entities import (
-    _Entity,
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
 )
@@ -500,12 +500,20 @@ class DataHubListener:
         output_urns.extend(sql_output_urns)
         fine_grained_lineages.extend(sql_fine_grained_lineages)
 
-        # Add DataHub-native inlets/outlets
+        # Add DataHub-native inlets/outlets and Airflow Assets
         input_urns.extend(
-            iolet.urn for iolet in get_task_inlets(task) if isinstance(iolet, _Entity)
+            extract_urns_from_iolets(
+                get_task_inlets(task),
+                self.config.capture_airflow_assets,
+                env=self.config.cluster,
+            )
         )
         output_urns.extend(
-            iolet.urn for iolet in get_task_outlets(task) if isinstance(iolet, _Entity)
+            extract_urns_from_iolets(
+                get_task_outlets(task),
+                self.config.capture_airflow_assets,
+                env=self.config.cluster,
+            )
         )
 
         # Write the lineage to the datajob object
