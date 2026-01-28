@@ -70,6 +70,16 @@
     displayName: CockroachDb
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/cockroachdblogo.png"
+- entityUrn: urn:li:dataPlatform:doris
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: doris
+    displayName: Apache Doris
+    type: OLAP_DATASTORE
+    logoUrl: "assets/platforms/dorislogo.png"
 - entityUrn: urn:li:dataPlatform:couchbase
   entityType: dataPlatform
   aspectName: dataPlatformInfo
