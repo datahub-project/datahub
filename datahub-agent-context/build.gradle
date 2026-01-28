@@ -15,7 +15,6 @@
 */
 plugins {
   id 'scala'
-  id 'org.gradle.playframework'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"

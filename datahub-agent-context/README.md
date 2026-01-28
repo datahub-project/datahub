@@ -167,5 +167,5 @@ The package includes comprehensive unit tests for all tools:
 ## Support
 
 - [Documentation](https://datahubproject.io/docs/)
-- [Slack Community](https://slack.datahubproject.io/)
+- [Slack Community](https://datahub.com/slack)
 - [GitHub Issues](https://github.com/datahub-project/datahub/issues)
