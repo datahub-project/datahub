@@ -46,12 +46,14 @@ from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    PowerBIPlatformDetail,
     SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
+from datahub.ingestion.source.powerbi.fabric_urn_builder import make_onelake_urn
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -246,11 +248,110 @@ class Mapper:
 
         return fine_grained_lineages
 
+    def extract_directlake_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        workspace: powerbi_data_classes.Workspace,
+    ) -> List[MetadataChangeProposalWrapper]:
+        """Extract lineage for DirectLake tables to their upstream Fabric OneLake tables.
+
+        DirectLake tables read data directly from Fabric Lakehouses or Warehouses.
+        This method creates lineage from the PowerBI table to the corresponding OneLake table.
+
+        Args:
+            table: The PowerBI table with DirectLake storage mode
+            ds_urn: The URN of the downstream PowerBI dataset
+            workspace: The workspace containing the Fabric artifacts
+
+        Returns:
+            List of MCPs with upstream lineage to OneLake tables
+        """
+        mcps: List[MetadataChangeProposalWrapper] = []
+        dataset = table.dataset
+
+        if not dataset:
+            logger.debug(f"No dataset for DirectLake table {table.full_name}")
+            return mcps
+
+        if not dataset.dependent_on_artifact_id:
+            logger.debug(
+                f"No dependent artifact ID for DirectLake table {table.full_name}"
+            )
+            return mcps
+
+        # Look up the Fabric artifact (Lakehouse/Warehouse) this dataset depends on
+        artifact = workspace.fabric_artifacts.get(dataset.dependent_on_artifact_id)
+        if not artifact:
+            logger.debug(
+                f"Fabric artifact {dataset.dependent_on_artifact_id} not found "
+                f"for DirectLake table {table.full_name}. Available artifacts: "
+                f"{list(workspace.fabric_artifacts.keys())}"
+            )
+            return mcps
+
+        if not table.source_expression:
+            logger.debug(f"No source expression for DirectLake table {table.full_name}")
+            return mcps
+
+        # Resolve platform instance using server_to_platform_instance mapping
+        # Mapping: workspace_id -> (platform_instance, env)
+        # The platform_instance typically represents the Fabric tenant identifier,
+        # matching how the OneLake connector uses platform_instance to group workspaces by tenant.
+        # Falls back to None if no mapping is found.
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=SupportedDataPlatform.FABRIC_ONELAKE.value,
+                data_platform_server=workspace.id,  # Use workspace ID as the mapping key
+            )
+        )
+
+        # Generate upstream URN for the OneLake table
+        upstream_urn = make_onelake_urn(
+            workspace_id=workspace.id,
+            item_id=artifact.id,
+            table_name=table.source_expression,
+            schema_name=table.source_schema,  # Can be None for schemas-disabled lakehouses
+            env=platform_detail.env or self.__config.env,
+            platform_instance=platform_detail.platform_instance,  # None if not mapped
+        )
+
+        # Apply lowercase transformation if configured
+        upstream_urn = self.lineage_urn_to_lowercase(upstream_urn)
+
+        upstream = UpstreamClass(
+            dataset=upstream_urn,
+            type=DatasetLineageTypeClass.TRANSFORMED,
+        )
+
+        upstream_lineage = UpstreamLineageClass(upstreams=[upstream])
+
+        logger.info(
+            f"DirectLake lineage: {table.full_name} -> {upstream_urn} "
+            f"(artifact: {artifact.name}, type: {artifact.artifact_type})"
+        )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=ds_urn,
+            aspect=upstream_lineage,
+        )
+        mcps.append(mcp)
+
+        return mcps
+
     def extract_lineage(
-        self, table: powerbi_data_classes.Table, ds_urn: str
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        workspace: powerbi_data_classes.Workspace,
     ) -> List[MetadataChangeProposalWrapper]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
+        # Check for DirectLake storage mode first - use Fabric lineage path
+        if table.storage_mode == Constant.DIRECT_LAKE:
+            return self.extract_directlake_lineage(table, ds_urn, workspace)
+
+        # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
 
@@ -502,7 +603,7 @@ class Mapper:
             )
 
             if self.__config.extract_lineage is True:
-                dataset_mcps.extend(self.extract_lineage(table, ds_urn))
+                dataset_mcps.extend(self.extract_lineage(table, ds_urn, workspace))
 
             self.append_container_mcp(
                 dataset_mcps,

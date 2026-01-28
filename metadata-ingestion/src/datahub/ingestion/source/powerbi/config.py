@@ -137,6 +137,20 @@ class Constant:
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
 
+    # DirectLake / Fabric artifact constants
+    RELATIONS = "relations"
+    DEPENDENT_ON_ARTIFACT_ID = "dependentOnArtifactId"
+    SCHEMA_NAME = "schemaName"
+    STORAGE_MODE = "storageMode"
+
+    # Fabric artifact API keys (for parsing workspace metadata)
+    PARSING_KEY_LAKEHOUSE = "Lakehouse"
+    PARSING_KEY_WAREHOUSES = "warehouses"  # API key is lowercase
+    PARSING_KEY_SQL_ANALYTICS_ENDPOINT = "SQLAnalyticsEndpoint"
+
+    # Storage mode values
+    DIRECT_LAKE = "DirectLake"
+
 
 @dataclass
 class DataPlatformPair:
@@ -199,6 +213,12 @@ class SupportedDataPlatform(Enum):
     ODBC = DataPlatformPair(
         powerbi_data_platform_name="Odbc",
         datahub_data_platform_name="odbc",
+    )
+
+    # Fabric OneLake for DirectLake lineage (Lakehouse/Warehouse tables)
+    FABRIC_ONELAKE = DataPlatformPair(
+        powerbi_data_platform_name="FabricOneLake",
+        datahub_data_platform_name="fabric-onelake",
     )
 
 
