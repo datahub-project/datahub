@@ -66,6 +66,7 @@ from datahub_integrations.mcp.tools.terms import (
 # IMPORTANT: Use relative import to maintain compatibility across repositories
 from ._token_estimator import TokenCountEstimator
 from .tools.documents import grep_documents, search_documents
+from .tools.save_document import is_save_document_enabled, save_document
 from .tools.tags import add_tags, remove_tags
 
 _P = ParamSpec("_P")
@@ -2566,6 +2567,7 @@ def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None
     """
 
     enabled = get_boolean_env_variable("TOOLS_IS_MUTATION_ENABLED")
+
     logger.info(f"Mutation Tools {'ENABLED' if enabled else 'DISABLED'} MCP Server.")
 
     if not enabled:
@@ -2641,6 +2643,17 @@ def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None
         name="remove_structured_properties",
         description=remove_structured_properties.__doc__,
     )(async_background(remove_structured_properties))
+
+    # Register save_document tool (only if enabled via environment variable)
+    if is_save_document_enabled():
+        logger.info("Save Document ENABLED - registering save_document tool")
+        mcp_instance.tool(
+            name="save_document",
+            description=save_document.__doc__,
+            tags={ToolType.MUTATION.value},
+        )(async_background(save_document))
+    else:
+        logger.info("Save Document DISABLED - save_document tool not registered")
 
 
 def register_user_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
