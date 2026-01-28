@@ -1,4 +1,4 @@
-import { DataTypeEntity, Entity, StructuredPropertyEntity } from '@types';
+import { DataTypeEntity, Entity, MetadataAttribution, StructuredPropertyEntity } from '@types';
 
 export interface ValueColumnData {
     value: string | number | null;
@@ -22,4 +22,5 @@ export interface PropertyRow {
     dataType?: DataTypeEntity;
     isParentRow?: boolean;
     structuredProperty?: StructuredPropertyEntity;
+    attribution?: MetadataAttribution | null;
 }

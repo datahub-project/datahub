@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -15,11 +15,13 @@ class DataHubSecretStoreConfig(BaseModel):
     graph_client: Optional[DataHubGraph] = None
     graph_client_config: Optional[DatahubClientConfig] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @validator("graph_client")
-    def check_graph_connection(cls, v: DataHubGraph) -> DataHubGraph:
+    @field_validator("graph_client", mode="after")
+    @classmethod
+    def check_graph_connection(
+        cls, v: Optional[DataHubGraph]
+    ) -> Optional[DataHubGraph]:
         if v is not None:
             v.test_connection()
         return v
@@ -63,5 +65,8 @@ class DataHubSecretStore(SecretStore):
 
     @classmethod
     def create(cls, config: Any) -> "DataHubSecretStore":
-        config = DataHubSecretStoreConfig.parse_obj(config)
+        config = DataHubSecretStoreConfig.model_validate(config)
         return cls(config)
+
+    def close(self) -> None:
+        self.client.graph.close()

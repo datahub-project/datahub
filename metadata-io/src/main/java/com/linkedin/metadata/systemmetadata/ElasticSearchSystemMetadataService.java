@@ -1,6 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -91,6 +91,14 @@ public class ElasticSearchSystemMetadataService
     document.put("registryName", systemMetadata.getRegistryName());
     document.put("registryVersion", systemMetadata.getRegistryVersion());
     document.put("removed", false);
+    if (systemMetadata.getAspectCreated() != null) {
+      document.put("aspectCreatedTime", systemMetadata.getAspectCreated().getTime());
+      document.put("aspectCreatedActor", systemMetadata.getAspectCreated().getActor().toString());
+    }
+    if (systemMetadata.getAspectModified() != null) {
+      document.put("aspectModifiedTime", systemMetadata.getAspectModified().getTime());
+      document.put("aspectModifiedActor", systemMetadata.getAspectModified().getActor().toString());
+    }
     if (systemMetadata.getProperties() != null
         && systemMetadata.getProperties().containsKey(TELEMETRY_TRACE_KEY)) {
       document.put(TELEMETRY_TRACE_KEY, systemMetadata.getProperties().get(TELEMETRY_TRACE_KEY));
@@ -244,10 +252,12 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
-  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+  public void reindexAll(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     log.info("Setting up system metadata index");
     try {
-      for (ReindexConfig config : buildReindexConfigs(properties)) {
+      for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException ie) {
@@ -257,7 +267,9 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
-      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
+      throws IOException {
     return List.of(
         _indexBuilder.buildReindexState(
             _indexConvention.getIndexName(INDEX_NAME),
@@ -267,8 +279,22 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public void clear() {
-    _esBulkProcessor.deleteByQuery(
-        QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
+    // Instead of deleting all documents (inefficient), delete and recreate the index
+    String indexName = _indexConvention.getIndexName(INDEX_NAME);
+    try {
+      // Build a config with the correct target mappings for recreation
+      ReindexConfig config =
+          _indexBuilder.buildReindexState(
+              indexName, SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap());
+
+      // Use clearIndex which handles deletion and recreation
+      _indexBuilder.clearIndex(indexName, config);
+
+      log.info("Cleared index {} by deleting and recreating it", indexName);
+    } catch (IOException e) {
+      log.error("Failed to clear index {}", indexName, e);
+      throw new RuntimeException("Failed to clear index: " + indexName, e);
+    }
   }
 
   @Override

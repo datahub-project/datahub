@@ -1,4 +1,5 @@
-import { Button, Modal, Select, Tag, message } from 'antd';
+import { Modal } from '@components';
+import { Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -9,11 +10,14 @@ import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import TermLabel from '@app/shared/TermLabel';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { EntityType, SearchResult, TermRelationshipType } from '@types';
+import { DataHubPageModuleType, EntityType, SearchResult, TermRelationshipType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 480px;
@@ -23,6 +27,7 @@ const SearchResultContainer = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: center;
+    font-size: 12px;
 `;
 
 interface Props {
@@ -40,6 +45,7 @@ function AddRelatedTermsModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
+    const { reloadByKeyType } = useReloadableContext();
 
     const [AddRelatedTerms] = useAddRelatedTermsMutation();
 
@@ -65,6 +71,11 @@ function AddRelatedTermsModal(props: Props) {
                         duration: 2,
                     });
                     refetch();
+                    // Reload modules
+                    // RelatedTerms - update related terms module on term summary tab
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.RelatedTerms),
+                    ]);
                 }, 2000);
             });
         onClose();
@@ -171,18 +182,22 @@ function AddRelatedTermsModal(props: Props) {
     return (
         <Modal
             title="Add Related Terms"
-            visible
+            open
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button type="primary" onClick={addTerms} disabled={!selectedUrns.length}>
-                        Add
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Add',
+                    onClick: addTerms,
+                    variant: 'filled',
+                    disabled: !selectedUrns.length,
+                    buttonDataTestId: 'submit-button',
+                },
+            ]}
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <StyledSelect
@@ -206,6 +221,7 @@ function AddRelatedTermsModal(props: Props) {
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
                     dropdownStyle={isShowingGlossaryBrowser || !inputValue ? { display: 'none' } : {}}
+                    data-testid="related-terms-select"
                 >
                     {tagSearchOptions}
                 </StyledSelect>

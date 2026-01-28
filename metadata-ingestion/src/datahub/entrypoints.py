@@ -10,6 +10,7 @@ import click
 import datahub._version as datahub_version
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
+    enable_auto_decorators,
     fixup_gms_url,
     generate_access_token,
     make_shim_command,
@@ -21,9 +22,11 @@ from datahub.cli.docker_cli import docker
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
+from datahub.cli.graphql_cli import graphql
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.recording_cli import recording
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -38,7 +41,6 @@ from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.telemetry import telemetry
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
@@ -111,7 +113,6 @@ def datahub(
     default=False,
     help="If passed will show server config. Assumes datahub init has happened.",
 )
-@telemetry.with_telemetry()
 def version(include_server: bool = False) -> None:
     """Print version number and exit."""
 
@@ -131,7 +132,6 @@ def version(include_server: bool = False) -> None:
     default=False,
     help="If passed then uses password to initialise token.",
 )
-@telemetry.with_telemetry()
 def init(use_password: bool = False) -> None:
     """Configure which datahub instance to connect to"""
 
@@ -171,6 +171,7 @@ datahub.add_command(ingest)
 datahub.add_command(delete)
 datahub.add_command(exists)
 datahub.add_command(get)
+datahub.add_command(graphql)
 datahub.add_command(put)
 datahub.add_command(state)
 datahub.add_command(telemetry_cli)
@@ -185,6 +186,7 @@ datahub.add_command(forms)
 datahub.add_command(datacontract)
 datahub.add_command(assertions)
 datahub.add_command(container)
+datahub.add_command(recording)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
@@ -217,6 +219,9 @@ except ImportError as e:
     datahub.add_command(
         make_shim_command("actions", "run `pip install acryl-datahub-actions`")
     )
+
+# Adding telemetry and upgrade decorators to all commands
+enable_auto_decorators(datahub)
 
 
 def main(**kwargs):

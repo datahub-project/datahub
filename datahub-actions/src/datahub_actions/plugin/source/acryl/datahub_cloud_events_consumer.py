@@ -4,11 +4,17 @@ from typing import List, Optional
 
 import requests
 from pydantic import BaseModel, Field
-from requests.exceptions import ConnectionError, HTTPError
+from requests.exceptions import (
+    ChunkedEncodingError,
+    ConnectionError,
+    HTTPError,
+    Timeout,
+)
 from tenacity import (
-    retry,
+    Retrying,
     retry_if_exception_type,
     stop_after_attempt,
+    stop_never,
     wait_exponential,
 )
 
@@ -44,6 +50,7 @@ class DataHubEventsConsumer:
         offset_id: Optional[str] = None,
         lookback_days: Optional[int] = None,
         reset_offsets: Optional[bool] = False,
+        infinite_retry: Optional[bool] = False,
     ):
         # 1) Always set self.consumer_id, even if None, so tests can assert it safely.
         self.consumer_id: Optional[str] = consumer_id
@@ -52,6 +59,9 @@ class DataHubEventsConsumer:
         self.graph: DataHubGraph = graph
         self.offset_id: Optional[str] = offset_id
         self.default_lookback_days: Optional[int] = lookback_days
+        self.infinite_retry: bool = (
+            infinite_retry if infinite_retry is not None else False
+        )
         self.offsets_store: Optional[
             DataHubEventsConsumerPlatformResourceOffsetsStore
         ] = None
@@ -78,12 +88,6 @@ class DataHubEventsConsumer:
         else:
             logger.debug("Starting DataHub Events Consumer with no consumer ID.")
 
-    @retry(
-        retry=retry_if_exception_type((HTTPError, ConnectionError)),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
-        stop=stop_after_attempt(3),
-        reraise=True,
-    )
     def poll_events(
         self,
         topic: str,
@@ -93,6 +97,36 @@ class DataHubEventsConsumer:
     ) -> ExternalEventsResponse:
         """
         Fetch events for a specific topic.
+        """
+        stop_condition = stop_never if self.infinite_retry else stop_after_attempt(15)
+
+        retry_strategy = Retrying(
+            retry=retry_if_exception_type(
+                (HTTPError, ConnectionError, ChunkedEncodingError, Timeout)
+            ),
+            wait=wait_exponential(multiplier=1, min=2, max=60),
+            stop=stop_condition,
+            reraise=True,
+        )
+
+        for attempt in retry_strategy:
+            with attempt:
+                return self._poll_events_impl(
+                    topic, offset_id, limit, poll_timeout_seconds
+                )
+
+        # This should never be reached due to reraise=True, but mypy needs it
+        raise RuntimeError("Retry strategy exhausted without returning or raising")
+
+    def _poll_events_impl(
+        self,
+        topic: str,
+        offset_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        poll_timeout_seconds: Optional[int] = None,
+    ) -> ExternalEventsResponse:
+        """
+        Internal implementation of poll_events.
         """
         endpoint = f"{self.base_url}/v1/events/poll"
 
@@ -115,7 +149,9 @@ class DataHubEventsConsumer:
         response = requests.get(endpoint, params=params, headers=headers)
         response.raise_for_status()
 
-        external_events_response = ExternalEventsResponse.parse_obj(response.json())
+        external_events_response = ExternalEventsResponse.model_validate(
+            response.json()
+        )
 
         # Update our internal offset_id to the newly returned offset
         self.offset_id = external_events_response.offsetId

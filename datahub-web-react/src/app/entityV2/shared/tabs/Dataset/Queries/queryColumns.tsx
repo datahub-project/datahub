@@ -1,6 +1,6 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, Typography, message } from 'antd';
+import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,11 +8,11 @@ import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
 import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
 
-import { useDeleteQueryMutation } from '@graphql/query.generated';
-import { CorpUser, EntityType } from '@types';
+import { ActorWithDisplayNameFragment, useDeleteQueryMutation } from '@graphql/query.generated';
 
 /*
  * Description Column
@@ -68,7 +68,7 @@ export const QueryDescription = ({ description }: DescriptionProps) => {
 const INGESTION_URN = 'urn:li:corpuser:_ingestion';
 
 interface CreatedByProps {
-    createdBy?: CorpUser;
+    createdBy?: ActorWithDisplayNameFragment;
 }
 
 export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
@@ -76,17 +76,16 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
 
     if (!createdBy || createdBy.urn === INGESTION_URN) return null;
 
-    const userName = entityRegistry.getDisplayName(EntityType.CorpUser, createdBy);
+    const userName = entityRegistry.getDisplayName(createdBy.type, createdBy);
+    const photoUrl = createdBy?.editableProperties?.pictureLink || createdBy?.editableInfo?.pictureLink || undefined;
 
     return (
         <div>
             <ActorAvatar
                 size={26}
                 name={userName}
-                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${createdBy.urn}`}
-                photoUrl={
-                    createdBy?.editableProperties?.pictureLink || createdBy?.editableInfo?.pictureLink || undefined
-                }
+                url={`/${entityRegistry.getPathName(createdBy.type)}/${createdBy.urn}`}
+                photoUrl={photoUrl}
             />
         </div>
     );
@@ -113,6 +112,7 @@ interface EditDeleteProps {
 
 export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }: EditDeleteProps) => {
     const [editingQuery, setEditingQuery] = useState<Query | null>(null);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [deleteQueryMutation] = useDeleteQueryMutation();
     const urn = query.urn as string;
 
@@ -133,20 +133,6 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
             });
     };
 
-    const confirmDeleteQuery = () => {
-        Modal.confirm({
-            title: `Delete Query`,
-            content: `Are you sure you want to delete this query?`,
-            onOk() {
-                deleteQuery();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     const onEditSubmitted = (newQuery) => {
         setEditingQuery(null);
         onEdited?.(newQuery);
@@ -158,7 +144,7 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                 <ActionButton privilege onClick={() => setEditingQuery(query)} data-testid="edit-query">
                     <EditOutlinedIcon />
                 </ActionButton>
-                <ActionButton privilege onClick={confirmDeleteQuery} data-testid="delete-query">
+                <ActionButton privilege onClick={() => setShowConfirmationModal(true)} data-testid="delete-query">
                     <DeleteOutlinedIcon />
                 </ActionButton>
             </ButtonsWrapper>
@@ -174,6 +160,13 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                     onClose={() => setEditingQuery(null)}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={deleteQuery}
+                modalTitle="Delete Query"
+                modalText="Are you sure you want to delete this query?"
+            />
         </>
     );
 };
@@ -182,13 +175,9 @@ interface ColumnProps {
     query: Query;
 }
 
-const ColumnsWrapper = styled.div`
-    text-align: right;
-`;
-
 /*
  * Columns Column
  */
 export const ColumnsColumn = ({ query }: ColumnProps) => {
-    return <ColumnsWrapper>{query.columns?.length ?? 0}</ColumnsWrapper>;
+    return <div>{query.columns?.length ?? 0}</div>;
 };

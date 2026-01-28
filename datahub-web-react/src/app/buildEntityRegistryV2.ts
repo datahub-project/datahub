@@ -13,6 +13,7 @@ import { DataPlatformInstanceEntity } from '@app/entityV2/dataPlatformInstance/D
 import { DataProcessInstanceEntity } from '@app/entityV2/dataProcessInstance/DataProcessInstanceEntity';
 import { DataProductEntity } from '@app/entityV2/dataProduct/DataProductEntity';
 import { DatasetEntity } from '@app/entityV2/dataset/DatasetEntity';
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { DomainEntity } from '@app/entityV2/domain/DomainEntity';
 import GlossaryNodeEntity from '@app/entityV2/glossaryNode/GlossaryNodeEntity';
 import { GlossaryTermEntity } from '@app/entityV2/glossaryTerm/GlossaryTermEntity';
@@ -46,6 +47,7 @@ export default function buildEntityRegistryV2() {
     registry.register(new MLModelEntity());
     registry.register(new MLModelGroupEntity());
     registry.register(new DomainEntity());
+    registry.register(new DocumentEntity());
     registry.register(new ContainerEntity());
     registry.register(new GlossaryNodeEntity());
     registry.register(new RoleEntity());

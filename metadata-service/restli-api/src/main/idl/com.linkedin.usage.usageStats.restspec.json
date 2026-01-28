@@ -41,6 +41,10 @@
         "name" : "maxBuckets",
         "type" : "int",
         "optional" : true
+      }, {
+        "name" : "timeZone",
+        "type" : "string",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.usage.UsageQueryResult"
     }, {
@@ -55,6 +59,14 @@
       }, {
         "name" : "rangeFromEnd",
         "type" : "com.linkedin.usage.UsageTimeRange"
+      }, {
+        "name" : "startTime",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "timeZone",
+        "type" : "string",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.usage.UsageQueryResult"
     } ],

@@ -12,7 +12,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.trace.SpanContext;
@@ -46,10 +46,11 @@ public class AuthServiceTestConfiguration {
 
   @Bean(name = "systemOperationContext")
   public OperationContext systemOperationContext(ObjectMapper objectMapper) {
-    TraceContext mockTraceContext = TraceContext.builder().tracer(mockTracer).build();
+    SystemTelemetryContext mockSystemTelemetryContext =
+        SystemTelemetryContext.builder().tracer(mockTracer).build();
     return TestOperationContexts.systemContextTraceNoSearchAuthorization(
         () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
-        () -> mockTraceContext);
+        () -> mockSystemTelemetryContext);
   }
 
   @Bean

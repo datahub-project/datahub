@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import json
 import logging
-import os
 import re
 import time
 from collections import defaultdict
@@ -21,6 +20,7 @@ from typing import (
     Sequence,
     Tuple,
     Union,
+    cast,
     overload,
 )
 
@@ -29,11 +29,11 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 from typing_extensions import deprecated
+from urllib3 import HTTPResponse
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
-from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
@@ -41,6 +41,15 @@ from datahub.configuration.common import (
     OperationalError,
     TraceTimeoutError,
     TraceValidationError,
+)
+from datahub.configuration.env_vars import (
+    get_emit_mode,
+    get_emitter_trace,
+    get_rest_emitter_429_retry_multiplier,
+    get_rest_emitter_batch_max_payload_bytes,
+    get_rest_emitter_batch_max_payload_length,
+    get_rest_emitter_default_endpoint,
+    get_rest_emitter_default_retry_max_times,
 )
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -61,6 +70,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    ChangeTypeClass,
+)
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
@@ -78,11 +91,12 @@ _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     504,
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
-_DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
-)
+_DEFAULT_RETRY_MAX_TIMES = int(get_rest_emitter_default_retry_max_times())
 
-_DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
+# Multiplier to increase number of retries on 429s
+_429_RETRY_MULTIPLIER = get_rest_emitter_429_retry_multiplier()
+
+_DATAHUB_EMITTER_TRACE = get_emitter_trace()
 
 _DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
 
@@ -91,18 +105,62 @@ TRACE_INITIAL_BACKOFF = 1.0  # Start with 1 second
 TRACE_MAX_BACKOFF = 300.0  # Cap at 5 minutes
 TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 
-# The limit is 16mb. We will use a max of 15mb to have some space
+# The limit is 16,000,000 bytes. We will use a max of 15mb to have some space
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
-INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
+INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
 
 # This limit is somewhat arbitrary. All GMS endpoints will timeout
 # and return a 500 if processing takes too long. To avoid sending
 # too much to the backend and hitting a timeout, we try to limit
 # the number of MCPs we send in a batch.
-BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
-    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
-)
+BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
+
+
+class _WeightedRetry(Retry):
+    _429_count: Optional[int]
+
+    def increment(
+        self,
+        method: Optional[str] = None,
+        url: Optional[str] = None,
+        response: Optional[HTTPResponse] = None,
+        error: Optional[Exception] = None,
+        _pool: Any = None,
+        _stacktrace: Any = None,
+    ) -> _WeightedRetry:
+        if handle_429 := (
+            response and response.status == 429 and isinstance(self.total, int)
+        ):
+            _429_count = getattr(self, "_429_count", 0)
+
+            num_retries_left = (self.total - 1) * _429_RETRY_MULTIPLIER + (
+                (_429_RETRY_MULTIPLIER - 1) - (_429_count % _429_RETRY_MULTIPLIER)
+            )
+            logger.debug(
+                f"Retrying after 429, ~{num_retries_left} retries left. "
+                f"total={self.total}, _429_count={_429_count}"
+                + (
+                    f" after {response.headers['Retry-After']}s"
+                    if "Retry-After" in response.headers
+                    else ""
+                )
+            )
+
+        r = cast(
+            _WeightedRetry,
+            super().increment(method, url, response, error, _pool, _stacktrace),
+        )
+
+        if hasattr(self, "_429_count"):
+            r._429_count = self._429_count
+
+        if handle_429:
+            r._429_count = getattr(r, "_429_count", 0) + 1
+            if r._429_count % _429_RETRY_MULTIPLIER != 0 and isinstance(r.total, int):
+                r.total += 1
+
+        return r
 
 
 def preserve_unicode_escapes(obj: Any) -> Any:
@@ -139,9 +197,8 @@ class EmitMode(ConfigEnum):
     ASYNC_WAIT = auto()
 
 
-_DEFAULT_EMIT_MODE = pydantic.parse_obj_as(
-    EmitMode,
-    os.getenv("DATAHUB_EMIT_MODE", EmitMode.SYNC_PRIMARY),
+_DEFAULT_EMIT_MODE = pydantic.TypeAdapter(EmitMode).validate_python(
+    get_emit_mode() or EmitMode.SYNC_PRIMARY,
 )
 
 
@@ -150,9 +207,8 @@ class RestSinkEndpoint(ConfigEnum):
     OPENAPI = auto()
 
 
-DEFAULT_REST_EMITTER_ENDPOINT = pydantic.parse_obj_as(
-    RestSinkEndpoint,
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT", RestSinkEndpoint.RESTLI),
+DEFAULT_REST_EMITTER_ENDPOINT = pydantic.TypeAdapter(RestSinkEndpoint).validate_python(
+    get_rest_emitter_default_endpoint() or RestSinkEndpoint.RESTLI,
 )
 
 
@@ -200,7 +256,7 @@ class RequestsSessionConfig(ConfigModel):
             # Set raise_on_status to False to propagate errors:
             # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
             # Must call `raise_for_status` after making a request, which we do
-            retry_strategy = Retry(
+            retry_strategy = _WeightedRetry(
                 total=self.retry_max_times,
                 status_forcelist=self.retry_status_codes,
                 backoff_factor=2,
@@ -209,7 +265,7 @@ class RequestsSessionConfig(ConfigModel):
             )
         except TypeError:
             # Prior to urllib3 1.26, the Retry class used `method_whitelist` instead of `allowed_methods`.
-            retry_strategy = Retry(
+            retry_strategy = _WeightedRetry(
                 total=self.retry_max_times,
                 status_forcelist=self.retry_status_codes,
                 backoff_factor=2,
@@ -472,7 +528,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         if self._openapi_ingestion is None:
             # No constructor parameter
             if (
-                not os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT")
+                not get_rest_emitter_default_endpoint()
                 and self._session_config.client_mode == ClientMode.SDK
                 and self._server_config.supports_feature(ServiceFeature.OPEN_API_SDK)
             ):
@@ -580,6 +636,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             "systemMetadata": system_metadata_obj,
         }
         payload = json.dumps(snapshot)
+        if len(payload) > INGEST_MAX_PAYLOAD_BYTES:
+            logger.warning(
+                f"MCE object has size {len(payload)} that exceeds the max payload size of {INGEST_MAX_PAYLOAD_BYTES}, "
+                "so this metadata will likely fail to be emitted."
+            )
 
         self._emit_generic(url, payload)
 
@@ -626,15 +687,27 @@ class DataHubRestEmitter(Closeable, Emitter):
                     trace_data = extract_trace_data(response) if response else None
 
         else:
-            url = f"{self._gms_server}/aspects?action=ingestProposal"
+            if mcp.changeType == ChangeTypeClass.DELETE:
+                if mcp.aspectName not in KEY_ASPECT_NAMES:
+                    raise OperationalError(
+                        f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
+                        f"{mcp.entityUrn}"
+                    )
 
-            mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
-            payload_dict = {
-                "proposal": mcp_obj,
-                "async": "true"
-                if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                else "false",
-            }
+                url = f"{self._gms_server}/entities?action=delete"
+                payload_dict = {
+                    "urn": mcp.entityUrn,
+                }
+            else:
+                url = f"{self._gms_server}/aspects?action=ingestProposal"
+
+                mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
+                payload_dict = {
+                    "proposal": mcp_obj,
+                    "async": "true"
+                    if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
+                    else "false",
+                }
 
             payload = json.dumps(payload_dict)
 
@@ -746,16 +819,24 @@ class DataHubRestEmitter(Closeable, Emitter):
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
+        if len(mcp_objs) == 0:
+            return 0
 
         # As a safety mechanism, we need to make sure we don't exceed the max payload size for GMS.
         # If we will exceed the limit, we need to break it up into chunks.
-        mcp_obj_chunks: List[List[str]] = []
-        current_chunk_size = INGEST_MAX_PAYLOAD_BYTES
+        mcp_obj_chunks: List[List[str]] = [[]]
+        current_chunk_size = 0
         for mcp_obj in mcp_objs:
+            mcp_identifier = f"{mcp_obj.get('entityUrn')}-{mcp_obj.get('aspectName')}"
             mcp_obj_size = len(json.dumps(mcp_obj))
             if _DATAHUB_EMITTER_TRACE:
                 logger.debug(
-                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+                    f"Iterating through object ({mcp_identifier}) with size {mcp_obj_size}"
+                )
+            if mcp_obj_size > INGEST_MAX_PAYLOAD_BYTES:
+                logger.warning(
+                    f"MCP object {mcp_identifier} has size {mcp_obj_size} that exceeds the max payload size of {INGEST_MAX_PAYLOAD_BYTES}, "
+                    "so this metadata will likely fail to be emitted."
                 )
 
             if (
@@ -768,7 +849,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
-        if len(mcp_obj_chunks) > 0:
+        if len(mcp_obj_chunks) > 1 or _DATAHUB_EMITTER_TRACE:
             logger.debug(
                 f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
             )

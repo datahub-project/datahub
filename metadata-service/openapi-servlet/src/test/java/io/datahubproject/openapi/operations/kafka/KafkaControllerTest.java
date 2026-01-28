@@ -20,7 +20,7 @@ import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
@@ -402,10 +402,10 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext(ObjectMapper objectMapper) {
-      TraceContext traceContext = mock(TraceContext.class);
+      SystemTelemetryContext systemTelemetryContext = mock(SystemTelemetryContext.class);
       return TestOperationContexts.systemContextTraceNoSearchAuthorization(
           () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
-          () -> traceContext);
+          () -> systemTelemetryContext);
     }
 
     @Bean
@@ -416,9 +416,9 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public TraceContext traceContext(
+    public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getTraceContext();
+      return systemOperationContext.getSystemTelemetryContext();
     }
 
     @Bean

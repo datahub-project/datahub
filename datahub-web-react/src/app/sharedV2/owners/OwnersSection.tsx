@@ -7,9 +7,9 @@ import styled from 'styled-components';
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, Owner, OwnerEntityType } from '@types';
 
@@ -63,29 +63,34 @@ const OwnersContainer = styled.div`
 `;
 
 // Owners section props
-interface Props {
+interface Props<T> {
     selectedOwnerUrns: string[];
     setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
     existingOwners: Owner[];
-    onChange: (owners: PendingOwner[]) => void;
+    onChange: (owners: T[]) => void;
     sourceRefetch?: () => Promise<any>;
     isEditForm?: boolean;
+    canEdit?: boolean;
+    shouldSetOwnerEntities?: boolean;
 }
 
 /**
  * Component for owner selection and management
  */
-const OwnersSection = ({
+const OwnersSection = <T,>({
     selectedOwnerUrns,
     setSelectedOwnerUrns,
     existingOwners,
     onChange,
     sourceRefetch,
     isEditForm = false,
-}: Props) => {
+    canEdit = true,
+    shouldSetOwnerEntities = false,
+}: Props<T>) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+    const [selectedOwnerEntities, setSelectedOwnerEntities] = useState<Entity[]>([]);
 
     // Autocomplete query for owners across both CorpUser and CorpGroup types
     const [autoCompleteQuery, { data: autocompleteData, loading: searchLoading }] =
@@ -98,15 +103,7 @@ const OwnersSection = ({
         EntityType.CorpUser,
     ]);
 
-    // Lazy load ownership types
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
-
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType = ownershipTypes.length > 0 ? ownershipTypes[0].urn : undefined;
+    const { defaultOwnershipTypeUrn } = useOwnershipTypes();
 
     // Get results from the recommendations or autocomplete
     const searchResults: Array<Entity> =
@@ -156,9 +153,15 @@ const OwnersSection = ({
     const handleSelectChange = (newValues) => {
         setSelectedOwnerUrns(newValues);
 
-        if (newValues.length > 0 && defaultOwnerType) {
+        const newEntities = newValues.map((urn) => {
+            return finalResults.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn);
+        });
+
+        setSelectedOwnerEntities(newEntities);
+
+        if (newValues.length > 0 && defaultOwnershipTypeUrn) {
             const newOwners = newValues.map((urn) => {
-                const foundEntity = finalResults.find((e) => e.urn === urn);
+                const foundEntity = newEntities.find((e) => e.urn === urn);
                 const ownerEntityType =
                     foundEntity && foundEntity.type === EntityType.CorpGroup
                         ? OwnerEntityType.CorpGroup
@@ -167,11 +170,12 @@ const OwnersSection = ({
                 return {
                     ownerUrn: urn,
                     ownerEntityType,
-                    ownershipTypeUrn: defaultOwnerType,
+                    ownershipTypeUrn: defaultOwnershipTypeUrn,
                 };
             });
 
-            onChange(newOwners);
+            if (shouldSetOwnerEntities) onChange(newEntities as T[]);
+            else onChange(newOwners);
         }
     };
 
@@ -203,6 +207,7 @@ const OwnersSection = ({
                     loading={isSelectLoading}
                     notFoundContent={notFoundContent}
                     optionLabelProp="label"
+                    disabled={!canEdit}
                 >
                     {finalResults.map((entity) => renderSearchResult(entity))}
                 </SelectInput>
@@ -216,6 +221,7 @@ const OwnersSection = ({
                                 entityUrn={owner.associatedUrn}
                                 owner={owner}
                                 refetch={sourceRefetch}
+                                readOnly={!canEdit}
                             />
                         ))
                     ) : (

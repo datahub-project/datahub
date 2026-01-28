@@ -15,5 +15,9 @@ record DataHubPageTemplateSurface  {
      * This template applies to what to display on the home page for users.
      */
     HOME_PAGE
+    /**
+     * This template applies to what to display on asset summary pages
+     */
+    ASSET_SUMMARY
    }
 }

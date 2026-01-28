@@ -40,14 +40,13 @@ import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/Docume
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '@app/entityV2/shared/tabs/Entity/DashboardChartsTab';
 import { DashboardDatasetsTab } from '@app/entityV2/shared/tabs/Entity/DashboardDatasetsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
-    getDataProduct,
+    getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
@@ -65,7 +64,6 @@ const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
  */
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -94,14 +92,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             );
         }
 
-        return (
-            <DashboardOutlined
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
-            />
-        );
+        return <DashboardOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
     };
 
     isSearchEnabled = () => true;
@@ -193,9 +184,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dashboard, loading) => {
-                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dashboard) => {
+                        return dashboard?.dashboard?.activeIncidents?.total;
                     },
                 },
             ]}
@@ -291,8 +281,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 parentContainers={data.parentContainers}
                 deprecation={data.deprecation}
@@ -300,7 +288,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
                 browsePaths={data.browsePathV2 || undefined}
@@ -326,8 +314,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 parentContainers={data.parentContainers}
                 deprecation={data.deprecation}
@@ -341,12 +327,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                         matchSuffix="on a contained chart"
                     />
                 }
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -366,7 +353,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.properties?.name || entity.urn,
             type: EntityType.Dashboard,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             deprecation: entity?.deprecation,
@@ -398,6 +385,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

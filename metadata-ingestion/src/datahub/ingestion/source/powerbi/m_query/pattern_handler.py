@@ -1,9 +1,11 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, cast
+from typing import Callable, Dict, List, Optional, Tuple, Type, cast
 
+import sqlglot
 from lark import Tree
+from sqlglot import ParseError, expressions as exp
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
@@ -37,6 +39,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -156,6 +159,10 @@ class AbstractLineage(ABC):
     def get_db_detail_from_argument(
         arg_list: Tree,
     ) -> Tuple[Optional[str], Optional[str]]:
+        # TODO: tree_function.token_values turns nulls into empty strings,
+        # which then get removed by remove_whitespaces_from_list. We would
+        # prefer to pass them along as None to give callers an accurate view
+        # of the arguments.
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(arg_list)
@@ -163,11 +170,10 @@ class AbstractLineage(ABC):
         )
         logger.debug(f"DB Details: {arguments}")
 
-        if len(arguments) < 2:
-            logger.debug(f"Expected minimum 2 arguments, but got {len(arguments)}")
-            return None, None
-
-        return arguments[0], arguments[1]
+        return (
+            arguments[0] if len(arguments) > 0 else None,
+            arguments[1] if len(arguments) > 1 else None,
+        )
 
     @staticmethod
     def create_reference_table(
@@ -209,29 +215,47 @@ class AbstractLineage(ABC):
 
         return None
 
+    @staticmethod
+    def is_sql_query(query: Optional[str]) -> bool:
+        if not query:
+            return False
+        query = native_sql_parser.remove_special_characters(query)
+        try:
+            expression = sqlglot.parse_one(query)
+            return isinstance(expression, exp.Select)
+        except (ParseError, Exception):
+            logger.debug(f"Failed to parse query as SQL: {query}")
+            return False
+
     def parse_custom_sql(
-        self, query: str, server: str, database: Optional[str], schema: Optional[str]
+        self,
+        query: str,
+        server: str,
+        database: Optional[str],
+        schema: Optional[str],
+        platform_pair: Optional[DataPlatformPair] = None,
     ) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
+        if not platform_pair:
+            platform_pair = self.get_platform_pair()
 
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(
-                    data_platform_pair=self.get_platform_pair(),
+                    data_platform_pair=platform_pair,
                     data_platform_server=server,
                 )
             )
         )
 
-        query = native_sql_parser.remove_drop_statement(
-            native_sql_parser.remove_special_characters(query)
-        )
+        query = native_sql_parser.remove_drop_statement(query)
+        query = native_sql_parser.remove_special_characters(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
                 ctx=self.ctx,
                 query=query,
-                platform=self.get_platform_pair().datahub_data_platform_name,
+                platform=platform_pair.datahub_data_platform_name,
                 platform_instance=platform_detail.platform_instance,
                 env=platform_detail.env,
                 database=database,
@@ -258,7 +282,7 @@ class AbstractLineage(ABC):
         for urn in parsed_result.in_tables:
             dataplatform_tables.append(
                 DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
+                    data_platform_pair=platform_pair,
                     urn=urn,
                 )
             )
@@ -301,6 +325,148 @@ class AbstractLineage(ABC):
                 column_lineage.append(column_lineage_info)
 
         return column_lineage
+
+
+class AmazonAthenaLineage(AbstractLineage):
+    """
+    Handles lineage extraction for Amazon Athena data sources in PowerBI.
+
+    Athena uses a three-level hierarchy: catalog.database.table
+    Example M-Query:
+        Source = AmazonAthena.Databases("us-east-1")
+        catalog = Source{[Name="AwsDataCatalog",Kind="Database"]}[Data]
+        database = catalog{[Name="my_database",Kind="Schema"]}[Data]
+        table = database{[Name="my_table",Kind="Table"]}[Data]
+
+    URN Format:
+        Generated URNs use database.table format (catalog is omitted) to match the
+        standalone Athena connector behavior. This ensures URN consistency across
+        different ingestion sources.
+        Example: urn:li:dataset:(urn:li:dataPlatform:athena,my_database.my_table,PROD)
+
+        Note: Athena's default catalog is "AwsDataCatalog", but users can have multiple
+        catalogs (Glue, Hive, federated). The catalog is intentionally omitted from URNs
+        because the standalone Athena connector also omits it, treating the database as
+        the top-level namespace. This matches Athena's typical usage where most users
+        work within a single catalog context.
+    """
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.AMAZON_ATHENA.value
+
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Processing AmazonAthena data-access function detail {data_access_func_detail}"
+        )
+
+        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+        if server is None:
+            logger.debug("Server/region not found in Athena data access function")
+            return Lineage.empty()
+
+        # Validate identifier accessor exists
+        if data_access_func_detail.identifier_accessor is None:
+            logger.warning(
+                f"Missing identifier accessor for Athena table {self.table.full_name}"
+            )
+            return Lineage.empty()
+
+        # Extract database and table names from Athena's 3-level hierarchy (catalog.database.table)
+        # Note: Catalog is extracted but NOT included in URN to match the standalone Athena connector
+        # which uses database.table format. This avoids URN mismatches between PowerBI and Athena sources.
+        try:
+            catalog_accessor = data_access_func_detail.identifier_accessor
+
+            if catalog_accessor.next is None:
+                logger.warning(
+                    f"Incomplete Athena hierarchy for table {self.table.full_name}: "
+                    f"missing database level after catalog. Expected format: catalog.database.table"
+                )
+                return Lineage.empty()
+
+            db_accessor = catalog_accessor.next
+
+            # Extract database name with specific error handling
+            try:
+                db_name: str = db_accessor.items["Name"]
+            except KeyError:
+                logger.warning(
+                    f"Missing 'Name' key in database accessor for table {self.table.full_name}. "
+                    f"Available keys: {list(db_accessor.items.keys())}"
+                )
+                return Lineage.empty()
+
+            if db_accessor.next is None:
+                logger.warning(
+                    f"Incomplete Athena hierarchy for table {self.table.full_name}: "
+                    f"missing table level after database '{db_name}'. Expected format: catalog.database.table"
+                )
+                return Lineage.empty()
+
+            table_accessor = db_accessor.next
+
+            # Extract table name with specific error handling
+            try:
+                table_name: str = table_accessor.items["Name"]
+            except KeyError:
+                logger.warning(
+                    f"Missing 'Name' key in table accessor for table {self.table.full_name}. "
+                    f"Available keys: {list(table_accessor.items.keys())}"
+                )
+                return Lineage.empty()
+
+        except AttributeError as e:
+            logger.warning(
+                f"AttributeError while accessing Athena hierarchy for table {self.table.full_name}: {e}. "
+                f"This usually indicates a malformed M-Query structure."
+            )
+            return Lineage.empty()
+        except TypeError as e:
+            logger.warning(
+                f"TypeError while processing Athena hierarchy for table {self.table.full_name}: {e}. "
+                f"This usually indicates unexpected data types in the M-Query structure."
+            )
+            return Lineage.empty()
+
+        # Validate that database and table names are not empty to prevent malformed URNs
+        if not db_name or not db_name.strip():
+            logger.warning(
+                f"Empty database name for table {self.table.full_name}. Cannot generate valid URN."
+            )
+            return Lineage.empty()
+
+        if not table_name or not table_name.strip():
+            logger.warning(
+                f"Empty table name for table {self.table.full_name}. Cannot generate valid URN."
+            )
+            return Lineage.empty()
+
+        qualified_table_name: str = f"{db_name}.{table_name}"
+        logger.debug(
+            f"Extracted Athena qualified table name: {qualified_table_name} from server: {server}"
+        )
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
 
 
 class AmazonRedshiftLineage(AbstractLineage):
@@ -956,7 +1122,7 @@ class OdbcLineage(AbstractLineage):
             f"data-access function detail {data_access_func_detail}"
         )
 
-        connect_string, _ = self.get_db_detail_from_argument(
+        connect_string, query = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list
         )
 
@@ -972,12 +1138,19 @@ class OdbcLineage(AbstractLineage):
         data_platform, powerbi_platform = extract_platform(connect_string)
         server_name = extract_server(connect_string)
 
+        dsn = extract_dsn(connect_string)
+        if not dsn:
+            self.reporter.warning(
+                title="Can not determine ODBC DSN",
+                message="Can not extract DSN from ODBC connect string. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}, connect-string={connect_string}",
+            )
+            return Lineage.empty()
+        logger.debug(f"Extracted DSN: {dsn}")
+
         if not data_platform:
-            dsn = extract_dsn(connect_string)
-            if dsn:
-                logger.debug(f"Extracted DSN: {dsn}")
-                server_name = dsn
-            if dsn and self.config.dsn_to_platform_name:
+            server_name = dsn
+            if self.config.dsn_to_platform_name:
                 logger.debug(f"Attempting to map DSN {dsn} to platform")
                 name = self.config.dsn_to_platform_name.get(dsn)
                 if name:
@@ -1006,6 +1179,223 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
+        if self.is_sql_query(query):
+            return self.query_lineage(query, platform_pair, server_name, dsn)
+        else:
+            return self.expression_lineage(
+                data_access_func_detail, data_platform, platform_pair, server_name
+            )
+
+    def query_lineage(
+        self,
+        query: Optional[str],
+        platform_pair: DataPlatformPair,
+        server_name: str,
+        dsn: str,
+    ) -> Lineage:
+        database = None
+        schema = None
+
+        if not query:
+            # query should never be None as it is checked before calling this function.
+            # however, we need to check just in case.
+            self.reporter.warning(
+                title="ODBC Query is null",
+                message="No SQL to parse. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}",
+            )
+            return Lineage.empty()
+
+        if self.config.dsn_to_database_schema:
+            value = self.config.dsn_to_database_schema.get(dsn)
+            if value:
+                parts = value.split(".")
+                if len(parts) == 1:
+                    database = parts[0]
+                elif len(parts) == 2:
+                    database = parts[0]
+                    schema = parts[1]
+
+        logger.debug(
+            f"ODBC query processing: dsn={dsn} mapped to database={database}, schema={schema}"
+        )
+        result = self.parse_custom_sql(
+            query=query,
+            server=server_name,
+            database=database,
+            schema=schema,
+            platform_pair=platform_pair,
+        )
+        logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
+
+        # Athena-specific processing: catalog stripping and federated table platform override
+        if (
+            platform_pair.datahub_data_platform_name
+            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+        ):
+            # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs
+            # This ensures URN consistency with the standalone Athena connector
+            result = self._strip_athena_catalog_from_lineage(result)
+            # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
+            result = self._apply_table_platform_override(result, dsn)
+
+        return result
+
+    @staticmethod
+    def _transform_lineage_urns(
+        lineage: Lineage, transform_fn: Callable[[str], str]
+    ) -> Lineage:
+        """
+        Transform URNs in lineage using the provided transformation function.
+
+        This is a helper method used by _strip_athena_catalog_from_lineage and
+        _apply_table_platform_override to avoid code duplication.
+
+        Args:
+            lineage: The lineage object to transform
+            transform_fn: Function that takes a URN string and returns a transformed URN
+
+        Returns:
+            New Lineage object with transformed URNs
+        """
+        # Transform upstream table URNs
+        updated_upstreams: List[DataPlatformTable] = []
+        for upstream in lineage.upstreams:
+            transformed_urn = transform_fn(upstream.urn)
+            updated_upstreams.append(
+                DataPlatformTable(
+                    data_platform_pair=upstream.data_platform_pair,
+                    urn=transformed_urn,
+                )
+            )
+
+        # Transform column lineage URNs
+        updated_column_lineage: List[ColumnLineageInfo] = []
+        for col_info in lineage.column_lineage:
+            updated_col_upstreams: List[ColumnRef] = []
+            for col_ref in col_info.upstreams:
+                transformed_table_urn = transform_fn(col_ref.table)
+                updated_col_upstreams.append(
+                    ColumnRef(table=transformed_table_urn, column=col_ref.column)
+                )
+
+            updated_column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=col_info.downstream,
+                    upstreams=updated_col_upstreams,
+                    logic=col_info.logic,
+                )
+            )
+
+        return Lineage(
+            upstreams=updated_upstreams,
+            column_lineage=updated_column_lineage,
+        )
+
+    def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
+        """
+        Strip catalog/database prefix from Athena URNs to normalize to database.table format.
+
+        Athena queries may reference tables as:
+        - awsdatacatalog.database.table (AWS Glue catalog)
+        - catalog.database.table (any 3-part reference like thread-prod-data.normalized-data.table)
+
+        This method strips the first part from 3-part references to produce database.table format,
+        matching the standalone Athena connector URN format and enabling lineage connections
+        to entities cataloged with 2-part names.
+
+        This affects both:
+        - Table-level lineage (upstreams[*].urn)
+        - Column-level lineage (column_lineage[*].upstreams[*].table)
+        """
+
+        def strip_catalog_from_urn(urn: str) -> str:
+            """Strip first part from 3-part table names in URN."""
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except Exception as e:
+                logger.warning(f"Failed to parse URN for catalog stripping: {urn}: {e}")
+                return urn
+
+            parts = parsed.name.split(".")
+            if len(parts) < 3:
+                return urn
+
+            # Strip first part, keep remaining parts (database.table)
+            stripped_name = ".".join(parts[1:])
+            stripped_urn = str(
+                DatasetUrn(platform=parsed.platform, name=stripped_name, env=parsed.env)
+            )
+            logger.debug(f"Stripped catalog prefix from URN: {urn} -> {stripped_urn}")
+            return stripped_urn
+
+        return self._transform_lineage_urns(lineage, strip_catalog_from_urn)
+
+    def _apply_table_platform_override(self, lineage: Lineage, dsn: str) -> Lineage:
+        """
+        Override the platform in URNs for specific tables based on config.
+
+        This is used when Athena queries federated data sources (e.g., MySQL)
+        and the lineage should point to the actual source platform entity.
+
+        Matching priority:
+        1. DSN-scoped overrides (where override.dsn matches the current DSN)
+        2. Global overrides (where override.dsn is None)
+        """
+        if not self.config.athena_table_platform_override:
+            return lineage
+
+        def override_platform_in_urn(urn: str) -> str:
+            """Check if table matches override config and replace platform."""
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except Exception as e:
+                logger.warning(f"Failed to parse URN for platform override: {urn}: {e}")
+                return urn
+
+            urn_name = parsed.name  # format: "database.table"
+            current_platform = str(parsed.platform)
+
+            # Parse database and table from URN name
+            # Athena has no schema level, so expect exactly 2 parts (database.table)
+            # Skip override if format is unexpected (e.g., unstripped catalog prefix)
+            name_parts = urn_name.split(".")
+            if len(name_parts) != 2:
+                return urn
+            urn_database, urn_table = name_parts
+
+            # Find matching override: DSN-scoped first, then global
+            target_platform = None
+            for override in self.config.athena_table_platform_override:
+                if override.database == urn_database and override.table == urn_table:
+                    if override.dsn == dsn:
+                        # DSN-scoped match takes priority
+                        target_platform = override.platform
+                        break
+                    elif override.dsn is None and target_platform is None:
+                        # Global match (only if no DSN-scoped match found yet)
+                        target_platform = override.platform
+
+            if not target_platform:
+                return urn
+
+            overridden_urn = str(
+                DatasetUrn(platform=target_platform, name=urn_name, env=parsed.env)
+            )
+            logger.debug(
+                f"Overriding platform for table {urn_name}: {current_platform} -> {target_platform}"
+            )
+            return overridden_urn
+
+        return self._transform_lineage_urns(lineage, override_platform_in_urn)
+
+    def expression_lineage(
+        self,
+        data_access_func_detail: DataAccessFunctionDetail,
+        data_platform: str,
+        platform_pair: DataPlatformPair,
+        server_name: str,
+    ) -> Lineage:
         database_name = None
         schema_name = None
         table_name = None
@@ -1124,6 +1514,11 @@ class SupportedPattern(Enum):
         FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS,
     )
 
+    AMAZON_ATHENA = (
+        AmazonAthenaLineage,
+        FunctionName.AMAZON_ATHENA_DATA_ACCESS,
+    )
+
     AMAZON_REDSHIFT = (
         AmazonRedshiftLineage,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS,
@@ -1142,6 +1537,11 @@ class SupportedPattern(Enum):
     ODBC = (
         OdbcLineage,
         FunctionName.ODBC_DATA_ACCESS,
+    )
+
+    ODBC_QUERY = (
+        OdbcLineage,
+        FunctionName.ODBC_QUERY,
     )
 
     def handler(self) -> Type[AbstractLineage]:

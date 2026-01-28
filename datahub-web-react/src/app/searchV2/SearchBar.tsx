@@ -1,5 +1,5 @@
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
-import { AutoComplete, Input, Skeleton } from 'antd';
+import { AutoComplete, Input } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
@@ -9,7 +9,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
+import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import ViewAllSearchItem from '@app/searchV2/ViewAllSearchItem';
@@ -17,6 +17,7 @@ import AutoCompleteItem from '@app/searchV2/autoComplete/AutoCompleteItem';
 import RecommendedOption from '@app/searchV2/autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from '@app/searchV2/autoComplete/SectionHeader';
 import QuickFilters from '@app/searchV2/autoComplete/quickFilters/QuickFilters';
+import Skeleton from '@app/searchV2/searchBarV2/components/Skeleton';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
@@ -35,19 +36,6 @@ import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '@ty
 const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
     max-width: ${(props) => (props.$isShowNavBarRedesign ? '632px' : '540px')};
-`;
-
-const SkeletonContainer = styled.div`
-    height: 40px;
-    width: 100%;
-    max-width: 620px;
-`;
-
-const SkeletonButton = styled(Skeleton.Button)`
-    &&& {
-        height: inherit;
-        width: inherit;
-    }
 `;
 
 const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBarRedesign?: boolean }>`
@@ -400,9 +388,7 @@ export const SearchBar = ({
     return (
         <>
             {isLoading ? (
-                <SkeletonContainer>
-                    <SkeletonButton shape="square" active block />
-                </SkeletonContainer>
+                <Skeleton />
             ) : (
                 <AutoCompleteContainer
                     viewsEnabled={viewsEnabled}
@@ -487,7 +473,7 @@ export const SearchBar = ({
                             onBlur={handleBlur}
                             viewsEnabled={viewsEnabled}
                             $isShowNavBarRedesign={isShowNavBarRedesign}
-                            allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
+                            allowClear={(isFocused && { clearIcon: <ClearIcon data-testid="button-clear" /> }) || false}
                             prefix={
                                 <>
                                     <SearchIcon
@@ -509,7 +495,7 @@ export const SearchBar = ({
                     </StyledAutoComplete>
                     {viewsEnabled && (
                         <ViewSelectContainer id={V2_SEARCH_BAR_VIEWS}>
-                            <ViewSelect />
+                            <ViewSelectButtonWithPopover />
                         </ViewSelectContainer>
                     )}
                 </AutoCompleteContainer>

@@ -170,7 +170,7 @@ class DbtTestConfig:
             },
         ),
         DbtTestConfig(
-            "dbt-column-meta-mapping",  # this also tests snapshot support
+            "dbt-column-meta-mapping",  # this also tests snapshot support and meta nested mapping
             "dbt_test_column_meta_mapping.json",
             "dbt_test_column_meta_mapping_golden.json",
             catalog_file="sample_dbt_catalog_1.json",
@@ -178,6 +178,43 @@ class DbtTestConfig:
             sources_file="sample_dbt_sources_1.json",
             source_config_modifiers={
                 "enable_meta_mapping": True,
+                "meta_mapping": {
+                    "data_governance_nested.team_owner": {
+                        "match": "Finance",
+                        "operation": "add_term",
+                        "config": {"term": "Finance_test_nested"},
+                    },
+                    "owner": {
+                        "match": "^@(.*)",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
+                    "business_owner": {
+                        "match": ".*",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
+                    "has_pii": {
+                        "match": True,
+                        "operation": "add_tag",
+                        "config": {"tag": "has_pii_test"},
+                    },
+                    "int_property": {
+                        "match": 1,
+                        "operation": "add_tag",
+                        "config": {"tag": "int_meta_property"},
+                    },
+                    "double_property": {
+                        "match": 2.5,
+                        "operation": "add_term",
+                        "config": {"term": "double_meta_property"},
+                    },
+                    "data_governance.team_owner": {
+                        "match": "Finance",
+                        "operation": "add_term",
+                        "config": {"term": "Finance_test"},
+                    },
+                },
                 "column_meta_mapping": {
                     "terms": {
                         "match": ".*",
@@ -193,6 +230,11 @@ class DbtTestConfig:
                         "match": ".*",
                         "operation": "add_term",
                         "config": {"term": "maturity_{{ $match }}"},
+                    },
+                    "governance.pii_category": {
+                        "match": ".*",
+                        "operation": "add_term",
+                        "config": {"term": "pii_category_{{ $match }}"},
                     },
                 },
                 "entities_enabled": {
@@ -223,6 +265,61 @@ class DbtTestConfig:
                 "prefer_sql_parser_lineage": True,
                 "skip_sources_in_lineage": True,
                 # "entities_enabled": {"sources": "NO"},
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-target-platform-primary-siblings",
+            "dbt_test_target_platform_primary_siblings.json",
+            "dbt_test_target_platform_primary_siblings_golden.json",
+            source_config_modifiers={
+                "dbt_is_primary_sibling": False,
+                "enable_meta_mapping": False,
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-schema-pattern",
+            "dbt_test_with_source_schema_pattern_mces.json",
+            "dbt_test_with_source_schema_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "materialized_node_pattern": {
+                    "schema_pattern": {"allow": ["pagila\\.dbt_postgres"]}
+                }
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-database-pattern",
+            "dbt_test_with_source_database_pattern_mces.json",
+            "dbt_test_with_source_database_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "materialized_node_pattern": {"database_pattern": {"allow": ["pagila"]}}
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-combined-patterns",
+            "dbt_test_with_source_combined_patterns_mces.json",
+            "dbt_test_with_source_combined_patterns_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "node_name_pattern": {
+                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
+                },
+                "materialized_node_pattern": {
+                    "database_pattern": {"allow": ["pagila"]},
+                    "schema_pattern": {"allow": ["pagila\\.dbt_postgres"]},
+                },
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-table-pattern",
+            "dbt_test_with_source_table_pattern_mces.json",
+            "dbt_test_with_source_table_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "materialized_node_pattern": {
+                    "table_pattern": {"allow": ["pagila\\.dbt_postgres\\.customer.*"]}
+                }
             },
         ),
     ],

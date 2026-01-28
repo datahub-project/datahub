@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.kafka;
 
+import com.linkedin.metadata.config.MetricsOptions;
 import lombok.Data;
 
 @Data
@@ -12,6 +13,9 @@ public class ConsumerConfiguration {
   private ConsumerOptions mcp;
   private ConsumerOptions mcl;
   private ConsumerOptions pe;
+
+  private MetricsOptions metrics;
+  private String bootstrapServers;
 
   @Data
   public static class ConsumerOptions {

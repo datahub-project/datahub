@@ -27,6 +27,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -45,6 +46,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_protocols import MetadataWorkUnitIterable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
     SAMPLE_SIZE_MULTIPLIER,
@@ -54,6 +56,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -69,6 +72,11 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+    generate_procedure_container_workunits,
+    generate_procedure_workunits,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -291,6 +299,10 @@ class ProfileMetadata:
     SourceCapability.CONTAINERS,
     "Enabled by default",
     supported=True,
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
 )
 @capability(
     SourceCapability.DESCRIPTIONS,
@@ -305,10 +317,12 @@ class ProfileMetadata:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default to get lineage for views via `include_view_lineage`",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default to get lineage for views via `include_view_column_lineage`",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
@@ -326,7 +340,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         config_report = {
-            config_option: config.dict().get(config_option)
+            config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report
         }
 
@@ -524,6 +538,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_views:
             yield from self.loop_views(inspector, schema, self.config)
 
+        if getattr(self.config, "include_stored_procedures", False):
+            try:
+                yield from self.loop_stored_procedures(inspector, schema, self.config)
+            except NotImplementedError as e:
+                self.report.warning(
+                    title="Stored procedures not supported",
+                    message="The current SQL dialect does not support stored procedures.",
+                    context=f"{database}.{schema}",
+                    exc=e,
+                )
+            except Exception as e:
+                self.report.failure(
+                    title="Failed to list stored procedures for schema",
+                    message="An error occurred while listing procedures for the schema.",
+                    context=f"{database}.{schema}",
+                    exc=e,
+                )
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -547,19 +579,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self._add_default_options(sql_config)
 
         for inspector in self.get_inspectors():
-            profiler = None
-            profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.is_profiling_enabled():
-                profiler = self.get_profiler_instance(inspector)
-                try:
-                    self.add_profile_metadata(inspector)
-                except Exception as e:
-                    self.warn(
-                        logger,
-                        "profile_metadata",
-                        f"Failed to get enrichment data for profile {e}",
-                    )
-
             db_name = self.get_db_name(inspector)
             yield from self.get_database_level_workunits(
                 inspector=inspector,
@@ -575,17 +594,41 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     database=db_name,
                 )
 
+        # Generate workunit for aggregated SQL parsing results
+        yield from self._generate_aggregator_workunits()
+
+    def is_profiling_enabled_internal(self) -> bool:
+        return self.config.is_profiling_enabled()
+
+    def get_profiling_internal(
+        self,
+    ) -> MetadataWorkUnitIterable:
+        sql_config = self.config
+        for inspector in self.get_inspectors():
+            profiler = None
+            profile_requests: List["GEProfilerRequest"] = []
+            profiler = self.get_profiler_instance(inspector)
+            try:
+                self.add_profile_metadata(inspector)
+            except Exception as e:
+                self.warn(
+                    logger,
+                    "profile_metadata",
+                    f"Failed to get enrichment data for profile {e}",
+                )
+            db_name = self.get_db_name(inspector)
+            for schema in self.get_allowed_schemas(inspector, db_name):
                 if profiler:
                     profile_requests += list(
                         self.loop_profiler_requests(inspector, schema, sql_config)
                     )
-
             if profiler and profile_requests:
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
 
-        # Generate workunit for aggregated SQL parsing results
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Generate work units from SQL parsing aggregator. Can be overridden by subclasses."""
         for mcp in self.aggregator.gen_metadata():
             yield mcp.as_workunit()
 
@@ -1112,6 +1155,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         except NotImplementedError:
             return ""
 
+    def get_view_default_db_schema(
+        self, _inspector: Inspector, dataset_identifier: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        # Most systems will resolve unqualified names in view definitions to the
+        # same database and schema that the view itself lives in. However, some
+        # systems (like IBM Db2), use different implicit databases/schemas that
+        # must be looked up, so this function exists as an override point for subclasses.
+        # TODO: database/schema should be passed directly, instead of being serialized
+        # into a dataset identifier string and then parsed back out.
+        return self.get_db_schema(dataset_identifier)
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1158,9 +1212,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             default_db = None
             default_schema = None
             try:
-                default_db, default_schema = self.get_db_schema(dataset_name)
-            except ValueError:
-                logger.warning(f"Invalid view identifier: {dataset_name}")
+                default_db, default_schema = self.get_view_default_db_schema(
+                    inspector, dataset_name
+                )
+            except Exception as e:
+                self.report.warning(
+                    "Failed to get default db and schema names for view",
+                    context=dataset_name,
+                    exc=e,
+                )
+
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
@@ -1426,3 +1487,116 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self):
         return self.report
+
+    def loop_stored_procedures(
+        self,
+        inspector: Inspector,
+        schema: str,
+        config: Union[SQLCommonConfig, Type[SQLCommonConfig]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Loop schema data for get stored procedures as dataJob-s.
+        """
+        db_name = self.get_db_name(inspector)
+
+        procedures = self.fetch_procedures_for_schema(inspector, schema, db_name)
+        if procedures:
+            yield from self._process_procedures(procedures, db_name, schema)
+
+    def fetch_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> List[BaseProcedure]:
+        try:
+            raw_procedures = list(
+                self.get_procedures_for_schema(inspector, schema, db_name)
+            )
+            procedures: List[BaseProcedure] = []
+            for procedure in raw_procedures:
+                procedure_qualified_name = self.get_identifier(
+                    schema=schema,
+                    entity=procedure.name,
+                    inspector=inspector,
+                )
+
+                procedure_pattern = getattr(
+                    self.config, "procedure_pattern", AllowDenyPattern.allow_all()
+                )
+                if not procedure_pattern.allowed(procedure_qualified_name):
+                    self.report.report_dropped(procedure_qualified_name)
+                else:
+                    procedures.append(procedure)
+            return procedures
+        except NotImplementedError:
+            raise
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get procedures for schema",
+                message="An error occurred while fetching procedures for the schema.",
+                context=f"{db_name}.{schema}",
+                exc=e,
+            )
+            return []
+
+    def get_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> Iterable[BaseProcedure]:
+        raise NotImplementedError(
+            "Subclasses must implement the 'get_procedures_for_schema' method."
+        )
+
+    def _process_procedures(
+        self,
+        procedures: List[BaseProcedure],
+        db_name: str,
+        schema: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if procedures:
+            yield from generate_procedure_container_workunits(
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=db_name,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+            )
+        for procedure in procedures:
+            yield from self._process_procedure(procedure, schema, db_name)
+
+    def _process_procedure(
+        self,
+        procedure: BaseProcedure,
+        schema: str,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        try:
+            yield from generate_procedure_workunits(
+                procedure=procedure,
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=db_name,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_resolver=self.get_schema_resolver(),
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit stored procedure",
+                message="An error occurred while emitting stored procedure",
+                context=procedure.name,
+                exc=e,
+            )

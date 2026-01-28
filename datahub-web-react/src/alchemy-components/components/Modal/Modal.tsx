@@ -3,6 +3,8 @@ import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { ModalContext } from '@app/sharedV2/modals/ModalContext';
+
 const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
@@ -37,9 +39,18 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     }
 `;
 
-const HeaderContainer = styled.div<{ hasChildren: boolean }>`
+const ModalHeader = styled.div<{ hasChildren: boolean }>`
     display: flex;
     flex-direction: column;
+    width: 100%;
+`;
+
+const TitleRow = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
 `;
 
 const ButtonsContainer = styled.div`
@@ -56,45 +67,58 @@ export interface ModalButton extends ButtonProps {
 }
 
 export interface ModalProps {
-    buttons: ModalButton[];
-    title: string;
+    buttons?: ModalButton[];
+    title: React.ReactNode;
     subtitle?: string;
+    titlePill?: React.ReactNode;
     children?: React.ReactNode;
     onCancel: () => void;
     dataTestId?: string;
+    titleIcon?: React.ReactNode;
+    closable?: boolean;
 }
 
 export function Modal({
     buttons,
     title,
     subtitle,
+    titlePill,
     children,
     onCancel,
     dataTestId,
+    closable = true,
     ...props
 }: ModalProps & AntModalProps) {
     return (
         <StyledModal
             open
             centered
+            closable={closable}
             onCancel={onCancel}
-            closeIcon={<Icon icon="X" source="phosphor" />}
+            closeIcon={closable ? <Icon icon="X" source="phosphor" data-testid="modal-close-icon" /> : null}
             hasChildren={!!children}
             data-testid={dataTestId}
             title={
-                <HeaderContainer hasChildren={!!children}>
-                    <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
-                        {title}
-                    </Heading>
-                    {!!subtitle && (
-                        <Text type="span" color="gray" colorLevel={1700} weight="medium">
-                            {subtitle}
-                        </Text>
-                    )}
-                </HeaderContainer>
+                typeof title === 'string' ? (
+                    <ModalHeader hasChildren={!!children}>
+                        <TitleRow>
+                            <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
+                                {title}
+                            </Heading>
+                            {titlePill}
+                        </TitleRow>
+                        {!!subtitle && (
+                            <Text type="span" color="gray" colorLevel={1700} weight="medium">
+                                {subtitle}
+                            </Text>
+                        )}
+                    </ModalHeader>
+                ) : (
+                    <div style={{ marginRight: closable ? '20px' : '0' }}>{title}</div>
+                )
             }
             footer={
-                !!buttons.length && (
+                !!buttons?.length && (
                     <ButtonsContainer>
                         {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
                             <Button
@@ -114,7 +138,7 @@ export function Modal({
             }
             {...props}
         >
-            {children}
+            <ModalContext.Provider value={{ isInsideModal: true }}>{children}</ModalContext.Provider>
         </StyledModal>
     );
 }

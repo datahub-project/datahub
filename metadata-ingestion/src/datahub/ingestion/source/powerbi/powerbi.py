@@ -40,6 +40,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.powerbi.config import (
     Constant,
@@ -51,7 +52,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -74,6 +75,7 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
@@ -175,6 +177,21 @@ class Mapper:
             mcp=mcp,
         )
 
+    def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
+        """
+        Generate DataPlatformInstanceClass aspect for PowerBI entities.
+        """
+        return DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(self.__config.platform_name),
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.__config.platform_name, self.__config.platform_instance
+                )
+                if self.__config.platform_instance
+                else None
+            ),
+        )
+
     def extract_dataset_schema(
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
@@ -261,12 +278,12 @@ class Mapper:
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
-                if (
+                platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                    not in self.__config.dataset_type_mapping
-                ):
+                )
+                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
                     logger.debug(
-                        f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                        f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )
                     continue
 
@@ -294,8 +311,6 @@ class Mapper:
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
 
             mcp = MetadataChangeProposalWrapper(
-                entityType=Constant.DATASET,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=ds_urn,
                 aspect=upstream_lineage_class,
             )
@@ -413,9 +428,15 @@ class Mapper:
             logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
             if table.expression:
+                # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual characters
+                # This is done after all parsing is complete to avoid interfering with M-Query parsing
+
+                converted_expression = native_sql_parser.remove_special_characters(
+                    table.expression
+                )
                 view_properties = ViewPropertiesClass(
                     materialized=False,
-                    viewLogic=table.expression,
+                    viewLogic=converted_expression,
                     viewLanguage="m_query",
                 )
                 view_prop_mcp = self.new_mcp(
@@ -470,7 +491,15 @@ class Mapper:
                 )
                 dataset_mcps.extend([owner_mcp])
 
-            dataset_mcps.extend([info_mcp, status_mcp, subtype_mcp])
+            # DataPlatformInstance
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=ds_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            dataset_mcps.extend(
+                [info_mcp, status_mcp, subtype_mcp, data_platform_instance_mcp]
+            )
 
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
@@ -538,9 +567,7 @@ class Mapper:
         profile.columnCount = table.column_count
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=ds_urn,
-            aspectName="datasetProfile",
             aspect=profile,
         )
         dataset_mcps.append(mcp)
@@ -641,12 +668,20 @@ class Mapper:
             entity_urn=chart_urn,
             aspect=browse_path,
         )
+
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=chart_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         result_mcps = [
             info_mcp,
             status_mcp,
             subtype_mcp,
             chart_key_mcp,
             browse_path_mcp,
+            data_platform_instance_mcp,
         ]
 
         self.append_container_mcp(
@@ -753,11 +788,18 @@ class Mapper:
             aspect=browse_path,
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:
@@ -796,7 +838,6 @@ class Mapper:
             guid=container_key.guid(),
         )
         mcp = MetadataChangeProposalWrapper(
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=entity_urn,
             aspect=ContainerClass(container=f"{container_urn}"),
         )
@@ -1059,7 +1100,20 @@ class Mapper:
                 entity_urn=chart_urn,
                 aspect=browse_path,
             )
-            list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
+
+            # DataPlatformInstance aspect
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=chart_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            list_of_mcps = [
+                info_mcp,
+                status_mcp,
+                subtype_mcp,
+                browse_path_mcp,
+                data_platform_instance_mcp,
+            ]
 
             self.append_container_mcp(
                 list_of_mcps,
@@ -1160,12 +1214,19 @@ class Mapper:
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
             sub_type_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:
@@ -1231,7 +1292,14 @@ class Mapper:
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.POWERBI_WORKSPACE,
+        SourceCapabilityModifier.POWERBI_DATASET,
+    ],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -1313,7 +1381,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:

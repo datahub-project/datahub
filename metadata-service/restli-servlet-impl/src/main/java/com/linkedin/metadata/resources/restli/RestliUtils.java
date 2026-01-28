@@ -61,9 +61,9 @@ public class RestliUtils {
               .transform(
                       orig -> {
                         if (orig.isFailed()) {
-                          MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
+                          opContext.getMetricUtils().ifPresent(metricUtils -> metricUtils.increment(MetricRegistry.name(metricName, "failed"),1 ));
                         } else {
-                          MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
+                          opContext.getMetricUtils().ifPresent(metricUtils -> metricUtils.increment(MetricRegistry.name(metricName, "success"),1 ));
                         }
                         return orig;
                       });

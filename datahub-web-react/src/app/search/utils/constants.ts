@@ -4,6 +4,7 @@ export const FILTER_URL_PREFIX = 'filter_';
 export const SEARCH_FOR_ENTITY_PREFIX = 'SEARCH__';
 export const EXACT_SEARCH_PREFIX = 'EXACT__';
 
+export const DISPLAY_NAME_FILTER_NAME = 'displayName';
 export const ENTITY_FILTER_NAME = '_entityType';
 export const LEGACY_ENTITY_FILTER_NAME = 'entity';
 export const ENTITY_INDEX_FILTER_NAME = '_index';
@@ -32,6 +33,7 @@ export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
 export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
 export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
+export const VALUE_TYPE_FIELD_NAME = 'valueType';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const OUTPUT_PORTS_FIELD = 'isOutputPort';

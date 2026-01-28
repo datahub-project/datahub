@@ -153,6 +153,19 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "resourceSize": {"appFile": 0, "appMemory": 0},
                         "itemViews": {},
                     },
+                ],
+                "links": {
+                    "self": {
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items"
+                    }
+                },
+            },
+        },
+        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items?spaceId=personal": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "data": [
                     {
                         "name": "test_tabl",
                         "resourceAttributes": {
@@ -193,7 +206,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ],
                 "links": {
                     "self": {
-                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items"
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items?spaceId=personal"
                     }
                 },
             },
@@ -992,10 +1005,13 @@ def mock_websocket_response(*args, **kwargs):
 
 @pytest.fixture(scope="module")
 def mock_websocket_send_request():
-    with patch(
-        "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
-    ) as mock_websocket_send_request, patch(
-        "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
+    with (
+        patch(
+            "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
+        ) as mock_websocket_send_request,
+        patch(
+            "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
+        ),
     ):
         mock_websocket_send_request.side_effect = mock_websocket_response
         yield mock_websocket_send_request

@@ -76,7 +76,7 @@ class ExecutorConfig(BaseModel):
 class ExecutorAction(Action):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        config = ExecutorConfig.parse_obj(config_dict or {})
+        config = ExecutorConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     def __init__(self, config: ExecutorConfig, ctx: PipelineContext):
@@ -206,7 +206,7 @@ class ExecutorAction(Action):
                     # TODO: Once SecretStoreConfig is updated to accept arbitrary types
                     # and not just dicts, we can just pass in the DataHubSecretStoreConfig
                     # object directly.
-                    config=DataHubSecretStoreConfig(graph_client=graph).dict(),
+                    config=DataHubSecretStoreConfig(graph_client=graph).model_dump(),
                 ),
             ],
             graph_client=graph,

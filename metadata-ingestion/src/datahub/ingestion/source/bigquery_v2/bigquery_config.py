@@ -1,12 +1,20 @@
 import logging
-import os
 import re
+from copy import deepcopy
 from datetime import timedelta
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
+from pydantic import (
+    Field,
+    PositiveInt,
+    PrivateAttr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -24,15 +32,14 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterCo
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BQ_SCHEMA_PARALLELISM = int(
-    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
-)
+DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -63,8 +70,9 @@ class BigQueryBaseConfig(ConfigModel):
         description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 
-    @validator("sharded_table_pattern")
-    def sharded_table_pattern_is_a_valid_regexp(cls, v):
+    @field_validator("sharded_table_pattern", mode="after")
+    @classmethod
+    def sharded_table_pattern_is_a_valid_regexp(cls, v: str) -> str:
         try:
             re.compile(v)
         except Exception as e:
@@ -73,8 +81,11 @@ class BigQueryBaseConfig(ConfigModel):
             ) from e
         return v
 
-    @root_validator(pre=True, skip_on_failure=True)
+    @model_validator(mode="before")
+    @classmethod
     def project_id_backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         project_id = values.pop("project_id", None)
         project_ids = values.get("project_ids")
 
@@ -182,15 +193,15 @@ class BigQueryFilterConfig(SQLFilterConfig):
     )
 
     # NOTE: `schema_pattern` is added here only to hide it from docs.
-    schema_pattern: AllowDenyPattern = Field(
+    schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         default=AllowDenyPattern.allow_all(),
-        hidden_from_docs=True,
     )
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
-        dataset_pattern: Optional[AllowDenyPattern] = values.get("dataset_pattern")
-        schema_pattern = values.get("schema_pattern")
+    @model_validator(mode="after")
+    def backward_compatibility_configs_set(self) -> Any:
+        dataset_pattern = self.dataset_pattern
+        schema_pattern = self.schema_pattern
+
         if (
             dataset_pattern == AllowDenyPattern.allow_all()
             and schema_pattern != AllowDenyPattern.allow_all()
@@ -199,7 +210,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. "
                 "schema_pattern will be deprecated, please use dataset_pattern instead."
             )
-            values["dataset_pattern"] = schema_pattern
+            self.dataset_pattern = schema_pattern
             dataset_pattern = schema_pattern
         elif (
             dataset_pattern != AllowDenyPattern.allow_all()
@@ -210,7 +221,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 " please use dataset_pattern only."
             )
 
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
+        match_fully_qualified_names = self.match_fully_qualified_names
 
         if (
             dataset_pattern is not None
@@ -240,7 +251,7 @@ class BigQueryFilterConfig(SQLFilterConfig):
                     " of the form `<project_id>.<dataset_name>`."
                 )
 
-        return values
+        return self
 
 
 class BigQueryIdentifierConfig(
@@ -269,6 +280,7 @@ class BigQueryV2Config(
     SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
@@ -320,8 +332,7 @@ class BigQueryV2Config(
         description="Include full payload into events. It is only for debugging and internal use.",
     )
 
-    number_of_datasets_process_in_batch: int = Field(
-        hidden_from_docs=True,
+    number_of_datasets_process_in_batch: HiddenFromDocs[int] = Field(
         default=10000,
         description="Number of table queried in batch when getting metadata. This is a low level config property "
         "which should be touched with care.",
@@ -342,7 +353,7 @@ class BigQueryV2Config(
     )
 
     use_queries_v2: bool = Field(
-        default=False,
+        default=True,
         description="If enabled, uses the new queries extractor to extract queries from bigquery.",
     )
     include_queries: bool = Field(
@@ -436,17 +447,15 @@ class BigQueryV2Config(
 
     upstream_lineage_in_report: bool = Field(
         default=False,
-        description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
+        description="Useful for debugging lineage information. Set to True to see the raw lineage created internally. Only works with legacy approach (`use_queries_v2: False`).",
     )
 
-    run_optimized_column_query: bool = Field(
-        hidden_from_docs=True,
+    run_optimized_column_query: HiddenFromDocs[bool] = Field(
         default=False,
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
-    file_backed_cache_size: int = Field(
-        hidden_from_docs=True,
+    file_backed_cache_size: HiddenFromDocs[int] = Field(
         default=2000,
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
@@ -456,10 +465,9 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
-    schema_resolution_batch_size: int = Field(
+    schema_resolution_batch_size: HiddenFromDocs[int] = Field(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
-        hidden_from_schema=True,
     )
 
     max_threads_dataset_parallelism: int = Field(
@@ -474,12 +482,32 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "
+        "which will NOT be considered for lineage/usage/queries extraction. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'bot_%' matches 'Bot_User@example.com'). "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'analyst_%@company.com') "
+        "which WILL be considered for lineage/usage/queries extraction. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'analyst_%' matches 'Analyst_John@company.com'). "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
+    )
+
     _include_view_lineage = pydantic_removed_field("include_view_lineage")
     _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
     _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         # Historically this is used to disable schema ingestion
         if (
             "include_tables" in values
@@ -496,28 +524,93 @@ class BigQueryV2Config(
 
         return values
 
-    @root_validator(skip_on_failure=True)
+    @model_validator(mode="before")
+    @classmethod
     def profile_default_settings(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        values["options"].setdefault("max_overflow", -1)
+        values.setdefault("options", {}).setdefault("max_overflow", -1)
 
         return values
 
-    @validator("bigquery_audit_metadata_datasets")
+    @field_validator("bigquery_audit_metadata_datasets", mode="after")
+    @classmethod
     def validate_bigquery_audit_metadata_datasets(
-        cls, v: Optional[List[str]], values: Dict
+        cls, v: Optional[List[str]], info: ValidationInfo
     ) -> Optional[List[str]]:
-        if values.get("use_exported_bigquery_audit_metadata"):
+        if info.data.get("use_exported_bigquery_audit_metadata"):
             assert v and len(v) > 0, (
                 "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
             )
 
         return v
 
+    @field_validator("upstream_lineage_in_report", mode="after")
+    @classmethod
+    def validate_upstream_lineage_in_report(cls, v: bool, info: ValidationInfo) -> bool:
+        if v and info.data.get("use_queries_v2", True):
+            logging.warning(
+                "`upstream_lineage_in_report` is enabled but will be ignored because `use_queries_v2` is enabled."
+                "This debugging feature only works with the legacy lineage approach (`use_queries_v2: false`)."
+            )
+
+        return v
+
+    @model_validator(mode="after")
+    def validate_queries_v2_stateful_ingestion(self) -> "BigQueryV2Config":
+        if self.use_queries_v2:
+            if (
+                self.enable_stateful_lineage_ingestion
+                or self.enable_stateful_usage_ingestion
+            ):
+                logger.warning(
+                    "enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion are deprecated "
+                    "when using use_queries_v2=True. These configs only work with the legacy (non-queries v2) extraction path. "
+                    "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
+                    "for the unified time window extraction (lineage + usage + operations + queries)."
+                )
+        return self
+
+    @field_validator(
+        "pushdown_deny_usernames", "pushdown_allow_usernames", mode="after"
+    )
+    @classmethod
+    def validate_pushdown_username_patterns(cls, patterns: List[str]) -> List[str]:
+        """Validate and normalize pushdown username patterns.
+
+        - Strips leading/trailing whitespace from each pattern
+        - Rejects empty patterns (after stripping)
+
+        Note: Patterns use SQL LIKE syntax (% = any characters, _ = single character).
+        Invalid patterns will fail at runtime when the SQL query is executed.
+        """
+        validated = []
+        for i, pattern in enumerate(patterns):
+            stripped = pattern.strip()
+            if not stripped:
+                raise ValueError(
+                    f"Empty pattern at index {i}. "
+                    "Remove empty strings from pushdown username patterns."
+                )
+            validated.append(stripped)
+        return validated
+
+    @model_validator(mode="after")
+    def validate_pushdown_config(self) -> "BigQueryV2Config":
+        if (
+            self.pushdown_deny_usernames or self.pushdown_allow_usernames
+        ) and not self.use_queries_v2:
+            raise ValueError(
+                "pushdown_deny_usernames and pushdown_allow_usernames require use_queries_v2=True. "
+                "Either enable use_queries_v2 or remove the pushdown username filters."
+            )
+        return self
+
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""
 
-    platform_instance_not_supported_for_bigquery = pydantic_removed_field(
+    _platform_instance_not_supported_for_bigquery = pydantic_removed_field(
         "platform_instance"
     )

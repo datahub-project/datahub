@@ -87,7 +87,7 @@ export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 export type BoxShadowOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'inner' | 'outline' | 'dropdown' | 'none';
 
-export type SpacingOptions = 'none' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+export type SpacingOptions = 'none' | 'normal' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 
 export type RotationOptions = '0' | '90' | '180' | '270';
 

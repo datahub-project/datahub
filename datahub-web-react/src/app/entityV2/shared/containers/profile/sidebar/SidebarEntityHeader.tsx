@@ -2,23 +2,21 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { IconStyleType } from '@app/entityV2/Entity';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
-import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
-import useContentTruncation from '@app/shared/useContentTruncation';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Container, DataPlatform, Entity, EntityType, Post } from '@types';
+import { DataPlatform, EntityType, Post } from '@types';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
@@ -46,26 +44,13 @@ const SidebarEntityHeader = () => {
     const entityRegistry = useEntityRegistry();
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
 
-    const { contentRef, isContentTruncated } = useContentTruncation(entityData);
-    const typeIcon =
-        entityType === EntityType.Container ? (
-            <ContainerIcon container={entityData as Container} />
-        ) : (
-            entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT)
-        );
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
     const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
     const platforms =
         entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
 
-    const containerPath =
-        entityData?.parentContainers?.containers ||
-        entityData?.parentDomains?.domains ||
-        entityData?.parentNodes?.nodes ||
-        [];
-    const parentPath: Entity[] = entityData?.parent ? [entityData.parent as Entity] : [];
-    const parentEntities = containerPath.length ? containerPath : parentPath;
+    const parentEntities = getParentEntities(entityData, entityType);
 
     if (loading) {
         return <EntityTitleLoadingSection />;
@@ -100,14 +85,10 @@ const SidebarEntityHeader = () => {
                     />
                 </NameWrapper>
                 <ContextPath
-                    instanceId={entityData?.dataPlatformInstance?.instanceId}
-                    typeIcon={typeIcon}
-                    type={displayedEntityType}
+                    displayedEntityType={displayedEntityType}
                     entityType={entityType}
                     browsePaths={entityData?.browsePathV2}
                     parentEntities={parentEntities}
-                    contentRef={contentRef}
-                    isContentTruncated={isContentTruncated}
                 />
             </EntityDetailsContainer>
         </TitleContainer>

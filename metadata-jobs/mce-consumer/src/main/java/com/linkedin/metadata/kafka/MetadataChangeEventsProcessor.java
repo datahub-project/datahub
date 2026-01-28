@@ -2,13 +2,11 @@ package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeEventsProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
@@ -23,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -36,7 +34,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Conditional(MetadataChangeProposalProcessorCondition.class)
+@Conditional(MetadataChangeEventsProcessorCondition.class)
 @Import({RestliEntityClientFactory.class})
 @EnableKafka
 @RequiredArgsConstructor
@@ -45,9 +43,6 @@ public class MetadataChangeEventsProcessor {
   @NonNull private final OperationContext systemOperationContext;
   private final SystemEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
-
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Value(
       "${FAILED_METADATA_CHANGE_EVENT_NAME:${KAFKA_FMCE_TOPIC_NAME:"
@@ -68,7 +63,14 @@ public class MetadataChangeEventsProcessor {
     systemOperationContext.withSpan(
         "consume",
         () -> {
-          kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.histogram(
+                          this.getClass(),
+                          "kafkaLag",
+                          System.currentTimeMillis() - consumerRecord.timestamp()));
           final GenericRecord record = consumerRecord.value();
 
           log.info(

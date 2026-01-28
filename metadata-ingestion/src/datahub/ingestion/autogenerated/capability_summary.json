@@ -1,22 +1,34 @@
 {
-  "generated_at": "2025-06-27T16:37:01.425637+00:00",
+  "generated_at": "2026-01-27T23:33:49.965494+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Extract ABS containers and folders",
+          "subtype_modifier": [
+            "Folder",
+            "ABS container"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Can extract ABS object/container tags if enabled",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -30,56 +42,78 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Supported for S3 tables",
+          "subtype_modifier": [
+            "View",
+            "Table"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported for S3 tables",
+          "subtype_modifier": [
+            "View",
+            "Table"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -93,6 +127,7 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -101,71 +136,124 @@
       "platform_name": "Azure AD",
       "support_status": "CERTIFIED"
     },
-    "bigquery": {
+    "azure-data-factory": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "supported": true
-        },
-        {
-          "capability": "LINEAGE_FINE",
-          "description": "Optionally enabled via configuration",
-          "supported": true
-        },
-        {
-          "capability": "DATA_PROFILING",
-          "description": "Optionally enabled via configuration",
-          "supported": true
-        },
-        {
-          "capability": "USAGE_STATS",
-          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
-          "supported": true
-        },
-        {
-          "capability": "DESCRIPTIONS",
-          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Data Factory"
+          ],
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extracts lineage from Copy and Data Flow activities",
+          "subtype_modifier": [
+            "Copy Activity",
+            "Data Flow Activity"
+          ],
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactorySource",
+      "platform_id": "azure-data-factory",
+      "platform_name": "Azure Data Factory",
+      "support_status": "INCUBATING"
+    },
+    "bigquery": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Project",
+            "Dataset"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "CLASSIFICATION",
+          "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PARTITION_SUPPORT",
           "description": "Enabled by default, partition keys and clustering keys are supported.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Platform instance is pre-set to the BigQuery project id",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -179,21 +267,25 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -207,51 +299,69 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View",
+            "Table"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -265,16 +375,19 @@
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
           "description": "Enabled by default to get usage stats",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -288,56 +401,74 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -351,21 +482,25 @@
         {
           "capability": "DESCRIPTIONS",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -377,8 +512,17 @@
     "datahub": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -408,6 +552,20 @@
       "platform_name": "DataHubDebug",
       "support_status": "TESTING"
     },
+    "datahub-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
+      "platform_id": "datahub-documents",
+      "platform_name": "DataHubDocuments",
+      "support_status": "INCUBATING"
+    },
     "datahub-gc": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
@@ -420,11 +578,13 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Specified in the lineage file.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Specified in the lineage file.",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -433,11 +593,123 @@
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
     },
-    "datahub-mock-data": {
-      "capabilities": [],
-      "classname": "datahub.ingestion.source.mock_data.datahub_mock_data.DataHubMockDataSource",
-      "platform_id": "datahubmockdata",
-      "platform_name": "DataHubMockData",
+    "dataplex": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default, can be disabled via configuration `include_schema`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via configuration `include_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
+      "platform_id": "dataplex",
+      "platform_name": "Dataplex",
+      "support_status": "INCUBATING"
+    },
+    "db2": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "CLASSIFICATION",
+          "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sql.db2.Db2Source",
+      "platform_id": "db2",
+      "platform_name": "IBM Db2",
       "support_status": "TESTING"
     },
     "dbt": {
@@ -445,21 +717,25 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `include_column_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -473,21 +749,25 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `include_column_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -499,13 +779,23 @@
     "delta-lake": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Folder"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -526,46 +816,68 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Dremio Space",
+            "Dremio Source"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Extract column-level lineage",
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
           "description": "Enabled by default to get usage stats",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         }
       ],
@@ -579,51 +891,68 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -637,34 +966,39 @@
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.dynamodb.dynamodb.DynamoDBSource",
       "platform_id": "dynamodb",
       "platform_name": "DynamoDB",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "elasticsearch": {
       "capabilities": [
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -673,26 +1007,94 @@
       "platform_name": "Elasticsearch",
       "support_status": "CERTIFIED"
     },
-    "feast": {
+    "excel": {
       "capabilities": [
         {
-          "capability": "DESCRIPTIONS",
+          "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default via stateful ingestion",
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.excel.source.ExcelSource",
+      "platform_id": "excel",
+      "platform_name": "Excel",
+      "support_status": "INCUBATING"
+    },
+    "fabric-onelake": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.fabric.onelake.source.FabricOneLakeSource",
+      "platform_id": "fabric-onelake",
+      "platform_name": "Fabric OneLake",
+      "support_status": "TESTING"
+    },
+    "feast": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -706,11 +1108,13 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -724,44 +1128,54 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.fivetran.fivetran.FivetranSource",
       "platform_id": "fivetran",
       "platform_name": "Fivetran",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "gcs": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "GCS bucket",
+            "Folder"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Not supported",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -773,28 +1187,41 @@
     "glue": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Support via the `emit_s3_lineage` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default when stateful ingestion is turned on.",
+          "description": "Enabled by default via stateful ingestion.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -806,71 +1233,120 @@
     "grafana": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default via stateful ingestion",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.grafana.grafana_source.GrafanaSource",
       "platform_id": "grafana",
       "platform_name": "Grafana",
-      "support_status": "TESTING"
+      "support_status": "CERTIFIED"
     },
     "hana": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -884,88 +1360,120 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Supported by default",
+          "subtype_modifier": [
+            "Project"
+          ],
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.hex.hex.HexSource",
       "platform_id": "hex",
       "platform_name": "Hex",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "hive": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive.HiveSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_source.HiveSource",
       "platform_id": "hive",
       "platform_name": "Hive",
       "support_status": "CERTIFIED"
@@ -975,55 +1483,74 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Catalog",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Not Supported",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Not Supported",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"
@@ -1033,74 +1560,87 @@
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Currently not supported.",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "OWNERSHIP",
           "description": "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PARTITION_SUPPORT",
           "description": "Currently not supported.",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
       "platform_id": "iceberg",
       "platform_name": "Iceberg",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "json-schema": {
       "capabilities": [
         {
           "capability": "DESCRIPTIONS",
           "description": "Extracts descriptions at top level and field level",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "With stateful ingestion enabled, will remove entities from DataHub if they are no longer present in the source",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Does not currently support extracting ownership",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "TAGS",
           "description": "Does not currently support extracting tags",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Supports platform instance via config",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Extracts schemas, following references",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1114,41 +1654,49 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Not supported",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Not supported",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Set dataset description to top level doc field for Avro schema",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "For multiple Kafka clusters, use the platform_instance configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1162,21 +1710,25 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1190,6 +1742,7 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1201,43 +1754,60 @@
     "looker": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Model",
+            "Folder"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
           "description": "Enabled by default, configured using `extract_usage_history`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default, configured using `extract_owners`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Use the `platform_instance` field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1249,23 +1819,35 @@
     "lookml": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Project"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Use the `platform_instance` and `connection_to_platform_map` fields",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1279,56 +1861,74 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1342,16 +1942,19 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1363,61 +1966,79 @@
     "mlflow": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Extract ML experiments",
+          "subtype_modifier": [
+            "ML Experiment"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for MLflow Registered Models and Model Versions",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Extract tags for MLflow Registered Model Stages",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.mlflow.MLflowSource",
       "platform_id": "mlflow",
       "platform_name": "MLflow",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "mode": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1429,18 +2050,29 @@
     "mongodb": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1454,56 +2086,76 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "Stored Procedure",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "Stored Procedure",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1517,56 +2169,74 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1580,11 +2250,13 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Supported via the `platform_instance` config",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1598,11 +2270,13 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported. See docs for limitations",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1611,16 +2285,38 @@
       "platform_name": "NiFi",
       "support_status": "CERTIFIED"
     },
+    "notion": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.notion.notion_source.NotionSource",
+      "platform_id": "notion",
+      "platform_name": "Notion",
+      "support_status": "INCUBATING"
+    },
     "okta": {
       "capabilities": [
         {
           "capability": "DESCRIPTIONS",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1632,9 +2328,34 @@
     "openapi": {
       "capabilities": [
         {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "",
+          "capability": "DESCRIPTIONS",
+          "description": "Extracts endpoint descriptions and summaries from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Does not currently support domain assignment",
+          "subtype_modifier": null,
           "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Does not currently support extracting ownership",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "TAGS",
+          "description": "Extracts tags from OpenAPI specifications",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.openapi.OpenApiSource",
@@ -1647,46 +2368,70 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "Stored Procedure",
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Enabled by default via SQL aggregator when processing observed queries",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "Stored Procedure",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1700,56 +2445,74 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1763,56 +2526,70 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Workspace",
+            "Semantic Model"
+          ],
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Disabled by default, configured using `extract_column_level_lineage`. ",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration profiling.enabled",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default, configured using `extract_lineage`.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1826,11 +2603,13 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1844,16 +2623,25 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by `domain` config to assign domain_key",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1867,51 +2655,69 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -1925,55 +2731,74 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Catalog",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Not Supported",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Not Supported",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"
@@ -1983,21 +2808,25 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2011,46 +2840,55 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default. ",
+          "description": "Disabled by default.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default, configured using `ingest_owner`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2064,11 +2902,13 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2082,61 +2922,76 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+          "description": "Optionally enabled via `include_usage_statistics`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2150,59 +3005,72 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Folder",
+            "S3 bucket"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Can infer schema from supported file types",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.s3.source.S3Source",
       "platform_id": "s3",
       "platform_name": "S3 / Local Files",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "sac": {
       "capabilities": [
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default (only for Import Data Models)",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default (only for Live Data Models)",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2216,11 +3084,13 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2234,84 +3104,112 @@
         {
           "capability": "DATA_PROFILING",
           "description": "Only table level profiling is supported via `profiling.enabled` config field",
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Not supported yet",
-          "supported": false
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Can be equivalent to Salesforce organization",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extract table-level lineage for Salesforce objects",
+          "subtype_modifier": [
+            "Custom Object",
+            "Object"
+          ],
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.salesforce.SalesforceSource",
       "platform_id": "salesforce",
       "platform_name": "Salesforce",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "sigma": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Sigma Workspace"
+          ],
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default, configured using `ingest_owner`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2325,12 +3223,45 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.slack.slack.SlackSource",
       "platform_id": "slack",
       "platform_name": "Slack",
+      "support_status": "CERTIFIED"
+    },
+    "snaplogic": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Not supported yet",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "SnapLogic does not support platform instances",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snaplogic.snaplogic.SnaplogicSource",
+      "platform_id": "snaplogic",
+      "platform_name": "SnapLogic",
       "support_status": "TESTING"
     },
     "snowflake": {
@@ -2338,66 +3269,82 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration `profiling.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
           "description": "Enabled by default, can be disabled via configuration `include_usage_stats`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Optionally enabled via `extract_tags`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default, can be disabled via configuration `include_table_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2411,11 +3358,13 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Parsed from SQL queries",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Parsed from SQL queries",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2429,51 +3378,68 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2487,6 +3453,7 @@
         {
           "capability": "USAGE_STATS",
           "description": "Enabled by default to get usage stats",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2500,16 +3467,25 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by `domain` config to assign domain_key",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2521,53 +3497,76 @@
     "tableau": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Project",
+            "Site",
+            "Workbook"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `extract_column_level_lineage`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
           "description": "Dashboard/Chart view counts, enabled using extract_usage_stats config",
+          "subtype_modifier": [
+            "Dashboard",
+            "Chart"
+          ],
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default when stateful ingestion is turned on.",
+          "description": "Enabled by default via stateful ingestion.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Requires transformer",
+          "subtype_modifier": null,
           "supported": false
         },
         {
           "capability": "OWNERSHIP",
           "description": "Requires recipe configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Requires recipe configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2581,61 +3580,81 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Optionally enabled via configuration",
+          "description": "Enabled by default when stateful ingestion is turned on",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Optionally enabled via configuration (extract_ownership)",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2649,51 +3668,69 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
@@ -2707,137 +3744,172 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Catalog",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Supported via the `profiling.enabled` config",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "USAGE_STATS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "OWNERSHIP",
           "description": "Supported via the `include_ownership` config",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.unity.source.UnityCatalogSource",
       "platform_id": "databricks",
       "platform_name": "Databricks",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "vertexai": {
       "capabilities": [
         {
           "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for Vertex AI Registered Models and Model Versions",
+          "subtype_modifier": null,
           "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.vertexai.vertexai.VertexAISource",
       "platform_id": "vertexai",
       "platform_name": "Vertex AI",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "vertica": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
           "capability": "CLASSIFICATION",
           "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
+          "subtype_modifier": [
+            "View",
+            "Projections"
+          ],
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
+          "subtype_modifier": null,
           "supported": true
         }
       ],

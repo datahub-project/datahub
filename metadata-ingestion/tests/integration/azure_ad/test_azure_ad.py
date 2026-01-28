@@ -56,18 +56,24 @@ def run_ingest(
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )
 
-    with patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token"
-    ) as mock_token, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users"
-    ) as mock_users, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups"
-    ) as mock_groups, patch(
-        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_members"
-    ) as mock_group_users, patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
+    with (
+        patch(
+            "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token"
+        ) as mock_token,
+        patch(
+            "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users"
+        ) as mock_users,
+        patch(
+            "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups"
+        ) as mock_groups,
+        patch(
+            "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_members"
+        ) as mock_group_users,
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mocked_functions_reference(
@@ -188,7 +194,7 @@ def overwrite_group_in_mocked_data(
 
 
 def test_azure_ad_config():
-    config = AzureADConfig.parse_obj(
+    config = AzureADConfig.model_validate(
         dict(
             client_id="00000000-0000-0000-0000-000000000000",
             tenant_id="00000000-0000-0000-0000-000000000000",

@@ -21,7 +21,9 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    BigQueryShardPatternMatcher,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -45,9 +47,11 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractorConfig,
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
+    RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -78,7 +82,14 @@ def cleanup(config: BigQueryV2Config) -> None:
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.BIGQUERY_PROJECT,
+        SourceCapabilityModifier.BIGQUERY_DATASET,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
@@ -114,7 +125,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+        self.shard_matcher = BigQueryShardPatternMatcher(
             self.config.sharded_table_pattern
         )
 
@@ -137,7 +148,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
             None
         )
-        if self.config.enable_stateful_lineage_ingestion:
+        if (
+            self.config.enable_stateful_lineage_ingestion
+            and not self.config.use_queries_v2
+        ):
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
                 config=self.config,
@@ -151,6 +165,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
             identifiers=self.identifiers,
+            filters=self.filters,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -191,6 +206,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.filters,
+            self.shard_matcher,
             self.ctx.graph,
         )
 
@@ -199,7 +216,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":
-        config = BigQueryV2Config.parse_obj(config_dict)
+        config = BigQueryV2Config.model_validate(config_dict)
         return cls(ctx, config)
 
     @staticmethod
@@ -207,6 +224,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return BigQueryTestConnection.test_connection(config_dict)
 
     def _init_schema_resolver(self) -> SchemaResolver:
+        """
+        The ininitialization of SchemaResolver prefetches all existing urns and schemas in the env/platform/instance.
+        Because of that, it's important all classes requiring a SchemaResolver use this instance, as it has an already pre-populated cache.
+        An alternative strategy would be to do an on-demand resolution of the urns/schemas.
+
+        TODO: prove pre-fetch is better strategy than on-demand resolution or make this behaviour configurable.
+        """
         schema_resolution_required = (
             self.config.use_queries_v2 or self.config.lineage_use_sql_parser
         )
@@ -288,28 +312,43 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
 
-            with self.report.new_stage(
-                f"*: {QUERIES_EXTRACTION}"
-            ), BigQueryQueriesExtractor(
-                connection=self.config.get_bigquery_client(),
-                schema_api=self.bq_schema_extractor.schema_api,
-                config=BigQueryQueriesExtractorConfig(
-                    window=self.config,
-                    user_email_pattern=self.config.usage.user_email_pattern,
-                    include_lineage=self.config.include_table_lineage,
-                    include_usage_statistics=self.config.include_usage_statistics,
-                    include_operations=self.config.usage.include_operational_stats,
-                    include_queries=self.config.include_queries,
-                    include_query_usage_statistics=self.config.include_query_usage_statistics,
-                    top_n_queries=self.config.usage.top_n_queries,
-                    region_qualifiers=self.config.region_qualifiers,
-                ),
-                structured_report=self.report,
-                filters=self.filters,
-                identifiers=self.identifiers,
-                schema_resolver=self.sql_parser_schema_resolver,
-                discovered_tables=self.bq_schema_extractor.table_refs,
-            ) as queries_extractor:
+            redundant_queries_run_skip_handler: Optional[
+                RedundantQueriesRunSkipHandler
+            ] = None
+            if self.config.enable_stateful_time_window:
+                redundant_queries_run_skip_handler = RedundantQueriesRunSkipHandler(
+                    source=self,
+                    config=self.config,
+                    pipeline_name=self.ctx.pipeline_name,
+                    run_id=self.ctx.run_id,
+                )
+
+            with (
+                self.report.new_stage(f"*: {QUERIES_EXTRACTION}"),
+                BigQueryQueriesExtractor(
+                    connection=self.config.get_bigquery_client(),
+                    schema_api=self.bq_schema_extractor.schema_api,
+                    config=BigQueryQueriesExtractorConfig(
+                        window=self.config,
+                        user_email_pattern=self.config.usage.user_email_pattern,
+                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
+                        include_lineage=self.config.include_table_lineage,
+                        include_usage_statistics=self.config.include_usage_statistics,
+                        include_operations=self.config.usage.include_operational_stats,
+                        include_queries=self.config.include_queries,
+                        include_query_usage_statistics=self.config.include_query_usage_statistics,
+                        top_n_queries=self.config.usage.top_n_queries,
+                        region_qualifiers=self.config.region_qualifiers,
+                    ),
+                    structured_report=self.report,
+                    filters=self.filters,
+                    identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
+                    schema_resolver=self.sql_parser_schema_resolver,
+                    discovered_tables=self.bq_schema_extractor.table_refs,
+                ) as queries_extractor,
+            ):
                 self.report.queries_extractor = queries_extractor.report
                 yield from queries_extractor.get_workunits_internal()
         else:

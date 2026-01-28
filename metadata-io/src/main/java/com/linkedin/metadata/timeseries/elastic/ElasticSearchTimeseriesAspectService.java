@@ -36,7 +36,10 @@ import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -65,11 +68,8 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
-import org.opensearch.client.tasks.TaskSubmissionResponse;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -87,7 +87,7 @@ public class ElasticSearchTimeseriesAspectService
 
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
-  private final RestHighLevelClient searchClient;
+  private final SearchClientShim<?> searchClient;
   private final ESAggregatedStatsDAO esAggregatedStatsDAO;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nonnull private final TimeseriesAspectServiceConfig timeseriesAspectServiceConfig;
@@ -95,16 +95,18 @@ public class ElasticSearchTimeseriesAspectService
   @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final IndexConvention indexConvention;
   @Nonnull private final ESIndexBuilder indexBuilder;
+  private final MetricUtils metricUtils;
 
   public ElasticSearchTimeseriesAspectService(
-      @Nonnull RestHighLevelClient searchClient,
+      @Nonnull SearchClientShim<?> searchClient,
       @Nonnull ESBulkProcessor bulkProcessor,
       int numRetries,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull IndexConvention indexConvention,
-      @Nonnull ESIndexBuilder indexBuilder) {
+      @Nonnull ESIndexBuilder indexBuilder,
+      MetricUtils metricUtils) {
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.numRetries = numRetries;
@@ -119,9 +121,15 @@ public class ElasticSearchTimeseriesAspectService
             new ArrayBlockingQueue<>(
                 timeseriesAspectServiceConfig.getQuery().getQueueSize()), // fixed size queue
             new ThreadPoolExecutor.CallerRunsPolicy());
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "timeseries", this.queryPool, metricUtils.getRegistry());
+    }
+
     this.entityRegistry = entityRegistry;
     this.indexConvention = indexConvention;
     this.indexBuilder = indexBuilder;
+    this.metricUtils = metricUtils;
 
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }
@@ -220,6 +228,7 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
+      @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return entityRegistry.getEntitySpecs().values().stream()
         .flatMap(
@@ -276,8 +285,10 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    for (ReindexConfig config : buildReindexConfigs(properties)) {
+  public void reindexAll(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
         indexBuilder.buildIndex(config);
       } catch (IOException e) {
@@ -318,10 +329,8 @@ public class ElasticSearchTimeseriesAspectService
     try {
       String indicesPattern =
           opContext.getSearchContext().getIndexConvention().getAllTimeseriesAspectIndicesPattern();
-      Response r =
-          searchClient
-              .getLowLevelClient()
-              .performRequest(new Request("GET", "/" + indicesPattern + "/_stats"));
+      RawResponse r =
+          searchClient.performLowLevelRequest(new Request("GET", "/" + indicesPattern + "/_stats"));
       JsonNode body = new ObjectMapper().readTree(r.getEntity().getContent());
       body.get("indices")
           .fields()
@@ -629,11 +638,11 @@ public class ElasticSearchTimeseriesAspectService
         options.getTimeoutSeconds() > 0
             ? TimeValue.timeValueSeconds(options.getTimeoutSeconds())
             : null;
-    final Optional<TaskSubmissionResponse> result =
+    final Optional<String> result =
         bulkProcessor.deleteByQueryAsync(filterQueryBuilder, false, batchSize, timeout, indexName);
 
     if (result.isPresent()) {
-      return result.get().getTask();
+      return result.get();
     } else {
       log.error("Async delete query failed");
       throw new ESQueryException("Async delete query failed");
@@ -752,9 +761,12 @@ public class ElasticSearchTimeseriesAspectService
                     ElasticSearchTimeseriesAspectService.toEnvAspectGenericDocument(opContext, hit))
             .collect(Collectors.toList());
 
+    String nextScrollId = SearchAfterWrapper.nextScrollId(response.getHits().getHits(), count);
+
     return TimeseriesScrollResult.builder()
         .numResults(totalCount)
         .pageSize(response.getHits().getHits().length)
+        .scrollId(nextScrollId)
         .events(resultPairs.stream().map(Pair::getFirst).collect(Collectors.toList()))
         .documents(resultPairs.stream().map(Pair::getSecond).collect(Collectors.toList()))
         .build();

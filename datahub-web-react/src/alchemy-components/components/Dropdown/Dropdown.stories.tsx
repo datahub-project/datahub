@@ -2,6 +2,7 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
+import DefaultDropdownContainer from '@components/components/Dropdown/DefaultDropdownContainer';
 import Dropdown from '@components/components/Dropdown/Dropdown';
 
 // Auto Docs
@@ -32,6 +33,9 @@ const meta = {
         overlayClassName: {
             description: 'Class name of the dropdown',
         },
+        overlayStyle: {
+            description: 'Optional styles of the dropdown',
+        },
         onOpenChange: {
             description: 'Called when dropdown opens/closes',
         },
@@ -44,11 +48,18 @@ const meta = {
                 },
             },
         },
+        menu: {
+            description: 'The menu props from Antd',
+        },
+        resetDefaultMenuStyles: {
+            description:
+                'Adds styles to reset the default styles in the menu. It works only with the main dropdown. To reset styles in the child popup set popupClassName to RESET_DROPDOWN_MENU_STYLES_CLASSNAME',
+        },
     },
 
     // Define defaults
     args: {
-        dropdownRender: () => <div>Test content</div>,
+        dropdownRender: () => <DefaultDropdownContainer>Test content</DefaultDropdownContainer>,
     },
 } satisfies Meta<typeof Dropdown>;
 

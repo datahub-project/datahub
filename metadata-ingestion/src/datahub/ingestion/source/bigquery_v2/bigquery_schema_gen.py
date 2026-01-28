@@ -2,7 +2,7 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
 
@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_tag_urn,
+    make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
@@ -23,6 +24,7 @@ from datahub.ingestion.glossary.classification_mixin import (
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    BigQueryShardPatternMatcher,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -50,6 +52,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
+    BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
@@ -65,7 +68,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -117,6 +120,48 @@ logger: logging.Logger = logging.getLogger(__name__)
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
+
+# Dynamic batch sizing constants for sharded table optimization
+# For datasets with many tables, we increase batch size to reduce API calls
+# Thresholds chosen based on typical BigQuery dataset sizes:
+# - Small datasets (<100 tables): use base batch size
+# - Medium datasets (100-200 tables): 2x batch size (max 300)
+# - Large datasets (>200 tables): 3x batch size (max 500)
+DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD = 200
+DYNAMIC_BATCH_LOW_TABLE_THRESHOLD = 100
+DYNAMIC_BATCH_HIGH_MULTIPLIER = 3
+DYNAMIC_BATCH_LOW_MULTIPLIER = 2
+DYNAMIC_BATCH_MAX_SIZE_HIGH = 500
+DYNAMIC_BATCH_MAX_SIZE_LOW = 300
+
+
+def calculate_dynamic_batch_size(base_batch_size: int, table_count: int) -> int:
+    """Scale batch size for datasets with many tables (typically sharded tables)."""
+    if table_count > DYNAMIC_BATCH_HIGH_TABLE_THRESHOLD:
+        return min(
+            base_batch_size * DYNAMIC_BATCH_HIGH_MULTIPLIER,
+            DYNAMIC_BATCH_MAX_SIZE_HIGH,
+        )
+    elif table_count > DYNAMIC_BATCH_LOW_TABLE_THRESHOLD:
+        return min(
+            base_batch_size * DYNAMIC_BATCH_LOW_MULTIPLIER,
+            DYNAMIC_BATCH_MAX_SIZE_LOW,
+        )
+    else:
+        return base_batch_size
+
+
+def is_shard_newer(shard: str, stored_shard: str) -> bool:
+    """
+    Compare shard IDs: numeric comparison for all-digit shards, lexicographic otherwise.
+
+    Note: Numeric comparison on mixed-length shards may be semantically incorrect
+    (e.g., "2024" > "20230101"), but BigQuery uses consistent shard formats per table.
+    """
+    if shard.isdigit() and stored_shard.isdigit():
+        return int(shard) > int(stored_shard)
+    else:
+        return shard > stored_shard
 
 
 class BigQuerySchemaGenerator:
@@ -175,6 +220,8 @@ class BigQuerySchemaGenerator:
         sql_parser_schema_resolver: SchemaResolver,
         profiler: BigqueryProfiler,
         identifiers: BigQueryIdentifierBuilder,
+        filters: BigQueryFilter,
+        shard_matcher: BigQueryShardPatternMatcher,
         graph: Optional[DataHubGraph] = None,
     ):
         self.config = config
@@ -184,6 +231,8 @@ class BigQuerySchemaGenerator:
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
         self.identifiers = identifiers
+        self.filters = filters
+        self.shard_matcher = shard_matcher
         self.graph = graph
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
@@ -300,6 +349,8 @@ class BigQuerySchemaGenerator:
         description: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         extra_properties: Optional[Dict[str, str]] = None,
+        created: Optional[int] = None,
+        last_modified: Optional[int] = None,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
@@ -349,6 +400,8 @@ class BigQuerySchemaGenerator:
             ),
             tags=tags_joined,
             extra_properties=extra_properties,
+            created=created,
+            last_modified=last_modified,
         )
 
     def _process_project(
@@ -359,7 +412,10 @@ class BigQuerySchemaGenerator:
         project_id = bigquery_project.id
         try:
             bigquery_project.datasets = self.schema_api.get_datasets_for_project_id(
-                project_id
+                project_id,
+                dataset_filter=lambda dataset_name: self.filters.is_dataset_allowed(
+                    dataset_name=dataset_name, project_id=project_id
+                ),
             )
         except Exception as e:
             if self.config.project_ids and "not enabled BigQuery." in str(e):
@@ -369,8 +425,10 @@ class BigQuerySchemaGenerator:
                 )
             else:
                 action_mesage = (
-                    "Does your service account have `bigquery.datasets.get` permission ? "
-                    "Assign predefined role `roles/bigquery.metadataViewer` to your service account."
+                    "Does your service account have `bigquery.datasets.get` and "
+                    "INFORMATION_SCHEMA query permissions? "
+                    "Assign predefined role `roles/bigquery.metadataViewer` and ensure "
+                    "`bigquery.jobs.create` permission is granted."
                 )
 
             self.report.failure(
@@ -411,7 +469,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 yield from self.profiler.get_workunits(
                     project_id=project_id,
                     tables=db_tables,
@@ -438,16 +496,17 @@ class BigQuerySchemaGenerator:
                 self.report.report_dropped(f"{bigquery_dataset.name}.*")
                 return
             try:
-                # db_tables, db_views, and db_snapshots are populated in the this method
                 for wu in self._process_schema(
                     project_id, bigquery_dataset, db_tables, db_views, db_snapshots
                 ):
                     yield wu
             except Exception as e:
-                if self.config.is_profiling_enabled():
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                # If configuration indicates we need table data access (for profiling or use_tables_list_query_v2),
+                # include bigquery.tables.getData in the error message since that's likely the missing permission
+                if self.config.have_table_data_read_permission:
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list, bigquery.tables.getData permissions?"
                 else:
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permissions?"
 
                 self.report.failure(
                     title="Unable to get tables for dataset",
@@ -462,6 +521,33 @@ class BigQuerySchemaGenerator:
             max_workers=self.config.max_threads_dataset_parallelism,
         ):
             yield wu
+
+    def _add_table_to_refs(
+        self, table_item: TableListItem, project_id: str, dataset_name: str
+    ) -> None:
+        """Add a table to table_refs if it passes pattern filtering."""
+        table_id = table_item.table_id
+        table_type = getattr(table_item, "table_type", "UNKNOWN")
+
+        identifier = BigqueryTableIdentifier(
+            project_id=project_id,
+            dataset=dataset_name,
+            table=table_id,
+        )
+
+        logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
+
+        if not self.config.table_pattern.allowed(identifier.raw_table_name()):
+            logger.debug(f"Dropped by table_pattern: {identifier.raw_table_name()}")
+            self.report.report_dropped(identifier.raw_table_name())
+            return
+
+        try:
+            table_ref = str(BigQueryTableRef(identifier).get_sanitized_table_ref())
+            self.table_refs.add(table_ref)
+            logger.debug(f"Added to table_refs: {table_ref}")
+        except Exception as e:
+            logger.warning(f"Could not create table ref for {table_item.path}: {e}")
 
     def _process_schema(
         self,
@@ -484,6 +570,12 @@ class BigQuerySchemaGenerator:
                     else None
                 ),
                 description=bigquery_dataset.comment,
+                created=make_ts_millis(bigquery_dataset.created)
+                if bigquery_dataset.created
+                else None,
+                last_modified=make_ts_millis(bigquery_dataset.last_altered)
+                if bigquery_dataset.last_altered
+                else None,
             )
 
         columns = None
@@ -514,23 +606,54 @@ class BigQuerySchemaGenerator:
                 )
         elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
+            logger.debug(
+                f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
+            )
+
+            sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
+            non_sharded_tables: List[TableListItem] = []
+
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
-                identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=table_item.table_id,
-                )
-                if not self.config.table_pattern.allowed(identifier.raw_table_name()):
-                    self.report.report_dropped(identifier.raw_table_name())
+                table_id = table_item.table_id
+
+                match = self.shard_matcher.match(table_id)
+                if match:
+                    base_name = BigqueryTableIdentifier.extract_base_table_name(
+                        table_id, dataset_name, match
+                    )
+                    shard = match[3]
+
+                    self.report.num_sharded_tables_scanned += 1
+
+                    if base_name not in sharded_tables:
+                        sharded_tables[base_name] = (table_item, shard)
+                        logger.debug(
+                            f"Found sharded table base {project_id}.{dataset_name}.{base_name} "
+                            f"(initial shard: {table_id})"
+                        )
+                    else:
+                        stored_shard = sharded_tables[base_name][1]
+                        if is_shard_newer(shard, stored_shard):
+                            logger.debug(
+                                f"Updating sharded table {project_id}.{dataset_name}.{base_name} "
+                                f"to use newer shard {table_id} (was {sharded_tables[base_name][0].table_id})"
+                            )
+                            sharded_tables[base_name] = (table_item, shard)
+                        else:
+                            logger.debug(
+                                f"Skipping older shard {project_id}.{dataset_name}.{table_id} "
+                                f"(keeping {sharded_tables[base_name][0].table_id})"
+                            )
+                        self.report.num_sharded_tables_deduped += 1
                     continue
-                try:
-                    self.table_refs.add(
-                        str(BigQueryTableRef(identifier).get_sanitized_table_ref())
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Could not create table ref for {table_item.path}: {e}"
-                    )
+
+                non_sharded_tables.append(table_item)
+
+            for _base_name, (table_item, _shard) in sharded_tables.items():
+                self._add_table_to_refs(table_item, project_id, dataset_name)
+
+            for table_item in non_sharded_tables:
+                self._add_table_to_refs(table_item, project_id, dataset_name)
             return
 
         if self.config.include_tables:
@@ -615,14 +738,24 @@ class BigQuerySchemaGenerator:
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
 
         self.report.report_entity_scanned(table_identifier.raw_table_name())
+        logger.debug(
+            f"Full schema processing - Scanning TABLE: {table_identifier.raw_table_name()}"
+        )
 
         if not self.config.table_pattern.allowed(table_identifier.raw_table_name()):
+            logger.debug(
+                f"Full schema processing - Dropped TABLE by table_pattern: {table_identifier.raw_table_name()}"
+            )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
         if self.store_table_refs:
-            self.table_refs.add(
-                str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+            table_ref = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
+            self.table_refs.add(table_ref)
+            logger.debug(
+                f"Full schema processing - Added TABLE to table_refs: {table_ref}"
             )
         table.column_count = len(columns)
 
@@ -655,13 +788,20 @@ class BigQuerySchemaGenerator:
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view.name)
 
         self.report.report_entity_scanned(table_identifier.raw_table_name(), "view")
+        logger.debug(
+            f"Full schema processing - Scanning VIEW: {table_identifier.raw_table_name()}"
+        )
 
         if not self.config.view_pattern.allowed(table_identifier.raw_table_name()):
+            logger.debug(
+                f"Full schema processing - Dropped VIEW by view_pattern: {table_identifier.raw_table_name()}"
+            )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
+        logger.debug(f"Full schema processing - Added VIEW to table_refs: {table_ref}")
         if view.view_definition:
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
@@ -707,6 +847,9 @@ class BigQuerySchemaGenerator:
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
+        logger.debug(
+            f"Full schema processing - Added SNAPSHOT to table_refs: {table_ref}"
+        )
         if snapshot.base_table_identifier:
             self.snapshot_refs_by_project[project_id].add(table_ref)
             self.snapshots_by_ref[table_ref] = snapshot
@@ -724,7 +867,6 @@ class BigQuerySchemaGenerator:
         else:
             return make_tag_urn(key)
 
-    # New method to generate ForeignKeyConstraint aspects
     def gen_foreign_keys(
         self,
         table: BigqueryTable,
@@ -1179,17 +1321,22 @@ class BigQuerySchemaGenerator:
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
             # way we can merge that info with the queried one.
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
-            if with_partitions:
-                max_batch_size = (
-                    self.config.number_of_datasets_process_in_batch_if_profiling_enabled
-                )
-            else:
-                max_batch_size = self.config.number_of_datasets_process_in_batch
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
             table_items = self.get_core_table_details(
                 dataset.name, project_id, self.config.temp_table_dataset_prefix
+            )
+
+            if with_partitions:
+                base_batch_size = (
+                    self.config.number_of_datasets_process_in_batch_if_profiling_enabled
+                )
+            else:
+                base_batch_size = self.config.number_of_datasets_process_in_batch
+
+            max_batch_size = calculate_dynamic_batch_size(
+                base_batch_size, len(table_items)
             )
 
             items_to_get: Dict[str, TableListItem] = {}
@@ -1222,14 +1369,49 @@ class BigQuerySchemaGenerator:
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str
     ) -> Dict[str, TableListItem]:
         table_items: Dict[str, TableListItem] = {}
-        # Dict to store sharded table and the last seen max shard id
-        sharded_tables: Dict[str, TableListItem] = {}
+        sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
 
         for table in self.schema_api.list_tables(dataset_name, project_id):
+            table_id = table.table_id
+
+            match = self.shard_matcher.match(table_id)
+
+            if match:
+                base_name = BigqueryTableIdentifier.extract_base_table_name(
+                    table_id, dataset_name, match
+                )
+                shard = match[3]
+
+                if table.table_type == "VIEW":
+                    table_identifier = BigqueryTableIdentifier(
+                        project_id=project_id, dataset=dataset_name, table=table_id
+                    )
+                    if (
+                        not self.config.include_views
+                        or not self.config.view_pattern.allowed(
+                            table_identifier.raw_table_name()
+                        )
+                    ):
+                        self.report.report_dropped(table_identifier.raw_table_name())
+                        continue
+                else:
+                    qualified_base = f"{project_id}.{dataset_name}.{base_name}"
+                    if not self.config.table_pattern.allowed(qualified_base):
+                        self.report.report_dropped(qualified_base)
+                        continue
+
+                if base_name not in sharded_tables:
+                    sharded_tables[base_name] = (table, shard)
+                else:
+                    stored_shard = sharded_tables[base_name][1]
+                    if is_shard_newer(shard, stored_shard):
+                        sharded_tables[base_name] = (table, shard)
+                continue
+
             table_identifier = BigqueryTableIdentifier(
                 project_id=project_id,
                 dataset=dataset_name,
-                table=table.table_id,
+                table=table_id,
             )
 
             if table.table_type == "VIEW":
@@ -1248,44 +1430,15 @@ class BigQuerySchemaGenerator:
                     self.report.report_dropped(table_identifier.raw_table_name())
                     continue
 
-            _, shard = BigqueryTableIdentifier.get_table_and_shard(
-                table_identifier.table
-            )
-            table_name = table_identifier.get_table_name().split(".")[-1]
-
-            # Sharded tables look like: table_20220120
-            # For sharded tables we only process the latest shard and ignore the rest
-            # to find the latest shard we iterate over the list of tables and store the maximum shard id
-            # We only have one special case where the table name is a date `20220110`
-            # in this case we merge all these tables under dataset name as table name.
-            # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
-            # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
-            if shard:
-                if table_name not in sharded_tables:
-                    sharded_tables[table_name] = table
-                    continue
-
-                stored_table_identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=sharded_tables[table_name].table_id,
-                )
-                _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
-                    stored_table_identifier.table
-                )
-                # When table is none, we use dataset_name as table_name
-                assert stored_shard
-                if stored_shard < shard:
-                    sharded_tables[table_name] = table
-                continue
-            elif str(table_identifier).startswith(temp_table_dataset_prefix):
+            if str(table_identifier).startswith(temp_table_dataset_prefix):
                 logger.debug(f"Dropping temporary table {table_identifier.table}")
                 self.report.report_dropped(table_identifier.raw_table_name())
                 continue
 
-            table_items[table.table_id] = table
+            table_items[table_id] = table
 
-        # Adding maximum shards to the list of tables
-        table_items.update({value.table_id: value for value in sharded_tables.values()})
+        table_items.update(
+            {value[0].table_id: value[0] for value in sharded_tables.values()}
+        )
 
         return table_items

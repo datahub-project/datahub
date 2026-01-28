@@ -6,9 +6,12 @@ import { useHandleDeleteDomain } from '@app/entityV2/shared/EntityDropdown/useHa
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
 import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 /**
  * Performs the flow for deleting an entity of a given type.
@@ -25,6 +28,7 @@ function useDeleteEntity(
     hideMessage?: boolean,
     skipWait?: boolean,
 ) {
+    const { reloadByKeyType } = useReloadableContext();
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn } = useGlossaryEntityData();
@@ -68,6 +72,49 @@ function useDeleteEntity(
                                 content: `Deleted ${entityRegistry.getEntityName(type)}!`,
                                 duration: 2,
                             });
+                        }
+
+                        // Reload modules
+                        // DataProducts - as listed data product could be removed
+                        if (type === EntityType.DataProduct) {
+                            reloadByKeyType([
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.DataProducts,
+                                ),
+                            ]);
+                        }
+                        // ChildHierarchy - as listed term in contents module in glossary node could be removed
+                        // RelatedTerms - as listed term in related terms could be removed
+                        if (type === EntityType.GlossaryTerm) {
+                            reloadByKeyType([
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.RelatedTerms,
+                                ),
+                            ]);
+                        }
+                        // ChildHierarchy - as listed node in contents module in glossary node could be removed
+                        if (type === EntityType.GlossaryNode) {
+                            reloadByKeyType([
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                            ]);
+                        }
+                        // ChildHierarchy - as listed domain in child domains module could be removed
+                        if (type === EntityType.Domain) {
+                            reloadByKeyType([
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                            ]);
                         }
                     },
                     skipWait ? 0 : 2000,

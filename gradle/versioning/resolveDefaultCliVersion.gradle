@@ -1,0 +1,84 @@
+import groovy.json.JsonSlurper
+import java.util.regex.Pattern
+
+/**
+ * Simply resolves the default CLI version by fetching the latest published version of
+ * the DataHub CLI from PyPI.
+ *
+ * It updates the cliVersion property in the cliVersion.gradle file.
+ */
+ext.resolveDefaultCliVersion = {
+    
+    def pypiUrl = "https://pypi.org/pypi/acryl-datahub/json"
+    def jsonSlurper = new JsonSlurper()
+    
+    try {
+        // Fetch package information from PyPI
+        def connection = new URL(pypiUrl).openConnection()
+        connection.setRequestProperty("User-Agent", "DataHub-Gradle-Build")
+        def response = connection.getInputStream().text
+        def data = jsonSlurper.parseText(response)
+        
+        // Get all releases
+        def releases = data.releases
+        
+        // Filter out RC versions and yanked releases
+        def validReleases = releases.findAll { version, releaseFiles ->
+            // Skip RC versions
+            if (version.toLowerCase().contains("rc")) {
+                return false
+            }
+            
+            // Skip if all files are yanked
+            def allYanked = releaseFiles.every { file -> 
+                file.yanked == true 
+            }
+            return !allYanked
+        }
+        
+        // Sort versions and get the latest
+        def sortedVersions = validReleases.keySet().sort { a, b ->
+            def versionA = a.tokenize('.').collect { it as Integer }
+            def versionB = b.tokenize('.').collect { it as Integer }
+            
+            for (int i = 0; i < Math.max(versionA.size(), versionB.size()); i++) {
+                def partA = i < versionA.size() ? versionA[i] : 0
+                def partB = i < versionB.size() ? versionB[i] : 0
+                if (partA != partB) {
+                    return partA <=> partB
+                }
+            }
+            return 0
+        }
+        
+        def latestVersion = sortedVersions.last()
+        println "Found latest acryl-datahub version: ${latestVersion}"
+        
+        // Update cliVersion.gradle file
+        def cliVersionFile = file("gradle/versioning/cliVersion.gradle")
+        def content = cliVersionFile.text
+        
+        // Replace the version using regex
+        def pattern = Pattern.compile(/cliVersion\s*=\s*"[^"]*"/)
+        def newContent = pattern.matcher(content).replaceFirst("cliVersion = \"${latestVersion}\"")
+        
+        cliVersionFile.text = newContent
+        println "Updated cliVersion.gradle with version: ${latestVersion}"
+        
+        return latestVersion
+        
+    } catch (Exception e) {
+        println "Error fetching CLI version from PyPI: ${e.message}"
+        throw e
+    }
+}
+
+// Create a Gradle task to invoke the function
+task resolveDefaultCliVersion {
+    group = 'versioning'
+    description = 'Fetches the latest acryl-datahub CLI version from PyPI and updates cliVersion.gradle'
+    
+    doLast {
+        resolveDefaultCliVersion()
+    }
+}

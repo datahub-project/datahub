@@ -1,3 +1,5 @@
+import { FileUploadFailureType } from '@components/components/Editor/types';
+
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
 import { Direction } from '@app/lineage/types';
@@ -5,14 +7,19 @@ import { FilterMode } from '@app/search/utils/constants';
 
 import {
     AllowedValue,
+    DataHubPageModuleType,
     DataHubViewType,
     EntityType,
     LineageDirection,
+    PageTemplateSurfaceType,
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
+    ResourceRefInput,
     ScenarioType,
     SearchBarApi,
+    SummaryElementType,
+    UploadDownloadScenario,
 } from '@types';
 
 /**
@@ -73,6 +80,11 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    IngestionTestConnectionEvent,
+    IngestionExecutionResultViewedEvent,
+    IngestionSourceConfigurationImpressionEvent,
+    IngestionViewAllClickEvent,
+    IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -114,11 +126,61 @@ export enum EventType {
     SearchLineageColumnsEvent,
     FilterLineageColumnsEvent,
     DrillDownLineageEvent,
+    NavBarExpandCollapse,
+    NavBarItemClick,
     LinkAssetVersionEvent,
     UnlinkAssetVersionEvent,
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
+    FilterStatsPage,
+    FilterStatsChartLookBack,
+    ClickUserProfile,
+    ClickViewDocumentation,
+    ClickProductUpdate,
+    HomePageTemplateModuleCreate,
+    HomePageTemplateModuleAdd,
+    HomePageTemplateModuleUpdate,
+    HomePageTemplateModuleDelete,
+    HomePageTemplateModuleMove,
+    HomePageTemplateModuleModalCreateOpen,
+    HomePageTemplateModuleModalEditOpen,
+    HomePageTemplateModuleModalCancel,
+    HomePageTemplateGlobalTemplateEditingStart,
+    HomePageTemplateGlobalTemplateEditingDone,
+    HomePageTemplateResetToGlobalTemplate,
+    HomePageTemplateModuleAssetClick,
+    HomePageTemplateModuleViewAllClick,
+    HomePageTemplateModuleExpandClick,
+    HomePageTemplateModuleLinkClick,
+    HomePageTemplateModuleAnnouncementDismiss,
+    SetDeprecation,
+    WelcomeToDataHubModalViewEvent,
+    WelcomeToDataHubModalInteractEvent,
+    WelcomeToDataHubModalExitEvent,
+    WelcomeToDataHubModalClickViewDocumentationEvent,
+    ProductTourButtonClickEvent,
+    AssetPageAddSummaryElement,
+    AssetPageRemoveSummaryElement,
+    AssetPageReplaceSummaryElement,
+    FileUploadAttemptEvent,
+    FileUploadFailedEvent,
+    FileUploadSucceededEvent,
+    FileDownloadViewEvent,
+    FileUploadLatencyEvent,
+    FileDownloadLatencyEvent,
+    CreateDocumentEvent,
+    MoveDocumentEvent,
+    EditDocumentEvent,
+    DeleteDocumentEvent,
+    IngestionTestConnectionClickEvent,
+    IngestionTestConnectionCloseEvent,
+    EnterIngestionFlowEvent,
+    IngestionSelectSourceEvent,
+    IngestionEnterConfigurationEvent,
+    IngestionEnterSyncScheduleEvent,
+    IngestionExitConfigurationEvent,
+    CloseCreateSourceEducationModalEvent,
 }
 
 /**
@@ -183,7 +245,7 @@ export interface HomePageViewEvent extends BaseEvent {
  */
 export interface SignUpEvent extends BaseEvent {
     type: EventType.SignUpEvent;
-    title: string;
+    title?: string;
 }
 
 /**
@@ -365,10 +427,14 @@ export const EntityActionType = {
     UpdateTags: 'UpdateTags',
     UpdateTerms: 'UpdateTerms',
     UpdateLinks: 'UpdateLinks',
+    AddLink: 'AddLink',
+    DeleteLink: 'DeleteLink',
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
     UpdateProperties: 'UpdateProperties',
+    SetDomain: 'SetDomain',
+    SetDataProduct: 'SetDataProduct',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
@@ -376,11 +442,18 @@ export const EntityActionType = {
     AddIncident: 'AddIncident',
     ResolvedIncident: 'ResolvedIncident',
 };
+
+export enum ExternalLinkType {
+    Custom = 'CUSTOM',
+    Default = 'DEFAULT_EXTERNAL_URL',
+}
+
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
     entityType?: EntityType;
     entityUrn: string;
+    externalLinkType?: ExternalLinkType;
 }
 
 export interface BatchEntityActionEvent extends BaseEvent {
@@ -417,7 +490,14 @@ export interface HomePageRecommendationClickEvent extends BaseEvent {
 
 export interface VisualLineageViewEvent extends BaseEvent {
     type: EventType.VisualLineageViewEvent;
-    entityType?: EntityType;
+    entityType: EntityType;
+    numUpstreams: number;
+    numDownstreams: number;
+    hasColumnLevelLineage: boolean;
+    hasExpandableUpstreamsV2?: boolean;
+    hasExpandableDownstreamsV2?: boolean;
+    hasExpandableUpstreamsV3?: boolean;
+    hasExpandableDownstreamsV3?: boolean;
 }
 
 export interface VisualLineageExpandGraphEvent extends BaseEvent {
@@ -440,6 +520,9 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     page?: number;
     total: number;
     maxDegree?: string;
+    hasUserAppliedColumnFilter?: boolean;
+    /** Whether search is scoped to a specific schema field URN (from navigation) */
+    isSchemaFieldContext?: boolean;
 }
 
 export interface DownloadAsCsvEvent extends BaseEvent {
@@ -567,16 +650,74 @@ export interface MoveDomainEvent extends BaseEvent {
 
 // Managed Ingestion Events
 
+export interface IngestionTestConnectionEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    outcome?: string;
+}
+
+export interface IngestionTestConnectionClickEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionClickEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
+export interface IngestionTestConnectionCloseEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionCloseEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    hasCompleted?: boolean;
+    status?: 'success' | 'failure' | 'partialSuccess' | 'running';
+    ingestionOnboardingRedesignV1?: boolean;
+    failedCapabilities?: string[];
+    durationMs?: number;
+}
+
+export interface IngestionViewAllClickEvent extends BaseEvent {
+    type: EventType.IngestionViewAllClickEvent;
+    executionUrn?: string;
+}
+
+export interface IngestionViewAllClickWarningEvent extends BaseEvent {
+    type: EventType.IngestionViewAllClickWarningEvent;
+    executionUrn?: string;
+}
+
+export interface IngestionExecutionResultViewedEvent extends BaseEvent {
+    type: EventType.IngestionExecutionResultViewedEvent;
+    executionUrn: string;
+    executionStatus: string;
+    viewedSection: string;
+    sourceType?: string;
+}
+
+export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
+    type: EventType.IngestionSourceConfigurationImpressionEvent;
+    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
+    sourceType?: string;
+    sourceUrn?: string;
+}
+
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
+    sourceUrn?: string;
     interval?: string;
+    numOwners?: number;
+    outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
     type: EventType.UpdateIngestionSourceEvent;
     sourceType: string;
+    sourceUrn: string;
     interval?: string;
+    numOwners?: number;
+    outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -585,6 +726,50 @@ export interface DeleteIngestionSourceEvent extends BaseEvent {
 
 export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
+    sourceType?: string;
+    sourceUrn?: string;
+}
+
+// New ingestion flow events
+
+export interface EnterIngestionFlowEvent extends BaseEvent {
+    type: EventType.EnterIngestionFlowEvent;
+    entryPoint:
+        | 'demo_data_banner'
+        | 'get_started_checklist'
+        | 'sources_page_cta'
+        | 'intercept_toast'
+        | 'nav_menu'
+        | 'direct_url';
+}
+
+export interface IngestionSelectSourceEvent extends BaseEvent {
+    type: EventType.IngestionSelectSourceEvent;
+    sourceType: string;
+}
+
+export interface IngestionEnterConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionEnterConfigurationEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionEnterSyncScheduleEvent extends BaseEvent {
+    type: EventType.IngestionEnterSyncScheduleEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionExitConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionExitConfigurationEvent;
+    sourceType?: string;
+    exitType: 'save_draft' | 'save_and_run' | 'abandon' | 'cancel';
+}
+
+export interface CloseCreateSourceEducationModalEvent extends BaseEvent {
+    type: EventType.CloseCreateSourceEducationModalEvent;
 }
 
 // TODO: Find a way to use this event
@@ -792,6 +977,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     showInSearchFilters: boolean;
     showAsAssetBadge: boolean;
     showInAssetSummary: boolean;
+    hideInAssetSummaryWhenEmpty: boolean;
     showInColumnsTable: boolean;
 }
 
@@ -858,6 +1044,17 @@ export interface ShowAllVersionsEvent extends BaseEvent {
     uiLocation: 'preview' | 'more-options';
 }
 
+export interface ClickUserProfileEvent extends BaseEvent {
+    type: EventType.ClickUserProfile;
+    location?: 'statsTabTopUsers'; // add more locations here
+}
+
+export interface ClickViewDocumentationEvent extends BaseEvent {
+    type: EventType.ClickViewDocumentation;
+    link: string;
+    location: 'statsTab'; // add more locations here
+}
+
 export enum HomePageModule {
     YouRecentlyViewed = 'YouRecentlyViewed',
     Discover = 'Discover',
@@ -878,6 +1075,288 @@ export interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
     values: string[]; // the values being filtered for
+}
+
+export interface NavBarExpandCollapseEvent extends BaseEvent {
+    type: EventType.NavBarExpandCollapse;
+    isExpanding: boolean; // whether this action is expanding or collapsing the nav bar
+}
+
+export interface NavBarItemClickEvent extends BaseEvent {
+    type: EventType.NavBarItemClick;
+    label: string; // the label of the item that is clicks from the nav sidebar
+}
+
+export interface FilterStatsPageEvent extends BaseEvent {
+    type: EventType.FilterStatsPage;
+    platform: string | null;
+}
+
+export interface FilterStatsChartLookBackEvent extends BaseEvent {
+    type: EventType.FilterStatsChartLookBack;
+    lookBackValue: string;
+    chartName: string;
+}
+
+export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalViewEvent;
+}
+
+export interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalInteractEvent;
+    currentSlide: number;
+    totalSlides: number;
+}
+
+export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalExitEvent;
+    currentSlide: number;
+    totalSlides: number;
+    exitMethod: 'close_button' | 'get_started_button' | 'outside_click' | 'escape_key';
+}
+
+export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
+    url: string;
+}
+
+export interface ProductTourButtonClickEvent extends BaseEvent {
+    type: EventType.ProductTourButtonClickEvent;
+    originPage: string; // Page where the button was clicked
+}
+
+export interface ClickProductUpdateEvent extends BaseEvent {
+    type: EventType.ClickProductUpdate;
+    id: string;
+    url: string;
+}
+
+export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleCreate;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleAddEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAdd;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleUpdate;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleDelete;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleMove;
+    templateUrn: string;
+    isPersonal: boolean;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCreateOpen;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalEditOpen;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCancel;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
+    type: EventType.HomePageTemplateGlobalTemplateEditingStart;
+}
+
+export interface HomePageTemplateGlobalTemplateEditingDoneEvent extends BaseEvent {
+    type: EventType.HomePageTemplateGlobalTemplateEditingDone;
+}
+
+export interface HomePageTemplateResetToGlobalTemplateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateResetToGlobalTemplate;
+}
+
+export interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAssetClick;
+    moduleType: DataHubPageModuleType;
+    assetUrn: string;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleExpandClick;
+    moduleType: DataHubPageModuleType;
+    assetUrn: string;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleViewAllClick;
+    moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
+}
+
+export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleLinkClick;
+    link: string;
+}
+
+export interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAnnouncementDismiss;
+}
+
+export interface SetDeprecationEvent extends BaseEvent {
+    type: EventType.SetDeprecation;
+    entityUrns: string[];
+    deprecated: boolean;
+    resources?: ResourceRefInput[];
+}
+
+export interface AssetPageAddSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageAddSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageRemoveSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageRemoveSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageReplaceSummaryElement;
+    templateUrn: string;
+    currentElementType: SummaryElementType;
+    newElementType: SummaryElementType;
+}
+
+export interface FileUploadAttemptEvent extends BaseEvent {
+    type: EventType.FileUploadAttemptEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileUploadFailedEvent extends BaseEvent {
+    type: EventType.FileUploadFailedEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+    failureType: FileUploadFailureType;
+    comment?: string;
+}
+
+export interface FileUploadSucceededEvent extends BaseEvent {
+    type: EventType.FileUploadSucceededEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileDownloadViewEvent extends BaseEvent {
+    type: EventType.FileDownloadViewEvent;
+    // These fields aren't accessible while downloading
+    // fileType: string;
+    // fileSize: number;
+    scenario: UploadDownloadScenario;
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileUploadLatencyEvent extends BaseEvent {
+    type: EventType.FileUploadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+export interface FileDownloadLatencyEvent extends BaseEvent {
+    type: EventType.FileDownloadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+/**
+ * Logged when a user creates a new document.
+ */
+export interface CreateDocumentEvent extends BaseEvent {
+    type: EventType.CreateDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
+    hasParent: boolean;
+    parentDocumentUrn?: string;
+}
+
+/**
+ * Logged when a user moves a document to a different parent.
+ */
+export interface MoveDocumentEvent extends BaseEvent {
+    type: EventType.MoveDocumentEvent;
+    documentUrn: string;
+    oldParentDocumentUrn?: string;
+    newParentDocumentUrn?: string;
+}
+
+/**
+ * Describes what kind of edit was made to a document.
+ */
+export enum DocumentEditType {
+    Title = 'Title',
+    Contents = 'Contents',
+    PublishState = 'PublishState',
+    Type = 'Type',
+}
+
+/**
+ * Logged when a user edits a document.
+ */
+export interface EditDocumentEvent extends BaseEvent {
+    type: EventType.EditDocumentEvent;
+    documentUrn: string;
+    editType: DocumentEditType;
+    documentType?: string;
+}
+
+/**
+ * Logged when a user deletes a document.
+ */
+export interface DeleteDocumentEvent extends BaseEvent {
+    type: EventType.DeleteDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
 }
 
 /**
@@ -982,5 +1461,60 @@ export type Event =
     | LinkAssetVersionEvent
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
+    | NavBarExpandCollapseEvent
+    | NavBarItemClickEvent
     | HomePageClickEvent
-    | SearchBarFilterEvent;
+    | SearchBarFilterEvent
+    | FilterStatsPageEvent
+    | FilterStatsChartLookBackEvent
+    | ClickUserProfileEvent
+    | ClickViewDocumentationEvent
+    | ClickProductUpdateEvent
+    | HomePageTemplateModuleCreateEvent
+    | HomePageTemplateModuleAddEvent
+    | HomePageTemplateModuleUpdateEvent
+    | HomePageTemplateModuleDeleteEvent
+    | HomePageTemplateModuleMoveEvent
+    | HomePageTemplateModuleModalCreateOpenEvent
+    | HomePageTemplateModuleModalEditOpenEvent
+    | HomePageTemplateModuleModalCancelEvent
+    | HomePageTemplateGlobalTemplateEditingStartEvent
+    | HomePageTemplateGlobalTemplateEditingDoneEvent
+    | HomePageTemplateResetToGlobalTemplateEvent
+    | HomePageTemplateModuleAssetClickEvent
+    | HomePageTemplateModuleExpandClickEvent
+    | HomePageTemplateModuleViewAllClickEvent
+    | HomePageTemplateModuleLinkClickEvent
+    | HomePageTemplateModuleAnnouncementDismissEvent
+    | SetDeprecationEvent
+    | WelcomeToDataHubModalViewEvent
+    | WelcomeToDataHubModalInteractEvent
+    | WelcomeToDataHubModalExitEvent
+    | WelcomeToDataHubModalClickViewDocumentationEvent
+    | ProductTourButtonClickEvent
+    | IngestionTestConnectionEvent
+    | IngestionExecutionResultViewedEvent
+    | IngestionSourceConfigurationImpressionEvent
+    | IngestionViewAllClickEvent
+    | IngestionViewAllClickWarningEvent
+    | AssetPageAddSummaryElementEvent
+    | AssetPageRemoveSummaryElementEvent
+    | AssetPageReplaceSummaryElementEvent
+    | FileUploadAttemptEvent
+    | FileUploadFailedEvent
+    | FileUploadSucceededEvent
+    | FileDownloadViewEvent
+    | FileUploadLatencyEvent
+    | FileDownloadLatencyEvent
+    | CreateDocumentEvent
+    | MoveDocumentEvent
+    | EditDocumentEvent
+    | DeleteDocumentEvent
+    | IngestionTestConnectionClickEvent
+    | IngestionTestConnectionCloseEvent
+    | EnterIngestionFlowEvent
+    | IngestionSelectSourceEvent
+    | IngestionEnterConfigurationEvent
+    | IngestionEnterSyncScheduleEvent
+    | IngestionExitConfigurationEvent
+    | CloseCreateSourceEducationModalEvent;

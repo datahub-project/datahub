@@ -26,7 +26,18 @@ source:
           client_id: "client_id"
           private_key: "private_key"
         dataset: "fivetran_log_dataset"
+      # Optional - If destination platform is 'databricks', provide databricks configuration.
+      databricks_destination_config:
+        # Credentials
+        credential:
+          token: "token"
+          workspace_url: "workspace_url"
+          warehouse_id: "warehouse_id"
 
+           # Coordinates
+          catalog: "fivetran_catalog"
+          log_schema: "fivetran_log"
+     
     # Optional - filter for certain connector names instead of ingesting everything.
     # connector_patterns:
     #   allow:
@@ -36,6 +47,12 @@ source:
     # sources_to_database:
     #   connector_id: source_db
 
+    # Optional - Fivetran REST API configuration (required for Google Sheets connectors)
+    # api_config:
+    #   api_key: "your_api_key"
+    #   api_secret: "your_api_secret"
+    #   base_url: "https://api.fivetran.com"  # Optional
+    #   request_timeout_sec: 30  # Optional
     # Optional -- This mapping is optional and only required to configure platform-instance for source
     # A mapping of Fivetran connector id to data platform instance
     # sources_to_platform_instance:

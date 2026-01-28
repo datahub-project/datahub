@@ -1,0 +1,12 @@
+source:
+  type: openapi
+  config:
+    name: test_openapi
+    url: https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/
+    swagger_file: v2.0/json/petstore-expanded.json
+
+
+sink:
+  type: file
+  config:
+    filename: "/tmp/openapi_2_0_mces.json"

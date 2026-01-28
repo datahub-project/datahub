@@ -150,7 +150,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     View <strong>Quality</strong> information on this tab.
                 </p>
                 <p>
-                    Quality information includes <strong>data contracts</strong>and data quality test results.
+                    Quality information includes <strong>data contracts</strong> and data quality test results.
                 </p>
             </Typography.Paragraph>
         ),

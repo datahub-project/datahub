@@ -114,15 +114,15 @@ source types vary by the platform, but generally fall into these categories:
 
 - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases
   and Tables stored inside the Data Warehouse, including their row count. It is usually efficient to check, but can in some cases be slightly delayed to update
-  once a change has been made to a table.
+  once a change has been made to a table. This is the optimal balance between cost and accuracy for most Data Platforms.
 
 - **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform).
   This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve
-  system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers.
+  system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. This issues a query to the table, which can be more expensive than Information Schema.
 
 - **DataHub Dataset Profile**: The DataHub Dataset Profile aspect is used to retrieve the latest row count information for a table.
   Using this option avoids contacting your data platform, and instead uses the DataHub Dataset Profile metadata to evaluate Volume Assertions.
-  Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
+  Note if you have not configured a managed ingestion source through DataHub, then this may be the only option available. This is the cheapest option, but requires that Dataset Profiles are reported to DataHub. By default, Ingestion will report Dataset Profiles to DataHub, which can be and infrequent. You can report Dataset Profiles via the DataHub APIs for more frequent and reliable data.
 
 Volume Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
@@ -138,6 +138,8 @@ Volume Assertions also have an off switch: they can be started or stopped at any
    Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
 
 Once these are in place, you're ready to create your Volume Assertions!
+
+You can also **Bulk Create Smart Assertions** via the [Data Health Page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions)
 
 ### Steps
 

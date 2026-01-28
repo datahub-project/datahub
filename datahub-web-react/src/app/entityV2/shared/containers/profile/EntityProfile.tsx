@@ -22,21 +22,15 @@ import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGet
 import {
     defaultTabDisplayConfig,
     getEntityPath,
-    getFinalSidebarTabs,
     getOnboardingStepIdsForEntityType,
+    useFinalSidebarTabs,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
 } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
-import {
-    EntitySidebarSection,
-    EntitySidebarTab,
-    EntityTab,
-    TabContextType,
-    TabRenderType,
-} from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import LineageExplorer from '@app/lineage/LineageExplorer';
@@ -143,6 +137,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     flex-shrink: 0;
     padding: 0;
+    overflow: hidden;
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -155,6 +150,7 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    padding-top: 12px;
     background-color: #ffffff;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -167,15 +163,6 @@ const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
             : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
     height: 100%;
     overflow: hidden;
-`;
-
-const TabsWrapper = styled.div``;
-
-const TabContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: auto;
 `;
 
 const StyledAlert = styled(Alert)`
@@ -306,11 +293,20 @@ export const EntityProfile = <T, U>({
         }
     }, [routedTab?.supportsFullsize, setTabFullsize]);
 
+    // Different contexts require different sidebar behaviors (e.g., search results need compact views,
+    // lineage views have space constraints, profile sidebars support full feature sets)
+    let contextType = TabContextType.PROFILE_SIDEBAR;
+    if (isInSearch) {
+        contextType = TabContextType.SEARCH_SIDEBAR;
+    } else if (isCompact) {
+        contextType = TabContextType.LINEAGE_SIDEBAR;
+    }
+
+    const finalTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections || [], contextType);
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
-
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
 
     if (isCompact) {
         return (
@@ -337,7 +333,7 @@ export const EntityProfile = <T, U>({
                             type={isInSearch ? 'card' : undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
+                            contextType={contextType}
                             width={width}
                             headerDropdownItems={headerDropdownItems}
                         />
@@ -406,20 +402,7 @@ export const EntityProfile = <T, U>({
                                     )}
                                     <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                                         <BodyContent $isShowNavBarRedesign={isShowNavBarRedesign}>
-                                            {!isTabFullsize && (
-                                                <TabsWrapper>
-                                                    <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                                </TabsWrapper>
-                                            )}
-                                            <TabContent>
-                                                {routedTab && (
-                                                    <routedTab.component
-                                                        properties={routedTab.properties}
-                                                        contextType={TabContextType.PROFILE}
-                                                        renderType={TabRenderType.DEFAULT}
-                                                    />
-                                                )}
-                                            </TabContent>
+                                            <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
                                         </BodyContent>
                                     </Body>
                                 </HeaderAndTabsFlex>

@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -61,12 +62,15 @@ public class EbeanEntityServiceOptimizationTest {
       TestOperationContexts.systemContextNoSearchAuthorization();
 
   private EntityServiceImpl entityService;
+  private Database server;
 
   @BeforeMethod
   public void setupTest() {
-    Database server =
+    server =
         EbeanTestUtils.createTestServer(EbeanEntityServiceOptimizationTest.class.getSimpleName());
-    AspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+
+    AspectDao aspectDao =
+        new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =
@@ -315,5 +319,12 @@ public class EbeanEntityServiceOptimizationTest {
       builder.append("  ").append(i + 1).append(". ").append(statements.get(i)).append("\n");
     }
     return builder.toString();
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown Database instance to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabase(server);
   }
 }

@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import datetime
 import logging
 import random
 import string
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, model_validator
 
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
@@ -85,41 +88,43 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: Optional[DynamicTypedConfig] = None
     transformers: Optional[List[DynamicTypedConfig]] = None
-    flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
+    flags: HiddenFromDocs[FlagsConfig] = FlagsConfig()
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
     failure_log: FailureLoggingConfig = FailureLoggingConfig()
+    recording: Optional[RecordingConfig] = Field(
+        default=None,
+        description="Recording configuration for debugging ingestion runs.",
+    )
 
     _raw_dict: Optional[dict] = (
         None  # the raw dict that was parsed to construct this config
     )
 
-    @validator("run_id", pre=True, always=True)
-    def run_id_should_be_semantic(
-        cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
-    ) -> str:
-        if v == DEFAULT_RUN_ID:
+    @model_validator(mode="after")
+    def run_id_should_be_semantic(self) -> "PipelineConfig":
+        if self.run_id == DEFAULT_RUN_ID:
             source_type = None
-            if "source" in values and hasattr(values["source"], "type"):
-                source_type = values["source"].type
+            if hasattr(self.source, "type"):
+                source_type = self.source.type
 
-            return _generate_run_id(source_type)
+            self.run_id = _generate_run_id(source_type)
         else:
-            assert v is not None
-            return v
+            assert self.run_id is not None
+        return self
 
     @classmethod
     def from_dict(
         cls, resolved_dict: dict, raw_dict: Optional[dict] = None
     ) -> "PipelineConfig":
-        config = cls.parse_obj(resolved_dict)
+        config = cls.model_validate(resolved_dict)
         config._raw_dict = raw_dict
         return config
 
     def get_raw_dict(self) -> Dict:
         result = self._raw_dict
         if result is None:
-            result = self.dict()
+            result = self.model_dump()
         return result

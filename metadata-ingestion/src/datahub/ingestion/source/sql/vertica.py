@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
-from pydantic.class_validators import validator
+import pytest
+from pydantic import field_validator
 from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -25,7 +26,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_reader import DataReader
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -42,7 +46,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
@@ -53,6 +56,8 @@ from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+
+pytestmark = pytest.mark.integration_batch_4
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -100,8 +105,9 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = pydantic.Field(default="vertica+vertica_python")
 
-    @validator("host_port")
-    def clean_host_port(cls, v):
+    @field_validator("host_port", mode="after")
+    @classmethod
+    def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
 
@@ -114,6 +120,10 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.PROJECTIONS,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
@@ -129,7 +139,7 @@ class VerticaSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
-        config = VerticaConfig.parse_obj(config_dict)
+        config = VerticaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
@@ -494,10 +504,7 @@ class VerticaSource(SQLAlchemySource):
         if dpi_aspect:
             yield dpi_aspect
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.PROJECTIONS]),
         ).as_workunit()
 

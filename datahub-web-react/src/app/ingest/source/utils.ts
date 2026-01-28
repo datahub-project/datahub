@@ -1,15 +1,16 @@
+import { colors } from '@components';
 import {
-    CheckCircleOutlined,
-    ClockCircleOutlined,
-    CloseCircleOutlined,
-    LoadingOutlined,
-    StopOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+    ArrowCounterClockwise,
+    ArrowsCounterClockwise,
+    Checks,
+    ClockClockwise,
+    Prohibit,
+    Spinner,
+    X,
+} from 'phosphor-react';
 import YAML from 'yamljs';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
@@ -60,23 +61,23 @@ export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
 export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
 export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
 
-export const getExecutionRequestStatusIcon = (status: string) => {
+export const getExecutionRequestStatusIcon = (status?: string) => {
     return (
-        (status === RUNNING && LoadingOutlined) ||
-        (status === SUCCESS && CheckCircleOutlined) ||
-        (status === SUCCEEDED_WITH_WARNINGS && CheckCircleOutlined) ||
-        (status === FAILURE && CloseCircleOutlined) ||
-        (status === CANCELLED && StopOutlined) ||
-        (status === UP_FOR_RETRY && ClockCircleOutlined) ||
-        (status === ROLLED_BACK && WarningOutlined) ||
-        (status === ROLLING_BACK && LoadingOutlined) ||
-        (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
-        (status === ABORTED && CloseCircleOutlined) ||
-        ClockCircleOutlined
+        (status === RUNNING && Spinner) ||
+        (status === SUCCESS && Checks) ||
+        (status === SUCCEEDED_WITH_WARNINGS && Checks) ||
+        (status === FAILURE && X) ||
+        (status === CANCELLED && Prohibit) ||
+        (status === UP_FOR_RETRY && ClockClockwise) ||
+        (status === ROLLED_BACK && ArrowCounterClockwise) ||
+        (status === ROLLING_BACK && ArrowsCounterClockwise) ||
+        (status === ROLLBACK_FAILED && X) ||
+        (status === ABORTED && X) ||
+        ClockClockwise
     );
 };
 
-export const getExecutionRequestStatusDisplayText = (status: string) => {
+export const getExecutionRequestStatusDisplayText = (status?: string) => {
     return (
         (status === RUNNING && 'Running') ||
         (status === SUCCESS && 'Succeeded') ||
@@ -117,19 +118,19 @@ export const getExecutionRequestSummaryText = (status: string) => {
     }
 };
 
-export const getExecutionRequestStatusDisplayColor = (status: string) => {
+export const getExecutionRequestStatusDisplayColor = (status?: string) => {
     return (
-        (status === RUNNING && REDESIGN_COLORS.BLUE) ||
-        (status === SUCCESS && 'green') ||
-        (status === SUCCEEDED_WITH_WARNINGS && '#b88806') ||
-        (status === FAILURE && 'red') ||
-        (status === UP_FOR_RETRY && 'orange') ||
-        (status === CANCELLED && ANTD_GRAY[9]) ||
-        (status === ROLLED_BACK && 'orange') ||
-        (status === ROLLING_BACK && 'orange') ||
-        (status === ROLLBACK_FAILED && 'red') ||
-        (status === ABORTED && 'red') ||
-        ANTD_GRAY[7]
+        (status === RUNNING && colors.blue[1000]) ||
+        (status === SUCCESS && colors.green[500]) ||
+        (status === SUCCEEDED_WITH_WARNINGS && colors.yellow[500]) ||
+        (status === FAILURE && colors.red[500]) ||
+        (status === UP_FOR_RETRY && colors.violet[600]) ||
+        (status === CANCELLED && colors.gray[1700]) ||
+        (status === ROLLED_BACK && colors.yellow[500]) ||
+        (status === ROLLING_BACK && colors.yellow[500]) ||
+        (status === ROLLBACK_FAILED && colors.red[500]) ||
+        (status === ABORTED && colors.red[500]) ||
+        colors.gray[1700]
     );
 };
 

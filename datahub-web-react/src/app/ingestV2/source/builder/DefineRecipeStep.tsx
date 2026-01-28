@@ -5,11 +5,16 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import RecipeBuilder from '@app/ingestV2/source/builder/RecipeBuilder';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { StepProps } from '@app/ingestV2/source/builder/types';
-import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
+import {
+    CUSTOM_SOURCE_DISPLAY_NAME,
+    getPlaceholderRecipe,
+    getSourceConfigs,
+    jsonToYaml,
+} from '@app/ingestV2/source/utils';
 import { Button } from '@src/alchemy-components';
 
 const LOOKML_DOC_LINK = 'https://docs.datahub.com/docs/generated/ingestion/sources/looker#module-lookml';
@@ -39,7 +44,15 @@ const ControlsContainer = styled.div`
 /**
  * The step for defining a recipe
  */
-export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSources }: StepProps) => {
+export const DefineRecipeStep = ({
+    state,
+    updateState,
+    goTo,
+    prev,
+    ingestionSources,
+    selectedSource,
+    setSelectedSourceType,
+}: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
@@ -60,7 +73,8 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
 
     const isEditing: boolean = prev === undefined;
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
-    const sourceDisplayName = sourceConfigs?.displayName;
+    const sourceDisplayName =
+        sourceConfigs?.displayName === CUSTOM_SOURCE_DISPLAY_NAME ? '' : sourceConfigs?.displayName;
     const sourceDocumentationUrl = sourceConfigs?.docsUrl;
 
     // TODO: Delete LookML banner specific code
@@ -96,9 +110,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
         updateState(newState);
 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
+        setSelectedSourceType?.(newState.type);
     };
 
-    if (type && CONNECTORS_WITH_FORM.has(type)) {
+    if (type && CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS.has(type)) {
         return (
             <RecipeBuilder
                 key={stagedRecipeName}
@@ -109,6 +124,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 setStagedRecipe={setStagedRecipeYml}
                 onClickNext={onClickNext}
                 goToPrevious={prev}
+                selectedSource={selectedSource}
             />
         );
     }

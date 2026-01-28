@@ -1,11 +1,13 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, Empty, Modal, Select, Tag, message } from 'antd';
+import { Modal } from '@components';
+import { Empty, Select, Tag, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@src/utils/focus';
 
@@ -54,14 +56,19 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {
+        const input = addUserFiltersToSearchInput(
+            {
+                type: EntityType.CorpUser,
+                query: text,
+                start: 0,
+                count: 5,
+            },
+            EntityType.CorpUser,
+        );
+
         userSearch({
             variables: {
-                input: {
-                    type: EntityType.CorpUser,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
+                input,
             },
         });
     };
@@ -148,23 +155,22 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     return (
         <Modal
             title="Add group members"
-            visible={visible}
+            open={visible}
             onCancel={onModalClose}
-            footer={
-                <>
-                    <Button onClick={onModalClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        type="primary"
-                        disabled={selectedMembers.length === 0}
-                        onClick={onAdd}
-                        data-testid="modal-add-member-button"
-                    >
-                        Add
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onModalClose,
+                },
+                {
+                    text: 'Add',
+                    onClick: onAdd,
+                    variant: 'filled',
+                    disabled: selectedMembers.length === 0,
+                    buttonDataTestId: 'modal-add-member-button',
+                },
+            ]}
             getContainer={getModalDomContainer}
         >
             <SelectInput

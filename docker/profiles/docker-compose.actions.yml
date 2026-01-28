@@ -16,7 +16,7 @@ x-datahub-actions-service: &datahub-actions-service
     ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
     ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
-    SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+    SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
 
 x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service
@@ -24,10 +24,30 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
     - ./datahub-actions/start.sh:/start_datahub_actions.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-actions/src:/datahub-actions/src
+    - ${HOME}/.aws:/home/datahub/.aws:ro
+    - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
+  environment:
+    <<: *search-datastore-env
+    ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
+    ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
+    KAFKA_BOOTSTRAP_SERVER: broker:29092
+    SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
+
+x-datahub-actions-quickstart-service: &datahub-actions-quickstart-service
+  <<: *datahub-actions-service
+  volumes:
+    - ${HOME}/.aws:/home/datahub/.aws:ro
+    - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
+  environment:
+    <<: *search-datastore-env
+    ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
+    ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
+    KAFKA_BOOTSTRAP_SERVER: broker:29092
+    SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
 
 services:
   datahub-actions-quickstart:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart
       - quickstart-backend
@@ -35,25 +55,39 @@ services:
       datahub-gms-quickstart:
         condition: service_healthy
   datahub-actions-quickstart-cassandra:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-cassandra
     depends_on:
       datahub-gms-quickstart-cassandra:
         condition: service_healthy
   datahub-actions-quickstart-postgres:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-postgres
     depends_on:
       datahub-gms-quickstart-postgres:
         condition: service_healthy
   datahub-actions-quickstart-consumers:
-    <<: *datahub-actions-service
+    <<: *datahub-actions-quickstart-service
     profiles:
       - quickstart-consumers
     depends_on:
       datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-actions-quickstart-consumers-cdc:
+    <<: *datahub-actions-quickstart-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+  datahub-actions-quickstart-postgres-cdc:
+    <<: *datahub-actions-quickstart-service
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
         condition: service_healthy
   datahub-actions-debug:
     <<: *datahub-actions-service-dev
@@ -77,6 +111,13 @@ services:
     depends_on:
       datahub-gms-debug-postgres:
         condition: service_healthy
+  datahub-actions-debug-postgres-cdc:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      datahub-gms-debug-postgres-cdc:
+        condition: service_healthy
   datahub-actions-debug-cassandra:
     <<: *datahub-actions-service-dev
     profiles:
@@ -90,6 +131,13 @@ services:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-actions-debug-consumers-cdc:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
         condition: service_healthy
   datahub-actions-debug-neo4j:
     <<: *datahub-actions-service-dev

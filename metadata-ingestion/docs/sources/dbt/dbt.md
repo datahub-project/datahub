@@ -55,6 +55,11 @@ column_meta_mapping:
     operation: "add_tag"
     config:
       tag: "sensitive"
+  gdpr.pii:
+    match: true
+    operation: "add_tag"
+    config:
+      tag: "pii"
 ```
 
 We support the following operations:
@@ -73,6 +78,7 @@ Note:
 
 1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level.
 2. For string meta properties we support regex matching.
+3. **List support**: YAML lists are now supported in meta properties. Each item in the list that matches the regex pattern will be processed.
 
 With regex matching, you can also use the matched value to customize how you populate the tag, term or owner fields. Here are a few advanced examples:
 
@@ -118,6 +124,29 @@ meta_mapping:
        tag: "case_{{ $match }}"
 ```
 
+#### Nested meta properties
+
+If your meta section has nested properties and looks like this:
+
+```yaml
+meta:
+  data_governance:
+    team_owner: "Finance"
+```
+
+and you want attach term Finance_test in case of data_governance.team_owner is set to Finance, you can use the following meta_mapping section:
+
+```yaml
+meta_mapping:
+  data_governance.team_owner:
+    match: "Finance"
+    operation: "add_term"
+    config:
+      term: "Finance_test"
+```
+
+Note: nested meta properties mapping is supported also for column_meta_mapping
+
 #### Stripping out leading @ sign
 
 You can also match specific groups within the value to extract subsets of the matched value. e.g. if you have a meta section that looks like this:
@@ -146,6 +175,29 @@ meta_mapping:
 ```
 
 In the examples above, we show two ways of writing the matching regexes. In the first one, `^@(.*)` the first matching group (a.k.a. match.group(1)) is automatically inferred. In the second example, `^@(?P<owner>(.*))`, we use a named matching group (called owner, since we are matching an owner) to capture the string we want to provide to the ownership urn.
+
+#### Working with Lists
+
+YAML lists are fully supported in dbt meta properties. Each item in the list is evaluated against the match pattern, and only matching items are processed.
+
+```yaml
+meta:
+  owners:
+    - alice@company.com
+    - bob@company.com
+    - contractor@external.com
+```
+
+```yaml
+meta_mapping:
+  owners:
+    match: ".*@company.com"
+    operation: "add_owner"
+    config:
+      owner_type: user
+```
+
+This will add `alice@company.com` and `bob@company.com` as owners (matching `.*@company.com`) but skip `contractor@external.com` (doesn't match the pattern).
 
 ### dbt query_tag automated mappings
 
@@ -304,3 +356,65 @@ source:
 ```
 
 [Experimental] It's also possible to use `skip_sources_in_lineage: true` without disabling sources entirely. If you do this, sources will not participate in the lineage graph - they'll have upstreams but no downstreams. However, they will still contribute to docs, tags, etc to the warehouse entity.
+
+### Semantic Views
+
+DataHub can ingest dbt models that have been materialized as `semantic_view` objects, a pattern used to define a semantic layer directly in warehouses like Snowflake.
+
+#### What are Materialized Semantic Views?
+
+A materialized [semantic view](https://docs.snowflake.com/en/user-guide/views-semantic/overview) is a dbt model (a `.sql` file) that uses the `materialized='semantic_view'` configuration via the [dbt_semantic_view package](https://github.com/Snowflake-Labs/dbt_semantic_view). This creates a `SEMANTIC VIEW` object in Snowflake, containing a rich set of metadata including dimensions and metrics.
+
+When you define a dbt model as a semantic view:
+
+```sql
+-- models/sales_analytics.sql
+{{ config(
+    materialized='semantic_view'
+) }}
+
+TABLES (
+    OrdersTable AS {{ source('coffee_shop_source', 'ORDERS') }}
+)
+DIMENSIONS (
+    OrdersTable.CUSTOMER_ID AS CUSTOMER_ID
+)
+METRICS (
+    OrdersTable.GROSS_REVENUE AS SUM(ORDER_TOTAL)
+)
+```
+
+DataHub will:
+
+1. Create a dataset with the subtype `Semantic View`.
+2. Create sibling relationships to the underlying Snowflake `SEMANTIC VIEW` object.
+3. Extract column-level lineage from the semantic view's DDL.
+
+#### Configuration
+
+Semantic views are dbt models with `materialized='semantic_view'`. They are emitted by default along with other models when `entities_enabled.models: Yes` (the default).
+
+#### How Semantic Views Appear in DataHub
+
+- **Subtype**: Datasets are tagged with the subtype `Semantic View`.
+- **Lineage**: Upstream lineage to the source dbt model is created, with column-level lineage where available.
+
+#### Column-Level Lineage for Snowflake Semantic Views
+
+For dbt models materialized as semantic views in Snowflake, DataHub can extract column-level lineage from the compiled DDL. This requires:
+
+1. Using Snowflake as the `target_platform`.
+2. Having the `compiled_code` for the model available in the dbt manifest or dbt Cloud API.
+
+If these conditions are not met, warnings will appear in the ingestion report:
+
+| Condition               | Warning                                 |
+| ----------------------- | --------------------------------------- |
+| Non-Snowflake adapter   | `Semantic View CLL Unsupported Adapter` |
+| Missing `compiled_code` | `Semantic View Missing compiled_code`   |
+| Empty CLL results       | `Semantic View CLL Empty`               |
+| Parsing failure         | `Semantic View CLL Parsing Failed`      |
+
+> **Note: Limitations**
+>
+> Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.

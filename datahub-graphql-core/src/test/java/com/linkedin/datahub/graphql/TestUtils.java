@@ -48,8 +48,8 @@ public class TestUtils {
 
     if (request == null) {
       // Simple case: always allow
-      AuthorizationResult result = mock(AuthorizationResult.class);
-      when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
+      AuthorizationResult result =
+          new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, "");
       when(mockAuthorizer.authorize(any())).thenReturn(result);
     } else {
       // Complex case: allow only for specific request
@@ -57,15 +57,12 @@ public class TestUtils {
           .thenAnswer(
               args -> {
                 AuthorizationRequest req = args.getArgument(0);
-                AuthorizationResult result = mock(AuthorizationResult.class);
-                when(result.getRequest()).thenReturn(request);
 
                 if (request.equals(req)) {
-                  when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
+                  return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "");
                 } else {
-                  when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
+                  return new AuthorizationResult(req, AuthorizationResult.Type.DENY, "");
                 }
-                return result;
               });
     }
 
@@ -142,10 +139,20 @@ public class TestUtils {
     // check without time
     Assert.assertEquals(
         batchCaptor.getValue().getItems().stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()),
         proposals.stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()));
   }
 

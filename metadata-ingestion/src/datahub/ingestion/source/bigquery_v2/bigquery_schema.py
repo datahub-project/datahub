@@ -3,7 +3,17 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+)
 
 from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
@@ -188,7 +198,9 @@ class BigQuerySchemaApi:
         self.report = report
         self.datacatalog_client = datacatalog_client
 
-    def get_query_result(self, query: str) -> RowIterator:
+    def get_query_result(
+        self, query: str, location: Optional[str] = None
+    ) -> RowIterator:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
@@ -199,6 +211,7 @@ class BigQuerySchemaApi:
         logger.debug(f"Query : {query}")
         resp = self.bq_client.query(
             query,
+            location=location,
             job_retry=retry.Retry(
                 predicate=lambda exc: (
                     bq_retry.DEFAULT_JOB_RETRY._predicate(exc) or _should_retry(exc)
@@ -278,52 +291,95 @@ class BigQuerySchemaApi:
                 return []
 
     def get_datasets_for_project_id(
-        self, project_id: str, maxResults: Optional[int] = None
+        self,
+        project_id: str,
+        maxResults: Optional[int] = None,
+        dataset_filter: Optional[Callable[[str], bool]] = None,
     ) -> List[BigqueryDataset]:
         with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
-            datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
-            return [
+            datasets = list(
+                self.bq_client.list_datasets(project_id, max_results=maxResults)
+            )
+
+        filtered_datasets: List[BigqueryDataset] = []
+        for d in datasets:
+            if dataset_filter is not None and not dataset_filter(d.dataset_id):
+                logger.debug(
+                    f"Skipping dataset {project_id}.{d.dataset_id} due to dataset_pattern filter"
+                )
+                continue
+
+            location = (
+                d._properties.get("location")
+                if hasattr(d, "_properties") and isinstance(d._properties, dict)
+                else None
+            )
+            filtered_datasets.append(
                 BigqueryDataset(
                     name=d.dataset_id,
+                    location=location,
                     labels=d.labels,
-                    location=(
-                        d._properties.get("location")
-                        if hasattr(d, "_properties") and isinstance(d._properties, dict)
-                        else None
-                    ),
-                    # TODO: Fetch dataset description individually impacts overall performance if the number of datasets is high (hundreds); instead we should fetch in batch for all datasets.
-                    # TODO: Given we are calling get_dataset for each dataset, we may consume and publish other fields too, such as created, modified, etc...
-                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.client.Client#google_cloud_bigquery_client_Client_get_dataset
-                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dataset.Dataset
-                    comment=self.bq_client.get_dataset(d.reference).description,
                 )
-                for d in datasets
-            ]
-
-    # This is not used anywhere
-    def get_datasets_for_project_id_with_information_schema(
-        self, project_id: str
-    ) -> List[BigqueryDataset]:
-        """
-        This method is not used as of now, due to below limitation.
-        Current query only fetches datasets in US region
-        We'll need Region wise separate queries to fetch all datasets
-        https://cloud.google.com/bigquery/docs/information-schema-datasets-schemata
-        """
-        schemas = self.get_query_result(
-            BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
-        )
-        return [
-            BigqueryDataset(
-                name=s.table_schema,
-                created=s.created,
-                location=s.location,
-                last_altered=s.last_altered,
-                comment=s.comment,
             )
-            for s in schemas
-        ]
+
+        if not filtered_datasets:
+            return []
+
+        # Batch fetch metadata (description, created, modified) per location
+        with self.report.enrich_datasets_timer:
+            self._enrich_datasets_with_metadata(project_id, filtered_datasets)
+
+        return filtered_datasets
+
+    def _enrich_datasets_with_metadata(
+        self, project_id: str, datasets: List[BigqueryDataset]
+    ) -> None:
+        """
+        Enrich datasets with metadata (description, created, modified) fetched in batch.
+        Uses INFORMATION_SCHEMA queries grouped by location for efficiency.
+        """
+        datasets_by_location: Dict[str, List[BigqueryDataset]] = defaultdict(list)
+        for dataset in datasets:
+            # "US" acts as the default multi-region location in BigQuery
+            # when no specific region is designated for datasets
+            location_key = dataset.location or "US"
+            datasets_by_location[location_key].append(dataset)
+
+        for location, location_datasets in datasets_by_location.items():
+            dataset_names = {ds.name for ds in location_datasets}
+            metadata = self._fetch_dataset_metadata_batch(
+                project_id, location, dataset_names
+            )
+            for dataset in location_datasets:
+                if dataset.name in metadata:
+                    dataset.comment = metadata[dataset.name].get("description")
+                    dataset.created = metadata[dataset.name].get("created")
+                    dataset.last_altered = metadata[dataset.name].get("modified")
+                else:
+                    logger.warning(
+                        f"Dataset {project_id}.{dataset.name} not found in "
+                        f"INFORMATION_SCHEMA.SCHEMATA for location {location}"
+                    )
+
+    def _fetch_dataset_metadata_batch(
+        self, project_id: str, location: str, dataset_names: Set[str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Fetch dataset metadata in batch using INFORMATION_SCHEMA.SCHEMATA.
+        """
+        query = BigqueryQuery.datasets_for_project_id.format(project_id=project_id)
+        rows = self.get_query_result(query, location=location)
+
+        result: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            if row.table_schema in dataset_names:
+                result[row.table_schema] = {
+                    "description": row.comment,
+                    "created": row.created,
+                    "modified": row.last_altered,
+                }
+        return result
 
     def list_tables(
         self, dataset_name: str, project_id: str

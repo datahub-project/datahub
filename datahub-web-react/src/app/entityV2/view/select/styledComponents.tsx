@@ -3,7 +3,8 @@ import { Button } from 'antd';
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { colors } from '@src/alchemy-components';
+import { VIEW_CARD_MIN_WIDTH } from '@app/entityV2/view/select/constants';
+import { colors, typography } from '@src/alchemy-components';
 
 export const NoMarginButton = styled(Button)`
     && {
@@ -18,7 +19,11 @@ export const StyledRightOutlined = styled(RightOutlined)`
     }
 `;
 
-export const ViewContainer = styled.div<{ $selected?: boolean; $isShowNavBarRedesign?: boolean }>`
+export const ViewContainer = styled.div<{
+    $selected?: boolean;
+    $isShowNavBarRedesign?: boolean;
+    $fixedWidth?: boolean;
+}>`
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
@@ -37,9 +42,17 @@ export const ViewContainer = styled.div<{ $selected?: boolean; $isShowNavBarRede
         display: flex;
         background-color: white;
         gap: 8px;
-        width: 100%;
-        width: 260px;
-        height: 64px;
+        ${
+            props.$fixedWidth
+                ? `width: ${VIEW_CARD_MIN_WIDTH}px;`
+                : `
+            width: 100%;
+            min-width: ${VIEW_CARD_MIN_WIDTH}px;
+            max-width: ${VIEW_CARD_MIN_WIDTH * 2}px;  // double of min-width to fill all available space in grid
+        `
+        }
+
+        height: 72px;
         border: 1px solid ${props.$selected ? props.theme.styles['primary-color'] : colors.gray[100]};
 
         :hover {
@@ -78,13 +91,14 @@ export const ViewIconNavBarRedesign = styled.div<{ $selected?: boolean }>`
     }
 `;
 
-export const ViewContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+export const ViewContent = styled.div<{ $isShowNavBarRedesign?: boolean; $fixedWidth?: boolean }>`
     ${(props) => !props.$isShowNavBarRedesign && 'min-width: 100px;'}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         color: black;
         min-width: 160px;
+        ${!props.$fixedWidth && 'width: 100%;'}
     `}
 `;
 
@@ -98,10 +112,27 @@ export const ViewLabel = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     line-height: 18px;
 `;
 
+export const CardViewLabel = styled(ViewLabel)<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        font-family: ${typography.fonts.body};
+        font-size: 16px;
+        font-weight: 700;
+    `}
+`;
+
 export const ViewDescription = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     font-weight: 400;
     ${(props) => !props.$isShowNavBarRedesign && 'opacity: 0.5;'}
-    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[1700]};`}
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        font-size: 14px;
+        font-weight: 500;
+        color: ${colors.gray[1700]};
+        font-family: ${typography.fonts.body};
+    `}
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;

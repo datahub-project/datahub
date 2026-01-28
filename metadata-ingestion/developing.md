@@ -9,7 +9,7 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 
 ### Requirements
 
-1. Python 3.8+ must be installed in your host environment.
+1. Python 3.9+ must be installed in your host environment.
 2. Java 17 (gradle won't work with newer or older versions)
 3. On Debian/Ubuntu: `sudo apt install python3-dev python3-venv`
 4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
@@ -104,6 +104,22 @@ datahub version  # should print "DataHub CLI version: unavailable (installed in 
 ### Common setup issues
 
 Common issues (click to expand):
+
+<details>
+  <summary>Virtual environment creation fails with symlink errors (Nix, immutable filesystems, Windows)</summary>
+
+If you're using Nix, an immutable Python installation, Windows with certain filesystem configurations, or working in container environments where symlinks don't work correctly, you may encounter errors during virtual environment creation.
+
+You can enable the `--copies` flag for Python's venv by setting an environment variable before running the gradle commands:
+
+```shell
+export DATAHUB_VENV_USE_COPIES=true
+../gradlew :metadata-ingestion:installDev
+```
+
+This copies the Python binary instead of creating a symlink. Note that this increases disk usage and setup time, so only enable it if you're experiencing issues with the default symlink-based approach.
+
+</details>
 
 <details>
   <summary>datahub command not found with PyPI install</summary>

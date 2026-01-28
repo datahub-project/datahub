@@ -17,10 +17,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.system_info.SystemInfoService;
 import com.linkedin.metadata.systemmetadata.TraceService;
+import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.v1.models.TraceRequestV1;
 import io.datahubproject.openapi.v1.models.TraceResponseV1;
@@ -239,10 +241,10 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext(ObjectMapper objectMapper) {
-      TraceContext traceContext = mock(TraceContext.class);
+      SystemTelemetryContext systemTelemetryContext = mock(SystemTelemetryContext.class);
       return TestOperationContexts.systemContextTraceNoSearchAuthorization(
           () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
-          () -> traceContext);
+          () -> systemTelemetryContext);
     }
 
     @Bean
@@ -253,9 +255,20 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public TraceContext traceContext(
+    public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getTraceContext();
+      return systemOperationContext.getSystemTelemetryContext();
+    }
+
+    @Bean
+    @Qualifier("gitVersion")
+    public GitVersion gitVersion() {
+      return mock(GitVersion.class);
+    }
+
+    @Bean
+    public SystemInfoService systemInfoService() {
+      return mock(SystemInfoService.class);
     }
 
     @Bean

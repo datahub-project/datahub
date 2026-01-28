@@ -4,11 +4,10 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
-from pydantic import validator
-from pydantic.class_validators import root_validator
+from pydantic import field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -173,6 +172,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="bigquery",
     )
 
+    AMAZON_ATHENA = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
     AMAZON_REDSHIFT = DataPlatformPair(
         powerbi_data_platform_name="AmazonRedshift",
         datahub_data_platform_name="redshift",
@@ -288,25 +292,48 @@ class PowerBiProfilingConfig(ConfigModel):
     )
 
 
+class AthenaPlatformOverride(ConfigModel):
+    """
+    Configuration for overriding the platform of Athena federated tables.
+
+    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
+    and you want the lineage to point to the actual source platform instead of Athena.
+    """
+
+    database: str = pydantic.Field(
+        min_length=1,
+        description="The database name in the Athena query (after catalog stripping).",
+    )
+    table: str = pydantic.Field(
+        min_length=1,
+        description="The table name in the Athena query.",
+    )
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
+    )
+    dsn: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional DSN to scope this override to a specific data source. "
+        "If specified, this override only applies when the query comes from this DSN.",
+    )
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
-    platform_name: str = pydantic.Field(
-        default=Constant.PLATFORM_NAME, hidden_from_docs=True
-    )
+    platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
 
-    platform_urn: str = pydantic.Field(
+    platform_urn: HiddenFromDocs[str] = pydantic.Field(
         default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
-        hidden_from_docs=True,
     )
 
     # Organization Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
-    workspace_id: Optional[str] = pydantic.Field(
+    workspace_id: HiddenFromDocs[Optional[str]] = pydantic.Field(
         default=None,
         description="[deprecated] Use workspace_id_pattern instead",
-        hidden_from_docs=True,
     )
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
@@ -326,15 +353,14 @@ class PowerBiDashboardSourceConfig(
     # Dataset type mapping PowerBI support many type of data-sources. Here user needs to define what type of PowerBI
     # DataSource needs to be mapped to corresponding DataHub Platform DataSource. For example, PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
-    dataset_type_mapping: Union[Dict[str, str], Dict[str, PlatformDetail]] = (
-        pydantic.Field(
-            default_factory=default_for_dataset_type_mapping,
-            description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
-            "DataHub supported datasources."
-            "You can configured platform instance for dataset lineage. "
-            "See Quickstart Recipe for mapping",
-            hidden_from_docs=True,
-        )
+    dataset_type_mapping: HiddenFromDocs[
+        Union[Dict[str, str], Dict[str, PlatformDetail]]
+    ] = pydantic.Field(
+        default_factory=default_for_dataset_type_mapping,
+        description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
+        "DataHub supported datasources."
+        "You can configured platform instance for dataset lineage. "
+        "See Quickstart Recipe for mapping",
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
@@ -352,6 +378,30 @@ class PowerBiDashboardSourceConfig(
         description="A mapping of ODBC DSN to DataHub data platform name. "
         "For example with an ODBC connection string 'DSN=database' where the database type "
         "is 'PostgreSQL' you would configure the mapping as 'database: postgres'.",
+    )
+    # ODBC DSN to database (or database.schema) mapping
+    dsn_to_database_schema: Dict[str, str] = pydantic.Field(
+        default={},
+        description="A mapping of ODBC DSN to database names with optional schema names "
+        "(some database platforms such a MySQL use the table name pattern 'database.table', "
+        "while others use the pattern 'database.schema.table'). "
+        "This mapping is used in conjunction with ODBC SQL query parsing. "
+        "If SQL queries used with ODBC do not reference fully qualified tables names, "
+        "then you should configure mappings for your DSNs. "
+        "For example with an ODBC connection string 'DSN=database' where the database "
+        "is 'prod' you would configure the mapping as 'database: prod'. "
+        "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
+    )
+    # Athena federated table platform override
+    athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
+        default=[],
+        description="List of platform overrides for Athena federated queries. "
+        "Use this to override the platform when Athena queries data from federated sources "
+        "(e.g., MySQL, PostgreSQL) via ODBC. The lineage will point to the actual source "
+        "platform instead of Athena. "
+        "This override is applied AFTER catalog stripping, so use 2-part names "
+        "(database.table), not 3-part names (catalog.database.table). "
+        "Overrides with a DSN specified take precedence over those without.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -528,14 +578,13 @@ class PowerBiDashboardSourceConfig(
         "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
     )
 
-    metadata_api_timeout: int = pydantic.Field(
+    metadata_api_timeout: HiddenFromDocs[int] = pydantic.Field(
         default=30,
         description="timeout in seconds for Metadata Rest Api.",
-        hidden_from_docs=True,
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
+    @model_validator(mode="after")
+    def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":
         flags = [
             "native_query_parsing",
             "enable_advance_lineage_sql_construct",
@@ -543,26 +592,23 @@ class PowerBiDashboardSourceConfig(
             "extract_dataset_schema",
         ]
 
-        if (
-            "extract_column_level_lineage" in values
-            and values["extract_column_level_lineage"] is False
-        ):
+        if self.extract_column_level_lineage is False:
             # Flag is not set. skip validation
-            return values
+            return self
 
         logger.debug(f"Validating additional flags: {flags}")
 
         is_flag_enabled: bool = True
         for flag in flags:
-            if flag not in values or values[flag] is False:
+            if not getattr(self, flag, True):
                 is_flag_enabled = False
 
         if not is_flag_enabled:
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
-        return values
+        return self
 
-    @validator("dataset_type_mapping")
+    @field_validator("dataset_type_mapping", mode="after")
     @classmethod
     def map_data_platform(cls, value):
         # For backward compatibility convert input PostgreSql to PostgreSQL
@@ -574,28 +620,32 @@ class PowerBiDashboardSourceConfig(
 
         return value
 
-    @root_validator(skip_on_failure=True)
-    def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
-        workspace_id = values.get("workspace_id")
-        workspace_id_pattern = values.get("workspace_id_pattern")
-
-        if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
+    @model_validator(mode="after")
+    def workspace_id_backward_compatibility(self) -> "PowerBiDashboardSourceConfig":
+        if (
+            self.workspace_id_pattern == AllowDenyPattern.allow_all()
+            and self.workspace_id
+        ):
             logger.warning(
                 "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as "
                 "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
             )
-            values["workspace_id_pattern"] = AllowDenyPattern(
-                allow=[f"^{workspace_id}$"]
+            self.workspace_id_pattern = AllowDenyPattern(
+                allow=[f"^{self.workspace_id}$"]
             )
-        elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
+        elif (
+            self.workspace_id_pattern != AllowDenyPattern.allow_all()
+            and self.workspace_id
+        ):
             logger.warning(
                 "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, "
                 "please use workspace_id_pattern only."
             )
-            values.pop("workspace_id")
-        return values
+            self.workspace_id = None
+        return self
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def raise_error_for_dataset_type_mapping(cls, values: Dict) -> Dict:
         if (
             values.get("dataset_type_mapping") is not None
@@ -607,10 +657,91 @@ class PowerBiDashboardSourceConfig(
 
         return values
 
-    @root_validator(skip_on_failure=True)
-    def validate_extract_dataset_schema(cls, values: Dict) -> Dict:
-        if values.get("extract_dataset_schema") is False:
+    @model_validator(mode="after")
+    def validate_extract_dataset_schema(self) -> "PowerBiDashboardSourceConfig":
+        if self.extract_dataset_schema is False:
             add_global_warning(
                 "Please use `extract_dataset_schema: true`, otherwise dataset schema extraction will be skipped."
             )
-        return values
+        return self
+
+    @model_validator(mode="after")
+    def validate_dsn_to_database_schema(self) -> "PowerBiDashboardSourceConfig":
+        if self.dsn_to_database_schema is not None:
+            dsn_mapping = self.dsn_to_database_schema
+            if not isinstance(dsn_mapping, dict):
+                raise ValueError("dsn_to_database_schema must contain key-value pairs")
+
+            for _key, value in dsn_mapping.items():
+                if not isinstance(value, str):
+                    raise ValueError(
+                        "dsn_to_database_schema mapping values must be strings"
+                    )
+                parts = value.split(".")
+                if len(parts) != 1 and len(parts) != 2:
+                    raise ValueError(
+                        f"dsn_to_database_schema invalid mapping value: {value}"
+                    )
+
+        return self
+
+    def get_from_dataset_type_mapping(
+        self, platform_name: str
+    ) -> Optional[Union[str, PlatformDetail]]:
+        """
+        Get a value from dataset_type_mapping using normalized lookup.
+
+        Handles naming mismatches by normalizing platform names (removing spaces).
+        For example, "Amazon Redshift" (from ODBC) will match "AmazonRedshift" (in enum).
+
+        Args:
+            platform_name: The PowerBI platform name to look up
+
+        Returns:
+            The value from dataset_type_mapping if found, None otherwise
+        """
+        # Try exact match first
+        if platform_name in self.dataset_type_mapping:
+            return self.dataset_type_mapping[platform_name]
+
+        # Try normalized version (removes spaces)
+        # This handles cases like "Amazon Redshift" -> "AmazonRedshift"
+        normalized_name = platform_name.replace(" ", "")
+        if normalized_name != platform_name:
+            return self.dataset_type_mapping.get(normalized_name)
+
+        return None
+
+    def is_platform_in_dataset_type_mapping(self, platform_name: str) -> bool:
+        """
+        Check if a platform name exists in dataset_type_mapping using normalized lookup.
+
+        Args:
+            platform_name: The PowerBI platform name to check
+
+        Returns:
+            True if the platform (or its normalized version) exists in the mapping
+        """
+        return self.get_from_dataset_type_mapping(platform_name) is not None
+
+    @model_validator(mode="after")
+    def validate_athena_table_platform_override(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        if not self.athena_table_platform_override:
+            return self
+
+        # Build set of known DataHub platform names for validation
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+
+        for override in self.athena_table_platform_override:
+            if override.platform not in known_platforms:
+                raise ValueError(
+                    f"athena_table_platform_override: platform '{override.platform}' "
+                    f"for {override.database}.{override.table} is not a recognized DataHub platform. "
+                    f"Known platforms: {sorted(known_platforms)}."
+                )
+
+        return self

@@ -14,11 +14,12 @@ const RecommendedOptionWrapper = styled.div`
 
 interface Props {
     text: string;
+    dataTestId?: string;
 }
 
-export default function RecentSearch({ text }: Props) {
+export default function RecentSearch({ text, dataTestId }: Props) {
     return (
-        <RecommendedOptionWrapper>
+        <RecommendedOptionWrapper data-testid={dataTestId}>
             <MagnifyingGlass size={20} color={colors.gray[500]} />
             <Text weight="semiBold">{text}</Text>
         </RecommendedOptionWrapper>

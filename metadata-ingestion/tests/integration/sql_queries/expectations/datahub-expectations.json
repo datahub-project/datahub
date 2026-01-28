@@ -1,0 +1,191 @@
+[
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/health"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "status": "healthy",
+        "scroll_mappings": 1,
+        "aspect_mappings": 10,
+        "total_datasets": 5
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/config"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "statefulIngestionCapable": true,
+        "noCode": "true"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "statefulIngestionCapable": true,
+        "noCode": "true"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/api/v2/system/versions"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "statefulIngestionCapable": true,
+        "noCode": "true"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/api/graphql"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": {
+        "Content-Type": ["application/json"]
+      },
+      "body": {
+        "data": {
+          "scrollAcrossEntities": {
+            "nextScrollId": null,
+            "searchResults": [
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "name", "nativeDataType": "VARCHAR(255)"},
+                      {"fieldPath": "email", "nativeDataType": "VARCHAR(255)"},
+                      {"fieldPath": "last_login", "nativeDataType": "TIMESTAMP_NTZ"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "user_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "product_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "order_date", "nativeDataType": "DATE"},
+                      {"fieldPath": "amount", "nativeDataType": "DECIMAL(10,2)"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "user_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "product_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "order_date", "nativeDataType": "DATE"},
+                      {"fieldPath": "processed", "nativeDataType": "BOOLEAN"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "user_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "session_date", "nativeDataType": "DATE"},
+                      {"fieldPath": "duration_minutes", "nativeDataType": "NUMBER"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "name", "nativeDataType": "VARCHAR(255)"},
+                      {"fieldPath": "order_count", "nativeDataType": "NUMBER"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "event_type", "nativeDataType": "VARCHAR(255)"},
+                      {"fieldPath": "user_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "timestamp", "nativeDataType": "TIMESTAMP_NTZ"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.shipments,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "order_id", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "ship_date", "nativeDataType": "DATE"},
+                      {"fieldPath": "tracking_number", "nativeDataType": "VARCHAR(255)"}
+                    ]
+                  }
+                }
+              },
+              {
+                "entity": {
+                  "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD)",
+                  "schemaMetadata": {
+                    "fields": [
+                      {"fieldPath": "day", "nativeDataType": "DATE"},
+                      {"fieldPath": "order_count", "nativeDataType": "NUMBER"},
+                      {"fieldPath": "total_amount", "nativeDataType": "DECIMAL(18,2)"}
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+]

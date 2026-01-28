@@ -18,6 +18,7 @@
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_ACCESS_TOKENS",
+        "MANAGE_SERVICE_ACCOUNTS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_TESTS",
@@ -40,7 +41,10 @@
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
-        "GET_PLATFORM_EVENTS"
+        "GET_PLATFORM_EVENTS",
+        "MANAGE_HOME_PAGE_TEMPLATES",
+        "GET_METADATA_CHANGE_LOG_EVENTS",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -78,7 +82,8 @@
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EXECUTE_ENTITY"
+        "EXECUTE_ENTITY",
+        "MANAGE_ASSET_SUMMARY"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
@@ -174,6 +179,7 @@
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_ACCESS_TOKENS",
+        "MANAGE_SERVICE_ACCOUNTS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_TESTS",
@@ -196,7 +202,10 @@
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
-        "GET_PLATFORM_EVENTS"
+        "GET_PLATFORM_EVENTS",
+        "MANAGE_HOME_PAGE_TEMPLATES",
+        "GET_METADATA_CHANGE_LOG_EVENTS",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -255,7 +264,9 @@
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_PROPERTIES",
-        "EXECUTE_ENTITY"
+        "EXECUTE_ENTITY",
+        "MANAGE_ASSET_SUMMARY"
+
       ],
       "displayName": "Admins - Metadata Policy",
       "description": "Admins have all metadata privileges.",
@@ -287,7 +298,8 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_FEATURES"
+        "MANAGE_FEATURES",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",
@@ -340,7 +352,9 @@
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_PROPERTIES",
-        "VIEW_STRUCTURED_PROPERTIES_PAGE"
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
+        "MANAGE_ASSET_SUMMARY"
+
       ],
       "displayName": "Editors - Metadata Policy",
       "description": "Editors have all metadata privileges.",
@@ -381,7 +395,8 @@
                 "glossaryNode",
                 "notebook",
                 "dataProduct",
-                "dataProcessInstance"
+                "dataProcessInstance",
+                "document"
               ],
               "condition": "EQUALS"
             }
@@ -495,7 +510,8 @@
         "GET_COUNTS_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EDIT_ENTITY_PROPERTIES"
+        "EDIT_ENTITY_PROPERTIES",
+        "MANAGE_ASSET_SUMMARY"
       ],
       "displayName": "Asset Owners - Metadata Policy",
       "description": "Asset Owners have all metadata privileges ONLY for assets they own.",

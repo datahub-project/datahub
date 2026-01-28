@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from freezegun import freeze_time
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
@@ -16,6 +17,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+    BigQueryShardPatternMatcher,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -37,6 +39,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
+    calculate_dynamic_batch_size,
+    is_shard_newer,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
@@ -57,9 +61,11 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
 )
 
+FROZEN_TIME = "2022-02-03 07:00:00"
+
 
 def test_bigquery_uri():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -68,14 +74,14 @@ def test_bigquery_uri():
 
 
 def test_bigquery_uri_on_behalf():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id": "test-project", "project_on_behalf": "test-project-on-behalf"}
     )
     assert config.get_sql_alchemy_url() == "bigquery://test-project-on-behalf"
 
 
 def test_bigquery_dataset_pattern():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "dataset_pattern": {
                 "allow": [
@@ -100,7 +106,7 @@ def test_bigquery_dataset_pattern():
         r"project\.second_dataset",
     ]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "dataset_pattern": {
                 "allow": [
@@ -141,7 +147,7 @@ def test_bigquery_uri_with_credential():
         "type": "service_account",
     }
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "credential": {
@@ -180,7 +186,7 @@ def test_get_projects_with_project_ids(
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_ids": ["test-1", "test-2"],
         }
@@ -196,7 +202,7 @@ def test_get_projects_with_project_ids(
     ]
     assert client_mock.list_projects.call_count == 0
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_ids": ["test-1", "test-2"], "project_id": "test-3"}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
@@ -217,7 +223,7 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
     get_projects_client,
     get_bigquery_client,
 ):
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_ids": ["test-project", "test-project-2"],
             "project_id_pattern": {"deny": ["^test-project$"]},
@@ -236,12 +242,12 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
 
 
 def test_platform_instance_config_always_none():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"include_data_platform_instance": True, "platform_instance": "something"}
     )
     assert config.platform_instance is None
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         dict(platform_instance="something", project_id="project_id")
     )
     assert config.project_ids == ["project_id"]
@@ -259,7 +265,7 @@ def test_get_dataplatform_instance_aspect_returns_project_id(
         f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,{project_id})"
     )
 
-    config = BigQueryV2Config.parse_obj({"include_data_platform_instance": True})
+    config = BigQueryV2Config.model_validate({"include_data_platform_instance": True})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     schema_gen = source.bq_schema_extractor
 
@@ -279,7 +285,7 @@ def test_get_dataplatform_instance_default_no_instance(
     get_projects_client,
     get_bq_client_mock,
 ):
-    config = BigQueryV2Config.parse_obj({})
+    config = BigQueryV2Config.model_validate({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     schema_gen = source.bq_schema_extractor
 
@@ -301,7 +307,7 @@ def test_get_projects_with_single_project_id(
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
+    config = BigQueryV2Config.model_validate({"project_id": "test-3"})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert get_projects(
         source.bq_schema_extractor.schema_api,
@@ -339,7 +345,7 @@ def test_get_projects_by_list(get_projects_client, get_bigquery_client):
 
     client_mock.list_projects.side_effect = [first_page, second_page]
 
-    config = BigQueryV2Config.parse_obj({})
+    config = BigQueryV2Config.model_validate({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert get_projects(
         source.bq_schema_extractor.schema_api,
@@ -365,7 +371,7 @@ def test_get_projects_filter_by_pattern(
         BigqueryProject("test-project-2", "Test Project 2"),
     ]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -387,7 +393,7 @@ def test_get_projects_list_empty(
 ):
     get_projects_mock.return_value = []
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -412,7 +418,7 @@ def test_get_projects_list_failure(
     get_bq_client_mock.return_value = bq_client_mock
     bq_client_mock.list_projects.side_effect = GoogleAPICallError(error_str)
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -437,7 +443,7 @@ def test_get_projects_list_fully_filtered(
 ):
     get_projects_mock.return_value = [BigqueryProject("test-project", "Test Project")]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -477,7 +483,7 @@ def test_gen_table_dataset_workunits(
 ):
     project_id = "test-project"
     dataset_name = "test-dataset"
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": project_id,
             "capture_table_label_as_tag": True,
@@ -569,6 +575,98 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
+@freeze_time(FROZEN_TIME)
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_datasets_for_project_id_with_timestamps(
+    get_projects_client, get_bq_client_mock
+):
+    project_id = "test-project"
+    frozen_time = datetime.now(tz=timezone.utc)
+
+    # Mock the BigQuery client
+    mock_bq_client = MagicMock()
+    get_bq_client_mock.return_value = mock_bq_client
+
+    # Mock dataset list items (what list_datasets returns)
+    mock_dataset_list_item1 = MagicMock()
+    mock_dataset_list_item1.dataset_id = "dataset1"
+    mock_dataset_list_item1.labels = {"env": "test"}
+    mock_dataset_list_item1._properties = {"location": "US"}
+
+    mock_dataset_list_item2 = MagicMock()
+    mock_dataset_list_item2.dataset_id = "dataset2"
+    mock_dataset_list_item2.labels = {"env": "prod"}
+    mock_dataset_list_item2._properties = {"location": "EU"}
+
+    # Mock INFORMATION_SCHEMA query results (grouped by location)
+    mock_row_dataset1 = MagicMock()
+    mock_row_dataset1.table_schema = "dataset1"
+    mock_row_dataset1.comment = "Test dataset 1"
+    mock_row_dataset1.created = frozen_time
+    mock_row_dataset1.last_altered = frozen_time + timedelta(hours=1)
+
+    mock_row_dataset2 = MagicMock()
+    mock_row_dataset2.table_schema = "dataset2"
+    mock_row_dataset2.comment = None  # Test missing description
+    mock_row_dataset2.created = None  # Test missing created timestamp
+    mock_row_dataset2.last_altered = None  # Test missing modified timestamp
+
+    # Configure mocks
+    mock_bq_client.list_datasets.return_value = [
+        mock_dataset_list_item1,
+        mock_dataset_list_item2,
+    ]
+
+    # Mock query to return appropriate results based on location
+    def mock_query(query, location=None, job_retry=None):
+        mock_job = MagicMock()
+        if location == "US":
+            mock_job.result.return_value = [mock_row_dataset1]
+        elif location == "EU":
+            mock_job.result.return_value = [mock_row_dataset2]
+        else:
+            mock_job.result.return_value = []
+        return mock_job
+
+    mock_bq_client.query.side_effect = mock_query
+
+    # Create BigQuerySchemaApi instance
+    config = BigQueryV2Config.model_validate({"project_id": project_id})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_api = source.bq_schema_extractor.schema_api
+
+    # Call the method
+    result = schema_api.get_datasets_for_project_id(project_id)
+
+    # Assert correct number of datasets returned
+    assert len(result) == 2
+
+    # Assert first dataset
+    dataset1 = result[0]
+    assert dataset1.name == "dataset1"
+    assert dataset1.labels == {"env": "test"}
+    assert dataset1.location == "US"
+    assert dataset1.comment == "Test dataset 1"
+    assert dataset1.created == frozen_time
+    assert dataset1.last_altered == frozen_time + timedelta(hours=1)
+
+    # Assert second dataset (with missing timestamps)
+    dataset2 = result[1]
+    assert dataset2.name == "dataset2"
+    assert dataset2.labels == {"env": "prod"}
+    assert dataset2.location == "EU"
+    assert dataset2.comment is None
+    assert dataset2.created is None
+    assert dataset2.last_altered is None
+
+    # Verify query was called for each location (US and EU)
+    assert mock_bq_client.query.call_count == 2
+
+    # Verify list_datasets was called once
+    mock_bq_client.list_datasets.assert_called_once_with(project_id, max_results=None)
+
+
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_simple_upstream_table_generation(get_bq_client_mock, get_projects_client):
@@ -583,7 +681,7 @@ def test_simple_upstream_table_generation(get_bq_client_mock, get_projects_clien
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -619,7 +717,7 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream(
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -660,7 +758,7 @@ def test_upstream_table_column_lineage_with_temp_table(
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -746,7 +844,7 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -787,7 +885,7 @@ def test_table_processing_logic(
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -863,7 +961,7 @@ def test_table_processing_logic_date_named_tables(
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
     # test that tables with date names are processed correctly
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -1025,7 +1123,7 @@ def test_gen_view_dataset_workunits(
 ):
     project_id = "test-project"
     dataset_name = "test-dataset"
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": project_id,
         }
@@ -1126,7 +1224,7 @@ def test_gen_snapshot_dataset_workunits(
 ):
     project_id = "test-project"
     dataset_name = "test-dataset"
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": project_id,
         }
@@ -1172,14 +1270,11 @@ def test_gen_snapshot_dataset_workunits(
 def test_get_table_and_shard_default(
     table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
 ) -> None:
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
-        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-    ):
-        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-            expected_table_prefix,
-            expected_shard,
-        )
+    shard_matcher = BigQueryShardPatternMatcher(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    assert BigqueryTableIdentifier.get_table_and_shard(table_name, shard_matcher) == (
+        expected_table_prefix,
+        expected_shard,
+    )
 
 
 @pytest.mark.parametrize(
@@ -1207,14 +1302,12 @@ def test_get_table_and_shard_default(
 def test_get_table_and_shard_custom_shard_pattern(
     table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
 ) -> None:
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
-        "((.+)[_$])?(\\d{4,10})$",
-    ):
-        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-            expected_table_prefix,
-            expected_shard,
-        )
+    custom_pattern = "((.+)[_$])?(\\d{4,10})$"
+    shard_matcher = BigQueryShardPatternMatcher(custom_pattern)
+    assert BigqueryTableIdentifier.get_table_and_shard(table_name, shard_matcher) == (
+        expected_table_prefix,
+        expected_shard,
+    )
 
 
 @pytest.mark.parametrize(
@@ -1254,9 +1347,9 @@ def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> N
 
 
 def test_default_config_for_excluding_projects_and_datasets():
-    config = BigQueryV2Config.parse_obj({})
+    config = BigQueryV2Config.model_validate({})
     assert config.exclude_empty_projects is False
-    config = BigQueryV2Config.parse_obj({"exclude_empty_projects": True})
+    config = BigQueryV2Config.model_validate({"exclude_empty_projects": True})
     assert config.exclude_empty_projects
 
 
@@ -1272,6 +1365,8 @@ def test_excluding_empty_projects_from_ingestion(
 
     def get_datasets_for_project_id_side_effect(
         project_id: str,
+        maxResults: Optional[int] = None,
+        dataset_filter: Optional[Any] = None,
     ) -> List[BigqueryDataset]:
         return (
             []
@@ -1290,11 +1385,13 @@ def test_excluding_empty_projects_from_ingestion(
         "include_table_lineage": False,
     }
 
-    config = BigQueryV2Config.parse_obj(base_config)
+    config = BigQueryV2Config.model_validate(base_config)
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-1"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 2  # type: ignore
 
-    config = BigQueryV2Config.parse_obj({**base_config, "exclude_empty_projects": True})
+    config = BigQueryV2Config.model_validate(
+        {**base_config, "exclude_empty_projects": True}
+    )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 1  # type: ignore
 
@@ -1305,21 +1402,21 @@ def test_bigquery_config_deprecated_schema_pattern():
         "include_table_lineage": False,
     }
 
-    config = BigQueryV2Config.parse_obj(base_config)
+    config = BigQueryV2Config.model_validate(base_config)
     assert config.dataset_pattern == AllowDenyPattern(allow=[".*"])  # default
 
     config_with_schema_pattern = {
         **base_config,
         "schema_pattern": AllowDenyPattern(deny=[".*"]),
     }
-    config = BigQueryV2Config.parse_obj(config_with_schema_pattern)
+    config = BigQueryV2Config.model_validate(config_with_schema_pattern)
     assert config.dataset_pattern == AllowDenyPattern(deny=[".*"])  # schema_pattern
 
     config_with_dataset_pattern = {
         **base_config,
         "dataset_pattern": AllowDenyPattern(deny=["temp.*"]),
     }
-    config = BigQueryV2Config.parse_obj(config_with_dataset_pattern)
+    config = BigQueryV2Config.model_validate(config_with_dataset_pattern)
     assert config.dataset_pattern == AllowDenyPattern(
         deny=["temp.*"]
     )  # dataset_pattern
@@ -1340,7 +1437,7 @@ def test_get_projects_with_project_labels(
         SimpleNamespace(project_id="qa", display_name="qa_project"),
     ]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_labels": ["environment:dev", "environment:qa"],
         }
@@ -1356,3 +1453,215 @@ def test_get_projects_with_project_labels(
         BigqueryProject("dev", "dev_project"),
         BigqueryProject("qa", "qa_project"),
     ]
+
+
+def test_bigquery_filter_is_dataset_allowed():
+    """Test BigQueryFilter.is_dataset_allowed() for early dataset filtering."""
+    from datahub.ingestion.source.bigquery_v2.common import BigQueryFilter
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "dataset_pattern": {
+                "allow": ["^prod_.*"],
+                "deny": [".*_backup$"],
+            },
+            "match_fully_qualified_names": False,
+        }
+    )
+    report = BigQueryV2Report()
+    filters = BigQueryFilter(config, report)
+
+    assert filters.is_dataset_allowed("prod_data", "my-project") is True
+    assert filters.is_dataset_allowed("dev_data", "my-project") is False
+    assert filters.is_dataset_allowed("prod_data_backup", "my-project") is False
+
+    config_fqn = BigQueryV2Config.model_validate(
+        {
+            "dataset_pattern": {"allow": ["my-project\\.prod_.*"]},
+            "match_fully_qualified_names": True,
+        }
+    )
+    filters_fqn = BigQueryFilter(config_fqn, BigQueryV2Report())
+
+    # Pattern includes project_id
+    assert filters_fqn.is_dataset_allowed("prod_data", "my-project") is True
+    assert filters_fqn.is_dataset_allowed("prod_data", "other-project") is False
+
+
+@pytest.mark.parametrize(
+    "shard1,shard2,expected_is_newer,description",
+    [
+        ("20230102", "20230101", True, "same length YYYYMMDD - numeric comparison"),
+        ("20240101", "20231231", True, "year boundary - numeric comparison"),
+        (
+            "2024",
+            "20230101",
+            False,
+            "mixed length numeric - 2024 < 20230101 numerically",
+        ),
+        (
+            "20230101",
+            "2024",
+            True,
+            "mixed length numeric - 20230101 > 2024 numerically",
+        ),
+        ("abc_v2", "abc_v1", True, "non-numeric - lexicographic comparison"),
+    ],
+)
+def test_numeric_shard_comparison(
+    shard1: str, shard2: str, expected_is_newer: bool, description: str
+) -> None:
+    is_newer = is_shard_newer(shard1, shard2)
+    assert is_newer == expected_is_newer, f"Failed for: {description}"
+
+
+def test_shard_pattern_matching_with_dependency_injection():
+    shard_matcher = BigQueryShardPatternMatcher()
+
+    # Verify the pattern works correctly for sharded tables
+    table_names_with_shards = [
+        ("events_20240101", "events", "20240101"),
+        ("events_20240102", "events", "20240102"),
+        ("logs_20231225", "logs", "20231225"),
+    ]
+
+    for table_id, expected_base, expected_shard in table_names_with_shards:
+        base, shard = BigqueryTableIdentifier.get_table_and_shard(
+            table_id, shard_matcher
+        )
+        assert base == expected_base
+        assert shard == expected_shard
+
+    # Non-sharded table
+    base, shard = BigqueryTableIdentifier.get_table_and_shard("regular_table")
+    assert base == "regular_table"
+    assert shard is None
+
+
+def test_extract_base_table_name():
+    shard_matcher = BigQueryShardPatternMatcher()
+
+    # Test case 1: Standard sharded table with underscore separator
+    match = shard_matcher.match("events_20240101")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "events_20240101", "my_dataset", match
+    )
+    assert base_name == "events"
+
+    # Test case 2: Table with multiple underscores in base name
+    match = shard_matcher.match("user_activity_logs_20231225")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "user_activity_logs_20231225", "my_dataset", match
+    )
+    assert base_name == "user_activity_logs"
+
+    # Test case 3: Empty base name (just a date) - should fallback to dataset_name
+    match = shard_matcher.match("20240101")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "20240101", "fallback_dataset", match
+    )
+    assert base_name == "fallback_dataset"
+
+    # Test case 4: Sharded table with $ separator ($ is preserved, only _ is stripped)
+    match = shard_matcher.match("table$20231215")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "table$20231215", "my_dataset", match
+    )
+    assert base_name == "table$"
+
+    # Test case 5: Leap year date
+    match = shard_matcher.match("logs_20200229")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "logs_20200229", "my_dataset", match
+    )
+    assert base_name == "logs"
+
+
+def test_get_table_and_shard_extracts_base_name_correctly():
+    # Test sharded tables - should extract base and shard
+    test_cases = [
+        ("events_20240101", "events", "20240101"),
+        ("events_20240102", "events", "20240102"),
+        ("users_20231225", "users", "20231225"),
+        ("logs_20200229", "logs", "20200229"),  # Leap year
+    ]
+
+    for table_id, expected_base, expected_shard in test_cases:
+        base, shard = BigqueryTableIdentifier.get_table_and_shard(table_id)
+        assert base == expected_base, (
+            f"Failed for {table_id}: expected base {expected_base}, got {base}"
+        )
+        assert shard == expected_shard, (
+            f"Failed for {table_id}: expected shard {expected_shard}, got {shard}"
+        )
+
+    # Test non-sharded table - should return full name and None
+    base, shard = BigqueryTableIdentifier.get_table_and_shard("orders")
+    assert base == "orders"
+    assert shard is None
+
+    # Test that sharded tables from same base are detected with same base name
+    base1, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240101")
+    base2, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240102")
+    base3, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240103")
+
+    # All three shards should have the same base name
+    assert base1 == base2 == base3 == "events"
+
+
+@pytest.mark.parametrize(
+    "base_batch_size,table_count,expected_batch_size,description",
+    [
+        (100, 50, 100, "small dataset - no scaling"),
+        (100, 150, 200, "medium dataset - 2x scaling"),
+        (100, 500, 300, "large dataset - 3x scaling"),
+        (200, 300, 500, "high base - respects cap"),
+    ],
+)
+def test_calculate_dynamic_batch_size(
+    base_batch_size: int,
+    table_count: int,
+    expected_batch_size: int,
+    description: str,
+) -> None:
+    result = calculate_dynamic_batch_size(base_batch_size, table_count)
+    assert result == expected_batch_size, f"Failed for: {description}"
+
+
+@pytest.mark.parametrize(
+    "shard,stored_shard,expected",
+    [
+        ("20240102", "20240101", True),
+        ("20240101", "20240102", False),
+        ("20240101", "20240101", False),
+        ("20231231", "20240101", False),
+        ("abc", "aaa", True),
+        ("aaa", "abc", False),
+        ("123", "99", True),
+        ("99", "123", False),
+    ],
+)
+def test_is_shard_newer(shard: str, stored_shard: str, expected: bool) -> None:
+    result = is_shard_newer(shard, stored_shard)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "table_id",
+    [
+        "TABLE_20240101",
+        "Table_20240101",
+        "table_20240101",
+    ],
+)
+def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
+    shard_matcher = BigQueryShardPatternMatcher()
+
+    match = shard_matcher.match(table_id)
+    assert match is not None
+    assert match[3] == "20240101"

@@ -1,4 +1,5 @@
-import { Modal, message } from 'antd';
+import { Icon } from '@components';
+import { message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -7,9 +8,10 @@ import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
-import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';
 import { EntityType, SubResourceType, TagAssociation } from '@types';
@@ -86,7 +88,9 @@ export default function Tag({
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
+    const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
+    const previewContext = { propagationDetails: { context, attribution: tag.attribution } };
 
     const showTagProfileDrawer = (urn: string) => {
         if (!readOnly) {
@@ -101,44 +105,33 @@ export default function Tag({
 
     const removeTag = (tagAssociationToRemove: TagAssociation) => {
         const tagToRemove = tagAssociationToRemove.tag;
-        onOpenModal?.();
-        Modal.confirm({
-            title: `Do you want to remove ${displayName} tag?`,
-            content: `Are you sure you want to remove the ${displayName} tag?`,
-            onOk() {
-                if (tagAssociationToRemove.associatedUrn || entityUrn) {
-                    removeTagMutation({
-                        variables: {
-                            input: {
-                                tagUrn: tagToRemove.urn,
-                                resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
-                                subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                            },
-                        },
-                    })
-                        .then(({ errors }) => {
-                            if (!errors) {
-                                message.success({ content: 'Removed Tag!', duration: 2 });
-                            }
-                        })
-                        .then(refetch)
-                        .catch((e) => {
-                            message.destroy();
-                            message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
-                        });
-                }
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        if (tagAssociationToRemove.associatedUrn || entityUrn) {
+            removeTagMutation({
+                variables: {
+                    input: {
+                        tagUrn: tagToRemove.urn,
+                        resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
+                        subResource: entitySubresource,
+                        subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                    },
+                },
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        message.success({ content: 'Removed Tag!', duration: 2 });
+                    }
+                })
+                .then(refetch)
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                });
+        }
     };
 
     return (
         <>
-            <HoverEntityTooltip entity={tag.tag} width={250}>
+            <HoverEntityTooltip entity={tag.tag} width={250} previewContext={previewContext}>
                 <TagLink
                     data-testid={`tag-${displayName}`}
                     $showOneAndCount={showOneAndCount}
@@ -147,7 +140,10 @@ export default function Tag({
                     <StyledTag
                         onClick={() => {
                             if (isEmbeddedProfile) {
-                                window.open(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn), '_blank');
+                                window.open(
+                                    resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)),
+                                    '_blank',
+                                );
                             } else if (!options?.shouldNotOpenDrawerOnClick) {
                                 showTagProfileDrawer(tag?.tag?.urn);
                             }
@@ -158,8 +154,10 @@ export default function Tag({
                         closable={canRemove && !readOnly}
                         onClose={(e) => {
                             e.preventDefault();
-                            removeTag(tag);
+                            onOpenModal?.();
+                            setShowConfirmDelete(true);
                         }}
+                        closeIcon={<Icon icon="X" source="phosphor" size="sm" data-testid="remove-icon" />}
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
                         $showOneAndCount={showOneAndCount}
@@ -179,7 +177,6 @@ export default function Tag({
                                 </DisplayNameContainer>
                             )}
                         </Highlight>
-                        <LabelPropagationDetails entityType={EntityType.Tag} context={context} />
                     </StyledTag>
                 </TagLink>
             </HoverEntityTooltip>
@@ -190,6 +187,13 @@ export default function Tag({
                     urn={addTagUrn}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmDelete}
+                handleClose={() => setShowConfirmDelete(false)}
+                handleConfirm={() => removeTag(tag)}
+                modalTitle={`Delete Tag '${displayName}'`}
+                modalText="Are you sure you want to remove this tag?"
+            />
         </>
     );
 }

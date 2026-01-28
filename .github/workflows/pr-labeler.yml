@@ -14,7 +14,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v5
+      - uses: actions/labeler@v6
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
@@ -23,42 +23,53 @@ jobs:
         if: ${{
           !contains(
           fromJson('[
+          "acrylJonny",
+          "AdrianMachado",
+          "Alex23Hub",
+          "alexsku",
+          "alfiyas-datahub",
+          "alokr-dhub",
+          "annadoesdesign",
           "anshbansal",
           "asikowitz",
+          "askumar27",
+          "aviraj-gour",
+          "benjiaming",
+          "brock-acryl",
+          "bryanprosser-acryl",
+          "chakru-r",
           "chriscollins3456",
           "david-leifker",
-          "shirshanka",
-          "swaroopjagadish",
-          "treff7es",
-          "yoonhyejin",
+          "deepgarg760",
+          "devashish2203",
+          "dinesh-verma-datahub",
+          "esteban",
           "gabe-lyons",
-          "hsheth2",
+          "jayacryl",
           "jjoyce0510",
+          "jmacryl",
+          "kardeepak-datahub",
+          "kevinkarchacryl",
+          "kewats",
+          "ksrinath",
+          "kyungsoo-datahub",
+          "ligfx",
           "maggiehays",
+          "pdruley",
           "pedro93",
+          "petemango",
+          "purnimagarg1",
+          "rajatoss",
+          "rob-1019",
           "RyanHolstien",
           "sakethvarma397",
-          "purnimagarg1",
-          "sagar-salvi-apptware",
-          "kushagra-apptware",
-          "Salman-Apptware",
-          "mayurinehate",
-          "noggi",
-          "skrydal",
-          "kevinkarchacryl",
           "sgomezvillamor",
-          "acrylJonny",
-          "chakru-r",
-          "brock-acryl",
-          "mminichino",
-          "jayacryl",
+          "shirshanka",
+          "skrydal",
+          "swaroopjagadish",
+          "treff7es",
           "v-tarasevich-blitz-brain",
-          "ryota-cloud",
-          "annadoesdesign",
-          "jmacryl",
-          "esteban",
-          "anthonyburdi",
-          "ligfx"
+          "yoonhyejin"
           ]'),
           github.actor
           )

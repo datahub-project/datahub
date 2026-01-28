@@ -16,7 +16,7 @@ import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.TraceIdGenerator;
 import io.datahubproject.metadata.exception.TraceException;
 import io.datahubproject.openapi.v1.models.TraceStatus;
@@ -67,6 +67,15 @@ public class TraceServiceImpl implements TraceService {
     this.mcpFailedTraceReader = mcpFailedTraceReader;
     this.mclVersionedTraceReader = mclVersionedTraceReader;
     this.mclTimeseriesTraceReader = mclTimeseriesTraceReader;
+  }
+
+  @Nullable
+  public static Long extractTraceIdEpochMillis(@Nullable SystemMetadata systemMetadata) {
+    String traceId = extractTraceId(systemMetadata);
+    if (traceId != null) {
+      return TraceIdGenerator.getTimestampMillis(traceId);
+    }
+    return null;
   }
 
   @Nonnull
@@ -473,7 +482,7 @@ public class TraceServiceImpl implements TraceService {
   @Nullable
   private static String extractTraceId(@Nullable SystemMetadata systemMetadata) {
     if (systemMetadata != null && systemMetadata.getProperties() != null) {
-      return systemMetadata.getProperties().get(TraceContext.TELEMETRY_TRACE_KEY);
+      return systemMetadata.getProperties().get(SystemTelemetryContext.TELEMETRY_TRACE_KEY);
     }
     return null;
   }

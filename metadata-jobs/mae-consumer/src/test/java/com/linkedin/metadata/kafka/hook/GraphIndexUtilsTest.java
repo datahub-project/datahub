@@ -9,6 +9,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
@@ -36,28 +37,26 @@ import org.testng.annotations.Test;
 public class GraphIndexUtilsTest {
 
   private static final String UPSTREAM_RELATIONSHIP_PATH = "/upstreams/*/dataset";
+  private static final long DEFAULT_CREATED_TIME = 1L;
   private static final long CREATED_EVENT_TIME = 123L;
   private static final long UPDATED_EVENT_TIME_1 = 234L;
   private static final long UPDATED_EVENT_TIME_2 = 345L;
-  private Urn _datasetUrn;
-  private DatasetUrn _upstreamDataset1;
-  private DatasetUrn _upstreamDataset2;
-  private static final String CREATED_ACTOR_URN = "urn:li:corpuser:creating";
-  private static final String UPDATED_ACTOR_URN = "urn:li:corpuser:updating";
+  private static final Urn DATASET_URN =
+      UrnUtils.getUrn(
+          "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)");
+  private static final DatasetUrn UPSTREAM_DATASET_1 =
+      UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
+  private static final DatasetUrn UPSTREAM_DATASET_2 =
+      UrnUtils.toDatasetUrn("snowflake", "test2", "DEV");
+  private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:queryid");
+  private static final Urn CREATED_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:creating");
+  private static final Urn UPDATED_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:updating");
+  private static final Urn DATAHUB_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:datahub");
   private static final String DOWNSTREAM_RELATIONSHIP_TYPE = "DownstreamOf";
   private EntityRegistry _mockRegistry;
-  private Urn _createdActorUrn;
-  private Urn _updatedActorUrn;
 
   @BeforeMethod
   public void setupTest() {
-    _createdActorUrn = UrnUtils.getUrn(CREATED_ACTOR_URN);
-    _updatedActorUrn = UrnUtils.getUrn(UPDATED_ACTOR_URN);
-    _datasetUrn =
-        UrnUtils.getUrn(
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)");
-    _upstreamDataset1 = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
-    _upstreamDataset2 = UrnUtils.toDatasetUrn("snowflake", "test2", "DEV");
     _mockRegistry = ENTITY_REGISTRY;
   }
 
@@ -76,34 +75,36 @@ public class GraphIndexUtilsTest {
       // check specifically for the upstreams relationship entry
       if (entry.getKey().getPath().toString().equals(UPSTREAM_RELATIONSHIP_PATH)) {
         List<Edge> edgesToAdd =
-            GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, _datasetUrn, event, true);
+            GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, DATASET_URN, event, true);
         List<Edge> expectedEdgesToAdd = new ArrayList<>();
         // edges contain default created event time and created actor from system metadata
         Edge edge1 =
             new Edge(
-                _datasetUrn,
-                _upstreamDataset1,
+                DATASET_URN,
+                UPSTREAM_DATASET_1,
                 entry.getKey().getRelationshipName(),
                 CREATED_EVENT_TIME,
-                _createdActorUrn,
+                CREATED_ACTOR_URN,
                 UPDATED_EVENT_TIME_1,
-                _updatedActorUrn,
-                null);
+                UPDATED_ACTOR_URN,
+                Map.of("foo", "bar"),
+                null,
+                QUERY_URN);
         Edge edge2 =
             new Edge(
-                _datasetUrn,
-                _upstreamDataset2,
+                DATASET_URN,
+                UPSTREAM_DATASET_2,
                 entry.getKey().getRelationshipName(),
-                CREATED_EVENT_TIME,
-                _createdActorUrn,
+                DEFAULT_CREATED_TIME,
+                DATAHUB_ACTOR_URN,
                 UPDATED_EVENT_TIME_2,
-                _updatedActorUrn,
+                UPDATED_ACTOR_URN,
                 null);
         expectedEdgesToAdd.add(edge1);
         expectedEdgesToAdd.add(edge2);
         assertEquals(expectedEdgesToAdd.size(), edgesToAdd.size());
-        Assert.assertTrue(edgesToAdd.containsAll(expectedEdgesToAdd));
-        Assert.assertTrue(expectedEdgesToAdd.containsAll(edgesToAdd));
+        Assert.assertTrue(edgesToAdd.contains(edge1));
+        Assert.assertTrue(edgesToAdd.contains(edge2));
       }
     }
   }
@@ -112,30 +113,30 @@ public class GraphIndexUtilsTest {
   public void testMergeEdges() {
     final Edge edge1 =
         new Edge(
-            _datasetUrn,
-            _upstreamDataset1,
+            DATASET_URN,
+            UPSTREAM_DATASET_1,
             DOWNSTREAM_RELATIONSHIP_TYPE,
             CREATED_EVENT_TIME,
-            _createdActorUrn,
+            CREATED_ACTOR_URN,
             UPDATED_EVENT_TIME_1,
-            _updatedActorUrn,
+            UPDATED_ACTOR_URN,
             Collections.singletonMap("foo", "bar"));
     final Edge edge2 =
         new Edge(
-            _datasetUrn,
-            _upstreamDataset1,
+            DATASET_URN,
+            UPSTREAM_DATASET_1,
             DOWNSTREAM_RELATIONSHIP_TYPE,
             UPDATED_EVENT_TIME_2,
-            _updatedActorUrn,
+            UPDATED_ACTOR_URN,
             UPDATED_EVENT_TIME_2,
-            _updatedActorUrn,
+            UPDATED_ACTOR_URN,
             Collections.singletonMap("foo", "baz"));
     final Edge edge3 = mergeEdges(edge1, edge2);
     assertEquals(edge3.getSource(), edge1.getSource());
     assertEquals(edge3.getDestination(), edge1.getDestination());
     assertEquals(edge3.getRelationshipType(), edge1.getRelationshipType());
-    assertEquals(edge3.getCreatedOn(), null);
-    assertEquals(edge3.getCreatedActor(), null);
+    assertNull(edge3.getCreatedOn());
+    assertNull(edge3.getCreatedActor());
     assertEquals(edge3.getUpdatedOn(), edge2.getUpdatedOn());
     assertEquals(edge3.getUpdatedActor(), edge2.getUpdatedActor());
     assertEquals(edge3.getProperties(), edge2.getProperties());
@@ -145,15 +146,19 @@ public class GraphIndexUtilsTest {
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     UpstreamArray upstreams = new UpstreamArray();
     Upstream upstream1 = new Upstream();
-    upstream1.setDataset(_upstreamDataset1);
+    upstream1.setDataset(UPSTREAM_DATASET_1);
     upstream1.setAuditStamp(
-        new AuditStamp().setActor(_updatedActorUrn).setTime(UPDATED_EVENT_TIME_1));
+        new AuditStamp().setActor(UPDATED_ACTOR_URN).setTime(UPDATED_EVENT_TIME_1));
+    upstream1.setCreated(new AuditStamp().setActor(CREATED_ACTOR_URN).setTime(CREATED_EVENT_TIME));
+    upstream1.setProperties(new StringMap(Map.of("foo", "bar")));
+    upstream1.setQuery(QUERY_URN);
     upstream1.setType(DatasetLineageType.TRANSFORMED);
+
     Upstream upstream2 = new Upstream();
-    upstream2.setDataset(_upstreamDataset2);
+    upstream2.setDataset(UPSTREAM_DATASET_2);
     upstream2.setAuditStamp(
-        new AuditStamp().setActor(_updatedActorUrn).setTime(UPDATED_EVENT_TIME_1));
-    upstream2.setType(DatasetLineageType.TRANSFORMED);
+        new AuditStamp().setActor(UPDATED_ACTOR_URN).setTime(UPDATED_EVENT_TIME_1));
+    upstream2.setType(DatasetLineageType.COPY);
     upstreams.add(upstream1);
     upstreams.add(upstream2);
     upstreamLineage.setUpstreams(upstreams);
@@ -168,12 +173,12 @@ public class GraphIndexUtilsTest {
     event.setChangeType(ChangeType.UPSERT);
 
     event.setAspect(GenericRecordUtils.serializeAspect(aspect));
-    event.setEntityUrn(_datasetUrn);
+    event.setEntityUrn(DATASET_URN);
 
     SystemMetadata systemMetadata = new SystemMetadata();
     systemMetadata.setLastObserved(CREATED_EVENT_TIME);
     event.setSystemMetadata(systemMetadata);
-    event.setCreated(new AuditStamp().setActor(_createdActorUrn).setTime(CREATED_EVENT_TIME));
+    event.setCreated(new AuditStamp().setActor(DATAHUB_ACTOR_URN).setTime(DEFAULT_CREATED_TIME));
 
     return event;
   }

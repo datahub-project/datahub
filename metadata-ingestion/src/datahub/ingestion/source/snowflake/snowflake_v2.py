@@ -5,7 +5,6 @@ import logging
 import os
 import os.path
 import platform
-import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -32,6 +31,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SnowflakeEdition,
@@ -72,6 +72,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
+    RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -97,7 +98,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
@@ -163,7 +171,11 @@ class SnowflakeV2Source(
         )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
+        self.data_dictionary = SnowflakeDataDictionary(
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
+        )
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
         self.discovered_datasets: Optional[List[str]] = None
@@ -187,6 +199,7 @@ class SnowflakeV2Source(
                 ),
                 generate_usage_statistics=False,
                 generate_operations=False,
+                generate_queries=self.config.include_queries,
                 format_queries=self.config.format_sql_queries,
                 is_temp_table=self._is_temp_table,
                 is_allowed_table=self._is_allowed_table,
@@ -194,7 +207,7 @@ class SnowflakeV2Source(
         )
         self.report.sql_aggregator = self.aggregator.report
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage and not self.config.use_queries_v2:
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -455,8 +468,8 @@ class SnowflakeV2Source(
 
     def _is_temp_table(self, name: str) -> bool:
         if any(
-            re.match(pattern, name, flags=re.IGNORECASE)
-            for pattern in self.config.temporary_tables_pattern
+            pattern.match(name)
+            for pattern in self.config._compiled_temporary_tables_pattern
         ):
             return True
 
@@ -518,6 +531,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
@@ -542,6 +556,14 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table_name in schema.views
         ]
+        discovered_semantic_views: List[str] = [
+            self.identifiers.get_dataset_identifier(
+                semantic_view_name, schema.name, db.name
+            )
+            for db in databases
+            for schema in db.schemas
+            for semantic_view_name in schema.semantic_views
+        ]
         discovered_streams: List[str] = [
             self.identifiers.get_dataset_identifier(stream_name, schema.name, db.name)
             for db in databases
@@ -552,6 +574,7 @@ class SnowflakeV2Source(
         if (
             len(discovered_tables) == 0
             and len(discovered_views) == 0
+            and len(discovered_semantic_views) == 0
             and len(discovered_streams) == 0
         ):
             if self.config.warn_no_datasets:
@@ -565,7 +588,10 @@ class SnowflakeV2Source(
                 )
 
         self.discovered_datasets = (
-            discovered_tables + discovered_views + discovered_streams
+            discovered_tables
+            + discovered_views
+            + discovered_semantic_views
+            + discovered_streams
         )
 
         if self.config.use_queries_v2:
@@ -575,8 +601,20 @@ class SnowflakeV2Source(
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
                 schema_resolver = self.aggregator._schema_resolver
 
+                redundant_queries_run_skip_handler: Optional[
+                    RedundantQueriesRunSkipHandler
+                ] = None
+                if self.config.enable_stateful_time_window:
+                    redundant_queries_run_skip_handler = RedundantQueriesRunSkipHandler(
+                        source=self,
+                        config=self.config,
+                        pipeline_name=self.ctx.pipeline_name,
+                        run_id=self.ctx.run_id,
+                    )
+
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
+                    # TODO: this should be its own section in main recipe
                     config=SnowflakeQueriesExtractorConfig(
                         window=BaseTimeWindowConfig(
                             start_time=self.config.start_time,
@@ -591,10 +629,15 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
+                        query_dedup_strategy=self.config.query_dedup_strategy,
+                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
                     ),
                     structured_report=self.report,
                     filters=self.filters,
                     identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=schema_resolver,
                     discovered_tables=self.discovered_datasets,
                     graph=self.ctx.graph,
@@ -732,6 +775,7 @@ class SnowflakeV2Source(
                 # For privatelink, account identifier ends with .privatelink
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
+                snowflake_domain=self.config.snowflake_domain,
             )
 
         except Exception as e:

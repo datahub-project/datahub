@@ -9,7 +9,10 @@ from google.auth.transport.requests import Request
 from pydantic import Field, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -21,6 +24,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.object_store import (
@@ -41,6 +45,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+GCS_ENDPOINT_URL = "https://storage.googleapis.com"
+
 
 class GCSAuthType(str, Enum):
     HMAC = "hmac"
@@ -53,7 +59,10 @@ class HMACKey(ConfigModel):
 
 
 class GCSSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    PathSpecsConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     auth_type: GCSAuthType = Field(
         default=GCSAuthType.HMAC,
@@ -152,10 +161,10 @@ class GCSSourceConfig(
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the gs:// prefix.
-        if any([not is_gcs_uri(path_spec.include) for path_spec in path_specs]):
+        if any([not is_gcs_uri(path_spec.include) for path_spec in self.path_specs]):
             raise ValueError("All path_spec.include should start with gs://")
 
-        return path_specs
+        return self
 
 
 class GCSSourceReport(DataLakeSourceReport):
@@ -165,7 +174,14 @@ class GCSSourceReport(DataLakeSourceReport):
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.GCS_BUCKET,
+        SourceCapabilityModifier.FOLDER,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
 class GCSSource(StatefulIngestionSourceBase):
@@ -178,7 +194,7 @@ class GCSSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = GCSSourceConfig.parse_obj(config_dict)
+        config = GCSSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _setup_wif_credentials(self) -> None:
@@ -288,9 +304,18 @@ class GCSSource(StatefulIngestionSourceBase):
     def create_equivalent_s3_path_specs(self):
         s3_path_specs = []
         for path_spec in self.config.path_specs:
+            # PathSpec modifies the passed-in include to add /** to the end if
+            # autodetecting partitions. Remove that, otherwise creating a new
+            # PathSpec will complain.
+            # TODO: this should be handled inside PathSpec, which probably shouldn't
+            # modify its input.
+            include = path_spec.include
+            if include.endswith("{table}/**") and not path_spec.allow_double_stars:
+                include = include.removesuffix("**")
+
             s3_path_specs.append(
                 PathSpec(
-                    include=path_spec.include.replace("gs://", "s3://"),
+                    include=include.replace("gs://", "s3://"),
                     exclude=(
                         [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
                         if path_spec.exclude
@@ -301,6 +326,11 @@ class GCSSource(StatefulIngestionSourceBase):
                     table_name=path_spec.table_name,
                     enable_compression=path_spec.enable_compression,
                     sample_files=path_spec.sample_files,
+                    allow_double_stars=path_spec.allow_double_stars,
+                    autodetect_partitions=path_spec.autodetect_partitions,
+                    include_hidden_folders=path_spec.include_hidden_folders,
+                    tables_filter_pattern=path_spec.tables_filter_pattern,
+                    traversal_method=path_spec.traversal_method,
                 )
             )
 
@@ -308,7 +338,9 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def create_equivalent_s3_source(self, ctx: PipelineContext) -> S3Source:
         config = self.create_equivalent_s3_config()
-        s3_source = S3Source(config, PipelineContext(ctx.run_id))
+        # Create a new context for S3 source without graph to avoid duplicate checkpointer registration
+        s3_ctx = PipelineContext(run_id=ctx.run_id, pipeline_name=ctx.pipeline_name)
+        s3_source = S3Source(config, s3_ctx)
         return self.s3_source_overrides(s3_source)
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:

@@ -1,7 +1,6 @@
 package io.datahubproject.openapi.schema.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import io.datahubproject.schema_registry.openapi.generated.CompatibilityCheckResponse;
 import io.datahubproject.schema_registry.openapi.generated.Config;
@@ -22,12 +21,15 @@ import io.swagger.api.SchemasApi;
 import io.swagger.api.SubjectsApi;
 import io.swagger.api.V1Api;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Arrays;
+import jakarta.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,8 +38,9 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** DataHub Rest Controller implementation for Confluent's Schema Registry OpenAPI spec. */
@@ -59,8 +62,6 @@ public class SchemaRegistryController
   private final ObjectMapper objectMapper;
 
   private final HttpServletRequest request;
-  private static final Set<String> SCHEMA_VERSIONS =
-      ImmutableSet.of(String.valueOf(Constants.FIXED_SCHEMA_VERSION), "latest");
 
   @Qualifier("schemaRegistryService")
   private final SchemaRegistryService _schemaRegistryService;
@@ -112,8 +113,9 @@ public class SchemaRegistryController
 
   @Override
   public ResponseEntity<List<Integer>> getReferencedBy(String subject, String version) {
-    log.error("[SubjectsApi] getReferencedBy method not implemented");
-    return SubjectsApi.super.getReferencedBy(subject, version);
+    // DataHub doesn't currently track schema references, so return empty list
+    // This could be enhanced in the future to track which schemas reference others
+    return ResponseEntity.ok(List.of());
   }
 
   @Override
@@ -121,41 +123,254 @@ public class SchemaRegistryController
       String subject, String version, Boolean deleted) {
     final String topicName = subject.replaceFirst("-value", "");
 
-    if (!SCHEMA_VERSIONS.contains(version)) {
-      log.error(
-          "[SubjectsApi] getSchemaByVersion subject {} version {} not found.", subject, version);
+    // Handle "latest" version request
+    if ("latest".equals(version)) {
+      Optional<Integer> latestVersionOpt =
+          _schemaRegistryService.getLatestSchemaVersionForTopic(topicName);
+      if (!latestVersionOpt.isPresent()) {
+        log.error(
+            "[SubjectsApi] getSchemaByVersion couldn't find latest version for topic {}.",
+            topicName);
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+
+      int latestVersion = latestVersionOpt.get();
+      return _schemaRegistryService
+          .getSchemaForTopicAndVersion(topicName, latestVersion)
+          .map(
+              schema -> {
+                Optional<Integer> schemaIdOpt =
+                    _schemaRegistryService.getSchemaIdForTopicAndVersion(topicName, latestVersion);
+                if (!schemaIdOpt.isPresent()) {
+                  log.error(
+                      "[SubjectsApi] getSchemaByVersion couldn't find schema ID for topic {} latest version {}.",
+                      topicName,
+                      latestVersion);
+                  return new ResponseEntity<Schema>(HttpStatus.NOT_FOUND);
+                }
+
+                Schema result = new Schema();
+                result.setSubject(subject);
+                result.setVersion(latestVersion);
+                result.setId(schemaIdOpt.get());
+                result.setSchema(schema.toString());
+                return new ResponseEntity<>(result, HttpStatus.OK);
+              })
+          .orElseGet(
+              () -> {
+                log.error("[SubjectsApi] getSchemaByVersion couldn't find topic {}.", topicName);
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+              });
+    }
+
+    // Handle specific version request
+    try {
+      int versionNumber = Integer.parseInt(version);
+
+      // Check if this version is supported for the topic
+      Optional<List<Integer>> supportedVersions =
+          _schemaRegistryService.getSupportedSchemaVersionsForTopic(topicName);
+      if (supportedVersions.isPresent() && !supportedVersions.get().contains(versionNumber)) {
+        log.error(
+            "[SubjectsApi] getSchemaByVersion subject {} version {} not supported for topic {}.",
+            subject,
+            version,
+            topicName);
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+
+      return _schemaRegistryService
+          .getSchemaForTopicAndVersion(topicName, versionNumber)
+          .map(
+              schema -> {
+                Optional<Integer> schemaIdOpt =
+                    _schemaRegistryService.getSchemaIdForTopicAndVersion(topicName, versionNumber);
+                if (!schemaIdOpt.isPresent()) {
+                  log.error(
+                      "[SubjectsApi] getSchemaByVersion couldn't find schema ID for topic {} version {}.",
+                      topicName,
+                      version);
+                  return new ResponseEntity<Schema>(HttpStatus.NOT_FOUND);
+                }
+
+                Schema result = new Schema();
+                result.setSubject(subject);
+                result.setVersion(versionNumber);
+                result.setId(schemaIdOpt.get());
+                result.setSchema(schema.toString());
+                return new ResponseEntity<>(result, HttpStatus.OK);
+              })
+          .orElseGet(
+              () -> {
+                log.error(
+                    "[SubjectsApi] getSchemaByVersion couldn't find topic {} version {}.",
+                    topicName,
+                    version);
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+              });
+    } catch (NumberFormatException e) {
+      log.error("[SubjectsApi] getSchemaByVersion invalid version format: {}", version);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  /**
+   * Get schema by ID - CRITICAL for Kafka consumer deserialization This is the standard endpoint
+   * consumers use to resolve schemas by ID When a message has schema ID 1, consumers call this to
+   * get the exact schema
+   */
+  @Override
+  public ResponseEntity<SchemaString> getSchema(
+      @Parameter(
+              in = ParameterIn.PATH,
+              description = "Globally unique identifier of the schema",
+              required = true,
+              schema = @io.swagger.v3.oas.annotations.media.Schema())
+          @PathVariable("id")
+          Integer id,
+      @Parameter(
+              in = ParameterIn.QUERY,
+              description = "Name of the subject",
+              schema = @io.swagger.v3.oas.annotations.media.Schema())
+          @Valid
+          @RequestParam(value = "subject", required = false)
+          String subject,
+      @Parameter(
+              in = ParameterIn.QUERY,
+              description = "Desired output format, dependent on schema type",
+              schema = @io.swagger.v3.oas.annotations.media.Schema())
+          @Valid
+          @RequestParam(value = "format", required = false)
+          String format,
+      @Parameter(
+              in = ParameterIn.QUERY,
+              description = "Whether to fetch the maximum schema identifier that exists",
+              schema = @io.swagger.v3.oas.annotations.media.Schema(defaultValue = "false"))
+          @Valid
+          @RequestParam(value = "fetchMaxId", required = false, defaultValue = "false")
+          Boolean fetchMaxId) {
+
+    // Get the topic name for this schema ID
+    Optional<String> topicNameOpt = _schemaRegistryService.getTopicNameById(id);
+    if (!topicNameOpt.isPresent()) {
+      log.error("Schema not found for ID {}", id);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
-    return _schemaRegistryService
-        .getSchemaForTopic(topicName)
-        .map(
-            schema -> {
-              Schema result = new Schema();
-              result.setSubject(subject);
-              result.setVersion(Constants.FIXED_SCHEMA_VERSION);
-              result.setId(_schemaRegistryService.getSchemaIdForTopic(topicName).get());
-              result.setSchema(schema.toString());
-              return new ResponseEntity<>(result, HttpStatus.OK);
-            })
-        .orElseGet(
-            () -> {
-              log.error("[SubjectsApi] getSchemaByVersion couldn't find topic {}.", topicName);
-              return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            });
+    String topicName = topicNameOpt.get();
+
+    // Get the schema for this topic (this will be the schema associated with the ID)
+    Optional<org.apache.avro.Schema> schemaOpt = _schemaRegistryService.getSchemaForId(id);
+    if (!schemaOpt.isPresent()) {
+      log.error("Schema not found for ID {} and topic {}", id, topicName);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // Get the latest version for this topic to determine the subject
+    Optional<Integer> latestVersionOpt =
+        _schemaRegistryService.getLatestSchemaVersionForTopic(topicName);
+    if (!latestVersionOpt.isPresent()) {
+      log.error("No version found for topic {}", topicName);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // Create SchemaString response (this is what the generated interface expects)
+    SchemaString result = new SchemaString();
+    result.setSchema(schemaOpt.get().toString());
+    result.setSchemaType("AVRO");
+
+    // Set maxId if fetchMaxId is true
+    if (Boolean.TRUE.equals(fetchMaxId)) {
+      result.setMaxId(id); // For now, just use the current ID as max
+    }
+
+    return ResponseEntity.ok(result);
   }
 
   @Override
   public ResponseEntity<String> getSchemaOnly2(String subject, String version, Boolean deleted) {
-    log.error("[SubjectsApi] getSchemaOnly2 method not implemented");
-    return SubjectsApi.super.getSchemaOnly2(subject, version, deleted);
+    try {
+      int versionNumber = Integer.parseInt(version);
+
+      // Try to get schema by subject and version first (most direct approach)
+      Optional<org.apache.avro.Schema> schemaOpt =
+          _schemaRegistryService.getSchemaBySubjectAndVersion(subject, versionNumber);
+
+      if (schemaOpt.isPresent()) {
+        return ResponseEntity.ok(schemaOpt.get().toString());
+      }
+
+      // Fallback to topic-based lookup
+      final String topicName = subject.replaceFirst("-value", "");
+      schemaOpt = _schemaRegistryService.getSchemaForTopicAndVersion(topicName, versionNumber);
+
+      if (schemaOpt.isPresent()) {
+        return ResponseEntity.ok(schemaOpt.get().toString());
+      }
+
+      log.error("Schema not found for subject {} version {}", subject, version);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+
+    } catch (NumberFormatException e) {
+      log.error("Invalid version format: {}", version);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Override
   public ResponseEntity<List<String>> list(
-      String subjectPrefix, Boolean deleted, Boolean deletedOnly) {
-    log.error("[SubjectsApi] list method not implemented");
-    return SubjectsApi.super.list(subjectPrefix, deleted, deletedOnly);
+      @Parameter(
+              in = ParameterIn.QUERY,
+              description = "Subject name prefix",
+              schema = @io.swagger.v3.oas.annotations.media.Schema(defaultValue = ":*:"))
+          @Valid
+          @RequestParam(value = "subjectPrefix", required = false, defaultValue = ":*:")
+          String subjectPrefix,
+      @Parameter(
+              in = ParameterIn.QUERY,
+              description = "Whether to look up deleted subjects",
+              schema = @io.swagger.v3.oas.annotations.media.Schema())
+          @Valid
+          @RequestParam(value = "deleted", required = false)
+          Boolean deleted,
+      @Parameter(
+              in = ParameterIn.QUERY,
+              description = "Whether to return deleted subjects only",
+              schema = @io.swagger.v3.oas.annotations.media.Schema())
+          @Valid
+          @RequestParam(value = "deletedOnly", required = false)
+          Boolean deletedOnly) {
+    // If deletedOnly is true, return empty list since we don't support deleted schemas
+    if (Boolean.TRUE.equals(deletedOnly)) {
+      return ResponseEntity.ok(List.of());
+    }
+
+    // If deleted is true, return empty list since we don't support deleted schemas
+    if (Boolean.TRUE.equals(deleted)) {
+      return ResponseEntity.ok(List.of());
+    }
+
+    // Get all topics and convert them to subjects (add "-value" suffix)
+    List<String> topics = _schemaRegistryService.getAllTopics();
+
+    if (topics == null) {
+      return ResponseEntity.ok(List.of());
+    }
+
+    List<String> subjects =
+        topics.stream()
+            .map(topic -> topic + "-value")
+            .filter(
+                subject -> {
+                  // Handle the special ":*:" default value and null cases
+                  if (subjectPrefix == null || ":*:".equals(subjectPrefix)) {
+                    return true; // Include all subjects
+                  }
+                  return subject.startsWith(subjectPrefix);
+                })
+            .collect(Collectors.toList());
+
+    return ResponseEntity.ok(subjects);
   }
 
   @Override
@@ -163,11 +378,10 @@ public class SchemaRegistryController
       String subject, Boolean deleted, Boolean deletedOnly) {
     final String topicName = subject.replaceFirst("-value", "");
     return _schemaRegistryService
-        .getSchemaForTopic(topicName)
+        .getSupportedSchemaVersionsForTopic(topicName)
         .map(
-            schema -> {
-              return new ResponseEntity<>(
-                  Arrays.asList(Constants.FIXED_SCHEMA_VERSION), HttpStatus.OK);
+            versions -> {
+              return new ResponseEntity<>(versions, HttpStatus.OK);
             })
         .orElseGet(
             () -> {
@@ -254,17 +468,22 @@ public class SchemaRegistryController
 
   @Override
   public ResponseEntity<Config> getSubjectLevelConfig(String subject, Boolean defaultToGlobal) {
-    return getTopLevelConfig();
+    final String topicName = subject.replaceFirst("-value", "");
+
+    // Get the compatibility level for the topic
+    String compatibilityLevel = _schemaRegistryService.getSchemaCompatibility(topicName);
+
+    // If defaultToGlobal is true and no compatibility level is set, return global default
+    if (Boolean.TRUE.equals(defaultToGlobal) && compatibilityLevel == null) {
+      return getTopLevelConfig();
+    }
+
+    Config config = new Config();
+    config.setCompatibilityLevel(Config.CompatibilityLevelEnum.fromValue(compatibilityLevel));
+
+    return ResponseEntity.ok(config);
   }
 
-  @RequestMapping(
-      value = {"/config", "/config/"},
-      produces = {
-        "application/vnd.schemaregistry.v1+json",
-        "application/vnd.schemaregistry+json; qs=0.9",
-        "application/json; qs=0.5"
-      },
-      method = RequestMethod.GET)
   @Override
   public ResponseEntity<Config> getTopLevelConfig() {
     return ResponseEntity.ok(
@@ -287,15 +506,122 @@ public class SchemaRegistryController
   @Override
   public ResponseEntity<CompatibilityCheckResponse> testCompatibilityBySubjectName(
       String subject, String version, RegisterSchemaRequest body, Boolean verbose) {
-    log.error("[CompatibilityApi] testCompatibilityBySubjectName method not implemented");
-    return CompatibilityApi.super.testCompatibilityBySubjectName(subject, version, body, verbose);
+    final String topicName = subject.replaceFirst("-value", "");
+
+    // Parse the version
+    int versionNumber;
+    try {
+      versionNumber = Integer.parseInt(version);
+    } catch (NumberFormatException e) {
+      log.error(
+          "[CompatibilityApi] testCompatibilityBySubjectName invalid version format: {}", version);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
+
+    // Get the specific schema version for the topic
+    Optional<org.apache.avro.Schema> currentSchema =
+        _schemaRegistryService.getSchemaForTopicAndVersion(topicName, versionNumber);
+    if (!currentSchema.isPresent()) {
+      log.error(
+          "[CompatibilityApi] testCompatibilityBySubjectName couldn't find topic {} version {}.",
+          topicName,
+          version);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // Parse the new schema from the request body
+    if (body == null || body.getSchema() == null) {
+      log.error("[CompatibilityApi] testCompatibilityBySubjectName missing schema in request body");
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      org.apache.avro.Schema newSchema =
+          new org.apache.avro.Schema.Parser().parse(body.getSchema());
+
+      // Perform actual compatibility check
+      boolean isCompatible =
+          _schemaRegistryService.checkSchemaCompatibility(
+              topicName, newSchema, currentSchema.get());
+
+      CompatibilityCheckResponse response = new CompatibilityCheckResponse();
+      response.setIsCompatible(isCompatible);
+
+      if (Boolean.TRUE.equals(verbose)) {
+        if (isCompatible) {
+          response.setMessages(List.of("Schema is compatible with version " + version));
+        } else {
+          response.setMessages(
+              List.of(
+                  "Schema is NOT compatible with version "
+                      + version
+                      + ". Check schema evolution rules."));
+        }
+      }
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      log.error(
+          "[CompatibilityApi] testCompatibilityBySubjectName failed to parse schema: {}",
+          e.getMessage(),
+          e);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Override
   public ResponseEntity<CompatibilityCheckResponse> testCompatibilityForSubject(
       String subject, RegisterSchemaRequest body, Boolean verbose) {
-    log.error("[CompatibilityApi] testCompatibilityForSubject method not implemented");
-    return CompatibilityApi.super.testCompatibilityForSubject(subject, body, verbose);
+    final String topicName = subject.replaceFirst("-value", "");
+
+    // Get the current schema for the topic
+    Optional<org.apache.avro.Schema> currentSchema =
+        _schemaRegistryService.getSchemaForTopic(topicName);
+    if (!currentSchema.isPresent()) {
+      log.error(
+          "[CompatibilityApi] testCompatibilityForSubject couldn't find topic {}.", topicName);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // Parse the new schema from the request body
+    if (body == null || body.getSchema() == null) {
+      log.error("[CompatibilityApi] testCompatibilityForSubject missing schema in request body");
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      org.apache.avro.Schema newSchema =
+          new org.apache.avro.Schema.Parser().parse(body.getSchema());
+
+      // Perform actual compatibility check
+      boolean isCompatible =
+          _schemaRegistryService.checkSchemaCompatibility(
+              topicName, newSchema, currentSchema.get());
+
+      CompatibilityCheckResponse response = new CompatibilityCheckResponse();
+      response.setIsCompatible(isCompatible);
+
+      if (Boolean.TRUE.equals(verbose)) {
+        if (isCompatible) {
+          response.setMessages(List.of("Schema is compatible with current schema"));
+        } else {
+          response.setMessages(
+              List.of(
+                  "Schema is NOT compatible with current schema. "
+                      + "Check schema evolution rules."));
+        }
+      }
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      log.error(
+          "[CompatibilityApi] testCompatibilityForSubject failed to parse schema: {}",
+          e.getMessage(),
+          e);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Override
@@ -321,55 +647,190 @@ public class SchemaRegistryController
   }
 
   @Override
-  public ResponseEntity<SchemaString> getSchema(
-      Integer id, String subject, String format, Boolean fetchMaxId) {
+  public ResponseEntity<String> getSchemaOnly(Integer id, String subject, String format) {
     return _schemaRegistryService
         .getSchemaForId(id)
         .map(
             schema -> {
-              SchemaString result = new SchemaString();
-              if (fetchMaxId) {
-                result.setMaxId(id);
-              }
-              result.setSchema(schema.toString());
-              return new ResponseEntity<>(result, HttpStatus.OK);
+              // Return just the schema string
+              return new ResponseEntity<>(schema.toString(), HttpStatus.OK);
             })
         .orElseGet(
             () -> {
-              log.error("Couldn't find topic with id {}.", id);
+              log.error("[SchemasApi] getSchemaOnly couldn't find schema with id {}.", id);
               return new ResponseEntity<>(HttpStatus.NOT_FOUND);
             });
   }
 
   @Override
-  public ResponseEntity<String> getSchemaOnly(Integer id, String subject, String format) {
-    log.error("[SchemasApi] getSchemaOnly method not implemented");
-    return SchemasApi.super.getSchemaOnly(id, subject, format);
-  }
-
-  @Override
   public ResponseEntity<List<String>> getSchemaTypes() {
-    log.error("[SchemasApi] getSchemaTypes method not implemented");
-    return SchemasApi.super.getSchemaTypes();
+    // DataHub currently only supports AVRO schemas
+    return ResponseEntity.ok(List.of("AVRO"));
   }
 
   @Override
   public ResponseEntity<List<Schema>> getSchemas(
       String subjectPrefix, Boolean deleted, Boolean latestOnly, Integer offset, Integer limit) {
-    log.error("[SchemasApi] getSchemas method not implemented");
-    return SchemasApi.super.getSchemas(subjectPrefix, deleted, latestOnly, offset, limit);
+    // If deleted is true, return empty list since we don't support deleted schemas
+    if (Boolean.TRUE.equals(deleted)) {
+      return ResponseEntity.ok(List.of());
+    }
+
+    // Get all topics and convert them to subjects
+    List<String> topics = _schemaRegistryService.getAllTopics();
+    List<String> subjects =
+        topics.stream()
+            .map(topic -> topic + "-value")
+            .filter(
+                subject -> {
+                  if (subjectPrefix == null || ":*:".equals(subjectPrefix)) {
+                    return true; // Include all subjects
+                  }
+                  return subject.startsWith(subjectPrefix);
+                })
+            .collect(Collectors.toList());
+
+    // Convert subjects to Schema objects - return all versions for each subject
+    List<Schema> schemas = new ArrayList<>();
+
+    for (String subject : subjects) {
+      String topicName = subject.replaceFirst("-value", "");
+
+      // Get all supported versions for this topic
+      Optional<List<Integer>> supportedVersionsOpt =
+          _schemaRegistryService.getSupportedSchemaVersionsForTopic(topicName);
+
+      if (supportedVersionsOpt.isPresent()) {
+        List<Integer> supportedVersions = supportedVersionsOpt.get();
+
+        // If latestOnly is true, only return the latest version
+        if (Boolean.TRUE.equals(latestOnly)) {
+          int latestVersion =
+              supportedVersions.stream().mapToInt(Integer::intValue).max().orElse(1);
+          supportedVersions = List.of(latestVersion);
+        }
+
+        // Create a Schema object for each version
+        for (Integer version : supportedVersions) {
+          Optional<Integer> schemaIdOpt =
+              _schemaRegistryService.getSchemaIdForTopicAndVersion(topicName, version);
+          Optional<org.apache.avro.Schema> schemaOpt =
+              _schemaRegistryService.getSchemaForTopicAndVersion(topicName, version);
+
+          if (schemaIdOpt.isPresent() && schemaOpt.isPresent()) {
+            Schema result = new Schema();
+            result.setSubject(subject);
+            result.setId(schemaIdOpt.get());
+            result.setVersion(version);
+            result.setSchema(schemaOpt.get().toString());
+            schemas.add(result);
+          }
+        }
+      }
+    }
+
+    // Apply offset and limit if provided
+    if (offset != null && offset > 0 && offset < schemas.size()) {
+      schemas = schemas.subList(offset, schemas.size());
+    }
+    if (limit != null && limit > 0 && limit < schemas.size()) {
+      schemas = schemas.subList(0, limit);
+    }
+
+    return ResponseEntity.ok(schemas);
   }
 
   @Override
   public ResponseEntity<List<String>> getSubjects(Integer id, String subject, Boolean deleted) {
-    log.error("[SchemasApi] getSubjects method not implemented");
-    return SchemasApi.super.getSubjects(id, subject, deleted);
+    // If deleted is true, return empty list since we don't support deleted schemas
+    if (Boolean.TRUE.equals(deleted)) {
+      return ResponseEntity.ok(List.of());
+    }
+
+    if (id != null) {
+      // Get subject for a specific schema ID
+      Optional<String> topicNameOpt = _schemaRegistryService.getTopicNameById(id);
+      if (topicNameOpt.isPresent()) {
+        String subjectName = topicNameOpt.get() + "-value";
+        return ResponseEntity.ok(List.of(subjectName));
+      } else {
+        log.error("[SchemasApi] getSubjects couldn't find schema with id {}.", id);
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+    } else if (subject != null) {
+      // If subject is provided, return it if it exists
+      final String topicName = subject.replaceFirst("-value", "");
+      Optional<Integer> schemaId = _schemaRegistryService.getSchemaIdForTopic(topicName);
+      if (schemaId.isPresent()) {
+        return ResponseEntity.ok(List.of(subject));
+      } else {
+        log.error("[SchemasApi] getSubjects couldn't find subject {}.", subject);
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+    }
+
+    // If neither id nor subject is provided, return all subjects
+    List<String> topics = _schemaRegistryService.getAllTopics();
+    List<String> subjects =
+        topics.stream().map(topic -> topic + "-value").collect(Collectors.toList());
+    return ResponseEntity.ok(subjects);
   }
 
   @Override
   public ResponseEntity<List<SubjectVersion>> getVersions(
       Integer id, String subject, Boolean deleted) {
-    log.error("[SchemasApi] getVersions method not implemented");
-    return SchemasApi.super.getVersions(id, subject, deleted);
+    // If deleted is true, return empty list since we don't support deleted schemas
+    if (Boolean.TRUE.equals(deleted)) {
+      return ResponseEntity.ok(List.of());
+    }
+
+    if (subject != null) {
+      // Get versions for a specific subject
+      final String topicName = subject.replaceFirst("-value", "");
+      Optional<List<Integer>> supportedVersions =
+          _schemaRegistryService.getSupportedSchemaVersionsForTopic(topicName);
+
+      if (supportedVersions.isPresent()) {
+        List<SubjectVersion> subjectVersions =
+            supportedVersions.get().stream()
+                .map(
+                    version -> {
+                      SubjectVersion sv = new SubjectVersion();
+                      sv.setSubject(subject);
+                      sv.setVersion(version);
+                      return sv;
+                    })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(subjectVersions);
+      } else {
+        log.error("[SchemasApi] getVersions couldn't find topic {}.", topicName);
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+    } else if (id != null) {
+      // Get versions for a specific schema ID
+      Optional<String> topicNameOpt = _schemaRegistryService.getTopicNameById(id);
+      if (topicNameOpt.isPresent()) {
+        Optional<List<Integer>> supportedVersions =
+            _schemaRegistryService.getSupportedSchemaVersionsForTopic(topicNameOpt.get());
+        if (supportedVersions.isPresent()) {
+          List<SubjectVersion> subjectVersions =
+              supportedVersions.get().stream()
+                  .map(
+                      version -> {
+                        SubjectVersion sv = new SubjectVersion();
+                        sv.setSubject(topicNameOpt.get() + "-value");
+                        sv.setVersion(version);
+                        return sv;
+                      })
+                  .collect(Collectors.toList());
+          return ResponseEntity.ok(subjectVersions);
+        }
+      }
+      log.error("[SchemasApi] getVersions couldn't find schema with id {}.", id);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    // If neither subject nor id is provided, return empty list
+    return ResponseEntity.ok(List.of());
   }
 }

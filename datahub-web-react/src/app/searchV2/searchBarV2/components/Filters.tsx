@@ -19,7 +19,7 @@ import {
 } from '@app/searchV2/utils/constants';
 import { FacetMetadata } from '@src/types.generated';
 
-const FILTER_FIELDS = [
+export const FILTER_FIELDS = [
     PLATFORM_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     OWNERS_FILTER_NAME,

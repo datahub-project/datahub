@@ -15,6 +15,8 @@
 import logging
 from typing import Optional
 
+from pydantic import Field
+
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub_actions.action.action import Action
@@ -36,8 +38,8 @@ logger = logging.getLogger(__name__)
 
 class SnowflakeTagPropagatorConfig(ConfigModel):
     snowflake: SnowflakeV2Config
-    tag_propagation: Optional[TagPropagationConfig] = None
-    term_propagation: Optional[TermPropagationConfig] = None
+    tag_propagation: Optional[TagPropagationConfig] = Field(default=None)
+    term_propagation: Optional[TermPropagationConfig] = Field(default=None)
 
 
 class SnowflakeTagPropagatorAction(Action):
@@ -65,7 +67,7 @@ class SnowflakeTagPropagatorAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        config = SnowflakeTagPropagatorConfig.parse_obj(config_dict or {})
+        config = SnowflakeTagPropagatorConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     @staticmethod

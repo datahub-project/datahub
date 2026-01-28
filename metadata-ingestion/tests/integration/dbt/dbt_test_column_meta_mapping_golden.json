@@ -921,6 +921,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "data_governance_nested": "{'team_owner': 'Finance'}",
+                            "data_governance.team_owner": "Finance",
                             "node_type": "model",
                             "materialization": "table",
                             "dbt_file_path": "models/transform/payments_by_customer_by_month.sql",
@@ -942,6 +944,22 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Finance_test"
+                            },
+                            {
+                                "urn": "urn:li:glossaryTerm:Finance_test_nested"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1643871600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -1019,6 +1037,9 @@
                                         },
                                         {
                                             "urn": "urn:li:glossaryTerm:pii"
+                                        },
+                                        {
+                                            "urn": "urn:li:glossaryTerm:pii_category_organization"
                                         }
                                     ],
                                     "auditStamp": {
@@ -4771,6 +4792,38 @@
 },
 {
     "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Finance_test",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Finance_test"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Finance_test_nested",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Finance_test_nested"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:customer_id",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermKey",
@@ -4809,6 +4862,22 @@
     "aspect": {
         "json": {
             "name": "pii"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-column-meta-mapping",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:pii_category_organization",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "pii_category_organization"
         }
     },
     "systemMetadata": {

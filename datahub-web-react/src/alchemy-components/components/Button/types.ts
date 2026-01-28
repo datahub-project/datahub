@@ -10,6 +10,7 @@ export enum ButtonVariantValues {
     outline = 'outline',
     text = 'text',
     secondary = 'secondary',
+    link = 'link',
 }
 export type ButtonVariant = keyof typeof ButtonVariantValues;
 
@@ -20,7 +21,6 @@ export interface ButtonPropsDefaults {
     iconPosition: 'left' | 'right';
     isCircle: boolean;
     isLoading: boolean;
-    isDisabled: boolean;
     isActive: boolean;
 }
 
@@ -30,4 +30,7 @@ export interface ButtonProps
     icon?: IconProps;
 }
 
-export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'> & { hasChildren: boolean; theme?: Theme };
+export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'> & {
+    hasChildren: boolean;
+    theme?: Theme;
+};

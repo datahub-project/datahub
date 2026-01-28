@@ -39,6 +39,7 @@ record Upstream {
   }
   @Searchable = {
     "fieldName": "upstreams",
+    "hasValuesFieldName": "hasUpstreams",
     "fieldType": "URN",
     "queryByDefault": false
   }

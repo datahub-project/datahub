@@ -25,9 +25,15 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     get_object_store_bucket_name,
     get_object_store_for_uri,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_utils import (
     get_gcs_prefix,
     is_gcs_uri,
+)
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
 )
 
 # hide annoying debug errors from py4j
@@ -37,6 +43,37 @@ logger: logging.Logger = logging.getLogger(__name__)
 PLATFORM_S3 = "s3"
 PLATFORM_GCS = "gcs"
 PLATFORM_ABS = "abs"
+
+
+def add_partition_columns_to_schema(
+    path_spec: PathSpec, full_path: str, fields: List[SchemaFieldClass]
+) -> None:
+    # Check if using fieldPath v2 format
+    is_fieldpath_v2 = any(
+        field.fieldPath.startswith("[version=2.0]") for field in fields
+    )
+
+    # Extract partition information from path
+    partition_keys = path_spec.get_partition_from_path(full_path)
+    if not partition_keys:
+        return
+
+    # Add partition fields to schema
+    for partition_key in partition_keys:
+        fields.append(
+            SchemaFieldClass(
+                fieldPath=(
+                    f"{partition_key[0]}"
+                    if not is_fieldpath_v2
+                    else f"[version=2.0].[type=string].{partition_key[0]}"
+                ),
+                nativeDataType="string",
+                type=SchemaFieldDataTypeClass(StringTypeClass()),
+                isPartitioningKey=True,
+                nullable=False,
+                recursive=False,
+            )
+        )
 
 
 class ContainerWUCreator:

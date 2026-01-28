@@ -100,7 +100,7 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
         Modal.confirm({
             title: `Confirm Cancel`,
             content:
-                'Cancelling an running execution will NOT remove any data that has already been ingested. You can use the DataHub CLI to rollback this ingestion run.',
+                'Cancelling a running execution will NOT remove any data that has already been ingested. You can use the DataHub CLI to rollback this ingestion run.',
             onOk() {
                 onCancelExecutionRequest(executionUrn);
             },

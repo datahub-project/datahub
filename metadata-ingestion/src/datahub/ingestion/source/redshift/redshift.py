@@ -1,5 +1,4 @@
 import functools
-import itertools
 import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Type, Union
@@ -7,7 +6,6 @@ from typing import Dict, Iterable, List, Optional, Type, Union
 import humanfriendly
 
 # These imports verify that the dependencies are available.
-import pydantic
 import redshift_connector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -47,12 +45,12 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelper
 from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
-from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
-from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
+from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_data_reader import RedshiftDataReader
 from datahub.ingestion.source.redshift.redshift_schema import (
@@ -71,7 +69,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
-    gen_lineage,
     gen_schema_container,
     gen_schema_key,
     get_dataplatform_instance_aspect,
@@ -91,8 +88,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    PROFILING,
     USAGE_EXTRACTION_INGESTION,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -115,7 +112,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.utilities import memory_footprint
-from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -126,7 +122,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @platform_name("Redshift")
 @config_class(RedshiftConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -139,7 +142,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+    "Optionally enabled via `include_usage_statistics`",
 )
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
@@ -229,10 +232,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            RedshiftConfig.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            config = RedshiftConfig.parse_obj(config_dict)
+            # We are okay with extra fields during this stage
+            config = RedshiftConfig.parse_obj_allow_extras(config_dict)
             # source = RedshiftSource(config, report)
             connection: redshift_connector.Connection = (
                 RedshiftSource.get_redshift_connection(config)
@@ -312,7 +313,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = RedshiftConfig.parse_obj(config_dict)
+        config = RedshiftConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -415,40 +416,40 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
-        if self.config.use_lineage_v2:
-            with RedshiftSqlLineageV2(
-                config=self.config,
-                report=self.report,
-                context=self.ctx,
-                database=database,
-                redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
-            ) as lineage_extractor:
-                yield from lineage_extractor.aggregator.register_schemas_from_stream(
-                    self.process_schemas(connection, database)
-                )
+        with RedshiftSqlLineage(
+            config=self.config,
+            report=self.report,
+            context=self.ctx,
+            database=database,
+            redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
+        ) as lineage_extractor:
+            yield from lineage_extractor.aggregator.register_schemas_from_stream(
+                self.process_schemas(connection, database)
+            )
 
+            # Only extract lineage if at least one lineage flag is enabled.
+            # This addresses a regression introduced in PR #14580 where lineage v1 removal
+            # inadvertently caused lineage extraction to run even when all flags were disabled.
+            if (
+                self.config.include_table_lineage
+                or self.config.include_view_lineage
+                or self.config.include_copy_lineage
+                or self.config.include_unload_lineage
+                or self.config.include_share_lineage
+                or self.config.include_table_rename_lineage
+            ):
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     yield from self.extract_lineage_v2(
                         connection=connection,
                         database=database,
                         lineage_extractor=lineage_extractor,
                     )
+            else:
+                logger.info(
+                    "Skipping lineage extraction - all lineage flags are disabled"
+                )
 
-            all_tables = self.get_all_tables()
-        else:
-            yield from self.process_schemas(connection, database)
-
-            all_tables = self.get_all_tables()
-
-            if (
-                self.config.include_table_lineage
-                or self.config.include_view_lineage
-                or self.config.include_copy_lineage
-            ):
-                with self.report.new_stage(LINEAGE_EXTRACTION):
-                    yield from self.extract_lineage(
-                        connection=connection, all_tables=all_tables, database=database
-                    )
+        all_tables = self.get_all_tables()
 
         if self.config.include_usage_statistics:
             with self.report.new_stage(USAGE_EXTRACTION_INGESTION):
@@ -457,7 +458,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.is_profiling_enabled():
-            with self.report.new_stage(PROFILING):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 profiler = RedshiftProfiler(
                     config=self.config,
                     report=self.report,
@@ -960,45 +961,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             self.report.usage_extraction_sec[database] = timer.elapsed_seconds(digits=2)
 
-    def extract_lineage(
-        self,
-        connection: redshift_connector.Connection,
-        database: str,
-        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
-    ) -> Iterable[MetadataWorkUnit]:
-        if not self._should_ingest_lineage():
-            return
-
-        lineage_extractor = RedshiftLineageExtractor(
-            config=self.config,
-            report=self.report,
-            context=self.ctx,
-            redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
-        )
-
-        with PerfTimer() as timer:
-            lineage_extractor.populate_lineage(
-                database=database, connection=connection, all_tables=all_tables
-            )
-
-            self.report.lineage_extraction_sec[f"{database}"] = timer.elapsed_seconds(
-                digits=2
-            )
-            yield from self.generate_lineage(
-                database, lineage_extractor=lineage_extractor
-            )
-
-            if self.redundant_lineage_run_skip_handler:
-                # Update the checkpoint state for this run.
-                self.redundant_lineage_run_skip_handler.update_state(
-                    self.config.start_time, self.config.end_time
-                )
-
     def extract_lineage_v2(
         self,
         connection: redshift_connector.Connection,
         database: str,
-        lineage_extractor: RedshiftSqlLineageV2,
+        lineage_extractor: RedshiftSqlLineage,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.include_share_lineage:
             outbound_shares = self.data_dictionary.get_outbound_datashares(connection)
@@ -1060,40 +1027,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             return False
 
         return True
-
-    def generate_lineage(
-        self, database: str, lineage_extractor: RedshiftLineageExtractor
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate lineage for {database}")
-        for schema in deduplicate_list(
-            itertools.chain(self.db_tables[database], self.db_views[database])
-        ):
-            if (
-                database not in self.db_schemas
-                or schema not in self.db_schemas[database]
-            ):
-                logger.warning(
-                    f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong."
-                )
-                continue
-
-            table_or_view: Union[RedshiftTable, RedshiftView]
-            for table_or_view in (
-                []
-                + self.db_tables[database].get(schema, [])
-                + self.db_views[database].get(schema, [])
-            ):
-                datahub_dataset_name = f"{database}.{schema}.{table_or_view.name}"
-                dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
-
-                lineage_info = lineage_extractor.get_lineage(
-                    table_or_view,
-                    dataset_urn,
-                    self.db_schemas[database][schema],
-                )
-                if lineage_info:
-                    # incremental lineage generation is taken care by auto_incremental_lineage
-                    yield from gen_lineage(dataset_urn, lineage_info)
 
     def add_config_to_report(self):
         self.report.stateful_lineage_ingestion_enabled = (

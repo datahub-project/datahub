@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -25,10 +26,13 @@ import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -50,9 +54,6 @@ import org.apache.http.HttpEntity;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.testng.Assert;
@@ -65,12 +66,13 @@ import org.testng.annotations.Test;
  */
 public class TimeseriesAspectServiceUnitTest {
 
-  private final RestHighLevelClient searchClient = mock(RestHighLevelClient.class);
+  private final SearchClientShim searchClient = mock(SearchClientShim.class);
   private final IndexConvention indexConvention = mock(IndexConvention.class);
   private final ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
-  private final RestClient restClient = mock(RestClient.class);
+  private final RawResponse response = mock(RawResponse.class);
   private final OperationContext opContext =
-      TestOperationContexts.systemContextNoSearchAuthorization(indexConvention);
+      TestOperationContexts.systemContextNoSearchAuthorization(
+          SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
   private final EntityRegistry entityRegistry = opContext.getEntityRegistry();
   private final ESIndexBuilder indexBuilder = mock(ESIndexBuilder.class);
   private final TimeseriesAspectService _timeseriesAspectService =
@@ -82,19 +84,20 @@ public class TimeseriesAspectServiceUnitTest {
           TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
           entityRegistry,
           indexConvention,
-          indexBuilder);
+          indexBuilder,
+          null);
 
   private static final String INDEX_PATTERN = "indexPattern";
 
   @BeforeMethod
   public void resetMocks() {
-    reset(searchClient, indexConvention, bulkProcessor, restClient, indexBuilder);
+    reset(searchClient, indexConvention, bulkProcessor, response, indexBuilder);
   }
 
   @Test
   public void testGetIndicesIntegerWrap() throws IOException {
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.getLowLevelClient()).thenReturn(restClient);
+    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
     ObjectNode jsonNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indicesNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indexNode = JsonNodeFactory.instance.objectNode();
@@ -107,12 +110,10 @@ public class TimeseriesAspectServiceUnitTest {
     indicesNode.set("someIndexName", indexNode);
     jsonNode.set("indices", indicesNode);
 
-    Response response = mock(Response.class);
     HttpEntity responseEntity = mock(HttpEntity.class);
     when(response.getEntity()).thenReturn(responseEntity);
     when(responseEntity.getContent())
         .thenReturn(IOUtils.toInputStream(jsonNode.toString(), StandardCharsets.UTF_8));
-    when(restClient.performRequest(any(Request.class))).thenReturn(response);
 
     List<TimeseriesIndexSizeResult> results = _timeseriesAspectService.getIndexSizes(opContext);
 
@@ -283,14 +284,12 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Setup mock to throw IOException when reading JSON response
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.getLowLevelClient()).thenReturn(restClient);
+    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
 
-    Response response = mock(Response.class);
     HttpEntity responseEntity = mock(HttpEntity.class);
     when(response.getEntity()).thenReturn(responseEntity);
     when(responseEntity.getContent())
         .thenReturn(IOUtils.toInputStream("invalid json", StandardCharsets.UTF_8));
-    when(restClient.performRequest(any(Request.class))).thenReturn(response);
 
     // Execute and verify RuntimeException is thrown
     try {
@@ -340,6 +339,151 @@ public class TimeseriesAspectServiceUnitTest {
     Assert.assertEquals(result.getPageSize(), 1);
     Assert.assertNotNull(result.getEvents());
     Assert.assertNotNull(result.getDocuments());
+  }
+
+  @Test
+  public void testScrollAspectsReturnsScrollIdWhenFullPage() throws IOException {
+    // Test that scrollId is returned when we get a full page of results (indicating more data)
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    int requestedCount = 2;
+
+    // Create two mock hits to match requested count (full page)
+    SearchHit mockHit1 = mock(SearchHit.class);
+    Map<String, Object> sourceMap1 = new HashMap<>();
+    sourceMap1.put(MappingsBuilder.URN_FIELD, "urn:li:dataset:123");
+    sourceMap1.put(MappingsBuilder.TIMESTAMP_MILLIS_FIELD, 1234567890L);
+    sourceMap1.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567890L);
+    when(mockHit1.getSourceAsMap()).thenReturn(sourceMap1);
+    when(mockHit1.getSortValues()).thenReturn(new Object[] {1234567890L, "msg1"});
+
+    SearchHit mockHit2 = mock(SearchHit.class);
+    Map<String, Object> sourceMap2 = new HashMap<>();
+    sourceMap2.put(MappingsBuilder.URN_FIELD, "urn:li:dataset:456");
+    sourceMap2.put(MappingsBuilder.TIMESTAMP_MILLIS_FIELD, 1234567880L);
+    sourceMap2.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567880L);
+    when(mockHit2.getSourceAsMap()).thenReturn(sourceMap2);
+    when(mockHit2.getSortValues()).thenReturn(new Object[] {1234567880L, "msg2"});
+
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {mockHit1, mockHit2});
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(100, TotalHits.Relation.EQUAL_TO));
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+
+    // Execute with count = 2 (same as number of hits)
+    TimeseriesScrollResult result =
+        _timeseriesAspectService.scrollAspects(
+            opContext,
+            "dataset",
+            "datasetProfile",
+            null,
+            Arrays.asList(
+                new SortCriterion()
+                    .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
+                    .setOrder(SortOrder.DESCENDING)),
+            null,
+            requestedCount,
+            null,
+            null);
+
+    // Verify scrollId is returned when we get a full page
+    Assert.assertEquals(result.getNumResults(), 100);
+    Assert.assertEquals(result.getPageSize(), 2);
+    Assert.assertNotNull(result.getScrollId(), "scrollId should be returned for full page");
+
+    // Verify the scrollId can be decoded
+    SearchAfterWrapper wrapper = SearchAfterWrapper.fromScrollId(result.getScrollId());
+    Assert.assertNotNull(wrapper);
+    Assert.assertNotNull(wrapper.getSort());
+    Assert.assertEquals(wrapper.getSort().length, 2, "Expected 2 sort values");
+    // Sort values should match the last hit's sort values
+    // Note: Sort values may be serialized as different numeric types, so compare as strings
+    Assert.assertEquals(String.valueOf(wrapper.getSort()[0]), "1234567880");
+    Assert.assertEquals(String.valueOf(wrapper.getSort()[1]), "msg2");
+  }
+
+  @Test
+  public void testScrollAspectsNoScrollIdWhenPartialPage() throws IOException {
+    // Test that scrollId is NOT returned when we get fewer results than requested (last page)
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    int requestedCount = 10;
+
+    // Create only one mock hit (less than requested count)
+    SearchHit mockHit = mock(SearchHit.class);
+    Map<String, Object> sourceMap = new HashMap<>();
+    sourceMap.put(MappingsBuilder.URN_FIELD, "urn:li:dataset:123");
+    sourceMap.put(MappingsBuilder.TIMESTAMP_MILLIS_FIELD, 1234567890L);
+    sourceMap.put(MappingsBuilder.TIMESTAMP_FIELD, 1234567890L);
+    when(mockHit.getSourceAsMap()).thenReturn(sourceMap);
+    when(mockHit.getSortValues()).thenReturn(new Object[] {1234567890L, "msg1"});
+
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {mockHit});
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1, TotalHits.Relation.EQUAL_TO));
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+
+    // Execute with count = 10 but only 1 result returned
+    TimeseriesScrollResult result =
+        _timeseriesAspectService.scrollAspects(
+            opContext,
+            "dataset",
+            "datasetProfile",
+            null,
+            Arrays.asList(
+                new SortCriterion()
+                    .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
+                    .setOrder(SortOrder.DESCENDING)),
+            null,
+            requestedCount,
+            null,
+            null);
+
+    // Verify scrollId is NOT returned when we get a partial page (last page)
+    Assert.assertEquals(result.getNumResults(), 1);
+    Assert.assertEquals(result.getPageSize(), 1);
+    Assert.assertNull(result.getScrollId(), "scrollId should be null for partial/last page");
+  }
+
+  @Test
+  public void testScrollAspectsNoScrollIdWhenEmptyResults() throws IOException {
+    // Test that scrollId is NOT returned when we get no results
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {});
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0, TotalHits.Relation.EQUAL_TO));
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+
+    // Execute
+    TimeseriesScrollResult result =
+        _timeseriesAspectService.scrollAspects(
+            opContext,
+            "dataset",
+            "datasetProfile",
+            null,
+            Collections.emptyList(),
+            null,
+            10,
+            null,
+            null);
+
+    // Verify scrollId is NOT returned when no results
+    Assert.assertEquals(result.getNumResults(), 0);
+    Assert.assertEquals(result.getPageSize(), 0);
+    Assert.assertNull(result.getScrollId(), "scrollId should be null for empty results");
   }
 
   @Test

@@ -17,15 +17,16 @@ if (!project.hasProperty("extra_pip_requirements")) {
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c',
-    'import sys; sys.version_info >= (3, 8), f"Python version {sys.version_info[:2]} not allowed"'
+    'import sys; sys.version_info >= (3, 9), f"Python version {sys.version_info[:2]} not allowed"'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
+  def venv_copies_flag = System.getenv('DATAHUB_VENV_USE_COPIES') == 'true' ? '--copies' : ''
   commandLine 'bash', '-c',
-    "if [ ! -d ${venv_name} ] || [ ! -f ${venv_name}/bin/python ]; then ${python_executable} -m venv ${venv_name}; fi && " +
+    "if [ ! -d ${venv_name} ] || [ ! -f ${venv_name}/bin/python ]; then ${python_executable} -m venv ${venv_copies_flag} ${venv_name}; fi && " +
     "set -x && " +
     // If we already have uv available, use it to upgrade uv. Otherwise, install it with pip.
     "if [ ! -f ${venv_name}/bin/uv ]; then ${venv_name}/bin/python -m pip install --upgrade uv; else ${venv_name}/bin/python -m uv pip install --upgrade uv; fi && " +
@@ -140,20 +141,20 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format --check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
+    "ruff check scripts/ scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format --check scripts/ scripts/tests/ src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ "
+    "ruff check --fix scripts/ scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
 }
 
-def pytest_default_env = "PYTHONDEVMODE=1"
-def pytest_default_args = "--durations=30 -vv --continue-on-collection-errors"
+def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed sockets
+def pytest_default_args = "--durations=20 -vv --continue-on-collection-errors"
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
@@ -164,6 +165,17 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   commandLine 'bash', '-c',
     venv_activate_command +
     "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=junit.quick.xml"
+}
+
+task installDocs(type: Exec, dependsOn: [install]) {
+  def sentinel_file = "${venv_name}/.build_install_docs_sentinel"
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "uv pip install -e .[docs] ${extra_pip_requirements} && " +
+    "touch ${sentinel_file}"
 }
 
 task installDevTest(type: Exec, dependsOn: [install]) {
@@ -191,23 +203,20 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch0")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_0' --junit-xml=junit.integrationbatch0.xml"
-}
-task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch1")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_1' --junit-xml=junit.integrationbatch1.xml"
-}
-task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch2")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_2' --junit-xml=junit.integrationbatch2.xml"
+// Create testIntegrationBatch tasks for all batches including recording
+def integrationBatchIds = ["0", "1", "2", "3", "4", "5", "Recording"]
+integrationBatchIds.each { batchId ->
+    def markerName = "integration_batch_${batchId.toLowerCase()}"
+    def taskName = "testIntegrationBatch${batchId}"
+    def junitXml = "junit.integrationbatch${batchId.toLowerCase()}.xml"
+    def cvgArg = get_coverage_args("intBatch${batchId}")
+    
+    tasks.register(taskName, Exec) {
+        dependsOn installDevTest
+        commandLine 'bash', '-c',
+            venv_activate_command +
+            "${pytest_default_env} pytest ${cvgArg} ${pytest_default_args} -m '${markerName}' --junit-xml=${junitXml}"
+    }
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
@@ -216,7 +225,7 @@ task testFull(type: Exec, dependsOn: [installDevTest]) {
     "${pytest_default_env} pytest ${pytest_default_args} --junit-xml=junit.full.xml"
 }
 
-task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
+task specGen(type: Exec, dependsOn: [codegen, installDocs]) {
   commandLine 'bash', '-c', "${venv_activate_command} ./scripts/specgen.sh"
 }
 
@@ -229,14 +238,29 @@ task capabilitySummary(type: Exec, dependsOn: [codegen, installDevTest]) {
   commandLine 'bash', '-c', "${venv_activate_command} python scripts/capability_summary.py --output-dir ./src/datahub/ingestion/autogenerated"
 }
 
-task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
+task docGen(type: Exec, dependsOn: [codegen, installDocs, specGen]) {
   def sourceFile = file('./src/datahub/ingestion/autogenerated/capability_summary.json')
   if (!sourceFile.exists()) {
     // Doing it like this cuts docGen time from 15 seconds to 9 seconds locally
     // This can further reduce if we generate more things in the future
     dependsOn capabilitySummary
   }
-  commandLine 'bash', '-c', "${venv_activate_command} ./scripts/docgen.sh"
+  
+  def docsOutDir = "${rootProject.projectDir}/docs/generated/ingestion"
+  def extraDocsDir = "${rootProject.projectDir}/metadata-ingestion/docs/sources"
+  def capabilitySummaryFile = "${rootProject.projectDir}/metadata-ingestion/src/datahub/ingestion/autogenerated/capability_summary.json"
+  
+  inputs.files(
+    file('scripts/docgen.py'),
+    file(capabilitySummaryFile),
+    project.fileTree(dir: extraDocsDir, include: "**/*.md")
+  )
+  outputs.dir(docsOutDir)
+  
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "rm -rf ${docsOutDir} && " +
+    "python scripts/docgen.py --out-dir ${docsOutDir} --capability-summary ${capabilitySummaryFile} --extra-docs ${extraDocsDir}"
 }
 
 task cleanPythonCache(type: Exec) {
@@ -264,6 +288,8 @@ clean {
   delete '.mypy_cache'
   delete '.pytest_cache'
   delete '.preflight_sentinel'
+  delete '.coverage'
+  delete 'scripts/cov_html'
 }
 clean.dependsOn cleanPythonCache
 
