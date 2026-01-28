@@ -322,7 +322,7 @@ def test_sql_at_max_length_not_truncated():
 
 
 def test_sql_exceeding_max_length_is_truncated():
-    """Test that SQL exceeding 1MB limit is truncated with '...' suffix."""
+    """Test that SQL exceeding 1MB limit is truncated with '...' suffix and marker."""
     source = _create_dbt_source()
     node = _create_dbt_node()
     # Create SQL just over 1MB
@@ -338,6 +338,9 @@ def test_sql_exceeding_max_length_is_truncated():
     # Should be truncated with "..." suffix
     assert len(properties.statement.value) == max_length + 3  # +3 for "..."
     assert properties.statement.value.endswith("...")
+    # Should have sql_truncated marker in customProperties
+    assert properties.customProperties is not None
+    assert properties.customProperties.get("sql_truncated") == "true"
 
 
 def test_shows_all_validation_errors_not_just_first():
@@ -359,34 +362,6 @@ def test_shows_all_validation_errors_not_just_first():
     # Both 'name' and 'sql' errors should be present
     assert "name" in failure_msg.lower()
     assert "sql" in failure_msg.lower()
-
-
-def test_uses_manifest_timestamp_when_available():
-    """Test that manifest generated_at timestamp is used for Query entities."""
-    source = _create_dbt_source()
-    node = _create_dbt_node()
-
-    manifest_timestamp = "2024-06-15T10:30:00Z"
-    # Calculate expected timestamp using same method as source
-    expected_ts = datetime_to_ts_millis(dateutil.parser.parse(manifest_timestamp))
-
-    # Set manifest_info with the timestamp
-    source.report.manifest_info = {
-        "generated_at": manifest_timestamp,
-        "dbt_version": "1.5.0",
-        "project_name": "test_project",
-    }
-
-    mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
-
-    assert len(mcps) == 4  # 2 queries * 2 aspects
-    # Verify the timestamp matches what we expect from manifest
-    properties = mcps[0].aspect
-    assert isinstance(properties, QueryPropertiesClass)
-    assert properties.created.time == expected_ts
-    assert properties.lastModified.time == expected_ts
-    # Should not increment fallback counter
-    assert source.report.query_timestamps_fallback_used is False
 
 
 def test_timestamp_cached_across_nodes():
@@ -417,32 +392,6 @@ def test_timestamp_cached_across_nodes():
     assert first_timestamp == second_timestamp
     # Fallback counter should only be incremented once (not per-node)
     assert source.report.query_timestamps_fallback_used is True
-
-
-def test_warns_and_uses_fallback_on_malformed_generated_at(caplog):
-    """Test that malformed generated_at logs warning and uses fallback timestamp."""
-    source = _create_dbt_source()
-    node = _create_dbt_node()
-
-    # Set manifest_info with malformed timestamp
-    source.report.manifest_info = {
-        "generated_at": "not-a-valid-date-format",
-        "dbt_version": "1.5.0",
-    }
-
-    with caplog.at_level(logging.WARNING):
-        mcps = list(source._create_query_entity_mcps(node, TEST_NODE_URN))
-
-    # Should still emit queries using fallback
-    assert len(mcps) == 4
-    assert source.report.query_timestamps_fallback_used is True
-
-    # Verify warning was logged about parse failure
-    assert any(
-        "Failed to parse manifest timestamp" in record.message
-        and "not-a-valid-date-format" in record.message
-        for record in caplog.records
-    )
 
 
 def test_rejects_unknown_fields_with_helpful_error():
@@ -599,6 +548,16 @@ def test_timestamp_fallback_behavior(
     """Test timestamp handling with various manifest_info states."""
     dbt_source.report.manifest_info = manifest_info
 
-    list(dbt_source._create_query_entity_mcps(dbt_node, TEST_NODE_URN))
+    mcps = list(dbt_source._create_query_entity_mcps(dbt_node, TEST_NODE_URN))
 
     assert dbt_source.report.query_timestamps_fallback_used is expect_fallback
+
+    # For valid timestamp, also verify the actual value is used correctly
+    if not expect_fallback and manifest_info:
+        expected_ts = datetime_to_ts_millis(
+            dateutil.parser.parse(manifest_info["generated_at"])
+        )
+        properties = mcps[0].aspect
+        assert isinstance(properties, QueryPropertiesClass)
+        assert properties.created.time == expected_ts
+        assert properties.lastModified.time == expected_ts
