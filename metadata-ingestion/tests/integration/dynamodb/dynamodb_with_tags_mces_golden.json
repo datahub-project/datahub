@@ -193,25 +193,19 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/tags/urn:li:tag:env:testing",
-                "value": {
+        "json": {
+            "tags": [
+                {
                     "tag": "urn:li:tag:env:testing"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/tags/urn:li:tag:team:datahub",
-                "value": {
+                },
+                {
                     "tag": "urn:li:tag:team:datahub"
                 }
-            }
-        ]
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
@@ -244,6 +238,38 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:env:testing",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "env:testing"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:team:datahub",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "team:datahub"
         }
     },
     "systemMetadata": {
