@@ -10,6 +10,7 @@ Emits:
 
 import json
 import logging
+import re
 from datetime import timezone
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -23,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SemanticViewQuery,
     SemanticViewUsageRecord,
+    UserQueryCount,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
@@ -98,10 +100,7 @@ class SemanticViewUsageExtractor:
                 )
             )
 
-            usage_records = self._parse_usage_results(results)
-            logger.info(f"Found {len(usage_records)} usage records for semantic views")
-
-            for record in usage_records:
+            for record in self._parse_usage_results(results):
                 # Normalize the semantic view name to match discovered datasets
                 normalized_name = self._normalize_semantic_view_name(
                     record.semantic_view_name
@@ -125,9 +124,8 @@ class SemanticViewUsageExtractor:
 
     def _parse_usage_results(
         self, results: Iterable[Dict[str, Any]]
-    ) -> List[SemanticViewUsageRecord]:
+    ) -> Iterable[SemanticViewUsageRecord]:
         """Parse query results into SemanticViewUsageRecord objects."""
-        records = []
         for row in results:
             # Skip rows with no semantic view name
             semantic_view_name = row.get("SEMANTIC_VIEW_NAME")
@@ -135,13 +133,22 @@ class SemanticViewUsageExtractor:
                 continue
 
             user_counts_raw = row.get("USER_COUNTS")
-            user_counts = []
+            user_counts: List[UserQueryCount] = []
             if user_counts_raw:
                 try:
-                    if isinstance(user_counts_raw, str):
-                        user_counts = json.loads(user_counts_raw)
-                    else:
-                        user_counts = list(user_counts_raw)
+                    raw_list = (
+                        json.loads(user_counts_raw)
+                        if isinstance(user_counts_raw, str)
+                        else list(user_counts_raw)
+                    )
+                    for uc in raw_list:
+                        if uc.get("user_name"):
+                            user_counts.append(
+                                UserQueryCount(
+                                    user_name=uc["user_name"],
+                                    query_count=uc.get("query_count", 0),
+                                )
+                            )
                 except (json.JSONDecodeError, TypeError) as e:
                     logger.debug(f"Failed to parse user_counts: {e}")
 
@@ -157,7 +164,7 @@ class SemanticViewUsageExtractor:
                 except (json.JSONDecodeError, TypeError) as e:
                     logger.debug(f"Failed to parse top_sql_queries: {e}")
 
-            record = SemanticViewUsageRecord(
+            yield SemanticViewUsageRecord(
                 semantic_view_name=semantic_view_name,
                 bucket_start_time=row["BUCKET_START_TIME"].astimezone(tz=timezone.utc),
                 total_queries=row["TOTAL_QUERIES"],
@@ -169,8 +176,6 @@ class SemanticViewUsageExtractor:
                 user_counts=user_counts,
                 top_sql_queries=top_sql_queries,
             )
-            records.append(record)
-        return records
 
     def _normalize_semantic_view_name(self, name: str) -> str:
         """Normalize semantic view name to lowercase for matching."""
@@ -203,8 +208,9 @@ class SemanticViewUsageExtractor:
             ).as_workunit()
 
         except Exception as e:
-            logger.debug(
-                f"Failed to build usage statistics for {dataset_identifier}: {e}"
+            self.report.warning(
+                "semantic-view-usage-stats",
+                f"Failed to build usage statistics for {dataset_identifier}: {e}",
             )
             return None
 
@@ -220,20 +226,16 @@ class SemanticViewUsageExtractor:
         return user_urn, user_email
 
     def _map_user_counts(
-        self, user_counts: List[Dict[str, Any]]
+        self, user_counts: List[UserQueryCount]
     ) -> List[DatasetUserUsageCounts]:
         """Map user counts to DatasetUserUsageCounts."""
         result = []
         for user_count in user_counts:
-            user_name = user_count.get("user_name")
-            if not user_name:
-                continue
-
-            user_urn, user_email = self._get_user_urn_and_email(user_name)
+            user_urn, user_email = self._get_user_urn_and_email(user_count.user_name)
             result.append(
                 DatasetUserUsageCounts(
                     user=user_urn,
-                    count=user_count.get("query_count", 0),
+                    count=user_count.query_count,
                     userEmail=user_email,
                 )
             )
@@ -373,8 +375,6 @@ class SemanticViewUsageExtractor:
 
     def _generate_query_name(self, query_text: str, max_length: int = 50) -> str:
         """Generate a readable name from SQL query text."""
-        import re
-
         # Extract semantic view name from SEMANTIC_VIEW(db.schema.name ...) pattern
         match = re.search(r"SEMANTIC_VIEW\s*\(\s*([\w\.]+)", query_text, re.IGNORECASE)
         if match:

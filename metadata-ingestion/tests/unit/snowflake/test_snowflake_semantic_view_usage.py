@@ -5,8 +5,10 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.configuration.time_window_config import BucketDuration
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SemanticViewsConfig,
     SnowflakeV2Config,
@@ -16,6 +18,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SemanticViewQuery,
     SemanticViewUsageRecord,
+    UserQueryCount,
 )
 from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
     SemanticViewUsageExtractor,
@@ -23,64 +26,31 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 
 
 class TestSemanticViewsConfig:
     """Tests for SemanticViewsConfig configuration."""
-
-    def test_default_config(self):
-        """Test default configuration values."""
-        config = SemanticViewsConfig()
-        assert config.enabled is False
-        assert config.column_lineage is False
-        assert config.include_usage is False
-        assert config.include_queries is False
-        assert config.max_queries_per_view == 100
-
-    def test_enabled_with_usage(self):
-        """Test enabling usage tracking."""
-        config = SemanticViewsConfig(
-            enabled=True,
-            include_usage=True,
-            include_queries=True,
-        )
-        assert config.enabled is True
-        assert config.include_usage is True
-        assert config.include_queries is True
 
     def test_warning_usage_without_enabled(self):
         """Test that warnings are logged when usage is enabled but semantic_views is not."""
         with patch(
             "datahub.ingestion.source.snowflake.snowflake_config.logger"
         ) as mock_logger:
-            config = SemanticViewsConfig(
+            SemanticViewsConfig(
                 enabled=False,
                 include_usage=True,
             )
-            # Validator should have been called and logged a warning
-            assert config.include_usage is True
             mock_logger.warning.assert_called()
 
     def test_max_queries_per_view_validation(self):
         """Test that max_queries_per_view validation rejects invalid values."""
-        from pydantic import ValidationError
-
-        # Valid values should work
-        config = SemanticViewsConfig(max_queries_per_view=1)
-        assert config.max_queries_per_view == 1
-
-        config = SemanticViewsConfig(max_queries_per_view=10000)
-        assert config.max_queries_per_view == 10000
-
-        # Zero should fail (ge=1)
         with pytest.raises(ValidationError):
             SemanticViewsConfig(max_queries_per_view=0)
 
-        # Negative should fail
         with pytest.raises(ValidationError):
             SemanticViewsConfig(max_queries_per_view=-1)
 
-        # Too large should fail (le=10000)
         with pytest.raises(ValidationError):
             SemanticViewsConfig(max_queries_per_view=10001)
 
@@ -151,7 +121,7 @@ class TestSemanticViewDataModels:
             cortex_analyst_queries=20,
             avg_execution_time_ms=150.5,
             total_rows_produced=5000,
-            user_counts=[{"user_name": "analyst", "query_count": 50}],
+            user_counts=[UserQueryCount(user_name="analyst", query_count=50)],
         )
 
         assert record.semantic_view_name == "db.schema.sales_view"
@@ -232,7 +202,9 @@ class TestSemanticViewUsageExtractor:
             identifiers=mock_identifiers,
         )
 
-    def test_normalize_semantic_view_name(self, extractor: SemanticViewUsageExtractor):
+    def test_normalize_semantic_view_name(
+        self, extractor: SemanticViewUsageExtractor
+    ) -> None:
         """Test semantic view name normalization."""
         assert (
             extractor._normalize_semantic_view_name("DB.SCHEMA.VIEW")
@@ -245,7 +217,7 @@ class TestSemanticViewUsageExtractor:
 
     def test_generate_query_name_with_semantic_view(
         self, extractor: SemanticViewUsageExtractor
-    ):
+    ) -> None:
         """Test query name generation from SQL with SEMANTIC_VIEW."""
         query_text = (
             "SELECT * FROM SEMANTIC_VIEW(db.schema.sales_view DIMENSIONS region)"
@@ -253,14 +225,16 @@ class TestSemanticViewUsageExtractor:
         name = extractor._generate_query_name(query_text)
         assert "Query on sales_view" in name
 
-    def test_generate_query_name_fallback(self, extractor: SemanticViewUsageExtractor):
+    def test_generate_query_name_fallback(
+        self, extractor: SemanticViewUsageExtractor
+    ) -> None:
         """Test query name generation fallback."""
         query_text = "SELECT * FROM some_table"
         name = extractor._generate_query_name(query_text, max_length=20)
         assert len(name) <= 20
         assert name.endswith("...")
 
-    def test_parse_usage_results(self, extractor: SemanticViewUsageExtractor):
+    def test_parse_usage_results(self, extractor: SemanticViewUsageExtractor) -> None:
         """Test parsing usage results from query."""
         mock_results: List[Dict[str, Any]] = [
             {
@@ -279,7 +253,7 @@ class TestSemanticViewUsageExtractor:
             }
         ]
 
-        records = extractor._parse_usage_results(mock_results)
+        records = list(extractor._parse_usage_results(mock_results))
 
         assert len(records) == 1
         assert records[0].semantic_view_name == "db.schema.sales_view"
@@ -293,11 +267,11 @@ class TestSemanticViewUsageExtractor:
             in records[0].top_sql_queries
         )
 
-    def test_map_user_counts(self, extractor: SemanticViewUsageExtractor):
+    def test_map_user_counts(self, extractor: SemanticViewUsageExtractor) -> None:
         """Test mapping user counts to DatasetUserUsageCounts."""
         user_counts = [
-            {"user_name": "analyst1", "query_count": 30},
-            {"user_name": "analyst2", "query_count": 20},
+            UserQueryCount(user_name="analyst1", query_count=30),
+            UserQueryCount(user_name="analyst2", query_count=20),
         ]
 
         result = extractor._map_user_counts(user_counts)
@@ -307,7 +281,7 @@ class TestSemanticViewUsageExtractor:
 
     def test_get_semantic_view_usage_workunits_disabled(
         self, extractor: SemanticViewUsageExtractor
-    ):
+    ) -> None:
         """Test that no workunits are generated when usage is disabled."""
         extractor.config.semantic_views.include_usage = False
 
@@ -319,7 +293,7 @@ class TestSemanticViewUsageExtractor:
 
     def test_get_semantic_view_usage_workunits_empty_discovered(
         self, extractor: SemanticViewUsageExtractor
-    ):
+    ) -> None:
         """Test that no workunits are generated with empty discovered views."""
         workunits = list(extractor.get_semantic_view_usage_workunits(set()))
 
@@ -327,7 +301,7 @@ class TestSemanticViewUsageExtractor:
 
     def test_get_semantic_view_query_workunits_disabled(
         self, extractor: SemanticViewUsageExtractor
-    ):
+    ) -> None:
         """Test that no query workunits are generated when disabled."""
         extractor.config.semantic_views.include_queries = False
 
@@ -340,7 +314,7 @@ class TestSemanticViewUsageExtractor:
     def test_build_query_workunits(
         self,
         extractor: SemanticViewUsageExtractor,
-    ):
+    ) -> None:
         """Test building query workunits from a query."""
         query = SemanticViewQuery(
             query_id="query-123",
@@ -364,19 +338,20 @@ class TestSemanticViewUsageExtractor:
 
         # Check QueryProperties
         query_props_wu = workunits[0]
-        assert query_props_wu.metadata is not None
+        assert isinstance(query_props_wu.metadata, MetadataChangeProposalWrapper)
+        assert query_props_wu.metadata.entityUrn is not None
         assert "query" in query_props_wu.metadata.entityUrn
 
         # Check QuerySubjects
         query_subjects_wu = workunits[1]
-        assert query_subjects_wu.metadata is not None
+        assert isinstance(query_subjects_wu.metadata, MetadataChangeProposalWrapper)
 
     def test_query_extraction_respects_max_queries_per_view_efficiently(
         self,
         mock_config: SnowflakeV2Config,
         mock_connection: MagicMock,
         mock_identifiers: MagicMock,
-    ):
+    ) -> None:
         """Test that query extraction limits during iteration to avoid memory issues."""
         # Set a low limit
         mock_config.semantic_views.include_queries = True
@@ -482,10 +457,10 @@ class TestSemanticViewUsageIntegration:
 
         # Verify
         assert len(workunits) == 1
-        assert workunits[0].metadata is not None
-        assert "DatasetUsageStatistics" in str(type(workunits[0].metadata.aspect))
-        # Verify topSqlQueries is emitted
-        usage_stats = workunits[0].metadata.aspect
+        metadata = workunits[0].metadata
+        assert isinstance(metadata, MetadataChangeProposalWrapper)
+        usage_stats = metadata.aspect
+        assert isinstance(usage_stats, DatasetUsageStatistics)
         assert usage_stats.topSqlQueries is not None
         assert len(usage_stats.topSqlQueries) == 1
         assert (

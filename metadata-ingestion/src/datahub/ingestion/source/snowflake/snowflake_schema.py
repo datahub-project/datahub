@@ -239,6 +239,14 @@ class SnowflakeSemanticView(BaseView):
 
 
 @dataclass
+class UserQueryCount:
+    """User query count for usage statistics."""
+
+    user_name: str
+    query_count: int
+
+
+@dataclass
 class SemanticViewUsageRecord:
     """Aggregated usage statistics for a semantic view within a time bucket."""
 
@@ -250,7 +258,7 @@ class SemanticViewUsageRecord:
     cortex_analyst_queries: int
     avg_execution_time_ms: float
     total_rows_produced: int
-    user_counts: List[Dict[str, Any]] = field(default_factory=list)
+    user_counts: List[UserQueryCount] = field(default_factory=list)
     top_sql_queries: List[str] = field(default_factory=list)
 
 
