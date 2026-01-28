@@ -23,7 +23,6 @@ base_requirements = {
     "pydantic_core!=2.41.3,<3.0.0",
     "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
-    "sentry-sdk>=1.33.1",
     # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
     # vulnerability), but Airflow 2.x constraints pin jaraco.context to older versions (e.g., 5.3.0).
     # This constraint is NOT included here to maintain Airflow compatibility.
@@ -189,7 +188,8 @@ sql_common = (
 
 aws_common = {
     # AWS Python SDK
-    "boto3<2.0.0",
+    # Minimum 1.35.0 required for S3 ListBuckets Prefix parameter support (added October 2024)
+    "boto3>=1.35.0,<2.0.0",
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
@@ -407,6 +407,9 @@ slack = {
 }
 
 databricks_common = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    # 0.22.0 has support for `include_browse` in metadata list apis
+    "databricks-sdk>=0.30.0,<1.0.0",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
@@ -416,9 +419,6 @@ databricks_common = {
 }
 
 databricks = {
-    # 0.1.11 appears to have authentication issues with azure databricks
-    # 0.22.0 has support for `include_browse` in metadata list apis
-    "databricks-sdk>=0.30.0,<1.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
@@ -438,6 +438,29 @@ superset_common = {
     "requests<3.0.0",
     *sqlglot_lib,
 }
+
+embedding_common = {
+    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
+    "litellm==1.80.5",
+    # AWS SDK for Bedrock embedding support
+    *aws_common,
+}
+
+unstructured_lib = {
+    # Unstructured.io core library for document partitioning with markdown support
+    "unstructured[md]==0.18.24",
+    # Unstructured ingest framework for pipeline orchestration
+    "unstructured-ingest==0.7.2",
+    # JSONPath for custom property extraction
+    "jsonpath-ng==1.7.0",
+    # Embedding support for semantic search
+    *embedding_common,
+}
+
+notion_common = {
+    # Notion-specific connector adds notion-client and related dependencies
+    "unstructured-ingest[notion]==0.7.2",
+} | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -486,6 +509,14 @@ plugins: Dict[str, Set[str]] = {
     },
     "azure-ad": set(),
     "azure-data-factory": azure_data_factory,
+    "fabric-onelake": {
+        "sqlalchemy>=1.4,<3.0",
+        "pyodbc>=4.0,<5.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "azure-identity>=1.21.0,<2.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "requests>=2.28.0,<3.0",
+    },
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -590,6 +621,7 @@ plugins: Dict[str, Set[str]] = {
         "setuptools",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
+    "datahub-documents": unstructured_lib,
     "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"} | sqlglot_lib,
     "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
@@ -656,6 +688,8 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
+    "notion": notion_common,
+    "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
     | databricks_common
@@ -671,9 +705,7 @@ plugins: Dict[str, Set[str]] = {
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
         # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
-        "vcrpy>=8.0.0,<9.0; python_version >= '3.10'",
-        # vcrpy 7.x for Python 3.9 (requires urllib3 < 2.0) Python 3.9 EOL passed already, so we should get rid of this soon
-        "vcrpy>=7.0.0,<8.0.0; python_version < '3.10'",
+        "vcrpy>=8.0.0,<9.0",
         # responses library for HTTP replay - better compatibility with custom SDK transports
         # (e.g., Looker SDK) that break with VCR's urllib3 patching
         "responses>=0.25.0,<1.0",
@@ -786,6 +818,8 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
+            # It's available as a separate extra and in the docs extra for doc generation
             "dataplex",
             "delta-lake",
             "dremio",
@@ -845,6 +879,15 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+    # Include unstructured for testing datahub-documents source
+    *unstructured_lib,
+}
+
+# Documentation generation requirements
+# Includes datahub-documents which requires Python 3.10+ (due to unstructured library)
+docs_requirements = {
+    *base_dev_requirements,
+    *plugins["datahub-documents"],
 }
 
 full_test_dev_requirements = {
@@ -853,6 +896,7 @@ full_test_dev_requirements = {
         for plugin in [
             "athena",
             "azure-data-factory",
+            "fabric-onelake",
             "circuit-breaker",
             "clickhouse",
             "db2",
@@ -893,6 +937,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
+        "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
@@ -923,6 +968,7 @@ entry_points = {
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
+        "datahub-documents = datahub.ingestion.source.datahub_documents.datahub_documents_source:DataHubDocumentsSource",
         "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
         "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
@@ -963,6 +1009,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
@@ -1070,7 +1117,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
@@ -1100,6 +1147,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
+        "docs": list(docs_requirements),  # For documentation generation (requires Python 3.10+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),

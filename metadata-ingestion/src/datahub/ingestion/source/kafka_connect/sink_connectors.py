@@ -128,7 +128,7 @@ class ConfluentS3SinkConnector(BaseConnector):
 
             lineages: List[KafkaConnectLineage] = list()
             for original_topic, transformed_topic in zip(
-                topic_list, transformed_topics
+                topic_list, transformed_topics, strict=False
             ):
                 target_dataset: str = (
                     f"{parser.bucket}/{parser.topics_dir}/{transformed_topic}"
@@ -238,7 +238,9 @@ class SnowflakeSinkConnector(BaseConnector):
 
         topics_to_tables: Dict[str, str] = {}
         # Extract lineage for only those topics whose data ingestion started
-        for original_topic, transformed_topic in zip(topic_list, transformed_topics):
+        for original_topic, transformed_topic in zip(
+            topic_list, transformed_topics, strict=False
+        ):
             if original_topic in provided_topics_to_tables:
                 # If user provided which table to get mapped with this topic
                 topics_to_tables[original_topic] = provided_topics_to_tables[
@@ -547,7 +549,9 @@ class BigQuerySinkConnector(BaseConnector):
                 f"Consider using 'generic_connectors' config for explicit mappings."
             )
 
-        for original_topic, transformed_topic in zip(topic_list, transformed_topics):
+        for original_topic, transformed_topic in zip(
+            topic_list, transformed_topics, strict=False
+        ):
             # Use the transformed topic to determine dataset/table
             dataset_table: Optional[str] = self.get_dataset_table_for_topic(
                 transformed_topic, parser
@@ -1004,7 +1008,7 @@ class JdbcSinkConnector(BaseConnector):
 
             # Create lineage for each topic
             for original_topic, transformed_topic in zip(
-                topic_list, transformed_topics
+                topic_list, transformed_topics, strict=False
             ):
                 # Get table name using format from config
                 table_name = self.get_table_name_from_topic(

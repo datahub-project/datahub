@@ -36,7 +36,7 @@ describe("manage access tokens", () => {
       `Token Description${test_id}`,
     );
     cy.clickOptionWithTestId("create-access-token-button");
-    cy.waitTextVisible("New Personal Access Token");
+    cy.waitTextVisible("New Access Token");
     cy.get('[data-testid="access-token-value"]').should("be.visible");
     cy.get('[data-testid="access-token-value"]')
       .invoke("text")
