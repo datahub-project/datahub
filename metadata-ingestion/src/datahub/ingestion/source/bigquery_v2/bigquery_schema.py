@@ -302,34 +302,35 @@ class BigQuerySchemaApi:
                 self.bq_client.list_datasets(project_id, max_results=maxResults)
             )
 
-            filtered_datasets: List[BigqueryDataset] = []
-            for d in datasets:
-                if dataset_filter is not None and not dataset_filter(d.dataset_id):
-                    logger.debug(
-                        f"Skipping dataset {project_id}.{d.dataset_id} due to dataset_pattern filter"
-                    )
-                    continue
-
-                location = (
-                    d._properties.get("location")
-                    if hasattr(d, "_properties") and isinstance(d._properties, dict)
-                    else None
+        filtered_datasets: List[BigqueryDataset] = []
+        for d in datasets:
+            if dataset_filter is not None and not dataset_filter(d.dataset_id):
+                logger.debug(
+                    f"Skipping dataset {project_id}.{d.dataset_id} due to dataset_pattern filter"
                 )
-                filtered_datasets.append(
-                    BigqueryDataset(
-                        name=d.dataset_id,
-                        location=location,
-                        labels=d.labels,
-                    )
+                continue
+
+            location = (
+                d._properties.get("location")
+                if hasattr(d, "_properties") and isinstance(d._properties, dict)
+                else None
+            )
+            filtered_datasets.append(
+                BigqueryDataset(
+                    name=d.dataset_id,
+                    location=location,
+                    labels=d.labels,
                 )
+            )
 
-            if not filtered_datasets:
-                return []
+        if not filtered_datasets:
+            return []
 
-            # Batch fetch metadata (description, created, modified) per location
+        # Batch fetch metadata (description, created, modified) per location
+        with self.report.enrich_datasets_timer:
             self._enrich_datasets_with_metadata(project_id, filtered_datasets)
 
-            return filtered_datasets
+        return filtered_datasets
 
     def _enrich_datasets_with_metadata(
         self, project_id: str, datasets: List[BigqueryDataset]
