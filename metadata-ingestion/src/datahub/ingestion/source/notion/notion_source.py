@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -927,9 +927,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
                 # All pages/databases accessible
-                capability_report = {
-                    "Page/Database Access": CapabilityReport(capable=True)
-                }
+                capability_report: Dict[
+                    Union[SourceCapability, str], CapabilityReport
+                ] = {"Page/Database Access": CapabilityReport(capable=True)}
 
                 # Test semantic search capability if embedding config provided
                 if config.embedding and config.embedding.provider:
