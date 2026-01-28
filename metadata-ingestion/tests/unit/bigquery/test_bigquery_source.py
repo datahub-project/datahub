@@ -17,6 +17,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+    BigQueryShardPatternMatcher,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -38,6 +39,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
+    calculate_dynamic_batch_size,
+    is_shard_newer,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
@@ -1267,14 +1270,11 @@ def test_gen_snapshot_dataset_workunits(
 def test_get_table_and_shard_default(
     table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
 ) -> None:
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
-        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-    ):
-        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-            expected_table_prefix,
-            expected_shard,
-        )
+    shard_matcher = BigQueryShardPatternMatcher(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    assert BigqueryTableIdentifier.get_table_and_shard(table_name, shard_matcher) == (
+        expected_table_prefix,
+        expected_shard,
+    )
 
 
 @pytest.mark.parametrize(
@@ -1302,14 +1302,12 @@ def test_get_table_and_shard_default(
 def test_get_table_and_shard_custom_shard_pattern(
     table_name: str, expected_table_prefix: Optional[str], expected_shard: Optional[str]
 ) -> None:
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
-        "((.+)[_$])?(\\d{4,10})$",
-    ):
-        assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
-            expected_table_prefix,
-            expected_shard,
-        )
+    custom_pattern = "((.+)[_$])?(\\d{4,10})$"
+    shard_matcher = BigQueryShardPatternMatcher(custom_pattern)
+    assert BigqueryTableIdentifier.get_table_and_shard(table_name, shard_matcher) == (
+        expected_table_prefix,
+        expected_shard,
+    )
 
 
 @pytest.mark.parametrize(
@@ -1488,3 +1486,182 @@ def test_bigquery_filter_is_dataset_allowed():
     # Pattern includes project_id
     assert filters_fqn.is_dataset_allowed("prod_data", "my-project") is True
     assert filters_fqn.is_dataset_allowed("prod_data", "other-project") is False
+
+
+@pytest.mark.parametrize(
+    "shard1,shard2,expected_is_newer,description",
+    [
+        ("20230102", "20230101", True, "same length YYYYMMDD - numeric comparison"),
+        ("20240101", "20231231", True, "year boundary - numeric comparison"),
+        (
+            "2024",
+            "20230101",
+            False,
+            "mixed length numeric - 2024 < 20230101 numerically",
+        ),
+        (
+            "20230101",
+            "2024",
+            True,
+            "mixed length numeric - 20230101 > 2024 numerically",
+        ),
+        ("abc_v2", "abc_v1", True, "non-numeric - lexicographic comparison"),
+    ],
+)
+def test_numeric_shard_comparison(
+    shard1: str, shard2: str, expected_is_newer: bool, description: str
+) -> None:
+    is_newer = is_shard_newer(shard1, shard2)
+    assert is_newer == expected_is_newer, f"Failed for: {description}"
+
+
+def test_shard_pattern_matching_with_dependency_injection():
+    shard_matcher = BigQueryShardPatternMatcher()
+
+    # Verify the pattern works correctly for sharded tables
+    table_names_with_shards = [
+        ("events_20240101", "events", "20240101"),
+        ("events_20240102", "events", "20240102"),
+        ("logs_20231225", "logs", "20231225"),
+    ]
+
+    for table_id, expected_base, expected_shard in table_names_with_shards:
+        base, shard = BigqueryTableIdentifier.get_table_and_shard(
+            table_id, shard_matcher
+        )
+        assert base == expected_base
+        assert shard == expected_shard
+
+    # Non-sharded table
+    base, shard = BigqueryTableIdentifier.get_table_and_shard("regular_table")
+    assert base == "regular_table"
+    assert shard is None
+
+
+def test_extract_base_table_name():
+    shard_matcher = BigQueryShardPatternMatcher()
+
+    # Test case 1: Standard sharded table with underscore separator
+    match = shard_matcher.match("events_20240101")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "events_20240101", "my_dataset", match
+    )
+    assert base_name == "events"
+
+    # Test case 2: Table with multiple underscores in base name
+    match = shard_matcher.match("user_activity_logs_20231225")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "user_activity_logs_20231225", "my_dataset", match
+    )
+    assert base_name == "user_activity_logs"
+
+    # Test case 3: Empty base name (just a date) - should fallback to dataset_name
+    match = shard_matcher.match("20240101")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "20240101", "fallback_dataset", match
+    )
+    assert base_name == "fallback_dataset"
+
+    # Test case 4: Sharded table with $ separator ($ is preserved, only _ is stripped)
+    match = shard_matcher.match("table$20231215")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "table$20231215", "my_dataset", match
+    )
+    assert base_name == "table$"
+
+    # Test case 5: Leap year date
+    match = shard_matcher.match("logs_20200229")
+    assert match is not None
+    base_name = BigqueryTableIdentifier.extract_base_table_name(
+        "logs_20200229", "my_dataset", match
+    )
+    assert base_name == "logs"
+
+
+def test_get_table_and_shard_extracts_base_name_correctly():
+    # Test sharded tables - should extract base and shard
+    test_cases = [
+        ("events_20240101", "events", "20240101"),
+        ("events_20240102", "events", "20240102"),
+        ("users_20231225", "users", "20231225"),
+        ("logs_20200229", "logs", "20200229"),  # Leap year
+    ]
+
+    for table_id, expected_base, expected_shard in test_cases:
+        base, shard = BigqueryTableIdentifier.get_table_and_shard(table_id)
+        assert base == expected_base, (
+            f"Failed for {table_id}: expected base {expected_base}, got {base}"
+        )
+        assert shard == expected_shard, (
+            f"Failed for {table_id}: expected shard {expected_shard}, got {shard}"
+        )
+
+    # Test non-sharded table - should return full name and None
+    base, shard = BigqueryTableIdentifier.get_table_and_shard("orders")
+    assert base == "orders"
+    assert shard is None
+
+    # Test that sharded tables from same base are detected with same base name
+    base1, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240101")
+    base2, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240102")
+    base3, _ = BigqueryTableIdentifier.get_table_and_shard("events_20240103")
+
+    # All three shards should have the same base name
+    assert base1 == base2 == base3 == "events"
+
+
+@pytest.mark.parametrize(
+    "base_batch_size,table_count,expected_batch_size,description",
+    [
+        (100, 50, 100, "small dataset - no scaling"),
+        (100, 150, 200, "medium dataset - 2x scaling"),
+        (100, 500, 300, "large dataset - 3x scaling"),
+        (200, 300, 500, "high base - respects cap"),
+    ],
+)
+def test_calculate_dynamic_batch_size(
+    base_batch_size: int,
+    table_count: int,
+    expected_batch_size: int,
+    description: str,
+) -> None:
+    result = calculate_dynamic_batch_size(base_batch_size, table_count)
+    assert result == expected_batch_size, f"Failed for: {description}"
+
+
+@pytest.mark.parametrize(
+    "shard,stored_shard,expected",
+    [
+        ("20240102", "20240101", True),
+        ("20240101", "20240102", False),
+        ("20240101", "20240101", False),
+        ("20231231", "20240101", False),
+        ("abc", "aaa", True),
+        ("aaa", "abc", False),
+        ("123", "99", True),
+        ("99", "123", False),
+    ],
+)
+def test_is_shard_newer(shard: str, stored_shard: str, expected: bool) -> None:
+    result = is_shard_newer(shard, stored_shard)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "table_id",
+    [
+        "TABLE_20240101",
+        "Table_20240101",
+        "table_20240101",
+    ],
+)
+def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
+    shard_matcher = BigQueryShardPatternMatcher()
+
+    match = shard_matcher.match(table_id)
+    assert match is not None
+    assert match[3] == "20240101"

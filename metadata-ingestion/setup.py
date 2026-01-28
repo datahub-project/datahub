@@ -188,7 +188,8 @@ sql_common = (
 
 aws_common = {
     # AWS Python SDK
-    "boto3<2.0.0",
+    # Minimum 1.35.0 required for S3 ListBuckets Prefix parameter support (added October 2024)
+    "boto3>=1.35.0,<2.0.0",
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
@@ -406,6 +407,9 @@ slack = {
 }
 
 databricks_common = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    # 0.22.0 has support for `include_browse` in metadata list apis
+    "databricks-sdk>=0.30.0,<1.0.0",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
@@ -415,9 +419,6 @@ databricks_common = {
 }
 
 databricks = {
-    # 0.1.11 appears to have authentication issues with azure databricks
-    # 0.22.0 has support for `include_browse` in metadata list apis
-    "databricks-sdk>=0.30.0,<1.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
@@ -442,7 +443,7 @@ embedding_common = {
     # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
     "litellm==1.80.5",
     # AWS SDK for Bedrock embedding support
-    "boto3==1.34.0",
+    *aws_common,
 }
 
 unstructured_lib = {
@@ -503,6 +504,14 @@ plugins: Dict[str, Set[str]] = {
     },
     "azure-ad": set(),
     "azure-data-factory": azure_data_factory,
+    "fabric-onelake": {
+        "sqlalchemy>=1.4,<3.0",
+        "pyodbc>=4.0,<5.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "azure-identity>=1.21.0,<2.0",
+        # upper bound added to pass check-python-deps.yml github workflow
+        "requests>=2.28.0,<3.0",
+    },
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -878,6 +887,7 @@ full_test_dev_requirements = {
         for plugin in [
             "athena",
             "azure-data-factory",
+            "fabric-onelake",
             "circuit-breaker",
             "clickhouse",
             "db2",
@@ -918,6 +928,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
+        "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
