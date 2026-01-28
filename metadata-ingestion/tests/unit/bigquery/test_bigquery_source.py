@@ -592,35 +592,44 @@ def test_get_datasets_for_project_id_with_timestamps(
     mock_dataset_list_item1 = MagicMock()
     mock_dataset_list_item1.dataset_id = "dataset1"
     mock_dataset_list_item1.labels = {"env": "test"}
-    mock_dataset_list_item1.reference = "dataset1_reference"
     mock_dataset_list_item1._properties = {"location": "US"}
 
     mock_dataset_list_item2 = MagicMock()
     mock_dataset_list_item2.dataset_id = "dataset2"
     mock_dataset_list_item2.labels = {"env": "prod"}
-    mock_dataset_list_item2.reference = "dataset2_reference"
     mock_dataset_list_item2._properties = {"location": "EU"}
 
-    # Mock full dataset objects (what get_dataset returns)
-    mock_full_dataset1 = MagicMock()
-    mock_full_dataset1.description = "Test dataset 1"
-    mock_full_dataset1.created = frozen_time
-    mock_full_dataset1.modified = frozen_time + timedelta(hours=1)
+    # Mock INFORMATION_SCHEMA query results (grouped by location)
+    mock_row_dataset1 = MagicMock()
+    mock_row_dataset1.table_schema = "dataset1"
+    mock_row_dataset1.comment = "Test dataset 1"
+    mock_row_dataset1.created = frozen_time
+    mock_row_dataset1.last_altered = frozen_time + timedelta(hours=1)
 
-    mock_full_dataset2 = MagicMock()
-    mock_full_dataset2.description = None  # Test missing description
-    mock_full_dataset2.created = None  # Test missing created timestamp
-    mock_full_dataset2.modified = None  # Test missing modified timestamp
+    mock_row_dataset2 = MagicMock()
+    mock_row_dataset2.table_schema = "dataset2"
+    mock_row_dataset2.comment = None  # Test missing description
+    mock_row_dataset2.created = None  # Test missing created timestamp
+    mock_row_dataset2.last_altered = None  # Test missing modified timestamp
 
     # Configure mocks
     mock_bq_client.list_datasets.return_value = [
         mock_dataset_list_item1,
         mock_dataset_list_item2,
     ]
-    mock_bq_client.get_dataset.side_effect = lambda ref: {
-        "dataset1_reference": mock_full_dataset1,
-        "dataset2_reference": mock_full_dataset2,
-    }[ref]
+
+    # Mock query to return appropriate results based on location
+    def mock_query(query, location=None, job_retry=None):
+        mock_job = MagicMock()
+        if location == "US":
+            mock_job.result.return_value = [mock_row_dataset1]
+        elif location == "EU":
+            mock_job.result.return_value = [mock_row_dataset2]
+        else:
+            mock_job.result.return_value = []
+        return mock_job
+
+    mock_bq_client.query.side_effect = mock_query
 
     # Create BigQuerySchemaApi instance
     config = BigQueryV2Config.model_validate({"project_id": project_id})
@@ -651,10 +660,8 @@ def test_get_datasets_for_project_id_with_timestamps(
     assert dataset2.created is None
     assert dataset2.last_altered is None
 
-    # Verify get_dataset was called exactly once per dataset
-    assert mock_bq_client.get_dataset.call_count == 2
-    mock_bq_client.get_dataset.assert_any_call("dataset1_reference")
-    mock_bq_client.get_dataset.assert_any_call("dataset2_reference")
+    # Verify query was called for each location (US and EU)
+    assert mock_bq_client.query.call_count == 2
 
     # Verify list_datasets was called once
     mock_bq_client.list_datasets.assert_called_once_with(project_id, max_results=None)
@@ -1358,6 +1365,8 @@ def test_excluding_empty_projects_from_ingestion(
 
     def get_datasets_for_project_id_side_effect(
         project_id: str,
+        maxResults: Optional[int] = None,
+        dataset_filter: Optional[Any] = None,
     ) -> List[BigqueryDataset]:
         return (
             []
@@ -1444,6 +1453,39 @@ def test_get_projects_with_project_labels(
         BigqueryProject("dev", "dev_project"),
         BigqueryProject("qa", "qa_project"),
     ]
+
+
+def test_bigquery_filter_is_dataset_allowed():
+    """Test BigQueryFilter.is_dataset_allowed() for early dataset filtering."""
+    from datahub.ingestion.source.bigquery_v2.common import BigQueryFilter
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "dataset_pattern": {
+                "allow": ["^prod_.*"],
+                "deny": [".*_backup$"],
+            },
+            "match_fully_qualified_names": False,
+        }
+    )
+    report = BigQueryV2Report()
+    filters = BigQueryFilter(config, report)
+
+    assert filters.is_dataset_allowed("prod_data", "my-project") is True
+    assert filters.is_dataset_allowed("dev_data", "my-project") is False
+    assert filters.is_dataset_allowed("prod_data_backup", "my-project") is False
+
+    config_fqn = BigQueryV2Config.model_validate(
+        {
+            "dataset_pattern": {"allow": ["my-project\\.prod_.*"]},
+            "match_fully_qualified_names": True,
+        }
+    )
+    filters_fqn = BigQueryFilter(config_fqn, BigQueryV2Report())
+
+    # Pattern includes project_id
+    assert filters_fqn.is_dataset_allowed("prod_data", "my-project") is True
+    assert filters_fqn.is_dataset_allowed("prod_data", "other-project") is False
 
 
 @pytest.mark.parametrize(
