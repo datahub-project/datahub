@@ -720,11 +720,14 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         if trace_data:
             if _DATAHUB_EMITTER_TRACE:
-                logger.info(
-                    f"MCP trace_id={trace_data.trace_id} "
-                    f"timestamp={trace_data.extract_timestamp()} "
-                    f"urn={mcp.entityUrn} aspect={mcp.aspectName}"
-                )
+                try:
+                    logger.info(
+                        f"MCP trace_id={trace_data.trace_id} "
+                        f"timestamp={trace_data.extract_timestamp()} "
+                        f"urn={mcp.entityUrn} aspect={mcp.aspectName}"
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to log trace data: {e}")
             self._await_status(
                 [trace_data],
                 wait_timeout,
@@ -811,11 +814,14 @@ class DataHubRestEmitter(Closeable, Emitter):
                 data = extract_trace_data(response) if response else None
                 if data is not None:
                     if _DATAHUB_EMITTER_TRACE:
-                        logger.info(
-                            f"MCP batch trace_id={data.trace_id} "
-                            f"timestamp={data.extract_timestamp()} "
-                            f"urns={list(data.data.keys())}"
-                        )
+                        try:
+                            logger.info(
+                                f"MCP batch trace_id={data.trace_id} "
+                                f"timestamp={data.extract_timestamp()} "
+                                f"urns={list(data.data.keys())}"
+                            )
+                        except Exception as e:
+                            logger.debug(f"Failed to log trace data: {e}")
                     trace_data.append(data)
 
             if trace_data:
