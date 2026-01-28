@@ -254,7 +254,21 @@ class GCSSource(StatefulIngestionSourceBase):
         # Load credentials from file (this method works correctly)
         try:
             credentials, project_id = load_credentials_from_file(wif_config_file)
-            credentials.refresh(Request())
+
+            # Try to refresh credentials to validate they work
+            # If refresh fails, log a warning but continue - the GCS client libraries
+            # will handle the refresh when they actually need to make API calls
+            try:
+                credentials.refresh(Request())
+                logger.debug("Successfully refreshed WIF credentials")
+            except Exception as refresh_error:
+                logger.warning(
+                    "Failed to refresh WIF credentials during setup (this may be expected): %s",
+                    refresh_error,
+                )
+                logger.info(
+                    "Credentials will be refreshed automatically when GCS client libraries need them"
+                )
 
             # Set environment variable for GCS client libraries
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = wif_config_file
