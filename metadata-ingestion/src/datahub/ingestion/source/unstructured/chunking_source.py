@@ -129,167 +129,11 @@ class DocumentChunkingSource(Source):
             # Inline mode: use parent's graph connection if provided
             self.graph = graph
 
-        # Auto-configure embedding if not explicitly set
+        # Auto-configure embedding using shared resolution logic
         self.embedding_model: Optional[str] = None
-
-        # Check if user provided any embedding configuration
-        if not self.config.embedding.has_local_config():
-            # No local config provided - try server first, then use defaults
-            if self.graph:
-                try:
-                    logger.info(
-                        "No embedding provider configured - loading from DataHub server..."
-                    )
-                    server_config = get_semantic_search_config(self.graph)
-
-                    if (
-                        server_config
-                        and server_config.enabled
-                        and server_config.embedding_config
-                    ):
-                        logger.info(
-                            f"Loaded embedding config from server: {server_config.embedding_config.provider} / {server_config.embedding_config.model_id}"
-                        )
-
-                        # Preserve any local credentials (api_key) that user may have set
-                        local_api_key = self.config.embedding.api_key
-
-                        from datahub.ingestion.source.unstructured.chunking_config import (
-                            EmbeddingConfig,
-                        )
-
-                        self.config.embedding = EmbeddingConfig.from_server(
-                            server_config.embedding_config,
-                            api_key=local_api_key,
-                        )
-
-                        logger.info(
-                            "✓ Loaded embedding configuration from server"
-                            f"\n  Provider: {server_config.embedding_config.provider}"
-                            f"\n  Model: {server_config.embedding_config.model_id}"
-                            f"\n  Model Embedding Key: {server_config.embedding_config.model_embedding_key}"
-                            f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
-                        )
-                    else:
-                        # Server doesn't have semantic search enabled - use defaults
-                        logger.info(
-                            "Semantic search not enabled on server - using default client-side embedding config (Bedrock/Cohere)"
-                        )
-                        from datahub.ingestion.source.unstructured.chunking_config import (
-                            EmbeddingConfig,
-                        )
-
-                        self.config.embedding = EmbeddingConfig.get_default_config()
-
-                        logger.info(
-                            "✓ Using default embedding configuration"
-                            f"\n  Provider: {self.config.embedding.provider}"
-                            f"\n  Model: {self.config.embedding.model}"
-                            f"\n  AWS Region: {self.config.embedding.aws_region}"
-                        )
-
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to load embedding config from server: {e}. Using default client-side embedding config."
-                    )
-                    from datahub.ingestion.source.unstructured.chunking_config import (
-                        EmbeddingConfig,
-                    )
-
-                    self.config.embedding = EmbeddingConfig.get_default_config()
-
-                    logger.info(
-                        "✓ Using default embedding configuration"
-                        f"\n  Provider: {self.config.embedding.provider}"
-                        f"\n  Model: {self.config.embedding.model}"
-                        f"\n  AWS Region: {self.config.embedding.aws_region}"
-                    )
-            else:
-                # No graph available - use defaults
-                logger.info(
-                    "No DataHub server connection available - using default client-side embedding config"
-                )
-                from datahub.ingestion.source.unstructured.chunking_config import (
-                    EmbeddingConfig,
-                )
-
-                self.config.embedding = EmbeddingConfig.get_default_config()
-
-                logger.info(
-                    "✓ Using default embedding configuration"
-                    f"\n  Provider: {self.config.embedding.provider}"
-                    f"\n  Model: {self.config.embedding.model}"
-                    f"\n  AWS Region: {self.config.embedding.aws_region}"
-                )
-
-        # If local config is provided, validate against server (unless break-glass mode)
-        elif self.config.embedding.provider is not None:
-            if not self.config.embedding.allow_local_embedding_config and self.graph:
-                logger.info("Loading embedding configuration from DataHub server...")
-
-                try:
-                    server_config = get_semantic_search_config(self.graph)
-
-                    # Check if semantic search is enabled
-                    if not server_config.enabled:
-                        raise ValueError(
-                            "Semantic search is not enabled on the DataHub server. "
-                            "Cannot proceed with embedding generation. "
-                            "Please enable semantic search in the server's application.yml configuration."
-                        )
-
-                    # Validate local config matches server
-                    logger.info(
-                        "Validating local embedding configuration against server..."
-                    )
-
-                    self.config.embedding.validate_against_server(
-                        server_config.embedding_config
-                    )
-
-                    logger.info(
-                        "✓ Local embedding configuration validated successfully"
-                        f"\n  Provider: {server_config.embedding_config.provider}"
-                        f"\n  Model: {server_config.embedding_config.model_id}"
-                    )
-
-                except Exception as e:
-                    # Check if this is an old server that doesn't support semantic search config API
-                    is_old_server = (
-                        "does not expose semantic search configuration" in str(e)
-                    )
-
-                    if is_old_server:
-                        # Backward compatibility: Old server + local config provided
-                        logger.warning(
-                            f"⚠️  Server does not support semantic search configuration API (likely older version). "
-                            f"Falling back to local embedding configuration.\n"
-                            f"  Provider: {self.config.embedding.provider}\n"
-                            f"  Model: {self.config.embedding.model}\n"
-                            f"  AWS Region: {self.config.embedding.aws_region or 'N/A'}\n\n"
-                            f"Note: Semantic search on the server may not work if the configuration doesn't match. "
-                            f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
-                        )
-                        # Continue with local config (don't raise)
-                    else:
-                        # Other error (semantic search disabled, validation failed, etc.)
-                        logger.error(
-                            f"Failed to load/validate embedding configuration from server: {e}"
-                        )
-                        raise ValueError(
-                            f"Cannot proceed with embedding generation - server configuration failed.\n"
-                            f"Error: {e}\n\n"
-                            f"To bypass server validation (NOT RECOMMENDED), set:\n"
-                            f"  embedding:\n"
-                            f"    allow_local_embedding_config: true"
-                        ) from e
-
-            else:
-                logger.warning(
-                    "⚠️  WARNING: Server validation is disabled (allow_local_embedding_config=true). "
-                    "Proceeding with local embedding configuration. "
-                    "This may cause semantic search to fail if configuration doesn't match the server."
-                )
+        self.config.embedding = DocumentChunkingSource.resolve_embedding_config(
+            self.config.embedding, self.graph
+        )
 
         # At this point, embedding config should be fully resolved
         if self.config.embedding.provider is None:
@@ -966,6 +810,177 @@ class DocumentChunkingSource(Source):
         )
 
         yield workunit
+
+    @staticmethod
+    def resolve_embedding_config(
+        embedding_config: "EmbeddingConfig",
+        graph: Optional[DataHubGraph] = None,
+    ) -> "EmbeddingConfig":
+        """Resolve embedding configuration using server-first, then defaults logic.
+
+        This is the shared logic used by both actual ingestion (__init__) and
+        test_connection to ensure consistent behavior.
+
+        Resolution order:
+        1. If explicit local config provided: return it (optionally validate vs server)
+        2. If not: try to load from DataHub server
+        3. If server unreachable or not configured: use defaults
+
+        Args:
+            embedding_config: Initial embedding configuration from recipe
+            graph: Optional DataHubGraph for querying server config
+
+        Returns:
+            Resolved EmbeddingConfig ready for use
+
+        Raises:
+            ValueError: If local config validation fails (unless allow_local_embedding_config=true)
+        """
+        from datahub.ingestion.source.unstructured.chunking_config import (
+            EmbeddingConfig,
+        )
+
+        # Check if user provided explicit embedding configuration
+        if embedding_config.has_local_config():
+            # Explicit config provided - validate against server if available
+            if not embedding_config.allow_local_embedding_config and graph:
+                logger.info("Loading embedding configuration from DataHub server...")
+
+                try:
+                    server_config = get_semantic_search_config(graph)
+
+                    # Check if semantic search is enabled
+                    if not server_config.enabled:
+                        raise ValueError(
+                            "Semantic search is not enabled on the DataHub server. "
+                            "Cannot proceed with embedding generation. "
+                            "Please enable semantic search in the server's application.yml configuration."
+                        )
+
+                    # Validate local config matches server
+                    logger.info(
+                        "Validating local embedding configuration against server..."
+                    )
+
+                    embedding_config.validate_against_server(
+                        server_config.embedding_config
+                    )
+
+                    logger.info(
+                        "✓ Local embedding configuration validated successfully"
+                        f"\n  Provider: {server_config.embedding_config.provider}"
+                        f"\n  Model: {server_config.embedding_config.model_id}"
+                    )
+
+                except Exception as e:
+                    # Check if this is an old server that doesn't support semantic search config API
+                    is_old_server = (
+                        "does not expose semantic search configuration" in str(e)
+                    )
+
+                    if is_old_server:
+                        # Backward compatibility: Old server + local config provided
+                        logger.warning(
+                            f"⚠️  Server does not support semantic search configuration API (likely older version). "
+                            f"Falling back to local embedding configuration.\n"
+                            f"  Provider: {embedding_config.provider}\n"
+                            f"  Model: {embedding_config.model}\n"
+                            f"  AWS Region: {embedding_config.aws_region or 'N/A'}\n\n"
+                            f"Note: Semantic search on the server may not work if the configuration doesn't match. "
+                            f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
+                        )
+                        # Continue with local config (don't raise)
+                    else:
+                        # Other error (semantic search disabled, validation failed, etc.)
+                        logger.error(
+                            f"Failed to load/validate embedding configuration from server: {e}"
+                        )
+                        raise ValueError(
+                            f"Cannot proceed with embedding generation - server configuration failed.\n"
+                            f"Error: {e}\n\n"
+                            f"To bypass server validation (NOT RECOMMENDED), set:\n"
+                            f"  embedding:\n"
+                            f"    allow_local_embedding_config: true"
+                        ) from e
+
+            else:
+                logger.warning(
+                    "⚠️  WARNING: Server validation is disabled (allow_local_embedding_config=true). "
+                    "Proceeding with local embedding configuration. "
+                    "This may cause semantic search to fail if configuration doesn't match the server."
+                )
+
+            return embedding_config
+
+        # No explicit config - try server first, then defaults
+        if graph:
+            try:
+                logger.info(
+                    "No embedding provider configured - loading from DataHub server..."
+                )
+                server_config = get_semantic_search_config(graph)
+
+                if (
+                    server_config
+                    and server_config.enabled
+                    and server_config.embedding_config
+                ):
+                    logger.info(
+                        f"Loaded embedding config from server: {server_config.embedding_config.provider} / {server_config.embedding_config.model_id}"
+                    )
+                    # Preserve any local credentials (api_key) that user may have set
+                    local_api_key = embedding_config.api_key
+                    resolved = EmbeddingConfig.from_server(
+                        server_config.embedding_config,
+                        api_key=local_api_key,
+                    )
+                    logger.info(
+                        "✓ Loaded embedding configuration from server"
+                        f"\n  Provider: {server_config.embedding_config.provider}"
+                        f"\n  Model: {server_config.embedding_config.model_id}"
+                        f"\n  Model Embedding Key: {server_config.embedding_config.model_embedding_key}"
+                        f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
+                    )
+                    return resolved
+                else:
+                    # Server doesn't have semantic search enabled - use defaults
+                    logger.info(
+                        "Semantic search not enabled on server - using default client-side embedding config (Bedrock/Cohere)"
+                    )
+                    default_config = EmbeddingConfig.get_default_config()
+                    logger.info(
+                        "✓ Using default embedding configuration"
+                        f"\n  Provider: {default_config.provider}"
+                        f"\n  Model: {default_config.model}"
+                        f"\n  AWS Region: {default_config.aws_region}"
+                    )
+                    return default_config
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load embedding config from server: {e}. Using default client-side embedding config."
+                )
+                default_config = EmbeddingConfig.get_default_config()
+                logger.info(
+                    "✓ Using default embedding configuration"
+                    f"\n  Provider: {default_config.provider}"
+                    f"\n  Model: {default_config.model}"
+                    f"\n  AWS Region: {default_config.aws_region}"
+                )
+                return default_config
+        else:
+            # No graph available - use defaults
+            logger.info(
+                "No DataHub server connection available - using default client-side embedding config"
+            )
+            default_config = EmbeddingConfig.get_default_config()
+            logger.info(
+                "✓ Using default embedding configuration"
+                f"\n  Provider: {default_config.provider}"
+                f"\n  Model: {default_config.model}"
+                f"\n  AWS Region: {default_config.aws_region}"
+            )
+            return default_config
 
     @staticmethod
     def test_embedding_capability(

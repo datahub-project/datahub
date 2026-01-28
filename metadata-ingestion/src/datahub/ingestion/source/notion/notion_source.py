@@ -31,7 +31,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 from datahub.ingestion.source.unstructured.document_builder import (
     DocumentEntityBuilder,
 )
@@ -864,8 +863,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
     ) -> CapabilityReport:
         """Test semantic search capability using the same logic as ingestion.
 
-        This mirrors DocumentChunkingSource.__init__ behavior:
-        1. If explicit embedding config provided: test it
+        Uses DocumentChunkingSource.resolve_embedding_config() to ensure
+        test_connection mirrors actual ingestion behavior exactly:
+        1. If explicit embedding config provided: validate it
         2. If not: try to load from DataHub server
         3. If server doesn't have config or is unreachable: use defaults
 
@@ -877,75 +877,42 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         """
         from datahub.ingestion.graph.client import DataHubGraph
         from datahub.ingestion.graph.config import DatahubClientConfig
-        from datahub.ingestion.source.unstructured.chunking_config import (
-            get_semantic_search_config,
-        )
         from datahub.ingestion.source.unstructured.chunking_source import (
             DocumentChunkingSource,
         )
 
-        # Check if user provided explicit embedding configuration
-        if config.embedding and config.embedding.has_local_config():
-            # Explicit config - test it directly
-            return DocumentChunkingSource.test_embedding_capability(config.embedding)
-
-        # No explicit config - try server, then defaults (same as actual ingestion)
         try:
-            # Create graph connection to query server
-            graph_config = DatahubClientConfig(
-                server=config.datahub.server,
-                token=config.datahub.token,
+            # Create graph connection to query server (if datahub config provided)
+            graph = None
+            if config.datahub and config.datahub.server:
+                graph_config = DatahubClientConfig(
+                    server=config.datahub.server,
+                    token=config.datahub.token,
+                )
+                graph = DataHubGraph(config=graph_config)
+
+            # Use shared resolution logic (server → defaults)
+            resolved_config = DocumentChunkingSource.resolve_embedding_config(
+                config.embedding, graph
             )
-            graph = DataHubGraph(config=graph_config)
 
-            # Try to load from server
-            server_config = get_semantic_search_config(graph)
+            # Test the resolved configuration
+            return DocumentChunkingSource.test_embedding_capability(resolved_config)
 
-            if (
-                server_config
-                and server_config.enabled
-                and server_config.embedding_config
-            ):
-                # Server has semantic search enabled - test with server config
-                embedding_config = EmbeddingConfig.from_server(
-                    server_config.embedding_config,
-                    api_key=config.embedding.api_key if config.embedding else None,
-                )
-                result = DocumentChunkingSource.test_embedding_capability(
-                    embedding_config
-                )
-                # Add context about where config came from
-                if result.capable:
-                    result.mitigation_message = (
-                        f"Using DataHub server embedding config: {server_config.embedding_config.provider}/{server_config.embedding_config.model_id}. "
-                        + (result.mitigation_message or "")
-                    )
-                return result
-            else:
-                # Server doesn't have semantic search enabled - will use defaults
-                default_config = EmbeddingConfig.get_default_config()
-                result = DocumentChunkingSource.test_embedding_capability(
-                    default_config
-                )
-                # Add context about fallback to defaults
-                if result.capable:
-                    result.mitigation_message = (
-                        f"Server semantic search not configured, using defaults: {default_config.provider}/{default_config.model}. "
-                        + (result.mitigation_message or "")
-                    )
-                return result
-
-        except Exception:
-            # Can't reach server or error loading config - will use defaults
-            default_config = EmbeddingConfig.get_default_config()
-            result = DocumentChunkingSource.test_embedding_capability(default_config)
-            # Add context about why we're using defaults
-            if result.capable:
-                result.mitigation_message = (
-                    f"Could not reach DataHub server ({config.datahub.server}), using defaults: {default_config.provider}/{default_config.model}. "
-                    + (result.mitigation_message or "")
-                )
-            return result
+        except ValueError as e:
+            # Config validation failed (e.g., semantic search not enabled on server)
+            return CapabilityReport(
+                capable=False,
+                failure_reason=str(e),
+                mitigation_message="Fix the embedding configuration or enable semantic search on DataHub server.",
+            )
+        except Exception as e:
+            # Unexpected error during config resolution
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Failed to resolve embedding configuration: {e}",
+                mitigation_message="Check DataHub server connection and embedding configuration.",
+            )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
