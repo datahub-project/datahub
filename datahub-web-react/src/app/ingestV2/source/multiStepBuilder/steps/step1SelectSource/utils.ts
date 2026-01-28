@@ -10,6 +10,9 @@ export const MISCELLANEOUS_CATEGORY_NAME = 'Miscellaneous';
 
 export const CUSTOM_SOURCE_NAME = 'custom';
 
+const PRESORTED_CATEGORIES_START = ['Data Warehouse', 'Data Lake', 'BI & Analytics'];
+const PRESORTED_CATEGORIES_END = [MISCELLANEOUS_CATEGORY_NAME];
+
 export const EXTERNAL_SOURCE_REDIRECT_URL = 'https://docs.datahub.com/docs/metadata-ingestion/cli-ingestion';
 
 export const CARD_HEIGHT = 94;
@@ -22,6 +25,30 @@ export function groupByCategory(sources: SourceConfig[]): Record<string, SourceC
         acc[cat].push(src);
         return acc;
     }, {});
+}
+
+export function getOrderedByCategoryEntriesOfGroups(
+    groups: Record<string, SourceConfig[]>,
+): [string, SourceConfig[]][] {
+    const alphabeticalSortedCategories = Object.keys(groups)
+        .filter(
+            (category) =>
+                !PRESORTED_CATEGORIES_START.includes(category) && !PRESORTED_CATEGORIES_END.includes(category),
+        )
+        .sort((a, b) => a.localeCompare(b));
+
+    const categories = [...PRESORTED_CATEGORIES_START, ...alphabeticalSortedCategories, ...PRESORTED_CATEGORIES_END];
+
+    const entries: [string, SourceConfig[]][] = [];
+
+    categories.forEach((category) => {
+        const sources = groups?.[category];
+        if ((sources?.length ?? 0) > 0) {
+            entries.push([category, sources]);
+        }
+    });
+
+    return entries;
 }
 
 export function sortByPopularFirst(sources: SourceConfig[]) {
