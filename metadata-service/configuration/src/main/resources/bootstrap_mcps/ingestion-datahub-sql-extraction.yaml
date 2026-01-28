@@ -29,6 +29,7 @@
                 profile: {{#extract_sql_store.dataset_registration_spec.profile}}{{extract_sql_store.dataset_registration_spec.profile}}{{/extract_sql_store.dataset_registration_spec.profile}}{{^extract_sql_store.dataset_registration_spec.profile}}false{{/extract_sql_store.dataset_registration_spec.profile}}
       extraArgs:
         extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-reporting-extract-sql]@/metadata-ingestion-modules/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
+        extra_env_vars: '{{&ingestion.extra_env_vars}}{{^ingestion.extra_env_vars}}{}{{/ingestion.extra_env_vars}}'
       debugMode: false
       executorId: default
     source:
