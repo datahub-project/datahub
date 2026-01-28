@@ -1,6 +1,20 @@
 import { getTimestampMillisNumDaysAgo } from "../../support/commands";
+import {
+  checkIfEdgeBetweenColumnsExist,
+  checkIfEdgeBetweenColumnsNotExist,
+  checkIfEdgeExist,
+  checkIfNodeExist,
+  checkIfNodeNotExist,
+  expandAll,
+  expandColumns,
+  expandOne,
+  hoverColumn,
+  selectColumn,
+  unhoverColumn,
+} from "./utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
+const CHART_ENTITY_TYPE = "chart";
 const TASKS_ENTITY_TYPE = "tasks";
 const DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
@@ -15,6 +29,23 @@ const TRANSACTION_ETL_URN =
   "urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)";
 const MONTHLY_TEMPERATURE_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)";
+const NODE1_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage.node1_dataset,PROD)";
+const NODE2_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node2_dataset,PROD)";
+const NODE3_MANUAL_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node3_manual,PROD)";
+const NODE_DATAJOB_URN =
+  "urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_lineage_pipeline,PROD),cypress_lineage_datajob)";
+const NODE4_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node4_dataset,PROD)";
+const NODE_CHART_URN = "urn:li:chart:(looker,cypress_lineage_chart)";
+const NODE_DASHBOARD_URN =
+  "urn:li:dashboard:(looker,cypress_lineage_dashboard)";
+const NODE_DBT_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_lineage.node5_dbt,PROD)";
+const NODE6_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node6_dataset,PROD)";
 
 describe("lineage_graph", () => {
   beforeEach(() => {
@@ -157,5 +188,115 @@ describe("lineage_graph", () => {
     // find the button that says "Set Upstreams" - not via test id
     // verify that is is not disabled
     cy.contains("Set Upstreams").should("not.be.disabled");
+  });
+
+  it.only("displays complete lineage graph with all node types", () => {
+    cy.login();
+    cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
+
+    // Dataset -> dataset edge
+    checkIfNodeExist(NODE1_DATASET_URN);
+    checkIfNodeExist(NODE2_DATASET_URN);
+    checkIfEdgeExist(NODE1_DATASET_URN, NODE2_DATASET_URN);
+
+    // Fields lineage
+    expandColumns(NODE2_DATASET_URN);
+    hoverColumn(NODE2_DATASET_URN, "record_id");
+    checkIfEdgeBetweenColumnsExist(
+      NODE1_DATASET_URN,
+      "record_id",
+      NODE2_DATASET_URN,
+      "record_id",
+    );
+    unhoverColumn(NODE2_DATASET_URN, "record_id");
+    checkIfEdgeBetweenColumnsNotExist(
+      NODE1_DATASET_URN,
+      "record_id",
+      NODE2_DATASET_URN,
+      "record_id",
+    );
+    hoverColumn(NODE2_DATASET_URN, "next_record_id");
+    checkIfEdgeBetweenColumnsExist(
+      NODE1_DATASET_URN,
+      "next_record_id",
+      NODE2_DATASET_URN,
+      "next_record_id",
+    );
+    unhoverColumn(NODE2_DATASET_URN, "next_record_id");
+    checkIfEdgeBetweenColumnsNotExist(
+      NODE1_DATASET_URN,
+      "next_record_id",
+      NODE2_DATASET_URN,
+      "next_record_id",
+    );
+    selectColumn(NODE2_DATASET_URN, "record_id");
+    checkIfEdgeBetweenColumnsExist(
+      NODE1_DATASET_URN,
+      "record_id",
+      NODE2_DATASET_URN,
+      "record_id",
+    );
+    selectColumn(NODE2_DATASET_URN, "next_record_id");
+    checkIfEdgeBetweenColumnsExist(
+      NODE1_DATASET_URN,
+      "next_record_id",
+      NODE2_DATASET_URN,
+      "next_record_id",
+    );
+    checkIfEdgeBetweenColumnsNotExist(
+      NODE1_DATASET_URN,
+      "record_id",
+      NODE2_DATASET_URN,
+      "record_id",
+    );
+
+    // Dataset -> dataset manual lineage edge
+    checkIfNodeExist(NODE3_MANUAL_URN);
+    checkIfEdgeExist(NODE1_DATASET_URN, NODE3_MANUAL_URN);
+
+    // Expand one
+    checkIfNodeExist(NODE2_DATASET_URN);
+    expandOne(NODE2_DATASET_URN);
+
+    // Datajob
+    checkIfNodeExist(NODE_DATAJOB_URN);
+    checkIfNodeExist(NODE4_DATASET_URN);
+    checkIfEdgeExist(NODE2_DATASET_URN, NODE_DATAJOB_URN);
+    checkIfEdgeExist(NODE_DATAJOB_URN, NODE4_DATASET_URN);
+
+    // Expand all
+    expandAll(NODE4_DATASET_URN);
+
+    // Dbt
+    checkIfNodeExist(NODE_DBT_URN);
+    checkIfNodeExist(NODE6_DATASET_URN);
+    checkIfEdgeExist(NODE4_DATASET_URN, NODE_DBT_URN);
+    checkIfEdgeExist(NODE_DBT_URN, NODE6_DATASET_URN);
+
+    // Chart
+    checkIfNodeExist(NODE_CHART_URN);
+    checkIfEdgeExist(NODE4_DATASET_URN, NODE_CHART_URN);
+
+    // Dashboard
+    checkIfNodeExist(NODE_DASHBOARD_URN);
+    checkIfEdgeExist(NODE_CHART_URN, NODE_DASHBOARD_URN);
+
+    // Expand one (downstream)
+    cy.goToEntityLineageGraphV2(CHART_ENTITY_TYPE, NODE_CHART_URN);
+    checkIfNodeExist(NODE_CHART_URN);
+    checkIfNodeExist(NODE4_DATASET_URN);
+    expandOne(NODE4_DATASET_URN);
+    checkIfNodeExist(NODE_DATAJOB_URN);
+    checkIfNodeExist(NODE2_DATASET_URN);
+    checkIfNodeNotExist(NODE1_DATASET_URN);
+
+    // Expand all (downstream)
+    cy.goToEntityLineageGraphV2(CHART_ENTITY_TYPE, NODE_CHART_URN);
+    checkIfNodeExist(NODE_CHART_URN);
+    checkIfNodeExist(NODE4_DATASET_URN);
+    expandAll(NODE4_DATASET_URN);
+    checkIfNodeExist(NODE_DATAJOB_URN);
+    checkIfNodeExist(NODE2_DATASET_URN);
+    checkIfNodeExist(NODE1_DATASET_URN);
   });
 });
