@@ -17,9 +17,12 @@ dependencies {
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
-  implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
-  runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2',
-      'io.jsonwebtoken:jjwt-jackson:0.11.2'
+  // Note: CVE-2024-31033 affects jjwt <=0.12.5 but is DISPUTED by vendor (requires user misuse).
+  // Upgrading to 0.12+ requires breaking API changes (SigningKeyResolver → Locator<Key>).
+  // Using latest 0.11.x for now; revisit if CVE confirmed or 0.12+ migration needed.
+  implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+  runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5',
+      'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok

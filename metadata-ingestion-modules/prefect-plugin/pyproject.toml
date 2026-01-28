@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=78.1.1", "wheel", "pip>=21.0.0"]
+requires = ["setuptools>=78.1.1", "wheel>=0.46.2", "pip>=21.0.0"]  # wheel: GHSA-8rrh-rw8j-w5fx
 
 [tool.ruff]
 line-length = 88
