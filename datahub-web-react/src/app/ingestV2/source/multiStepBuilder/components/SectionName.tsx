@@ -7,10 +7,17 @@ const Wrapper = styled.div`
     flex-direction: column;
 `;
 
-const TopRow = styled.div`
+const TopRow = styled.div<{ $isClickable?: boolean }>`
     display: flex;
     flex-direction: row;
     margin-top: 12px;
+    ${(props) =>
+        props.$isClickable &&
+        `
+        :hover {
+            cursor: pointer;    
+        }
+        `}
 `;
 
 const Spacer = styled.div`
@@ -21,12 +28,13 @@ interface Props {
     name: string;
     description?: string;
     topRowRightItems?: React.ReactNode;
+    onClick?: () => void;
 }
 
-export function SectionName({ name, description, topRowRightItems }: Props) {
+export function SectionName({ name, description, topRowRightItems, onClick }: Props) {
     return (
         <Wrapper>
-            <TopRow>
+            <TopRow onClick={onClick} $isClickable={!!onClick}>
                 <Text weight="semiBold" size="lg">
                     {name}
                 </Text>
