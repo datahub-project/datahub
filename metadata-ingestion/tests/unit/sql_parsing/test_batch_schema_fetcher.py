@@ -6,6 +6,7 @@ import pytest
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
+from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import BatchSchemaFetcher, SchemaResolver
 
 
@@ -271,8 +272,6 @@ def test_resolve_table_with_batch_fetcher(schema_resolver, mock_graph):
     mock_graph.get_entities.side_effect = mock_get_entities
 
     # Execute
-    from datahub.sql_parsing._models import _TableName
-
     table = _TableName(database="db", db_schema="schema", table="TABLE")  # Mixed case
     resolved_urn, schema_info = schema_resolver.resolve_table(table)
 
@@ -299,8 +298,6 @@ def test_resolve_table_batch_optimization(schema_resolver, mock_graph):
     mock_graph.get_entities.return_value = {}
 
     # Execute
-    from datahub.sql_parsing._models import _TableName
-
     table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
     resolved_urn, schema_info = schema_resolver.resolve_table(table)
 
