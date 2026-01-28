@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class NativeUserService {
-  private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
+  private static final long DEFAULT_PASSWORD_RESET_TOKEN_EXPIRATION_MS = TimeUnit.DAYS.toMillis(1);
 
   private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
@@ -151,7 +151,11 @@ public class NativeUserService {
     String passwordResetToken = _secretService.generateUrlSafeToken(PASSWORD_RESET_TOKEN_LENGTH);
     corpUserCredentials.setPasswordResetToken(_secretService.encrypt(passwordResetToken));
 
-    long expirationTime = Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli();
+    long tokenExpirationMs = _authConfig.getPasswordResetTokenExpirationMs();
+    if (tokenExpirationMs <= 0) {
+      tokenExpirationMs = DEFAULT_PASSWORD_RESET_TOKEN_EXPIRATION_MS;
+    }
+    long expirationTime = Instant.now().plusMillis(tokenExpirationMs).toEpochMilli();
     corpUserCredentials.setPasswordResetTokenExpirationTimeMillis(expirationTime);
 
     // Ingest CorpUserCredentials MCP
