@@ -214,30 +214,34 @@ function RecipeForm(props: Props) {
                         </Collapse.Panel>
                     </StyledCollapse>
                 )}
-                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
-                    <Collapse.Panel
-                        forceRender
-                        header={
-                            <SectionHeader
-                                icon={<SettingOutlined />}
-                                text="Settings"
-                                sectionTooltip={advancedSectionTooltip}
-                            />
-                        }
-                        key="2"
+                {advancedFields.length > 0 && (
+                    <StyledCollapse
+                        defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}
                     >
-                        {advancedFields.map((field, i) => (
-                            <FormField
-                                key={field.name}
-                                field={field}
-                                secrets={secrets}
-                                refetchSecrets={refetchSecrets}
-                                removeMargin={i === advancedFields.length - 1}
-                                updateFormValue={updateFormValue}
-                            />
-                        ))}
-                    </Collapse.Panel>
-                </StyledCollapse>
+                        <Collapse.Panel
+                            forceRender
+                            header={
+                                <SectionHeader
+                                    icon={<SettingOutlined />}
+                                    text="Settings"
+                                    sectionTooltip={advancedSectionTooltip}
+                                />
+                            }
+                            key="2"
+                        >
+                            {advancedFields.map((field, i) => (
+                                <FormField
+                                    key={field.name}
+                                    field={field}
+                                    secrets={secrets}
+                                    refetchSecrets={refetchSecrets}
+                                    removeMargin={i === advancedFields.length - 1}
+                                    updateFormValue={updateFormValue}
+                                />
+                            ))}
+                        </Collapse.Panel>
+                    </StyledCollapse>
+                )}
             </RequiredFieldForm>
             <ControlsContainer>
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>

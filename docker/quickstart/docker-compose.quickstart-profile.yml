@@ -30,6 +30,18 @@ services:
     image: acryldata/datahub-actions:${DATAHUB_VERSION}-slim
     networks:
       default: null
+    volumes:
+    - type: bind
+      source: ${HOME}/.aws
+      target: /home/datahub/.aws
+      read_only: true
+      bind:
+        create_host_path: true
+    - type: bind
+      source: ${HOME}/.aws/sso/cache
+      target: /home/datahub/.aws/sso/cache
+      bind:
+        create_host_path: true
   datahub-gms-quickstart:
     profiles:
     - quickstart

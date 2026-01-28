@@ -78,22 +78,30 @@ driver_list = [
 
 
 def test_server_extraction():
-    for connection_string, result in zip(test_connection_strings, server_list):
+    for connection_string, result in zip(
+        test_connection_strings, server_list, strict=False
+    ):
         assert extract_server(connection_string) == result
 
 
 def test_platform_extraction():
-    for connection_string, result in zip(test_connection_strings, platform_list):
+    for connection_string, result in zip(
+        test_connection_strings, platform_list, strict=False
+    ):
         assert extract_platform(connection_string) == result
 
 
 def test_driver_extraction():
-    for connection_string, result in zip(test_connection_strings, driver_list):
+    for connection_string, result in zip(
+        test_connection_strings, driver_list, strict=False
+    ):
         assert extract_driver(connection_string) == result
 
 
 def test_dsn_mapping():
-    for expected, connection_string in zip(mapped_dsn_list, dsn_connection_strings):
+    for expected, connection_string in zip(
+        mapped_dsn_list, dsn_connection_strings, strict=False
+    ):
         dsn = extract_dsn(connection_string)
         assert dsn is not None
         mapped_platform, mapped_powerbi_platform = normalize_platform_name(

@@ -179,6 +179,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
     - ${HOME}/.datahub/search:/etc/datahub/search
     - ${HOME}/.aws:/home/datahub/.aws:ro
+    - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
 
 
 #################################

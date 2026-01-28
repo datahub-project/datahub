@@ -289,10 +289,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>Users</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>Users & Service Accounts</Typography.Text>}>
                 <Typography.Paragraph>
-                    Search for specific users that this policy should apply to, or select `All Users` to apply it to all
-                    users.
+                    Search for specific users or service accounts that this policy should apply to, or select `All
+                    Users` to apply it to all users.
                 </Typography.Paragraph>
                 <Select
                     data-testid="users"
