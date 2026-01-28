@@ -310,6 +310,8 @@ public class GraphQLEngineFactory {
     args.setMetricUtils(metricUtils);
     args.setS3Util(s3Util);
     args.setSemanticSearchService(semanticSearchService);
+    args.setSemanticSearchConfiguration(
+        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
 
     return new GmsGraphQLEngine(args).builder().build();
   }

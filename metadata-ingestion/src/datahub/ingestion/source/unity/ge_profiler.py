@@ -9,13 +9,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
-from datahub.ingestion.source.unity.config import UnityCatalogGEProfilerConfig
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogGEProfilerConfig,
+    UnityCatalogSourceConfig,
+)
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
@@ -44,28 +50,34 @@ class UnityCatalogSQLGenericTable(BaseTable):
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
-    sql_common_config: SQLCommonConfig
     profiling_config: UnityCatalogGEProfilerConfig
     report: UnityCatalogReport
 
     def __init__(
         self,
-        sql_common_config: SQLCommonConfig,
+        config: UnityCatalogSourceConfig,
         profiling_config: UnityCatalogGEProfilerConfig,
         report: UnityCatalogReport,
     ) -> None:
-        super().__init__(sql_common_config, report, "databricks")
+        config = config.model_copy(deep=True)
+
+        # Set required Databricks connect_args based on the config and workspace.
+        config.options["connect_args"] = {
+            **config.options.get("connect_args", {}),
+            **get_sql_connection_params(create_workspace_client(config)),
+        }
+
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        config.options.setdefault("max_overflow", profiling_config.max_workers)
+
+        super().__init__(config, report, "databricks")
         self.profiling_config = profiling_config
+
         # TODO: Consider passing dataset urn builder directly
         # So there is no repeated logic between this class and source.py
 
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        self.config.options.setdefault(
-            "max_overflow", self.profiling_config.max_workers
-        )
-
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
         conn = engine.connect()

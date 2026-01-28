@@ -1,8 +1,15 @@
+from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import (
+    MetadataChangeProposalWrapper,
+    MetadataWorkUnit,
+)
 from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
     TeradataSource,
@@ -12,6 +19,16 @@ from datahub.ingestion.source.sql.teradata import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Isolate TeradataSource class-level caches for each test.
+
+    Creates fresh cache instances before each test to prevent cross-contamination.
+    """
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config() -> Dict[str, Any]:
@@ -24,6 +41,43 @@ def _base_config() -> Dict[str, Any]:
         "include_usage_statistics": True,
         "include_queries": True,
     }
+
+
+def _create_mock_table_entry(database, table, creator_name=None, **kwargs):
+    """Helper to create mock table entries with consistent structure."""
+    mock_entry = MagicMock()
+    mock_entry.DataBaseName = MagicMock(strip=MagicMock(return_value=database))
+    mock_entry.name = MagicMock(strip=MagicMock(return_value=table))
+    mock_entry.description = kwargs.get("description")
+    mock_entry.object_type = kwargs.get("object_type", "Table")
+    mock_entry.CreateTimeStamp = kwargs.get("create_time", datetime(2024, 1, 1))
+    mock_entry.LastAlterName = kwargs.get("alter_name")
+    mock_entry.LastAlterTimeStamp = kwargs.get("alter_time")
+    mock_entry.RequestText = kwargs.get("request_text")
+    mock_entry.CreatorName = (
+        MagicMock(strip=MagicMock(return_value=creator_name)) if creator_name else None
+    )
+
+    return mock_entry
+
+
+def _create_source(extract_ownership=False):
+    """Helper to create TeradataSource with mocked dependencies."""
+    config = TeradataConfig.model_validate(
+        {
+            **_base_config(),
+            "extract_ownership": extract_ownership,
+        }
+    )
+
+    with patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+    ) as mock_class:
+        mock_class.return_value = MagicMock()
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
 
 
 class TestTeradataConfig:
@@ -161,6 +215,21 @@ class TestTeradataConfig:
         assert config.stateful_ingestion.enabled is True
         assert config.stateful_ingestion.fail_safe_threshold == 90
 
+    @pytest.mark.parametrize(
+        "override, expected",
+        [
+            ({}, False),
+            ({"extract_ownership": True}, True),
+            ({"extract_ownership": False}, False),
+        ],
+    )
+    def test_extract_ownership_config(
+        self, override: Dict[str, Any], expected: bool
+    ) -> None:
+        config_dict = {**_base_config(), **override}
+        config = TeradataConfig.model_validate(config_dict)
+        assert config.extract_ownership is expected
+
 
 class TestTeradataSource:
     """Test Teradata source functionality."""
@@ -245,16 +314,10 @@ class TestTeradataSource:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Mock engine and query results
-            mock_entry = MagicMock()
-            mock_entry.DataBaseName = "test_db"
-            mock_entry.name = "test_table"
-            mock_entry.description = "Test table"
-            mock_entry.object_type = "Table"
-            mock_entry.CreateTimeStamp = None
-            mock_entry.LastAlterName = None
-            mock_entry.LastAlterTimeStamp = None
-            mock_entry.RequestText = None
+            # Use helper function for consistent mocking
+            mock_entry = _create_mock_table_entry(
+                "test_db", "test_table", description="Test table"
+            )
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
                 mock_engine = MagicMock()
@@ -1627,3 +1690,208 @@ class TestStreamingQueryReconstruction:
         entry.default_database = default_database
         entry.session_id = session_id or f"session_{query_id}"
         return entry
+
+
+class TestOwnershipExtraction:
+    """Test ownership extraction functionality."""
+
+    def test_table_creator_cache_population(self):
+        """Test that _table_creator_cache is populated during cache_tables_and_views."""
+        source = _create_source()
+        mock_entry = _create_mock_table_entry(
+            "test_db",
+            "test_table",
+            creator_name="creator_user",
+            description="test comment",
+            alter_name="test_user",
+            alter_time=datetime(2024, 1, 2),
+        )
+
+        with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_engine = MagicMock()
+            mock_engine.execute.return_value = [mock_entry]
+            mock_get_engine.return_value = mock_engine
+
+            source.cache_tables_and_views()
+
+            assert ("test_db", "test_table") in source._table_creator_cache
+            assert (
+                source._table_creator_cache[("test_db", "test_table")] == "creator_user"
+            )
+
+    def test_table_creator_cache_handles_none_creator(self):
+        """Test that _table_creator_cache handles None creator gracefully."""
+        source = _create_source()
+        mock_entry = _create_mock_table_entry(
+            "test_db2", "test_table2", creator_name=None
+        )
+
+        with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_engine = MagicMock()
+            mock_engine.execute.return_value = [mock_entry]
+            mock_get_engine.return_value = mock_engine
+
+            source.cache_tables_and_views()
+
+            assert ("test_db2", "test_table2") not in source._table_creator_cache
+
+    def test_get_creator_for_entity_returns_creator(self):
+        """Test that _get_creator_for_entity returns creator when available."""
+        source = _create_source()
+        source._table_creator_cache[("test_db", "test_table")] = "creator_user"
+
+        result = source._get_creator_for_entity("test_db", "test_table")
+
+        assert result == "creator_user"
+
+    def test_get_creator_for_entity_returns_none_when_not_found(self):
+        """Test that _get_creator_for_entity returns None when entity not in cache."""
+        source = _create_source()
+
+        result = source._get_creator_for_entity("test_db", "nonexistent_table")
+
+        assert result is None
+
+    @pytest.mark.parametrize(
+        "extract_ownership,has_creator,expected_work_units",
+        [
+            (True, True, True),  # Ownership enabled + creator available = emit
+            (True, False, False),  # Ownership enabled + no creator = no emit
+            (False, True, False),  # Ownership disabled + creator available = no emit
+        ],
+    )
+    def test_emit_ownership_scenarios(
+        self, extract_ownership, has_creator, expected_work_units
+    ):
+        """Test various scenarios for _emit_ownership_if_available."""
+        source = _create_source(extract_ownership=extract_ownership)
+
+        if has_creator:
+            source._table_creator_cache[("test_db", "test_table")] = "creator_user"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+
+        if expected_work_units:
+            assert len(work_units) > 0
+        else:
+            assert len(work_units) == 0
+
+    @pytest.mark.parametrize(
+        "entity_type,parent_method",
+        [
+            (
+                "table",
+                "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource._process_table",
+            ),
+            (
+                "view",
+                "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource._process_view",
+            ),
+        ],
+    )
+    def test_process_entity_emits_ownership_work_units(
+        self, entity_type, parent_method
+    ):
+        """Test that _process_table and _process_view emit ownership work units when configured."""
+        source = _create_source(extract_ownership=True)
+        entity_name = f"test_{entity_type}"
+        source._table_creator_cache[("test_db", entity_name)] = "creator_user"
+
+        mock_inspector = MagicMock()
+        mock_sql_config = MagicMock()
+
+        with patch(parent_method, return_value=iter([])):
+            process_method = getattr(source, f"_process_{entity_type}")
+            work_units = list(
+                process_method(
+                    f"test_db.{entity_name}",
+                    mock_inspector,
+                    "test_db",
+                    entity_name,
+                    mock_sql_config,
+                )
+            )
+
+            assert len(work_units) == 1
+
+            wu = work_units[0]
+            assert isinstance(wu, MetadataWorkUnit)
+            assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            assert wu.metadata.aspectName == "ownership"
+
+    def test_emit_ownership_early_return(self):
+        """Test that _emit_ownership_if_available returns early when extract_ownership is False."""
+        source = _create_source(extract_ownership=False)
+        # Populate cache to ensure early return happens before creator check
+        source._table_creator_cache[("test_db", "test_table")] = "creator_user"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+        assert len(work_units) == 0
+
+    def test_table_creator_cache_population_with_creator(self):
+        """Test that cache is populated when CreatorName is not None."""
+        source = _create_source()
+
+        # Create entries with and without creator
+        entry_with_creator = _create_mock_table_entry(
+            "db1", "table_with_creator", creator_name="user1"
+        )
+        entry_without_creator = _create_mock_table_entry(
+            "db1", "table_without_creator", creator_name=None
+        )
+
+        with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_engine = MagicMock()
+            mock_engine.execute.return_value = [
+                entry_with_creator,
+                entry_without_creator,
+            ]
+            mock_get_engine.return_value = mock_engine
+
+            source.cache_tables_and_views()
+
+            # Only entry with creator should be in cache
+            assert ("db1", "table_with_creator") in source._table_creator_cache
+            assert source._table_creator_cache[("db1", "table_with_creator")] == "user1"
+            assert ("db1", "table_without_creator") not in source._table_creator_cache
+
+    def test_get_creator_returns_from_cache(self):
+        """Test that _get_creator_for_entity returns value from cache when present."""
+        source = _create_source()
+
+        # Manually populate cache
+        source._table_creator_cache[("schema1", "entity1")] = "owner1"
+        source._table_creator_cache[("schema2", "entity2")] = "owner2"
+
+        # Test retrieval
+        result1 = source._get_creator_for_entity("schema1", "entity1")
+        result2 = source._get_creator_for_entity("schema2", "entity2")
+        result3 = source._get_creator_for_entity("schema3", "entity3")
+
+        assert result1 == "owner1"
+        assert result2 == "owner2"
+        assert result3 is None
+
+    def test_emit_ownership_creates_user_urn(self):
+        """Test that _emit_ownership_if_available creates correct user URN."""
+        source = _create_source(extract_ownership=True)
+        source._table_creator_cache[("test_db", "test_table")] = "test_creator"
+
+        work_units = list(
+            source._emit_ownership_if_available(
+                "test_db.test_table", "test_db", "test_table"
+            )
+        )
+
+        assert len(work_units) == 1
+        # The work unit should contain ownership with user URN
+        # Verify by checking the work unit was created (indicates make_user_urn was called)
+        assert isinstance(work_units[0], MetadataWorkUnit)

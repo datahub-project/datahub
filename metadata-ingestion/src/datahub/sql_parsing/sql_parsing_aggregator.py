@@ -13,7 +13,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.env_vars import get_sql_agg_query_log
+from datahub.configuration.env_vars import get_sql_agg_query_log, get_sql_agg_skip_joins
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -479,6 +479,12 @@ class SqlParsingAggregator(Closeable):
             base_resolver=self._schema_resolver, extra_schemas={}
         )
 
+        # Log join processing configuration
+        if get_sql_agg_skip_joins():
+            logger.info("Skipping join processing in column-level lineage")
+        else:
+            logger.info("Processing join clauses in column-level lineage")
+
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
         # In particular, it must be true that if two queries have the same fingerprint,
@@ -750,9 +756,10 @@ class SqlParsingAggregator(Closeable):
             upstream_urn: The upstream dataset URN.
             downstream_urn: The downstream dataset URN.
         """
-        logger.debug(
-            f"Adding lineage to the map, downstream: {downstream_urn}, upstream: {upstream_urn}"
-        )
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            logger.debug(
+                f"Adding lineage to the map, downstream: {downstream_urn}, upstream: {upstream_urn}"
+            )
         self.report.num_known_mapping_lineage += 1
 
         # We generate a fake "query" object to hold the lineage.
@@ -1235,10 +1242,11 @@ class SqlParsingAggregator(Closeable):
 
         # Also add some extra logging.
         if parsed.debug_info.error:
-            logger.debug(
-                f"Error parsing query {query}: {parsed.debug_info.error}",
-                exc_info=parsed.debug_info.error,
-            )
+            if logger.getEffectiveLevel() <= logging.DEBUG:
+                logger.debug(
+                    f"Error parsing query {query}: {parsed.debug_info.error}",
+                    exc_info=parsed.debug_info.error,
+                )
 
         return parsed
 
@@ -1356,23 +1364,26 @@ class SqlParsingAggregator(Closeable):
                 not lineage_info.downstream.column
                 or not lineage_info.downstream.column.strip()
             ):
-                logger.debug(
-                    f"Skipping lineage entry with empty downstream column in query {query.query_id}"
-                )
+                if logger.getEffectiveLevel() <= logging.DEBUG:
+                    logger.debug(
+                        f"Skipping lineage entry with empty downstream column in query {query.query_id}"
+                    )
                 continue
 
             for upstream_ref in lineage_info.upstreams:
                 # Validate upstream reference has required fields
                 if not upstream_ref.table or not upstream_ref.table.strip():
-                    logger.debug(
-                        f"Skipping upstream reference with empty or invalid table URN in query {query.query_id}"
-                    )
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        logger.debug(
+                            f"Skipping upstream reference with empty or invalid table URN in query {query.query_id}"
+                        )
                     continue
 
                 if not upstream_ref.column or not upstream_ref.column.strip():
-                    logger.debug(
-                        f"Skipping empty column reference in lineage for query {query.query_id}"
-                    )
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        logger.debug(
+                            f"Skipping empty column reference in lineage for query {query.query_id}"
+                        )
                     continue
 
                 table_urn = upstream_ref.table
@@ -1380,9 +1391,10 @@ class SqlParsingAggregator(Closeable):
                 # Consistency fix: Add table to upstreams if only exists in column lineage
                 # This handles cases where table-level lineage is incomplete but column-level is complete
                 if table_urn not in upstreams:
-                    logger.debug(
-                        f"Found missing table urn {table_urn} in cll. The query_id was: {query.query_id}"
-                    )
+                    if logger.getEffectiveLevel() <= logging.DEBUG:
+                        logger.debug(
+                            f"Found missing table urn {table_urn} in cll. The query_id was: {query.query_id}"
+                        )
                     upstreams[table_urn] = query.query_id
                     queries_with_inconsistencies.add(query.query_id)
                     self.report.num_tables_added_from_column_lineage += 1

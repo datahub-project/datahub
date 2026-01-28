@@ -1,6 +1,4 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 
 # Custom Ownership Types
 
@@ -42,10 +40,7 @@ You can create this privileges by creating a new [Metadata Policy](./../authoriz
 
 Custom Ownership Types can be managed using the UI, via a graphQL command or ingesting an MCP which can be managed using software engineering (GitOps) practices.
 
-### Managing Custom Ownership Types
-
-<Tabs>
-  <TabItem value="ui" label="UI" default>
+### Managing Custom Ownership Types (UI)
 
 To manage a Custom Ownership type, first navigate to the DataHub Admin page:
 
@@ -72,8 +67,9 @@ Don't worry, this can be changed later.
 Once you've chosen a name and a description, click 'Save' to create the new Ownership Type.
 
 You can also edit and delete types in this UI by click on the ellipsis in the management view for the type you wish to change/delete.
-</TabItem>
-<TabItem value="cli" label="CLI" default>
+
+### Managing Custom Ownership Types (CLI)
+
 Just like all other DataHub metadata entities DataHub ships with a JSON-based custom ownership type spec, for defining and managing Custom Ownership Types as code.
 
 Here is an example of a custom ownership type named "Architect":
@@ -109,8 +105,7 @@ For any update you wish to do, simply update the json file and re-ingest via the
 
 To delete the ownership type, simply run a [delete command](../how/delete-metadata.md#soft-delete-the-default) for the urn of the ownership type in question, in this case `urn:li:ownershipType:architect`.
 
-  </TabItem>  
-  <TabItem value="graphql" label="GraphQL" default>
+### Managing Custom Ownership Types (GraphQL)
 
 You can also create/update/delete custom ownership types using DataHub's built-in [`GraphiQL` editor](../api/graphql/how-to-set-up-graphql.md#graphql-explorer-graphiql):
 
@@ -156,8 +151,6 @@ If you see the following response, the operation was successful:
 There are also `updateOwnershipType`, `deleteOwnershipType` and `listOwnershipTypes` endpoints for CRUD operations.
 
 Feel free to read our [GraphQL reference documentation](../api/graphql/overview.md) on these endpoints.
-</TabItem>
-</Tabs>
 
 ### Assigning a Custom Ownership Type to an Entity (UI)
 

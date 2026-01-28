@@ -657,7 +657,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
             # Step 4: Create lineages from source tables to validated topics
             lineages = []
-            for source_table, topic in zip(source_tables, connector_topics):
+            for source_table, topic in zip(
+                source_tables, connector_topics, strict=False
+            ):
                 # Handle schema resolution
                 resolved_source_table, dataset_included = (
                     self._resolve_source_table_schema(
@@ -855,7 +857,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 )
 
                 # Create 1:1 mapping (assuming same order)
-                for table_name, topic in zip(table_names, available_topics):
+                for table_name, topic in zip(
+                    table_names, available_topics, strict=False
+                ):
                     # Keep full table name including schema for proper lineage
                     clean_table = table_name.strip('"')
                     lineage = self._create_lineage_mapping(

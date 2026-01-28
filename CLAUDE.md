@@ -272,6 +272,28 @@ This is a mandatory security guardrail - never disable or skip this test.
 - Follow Conventional Commits format for commit messages
 - Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
 
+### Pull Requests
+
+When creating PRs, follow the template in `.github/pull_request_template.md`:
+
+**PR Title Format** (from [Contributing Guide](docs/CONTRIBUTING.md#pr-title-format)):
+
+```
+<type>[optional scope]: <description>
+```
+
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `style`, `build`, `ci`
+
+Example: `feat(parser): add ability to parse arrays`
+
+**Checklist** (verify before submitting):
+
+- [ ] PR conforms to the Contributing Guideline (especially PR Title Format)
+- [ ] Links to related issues (if applicable)
+- [ ] Tests added/updated (if applicable)
+- [ ] Docs added/updated (if applicable)
+- [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+
 ## Key Documentation
 
 **Essential reading:**
