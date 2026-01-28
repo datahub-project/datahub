@@ -13,6 +13,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.unstructured.chunking_config import (
     ChunkingConfig,
+    DataHubConnectionConfig,
     EmbeddingConfig,
 )
 from datahub.ingestion.source.unstructured.config import (
@@ -81,6 +82,11 @@ class NotionSourceConfig(
     filtering: FilteringConfig = Field(
         default_factory=FilteringConfig,
         description="Document filtering configuration",
+    )
+
+    datahub: DataHubConnectionConfig = Field(
+        default_factory=DataHubConnectionConfig,
+        description="DataHub connection configuration (for querying server-side embedding config)",
     )
 
     chunking: ChunkingConfig = Field(

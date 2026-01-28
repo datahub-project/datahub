@@ -860,36 +860,92 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _test_semantic_search_capability(
-        embedding_config: EmbeddingConfig,
+        config: NotionSourceConfig,
     ) -> CapabilityReport:
-        """Test semantic search capability with the provided embedding config.
+        """Test semantic search capability using the same logic as ingestion.
 
-        This mirrors the behavior in DocumentChunkingSource initialization:
-        - If no config provided, would use server config or defaults during ingestion
-        - If config provided, validates it works
+        This mirrors DocumentChunkingSource.__init__ behavior:
+        1. If explicit embedding config provided: test it
+        2. If not: try to load from DataHub server
+        3. If server doesn't have config or is unreachable: use defaults
 
         Args:
-            embedding_config: Embedding configuration from recipe
+            config: Full Notion source configuration
 
         Returns:
             CapabilityReport for semantic search capability
         """
-        if not embedding_config or not embedding_config.provider:
-            # No explicit config - ingestion will auto-configure
-            # We can't test server config in static method (no graph access)
-            return CapabilityReport(
-                capable=True,
-                mitigation_message="Semantic search will be auto-configured during ingestion: "
-                "First tries DataHub server config, then falls back to AWS Bedrock defaults. "
-                "To validate credentials now, explicitly configure embedding.provider in your recipe.",
-            )
-        else:
-            # Explicit config provided - test it
-            from datahub.ingestion.source.unstructured.chunking_source import (
-                DocumentChunkingSource,
-            )
+        from datahub.ingestion.graph.client import DataHubGraph
+        from datahub.ingestion.graph.config import DatahubClientConfig
+        from datahub.ingestion.source.unstructured.chunking_config import (
+            get_semantic_search_config,
+        )
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            DocumentChunkingSource,
+        )
 
-            return DocumentChunkingSource.test_embedding_capability(embedding_config)
+        # Check if user provided explicit embedding configuration
+        if config.embedding and config.embedding.has_local_config():
+            # Explicit config - test it directly
+            return DocumentChunkingSource.test_embedding_capability(config.embedding)
+
+        # No explicit config - try server, then defaults (same as actual ingestion)
+        try:
+            # Create graph connection to query server
+            graph_config = DatahubClientConfig(
+                server=config.datahub.server,
+                token=config.datahub.token,
+            )
+            graph = DataHubGraph(config=graph_config)
+
+            # Try to load from server
+            server_config = get_semantic_search_config(graph)
+
+            if (
+                server_config
+                and server_config.enabled
+                and server_config.embedding_config
+            ):
+                # Server has semantic search enabled - test with server config
+                embedding_config = EmbeddingConfig.from_server(
+                    server_config.embedding_config,
+                    api_key=config.embedding.api_key if config.embedding else None,
+                )
+                result = DocumentChunkingSource.test_embedding_capability(
+                    embedding_config
+                )
+                # Add context about where config came from
+                if result.capable:
+                    result.mitigation_message = (
+                        f"Using DataHub server embedding config: {server_config.embedding_config.provider}/{server_config.embedding_config.model_id}. "
+                        + (result.mitigation_message or "")
+                    )
+                return result
+            else:
+                # Server doesn't have semantic search enabled - will use defaults
+                default_config = EmbeddingConfig.get_default_config()
+                result = DocumentChunkingSource.test_embedding_capability(
+                    default_config
+                )
+                # Add context about fallback to defaults
+                if result.capable:
+                    result.mitigation_message = (
+                        f"Server semantic search not configured, using defaults: {default_config.provider}/{default_config.model}. "
+                        + (result.mitigation_message or "")
+                    )
+                return result
+
+        except Exception:
+            # Can't reach server or error loading config - will use defaults
+            default_config = EmbeddingConfig.get_default_config()
+            result = DocumentChunkingSource.test_embedding_capability(default_config)
+            # Add context about why we're using defaults
+            if result.capable:
+                result.mitigation_message = (
+                    f"Could not reach DataHub server ({config.datahub.server}), using defaults: {default_config.provider}/{default_config.model}. "
+                    + (result.mitigation_message or "")
+                )
+            return result
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -967,7 +1023,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 ] = {
                     "Page/Database Access": CapabilityReport(capable=True),
                     "Semantic Search": NotionSource._test_semantic_search_capability(
-                        config.embedding
+                        config
                     ),
                 }
 
@@ -986,7 +1042,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                     "Auto-discovery will find all accessible content.",
                 ),
                 "Semantic Search": NotionSource._test_semantic_search_capability(
-                    config.embedding
+                    config
                 ),
             }
 
