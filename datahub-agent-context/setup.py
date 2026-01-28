@@ -52,6 +52,9 @@ base_requirements = {
     "jmespath>=1.0.0,<2.0.0",
     "cachetools>=5.0.0,<7.0.0",
     "google-re2>=1.0,<2.0",  # Required for documents grep functionality
+    # Lower bounds on httpcore and h11 due to CVE-2025-43859.
+    "httpcore>=1.0.9",
+    "h11>=0.16",
 }
 
 mypy_stubs = {
