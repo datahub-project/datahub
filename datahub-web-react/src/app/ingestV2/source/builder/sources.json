@@ -100,6 +100,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:dbt",
+        "name": "dbt",
+        "displayName": "dbt",
+        "description": "Import Sources, Seeds, Models, Snapshots, Tests, and lineage from dbt.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dbt/",
+        "recipe": "source:\n  type: dbt\n  config:\n    manifest_path: # path to manifest.json\n    catalog_path: # path to catalog.json\n    target_platform: # e.g. snowflake, bigquery\n    stateful_ingestion:\n      enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": true
+    },
+    {
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",
@@ -468,6 +478,17 @@
         "recipe": "source:\n  type: preset\n  config:\n    # Coordinates\n    connect_uri: Preset workspace URL\n    manager_uri: https://api.app.preset.io\n\n    # Credentials\n    api_key: Preset API Key\n    api_secret: Preset API Secret",
         "category": "Miscellaneous",
         "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:notion",
+        "name": "notion",
+        "displayName": "Notion",
+        "description": "Import pages from Notion as Documents.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/notion/",
+        "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
     },
     {
         "urn": "urn:li:dataPlatform:airflow",

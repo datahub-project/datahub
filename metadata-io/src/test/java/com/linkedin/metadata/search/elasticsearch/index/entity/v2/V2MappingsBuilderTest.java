@@ -143,6 +143,83 @@ public class V2MappingsBuilderTest {
     assertEquals(resultWithBothStructuredProps.size(), resultWithOnlyRelatedStructuredProp.size());
   }
 
+  /**
+   * Test that structured properties using the datahub. prefix format (e.g.,
+   * urn:li:entityType:datahub.dataset) are correctly matched to entities. This is the format used
+   * in production and documented in the API.
+   */
+  @Test
+  public void testGetIndexMappingsWithStructuredPropertyDatahubPrefix() throws URISyntaxException {
+    when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
+
+    // Test structured property with datahub. prefix format - this is the production format
+    StructuredPropertyDefinition structPropWithDatahubPrefix =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("propWithDatahubPrefix")
+            .setDisplayName("propWithDatahubPrefix")
+            .setEntityTypes(
+                new UrnArray(
+                    // Use datahub. prefix format (production format)
+                    Urn.createFromString("urn:li:entityType:datahub.dataset"),
+                    Urn.createFromString("urn:li:entityType:datahub.testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+
+    Collection<IndexMapping> resultWithDatahubPrefix =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithDatahubPrefix"),
+                    structPropWithDatahubPrefix)));
+
+    assertNotNull(resultWithDatahubPrefix, "Result should not be null");
+
+    // Test structured property with legacy format (without datahub. prefix)
+    StructuredPropertyDefinition structPropWithLegacyFormat =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("propWithLegacyFormat")
+            .setDisplayName("propWithLegacyFormat")
+            .setEntityTypes(
+                new UrnArray(
+                    // Legacy format without datahub. prefix
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+
+    Collection<IndexMapping> resultWithLegacyFormat =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithLegacyFormat"),
+                    structPropWithLegacyFormat)));
+
+    // Both formats should produce the same number of mappings
+    assertEquals(
+        resultWithDatahubPrefix.size(),
+        resultWithLegacyFormat.size(),
+        "Both URN formats should produce the same number of mappings");
+
+    // Test with mixed formats - both should be included
+    Collection<IndexMapping> resultWithMixedFormats =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithDatahubPrefix"),
+                    structPropWithDatahubPrefix),
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithLegacyFormat"),
+                    structPropWithLegacyFormat)));
+
+    assertEquals(
+        resultWithMixedFormats.size(),
+        resultWithDatahubPrefix.size(),
+        "Mixed format properties should produce same number of mappings");
+  }
+
   @Test
   public void testGetIndexMappingsWithStructuredPropertyV1() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);

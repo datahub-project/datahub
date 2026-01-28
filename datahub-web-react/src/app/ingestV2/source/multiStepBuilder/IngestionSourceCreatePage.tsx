@@ -22,6 +22,7 @@ import {
     SubmitOptions,
 } from '@app/ingestV2/source/multiStepBuilder/types';
 import {
+    DEFAULT_SOURCE_SORT_CRITERION,
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
     getNewIngestionSourcePlaceholder,
@@ -34,7 +35,7 @@ const PLACEHOLDER_URN = 'placeholder-urn';
 
 const STEPS: IngestionSourceFormStep[] = [
     {
-        label: 'Select Source',
+        label: 'Choose a Data Source',
         subTitle: <SelectSourceSubtitle />,
         key: 'selectSource',
         content: <SelectSourceStep />,
@@ -92,7 +93,7 @@ export function IngestionSourceCreatePage() {
                     count: DEFAULT_PAGE_SIZE,
                     query: undefined,
                     filters: [getIngestionSourceSystemFilter(true)],
-                    sort: undefined,
+                    sort: DEFAULT_SOURCE_SORT_CRITERION,
                 });
 
                 analytics.event({

@@ -74,7 +74,7 @@ framework_common = {
 plugins: Dict[str, Set[str]] = {
     # Source Plugins
     "kafka": {
-        "confluent-kafka[schemaregistry]",
+        "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
     "executor": {
@@ -217,7 +217,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
