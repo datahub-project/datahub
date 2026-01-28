@@ -59,7 +59,7 @@ public class PolicyEngineTest {
   public void setupTest() throws Exception {
     _entityClient = Mockito.mock(EntityClient.class);
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _policyEngine = new PolicyEngine(_entityClient);
+    _policyEngine = new PolicyEngine(_entityClient, true);
 
     authorizedUserUrn = Urn.createFromString(AUTHORIZED_PRINCIPAL);
     resolvedAuthorizedUserSpec =

@@ -1,6 +1,9 @@
 package io.datahubproject.openapi.controller;
 
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedMCPsWithDomains;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
@@ -19,12 +22,16 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -69,6 +76,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -85,6 +93,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
+@Slf4j
 public abstract class GenericEntitiesController<
     A extends GenericAspect,
     E extends GenericEntity<A>,
@@ -99,6 +108,7 @@ public abstract class GenericEntitiesController<
   @Autowired protected TimeseriesAspectService timeseriesAspectService;
   @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
+  @Autowired protected ConfigurationProvider configurationProvider;
 
   @Qualifier("systemOperationContext")
   @Autowired
@@ -501,7 +511,6 @@ public abstract class GenericEntitiesController<
             authorizationChain,
             authentication,
             true);
-
     if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
@@ -552,12 +561,49 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
+
+    // Convert batch items to MCPs for authorization
+    List<MetadataChangeProposal> mcps =
+        batch.getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+
+    // Perform authorization at API layer for all MCPs (both sync and async modes)
+    // This is critical for async mode where transactions run under system account
+    if (!mcps.isEmpty()) {
+      // Extract domains when domain-based authorization is enabled
+      Map<Urn, Set<Urn>> domainsByEntity =
+          configurationProvider.getFeatureFlags() != null
+                  && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()
+              ? DomainExtractionUtils.extractEntityDomainsForAuthorization(
+                  opContext, entityService, mcps)
+              : null;
+
+      Map<MetadataChangeProposal, Boolean> authResults =
+          isAPIAuthorizedMCPsWithDomains(opContext, ENTITY, entityRegistry, mcps, domainsByEntity);
+
+      // Check for authorization failures
+      List<MetadataChangeProposal> failures =
+          authResults.entrySet().stream()
+              .filter(entry -> !entry.getValue())
+              .map(Map.Entry::getKey)
+              .collect(Collectors.toList());
+
+      if (!failures.isEmpty()) {
+        String errorMessages =
+            failures.stream()
+                .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
+                .collect(Collectors.joining(", "));
+        throw new UnauthorizedException(
+            "User "
+                + authentication.getActor().toUrnStr()
+                + " is unauthorized to modify entities: "
+                + errorMessages);
+      }
     }
 
-    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -590,6 +636,8 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
+    // Perform authorization at API layer BEFORE any deletions
+    // Standard auth will fetch entity domains during policy evaluation
     if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
@@ -656,9 +704,16 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+    // Domain-based authorization (when enabled) is now handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+    // Only perform standard authorization here when domain-based auth is disabled
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      // Standard entity URN authorization when domain auth is disabled
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+      }
     }
 
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
@@ -732,9 +787,16 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
-      throw new UnauthorizedException(
-          actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
+    // Domain-based authorization (when enabled) is now handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+    // Only perform standard authorization here when domain-based auth is disabled
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      // Standard entity URN authorization when domain auth is disabled
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
+        throw new UnauthorizedException(
+            actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
+      }
     }
 
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
@@ -840,5 +902,266 @@ public abstract class GenericEntitiesController<
     } catch (URISyntaxException e) {
       throw new InvalidUrnException(urn, "Invalid urn!");
     }
+  }
+
+  /**
+   * Check domain-based authorization for a single entity. This method fetches the entity's current
+   * domain (if any) and verifies the user has EDIT_ENTITY_DOMAINS privilege on that domain.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the URN of the entity to check
+   * @param actorUrn the URN of the actor performing the operation
+   * @throws UnauthorizedException if the user lacks domain permissions
+   */
+  private void checkDomainAuthorizationForEntity(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn, @Nonnull String actorUrn)
+      throws UnauthorizedException {
+
+    // Fetch the entity's current domain aspect
+    com.linkedin.entity.EntityResponse entityResponse;
+    try {
+      entityResponse =
+          entityService.getEntityV2(
+              opContext,
+              entityUrn.getEntityType(),
+              entityUrn,
+              Collections.singleton(DOMAINS_ASPECT_NAME));
+    } catch (Exception e) {
+      // If we can't fetch the entity, skip domain authorization check
+      log.warn("Error fetching entity {} for domain authorization: {}", entityUrn, e.getMessage());
+      return;
+    }
+
+    // Extract domain URNs from the entity
+    Set<Urn> domainUrns = extractDomainsFromEntity(entityResponse);
+
+    // If entity has domains, check domain-based authorization using subresources
+    if (!domainUrns.isEmpty()) {
+      boolean authorized =
+          AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+              opContext, UPDATE, List.of(entityUrn), domainUrns);
+
+      if (!authorized) {
+        throw new UnauthorizedException(
+            actorUrn + " is unauthorized to perform UPDATE on entities with domains " + domainUrns);
+      }
+    }
+  }
+
+  /**
+   * Get existing domains for an entity with error handling.
+   *
+   * @param opContext Operation context
+   * @param urn Entity URN
+   * @return Set of domain URNs, empty if none found or error occurred
+   */
+  @Nonnull
+  private Set<Urn> getExistingEntityDomains(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    try {
+      return extractDomainsFromEntity(
+          entityService.getEntityV2(
+              opContext, urn.getEntityType(), urn, Collections.singleton(DOMAINS_ASPECT_NAME)));
+    } catch (Exception e) {
+      log.warn("Error fetching entity {} for domain authorization: {}", urn, e.getMessage());
+      return Collections.emptySet();
+    }
+  }
+
+  /**
+   * Validate that all domain URNs exist in the system.
+   *
+   * @param opContext Operation context
+   * @param domainUrns Set of domain URNs to validate
+   * @throws UnauthorizedException if any domain does not exist
+   */
+  private void validateDomainsExist(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> domainUrns)
+      throws UnauthorizedException {
+    for (Urn domainUrn : domainUrns) {
+      if (!entityService.exists(opContext, domainUrn, true)) {
+        throw new UnauthorizedException(
+            "Domain "
+                + domainUrn
+                + " does not exist. Cannot assign entity to non-existent domain.");
+      }
+    }
+  }
+
+  /**
+   * Extract new domains from aspect data (handles both JSON strings and Patch objects).
+   *
+   * @param aspectName Name of the aspect
+   * @param aspectData Aspect data (String for JSON or GenericJsonPatch for patches)
+   * @return Set of domain URNs found in the aspect data
+   */
+  @Nonnull
+  private Set<Urn> extractNewDomainsFromAspect(
+      @Nonnull String aspectName, @Nullable Object aspectData) {
+    if (!DOMAINS_ASPECT_NAME.equals(aspectName) || aspectData == null) {
+      return Collections.emptySet();
+    }
+
+    try {
+      if (aspectData instanceof GenericJsonPatch) {
+        return extractDomainUrnsFromPatch((GenericJsonPatch) aspectData);
+      } else if (aspectData instanceof String) {
+        Domains domains = RecordUtils.toRecordTemplate(Domains.class, (String) aspectData);
+        if (domains.getDomains() != null && !domains.getDomains().isEmpty()) {
+          return new HashSet<>(domains.getDomains());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error extracting domains from aspect {}: {}", aspectName, e.getMessage());
+    }
+
+    return Collections.emptySet();
+  }
+
+  /**
+   * Perform domain-based authorization check for a single entity operation. Checks authorization
+   * against both existing domains and new domains being set.
+   *
+   * @param opContext Operation context
+   * @param entityUrn Entity URN being operated on
+   * @param aspectName Name of the aspect being modified
+   * @param aspectData Aspect data (for domain extraction if modifying domains)
+   * @param operation API operation being performed (CREATE, UPDATE, etc.)
+   * @param actorUrn Actor performing the operation
+   * @throws UnauthorizedException if authorization fails
+   */
+  private void checkDomainBasedAuthorizationForSingleEntity(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String aspectName,
+      @Nullable Object aspectData,
+      @Nonnull ApiOperation operation,
+      @Nonnull String actorUrn)
+      throws UnauthorizedException {
+
+    // Get existing domains
+    Set<Urn> existingDomains = getExistingEntityDomains(opContext, entityUrn);
+
+    // Extract and validate new domains if modifying domains aspect
+    Set<Urn> newDomains = extractNewDomainsFromAspect(aspectName, aspectData);
+    validateDomainsExist(opContext, newDomains);
+
+    // Combine all domains to check
+    Set<Urn> allDomainsToCheck = new HashSet<>(existingDomains);
+    allDomainsToCheck.addAll(newDomains);
+
+    // Check authorization
+    if (!allDomainsToCheck.isEmpty()) {
+      boolean authorized =
+          AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+              opContext, operation, List.of(entityUrn), allDomainsToCheck);
+
+      if (!authorized) {
+        throw new UnauthorizedException(
+            actorUrn
+                + " is unauthorized to "
+                + operation
+                + " entities with domains "
+                + allDomainsToCheck);
+      }
+    } else {
+      // Fallback to entity-level auth when no domains
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, operation, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            actorUrn + " is unauthorized to " + operation + " entities.");
+      }
+    }
+  }
+
+  /**
+   * Extract domain URNs from an entity response.
+   *
+   * @param entityResponse the entity response containing domain aspect
+   * @return set of domain URNs, empty if none found
+   */
+  @Nonnull
+  private Set<Urn> extractDomainsFromEntity(
+      @Nullable com.linkedin.entity.EntityResponse entityResponse) {
+    if (entityResponse == null) {
+      return Collections.emptySet();
+    }
+
+    com.linkedin.entity.EnvelopedAspect domainsAspect =
+        entityResponse.getAspects().get(DOMAINS_ASPECT_NAME);
+
+    if (domainsAspect == null) {
+      return Collections.emptySet();
+    }
+
+    try {
+      Domains domains = new Domains(domainsAspect.getValue().data());
+      if (domains.hasDomains() && domains.getDomains() != null && !domains.getDomains().isEmpty()) {
+        return new HashSet<>(domains.getDomains());
+      }
+    } catch (Exception e) {
+      // If we can't parse the domains, skip the check
+      log.warn("Error parsing domains from entity response: {}", e.getMessage());
+    }
+
+    return Collections.emptySet();
+  }
+
+  /**
+   * Extract domain URNs from a JSON Patch for domain authorization. Parses patch operations to find
+   * domain URNs being added or replaced.
+   *
+   * @param patch the GenericJsonPatch containing patch operations
+   * @return set of domain URNs found in the patch, empty if none found
+   */
+  @Nonnull
+  private Set<Urn> extractDomainUrnsFromPatch(@Nonnull GenericJsonPatch patch) {
+    Set<Urn> domainUrns = new HashSet<>();
+
+    if (patch.getPatch() == null || patch.getPatch().isEmpty()) {
+      return domainUrns;
+    }
+
+    try {
+      // Parse the patch operations to extract domain URNs
+      for (GenericJsonPatch.PatchOp operation : patch.getPatch()) {
+        String path = operation.getPath();
+        Object value = operation.getValue();
+
+        // Check if this operation is modifying domains
+        if (path != null && (path.startsWith("/domains") || path.equals("/domains"))) {
+          if (value != null) {
+            // Handle different value types (String for single domain, List for multiple domains)
+            if (value instanceof String) {
+              String urnStr = (String) value;
+              if (urnStr.startsWith("urn:li:domain:")) {
+                try {
+                  domainUrns.add(Urn.createFromString(urnStr));
+                } catch (URISyntaxException e) {
+                  log.warn("Invalid domain URN in patch: {}", urnStr);
+                }
+              }
+            } else if (value instanceof List) {
+              @SuppressWarnings("unchecked")
+              List<Object> valueList = (List<Object>) value;
+              for (Object item : valueList) {
+                if (item instanceof String) {
+                  String urnStr = (String) item;
+                  if (urnStr.startsWith("urn:li:domain:")) {
+                    try {
+                      domainUrns.add(Urn.createFromString(urnStr));
+                    } catch (URISyntaxException e) {
+                      log.warn("Invalid domain URN in patch: {}", urnStr);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error extracting domain URNs from patch: {}", e.getMessage());
+    }
+
+    return domainUrns;
   }
 }

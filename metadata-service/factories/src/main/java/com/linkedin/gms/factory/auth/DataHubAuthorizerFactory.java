@@ -22,6 +22,9 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.enabled:true}")
   private Boolean policiesEnabled;
 
+  @Value("${authorization.defaultAuthorizer.domainBasedAuthorizationEnabled:false}")
+  private Boolean domainBasedAuthorizationEnabled;
+
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
@@ -40,6 +43,7 @@ public class DataHubAuthorizerFactory {
         10,
         policyCacheRefreshIntervalSeconds,
         mode,
-        policyCacheFetchSize);
+        policyCacheFetchSize,
+        domainBasedAuthorizationEnabled);
   }
 }
