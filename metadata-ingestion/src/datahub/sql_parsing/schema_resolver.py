@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 SchemaInfo = Dict[str, str]
 
 # Default batch size for fetching schemas from DataHub API.
-# Matches the batch size used by _bulk_fetch_schema_info_by_filter for consistency.
 DEFAULT_SCHEMA_FETCH_BATCH_SIZE = 100
 
 
