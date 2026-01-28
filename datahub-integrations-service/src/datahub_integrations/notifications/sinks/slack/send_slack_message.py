@@ -8,7 +8,13 @@ from slack_sdk import WebClient
 from datahub_integrations.notifications.constants import (
     STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED,
 )
+from datahub_integrations.notifications.notification_tracking import NotificationChannel
 from datahub_integrations.notifications.sinks.slack.types import SlackMessageDetails
+from datahub_integrations.notifications.utils import (
+    NotificationTrackingInfo,
+    track_notification_delivery_failure,
+    track_notification_delivery_success,
+)
 
 # Cache storing channel identifier provided in notification settings to well-formed channel name (or None)
 channel_name_cache: Dict[str, Optional[str]] = {}
@@ -23,12 +29,18 @@ def send_notification_to_recipients(
     text: str,
     blocks: Optional[Any],
     attachments: Optional[Any],
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> List[SlackMessageDetails]:
     message_details = []
 
     for recipient in recipients:
         maybe_message_details = send_notification_slack_message(
-            client, recipient, text, blocks, attachments
+            client,
+            recipient,
+            text,
+            blocks,
+            attachments,
+            tracking_info=tracking_info,
         )
         if maybe_message_details is not None:
             message_details.append(maybe_message_details)
@@ -59,6 +71,7 @@ def send_notification_slack_message(
     text: str,
     blocks: Optional[Any],
     attachments: Optional[Any],
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> Optional[SlackMessageDetails]:
     # Extract Recipient ID
     recipient_handle = recipient.id
@@ -69,7 +82,14 @@ def send_notification_slack_message(
         )
         return None
 
-    return send_slack_message(client, recipient_handle, text, blocks, attachments)
+    return send_slack_message(
+        client,
+        recipient_handle,
+        text,
+        blocks,
+        attachments,
+        tracking_info=tracking_info,
+    )
 
 
 def update_slack_message(
@@ -120,6 +140,7 @@ def send_slack_message(
     text: str,
     blocks: Optional[Any],
     attachments: Optional[Any],
+    tracking_info: NotificationTrackingInfo | None = None,
 ) -> Optional[SlackMessageDetails]:
     try:
         response = client.chat_postMessage(
@@ -127,6 +148,11 @@ def send_slack_message(
         )
 
         if response.status_code == 200:
+            track_notification_delivery_success(
+                tracking_info,
+                notification_channel=NotificationChannel.SLACK,
+                recipient_count=1,
+            )
             message_id = response["message"]["ts"]
             channel_name = try_resolve_channel_name(client, channel)
 
@@ -141,10 +167,25 @@ def send_slack_message(
             )
 
         else:
+            error_message = response.get("error")
+            track_notification_delivery_failure(
+                tracking_info,
+                notification_channel=NotificationChannel.SLACK,
+                recipient_count=1,
+                error_type="SlackApiError",
+                error_message=str(error_message) if error_message else None,
+            )
             logger.error(
                 f"Slack API returned non-200 response while attempting to send message: {response['error']}"
             )
-    except Exception:
+    except Exception as e:
+        track_notification_delivery_failure(
+            tracking_info,
+            notification_channel=NotificationChannel.SLACK,
+            recipient_count=1,
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
         logger.exception(
             f"Failed to send slack message to channel: {channel} text: {text}"
         )

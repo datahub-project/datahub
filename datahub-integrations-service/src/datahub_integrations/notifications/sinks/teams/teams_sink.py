@@ -23,6 +23,7 @@ from datahub_integrations.notifications.constants import (
     MAX_NOTIFICATION_RETRIES,
     STATEFUL_TEAMS_INCIDENT_MESSAGES_ENABLED,
 )
+from datahub_integrations.notifications.notification_tracking import NotificationChannel
 from datahub_integrations.notifications.sinks.context import NotificationContext
 from datahub_integrations.notifications.sinks.shared.incident_message_builder import (
     IncidentMessageBuilder,
@@ -44,7 +45,12 @@ from datahub_integrations.notifications.sinks.teams.template_utils import (
     create_actors_tag_string,
 )
 from datahub_integrations.notifications.sinks.teams.types import TeamsMessageDetails
-from datahub_integrations.notifications.sinks.utils import retry_with_backoff
+from datahub_integrations.notifications.utils import (
+    NotificationTrackingInfo,
+    get_notification_tracking_info,
+    track_notification_delivery_failure,
+    track_notification_delivery_success,
+)
 from datahub_integrations.teams.config import TeamsConnection, teams_config
 from datahub_integrations.teams.exceptions import (
     TeamsErrorCodes,
@@ -162,6 +168,7 @@ class TeamsNotificationSink(NotificationSink):
         self, request: NotificationRequestClass, context: NotificationContext
     ) -> None:
         template_type: str = str(request.message.template)
+        tracking_info = get_notification_tracking_info(request)
 
         # Force refresh config for test notifications
         if template_type == "CUSTOM" and self._is_test_notification(
@@ -188,16 +195,11 @@ class TeamsNotificationSink(NotificationSink):
             logger.warning("Skipping Teams notification due to invalid configuration")
             return
 
-        # Route to appropriate handler based on template type with retry logic
+        # Route to appropriate handler based on template type
         try:
-            max_attempts = MAX_NOTIFICATION_RETRIES
-
             if template_type == "BROADCAST_NEW_INCIDENT":
-                message_details = retry_with_backoff(
-                    lambda: asyncio.run(self._send_new_incident_notification(request)),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                message_details = asyncio.run(
+                    self._send_new_incident_notification(request, tracking_info)
                 )
                 if self._should_save_message_details(template_type):
                     # Save message details
@@ -205,99 +207,58 @@ class TeamsNotificationSink(NotificationSink):
                         request, template_type, message_details or []
                     )
             elif template_type == "BROADCAST_NEW_INCIDENT_UPDATE":
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._update_new_incident_notifications(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
-                )
+                asyncio.run(self._update_new_incident_notifications(request))
             elif template_type == "BROADCAST_INCIDENT_STATUS_CHANGE":
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._send_incident_status_change_notification(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_incident_status_change_notification(
+                        request, tracking_info
+                    )
                 )
             elif template_type == "BROADCAST_COMPLIANCE_FORM_PUBLISH":
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._send_compliance_form_publish_notification(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_compliance_form_publish_notification(
+                        request, tracking_info
+                    )
                 )
             elif template_type == "BROADCAST_ENTITY_CHANGE":
-                retry_with_backoff(
-                    lambda: asyncio.run(self._send_entity_change_notification(request)),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_entity_change_notification(request, tracking_info)
                 )
             elif template_type == "CUSTOM":
-                retry_with_backoff(
-                    lambda: asyncio.run(self._send_custom_notification(request)),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
-                )
+                asyncio.run(self._send_custom_notification(request, tracking_info))
             elif template_type == "BROADCAST_NEW_PROPOSAL":
-                retry_with_backoff(
-                    lambda: asyncio.run(self._send_new_proposal_notification(request)),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_new_proposal_notification(request, tracking_info)
                 )
             elif template_type == "BROADCAST_PROPOSAL_STATUS_CHANGE":
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._send_proposal_status_change_notification(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_proposal_status_change_notification(
+                        request, tracking_info
+                    )
                 )
             elif template_type == "BROADCAST_INGESTION_RUN_CHANGE":
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._send_ingestion_run_change_notification(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_ingestion_run_change_notification(request, tracking_info)
                 )
             elif template_type == "BROADCAST_ASSERTION_STATUS_CHANGE":
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._send_assertion_status_change_notification(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_assertion_status_change_notification(
+                        request, tracking_info
+                    )
                 )
             elif template_type == "BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST":
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._send_workflow_form_request_notification(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_workflow_form_request_notification(
+                        request, tracking_info
+                    )
                 )
             elif (
                 template_type == "BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE"
             ):
-                retry_with_backoff(
-                    lambda: asyncio.run(
-                        self._send_workflow_form_status_change_notification(request)
-                    ),
-                    max_attempts=max_attempts,
-                    backoff_factor=2,
-                    initial_backoff=1,
+                asyncio.run(
+                    self._send_workflow_form_status_change_notification(
+                        request, tracking_info
+                    )
                 )
             else:
                 logger.warning(
@@ -305,18 +266,18 @@ class TeamsNotificationSink(NotificationSink):
                 )
                 return
         except Exception as e:
-            logger.error(
-                f"Failed to send Teams notification after {max_attempts} attempts: {e}"
-            )
+            logger.error(f"Failed to send Teams notification: {e}")
             raise
 
     async def _send_new_incident_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[TeamsMessageDetails]:
         # Build rich adaptive card for new incident
         adaptive_card = self._build_incident_message(request)
         return await self._send_teams_adaptive_card_with_details(
-            request.recipients, adaptive_card
+            request.recipients, adaptive_card, tracking_info
         )
 
     async def _update_new_incident_notifications(
@@ -334,31 +295,42 @@ class TeamsNotificationSink(NotificationSink):
         )
 
     async def _send_incident_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         # Build rich adaptive card for incident status change
         adaptive_card = self._build_incident_status_change_message(request)
-        await self._send_teams_adaptive_card(request.recipients, adaptive_card)
+        await self._send_teams_adaptive_card(
+            request.recipients, adaptive_card, tracking_info
+        )
 
     async def _send_compliance_form_publish_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         # Build Teams message for compliance form
         message_text = self._build_compliance_form_message(request)
-        await self._send_teams_message(request.recipients, message_text)
+        await self._send_teams_message(request.recipients, message_text, tracking_info)
         # Note: Compliance form notifications don't need post-send actions
 
     async def _send_entity_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         # Build Teams Adaptive Card for entity change
         adaptive_card = self._build_entity_change_message(request)
         await self._send_teams_adaptive_card_with_request(
-            request.recipients, adaptive_card, request
+            request.recipients, adaptive_card, request, tracking_info
         )
 
     async def _send_teams_message(
-        self, recipients: List[NotificationRecipientClass], message_text: str
+        self,
+        recipients: List[NotificationRecipientClass],
+        message_text: str,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> bool:
         """Send a Teams message to all recipients with retry logic.
 
@@ -371,7 +343,9 @@ class TeamsNotificationSink(NotificationSink):
         for recipient in teams_recipients:
             try:
                 # Apply retry logic to each individual message send
-                await self._send_message_with_retry(recipient, message_text)
+                await self._send_message_with_retry(
+                    recipient, message_text, tracking_info
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to send Teams message to {recipient} after all retries: {e}"
@@ -381,14 +355,19 @@ class TeamsNotificationSink(NotificationSink):
         return success
 
     async def _send_teams_adaptive_card(
-        self, recipients: List[NotificationRecipientClass], adaptive_card: dict
+        self,
+        recipients: List[NotificationRecipientClass],
+        adaptive_card: dict,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send a Teams Adaptive Card to all recipients with retry logic."""
         teams_recipients = self._get_teams_recipients(recipients)
 
         for recipient in teams_recipients:
             try:
-                await self._send_adaptive_card_with_retry(recipient, adaptive_card)
+                await self._send_adaptive_card_with_retry(
+                    recipient, adaptive_card, tracking_info
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to send Teams adaptive card to {recipient} after all retries: {e}"
@@ -400,6 +379,7 @@ class TeamsNotificationSink(NotificationSink):
         recipients: List[NotificationRecipientClass],
         adaptive_card: dict,
         request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send a Teams Adaptive Card to all recipients with notification request for rich activity feed."""
         teams_recipients = self._get_teams_recipients(recipients)
@@ -407,7 +387,7 @@ class TeamsNotificationSink(NotificationSink):
         for recipient in teams_recipients:
             try:
                 await self._send_adaptive_card_to_recipient_with_request(
-                    recipient, adaptive_card, request
+                    recipient, adaptive_card, request, tracking_info
                 )
             except Exception as e:
                 logger.error(f"Failed to send Teams adaptive card to {recipient}: {e}")
@@ -671,7 +651,11 @@ class TeamsNotificationSink(NotificationSink):
             return False
 
     async def _send_adaptive_card_to_recipient_with_request(
-        self, recipient: str, adaptive_card: dict, request: NotificationRequestClass
+        self,
+        recipient: str,
+        adaptive_card: dict,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send an Adaptive Card to a specific Teams recipient with rich activity feed using request parameters."""
         if (
@@ -700,8 +684,20 @@ class TeamsNotificationSink(NotificationSink):
                     )
                     await self._send_direct_adaptive_card(recipient, adaptive_card)
 
+            track_notification_delivery_success(
+                tracking_info,
+                notification_channel=NotificationChannel.TEAMS,
+                recipient_count=1,
+            )
         except Exception as e:
             logger.error(f"Failed to send Teams adaptive card to {recipient}: {e}")
+            track_notification_delivery_failure(
+                tracking_info,
+                notification_channel=NotificationChannel.TEAMS,
+                recipient_count=1,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
             raise
 
     async def _send_activity_feed_notification(
@@ -1546,7 +1542,12 @@ class TeamsNotificationSink(NotificationSink):
             logger.error(f"Failed to extract preview from adaptive card: {e}")
             return "DataHub notification"
 
-    async def _send_message_with_retry(self, recipient: str, message_text: str) -> None:
+    async def _send_message_with_retry(
+        self,
+        recipient: str,
+        message_text: str,
+        tracking_info: NotificationTrackingInfo | None,
+    ) -> None:
         """Send message to recipient with enhanced retry logic and error handling."""
         attempt = 0
         max_attempts = MAX_NOTIFICATION_RETRIES
@@ -1556,6 +1557,11 @@ class TeamsNotificationSink(NotificationSink):
                 await self._send_message_to_recipient(recipient, message_text)
                 logger.info(
                     f"Successfully sent Teams message to {recipient} (attempt {attempt + 1})"
+                )
+                track_notification_delivery_success(
+                    tracking_info,
+                    notification_channel=NotificationChannel.TEAMS,
+                    recipient_count=1,
                 )
                 return  # Success, exit the retry loop
             except Exception as e:
@@ -1580,11 +1586,25 @@ class TeamsNotificationSink(NotificationSink):
                     logger.error(
                         f"Non-retryable error sending message to {recipient}: {teams_error}"
                     )
+                    track_notification_delivery_failure(
+                        tracking_info,
+                        notification_channel=NotificationChannel.TEAMS,
+                        recipient_count=1,
+                        error_type=type(teams_error).__name__,
+                        error_message=str(teams_error),
+                    )
                     raise teams_error from e
 
                 if attempt == max_attempts - 1:
                     logger.error(
                         f"Failed to send message to {recipient} after {max_attempts} attempts"
+                    )
+                    track_notification_delivery_failure(
+                        tracking_info,
+                        notification_channel=NotificationChannel.TEAMS,
+                        recipient_count=1,
+                        error_type=type(teams_error).__name__,
+                        error_message=str(teams_error),
                     )
                     raise teams_error from e
 
@@ -1597,7 +1617,10 @@ class TeamsNotificationSink(NotificationSink):
                 attempt += 1
 
     async def _send_adaptive_card_with_retry(
-        self, recipient: str, adaptive_card: dict
+        self,
+        recipient: str,
+        adaptive_card: dict,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send adaptive card to recipient with enhanced retry logic and error handling."""
         attempt = 0
@@ -1608,6 +1631,11 @@ class TeamsNotificationSink(NotificationSink):
                 await self._send_adaptive_card_to_recipient(recipient, adaptive_card)
                 logger.info(
                     f"Successfully sent Teams adaptive card to {recipient} (attempt {attempt + 1})"
+                )
+                track_notification_delivery_success(
+                    tracking_info,
+                    notification_channel=NotificationChannel.TEAMS,
+                    recipient_count=1,
                 )
                 return  # Success, exit the retry loop
             except Exception as e:
@@ -1632,11 +1660,25 @@ class TeamsNotificationSink(NotificationSink):
                     logger.error(
                         f"Non-retryable error sending adaptive card to {recipient}: {teams_error}"
                     )
+                    track_notification_delivery_failure(
+                        tracking_info,
+                        notification_channel=NotificationChannel.TEAMS,
+                        recipient_count=1,
+                        error_type=type(teams_error).__name__,
+                        error_message=str(teams_error),
+                    )
                     raise teams_error from e
 
                 if attempt == max_attempts - 1:
                     logger.error(
                         f"Failed to send adaptive card to {recipient} after {max_attempts} attempts"
+                    )
+                    track_notification_delivery_failure(
+                        tracking_info,
+                        notification_channel=NotificationChannel.TEAMS,
+                        recipient_count=1,
+                        error_type=type(teams_error).__name__,
+                        error_message=str(teams_error),
                     )
                     raise teams_error from e
 
@@ -1746,7 +1788,10 @@ class TeamsNotificationSink(NotificationSink):
         return message_details
 
     async def _send_teams_adaptive_card_with_details(
-        self, recipients: List[NotificationRecipientClass], adaptive_card: dict
+        self,
+        recipients: List[NotificationRecipientClass],
+        adaptive_card: dict,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> List[TeamsMessageDetails]:
         """Send a Teams Adaptive Card to all recipients and return message details."""
         teams_recipients = self._get_teams_recipients(recipients)
@@ -1755,7 +1800,7 @@ class TeamsNotificationSink(NotificationSink):
         for recipient in teams_recipients:
             try:
                 message_detail = await self._send_adaptive_card_with_retry_and_details(
-                    recipient, adaptive_card
+                    recipient, adaptive_card, tracking_info
                 )
                 if message_detail:
                     message_details.append(message_detail)
@@ -1767,7 +1812,10 @@ class TeamsNotificationSink(NotificationSink):
         return message_details
 
     async def _send_adaptive_card_with_retry_and_details(
-        self, recipient: str, adaptive_card: dict
+        self,
+        recipient: str,
+        adaptive_card: dict,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> Optional[TeamsMessageDetails]:
         """Send adaptive card to recipient with retry logic and return message details."""
         attempt = 0
@@ -1782,11 +1830,35 @@ class TeamsNotificationSink(NotificationSink):
                         recipient, adaptive_card
                     )
                 )
-                return message_detail  # Success, return the message details
+                if message_detail is None:
+                    track_notification_delivery_failure(
+                        tracking_info,
+                        notification_channel=NotificationChannel.TEAMS,
+                        recipient_count=1,
+                        error_type="TeamsDeliveryFailure",
+                        error_message="No message details returned",
+                    )
+                    logger.warning(
+                        f"No message details returned when sending adaptive card to {recipient}"
+                    )
+                    return None
+                track_notification_delivery_success(
+                    tracking_info,
+                    notification_channel=NotificationChannel.TEAMS,
+                    recipient_count=1,
+                )
+                return message_detail
             except Exception as e:
                 if attempt == max_attempts - 1:
                     logger.error(
                         f"Failed to send adaptive card to {recipient} after {max_attempts} attempts: {e}"
+                    )
+                    track_notification_delivery_failure(
+                        tracking_info,
+                        notification_channel=NotificationChannel.TEAMS,
+                        recipient_count=1,
+                        error_type=type(e).__name__,
+                        error_message=str(e),
                     )
                     raise  # Re-raise the last exception after all retries have failed
                 else:
@@ -2356,7 +2428,9 @@ class TeamsNotificationSink(NotificationSink):
         return f"📋 New Compliance Form: {params.get('formName', 'Unknown')}"
 
     async def _send_custom_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send custom notification."""
         params = request.message.parameters or {}
@@ -2367,7 +2441,7 @@ class TeamsNotificationSink(NotificationSink):
             adaptive_card = self._build_test_notification_card(params)
             try:
                 await self._send_teams_adaptive_card_with_request(
-                    request.recipients, adaptive_card, request
+                    request.recipients, adaptive_card, request, tracking_info
                 )
                 # Execute post-send actions for test notifications (mark as completed)
                 await self._execute_post_send_actions(request, True)
@@ -2378,52 +2452,78 @@ class TeamsNotificationSink(NotificationSink):
                 raise
         else:
             message_text = self._build_custom_message(request)
-            success = await self._send_teams_message(request.recipients, message_text)
+            success = await self._send_teams_message(
+                request.recipients, message_text, tracking_info
+            )
 
             # Check for post-send actions (e.g., test notifications)
             await self._execute_post_send_actions(request, success)
 
     async def _send_new_proposal_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send new proposal notification."""
         adaptive_card = self._build_proposal_message(request)
-        await self._send_teams_adaptive_card(request.recipients, adaptive_card)
+        await self._send_teams_adaptive_card(
+            request.recipients, adaptive_card, tracking_info
+        )
 
     async def _send_proposal_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send proposal status change notification."""
         adaptive_card = self._build_proposal_status_change_message(request)
-        await self._send_teams_adaptive_card(request.recipients, adaptive_card)
+        await self._send_teams_adaptive_card(
+            request.recipients, adaptive_card, tracking_info
+        )
 
     async def _send_ingestion_run_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send ingestion run status change notification."""
         adaptive_card = self._build_ingestion_run_change_message(request)
-        await self._send_teams_adaptive_card(request.recipients, adaptive_card)
+        await self._send_teams_adaptive_card(
+            request.recipients, adaptive_card, tracking_info
+        )
 
     async def _send_assertion_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send assertion status change notification."""
         adaptive_card = self._build_assertion_status_change_message(request)
-        await self._send_teams_adaptive_card(request.recipients, adaptive_card)
+        await self._send_teams_adaptive_card(
+            request.recipients, adaptive_card, tracking_info
+        )
 
     async def _send_workflow_form_request_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send workflow form request notification."""
         adaptive_card = self._build_workflow_form_request_message(request)
-        await self._send_teams_adaptive_card(request.recipients, adaptive_card)
+        await self._send_teams_adaptive_card(
+            request.recipients, adaptive_card, tracking_info
+        )
 
     async def _send_workflow_form_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send workflow form status change notification."""
         adaptive_card = self._build_workflow_form_status_change_message(request)
-        await self._send_teams_adaptive_card(request.recipients, adaptive_card)
+        await self._send_teams_adaptive_card(
+            request.recipients, adaptive_card, tracking_info
+        )
 
     def _build_custom_message(self, request: NotificationRequestClass) -> str:
         """Build message text for custom notifications."""

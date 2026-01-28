@@ -99,6 +99,7 @@ Focus on the business value and use cases of the data."
    AWS_PROFILE=<profile corresponding to your Acryl_Developer_Engineer role>
    DATAHUB_TELEMETRY_ENABLED=false
    DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
+   DATAHUB_INTEGRATIONS_NOTIFICATION_EVENT_SAMPLE_RATE=1.0
 
    # MLflow (shared)
    MLFLOW_TRACKING_URI=arn:aws:sagemaker:us-west-2:795586375822:mlflow-app/app-M6WOXLBRELLV

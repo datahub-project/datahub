@@ -24,6 +24,16 @@ class NotificationSentEvent(BaseEvent):
     recipientCount: int | None = None
 
 
+class NotificationDeliveredEvent(BaseEvent):
+    """Emitted when a notification is delivered to a platform."""
+
+    type: str = Field(default="NotificationDeliveredEvent")
+    notificationType: NotificationType
+    notificationChannel: NotificationChannel
+    notificationId: str
+    recipientCount: int | None = None
+
+
 class NotificationSlackActionEvent(BaseEvent):
     """Emitted when a user engages with a notification directly in Slack (e.g. resolve/reopen)."""
 

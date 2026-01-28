@@ -8,6 +8,7 @@ public enum DataHubUsageEventType {
   PAGE_VIEW_EVENT("PageViewEvent"),
   NOTIFICATION_OPEN_EVENT("NotificationOpenEvent"),
   NOTIFICATION_SENT_EVENT("NotificationSentEvent"),
+  NOTIFICATION_DELIVERED_EVENT("NotificationDeliveredEvent"),
   HOME_PAGE_VIEW_EVENT("HomePageViewEvent"),
   LOG_IN_EVENT("LogInEvent"),
   LOG_OUT_EVENT("LogOutEvent"),

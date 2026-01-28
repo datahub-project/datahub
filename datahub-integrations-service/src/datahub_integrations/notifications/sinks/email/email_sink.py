@@ -42,6 +42,10 @@ from datahub_integrations.notifications.sinks.email.template_utils import (
 )
 from datahub_integrations.notifications.sinks.sink import NotificationSink
 from datahub_integrations.notifications.sinks.utils import retry_with_backoff
+from datahub_integrations.notifications.utils import (
+    NotificationTrackingInfo,
+    get_notification_tracking_info,
+)
 
 
 class RetryMode(Enum):
@@ -71,13 +75,16 @@ class EmailNotificationSink(NotificationSink):
         self, request: NotificationRequestClass, context: NotificationContext
     ) -> None:
         template_type: str = str(request.message.template)
+        tracking_info = get_notification_tracking_info(request)
 
         # --- Special handling for Broadcast Proposal Status Change, because we also broadcast to the original author of proposal.
         if (
             template_type
             == NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE
         ):
-            self._send_broadcast_proposal_status_change_notification(request)
+            self._send_broadcast_proposal_status_change_notification(
+                request, tracking_info
+            )
             return
 
         email_recipients = self._get_email_recipients(request)
@@ -85,65 +92,76 @@ class EmailNotificationSink(NotificationSink):
         # Mapping template types to functions
         action_map = {
             NotificationTemplateTypeClass.CUSTOM: lambda: self._send_custom_notification(
-                request
+                request, tracking_info
             ),
             NotificationTemplateTypeClass.INVITATION: lambda: self._send_user_invitation_notification(
                 email_recipients,
                 request.message.parameters or {},
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT: lambda: self._send_change_notification(
                 email_recipients,
                 build_new_incident_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_change_notification(
                 email_recipients,
                 build_incident_status_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_PROPOSAL: lambda: self._send_change_notification(
                 email_recipients,
                 build_new_proposal_parameters(request, self.base_url),
                 RetryMode.DISABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_PROPOSAL_STATUS_CHANGE: lambda: self._send_change_notification(
                 email_recipients,
                 build_proposal_status_change_parameters(request, self.base_url),
                 RetryMode.DISABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_ENTITY_CHANGE: lambda: self._send_change_notification(
                 email_recipients,
                 build_entity_change_parameters(request, self.base_url),
                 RetryMode.DISABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_INGESTION_RUN_CHANGE: lambda: self._send_ingestion_run_notification(
                 email_recipients,
                 build_ingestion_run_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_ASSERTION_STATUS_CHANGE: lambda: self._send_change_notification(
                 email_recipients,
                 build_assertion_status_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_COMPLIANCE_FORM_PUBLISH: lambda: self._send_compliance_form_notification(
                 email_recipients,
                 build_compliance_form_publish_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST: lambda: self._send_workflow_request_assignment_notification(
                 email_recipients,
                 build_workflow_request_assignment_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE: lambda: self._send_workflow_request_status_change_notification(
                 email_recipients,
                 build_workflow_request_status_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
+                tracking_info,
             ),
             NotificationTemplateTypeClass.SUPPORT_LOGIN: lambda: self._send_support_login_notification(
-                request, RetryMode.ENABLED
+                request, RetryMode.ENABLED, tracking_info
             ),
         }
 
@@ -156,7 +174,9 @@ class EmailNotificationSink(NotificationSink):
             )
 
     def _send_broadcast_proposal_status_change_notification(
-        self, request: NotificationRequestClass
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """
         1) If there's a `creatorUrn`, send a personalized email to the original proposer.
@@ -186,6 +206,7 @@ class EmailNotificationSink(NotificationSink):
                     [creator_recipient],
                     proposer_params,
                     retry_mode=RetryMode.DISABLED,
+                    tracking_info=tracking_info,
                 )
 
         # 2) Send the "normal" proposal status change message to everyone else
@@ -200,9 +221,14 @@ class EmailNotificationSink(NotificationSink):
                 broadcast_recipients,
                 broadcast_params,
                 retry_mode=RetryMode.DISABLED,
+                tracking_info=tracking_info,
             )
 
-    def _send_custom_notification(self, request: NotificationRequestClass) -> None:
+    def _send_custom_notification(
+        self,
+        request: NotificationRequestClass,
+        tracking_info: NotificationTrackingInfo | None,
+    ) -> None:
         if request.message.parameters is None:
             logger.error(
                 "Custom notification request does not have parameters. Skipping sending email."
@@ -215,7 +241,11 @@ class EmailNotificationSink(NotificationSink):
 
         if subject is not None and message is not None:
             send_custom_email_to_recipients(
-                request.recipients, subject, message, self.sg_client
+                request.recipients,
+                subject,
+                message,
+                self.sg_client,
+                tracking_info=tracking_info,
             )
         else:
             logger.error(
@@ -227,6 +257,7 @@ class EmailNotificationSink(NotificationSink):
         recipients: List[NotificationRecipientClass],
         parameters: Dict[str, str],
         retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send user invitation emails using the specialized template."""
         max_attempts = (
@@ -241,6 +272,7 @@ class EmailNotificationSink(NotificationSink):
                 recipients=recipients,
                 parameters=parameters,
                 sg_client=self.sg_client,
+                tracking_info=tracking_info,
             )
             logger.info(
                 f"Successfully sent user invitation emails to {len(recipients)} recipients"
@@ -255,6 +287,7 @@ class EmailNotificationSink(NotificationSink):
         recipients: List[NotificationRecipientClass],
         parameters: Dict[str, str | None],
         retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         max_attempts = (
             MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
@@ -268,6 +301,7 @@ class EmailNotificationSink(NotificationSink):
                 recipients=recipients,
                 parameters=parameters,
                 sg_client=self.sg_client,
+                tracking_info=tracking_info,
             )
         except Exception as e:
             logger.error(
@@ -279,6 +313,7 @@ class EmailNotificationSink(NotificationSink):
         recipients: List[NotificationRecipientClass],
         parameters: Dict[str, str | None],
         retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         max_attempts = (
             MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
@@ -292,6 +327,7 @@ class EmailNotificationSink(NotificationSink):
                 recipients=recipients,
                 parameters=parameters,
                 sg_client=self.sg_client,
+                tracking_info=tracking_info,
             )
         except Exception as e:
             logger.error(
@@ -303,6 +339,7 @@ class EmailNotificationSink(NotificationSink):
         recipients: List[NotificationRecipientClass],
         parameters: Dict[str, str | None],
         retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         max_attempts = (
             MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
@@ -316,6 +353,7 @@ class EmailNotificationSink(NotificationSink):
                 recipients=recipients,
                 parameters=parameters,
                 sg_client=self.sg_client,
+                tracking_info=tracking_info,
             )
         except Exception as e:
             logger.error(
@@ -327,6 +365,7 @@ class EmailNotificationSink(NotificationSink):
         recipients: List[NotificationRecipientClass],
         parameters: Dict[str, str | None],
         retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         max_attempts = (
             MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
@@ -340,6 +379,7 @@ class EmailNotificationSink(NotificationSink):
                 recipients=recipients,
                 parameters=parameters,
                 sg_client=self.sg_client,
+                tracking_info=tracking_info,
             )
         except Exception as e:
             logger.error(
@@ -351,6 +391,7 @@ class EmailNotificationSink(NotificationSink):
         recipients: List[NotificationRecipientClass],
         parameters: Dict[str, str | None],
         retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         max_attempts = (
             MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
@@ -364,6 +405,7 @@ class EmailNotificationSink(NotificationSink):
                 recipients=recipients,
                 parameters=parameters,
                 sg_client=self.sg_client,
+                tracking_info=tracking_info,
             )
         except Exception as e:
             logger.error(
@@ -371,7 +413,10 @@ class EmailNotificationSink(NotificationSink):
             )
 
     def _send_support_login_notification(
-        self, request: NotificationRequestClass, retry_mode: RetryMode
+        self,
+        request: NotificationRequestClass,
+        retry_mode: RetryMode,
+        tracking_info: NotificationTrackingInfo | None,
     ) -> None:
         """Send support login notification email to configured recipients."""
         if request.message.parameters is None:
@@ -392,6 +437,7 @@ class EmailNotificationSink(NotificationSink):
                 initial_backoff=1,
                 parameters=parameters,
                 sg_client=self.sg_client,
+                tracking_info=tracking_info,
             )
             logger.info("Successfully sent support login notification emails")
         except Exception as e:

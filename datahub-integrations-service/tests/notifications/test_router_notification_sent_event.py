@@ -77,3 +77,96 @@ def test_notifications_send_emits_notification_sent_event_for_incident() -> None
         assert event.notificationChannel == NotificationChannel.SLACK
         assert event.notificationId == "urn:li:incident:test"
         assert event.recipientCount == 1
+
+
+def test_notifications_send_emits_notification_sent_event_for_multiple_channels() -> (
+    None
+):
+    client = TestClient(app)
+
+    payload = {
+        "message": {
+            "template": NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT,
+            "parameters": {
+                "incidentUrn": "urn:li:incident:test",
+                "entityName": "Sample",
+                "entityPath": "/datasets/test",
+            },
+        },
+        "recipients": [
+            {"type": NotificationRecipientTypeClass.SLACK_CHANNEL, "id": "C123"},
+            {"type": NotificationRecipientTypeClass.EMAIL, "id": "test@example.com"},
+            {"type": NotificationRecipientTypeClass.TEAMS_DM, "id": "teams-user"},
+        ],
+    }
+
+    with patch(
+        "datahub_integrations.notifications.router.track_saas_event"
+    ) as mock_track:
+        resp = client.post("/private/notifications/send", json=payload)
+        assert resp.status_code == 200
+        assert mock_track.call_count == 3
+
+        events = [call_args[0][0] for call_args in mock_track.call_args_list]
+        channels = {event.notificationChannel for event in events}
+
+        assert channels == {
+            NotificationChannel.SLACK,
+            NotificationChannel.EMAIL,
+            NotificationChannel.TEAMS,
+        }
+
+        for event in events:
+            assert event.type == "NotificationSentEvent"
+            assert event.notificationType == "incident"
+            assert event.notificationId == "urn:li:incident:test"
+            assert event.recipientCount == 1
+
+
+def test_notifications_send_emits_notification_sent_event_for_assertion_multiple_channels() -> (
+    None
+):
+    client = TestClient(app)
+
+    payload = {
+        "message": {
+            "template": NotificationTemplateTypeClass.BROADCAST_ASSERTION_STATUS_CHANGE,
+            "parameters": {
+                "assertionUrn": "urn:li:assertion:test",
+                "assertionRunId": "run-1",
+                "assertionRunTimestampMillis": "1700000000000",
+                "entityName": "Sample",
+                "entityPath": "/datasets/test",
+                "result": "FAILURE",
+                "resultReason": "bad",
+                "description": "my assertion",
+            },
+        },
+        "recipients": [
+            {"type": NotificationRecipientTypeClass.SLACK_DM, "id": "U123"},
+            {"type": NotificationRecipientTypeClass.EMAIL, "id": "test@example.com"},
+            {"type": NotificationRecipientTypeClass.TEAMS_CHANNEL, "id": "teams-ch"},
+        ],
+    }
+
+    with patch(
+        "datahub_integrations.notifications.router.track_saas_event"
+    ) as mock_track:
+        resp = client.post("/private/notifications/send", json=payload)
+        assert resp.status_code == 200
+        assert mock_track.call_count == 3
+
+        events = [call_args[0][0] for call_args in mock_track.call_args_list]
+        channels = {event.notificationChannel for event in events}
+
+        assert channels == {
+            NotificationChannel.SLACK,
+            NotificationChannel.EMAIL,
+            NotificationChannel.TEAMS,
+        }
+
+        for event in events:
+            assert event.type == "NotificationSentEvent"
+            assert event.notificationType == "assertion"
+            assert event.notificationId == "urn:li:assertion:test|1700000000000|run-1"
+            assert event.recipientCount == 1

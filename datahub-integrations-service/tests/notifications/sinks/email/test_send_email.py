@@ -12,13 +12,19 @@ from datahub_integrations.notifications.constants import (
     DEFAULT_RECIPIENT_NAME,
     ENTITY_CHANGE_SUBSCRIPTION_TEMPLATE,
 )
+from datahub_integrations.notifications.notification_tracking import (
+    NotificationChannel,
+    NotificationType,
+)
 
 # Import your module here
 from datahub_integrations.notifications.sinks.email.send_email import (
     send_change_notification_to_recipients,
     send_custom_email_to_recipients,
+    send_email,
     send_support_login_email,
 )
+from datahub_integrations.notifications.utils import NotificationTrackingInfo
 
 # Add test for recipient name here.
 
@@ -263,3 +269,71 @@ def test_send_support_login_email_partial_failure(
 
     # Verify both recipients were attempted
     assert mock_send_email_func.call_count == 2
+
+
+@patch("datahub_integrations.notifications.utils.track_saas_event")
+def test_send_email_emits_delivery_event(mock_track: MagicMock) -> None:
+    sg_client = MagicMock()
+    response = MagicMock()
+    response.status_code = 202
+    response.body = b""
+    sg_client.send.return_value = response
+
+    tracking_info = NotificationTrackingInfo(
+        notification_type=NotificationType.ASSERTION,
+        notification_id="urn:li:assertion:test|1700000000000|run-1",
+    )
+
+    send_email(MagicMock(), "ctx", sg_client, tracking_info=tracking_info)
+
+    event = mock_track.call_args[0][0]
+    assert event.type == "NotificationDeliveredEvent"
+    assert event.notificationId == tracking_info.notification_id
+
+
+@patch("datahub_integrations.notifications.utils.report_notification_delivery_failure")
+@patch("datahub_integrations.notifications.utils.track_saas_event")
+def test_send_email_delivery_tracking_failure_does_not_mark_delivery_failed(
+    mock_track: MagicMock,
+    mock_report_failure: MagicMock,
+) -> None:
+    sg_client = MagicMock()
+    response = MagicMock()
+    response.status_code = 202
+    response.body = b""
+    sg_client.send.return_value = response
+    mock_track.side_effect = Exception("telemetry down")
+
+    tracking_info = NotificationTrackingInfo(
+        notification_type=NotificationType.ASSERTION,
+        notification_id="urn:li:assertion:test|1700000000000|run-1",
+    )
+
+    send_email(MagicMock(), "ctx", sg_client, tracking_info=tracking_info)
+
+    mock_report_failure.assert_not_called()
+
+
+@patch("datahub_integrations.notifications.utils.report_notification_delivery_failure")
+def test_send_email_reports_delivery_failure(mock_report: MagicMock) -> None:
+    sg_client = MagicMock()
+    response = MagicMock()
+    response.status_code = 400
+    response.body = b"bad"
+    sg_client.send.return_value = response
+
+    tracking_info = NotificationTrackingInfo(
+        notification_type=NotificationType.ASSERTION,
+        notification_id="urn:li:assertion:test|1700000000000|run-1",
+    )
+
+    send_email(MagicMock(), "ctx", sg_client, tracking_info=tracking_info)
+
+    mock_report.assert_called_once_with(
+        notification_type=tracking_info.notification_type.value,
+        notification_channel=NotificationChannel.EMAIL.value,
+        notification_id=tracking_info.notification_id,
+        recipient_count=1,
+        error_type="SendGridApiError",
+        error_message="400: b'bad'",
+    )
