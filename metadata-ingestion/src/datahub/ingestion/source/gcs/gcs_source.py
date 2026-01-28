@@ -2,11 +2,11 @@ import json
 import logging
 import os
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from google.auth import load_credentials_from_file
 from google.auth.transport.requests import Request
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import (
@@ -101,70 +101,85 @@ class GCSSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("credential", always=True)
-    def validate_credential(cls, v, values):
-        auth_type = values.get("auth_type", GCSAuthType.HMAC)
-        if auth_type == GCSAuthType.HMAC and v is None:
-            raise ValueError("credential is required when auth_type is 'hmac'")
-        return v
+    @model_validator(mode="before")
+    @classmethod
+    def validate_credential(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if isinstance(values, dict):
+            auth_type = values.get("auth_type", GCSAuthType.HMAC)
+            credential = values.get("credential")
+            if auth_type == GCSAuthType.HMAC and credential is None:
+                raise ValueError("credential is required when auth_type is 'hmac'")
+        return values
 
-    @validator("gcp_wif_configuration_json_string", always=True)
-    def validate_gcp_wif_configuration_options(cls, v, values):
-        auth_type = values.get("auth_type", GCSAuthType.HMAC)
-        gcp_wif_configuration = values.get("gcp_wif_configuration")
-        gcp_wif_configuration_json = values.get("gcp_wif_configuration_json")
+    @model_validator(mode="before")
+    @classmethod
+    def validate_gcp_wif_configuration_options(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if isinstance(values, dict):
+            auth_type = values.get("auth_type", GCSAuthType.HMAC)
+            gcp_wif_configuration = values.get("gcp_wif_configuration")
+            gcp_wif_configuration_json = values.get("gcp_wif_configuration_json")
+            gcp_wif_configuration_json_string = values.get(
+                "gcp_wif_configuration_json_string"
+            )
 
-        if auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
-            wif_options = [gcp_wif_configuration, gcp_wif_configuration_json, v]
-            provided_options = [opt for opt in wif_options if opt is not None]
+            if auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
+                wif_options = [
+                    gcp_wif_configuration,
+                    gcp_wif_configuration_json,
+                    gcp_wif_configuration_json_string,
+                ]
+                provided_options = [opt for opt in wif_options if opt is not None]
 
-            if len(provided_options) == 0:
-                raise ValueError(
-                    "One of gcp_wif_configuration (file path), gcp_wif_configuration_json (JSON content), "
-                    "or gcp_wif_configuration_json_string (JSON string) is required when auth_type is 'workload_identity_federation'"
-                )
-            elif len(provided_options) > 1:
-                raise ValueError(
-                    "Cannot specify multiple WIF configuration options. Use only one of: "
-                    "gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string."
-                )
+                if len(provided_options) == 0:
+                    raise ValueError(
+                        "One of gcp_wif_configuration (file path), gcp_wif_configuration_json (JSON content), "
+                        "or gcp_wif_configuration_json_string (JSON string) is required when auth_type is 'workload_identity_federation'"
+                    )
+                elif len(provided_options) > 1:
+                    raise ValueError(
+                        "Cannot specify multiple WIF configuration options. Use only one of: "
+                        "gcp_wif_configuration, gcp_wif_configuration_json, or gcp_wif_configuration_json_string."
+                    )
 
-        # Validate JSON format for both JSON options
-        if gcp_wif_configuration_json:
-            if isinstance(gcp_wif_configuration_json, str):
+            # Validate JSON format for both JSON options
+            if gcp_wif_configuration_json:
+                if isinstance(gcp_wif_configuration_json, str):
+                    try:
+                        json.loads(gcp_wif_configuration_json)
+                    except json.JSONDecodeError as e:
+                        raise ValueError(
+                            f"gcp_wif_configuration_json must be valid JSON: {e}"
+                        ) from e
+                elif not isinstance(gcp_wif_configuration_json, dict):
+                    raise ValueError(
+                        "gcp_wif_configuration_json must be either a JSON string or a dictionary"
+                    )
+
+            if gcp_wif_configuration_json_string:
                 try:
-                    json.loads(gcp_wif_configuration_json)
+                    json.loads(gcp_wif_configuration_json_string)
                 except json.JSONDecodeError as e:
                     raise ValueError(
-                        f"gcp_wif_configuration_json must be valid JSON: {e}"
+                        f"gcp_wif_configuration_json_string must be valid JSON: {e}"
                     ) from e
-            elif not isinstance(gcp_wif_configuration_json, dict):
-                raise ValueError(
-                    "gcp_wif_configuration_json must be either a JSON string or a dictionary"
-                )
 
-        if v:
-            try:
-                json.loads(v)
-            except json.JSONDecodeError as e:
-                raise ValueError(
-                    f"gcp_wif_configuration_json_string must be valid JSON: {e}"
-                ) from e
+        return values
 
-        return v
-
-    @validator("path_specs", always=True)
+    @field_validator("path_specs", mode="after")
+    @classmethod
     def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
+        cls, path_specs: List[PathSpec]
     ) -> List[PathSpec]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the gs:// prefix.
-        if any([not is_gcs_uri(path_spec.include) for path_spec in self.path_specs]):
+        if any([not is_gcs_uri(path_spec.include) for path_spec in path_specs]):
             raise ValueError("All path_spec.include should start with gs://")
 
-        return self
+        return path_specs
 
 
 class GCSSourceReport(DataLakeSourceReport):
