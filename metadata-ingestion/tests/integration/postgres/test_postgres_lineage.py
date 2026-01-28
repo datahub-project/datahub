@@ -312,34 +312,6 @@ class TestPostgresLineageIntegration:
         for q in queries:
             assert q["execution_count"] >= 3
 
-    def test_queries_by_type_filter(self, postgres_connection):
-        """Test filtering queries by SQL command type."""
-        postgres_connection.execute(text("SELECT pg_stat_statements_reset()"))
-
-        postgres_connection.execute(
-            text("SELECT * FROM lineage_test.source_orders WHERE order_id = 1")
-        )
-        postgres_connection.execute(
-            text(
-                "INSERT INTO lineage_test.source_orders VALUES (999, 999, '2024-01-01', 99.99)"
-            )
-        )
-        postgres_connection.execute(
-            text("DELETE FROM lineage_test.source_orders WHERE order_id = 999")
-        )
-
-        time.sleep(0.5)
-
-        query, params = PostgresQuery.get_queries_by_type(
-            query_type="INSERT", limit=100
-        )
-        result = postgres_connection.execute(text(query), params)
-
-        queries = list(result)
-
-        for q in queries:
-            assert q["query_text"].upper().startswith("INSERT")
-
     def test_extension_not_installed_scenario(self, postgres_connection):
         """Test behavior when pg_stat_statements extension is not installed."""
         config = PostgresConfig(

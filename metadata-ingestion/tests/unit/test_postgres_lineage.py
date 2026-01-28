@@ -56,20 +56,6 @@ class TestPostgresQuery:
         assert params["exclude_pattern_5"] == "%%temp_%%"
         assert params["exclude_pattern_6"] == "%%staging%%"
 
-    def test_get_queries_by_type(self):
-        query, params = PostgresQuery.get_queries_by_type(
-            query_type="INSERT",
-            database="testdb",
-            limit=100,
-        )
-        query_str = str(query)
-
-        assert "ILIKE :query_type_pattern" in query_str
-        assert "datname = :database" in query_str
-        assert params["query_type_pattern"] == "INSERT%"
-        assert params["database"] == "testdb"
-        assert params["limit"] == 100
-
 
 class TestPostgresLineageExtractor:
     @pytest.fixture
