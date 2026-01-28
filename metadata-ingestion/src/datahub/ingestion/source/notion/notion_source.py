@@ -31,6 +31,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 from datahub.ingestion.source.unstructured.document_builder import (
     DocumentEntityBuilder,
 )
@@ -858,6 +859,39 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         }
 
     @staticmethod
+    def _test_semantic_search_capability(
+        embedding_config: EmbeddingConfig,
+    ) -> CapabilityReport:
+        """Test semantic search capability with the provided embedding config.
+
+        This mirrors the behavior in DocumentChunkingSource initialization:
+        - If no config provided, would use server config or defaults during ingestion
+        - If config provided, validates it works
+
+        Args:
+            embedding_config: Embedding configuration from recipe
+
+        Returns:
+            CapabilityReport for semantic search capability
+        """
+        if not embedding_config or not embedding_config.provider:
+            # No explicit config - ingestion will auto-configure
+            # We can't test server config in static method (no graph access)
+            return CapabilityReport(
+                capable=True,
+                mitigation_message="Semantic search will be auto-configured during ingestion: "
+                "First tries DataHub server config, then falls back to AWS Bedrock defaults. "
+                "To validate credentials now, explicitly configure embedding.provider in your recipe.",
+            )
+        else:
+            # Explicit config provided - test it
+            from datahub.ingestion.source.unstructured.chunking_source import (
+                DocumentChunkingSource,
+            )
+
+            return DocumentChunkingSource.test_embedding_capability(embedding_config)
+
+    @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         """Test connection to Notion API.
 
@@ -866,6 +900,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         2. API key is valid
         3. Can connect to Notion API
         4. If page_ids/database_ids provided, validates they are accessible
+        5. Semantic search capability (if explicitly configured)
         """
         try:
             config = NotionSourceConfig.parse_obj(config_dict)
@@ -929,24 +964,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 # All pages/databases accessible
                 capability_report: Dict[
                     Union[SourceCapability, str], CapabilityReport
-                ] = {"Page/Database Access": CapabilityReport(capable=True)}
-
-                # Test semantic search capability
-                # If no embedding config provided, use defaults (same as actual ingestion)
-                from datahub.ingestion.source.unstructured.chunking_config import (
-                    EmbeddingConfig,
-                )
-                from datahub.ingestion.source.unstructured.chunking_source import (
-                    DocumentChunkingSource,
-                )
-
-                embedding_config = config.embedding
-                if not embedding_config or not embedding_config.provider:
-                    embedding_config = EmbeddingConfig.get_default_config()
-
-                capability_report["Semantic Search"] = (
-                    DocumentChunkingSource.test_embedding_capability(embedding_config)
-                )
+                ] = {
+                    "Page/Database Access": CapabilityReport(capable=True),
+                    "Semantic Search": NotionSource._test_semantic_search_capability(
+                        config.embedding
+                    ),
+                }
 
                 return TestConnectionReport(
                     basic_connectivity=basic_connectivity,
@@ -956,31 +979,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # No specific pages provided - just basic connectivity succeeded
             total_accessible = len(response.get("results", []))
 
-            # Test embedding capability if configured
             capability_report = {
                 "Auto-Discovery": CapabilityReport(
                     capable=True,
                     mitigation_message=f"Integration can access {total_accessible}+ pages/databases. "
                     "Auto-discovery will find all accessible content.",
-                )
+                ),
+                "Semantic Search": NotionSource._test_semantic_search_capability(
+                    config.embedding
+                ),
             }
-
-            # Test semantic search capability
-            # If no embedding config provided, use defaults (same as actual ingestion)
-            from datahub.ingestion.source.unstructured.chunking_config import (
-                EmbeddingConfig,
-            )
-            from datahub.ingestion.source.unstructured.chunking_source import (
-                DocumentChunkingSource,
-            )
-
-            embedding_config = config.embedding
-            if not embedding_config or not embedding_config.provider:
-                embedding_config = EmbeddingConfig.get_default_config()
-
-            capability_report["Semantic Search"] = (
-                DocumentChunkingSource.test_embedding_capability(embedding_config)
-            )
 
             return TestConnectionReport(
                 basic_connectivity=basic_connectivity,
