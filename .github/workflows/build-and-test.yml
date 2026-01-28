@@ -147,7 +147,7 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Generate tz artifact name
         run: echo "NAME_TZ=$(echo "${{ matrix.timezone }}" | tr '/' '-')" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: Test Results (build) - ${{ matrix.command}}-${{ env.NAME_TZ }}
@@ -256,7 +256,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Event File
           path: ${{ github.event_path }}

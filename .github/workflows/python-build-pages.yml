@@ -85,7 +85,7 @@ jobs:
           echo "Simple URL: $PYPI_URL" >> /tmp/pypi-config/deployment-info.txt
 
       - name: Upload PyPI config artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pypi-config
           path: /tmp/pypi-config/

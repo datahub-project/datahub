@@ -61,7 +61,7 @@ jobs:
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/dagster-plugin/venv/bin/activate && uv pip freeze
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: ${{ always() && matrix.python-version == '3.11' && matrix.extraPythonRequirement == 'dagster>=1.3.3' }}
         with:
           name: Test Results (dagster Plugin ${{ matrix.python-version}})
@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Event File
           path: ${{ github.event_path }}
