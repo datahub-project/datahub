@@ -126,7 +126,7 @@ class TestPostgresLineageIntegration:
     def test_pg_stat_statements_enabled(self, postgres_connection):
         """Test that pg_stat_statements extension is properly enabled."""
         result = postgres_connection.execute(
-            text(PostgresQuery.check_pg_stat_statements_enabled())
+            PostgresQuery.check_pg_stat_statements_enabled()
         )
         row = result.fetchone()
         assert row is not None
@@ -144,7 +144,7 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
-        result = postgres_connection.execute(text(query), params)
+        result = postgres_connection.execute(query, params)
 
         queries = list(result)
         assert len(queries) > 0, "Should extract at least some queries"
@@ -178,7 +178,7 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
-        result = postgres_connection.execute(text(query), params)
+        result = postgres_connection.execute(query, params)
 
         queries = list(result)
 
@@ -204,7 +204,7 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
-        result = postgres_connection.execute(text(query), params)
+        result = postgres_connection.execute(query, params)
 
         queries = [q["query_text"] for q in result]
 
@@ -226,7 +226,7 @@ class TestPostgresLineageIntegration:
             exclude_patterns=[malicious_pattern]
         )
 
-        result = postgres_connection.execute(text(query), params)
+        result = postgres_connection.execute(query, params)
         list(result)
         check_result = postgres_connection.execute(
             text(
@@ -305,7 +305,7 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=3)
-        result = postgres_connection.execute(text(query), params)
+        result = postgres_connection.execute(query, params)
 
         queries = list(result)
 
@@ -472,7 +472,7 @@ class TestPostgresLineageIntegration:
         time.sleep(0.5)
 
         query, params = PostgresQuery.get_query_history(limit=100, min_calls=1)
-        result = postgres_connection.execute(text(query), params)
+        result = postgres_connection.execute(query, params)
 
         queries = list(result)
 
