@@ -12,8 +12,6 @@ services:
     environment:
       ACTIONS_CONFIG: ''
       ACTIONS_EXTRA_PACKAGES: ''
-      AWS_CONFIG_FILE: /home/datahub/.aws-ro/config
-      AWS_SHARED_CREDENTIALS_FILE: /home/datahub/.aws-ro/credentials
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_GMS_PROTOCOL: http
@@ -32,13 +30,16 @@ services:
     image: acryldata/datahub-actions:${DATAHUB_VERSION}-slim
     networks:
       default: null
-    tmpfs:
-    - /home/datahub/.aws/sso/cache:mode=0700,uid=1000
     volumes:
     - type: bind
       source: ${HOME}/.aws
-      target: /home/datahub/.aws-ro
+      target: /home/datahub/.aws
       read_only: true
+      bind:
+        create_host_path: true
+    - type: bind
+      source: ${HOME}/.aws/sso/cache
+      target: /home/datahub/.aws/sso/cache
       bind:
         create_host_path: true
   datahub-gms-quickstart:
