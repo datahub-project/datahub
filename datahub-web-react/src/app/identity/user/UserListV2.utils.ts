@@ -36,6 +36,7 @@ export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
 
 /**
  * Builds GraphQL filter objects for user status filtering (server-side)
+ * Note: Service accounts are automatically excluded by the backend searchUsers resolver
  */
 export function buildFilters(statusFilter?: string): FacetFilterInput[] | undefined {
     if (!statusFilter || statusFilter === 'all') {
