@@ -4,7 +4,7 @@ import os
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Union
 
-from google.auth import external_account
+from google.auth import load_credentials_from_file
 from google.auth.transport.requests import Request
 from pydantic import Field, SecretStr, validator
 
@@ -183,53 +183,50 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def _setup_wif_credentials(self) -> None:
         """Set up Workload Identity Federation credentials using Google Auth library."""
+        import tempfile
 
-        # Parse the WIF configuration
-        wif_config_dict = None
+        # Convert all formats to a file path (load_credentials_from_file works reliably)
+        wif_config_file = None
 
         if self.config.gcp_wif_configuration:
-            # Read from file
-            try:
-                with open(self.config.gcp_wif_configuration, "r") as f:
-                    wif_config_dict = json.load(f)
-                logger.info(
-                    "Using Workload Identity Federation configuration from file: %s",
-                    self.config.gcp_wif_configuration,
-                )
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to read WIF configuration file {self.config.gcp_wif_configuration}: {e}"
-                ) from e
+            wif_config_file = self.config.gcp_wif_configuration
+            logger.info(
+                "Using Workload Identity Federation configuration from file: %s",
+                wif_config_file,
+            )
         elif self.config.gcp_wif_configuration_json:
-            # Use the JSON content directly
-            if isinstance(self.config.gcp_wif_configuration_json, dict):
-                wif_config_dict = self.config.gcp_wif_configuration_json
-            else:
-                # It's a JSON string (validated in the validator)
-                wif_config_dict = json.loads(self.config.gcp_wif_configuration_json)
+            # Write dict/string to temp file
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
+                if isinstance(self.config.gcp_wif_configuration_json, dict):
+                    json.dump(self.config.gcp_wif_configuration_json, f)
+                else:
+                    f.write(self.config.gcp_wif_configuration_json)
+                wif_config_file = f.name
             logger.info(
                 "Using Workload Identity Federation configuration from JSON content"
             )
         elif self.config.gcp_wif_configuration_json_string:
-            # Parse the JSON string (validated in the validator)
-            wif_config_dict = json.loads(self.config.gcp_wif_configuration_json_string)
+            # Write string to temp file
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
+                f.write(self.config.gcp_wif_configuration_json_string)
+                wif_config_file = f.name
             logger.info(
                 "Using Workload Identity Federation configuration from JSON string"
             )
-
-        if wif_config_dict is None:
+        else:
             raise ValueError("No valid WIF configuration provided")
 
-        # Create credentials using Google Auth library
+        # Load credentials from file (this method works correctly)
         try:
-            credentials = external_account.Credentials.from_info(wif_config_dict)
+            credentials, project_id = load_credentials_from_file(wif_config_file)
             credentials.refresh(Request())
 
-            # Set the credentials in the environment for the GCS client libraries
-            # The Google Cloud client libraries will automatically use these credentials
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
-                "workload_identity_federation"
-            )
+            # Set environment variable for GCS client libraries
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = wif_config_file
 
             logger.info("Successfully set up Workload Identity Federation credentials")
 
