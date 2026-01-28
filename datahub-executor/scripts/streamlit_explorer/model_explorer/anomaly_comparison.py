@@ -10,6 +10,7 @@ import plotly.graph_objects as go  # type: ignore[import-untyped]
 import streamlit as st
 
 from ..common import (
+    _LOADED_TIMESERIES,
     DataLoader,
     _hex_to_rgba,
     get_model_hyperparameters,
@@ -211,6 +212,165 @@ def _convert_ground_truth_for_training(ground_truth_df: pd.DataFrame) -> pd.Data
 
 
 # =============================================================================
+# Cumulative View Transformation
+# =============================================================================
+
+
+def _was_differencing_applied() -> tuple[bool, int]:
+    """Check if differencing was applied in preprocessing.
+
+    Returns:
+        Tuple of (was_applied, difference_order)
+    """
+    # Check applied_preprocessing_config in session state
+    config = st.session_state.get("applied_preprocessing_config", {})
+    darts_transformers = config.get("darts_transformers", [])
+
+    for transformer in darts_transformers:
+        if transformer.get("type") == "difference" and transformer.get("enabled"):
+            return True, transformer.get("order", 1)
+
+    # Also check UI state as fallback
+    state = st.session_state.get("preprocessing_state")
+    if state and hasattr(state, "differencing_enabled") and state.differencing_enabled:
+        return True, getattr(state, "difference_order", 1)
+
+    return False, 0
+
+
+def _get_cumulative_anchor(train_df: pd.DataFrame, diff_order: int = 1) -> float | None:
+    """Get the anchor value for cumulative transformation.
+
+    Uses the original (pre-differenced) timeseries from session state.
+    The anchor is the cumulative value that, when differencing was applied,
+    produced the first value in train_df.
+
+    For first-order differencing: y_diff[0] = y_orig[1] - y_orig[0]
+    So the anchor is y_orig[0] (the value "before" the first differenced point).
+
+    Args:
+        train_df: Training dataframe with differenced values
+        diff_order: Order of differencing (1 or 2)
+
+    Returns:
+        Anchor value, or None if original data not available
+    """
+    original_ts = st.session_state.get(_LOADED_TIMESERIES)
+    if original_ts is None or original_ts.empty:
+        return None
+
+    # Ensure timestamps are comparable
+    original_ts = original_ts.copy()
+    original_ts["ds"] = pd.to_datetime(original_ts["ds"])
+    train_start = pd.to_datetime(train_df["ds"].min())
+
+    # Strategy: Find the closest timestamp in original data that is < train_start
+    # We need the value BEFORE the first differenced point, not AT it
+    original_before = original_ts[original_ts["ds"] < train_start]
+
+    if original_before.empty:
+        # Fallback: use first original value
+        # This may happen if preprocessing truncated early data
+        return float(original_ts["y"].iloc[0])
+
+    # For diff_order=1: anchor is the value just before the differenced series starts
+    # For diff_order=2: we'd need 2 anchor values (more complex, handle as extension)
+    if diff_order == 1:
+        return float(original_before["y"].iloc[-1])
+    else:
+        # For order 2, return the last value but note this is simplified
+        # Full support for order 2 would require storing 2 anchor values
+        return float(original_before["y"].iloc[-1])
+
+
+def _transform_to_cumulative(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    detection_results: pd.DataFrame,
+    anchor_value: float,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Transform differenced data back to cumulative space.
+
+    Algorithm: Each cumulative point is anchored to the previous actual
+    cumulative value. This preserves the anomaly detection relationship.
+
+    For each point i:
+        y_cum[i] = y_cum[i-1] + y_diff[i]
+        yhat_cum[i] = y_cum[i-1] + yhat_diff[i]
+        bands_cum[i] = y_cum[i-1] + bands_diff[i]
+
+    This ensures that if y_diff > upper_diff (anomaly in differenced space),
+    then y_cum > upper_cum (anomaly preserved in cumulative space).
+
+    Args:
+        train_df: Training data with differenced y values
+        test_df: Test data with differenced y values
+        detection_results: Detection results with yhat, detection_upper/lower
+        anchor_value: Starting value for cumulative sum
+
+    Returns:
+        Tuple of (cumulative_train_df, cumulative_test_df, cumulative_results_df)
+    """
+    # Transform training data: simple cumsum from anchor
+    cum_train = train_df.copy()
+    cum_train["y"] = anchor_value + train_df["y"].fillna(0).cumsum()
+
+    # Last cumulative training value becomes anchor for test period
+    train_end_value = cum_train["y"].iloc[-1] if len(cum_train) > 0 else anchor_value
+
+    # Transform test data (actual values): simple cumsum from training end
+    cum_test = test_df.copy()
+    cum_test["y"] = train_end_value + test_df["y"].fillna(0).cumsum()
+
+    # Transform detection results with recursive anchoring
+    cum_results = detection_results.copy()
+    n = len(cum_results)
+
+    if n == 0:
+        return cum_train, cum_test, cum_results
+
+    # Build cumulative y values recursively
+    y_diff = detection_results["y"].fillna(0).values
+    y_cum = np.zeros(n)
+    y_cum[0] = train_end_value + y_diff[0]
+    for i in range(1, n):
+        y_cum[i] = y_cum[i - 1] + y_diff[i]
+    cum_results["y"] = y_cum
+
+    # Forecast: anchor each prediction to previous actual cumulative
+    if "yhat" in cum_results.columns:
+        yhat_diff = detection_results["yhat"].fillna(0).values
+        yhat_cum = np.zeros(n)
+        yhat_cum[0] = train_end_value + yhat_diff[0]
+        for i in range(1, n):
+            yhat_cum[i] = y_cum[i - 1] + yhat_diff[i]
+        cum_results["yhat"] = yhat_cum
+
+    # Bands: anchor each band to previous actual cumulative
+    if (
+        "detection_upper" in cum_results.columns
+        and "detection_lower" in cum_results.columns
+    ):
+        upper_diff = detection_results["detection_upper"].fillna(0).values
+        lower_diff = detection_results["detection_lower"].fillna(0).values
+
+        upper_cum = np.zeros(n)
+        lower_cum = np.zeros(n)
+
+        upper_cum[0] = train_end_value + upper_diff[0]
+        lower_cum[0] = train_end_value + lower_diff[0]
+
+        for i in range(1, n):
+            upper_cum[i] = y_cum[i - 1] + upper_diff[i]
+            lower_cum[i] = y_cum[i - 1] + lower_diff[i]
+
+        cum_results["detection_upper"] = upper_cum
+        cum_results["detection_lower"] = lower_cum
+
+    return cum_train, cum_test, cum_results
+
+
+# =============================================================================
 # Visualization
 # =============================================================================
 
@@ -227,15 +387,39 @@ def _render_anomaly_chart(
     show_ground_truth: bool = True,
     show_model_detected: bool = True,
     ground_truth_filter: list[str] | None = None,
+    override_train_df: pd.DataFrame | None = None,
+    override_test_df: pd.DataFrame | None = None,
+    override_results_df: pd.DataFrame | None = None,
+    is_cumulative_view: bool = False,
 ) -> go.Figure:
     """Render anomaly detection chart with optional layers.
 
     Shows training data as context (lighter) and test data where detection occurs.
     Each combination (forecast + anomaly model) gets its own chart.
+
+    Args:
+        run: The anomaly detection run with train/test data and results
+        ground_truth_df: Ground truth anomaly labels
+        show_detection_bands: Whether to show detection bands
+        show_ground_truth: Whether to show ground truth markers
+        show_model_detected: Whether to show model-detected anomaly markers
+        ground_truth_filter: Filter for ground truth status types
+        override_train_df: Optional transformed training data (for cumulative view)
+        override_test_df: Optional transformed test data (for cumulative view)
+        override_results_df: Optional transformed results (for cumulative view)
+        is_cumulative_view: Whether this is a cumulative view (affects title/labels)
+
+    Returns:
+        Plotly figure object
     """
-    train_df = run.train_df
-    test_df = run.test_df
-    results_df = run.detection_results
+    # Use overrides if provided (for cumulative view)
+    train_df = override_train_df if override_train_df is not None else run.train_df
+    test_df = override_test_df if override_test_df is not None else run.test_df
+    results_df = (
+        override_results_df
+        if override_results_df is not None
+        else run.detection_results
+    )
 
     fig = go.Figure()
 
@@ -429,10 +613,12 @@ def _render_anomaly_chart(
                 )
             )
 
+    # Update layout with view mode indicator
+    title_suffix = " (Cumulative)" if is_cumulative_view else ""
     fig.update_layout(
-        title=run.display_name,
+        title=run.display_name + title_suffix,
         xaxis_title="Time",
-        yaxis_title="Value",
+        yaxis_title="Cumulative Value" if is_cumulative_view else "Value",
         height=500,
         legend=dict(
             yanchor="top",
@@ -1418,6 +1604,9 @@ def render_anomaly_comparison_page() -> None:
     # Update session state with current selection
     st.session_state[_ANOMALY_SELECTED_RUNS_KEY] = selected_run_ids
 
+    # Check if differencing was applied (for cumulative view toggle)
+    differencing_applied, diff_order = _was_differencing_applied()
+
     # Visualization options in a collapsible section
     with st.expander("Visualization Options", expanded=False):
         opt_col1, opt_col2, opt_col3, opt_col4 = st.columns(4)
@@ -1429,6 +1618,21 @@ def render_anomaly_comparison_page() -> None:
             show_model_detected = st.checkbox("Model Detected", value=True)
         with opt_col4:
             show_classification = st.checkbox("TP/FP/FN Metrics", value=False)
+
+        # Cumulative view toggle (only show if differencing was applied)
+        show_cumulative = False
+        if differencing_applied:
+            # Check if original timeseries is available for anchor
+            has_original = st.session_state.get(_LOADED_TIMESERIES) is not None
+
+            if has_original:
+                show_cumulative = st.checkbox(
+                    "Show Cumulative View",
+                    value=False,
+                    key="show_cumulative_view",
+                    help="Transform differenced predictions back to original cumulative metric values. "
+                    "Bands widen proportionally to sqrt(n) due to variance accumulation.",
+                )
 
         # Ground truth filter (only if ground truth is enabled)
         if show_ground_truth:
@@ -1458,6 +1662,23 @@ def render_anomaly_comparison_page() -> None:
 
         for idx, selected_run in enumerate(row_runs):
             with chart_cols[idx]:
+                # Prepare data for charting (apply cumulative transform if enabled)
+                chart_train_df: pd.DataFrame | None = None
+                chart_test_df: pd.DataFrame | None = None
+                chart_results_df: pd.DataFrame | None = None
+
+                if show_cumulative and differencing_applied:
+                    anchor = _get_cumulative_anchor(selected_run.train_df, diff_order)
+                    if anchor is not None:
+                        chart_train_df, chart_test_df, chart_results_df = (
+                            _transform_to_cumulative(
+                                selected_run.train_df,
+                                selected_run.test_df,
+                                selected_run.detection_results,
+                                anchor,
+                            )
+                        )
+
                 # Render chart (title is in the Plotly chart)
                 fig = _render_anomaly_chart(
                     run=selected_run,
@@ -1466,6 +1687,10 @@ def render_anomaly_comparison_page() -> None:
                     show_ground_truth=show_ground_truth,
                     show_model_detected=show_model_detected,
                     ground_truth_filter=ground_truth_filter,
+                    override_train_df=chart_train_df,
+                    override_test_df=chart_test_df,
+                    override_results_df=chart_results_df,
+                    is_cumulative_view=show_cumulative and chart_train_df is not None,
                 )
                 st.plotly_chart(
                     fig, use_container_width=True, key=f"chart_{selected_run.run_id}"

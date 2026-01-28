@@ -786,6 +786,38 @@ def render_preprocessing_page():
             fig.update_layout(height=300)
             st.plotly_chart(fig, use_container_width=True)
 
+        # CSV Export section
+        st.markdown("---")
+        st.markdown("**Export Data**")
+        export_col1, export_col2 = st.columns(2)
+
+        with export_col1:
+            # Export original data
+            original_csv = ts_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Export Original CSV",
+                data=original_csv,
+                file_name="original_timeseries.csv",
+                mime="text/csv",
+                key="export_original_csv",
+                help="Download the original time series data as CSV",
+            )
+
+        with export_col2:
+            # Export preprocessed data (if available)
+            if preprocessed_df is not None and len(preprocessed_df) > 0:
+                preprocessed_csv = preprocessed_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Export Preprocessed CSV",
+                    data=preprocessed_csv,
+                    file_name="preprocessed_timeseries.csv",
+                    mime="text/csv",
+                    key="export_preprocessed_csv",
+                    help="Download the preprocessed time series data as CSV",
+                )
+            else:
+                st.caption("Apply preprocessing to enable preprocessed export")
+
     # Show saved preprocessings (full width, outside columns)
     if hostname:
         st.markdown("---")
