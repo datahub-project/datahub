@@ -9,5 +9,5 @@ h11>=0.16
 
 # DataHub agent context with LangChain support
 # For local development: pip install -e "../../[langchain]"
-# For published package: pip install "acryl-datahub-agent-context[langchain]>=0.1.0"
+# For published package: pip install "datahub-agent-context[langchain]>=0.1.0"
 -e ../../[langchain]

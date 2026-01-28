@@ -10,7 +10,7 @@
 
 ```shell
 python3 -m pip install --upgrade pip wheel setuptools
-python3 -m pip install --upgrade acryl-datahub-agent-context
+python3 -m pip install --upgrade datahub-agent-context
 ```
 
 ### With LangChain Support
@@ -18,7 +18,7 @@ python3 -m pip install --upgrade acryl-datahub-agent-context
 For building LangChain agents with pre-built tools:
 
 ```shell
-python3 -m pip install --upgrade "acryl-datahub-agent-context[langchain]"
+python3 -m pip install --upgrade "datahub-agent-context[langchain]"
 ```
 
 ## Prerequisites

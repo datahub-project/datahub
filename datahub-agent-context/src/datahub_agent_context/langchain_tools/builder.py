@@ -21,7 +21,7 @@ try:
 except ImportError as e:
     raise ImportError(
         "langchain-core is required for LangChain tools. "
-        "Install with: pip install 'acryl-datahub-agent-context[langchain]'"
+        "Install with: pip install 'datahub-agent-context[langchain]'"
     ) from e
 
 from datahub_agent_context.mcp_tools.descriptions import update_description

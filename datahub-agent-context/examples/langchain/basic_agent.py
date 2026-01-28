@@ -9,7 +9,7 @@ This example demonstrates how to create a simple LangChain agent that can:
 - Update metadata like tags and descriptions
 
 Prerequisites:
-    pip install langchain>=1.0 langchain-aws boto3 acryl-datahub-agent-context
+    pip install langchain>=1.0 langchain-aws boto3 datahub-agent-context
     AWS credentials configured (via ~/.aws/credentials or environment variables)
     Access to Claude 3.5 Haiku in AWS Bedrock
 

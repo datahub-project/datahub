@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__package_name__ = "acryl-datahub-agent-context"
+__package_name__ = "datahub-agent-context"
 __version__ = "0.1.0.dev0"
