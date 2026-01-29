@@ -282,6 +282,8 @@ def test_send_email_emits_delivery_event(mock_track: MagicMock) -> None:
     tracking_info = NotificationTrackingInfo(
         notification_type=NotificationType.ASSERTION,
         notification_id="urn:li:assertion:test|1700000000000|run-1",
+        external_platform="dbt",
+        has_external_url=True,
     )
 
     send_email(MagicMock(), "ctx", sg_client, tracking_info=tracking_info)
@@ -289,6 +291,8 @@ def test_send_email_emits_delivery_event(mock_track: MagicMock) -> None:
     event = mock_track.call_args[0][0]
     assert event.type == "NotificationDeliveredEvent"
     assert event.notificationId == tracking_info.notification_id
+    assert event.externalPlatform == "dbt"
+    assert event.hasExternalUrl is True
 
 
 @patch("datahub_integrations.notifications.utils.report_notification_delivery_failure")
@@ -307,6 +311,8 @@ def test_send_email_delivery_tracking_failure_does_not_mark_delivery_failed(
     tracking_info = NotificationTrackingInfo(
         notification_type=NotificationType.ASSERTION,
         notification_id="urn:li:assertion:test|1700000000000|run-1",
+        external_platform=None,
+        has_external_url=False,
     )
 
     send_email(MagicMock(), "ctx", sg_client, tracking_info=tracking_info)
@@ -325,6 +331,8 @@ def test_send_email_reports_delivery_failure(mock_report: MagicMock) -> None:
     tracking_info = NotificationTrackingInfo(
         notification_type=NotificationType.ASSERTION,
         notification_id="urn:li:assertion:test|1700000000000|run-1",
+        external_platform=None,
+        has_external_url=False,
     )
 
     send_email(MagicMock(), "ctx", sg_client, tracking_info=tracking_info)

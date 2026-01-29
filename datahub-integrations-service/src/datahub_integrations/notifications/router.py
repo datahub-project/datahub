@@ -97,5 +97,7 @@ def _maybe_emit_notification_sent_event(
                 notificationChannel=channel,
                 notificationId=tracking_info.notification_id,
                 recipientCount=count,
+                externalPlatform=tracking_info.external_platform,
+                hasExternalUrl=tracking_info.has_external_url,
             )
         )

@@ -4640,6 +4640,8 @@ def test_teams_delivery_event_emitted(mock_track: MagicMock) -> None:
     tracking_info = NotificationTrackingInfo(
         notification_type=NotificationType.ASSERTION,
         notification_id="urn:li:assertion:test|1700000000000|run-1",
+        external_platform="dbt",
+        has_external_url=True,
     )
 
     track_notification_delivery_success(
@@ -4651,6 +4653,8 @@ def test_teams_delivery_event_emitted(mock_track: MagicMock) -> None:
     event = mock_track.call_args[0][0]
     assert event.type == "NotificationDeliveredEvent"
     assert event.notificationId == tracking_info.notification_id
+    assert event.externalPlatform == "dbt"
+    assert event.hasExternalUrl is True
 
 
 @patch("datahub_integrations.notifications.utils.report_notification_delivery_failure")
@@ -4658,6 +4662,8 @@ def test_teams_delivery_failure_reported(mock_report: MagicMock) -> None:
     tracking_info = NotificationTrackingInfo(
         notification_type=NotificationType.ASSERTION,
         notification_id="urn:li:assertion:test|1700000000000|run-1",
+        external_platform=None,
+        has_external_url=False,
     )
 
     track_notification_delivery_failure(

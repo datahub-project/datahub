@@ -161,6 +161,8 @@ def test_send_slack_message_emits_delivery_event(
     tracking_info = NotificationTrackingInfo(
         notification_type=NotificationType.ASSERTION,
         notification_id="urn:li:assertion:test|1700000000000|run-1",
+        external_platform="dbt",
+        has_external_url=True,
     )
 
     send_slack_message(
@@ -170,6 +172,8 @@ def test_send_slack_message_emits_delivery_event(
     event = mock_track.call_args[0][0]
     assert event.type == "NotificationDeliveredEvent"
     assert event.notificationId == tracking_info.notification_id
+    assert event.externalPlatform == "dbt"
+    assert event.hasExternalUrl is True
 
 
 @patch("datahub_integrations.notifications.utils.report_notification_delivery_failure")
@@ -190,6 +194,8 @@ def test_send_slack_message_reports_delivery_failure(
     tracking_info = NotificationTrackingInfo(
         notification_type=NotificationType.ASSERTION,
         notification_id="urn:li:assertion:test|1700000000000|run-1",
+        external_platform=None,
+        has_external_url=False,
     )
 
     send_slack_message(

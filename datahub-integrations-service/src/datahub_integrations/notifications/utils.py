@@ -25,6 +25,8 @@ from datahub_integrations.telemetry.telemetry import (
 class NotificationTrackingInfo:
     notification_type: NotificationType
     notification_id: str
+    external_platform: str | None
+    has_external_url: bool
 
 
 def track_notification_delivery_success(
@@ -42,6 +44,8 @@ def track_notification_delivery_success(
                 notificationChannel=notification_channel,
                 notificationId=tracking_info.notification_id,
                 recipientCount=recipient_count,
+                externalPlatform=tracking_info.external_platform,
+                hasExternalUrl=tracking_info.has_external_url,
             )
         )
     except Exception as exc:
@@ -114,6 +118,8 @@ def get_notification_tracking_info(
         return NotificationTrackingInfo(
             notification_type=NotificationType.ASSERTION,
             notification_id=notification_id,
+            external_platform=params.get("externalPlatform"),
+            has_external_url=bool(params.get("externalUrl")),
         )
 
     if template in (
@@ -126,6 +132,8 @@ def get_notification_tracking_info(
         return NotificationTrackingInfo(
             notification_type=NotificationType.INCIDENT,
             notification_id=incident_urn,
+            external_platform=params.get("externalPlatform"),
+            has_external_url=bool(params.get("externalUrl")),
         )
 
     return None

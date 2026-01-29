@@ -1,5 +1,6 @@
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlencode
 
 import pytest
 from datahub.metadata.schema_classes import (
@@ -441,7 +442,7 @@ def test_incident_resolved_required_args_only_success(
     assert len(attachments[0]["blocks"]) == 5
 
 
-def test_build_assertion_status_change_message_matches_legacy_java_success_inferred(
+def test_build_assertion_status_change_message_success_inferred(
     mock_client: WebClient,
     identity_provider: IdentityProvider,
 ) -> None:
@@ -468,25 +469,37 @@ def test_build_assertion_status_change_message_matches_legacy_java_success_infer
         request, identity_provider, mock_client, "http://localhost:9002"
     )
 
-    expected = (
-        "*<http://localhost:9002/datasets/test?"
-        "notification_type=assertion&"
-        "notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&"
-        "notification_channel=slack|SampleName>*\n"
-        ":white_check_mark: *Smart Column Assertion* `column x is greater than y` has passed!\n"
-        "<http://localhost:9002/datasets/test/Validation/Assertions?"
-        "assertion_urn=urn%3Ali%3Aassertion%3Atest&"
-        "notification_type=assertion&"
-        "notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&"
-        "notification_channel=slack|View results>"
-    )
+    expected = ":white_check_mark: Smart Column Assertion column x is greater than y has passed!"
 
     assert text == expected
-    assert blocks is None
     assert attachments is None
+    assert blocks is not None
+    assert len(blocks) == 3
+
+    notification_query = urlencode(
+        {
+            "notification_type": "assertion",
+            "notification_id": "urn:li:assertion:test|1700000000000|run-123",
+            "notification_channel": "slack",
+        }
+    )
+    entity_url = f"http://localhost:9002/datasets/test?{notification_query}"
+
+    assert blocks[0]["type"] == "section"
+    assert blocks[0]["text"]["text"] == f"*<{entity_url}|SampleName>*"
+    assert blocks[1]["type"] == "section"
+    assert (
+        blocks[1]["text"]["text"]
+        == ":white_check_mark: *Smart Column Assertion* `column x is greater than y` has passed!"
+    )
+    assert blocks[2]["type"] == "actions"
+    assert blocks[2]["elements"][0]["text"]["text"] == "View results"
+    assert blocks[2]["elements"][0]["url"].startswith(
+        "http://localhost:9002/datasets/test/Validation/Assertions?"
+    )
 
 
-def test_build_assertion_status_change_message_matches_legacy_java_error_external_url(
+def test_build_assertion_status_change_message_error_external_url(
     mock_client: WebClient,
     identity_provider: IdentityProvider,
 ) -> None:
@@ -515,19 +528,85 @@ def test_build_assertion_status_change_message_matches_legacy_java_error_externa
         request, identity_provider, mock_client, "http://localhost:9002"
     )
 
-    expected = (
-        "*<http://localhost:9002/datasets/test?"
-        "notification_type=assertion&"
-        "notification_id=urn%3Ali%3Aassertion%3Atest%3Fassertion_urn%3Durn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-1&"
-        "notification_channel=slack|SampleName>*\n"
-        ":warning: *Custom SQL Assertion* `my assertion` has completed with errors!\n"
-        "> Something went wrong\n"
-        "<https://example.com/result|View results in dbt>"
-    )
+    expected = ":warning: Custom SQL Assertion my assertion has completed with errors!"
 
     assert text == expected
-    assert blocks is None
     assert attachments is None
+    assert blocks is not None
+    assert len(blocks) == 5
+
+    notification_query = urlencode(
+        {
+            "notification_type": "assertion",
+            "notification_id": "urn:li:assertion:test?assertion_urn=urn:li:assertion:test|1700000000000|run-1",
+            "notification_channel": "slack",
+        }
+    )
+    entity_url = f"http://localhost:9002/datasets/test?{notification_query}"
+
+    assert blocks[0]["type"] == "section"
+    assert blocks[0]["text"]["text"] == f"*<{entity_url}|SampleName>*"
+    assert blocks[1]["type"] == "section"
+    assert (
+        blocks[1]["text"]["text"]
+        == ":warning: *Custom SQL Assertion* `my assertion` has completed with errors!"
+    )
+    assert blocks[2]["type"] == "divider"
+    assert blocks[3]["type"] == "section"
+    assert blocks[3]["text"]["text"] == "> Something went wrong"
+    assert blocks[4]["type"] == "actions"
+    assert blocks[4]["elements"][0]["text"]["text"] == "View results in dbt"
+    assert blocks[4]["elements"][0]["url"] == "https://example.com/result"
+
+
+def test_build_assertion_status_change_message_external_platform_without_url(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+) -> None:
+    request = NotificationRequestClass(
+        recipients=[NotificationRecipientClass(id="U1", type="SLACK_DM")],
+        message=NotificationMessageClass(
+            template="BROADCAST_ASSERTION_STATUS_CHANGE",
+            parameters={
+                "assertionUrn": "urn:li:assertion:test",
+                "assertionRunId": "run-2",
+                "assertionRunTimestampMillis": "1700000000001",
+                "assertionType": "SQL",
+                "entityName": "SampleName",
+                "entityPath": "/datasets/test",
+                "result": "FAILURE",
+                "resultReason": "Still failing",
+                "description": "my assertion",
+                "sourceType": "NATIVE",
+                "externalPlatform": "dbt",
+            },
+        ),
+    )
+
+    text, blocks, attachments = build_assertion_status_change_message(
+        request, identity_provider, mock_client, "http://localhost:9002"
+    )
+
+    expected = ":x: Custom SQL Assertion my assertion has failed!"
+
+    assert text == expected
+    assert attachments is None
+    assert blocks is not None
+    assert len(blocks) == 5
+
+    assert blocks[1]["type"] == "section"
+    assert (
+        blocks[1]["text"]["text"]
+        == ":x: *Custom SQL Assertion* `my assertion` has failed!"
+    )
+    assert blocks[2]["type"] == "divider"
+    assert blocks[3]["type"] == "section"
+    assert blocks[3]["text"]["text"] == "> Still failing"
+    assert blocks[4]["type"] == "actions"
+    assert blocks[4]["elements"][0]["text"]["text"] == "View results"
+    assert blocks[4]["elements"][0]["url"].startswith(
+        "http://localhost:9002/datasets/test/Validation/Assertions?"
+    )
 
 
 def test_incident_reopened_success(

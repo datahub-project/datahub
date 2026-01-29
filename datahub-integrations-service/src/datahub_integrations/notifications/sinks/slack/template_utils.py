@@ -231,26 +231,53 @@ def build_assertion_status_change_message(
         if str(maybe_source_type) == AssertionSourceTypeClass.INFERRED
         else f"{assertion_type_name} Assertion"
     )
-    formatted_reason = (
-        ""
-        if result_upper == AssertionResultTypeClass.SUCCESS
-        else f"\n> {result_reason}"
-    )
-    results_link = (
-        (
-            f"<{maybe_external_url}|View results in {maybe_external_platform}>"
+    text = f"{result_emoji} {assertion_type_text} {description} has {result_string}!"
+    results_url_to_use = maybe_external_url or results_url
+    if maybe_external_url is not None:
+        results_button_text = (
+            f"View results in {maybe_external_platform}"
             if maybe_external_platform is not None
-            else f"<{maybe_external_url}|View original results>"
+            else "View original results"
         )
-        if maybe_external_url is not None
-        else f"<{results_url}|View results>"
+    else:
+        results_button_text = "View results"
+
+    blocks: List[Dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*<{entity_url}|{entity_name}>*"},
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{result_emoji} *{assertion_type_text}* `{description}` has {result_string}!",
+            },
+        },
+    ]
+    if result_upper != AssertionResultTypeClass.SUCCESS and result_reason:
+        blocks.append({"type": "divider"})
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"> {result_reason}"},
+            }
+        )
+    blocks.append(
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": results_button_text},
+                    "url": results_url_to_use,
+                    "action_id": "view_results",
+                }
+            ],
+        }
     )
-    text = (
-        f"*<{entity_url}|{entity_name}>*\n"
-        f"{result_emoji} *{assertion_type_text}* `{description}` has {result_string}!{formatted_reason}\n"
-        f"{results_link}"
-    )
-    return text, None, None
+
+    return text, blocks, None
 
 
 def create_incident_attachment(
