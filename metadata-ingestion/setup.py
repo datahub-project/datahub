@@ -188,7 +188,8 @@ sql_common = (
 
 aws_common = {
     # AWS Python SDK
-    "boto3<2.0.0",
+    # Minimum 1.35.0 required for S3 ListBuckets Prefix parameter support (added October 2024)
+    "boto3>=1.35.0,<2.0.0",
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
@@ -406,6 +407,9 @@ slack = {
 }
 
 databricks_common = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    # 0.22.0 has support for `include_browse` in metadata list apis
+    "databricks-sdk>=0.30.0,<1.0.0",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
@@ -415,9 +419,6 @@ databricks_common = {
 }
 
 databricks = {
-    # 0.1.11 appears to have authentication issues with azure databricks
-    # 0.22.0 has support for `include_browse` in metadata list apis
-    "databricks-sdk>=0.30.0,<1.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
@@ -442,7 +443,7 @@ embedding_common = {
     # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
     "litellm==1.80.5",
     # AWS SDK for Bedrock embedding support
-    "boto3==1.34.0",
+    *aws_common,
 }
 
 unstructured_lib = {
@@ -455,6 +456,11 @@ unstructured_lib = {
     # Embedding support for semantic search
     *embedding_common,
 }
+
+notion_common = {
+    # Notion-specific connector adds notion-client and related dependencies
+    "unstructured-ingest[notion]==0.7.2",
+} | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -682,6 +688,8 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
+    "notion": notion_common,
+    "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
     | databricks_common
@@ -871,6 +879,8 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+    # Include unstructured for testing datahub-documents source
+    *unstructured_lib,
 }
 
 # Documentation generation requirements
@@ -999,6 +1009,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",

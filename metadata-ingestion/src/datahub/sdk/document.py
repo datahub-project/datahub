@@ -360,6 +360,8 @@ class Document(
         owners: Optional[OwnersInputType] = None,
         domain: Optional[DomainInputType] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
+        created_time: Optional[datetime] = None,
+        last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
     ) -> Self:
         """Internal method to create a Document with all options."""
@@ -378,10 +380,12 @@ class Document(
             related_documents, urn, id
         )
 
-        # Create timestamps - auto-generated, not user-configurable
+        # Create timestamps - use provided times or default to now
         now = datetime.now()
-        created_stamp = make_time_stamp(now)
-        modified_stamp = make_time_stamp(now)
+        created_stamp = make_time_stamp(created_time if created_time else now)
+        modified_stamp = make_time_stamp(
+            last_modified_time if last_modified_time else now
+        )
 
         if not created_stamp or not modified_stamp:
             raise ValueError("Failed to create timestamp")
@@ -491,6 +495,8 @@ class Document(
         domain: Optional[DomainInputType] = None,
         custom_properties: Optional[Dict[str, str]] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
+        created_time: Optional[datetime] = None,
+        last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
     ) -> Self:
         """Create a native document stored in DataHub.
@@ -574,6 +580,8 @@ class Document(
             owners=owners,
             domain=domain,
             structured_properties=structured_properties,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
             extra_aspects=extra_aspects,
         )
 
@@ -599,6 +607,8 @@ class Document(
         domain: Optional[DomainInputType] = None,
         custom_properties: Optional[Dict[str, str]] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
+        created_time: Optional[datetime] = None,
+        last_modified_time: Optional[datetime] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
     ) -> Self:
         """Create an external document reference.
@@ -628,6 +638,8 @@ class Document(
             domain: Domain to assign
             custom_properties: Custom key-value metadata
             structured_properties: Structured properties to add
+            created_time: Creation timestamp from external system (optional, defaults to now)
+            last_modified_time: Last modified timestamp from external system (optional, defaults to now)
             extra_aspects: Additional aspects to include
 
         Returns:
@@ -691,6 +703,8 @@ class Document(
             owners=owners,
             domain=domain,
             structured_properties=structured_properties,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
             extra_aspects=extra_aspects,
         )
 
