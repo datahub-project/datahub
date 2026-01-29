@@ -5,7 +5,7 @@
 from typing import Iterable, List, Optional, Tuple, cast
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.base_transformer import BaseTransformer, MultipleAspectTransformer, SingleAspectTransformer
+from datahub.ingestion.transformer.base_transformer import BaseTransformer, MultipleAspectTransformer
 from datahub.metadata.schema_classes import InputFieldClass, InputFieldsClass, ChartQueryClass, SchemaFieldClass
 from datahub.emitter.mce_builder import Aspect, make_schema_field_urn
 
