@@ -1,15 +1,20 @@
-# Don't import this file in the airflow DAG.
-# This transformer is used to rewrite the input of the chartInfo aspect.
-# It is used to convert the input of the chartInfo aspect from hive to trino.
-
 from typing import Iterable, List, Optional, Tuple, cast
-from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.base_transformer import BaseTransformer, MultipleAspectTransformer
-from datahub.metadata.schema_classes import InputFieldClass, InputFieldsClass, ChartQueryClass, SchemaFieldClass
-from datahub.emitter.mce_builder import Aspect, make_schema_field_urn
 
-    
+from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import Aspect, make_schema_field_urn
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.transformer.base_transformer import (
+    BaseTransformer,
+    MultipleAspectTransformer,
+)
+from datahub.metadata.schema_classes import (
+    ChartQueryClass,
+    InputFieldClass,
+    InputFieldsClass,
+    SchemaFieldClass,
+)
+
+
 class AddInputFieldsConfig(ConfigModel):
     """
     Configuration to parse rawQuery in chart.
