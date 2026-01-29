@@ -155,16 +155,15 @@ class AirbyteClientConfig(ConfigModel):
 
     oauth2_client_id: Optional[str] = Field(
         default=None,
-        description="OAuth2 client ID (cloud deployment)",
+        description="OAuth2 client ID for OSS (Airbyte 1.0+) and Cloud deployments",
     )
     oauth2_client_secret: Optional[SecretStr] = Field(
         default=None,
-        description="OAuth2 client secret (cloud deployment)",
+        description="OAuth2 client secret for OSS (Airbyte 1.0+) and Cloud deployments",
     )
     oauth2_refresh_token: Optional[SecretStr] = Field(
         default=None,
-        description="OAuth2 refresh token (cloud deployment). "
-        "If provided, uses refresh_token grant type; otherwise uses client_credentials grant type.",
+        description="OAuth2 refresh token (Cloud only). If provided, uses refresh_token grant; otherwise uses client_credentials",
     )
 
     verify_ssl: bool = Field(
@@ -234,6 +233,14 @@ class AirbyteClientConfig(ConfigModel):
         ):
             raise ValueError("cloud_workspace_id is required for cloud deployment")
 
+        # OAuth validation for both OSS and Cloud
+        if self.oauth2_client_id or self.oauth2_client_secret:
+            if not self.oauth2_client_id or not self.oauth2_client_secret:
+                raise ValueError(
+                    "Both oauth2_client_id and oauth2_client_secret must be provided together"
+                )
+
+        # Cloud deployment requires OAuth
         if self.deployment_type == AirbyteDeploymentType.CLOUD:
             if not self.oauth2_client_id or not self.oauth2_client_secret:
                 raise ValueError(
