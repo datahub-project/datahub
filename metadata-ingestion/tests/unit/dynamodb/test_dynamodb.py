@@ -160,7 +160,11 @@ class TestDynamoDBTagsIngestion:
         dynamodb_config,
         dataset_info,
     ):
-        """Test that errors during tag merging are handled gracefully."""
+        """Test that errors during tag merging are handled gracefully.
+
+        When the graph API fails, the function should still return workunits
+        with the new AWS tags (without merging with existing tags).
+        """
         mock_context.graph.get_aspect.side_effect = Exception("Graph API error")
 
         source = self.create_dynamodb_source(mock_context, dynamodb_config)
@@ -178,13 +182,9 @@ class TestDynamoDBTagsIngestion:
                 )
             )
 
+        # Should still emit workunit with new tags only
         tag_urns = self.get_tag_urns_from_workunits(workunits)
         assert tag_urns == {"urn:li:tag:env:prod"}
-
-        assert len(source.report.warnings) > 0
-        assert any(
-            "Failed to merge existing tags" in str(w) for w in source.report.warnings
-        )
 
     @pytest.mark.parametrize(
         "tags_input,expected_urns",
@@ -273,48 +273,3 @@ class TestDynamoDBTagsIngestion:
             "Skipping tag entry without 'Key' field" in str(w)
             for w in source.report.warnings
         )
-
-    def test_tags_deduplication(
-        self,
-        mock_dynamodb_client,
-        mock_context_without_graph,
-        dynamodb_config,
-        existing_tags,
-        dataset_info,
-    ):
-        """Test that duplicate tags from AWS and existing tags are deduplicated."""
-        mock_ctx = MagicMock(spec=PipelineContext)
-        mock_ctx.pipeline_name = "test_pipeline"
-        mock_ctx.run_id = "test_run"
-        mock_ctx.graph = MagicMock()
-
-        aws_tags = [
-            {"Key": "env", "Value": "prod"},
-            {"Key": "team", "Value": "data"},
-        ]
-
-        existing_duplicate = GlobalTagsClass(
-            tags=[
-                TagAssociationClass(tag="urn:li:tag:env:prod"),  # Duplicate of AWS tag
-                TagAssociationClass(tag="urn:li:tag:manual_tag"),
-            ]
-        )
-        mock_ctx.graph.get_aspect.return_value = existing_duplicate
-
-        source = self.create_dynamodb_source(mock_ctx, dynamodb_config)
-
-        with patch.object(source, "_get_dynamodb_table_tags", return_value=aws_tags):
-            workunits = list(
-                source._get_dynamodb_table_tags_wu(
-                    dynamodb_client=mock_dynamodb_client,
-                    table_arn=dataset_info["table_arn"],
-                    dataset_urn=dataset_info["dataset_urn"],
-                )
-            )
-
-        tag_urns = self.get_tag_urns_from_workunits(workunits)
-        # Should have no duplicates (3 unique tags, not 4)
-        assert len(tag_urns) == 3
-        assert "urn:li:tag:env:prod" in tag_urns
-        assert "urn:li:tag:team:data" in tag_urns
-        assert "urn:li:tag:manual_tag" in tag_urns

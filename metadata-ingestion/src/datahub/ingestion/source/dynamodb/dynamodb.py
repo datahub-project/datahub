@@ -26,7 +26,10 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp_builder import (
+    add_domain_to_entity_wu,
+    add_source_tags_to_entity_wu,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -61,7 +64,6 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    GlobalTagsClass,
     MetadataAttributionClass,
     NullTypeClass,
     NumberTypeClass,
@@ -638,14 +640,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 table_arn=table_arn,
             )
 
-            aws_tag_urns: Set[str] = set()  # set of AWS tag URNs that should exist
-            # if table_arn == "arn:aws:dynamodb:us-west-2:064369473231:table/AseemTestTable1":
-            #     aws_tag_urns.add(make_tag_urn("avirajTag"))
+            aws_tag_urns: Set[str] = set()
 
             for tag_dict in aws_tags_kv:
                 key = tag_dict.get("Key")
-                val = tag_dict.get("Value")
-
                 if not key:
                     self.report.report_warning(
                         title="DynamoDB Tags",
@@ -654,14 +652,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     )
                     continue
 
+                val = tag_dict.get("Value")
                 tag = f"{key}:{val}" if val else key
                 aws_tag_urns.add(make_tag_urn(tag))
-            # Start with tags to write (AWS tags with attribution)
-            tags_to_write: List[TagAssociationClass] = []
 
+            # Build new tags from AWS with attribution
             current_time_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            new_tags: List[TagAssociationClass] = []
             for aws_tag_urn in aws_tag_urns:
-                tags_to_write.append(
+                new_tags.append(
                     TagAssociationClass(
                         tag=aws_tag_urn,
                         attribution=MetadataAttributionClass(
@@ -672,37 +671,14 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     )
                 )
 
-            # Merge with existing tags from DataHub to preserve manual tags
-            if self.ctx.graph:
-                try:
-                    current_tags_aspect = self.ctx.graph.get_aspect(
-                        entity_urn=dataset_urn, aspect_type=GlobalTagsClass
-                    )
-
-                    if current_tags_aspect and current_tags_aspect.tags:
-                        for tag_assoc in current_tags_aspect.tags:
-                            #  If tag is not from DynamoDB ingestion, preserve it
-                            if (
-                                tag_assoc.attribution
-                                and tag_assoc.attribution.source
-                                == "urn:li:dataPlatform:dynamodb"
-                            ):
-                                continue
-                            tags_to_write.append(tag_assoc)
-
-                except Exception as merge_err:
-                    self.report.report_warning(
-                        title="DynamoDB Tags",
-                        message="Failed to merge existing tags; proceeding with AWS tags only. Manual tags may be lost.",
-                        context=f"dataset_urn: {dataset_urn}; error={merge_err}",
-                    )
-
-            # Always emit the aspect (even if empty) to ensure removed tags are deleted
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=dataset_urn,
-                aspect=GlobalTagsClass(tags=tags_to_write),
-            ).as_workunit()
+            # Add tags with source attribution, merging with existing tags
+            yield from add_source_tags_to_entity_wu(
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+                new_tags=new_tags,
+                source_urn="urn:li:dataPlatform:dynamodb",
+                graph=self.ctx.graph,
+            )
 
         except Exception as e:
             self.report.report_warning(
