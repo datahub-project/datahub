@@ -26,6 +26,10 @@ export function expandAll(nodeUrn) {
   });
 }
 
+export function contract(nodeUrn) {
+  cy.clickOptionWithTestId(`contract-${nodeUrn}-button`);
+}
+
 export function expandColumns(nodeUrn) {
   cy.getWithTestId(`lineage-node-${nodeUrn}`).within(() => {
     cy.clickOptionWithTestId("expand-contract-columns");

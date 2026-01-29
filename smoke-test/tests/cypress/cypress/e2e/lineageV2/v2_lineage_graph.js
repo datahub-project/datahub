@@ -5,6 +5,7 @@ import {
   checkIfEdgeExist,
   checkIfNodeExist,
   checkIfNodeNotExist,
+  contract,
   expandAll,
   expandColumns,
   expandOne,
@@ -33,19 +34,25 @@ const NODE1_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage.node1_dataset,PROD)";
 const NODE2_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node2_dataset,PROD)";
-const NODE3_MANUAL_URN =
-  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node3_manual,PROD)";
-const NODE_DATAJOB_URN =
-  "urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_lineage_pipeline,PROD),cypress_lineage_datajob)";
+const NODE3_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node3_dataset,PROD)";
 const NODE4_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node4_dataset,PROD)";
-const NODE_CHART_URN = "urn:li:chart:(looker,cypress_lineage_chart)";
-const NODE_DASHBOARD_URN =
-  "urn:li:dashboard:(looker,cypress_lineage_dashboard)";
-const NODE_DBT_URN =
-  "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_lineage.node5_dbt,PROD)";
+const NODE5_DATASET_MANUAL_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node5_dataset_manual,PROD)";
 const NODE6_DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node6_dataset,PROD)";
+const NODE7_DATAJOB_URN =
+  "urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_lineage_pipeline,PROD),cypress_lineage.node7_datajob)";
+const NODE8_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node8_dataset,PROD)";
+const NODE9_CHART_URN = "urn:li:chart:(looker,cypress_lineage.node9_chart)";
+const NODE10_DASHBOARD_URN =
+  "urn:li:dashboard:(looker,cypress_lineage.node10_dashboard)";
+const NODE11_DBT_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_lineage.node11_dbt,PROD)";
+const NODE12_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage.node12_dataset,PROD)";
 
 describe("lineage_graph", () => {
   beforeEach(() => {
@@ -190,16 +197,20 @@ describe("lineage_graph", () => {
     cy.contains("Set Upstreams").should("not.be.disabled");
   });
 
-  it.only("displays complete lineage graph with all node types", () => {
+  it("displays complete lineage graph with all node types", () => {
     cy.login();
     cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
 
-    // Dataset -> dataset edge
+    // Check initial state
+
     checkIfNodeExist(NODE1_DATASET_URN);
     checkIfNodeExist(NODE2_DATASET_URN);
-    checkIfEdgeExist(NODE1_DATASET_URN, NODE2_DATASET_URN);
+    checkIfNodeExist(NODE5_DATASET_MANUAL_URN);
+    checkIfEdgeExist(NODE1_DATASET_URN, NODE2_DATASET_URN); // dataset -> dataset
+    checkIfEdgeExist(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN); // dataset -> dataset (manual lineage)
 
     // Fields lineage
+
     expandColumns(NODE2_DATASET_URN);
     hoverColumn(NODE2_DATASET_URN, "record_id");
     checkIfEdgeBetweenColumnsExist(
@@ -250,53 +261,86 @@ describe("lineage_graph", () => {
       "record_id",
     );
 
-    // Dataset -> dataset manual lineage edge
-    checkIfNodeExist(NODE3_MANUAL_URN);
-    checkIfEdgeExist(NODE1_DATASET_URN, NODE3_MANUAL_URN);
+    // Expand one node
 
-    // Expand one
-    checkIfNodeExist(NODE2_DATASET_URN);
     expandOne(NODE2_DATASET_URN);
-
-    // Datajob
-    checkIfNodeExist(NODE_DATAJOB_URN);
+    checkIfNodeExist(NODE3_DATASET_URN);
+    checkIfEdgeExist(NODE2_DATASET_URN, NODE3_DATASET_URN);
+    expandOne(NODE3_DATASET_URN);
     checkIfNodeExist(NODE4_DATASET_URN);
-    checkIfEdgeExist(NODE2_DATASET_URN, NODE_DATAJOB_URN);
-    checkIfEdgeExist(NODE_DATAJOB_URN, NODE4_DATASET_URN);
+    checkIfEdgeExist(NODE3_DATASET_URN, NODE4_DATASET_URN);
 
-    // Expand all
-    expandAll(NODE4_DATASET_URN);
+    // Expand all nodes
 
-    // Dbt
-    checkIfNodeExist(NODE_DBT_URN);
+    expandAll(NODE5_DATASET_MANUAL_URN);
     checkIfNodeExist(NODE6_DATASET_URN);
-    checkIfEdgeExist(NODE4_DATASET_URN, NODE_DBT_URN);
-    checkIfEdgeExist(NODE_DBT_URN, NODE6_DATASET_URN);
+    checkIfNodeExist(NODE4_DATASET_URN);
+    checkIfEdgeExist(NODE5_DATASET_MANUAL_URN, NODE6_DATASET_URN);
+    checkIfEdgeExist(NODE6_DATASET_URN, NODE4_DATASET_URN);
+    checkIfEdgeExist(NODE3_DATASET_URN, NODE4_DATASET_URN);
+    // Datajob
+    checkIfNodeExist(NODE7_DATAJOB_URN);
+    checkIfNodeExist(NODE8_DATASET_URN);
+    checkIfEdgeExist(NODE4_DATASET_URN, NODE7_DATAJOB_URN);
+    checkIfEdgeExist(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
+    // Dataset -> Chart -> Dashboard
+    checkIfNodeExist(NODE9_CHART_URN);
+    checkIfNodeExist(NODE10_DASHBOARD_URN);
+    checkIfEdgeExist(NODE8_DATASET_URN, NODE9_CHART_URN);
+    checkIfEdgeExist(NODE9_CHART_URN, NODE10_DASHBOARD_URN);
+    // Dbt
+    checkIfNodeExist(NODE11_DBT_URN);
+    checkIfNodeExist(NODE12_DATASET_URN);
+    checkIfEdgeExist(NODE8_DATASET_URN, NODE11_DBT_URN);
+    checkIfEdgeExist(NODE11_DBT_URN, NODE12_DATASET_URN);
 
-    // Chart
-    checkIfNodeExist(NODE_CHART_URN);
-    checkIfEdgeExist(NODE4_DATASET_URN, NODE_CHART_URN);
+    // Contract nodes
 
-    // Dashboard
-    checkIfNodeExist(NODE_DASHBOARD_URN);
-    checkIfEdgeExist(NODE_CHART_URN, NODE_DASHBOARD_URN);
+    // Contract single node
+    contract(NODE9_CHART_URN);
+    checkIfNodeNotExist(NODE10_DASHBOARD_URN);
+    // Contract multiple nodes
+    contract(NODE4_DATASET_URN);
+    checkIfNodeNotExist(NODE7_DATAJOB_URN);
+    checkIfNodeNotExist(NODE8_DATASET_URN);
+    checkIfNodeNotExist(NODE9_CHART_URN);
+    checkIfNodeNotExist(NODE11_DBT_URN);
+    checkIfNodeNotExist(NODE12_DATASET_URN);
+    // Contract when a node has two input edges
+    contract(NODE5_DATASET_MANUAL_URN);
+    checkIfNodeNotExist(NODE6_DATASET_URN);
+    checkIfNodeExist(NODE4_DATASET_URN); // should exist
+
+    // Downstream expanding
 
     // Expand one (downstream)
-    cy.goToEntityLineageGraphV2(CHART_ENTITY_TYPE, NODE_CHART_URN);
-    checkIfNodeExist(NODE_CHART_URN);
+    cy.goToEntityLineageGraphV2(CHART_ENTITY_TYPE, NODE9_CHART_URN);
+    checkIfNodeExist(NODE9_CHART_URN);
+    checkIfNodeExist(NODE8_DATASET_URN);
+    expandOne(NODE8_DATASET_URN);
+    checkIfNodeExist(NODE7_DATAJOB_URN);
     checkIfNodeExist(NODE4_DATASET_URN);
-    expandOne(NODE4_DATASET_URN);
-    checkIfNodeExist(NODE_DATAJOB_URN);
-    checkIfNodeExist(NODE2_DATASET_URN);
-    checkIfNodeNotExist(NODE1_DATASET_URN);
-
+    checkIfEdgeExist(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
+    checkIfEdgeExist(NODE4_DATASET_URN, NODE7_DATAJOB_URN);
     // Expand all (downstream)
-    cy.goToEntityLineageGraphV2(CHART_ENTITY_TYPE, NODE_CHART_URN);
-    checkIfNodeExist(NODE_CHART_URN);
+    cy.goToEntityLineageGraphV2(CHART_ENTITY_TYPE, NODE9_CHART_URN);
+    checkIfNodeExist(NODE9_CHART_URN);
+    checkIfNodeExist(NODE8_DATASET_URN);
+    expandAll(NODE8_DATASET_URN);
+    checkIfNodeExist(NODE7_DATAJOB_URN);
     checkIfNodeExist(NODE4_DATASET_URN);
-    expandAll(NODE4_DATASET_URN);
-    checkIfNodeExist(NODE_DATAJOB_URN);
+    checkIfNodeExist(NODE6_DATASET_URN);
+    checkIfNodeExist(NODE5_DATASET_MANUAL_URN);
+    checkIfNodeExist(NODE3_DATASET_URN);
     checkIfNodeExist(NODE2_DATASET_URN);
     checkIfNodeExist(NODE1_DATASET_URN);
+    checkIfEdgeExist(NODE1_DATASET_URN, NODE2_DATASET_URN);
+    checkIfEdgeExist(NODE2_DATASET_URN, NODE3_DATASET_URN);
+    checkIfEdgeExist(NODE3_DATASET_URN, NODE4_DATASET_URN);
+    checkIfEdgeExist(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN);
+    checkIfEdgeExist(NODE5_DATASET_MANUAL_URN, NODE6_DATASET_URN);
+    checkIfEdgeExist(NODE6_DATASET_URN, NODE4_DATASET_URN);
+    checkIfEdgeExist(NODE4_DATASET_URN, NODE7_DATAJOB_URN);
+    checkIfEdgeExist(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
   });
 });
