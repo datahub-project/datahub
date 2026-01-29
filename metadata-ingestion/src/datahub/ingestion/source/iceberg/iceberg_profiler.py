@@ -125,6 +125,16 @@ class IcebergProfiler:
                 if current_snapshot.summary
                 else 0
             )
+            size_in_bytes: Optional[int] = None
+            if current_snapshot.summary:
+                size_in_bytes_str = current_snapshot.summary.additional_properties.get(
+                    "total-files-size"
+                )
+                if size_in_bytes_str:
+                    try:
+                        size_in_bytes = int(size_in_bytes_str)
+                    except (ValueError, TypeError):
+                        pass
             column_count = len(
                 [
                     field.field_id
@@ -136,6 +146,7 @@ class IcebergProfiler:
                 timestampMillis=get_sys_time(),
                 rowCount=row_count,
                 columnCount=column_count,
+                sizeInBytes=size_in_bytes,
             )
             dataset_profile.fieldProfiles = []
 
