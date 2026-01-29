@@ -2,7 +2,6 @@
 # This transformer is used to rewrite the input of the chartInfo aspect.
 # It is used to convert the input of the chartInfo aspect from hive to trino.
 
-import re
 from typing import Iterable, List, Optional, Tuple, cast
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
