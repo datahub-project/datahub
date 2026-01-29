@@ -14,6 +14,7 @@ import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
 import elasticsearchLogo from '@images/elasticsearchlogo.png';
+import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
@@ -162,6 +163,8 @@ export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 export const GOOGLE_SHEETS = 'google_sheets';
 export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const FABRIC_ONELAKE = 'fabric-onelake';
+export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 export const STREAMLIT = 'streamlit';
 export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 
@@ -215,6 +218,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogicLogo,
     [GOOGLE_SHEETS_URN]: googleSheetsLogo,
+    [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
     [STREAMLIT_URN]: streamlitLogo,
 };
 
